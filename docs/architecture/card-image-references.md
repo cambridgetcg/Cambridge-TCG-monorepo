@@ -140,31 +140,38 @@ a CardRush listing's own image is linked at CardRush's own URL, never copied.
 - **Each image says how its language and printing relate to the row.**
   Added 2026-10-30, from Yu's words that day ("Lets also sort out the
   languages and corresponding images (from official samples or
-  cardrush)"). The row's language is its exact SKU's language segment, else
-  the observation's `language`. The official image is always English and
-  shows the base print its `ImageReference` names (`depicted_canonical_sku`),
-  so its label is one of three:
-  - `same-printing`, an English row with no variant: "Official image · this
-    printing (English)". The depicted SKU is the row's own; that is a match
-    of SKU syntax, not a check of the card.
-  - `same-language-base-print`, an English row with a variant: "Official
-    English base print · this row is a parallel, art may differ" (or a
-    reprint, or the variant as stored).
-  - `other-language`, any other language: "Official English image · this row
-    is Japanese (ja): language differs". A parallel in another language
-    says both.
+  cardrush)"). A printing-level row's language is its exact SKU's language
+  segment, else the observation's `language`. The official image is always
+  English and shows the base print its `ImageReference` names
+  (`depicted_canonical_sku`), so its label is one of four:
+  - `same-printing`, an English printing-level row with no variant:
+    "Official image · this printing (English), matched by SKU, not
+    verified". The depicted SKU is the row's own; that is a match of SKU
+    syntax, not a check of the card, so the image is still the syntax-only
+    reference described above, not an exact-printing image.
+  - `same-language-base-print`, an English printing-level row with a
+    variant: "Official English base print · this row is a parallel, art may
+    differ" (or a reprint, or the variant as stored).
+  - `other-language`, a printing-level row in any other language: "Official
+    English image · this row is Japanese (ja): language differs". A
+    parallel in another language says both.
+  - `pooled-row`, a source-product aggregate (a Cardmarket row linked by a
+    reviewed crosswalk): "Official English base print · this row is a
+    source-product aggregate: language and art may differ". Its price may
+    pool printings and languages, so it takes neither from its SKU and keeps
+    its own language (unknown), as its Specificity column says. Only an
+    operator-supplied crosswalk leads here: the scheduled Cardmarket
+    collector supplies none, so its rows carry no SKU.
 
   The listing image is the listing's own (`same-listing`), so its language
   and printing are the listing's. Every `<img>` also carries
   `data-image-source` (`official` or `cardrush-listing`), `data-image-lang`,
   `data-row-lang` (`unknown` when the row has none), `data-relationship`
-  and, on the official image, `data-depicted-sku`, so an agent reading the
-  HTML need not parse the label. Language names cover the codes the SKU
+  and, on the official image, `data-depicted-sku` and `data-scope`
+  (`syntax_only`, the reference's own scope), so an agent reading the HTML
+  need not parse the label. Language names cover the codes the SKU
   registry lists; any other code shows as itself, and `zh` is only
-  "Chinese" because the SKU does not say which script. A source-product
-  aggregate (a Cardmarket row) takes its language from its SKU too, though
-  its price may pool languages and printings, as its Specificity column
-  says.
+  "Chinese" because the SKU does not say which script.
 
   Only the display changed: the reader, the projector and the v1
   `ImageReference` (still `relationship: "reference"`,

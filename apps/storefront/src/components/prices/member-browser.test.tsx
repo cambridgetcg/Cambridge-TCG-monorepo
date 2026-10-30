@@ -112,7 +112,7 @@ describe("member price server gate", () => {
     renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
     expect(mocks.images).not.toHaveBeenCalled();
     mocks.read.mockResolvedValue(page);
-    mocks.images.mockResolvedValue({ byItem: new Map([[item.id, { official: { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "Publisher credit", imageLang: "en", depictedSku: "op-op01-006-en", relationship: "other-language", rowLang: "ja", rowVariant: null } }]]), rowsLookedUp: 1 });
+    mocks.images.mockResolvedValue({ byItem: new Map([[item.id, { official: { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "Publisher credit", imageLang: "en", depictedSku: "op-op01-006-en", scope: "syntax_only", relationship: "other-language", rowLang: "ja", rowVariant: null } }]]), rowsLookedUp: 1 });
     const html = renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
     expect(html).toContain('src="https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png"');
     expect(html).toContain("Publisher credit");
@@ -276,11 +276,15 @@ describe("member price rendering", () => {
   const listingUrl = `https://www.cardrush-op.jp/data/cardrush-op/_/${Buffer.from("product/SYNTHETIC_15600.jpg").toString("hex")}.jpg`;
   const listing = { ...item, id: "cardrush-1", source: "cardrush" as const, sourceProductId: "www.cardrush-op.jp/product/15600", sourceUrl: "https://www.cardrush-op.jp/product/15600",
     productName: "〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}", currency: "JPY" as const, underlyingMarket: "cardrush" as const, amount: "123", granularity: "printing" as const, permittedUses: ["member-display" as const] };
-  const reference = { ...item, id: "cardmarket-1", sku: "op-op01-006-ja", mappingStatus: "exact" as const };
+  // A printing-level row with an exact SKU, as TCGplayer writes them.
+  const reference = { ...item, id: "tcgplayer-1", source: "tcgplayer" as const, sourceProductId: "456", game: "one-piece", sku: "op-op01-006-ja", setCode: "op01", mappingStatus: "exact" as const,
+    granularity: "printing" as const, language: "ja", metric: "market", currency: "USD" as const, underlyingMarket: "tcgplayer" as const, permittedUses: ["member-display" as const] };
   const imagesFor = (entries: [string, MemberPriceImage][], rowsLookedUp = entries.length) => ({ byItem: new Map(entries), rowsLookedUp });
   const linked = (lang: string | null = "ja") => ({ url: listingUrl, lang, relationship: "same-listing" as const });
-  const officialFor = (relationship: NonNullable<MemberPriceImage["official"]>["relationship"], rowLang: string, rowVariant: string | null = null, attribution = "©Eiichiro Oda/Shueisha, Toei Animation ©BANDAI CO., LTD.") => ({
-    url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution, imageLang: "en" as const, depictedSku: "op-op01-006-en", relationship, rowLang, rowVariant,
+  type Official = NonNullable<MemberPriceImage["official"]>;
+  const shownOfficial = { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", imageLang: "en" as const, depictedSku: "op-op01-006-en", scope: "syntax_only" as const };
+  const officialFor = (relationship: Exclude<Official["relationship"], "pooled-row">, rowLang: string, rowVariant: string | null = null, attribution = "©Eiichiro Oda/Shueisha, Toei Animation ©BANDAI CO., LTD."): Official => ({
+    ...shownOfficial, attribution, relationship, rowLang, rowVariant,
   });
 
   it("offers a CardRush listing image at CardRush's own URL only behind a closed details element, lazily, fixed-size and credited to the listing", () => {
@@ -326,20 +330,35 @@ describe("member price rendering", () => {
   });
 
   it.each([
-    ["an English base row", "op-op01-006-en", officialFor("same-printing", "en"), "Official image · this printing (English)", "Official image; this printing (English), matched by SKU, not verified"],
+    ["an English base row", "op-op01-006-en", officialFor("same-printing", "en"), "Official image · this printing (English), matched by SKU, not verified", "Official image; this printing (English), matched by SKU, not verified"],
     ["an English parallel", "op-op01-006-en-p1", officialFor("same-language-base-print", "en", "p1"), "Official English base print · this row is a parallel, art may differ", "Official English base print; this row is a parallel, art may differ"],
     ["an English reprint", "op-op01-006-en-r1", officialFor("same-language-base-print", "en", "r1"), "Official English base print · this row is a reprint, art may differ", "Official English base print; this row is a reprint, art may differ"],
     ["a Japanese row", "op-op01-006-ja", officialFor("other-language", "ja"), "Official English image · this row is Japanese (ja): language differs", "Official English image; this row is Japanese (ja): language differs"],
     ["a Japanese parallel", "op-op01-006-ja-p1", officialFor("other-language", "ja", "p1"), "Official English base print · this row is Japanese (ja), a parallel: language differs, art may differ", "Official English base print; this row is Japanese (ja), a parallel: language differs, art may differ"],
     ["a code the registry does not know", "op-op01-006-xx", officialFor("other-language", "xx"), "Official English image · this row is in language xx: language differs", "Official English image; this row is in language xx: language differs"],
   ] as const)("says plainly how the official image relates to %s (%s), in its label, alt text and data attributes", (_name, sku, official, label, alt) => {
-    const row = { ...reference, sku };
+    const row = { ...reference, sku, language: official.rowLang };
     const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [row] }} params={new URLSearchParams()} images={imagesFor([[row.id, { official }]])} />);
     expect(html).toContain(`${label}<span`);
     expect(html).not.toContain("English base reference");
     const img = /<img [^>]*>/.exec(html)![0];
     expect(img).toContain(`alt="Example product: ${alt}"`);
-    for (const attribute of ['data-image-source="official"', 'data-image-lang="en"', `data-row-lang="${official.rowLang}"`, `data-relationship="${official.relationship}"`, 'data-depicted-sku="op-op01-006-en"']) expect(img).toContain(attribute);
+    // Every relationship, a matching SKU included, is the reference's syntax-only match.
+    for (const attribute of ['data-image-source="official"', 'data-image-lang="en"', `data-row-lang="${official.rowLang}"`, `data-relationship="${official.relationship}"`, 'data-depicted-sku="op-op01-006-en"', 'data-scope="syntax_only"']) expect(img).toContain(attribute);
+  });
+
+  it("never tells a source-product aggregate the image is its printing or language", () => {
+    const aggregate = { ...item, id: "cardmarket-1", game: "one-piece", sku: "op-op01-006-en", setCode: "op01", mappingStatus: "exact" as const };
+    const official: Official = { ...shownOfficial, attribution: "Publisher credit", relationship: "pooled-row", rowLang: null, rowVariant: null };
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [aggregate] }} params={new URLSearchParams()} images={imagesFor([[aggregate.id, { official }]])} />);
+    expect(html).toContain("Official English base print · this row is a source-product aggregate: language and art may differ<span");
+    expect(html).not.toContain("this printing");
+    // The label agrees with the row's own Specificity column.
+    expect(html).toContain("Source-product aggregate");
+    expect(html).toContain("Language: unknown");
+    const img = /<img [^>]*>/.exec(html)![0];
+    expect(img).toContain('alt="Example product: Official English base print; this row is a source-product aggregate: language and art may differ"');
+    for (const attribute of ['data-image-source="official"', 'data-image-lang="en"', 'data-row-lang="unknown"', 'data-relationship="pooled-row"', 'data-depicted-sku="op-op01-006-en"', 'data-scope="syntax_only"']) expect(img).toContain(attribute);
   });
 
   it("names every language the SKU registry knows", () => {

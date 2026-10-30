@@ -1,20 +1,42 @@
 import 'server-only';
-import { skuIdentity } from '@cambridge-tcg/sku';
+import { skuIdentity, type SkuIdentity } from '@cambridge-tcg/sku';
 import { query as dbQuery } from '@/lib/db';
 import { cardRushListingImageUrl } from '@cambridge-tcg/data-ingest/cardrush/member-prices';
 import { getEnCardImages, type EnCardImage } from '@/lib/cards/en-card-data';
+import type { ImageReference } from '@/lib/cards/image-reference';
 import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, type MemberPriceItem } from './member-feed-types';
 
 /** How the official image relates to its row. The image is always the
  * publisher's English base print: the projector refuses any other row
  * (image-publication.ts), and its reference names the SKU it depicts.
- * - same-printing: an English row with no variant, so the depicted SKU is
- *   the row's own.
- * - same-language-base-print: an English row with a variant (a parallel or
- *   reprint), so the art may differ.
- * - other-language: a row in another language.
- * All three are matched by SKU syntax; none verifies the physical card. */
-export type MemberOfficialImageRelationship = 'same-printing' | 'same-language-base-print' | 'other-language';
+ * - same-printing: an English printing-level row with no variant, so the
+ *   depicted SKU is the row's own.
+ * - same-language-base-print: an English printing-level row with a variant
+ *   (a parallel or reprint), so the art may differ.
+ * - other-language: a printing-level row in another language.
+ * - pooled-row: a source-product aggregate (a Cardmarket row), whose price
+ *   may pool printings and languages. Its SKU names the card, not a printing
+ *   or language of the row's ("A product-level aggregate must NOT inherit a
+ *   printing's language/condition", data-ingest member-prices.ts).
+ * All four are matched by SKU syntax; none verifies the physical card. */
+export type MemberOfficialImageRelationship = 'same-printing' | 'same-language-base-print' | 'other-language' | 'pooled-row';
+
+/** The official image beside a row, and how it relates to the row. */
+export type MemberOfficialImage = {
+  url: string;
+  attribution: string;
+  imageLang: 'en';
+  /** The canonical SKU the image depicts, from the projector's reference. */
+  depictedSku: string;
+  /** The reference's own scope, 'syntax_only': the SKUs match as text, and
+   * nothing checked the card. */
+  scope: ImageReference['scope'];
+} & (
+  /** A printing-level row: its language and variant are its exact SKU's. */
+  | { relationship: Exclude<MemberOfficialImageRelationship, 'pooled-row'>; rowLang: string; rowVariant: string | null }
+  /** An aggregate: no one printing, and only the language its source gave (none, for Cardmarket). */
+  | { relationship: 'pooled-row'; rowLang: string | null; rowVariant: null }
+);
 
 /** Identity images beside /prices rows, so a person or an agent reading the
  * page can check the item against its price (Yu, 2026-10-29). Display only,
@@ -36,17 +58,7 @@ export type MemberOfficialImageRelationship = 'same-printing' | 'same-language-b
  * unchanged.
  */
 export interface MemberPriceImage {
-  official?: {
-    url: string;
-    attribution: string;
-    imageLang: 'en';
-    /** The canonical SKU the image depicts, from the projector's reference. */
-    depictedSku: string;
-    relationship: MemberOfficialImageRelationship;
-    /** The row's language and variant, from its exact SKU. */
-    rowLang: string;
-    rowVariant: string | null;
-  };
+  official?: MemberOfficialImage;
   /** The CardRush listing's own image, so its language and printing are the
    * listing's: `lang` is the row's language, or null when unknown. */
   listing?: { url: string; lang: string | null; relationship: 'same-listing' };
@@ -102,6 +114,13 @@ async function officialImages(skus: readonly string[]): Promise<Map<string, EnCa
   }
 }
 
+function officialImage(reference: EnCardImage, printing: SkuIdentity | null, language: string | null): MemberOfficialImage {
+  const shown = { url: reference.url, attribution: reference.attribution, imageLang: 'en' as const, depictedSku: reference.reference.depicted_canonical_sku, scope: reference.reference.scope };
+  if (!printing) return { ...shown, relationship: 'pooled-row', rowLang: language, rowVariant: null };
+  const relationship = printing.lang !== 'en' ? 'other-language' : printing.variant ? 'same-language-base-print' : 'same-printing';
+  return { ...shown, relationship, rowLang: printing.lang, rowVariant: printing.variant };
+}
+
 /** One bounded lookup per lane, by (source, source product) and by SKU, for
  * the page's first MEMBER_PRICE_IMAGE_ROWS rows. Never throws: a store that
  * cannot answer, or lacks 0145, shows no images. */
@@ -115,18 +134,16 @@ export async function readMemberPriceImages(items: readonly MemberPriceItem[], e
   for (const item of rows) {
     const listing = item.source === 'cardrush' ? linked.get(item.sourceProductId) : undefined;
     const sku = exactSku(item);
-    // The row's language: its exact SKU's, else the observation's own.
     const identity = sku ? skuIdentity(sku) : null;
     const reference = sku && identity ? official.get(sku) : undefined;
     if (!listing && !reference) continue;
-    const lang = identity ? identity.lang : item.language;
+    // The row's language: a printing-level row's exact SKU's, else the
+    // observation's own. An aggregate's SKU names the card, not the row's
+    // printing or language, so it keeps its own (unknown, for Cardmarket).
+    const printing = identity && item.granularity === 'printing' ? identity : null;
+    const lang = printing ? printing.lang : item.language;
     byItem.set(item.id, {
-      ...(reference && identity ? { official: {
-        url: reference.url, attribution: reference.attribution, imageLang: 'en' as const,
-        depictedSku: reference.reference.depicted_canonical_sku,
-        relationship: identity.lang !== 'en' ? 'other-language' as const : identity.variant ? 'same-language-base-print' as const : 'same-printing' as const,
-        rowLang: identity.lang, rowVariant: identity.variant,
-      } } : {}),
+      ...(reference ? { official: officialImage(reference, printing, item.language) } : {}),
       ...(listing ? { listing: { url: listing, lang, relationship: 'same-listing' as const } } : {}),
     });
   }

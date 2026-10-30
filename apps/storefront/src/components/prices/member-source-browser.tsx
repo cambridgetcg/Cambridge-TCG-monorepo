@@ -95,9 +95,11 @@ const languageOf = (code: string) => Object.hasOwn(LANGUAGE_NAMES, code) ? `${LA
 const variantOf = (variant: string | null) => variant === null ? "another printing" : /^p\d+$/.test(variant) ? "a parallel" : /^r\d+$/.test(variant) ? "a reprint" : `a variant (${variant})`;
 
 /** What the official image is, then how it relates to the row: plainly, so
- * a member never takes English base art for the row's own printing. */
+ * a member never takes English base art for the row's own printing. Even a
+ * matching SKU is syntax only (the reference's scope), so it says so. */
 function officialLabel(image: NonNullable<MemberPriceImage["official"]>): [string, string] {
-  if (image.relationship === "same-printing") return ["Official image", `this printing (${LANGUAGE_NAMES[image.imageLang]})`];
+  if (image.relationship === "pooled-row") return ["Official English base print", "this row is a source-product aggregate: language and art may differ"];
+  if (image.relationship === "same-printing") return ["Official image", `this printing (${LANGUAGE_NAMES[image.imageLang]}), matched by SKU, not verified`];
   if (image.relationship === "same-language-base-print") return ["Official English base print", `this row is ${variantOf(image.rowVariant)}, art may differ`];
   return image.rowVariant === null
     ? ["Official English image", `this row is ${languageOf(image.rowLang)}: language differs`]
@@ -113,16 +115,17 @@ function OfficialImage({ image, item }: { image: NonNullable<MemberPriceImage["o
     // eslint-disable-next-line @next/next/no-img-element -- the projector's URL as served, never re-optimised
     <img
       src={image.url}
-      alt={`${item.productName ?? item.sourceProductId}: ${what}; ${relation}${image.relationship === "same-printing" ? ", matched by SKU, not verified" : ""}`}
+      alt={`${item.productName ?? item.sourceProductId}: ${what}; ${relation}`}
       width={56}
       height={78}
       loading="lazy"
       decoding="async"
       data-image-source="official"
       data-image-lang={image.imageLang}
-      data-row-lang={image.rowLang}
+      data-row-lang={image.rowLang ?? "unknown"}
       data-relationship={image.relationship}
       data-depicted-sku={image.depictedSku}
+      data-scope={image.scope}
       className="h-[78px] w-14 shrink-0 rounded border border-border-subtle bg-surface-subtle object-contain"
     />
   );
