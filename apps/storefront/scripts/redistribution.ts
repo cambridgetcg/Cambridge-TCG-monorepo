@@ -322,6 +322,24 @@ function auditCatalog(): void {
   }
 }
 
+/** A script that must refuse: its refusal is its first statement, at the
+ * top level, with only comments and imports before it, and nothing can switch
+ * it off. Its imports are Node built-ins and pg alone, because an imported
+ * module runs before any statement of the script. */
+function requireRefusedScript(check: number, path: string, prefix: string, message: string): void {
+  const body = source(path);
+  const staticImport = /^import\b[^;()]*?["']([^"'\n]+)["'];$/gm;
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const refusal = new RegExp(`^console\\.error\\("${escaped}[^"\\\\\\n]*"\\);\\nprocess\\.exit\\(1\\);$`, "m").exec(body);
+  const beforeRefusal = refusal
+    ? body.slice(0, refusal.index).replace(/\/\*[\s\S]*?\*\//g, "").replace(staticImport, "").replace(/^\/\/.*$/gm, "").trim()
+    : null;
+  if (beforeRefusal !== "") fail(check, path, message);
+  for (const [, specifier] of body.matchAll(staticImport)) {
+    if (!specifier!.startsWith("node:") && specifier !== "pg") fail(check, path, `a refused script must import nothing that runs before its refusal: '${specifier}'`);
+  }
+}
+
 function auditAcquisitionLocks(): void {
   const cardrush = source("packages/data-ingest/src/cardrush/index.ts");
   requireText(7, "CardRush acquisition", cardrush, "CARDRUSH_ACQUISITION_ENABLED = false as const", "CardRush immutable acquisition lock must remain false");
@@ -351,21 +369,15 @@ function auditAcquisitionLocks(): void {
   // switch: CardRush listing images are linked at CardRush's own URL, never
   // copied (the agents' reading of Yu's words of 2026-10-29, in the decision
   // record). The old copy script must stop before it reads credentials, the
-  // database or the network, with nothing that could switch the stop off: the
-  // refusal is its first statement, at the top level, with only comments and
-  // imports before it. Its imports are Node built-ins and pg alone, because an
-  // imported module runs before any statement of the script.
-  const selfHostPath = "apps/storefront/scripts/self-host-cardrush.mjs";
-  const selfHost = source(selfHostPath);
-  const staticImport = /^import\b[^;()]*?["']([^"'\n]+)["'];$/gm;
-  const refusal = /^console\.error\("CardRush images are linked, never copied[^"\\\n]*"\);\nprocess\.exit\(1\);$/m.exec(selfHost);
-  const beforeRefusal = refusal
-    ? selfHost.slice(0, refusal.index).replace(/\/\*[\s\S]*?\*\//g, "").replace(staticImport, "").replace(/^\/\/.*$/gm, "").trim()
-    : null;
-  if (beforeRefusal !== "") fail(7, selfHostPath, "the CardRush image copy script must refuse, naming why, as its first statement and unconditionally");
-  for (const [, specifier] of selfHost.matchAll(staticImport)) {
-    if (!specifier!.startsWith("node:") && specifier !== "pg") fail(7, selfHostPath, `the CardRush image copy script must import nothing that runs before its refusal: '${specifier}'`);
-  }
+  // database or the network, with nothing that could switch the stop off.
+  requireRefusedScript(7, "apps/storefront/scripts/self-host-cardrush.mjs", "CardRush images are linked, never copied",
+    "the CardRush image copy script must refuse, naming why, as its first statement and unconditionally");
+  // The old official-image backfill is refused the same way (2026-10-30): no
+  // language, source or takedown filter, an UPDATE keyed by sku alone, ambient
+  // credentials, overwriting copies and unspaced fetches. Official images reach
+  // the bucket only through upload-official-images.mjs (auditOfficialImageTools).
+  requireRefusedScript(7, "apps/storefront/scripts/backfill-card-images-s3.mjs", "Official images upload only through upload-official-images.mjs",
+    "the old official-image backfill must refuse, naming the new tool, as its first statement and unconditionally");
 
   const cli = source("apps/wholesale/tools/scrape-cardrush.ts");
   const gateAt = cli.indexOf("if (!CARDRUSH_ACQUISITION_ENABLED)");
@@ -539,6 +551,285 @@ function auditTcgplayerAcquisition(): void {
 
 // ── end TCGplayer acquisition ───────────────────────────────────────────
 
+// ── Official image lanes (check 8) and tools (check 7) ──────────────────
+// A guard swap, 2026-10-30: the English-only pins that stood here (the
+// single 'bandai-en' source pin, the reader entry points and the projection
+// texts) are replaced by stronger, table-driven pins covering both lanes
+// (docs/decisions/2026-10-30-japanese-official-images.md). Each lane is a
+// fixed (lang, source) pair read by its own function with its own projector;
+// the lane table must equal the copy below, which is the reviewed one; every
+// card_images reader and writer in the repository is named; and the manual
+// tools keep their refusal, identification and full-key pins.
+
+/** The reviewed lane table. A change to official-image-lanes.ts fails here
+ * until this copy is changed with it. */
+const OFFICIAL_IMAGE_LANE_PINS = {
+  en: {
+    lang: "en", source: "bandai-en", policy: "cambridge.official-en-media/2026-07-13", evidence: null, credits: null,
+    games: {
+      op: { host: "en.onepiece-cardgame.com", paths: null, ext: "png" },
+      dbf: { host: "www.dbs-cardgame.com", paths: ["/fw/en/", "/fw/images/cards/card/en/"], ext: "webp" },
+    },
+  },
+  ja: {
+    lang: "ja", source: "bandai-jp", policy: "cambridge.official-ja-media/2026-10-30", evidence: "cambridge.official-ja-media/2026-10-30",
+    credits: {
+      op: "©尾田栄一郎／集英社 ©尾田栄一郎／集英社・フジテレビ・東映アニメーション",
+      dbf: "©バード・スタジオ／集英社 ©バード・スタジオ／集英社・東映アニメーション ©Bandai Namco Entertainment Inc.",
+    },
+    games: {
+      op: { host: "www.onepiece-cardgame.com", paths: ["/images/cardlist/card/"], ext: "png" },
+      dbf: { host: "www.dbs-cardgame.com", paths: ["/fw/images/cards/card/jp/"], ext: "webp" },
+    },
+  },
+} as const;
+/** Each lane's reader in en-card-data.ts and the projector it must call. */
+const OFFICIAL_IMAGE_READERS = {
+  en: { reader: "export async function getEnCardImages", projection: "projectOfficialImage(sku, row, cdn)" },
+  ja: { reader: "export async function getSameLanguageImages", projection: "projectSameLanguageImage(sku, row, cdn)" },
+} as const;
+
+const EN_CARD_DATA = "apps/storefront/src/lib/cards/en-card-data.ts";
+const IMAGE_PUBLICATION = "apps/storefront/src/lib/cards/image-publication.ts";
+const OFFICIAL_IMAGE_TOOLS = "apps/storefront/src/lib/cards/official-image-tools.ts";
+const INGEST_OFFICIAL_JA = "apps/storefront/scripts/ingest-official-ja.mjs";
+const UPLOAD_OFFICIAL_IMAGES = "apps/storefront/scripts/upload-official-images.mjs";
+const REFUSED_BACKFILL = "apps/storefront/scripts/backfill-card-images-s3.mjs";
+const CARD_IMAGES_READ = /\b(?:from|join)\s+card_images\b/i;
+
+/** Template literals, found by a small scanner that skips comments and
+ * quoted strings, so SQL is read as SQL and prose as prose. */
+function templateLiterals(body: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < body.length;) {
+    const c = body[i], next = body[i + 1];
+    if (c === "/" && next === "/") { const end = body.indexOf("\n", i); i = end < 0 ? body.length : end; continue; }
+    if (c === "/" && next === "*") { const end = body.indexOf("*/", i + 2); i = end < 0 ? body.length : end + 2; continue; }
+    if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < body.length && body[j] !== c && body[j] !== "\n") j += body[j] === "\\" ? 2 : 1;
+      i = j + 1; continue;
+    }
+    if (c === "`") {
+      let j = i + 1, depth = 0;
+      while (j < body.length && !(body[j] === "`" && depth === 0)) {
+        if (body[j] === "\\") j += 1;
+        else if (body[j] === "$" && body[j + 1] === "{") { depth += 1; j += 1; }
+        else if (body[j] === "}" && depth > 0) depth -= 1;
+        j += 1;
+      }
+      out.push(body.slice(i + 1, j));
+      i = j + 1; continue;
+    }
+    i += 1;
+  }
+  return out;
+}
+
+/** Every source file under the roots that may hold a card_images query or an
+ * import: .ts, .tsx, .mts, .mjs and .js, tests excluded (activeSourceFiles
+ * reads only .ts, .tsx and .md). */
+function codeFiles(directory: string): string[] {
+  if (!existsSync(directory)) return [];
+  const files: string[] = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === ".next" || entry.name.startsWith(".")) continue;
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) files.push(...codeFiles(path));
+    else if (/\.(?:ts|tsx|mts|mjs|js)$/.test(entry.name) && !/\.test\.|\.spec\./.test(entry.name) && !path.includes("/__tests__/")) files.push(path);
+  }
+  return files;
+}
+const CARD_IMAGE_SCAN_ROOTS = ["apps/storefront/src", "apps/storefront/scripts", "packages/data-ingest/src", "apps/wholesale/src", "apps/wholesale/tools"];
+const relativePath = (file: string) => file.slice(REPO_ROOT.length + 1);
+/** Import and dynamic-import specifiers. */
+const specifiers = (body: string) => [...body.matchAll(/(?:\bfrom\s+|\bimport\s*\(\s*|^import\s+)["']([^"']+)["']/gm)].map((m) => m[1]!);
+
+function auditOfficialImageLanes(runtimeLanes: unknown): void {
+  // 1. The runtime table is the reviewed one.
+  if (JSON.stringify(runtimeLanes) !== JSON.stringify(OFFICIAL_IMAGE_LANE_PINS)) {
+    fail(8, "apps/storefront/src/lib/cards/official-image-lanes.ts", "the official image lanes must equal the reviewed table in this audit (OFFICIAL_IMAGE_LANE_PINS)");
+  }
+  const lanes = Object.values(OFFICIAL_IMAGE_LANE_PINS);
+  const pair = (lane: { lang: string; source: string }) => `lang = '${lane.lang}' AND source = '${lane.source}'`;
+
+  // 2. Each card_images query in the reader names exactly one lane pair and
+  // the publication guards, and each pair lives in its own reader beside its
+  // own projector, with the other lane absent.
+  const enCardData = source(EN_CARD_DATA);
+  const queries = templateLiterals(enCardData).filter((literal) => CARD_IMAGES_READ.test(literal));
+  for (const query of queries) {
+    for (const guard of ["kind = 'official_sample'", "takedown_status = 'clear'", "s3_key IS NOT NULL"]) {
+      if (!query.includes(guard)) fail(8, EN_CARD_DATA, `every card_images query must contain ${guard}`);
+    }
+    const pairs = [...query.matchAll(/lang = '([a-z]{2})' AND source = '([a-z-]+)'/g)].map((m) => `lang = '${m[1]}' AND source = '${m[2]}'`);
+    if (pairs.length !== 1 || !lanes.some((lane) => pair(lane) === pairs[0])) fail(8, EN_CARD_DATA, "every card_images query must name exactly one reviewed lane pair (lang and source together)");
+  }
+  for (const [lang, { reader, projection }] of Object.entries(OFFICIAL_IMAGE_READERS)) {
+    const lane = OFFICIAL_IMAGE_LANE_PINS[lang as keyof typeof OFFICIAL_IMAGE_LANE_PINS];
+    const other = lanes.find((l) => l.lang !== lang)!;
+    const otherReader = OFFICIAL_IMAGE_READERS[other.lang as keyof typeof OFFICIAL_IMAGE_READERS];
+    if (queries.filter((query) => query.includes(pair(lane))).length !== 1) fail(8, EN_CARD_DATA, `the ${lang} lane pair must appear in exactly one card_images query`);
+    const block = functionBlock(enCardData, reader);
+    const blockQueries = templateLiterals(block).filter((literal) => CARD_IMAGES_READ.test(literal));
+    if (blockQueries.length !== 1 || !blockQueries[0]!.includes(pair(lane))) fail(8, EN_CARD_DATA, `${reader} must hold the ${lang} lane's one query`);
+    requireText(8, EN_CARD_DATA, block, projection, `${reader} must project through ${projection}`);
+    forbidText(8, EN_CARD_DATA, block, pair(other), `${reader} must not read the ${other.lang} lane`);
+    forbidText(8, EN_CARD_DATA, block, otherReader.projection, `${reader} must not use the ${other.lang} projector`);
+  }
+  // 3. The single-card reader shares both batch readers.
+  const single = functionBlock(enCardData, "export async function getEnCardData");
+  requireText(8, EN_CARD_DATA, single, "getEnCardImages([catalogSku])", "single-card reads must share the English batch boundary");
+  requireText(8, EN_CARD_DATA, single, "getSameLanguageImages([catalogSku], env)", "single-card reads must share the Japanese batch boundary and its switch");
+  // 4. The kill switch: exactly "off" turns the Japanese lane off, read before any query.
+  requireText(8, EN_CARD_DATA, enCardData, 'return env.OFFICIAL_IMAGES_JA?.trim().toLowerCase() !== "off";', "OFFICIAL_IMAGES_JA=off must turn the Japanese lane off");
+  requireBefore(8, EN_CARD_DATA, functionBlock(enCardData, OFFICIAL_IMAGE_READERS.ja.reader), "if (!officialImagesJaOn(env)) return new Map();", "FROM card_images",
+    "the Japanese reader must read its switch before any query");
+  // Text provenance stays English (card_texts has no Japanese lane).
+  for (const path of [EN_CARD_DATA, "apps/storefront/src/lib/play/starter-resolve.ts"]) {
+    for (const query of templateLiterals(source(path)).filter((literal) => /\bfrom\s+card_texts\b/i.test(literal))) {
+      if (!query.includes("lang = 'en' AND source = 'bandai-en'")) fail(8, path, "every card_texts query must stay in the English lane");
+    }
+  }
+
+  // 5. The projector: the self-hosted URL, both references, nonblank credit,
+  // the lane bound by the caller, and the path check per lane.
+  const imagePublication = source(IMAGE_PUBLICATION);
+  for (const [expected, message] of [
+    ["officialImageUrl(row.s3_key, cdn)", "served URLs must use a validated self-hosted object key"],
+    ["createImageReference(requestedSku, row.sku)", "an English image must retain the requested and selected identifiers"],
+    ["createSameLanguageImageReference(requestedSku, row.sku)", "a Japanese image must retain the requested and selected identifiers"],
+    ["!row.attribution.trim()", "blank copyright lines must not publish"],
+    ["row.lang !== lane.lang", "a row must be in the language of the lane its caller binds"],
+    ["row.source !== lane.source", "a row must be from the source of the lane its caller binds"],
+    ["expected.paths === null || expected.paths.some(", "a source URL must be on its lane's path, where the lane names one"],
+  ] as const) requireText(8, IMAGE_PUBLICATION, imagePublication, expected, message);
+  requireText(8, IMAGE_PUBLICATION, functionBlock(imagePublication, "export function officialMediaProvenance"), "OFFICIAL_IMAGE_LANES.en)", "text provenance must stay in the English lane");
+  requireText(8, IMAGE_PUBLICATION, functionBlock(imagePublication, "export function projectSameLanguageImage"), "laneSourceUrl(lane, game, row.source_url, row.sku)", "a Japanese row's publisher file must name its own card");
+  forbidText(8, IMAGE_PUBLICATION, imagePublication, '"en.onepiece-cardgame.com" : "www.dbs-cardgame.com"', "the lane table, not a host ternary, decides the publisher host");
+
+  // 6. The stored publisher source_url never becomes the served url.
+  for (const path of [EN_CARD_DATA, IMAGE_PUBLICATION]) {
+    for (const neverServed of [" url: row.source_url", " url: r.source_url", " url: source_url", " url: sourceUrl"]) {
+      forbidText(8, path, source(path), neverServed, "the stored publisher source_url must never become the served image url");
+    }
+  }
+
+  // 7. Every card_images reader in the repository is named, and the other
+  // English readers stay English.
+  const allowedReaders = new Set([EN_CARD_DATA, OFFICIAL_IMAGE_TOOLS, REFUSED_BACKFILL]);
+  const englishReaders = new Set(["apps/storefront/src/lib/cards/gallery.ts", "apps/storefront/src/lib/cards/notable.ts", "apps/storefront/src/lib/cards/artists.ts", "apps/storefront/src/lib/play/starter-resolve.ts"]);
+  for (const file of CARD_IMAGE_SCAN_ROOTS.flatMap((root) => codeFiles(resolve(REPO_ROOT, root)))) {
+    const path = relativePath(file), body = readFileSync(file, "utf8");
+    if (path === "apps/storefront/scripts/redistribution.ts") continue; // this audit names them to pin them
+    if (CARD_IMAGES_READ.test(body)) {
+      if (englishReaders.has(path)) {
+        for (const query of templateLiterals(body).filter((literal) => CARD_IMAGES_READ.test(literal))) {
+          if (!query.includes("lang = 'en'")) fail(8, path, "this English card_images reader must keep lang = 'en' in every query");
+        }
+      } else if (!allowedReaders.has(path)) fail(8, path, "a new card_images reader must go through en-card-data.ts or be reviewed here");
+    }
+    // 8. Writers: rows are inserted only by the ingest tool, and updated only
+    // by the upload tool (the refused backfill's history aside).
+    if (/\binsert\s+into\s+card_images\b/i.test(body) && path !== OFFICIAL_IMAGE_TOOLS) fail(8, path, "only official-image-tools.ts may insert card_images rows");
+    if (/\bupdate\s+card_images\b/i.test(body) && path !== OFFICIAL_IMAGE_TOOLS && path !== REFUSED_BACKFILL) fail(8, path, "only official-image-tools.ts may update card_images rows");
+  }
+
+  // 9. No publisher host may be fetched or optimised by Next.
+  const nextConfig = source("apps/storefront/next.config.ts");
+  for (const host of ["onepiece-cardgame.com", "dbs-cardgame.com"]) forbidText(8, "apps/storefront/next.config.ts", nextConfig, host, `next.config must not name ${host}`);
+}
+
+function auditOfficialImageTools(): void {
+  // The tools' own pins: insert never updates, upload never overwrites, runs
+  // under the named profile, records by the full primary key, selects only
+  // the lane's clear unuploaded rows, and holds a card under takedown.
+  const tools = source(OFFICIAL_IMAGE_TOOLS);
+  for (const [expected, message] of [
+    ["ON CONFLICT (sku, lang, kind, source) DO NOTHING", "the ingest must never update an existing row"],
+    ['"--if-none-match", "*"', "the upload must never overwrite an object"],
+    ['"--profile", profile', "the upload must run under the profile named at run time"],
+    ["WHERE sku = $1 AND lang = $2 AND kind = $3 AND source = $4", "rows must be locked and recorded by the full primary key"],
+    ["lang = $1 AND source = $2 AND kind = 'official_sample' AND takedown_status = 'clear' AND s3_key IS NULL", "the upload must select only its lane's clear, unuploaded official rows"],
+    ["t.takedown_status <> 'clear'", "the upload must hold every row of a card under takedown"],
+    ["shell: false", "the AWS CLI must run without a shell"],
+  ] as const) requireText(7, OFFICIAL_IMAGE_TOOLS, tools, expected, message);
+  // Statement by statement: every insert leaves existing rows alone, and every
+  // update is keyed by the full primary key and may only fill an empty object.
+  for (const literal of templateLiterals(tools)) {
+    if (/\binsert\s+into\s+card_images\b/i.test(literal) && !literal.includes("ON CONFLICT (sku, lang, kind, source) DO NOTHING")) fail(7, OFFICIAL_IMAGE_TOOLS, "every card_images insert must be ON CONFLICT (sku, lang, kind, source) DO NOTHING");
+    if (/\bupdate\s+card_images\b/i.test(literal) && !literal.includes("WHERE sku = $1 AND lang = $2 AND kind = $3 AND source = $4 AND s3_key IS NULL AND takedown_status = 'clear'")) fail(7, OFFICIAL_IMAGE_TOOLS, "every card_images update must be keyed by the full primary key, on a clear row with no object yet");
+    if (/\bfor\s+update\b/i.test(literal) && !literal.includes("WHERE sku = $1 AND lang = $2 AND kind = $3 AND source = $4 FOR UPDATE NOWAIT")) fail(7, OFFICIAL_IMAGE_TOOLS, "every row lock must be by the full primary key, NOWAIT");
+  }
+  requireText(7, UPLOAD_OFFICIAL_IMAGES, source(UPLOAD_OFFICIAL_IMAGES), "shell: false", "the AWS CLI must run without a shell");
+  for (const path of [INGEST_OFFICIAL_JA, UPLOAD_OFFICIAL_IMAGES]) {
+    requireText(7, path, source(path), "process.env.DATABASE_URL", "the database URL comes from the environment only");
+  }
+  for (const path of [OFFICIAL_IMAGE_TOOLS, INGEST_OFFICIAL_JA, UPLOAD_OFFICIAL_IMAGES]) {
+    const body = source(path);
+    for (const forbidden of ['"cp"', "s3 cp", "--acl", "shell: true", "execSync", "exec(", "spawn(", "dotenv", "--env-file", ".env.local", ".env.production", "prod.env"]) {
+      forbidText(7, path, body, forbidden, `the official-image tools must not contain '${forbidden}'`);
+    }
+    if (/["'/]\.env\b/.test(body)) fail(7, path, "the official-image tools must not read an env file");
+  }
+  // The tool logic imports no driver, process module or server-only code; the scripts inject them.
+  for (const specifier of specifiers(tools)) {
+    if (["pg", "node:child_process", "server-only"].includes(specifier) || specifier.startsWith("@/")) fail(7, OFFICIAL_IMAGE_TOOLS, `the tool logic must not import '${specifier}'`);
+  }
+
+  // The Japanese lane reads image addresses and identifiers only.
+  const jpDir = "packages/data-ingest/src/bandai-jp";
+  for (const file of readdirSync(resolve(REPO_ROOT, jpDir)).filter((name) => name.endsWith(".ts"))) {
+    const path = `${jpDir}/${file}`, body = source(path);
+    for (const forbidden of ["fieldText(", "effect_text", "trigger_text", 'class="text"', "cardFaq", "getInfo", "detail_url("]) {
+      forbidText(7, path, body, forbidden, `the Japanese lane must not read '${forbidden}'`);
+    }
+  }
+  const jpIndex = source(`${jpDir}/index.ts`);
+  requireText(7, `${jpDir}/index.ts`, jpIndex, 'status: "blocked"', "bandai-jp stays blocked: a manual tool, no live reader");
+  requireText(7, `${jpDir}/index.ts`, jpIndex, "redistribute: false", "bandai-jp values must remain non-redistributable");
+  forbidText(7, `${jpDir}/index.ts`, functionBlock(jpIndex, "async *read("), "fetch", "bandai-jp's read() must never fetch");
+  const collect = source(`${jpDir}/collect.ts`), media = source("packages/data-ingest/src/official-media.ts");
+  for (const [path, body] of [[`${jpDir}/collect.ts`, collect], ["packages/data-ingest/src/official-media.ts", media]] as const) {
+    for (const forbidden of ["proxy_url", "api_token", "dispatcher", "brightdata", "superproxy", "Mozilla/", "Sec-Fetch", "redirect: 'follow'", 'redirect: "follow"']) {
+      forbidText(7, path, body, forbidden, `the official-media reader must not contain '${forbidden}'`);
+    }
+  }
+  requireBefore(7, `${jpDir}/collect.ts`, collect, "readRobotsTxt(", "fetchSeriesPage(", "robots.txt must be read before any list page");
+  requireText(7, `${jpDir}/config.ts`, source(`${jpDir}/config.ts`),
+    '"CambridgeTCG-official-media/1.0 (+https://cambridgetcg.com/legal/card-images; contact@cambridgetcg.com; permission cambridge.official-ja-media/2026-10-30)"',
+    "the Japanese lane's User-Agent must name Cambridge, a contact and the decision");
+
+  // Import fences: the collection run and the reader are reached only by the
+  // tools; the tools only by their scripts.
+  const namesCollect = (spec: string) => /(?:^|\/)bandai-jp\/collect(?:\.ts)?$/.test(spec) || spec === "./collect";
+  const namesMedia = (spec: string) => /(?:^|\/)official-media(?:\.ts)?$/.test(spec);
+  for (const path of ["packages/data-ingest/src/index.ts", `${jpDir}/index.ts`]) {
+    for (const spec of specifiers(source(path))) if (namesCollect(spec) || namesMedia(spec)) fail(7, path, `the package index must not export '${spec}'`);
+  }
+  const mayCollect = new Set([OFFICIAL_IMAGE_TOOLS, INGEST_OFFICIAL_JA, UPLOAD_OFFICIAL_IMAGES]);
+  const mayReadMedia = new Set([...mayCollect, `${jpDir}/collect.ts`]);
+  const roots = ["apps/storefront/src", "apps/storefront/scripts", "apps/wholesale/src", "apps/wholesale/tools", "apps/admin/src", "packages"];
+  for (const file of roots.flatMap((root) => codeFiles(resolve(REPO_ROOT, root)))) {
+    const path = relativePath(file);
+    for (const spec of specifiers(readFileSync(file, "utf8"))) {
+      if (namesCollect(spec) && !mayCollect.has(path)) fail(7, path, "only the official-image tools may reach the Japanese collection run");
+      if (namesMedia(spec) && !mayReadMedia.has(path)) fail(7, path, "only the official-image tools may reach the official-media reader");
+      if (/(?:^|\/)official-image-tools(?:\.ts)?$/.test(spec) && path !== INGEST_OFFICIAL_JA && path !== UPLOAD_OFFICIAL_IMAGES) fail(7, path, "only the two manual scripts may run the official-image tools");
+    }
+  }
+  // Never scheduled.
+  for (const file of codeFiles(resolve(REPO_ROOT, "apps/storefront/src/app/api/cron"))) {
+    const body = readFileSync(file, "utf8");
+    if (/bandai-jp|official-ja/.test(body)) fail(7, relativePath(file), "no cron may name the Japanese official-image lane");
+  }
+  for (const path of ["apps/storefront/vercel.json", "apps/wholesale/vercel.json"]) {
+    if (existsSync(resolve(REPO_ROOT, path)) && /bandai-jp|official-ja/.test(source(path))) fail(7, path, "no schedule may name the Japanese official-image lane");
+  }
+}
+
+// ── end official images ───────────────────────────────────────────────
+
 function auditLegacyPublicationLocks(): void {
   const policy = source("apps/storefront/src/lib/public-wholesale-fields.ts");
   requireText(8, "legacy wholesale fields", policy, "LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED = false as const", "legacy field publication lock must remain false");
@@ -554,35 +845,8 @@ function auditLegacyPublicationLocks(): void {
   requireText(8, "wholesale DB client", dbSource, "image_url: null", "direct DB responses must emit null image");
   forbidText(8, "wholesale DB client", dbSource, "SELECT sku, card_number, price, cardrush_jpy", "public DB query must not select legacy price lineage");
 
-  // The legacy image lane stays null (above); the ONE honest way an image now
-  // reaches the public is the official English-image reader. Recorded rule
-  // 2026-07-13 (docs/EN-CARD-DATA.md, /legal/card-images): publish OFFICIAL
-  // publisher art, self-hosted on our own host, takedown-clear, always attributed,
-  // under nominative-fair-use for a marketplace. This block pins that the reader
-  // publishes a row ONLY via its self-hosted object (CARD_IMAGE_CDN + s3_key),
-  // gated on s3_key IS NOT NULL, takedown_status = 'clear', kind = 'official_sample'
-  // — and that a stored publisher source_url is metadata only, never the served url.
-  const enCardData = source("apps/storefront/src/lib/cards/en-card-data.ts");
-  requireText(8, "official image reader", enCardData, "export async function getEnCardData", "the single-card official-image reader must remain the named contract entry point");
-  requireText(8, "official image reader", enCardData, "export async function getEnCardImages", "the batch official-image reader must remain the named contract entry point");
-  // Single and batch use one runtime projector; behavioral fixtures verify its
-  // URL, source, reference and attribution checks beyond these source pins.
-  requireText(8, "official image reader", enCardData, "getEnCardImages([catalogSku])", "single-card reads must share the batch publication boundary");
-  requireText(8, "official image reader", enCardData, "projectOfficialImage(sku, row, cdn)", "batch reads must use the reviewed official-media projection");
-  requireText(8, "official image reader", enCardData, "source = 'bandai-en'", "only the recorded source may enter this reader");
-  const imagePublication = source("apps/storefront/src/lib/cards/image-publication.ts");
-  requireText(8, "official image projection", imagePublication, "officialImageUrl(row.s3_key, cdn)", "served URLs must use a validated self-hosted object key");
-  requireText(8, "official image projection", imagePublication, "createImageReference(requestedSku, row.sku)", "an image must retain the requested and selected identifiers");
-  requireText(8, "official image projection", imagePublication, "!row.attribution.trim()", "blank copyright lines must not publish");
-  // The query publishes ONLY self-hosted, takedown-clear, publisher-official rows.
-  requireText(8, "official image reader", enCardData, "s3_key IS NOT NULL", "the reader must publish only rows self-hosted on our host (s3_key present)");
-  requireText(8, "official image reader", enCardData, "takedown_status = 'clear'", "a disputed or removed row must never publish");
-  requireText(8, "official image reader", enCardData, "kind = 'official_sample'", "only publisher-official art may publish, never a shop scan");
-  // The stored publisher source_url must never be assigned to the served `url`.
-  // (Leading space so these never collide with the legitimate `source_url:` field.)
-  for (const neverServed of [" url: row.source_url", " url: r.source_url", " url: source_url"]) {
-    forbidText(8, "official image reader", enCardData, neverServed, "the stored publisher source_url must never become the served image url");
-  }
+  // The official image lanes (self-hosted publisher art) are pinned in
+  // auditOfficialImageLanes below.
 
   const publicationPolicy = source("apps/wholesale/src/lib/source-publication-policy.ts");
   requireText(8, "wholesale price sources", publicationPolicy, "Object.freeze([] as const)", "price-source publication allowlist must remain empty");
@@ -845,6 +1109,8 @@ function auditGlobalCopy(): void {
 async function main(): Promise<void> {
   const sources = await loadRegistry();
   const metaSchema = await loadMetaSchema();
+  const lanesUrl = `file://${resolve(ACTIVE_SOURCE_ROOT, "lib", "cards", "official-image-lanes.ts")}`;
+  const { OFFICIAL_IMAGE_LANES } = (await import(lanesUrl)) as { OFFICIAL_IMAGE_LANES: unknown };
   const originsChecked = auditCc0Surfaces(sources);
 
   auditEnvelopeSchema(metaSchema);
@@ -857,6 +1123,8 @@ async function main(): Promise<void> {
   auditCardRushPageCollector();
   auditTcgplayerAcquisition();
   auditLegacyPublicationLocks();
+  auditOfficialImageLanes(OFFICIAL_IMAGE_LANES);
+  auditOfficialImageTools();
   auditFxSources();
   auditParticipantNoteBoundary();
 
@@ -879,7 +1147,8 @@ async function main(): Promise<void> {
     console.log("ok - the CardRush page collector is the one permitted CardRush path: evidence-gated, identified, no proxy");
     console.log("ok - TCGplayer is read only by the evidence-gated price-guide collector; its API reader stays locked");
     console.log("ok - reviewed legacy wholesale projections retain their price/image locks; catalog photo fallback has a separate display rule");
-    console.log("ok - official card images publish only self-hosted (s3_key), takedown-clear, and attributed - never a publisher url");
+    console.log("ok - official card images publish only self-hosted (s3_key), takedown-clear, attributed and in their pinned language lane — never a publisher url");
+    console.log("ok - official images are collected and uploaded only by the two manual tools: identified, robots-first, never overwriting, by full key");
     console.log("ok - live FX paths use attributed ECB statistics");
     console.log("ok - participant note storage and publication remain disabled");
     return;

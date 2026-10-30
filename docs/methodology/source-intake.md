@@ -245,6 +245,64 @@ Cardmarket's official daily files were reviewed on 2026-09-07 (`member-prices/20
 
 ---
 
+## Intake record — Bandai JP official sample images, 2026-10-30
+
+Recorded from [Yu's decision of 2026-10-30](../decisions/2026-10-30-japanese-official-images.md)
+("Self-host like English") and the same day's read of both Japanese sites. The
+lane is the Japanese counterpart of the English official images
+([EN-CARD-DATA](../EN-CARD-DATA.md)): images only, base prints only, One Piece
+and Fusion World.
+
+**Playbook gate 1, honestly: fails on the sources' own words.** Both footers
+refuse reproduction without permission, and Bandai has granted none. Yu chose
+to self-host anyway, under his 2026-07-13 rationale for English (nominative
+use to identify cards for trade, recorded as project history, not a legal
+conclusion). That is Cambridge's decision, not the source's permission; the
+decision record lists it under "where Cambridge falls short".
+
+**Gate A — prohibits; answered by Yu's decision, not by a grant.**
+- *A.1:* `www.onepiece-cardgame.com` 「このwebサイトに記載されているすべての画像・テキスト・データの無断転用、転載をお断りします。」
+  ("We refuse unauthorised diversion or reproduction of any images, text or
+  data on this website."); `www.dbs-cardgame.com/fw/jp`
+  「※当サイトに掲載されている画像、文章、データ等の無断使用・複製・転載を禁じます。」
+  ("Unauthorised use, copying or reproduction of images, text, data etc. on
+  this site is prohibited."). No footer links to terms of use. robots.txt
+  answered 404 on both hosts (no rule, no AI-training reservation); the tool
+  reads it every run. **Prohibits.**
+- *A.2:* official card art, card ids and names; no personal data. **Pass.**
+- *A.3:* reading every series is systematic extraction; whether a database
+  right protects it in the UK is not assessed. The footers bind by contract
+  either way, so the lane takes images and identifiers only, never text.
+  **Fenced; answered by Yu's decision.**
+
+**Gate B — intention declared** in `packages/data-ingest/src/bandai-jp/index.ts`:
+`access: "scrape"`, `license: "proprietary"`, `redistribute: false`,
+`status: "blocked"`, `freshness: "catalog"`, games `op` and `dbf`, the footers
+quoted in `tos_notes`. `read()` emits one error and yields nothing: no cron
+and no live reader. The status moves to `partial` only after Yu's word and a
+first `--apply`.
+
+**Gate C — tiered.** `scrape` / `proprietary` / `redistribute: false` /
+`blocked`, as `bandai-en`.
+
+**Gate D — blocked module with a manual tool.** Collection runs only through
+`apps/storefront/scripts/ingest-official-ja.mjs`, by a person, with Yu's word
+for that run: identified User-Agent naming
+`cambridge.official-ja-media/2026-10-30`, robots.txt first, at least 2 s per
+host, list pages only, a stop on any refusal or drift, rows written once at
+the end. The bucket copy is a separate act (`upload-official-images.mjs
+--apply`). Display only, on Cambridge pages and as one universal-card field;
+never member API, downloads or `/api/v1/market/*`.
+
+**Carried rules:** credit is the footer's own line verbatim; a takedown is per
+card, every language; `OFFICIAL_IMAGES_JA=off` hides the lane;
+`ImageReference` v1 is unchanged.
+
+**Needs Yu:** each collection run, the upload (with D6 lifted for it and the
+AWS profile he names), and the question never asked: API, or pages only?
+
+---
+
 ## What this framework unlocks next (same gate, cleaner sources)
 
 Ranked by legal cleanliness × UK relevance:
