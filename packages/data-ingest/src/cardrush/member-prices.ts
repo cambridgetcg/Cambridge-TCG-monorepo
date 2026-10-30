@@ -1,6 +1,7 @@
 import { buildSku, type GameCode } from '@cambridge-tcg/sku';
 import { assertPriceObservationValues } from '@cambridge-tcg/data-spec';
-import { createFetcher } from '../http';
+import { countedRefusal, createFetcher, pageHead, pageRefusal, readBounded, type HostRefusal } from '../http';
+import { parseRobots, readRobotsTxt } from '../robots';
 import { cardrush } from './index';
 import { parseCardMetadata, parseSitemapProductUrls } from './discovery';
 import { classifyCardRushSignal } from './classify';
@@ -16,6 +17,8 @@ import type { IngestContext } from '../types';
  * refuses that is reported SOURCE_UNAVAILABLE and left alone for the run.
  * Each run reads the host's robots.txt first, through the same bucket, and
  * stops there if it disallows product pages to this collector or to everyone.
+ * A stop that is the host refusing the collector is reported as `refused`, so
+ * the run's host state can wait out its Retry-After (storefront 0146).
  */
 export const CARDRUSH_PRICE_PARSER = 'cardrush-page/1';
 export const CARDRUSH_CROSSWALK_VERSION = 'cardrush-title/1';
@@ -67,6 +70,10 @@ export interface CardRushAcquisition {
   /** Product pages requested; the robots.txt and sitemap requests are not counted. */
   requested: number;
   unavailable: { code: 'SOURCE_UNAVAILABLE'; reason: string } | null;
+  /** Set when the stop was the host refusing this collector (http.ts
+   * hostRefusal: a 403, a 429, a 503 with Retry-After; or a challenge), or
+   * its robots.txt disallowing it: the run's host state backs off from it. */
+  refused: HostRefusal | null;
   parsed: ParsedCardRushPrices;
 }
 
@@ -225,87 +232,19 @@ export function parseCardRushMemberPrices(pages: readonly CardRushPage[]): Parse
   return result;
 }
 
-/** Why a host's answer means stop: refusals and challenges are answers, not
- * obstacles. A challenge is the cf-mitigated header or the interstitial's
- * title; Cloudflare also injects its beacon script into ordinary pages, so
- * that script alone is not one.
- */
-function refusal(response: Response, head = ''): string | null {
-  const mitigated = response.headers.get('cf-mitigated');
-  if (mitigated) return `challenge-${mitigated}`;
-  if ([401, 403, 407, 429, 503].includes(response.status)) return `http-${response.status}`;
-  if (/<title>\s*Just a moment\.\.\.\s*<\/title>/i.test(head)) return 'challenge-page';
-  return null;
-}
-async function readBounded(response: Response, maxBytes: number): Promise<Uint8Array | null> {
-  if (!response.body) return new Uint8Array(0);
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = []; let size = 0;
-  while (true) {
-    const { done, value } = await reader.read(); if (done) break;
-    size += value.byteLength;
-    if (size > maxBytes) { await reader.cancel(); return null; }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(size); let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-  return bytes;
-}
-const pageHead = (bytes: Uint8Array) => new TextDecoder().decode(bytes.subarray(0, 16 * 1024));
-
 /** The names this collector's User-Agent answers to in robots.txt: its
  * product token (cambridgetcg.com), that token's letters before the dot (how
  * matchers that read only [A-Za-z_-] see it), and the collector's own name. */
 export const CARDRUSH_ROBOTS_AGENTS: readonly string[] = ['cambridgetcg.com', 'cambridgetcg', 'cardrush-collector'];
-/** RFC 9309 asks a crawler to read at least 500 KiB; a larger file is not guessed at. */
-const ROBOTS_MAX_BYTES = 512 * 1024;
-interface RobotsGroup { agents: string[]; rules: { allow: boolean; pattern: string }[] }
-function robotsGroups(text: string): RobotsGroup[] {
-  const groups: RobotsGroup[] = [];
-  let current: RobotsGroup | null = null;
-  for (const raw of text.replace(/^\uFEFF/, '').split(/\r\n|\r|\n/)) {
-    // The three records that decide access; others (sitemap, crawl-delay) are skipped.
-    const record = /^(user-agent|allow|disallow)\s*:\s*(.*)$/i.exec(raw.replace(/#.*$/, '').trim());
-    if (!record) continue;
-    const key = record[1]!.toLowerCase(), value = record[2]!.trim();
-    if (key === 'allow' || key === 'disallow') {
-      if (current && value) current.rules.push({ allow: key === 'allow', pattern: value });
-    } else {
-      // An agent line: consecutive ones share one group; one after a rule starts the next.
-      if (!current || current.rules.length) groups.push(current = { agents: [], rules: [] });
-      current.agents.push(value.split('/')[0]!.trim().toLowerCase());
-    }
-  }
-  return groups;
-}
-interface RobotsRule { allow: boolean; length: number; matches: RegExp }
-/** RFC 9309: `*` matches any run of characters and a final `$` ends the
- * path. Each pattern becomes one RegExp, once. */
-function compileRobotsRules(rules: RobotsGroup['rules']): RobotsRule[] {
-  return rules.map(rule => {
-    const anchored = rule.pattern.endsWith('$');
-    const body = (anchored ? rule.pattern.slice(0, -1) : rule.pattern).split('*').map(part => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*');
-    return { allow: rule.allow, length: rule.pattern.length, matches: new RegExp(`^${body}${anchored ? '$' : ''}`) };
-  });
-}
-/** RFC 9309: the longest matching rule decides, and allow wins a tie. No rule, no limit. */
-function robotsAllowsPath(rules: readonly RobotsRule[], path: string): boolean {
-  let best: RobotsRule | null = null;
-  for (const rule of rules) {
-    if (!rule.matches.test(path)) continue;
-    if (!best || rule.length > best.length || (rule.length === best.length && rule.allow)) best = rule;
-  }
-  return best?.allow ?? true;
-}
-/** robots.txt read once for a run: parsed and compiled here, then asked about
- * each path (a host's sitemap lists thousands). Stricter than RFC 9309, which
- * would read only the most specific group: the rules naming this collector
- * and the rules for every crawler must both allow a path. */
+/** robots.txt read once for a run: parsed and compiled here (robots.ts, the
+ * parser TCGplayer's collector shares), then asked about each path (a host's
+ * sitemap lists thousands). Stricter than RFC 9309, which would read only the
+ * most specific group: the rules naming this collector and the rules for
+ * every crawler must both allow a path. */
 export function compileCardRushRobots(robots: string): (path: string) => boolean {
-  const groups = robotsGroups(robots);
-  const rules = (named: (agent: string) => boolean) => compileRobotsRules(groups.filter(group => group.agents.some(named)).flatMap(group => group.rules));
-  const own = rules(agent => CARDRUSH_ROBOTS_AGENTS.includes(agent)), everyone = rules(agent => agent === '*');
-  return path => robotsAllowsPath(own, path) && robotsAllowsPath(everyone, path);
+  const parsed = parseRobots(robots);
+  const own = parsed.group(CARDRUSH_ROBOTS_AGENTS), everyone = parsed.group(['*']);
+  return path => (own?.allows(path) ?? true) && (everyone?.allows(path) ?? true);
 }
 /** Whether robots.txt lets this collector read `path`: one question, for a
  * single path. A run compiles once with compileCardRushRobots. */
@@ -335,43 +274,37 @@ export async function acquireCardRushMemberPrices(ctx: IngestContext, input: {
   const fetcher = createFetcher({ ...ctx, signal, rate_limit: CARDRUSH_PAGE_RATE }, cardrush.meta, { max_retries: 0 });
   const interval = 1000 / CARDRUSH_PAGE_RATE.rps;
   const empty = (): ParsedCardRushPrices => ({ observations: [], quarantine: [], sourceRows: 0, missingPrices: 0, productCrosswalks: [], setCrosswalks: [], listingImages: [] });
-  const stop = (reason: string, sitemapProducts = 0): CardRushAcquisition => ({ host, game, sitemapProducts, robotsDisallowed: 0, requested: 0, unavailable: { code: 'SOURCE_UNAVAILABLE', reason }, parsed: empty() });
+  const stop = (reason: string, sitemapProducts = 0, refused: HostRefusal | null = null): CardRushAcquisition =>
+    ({ host, game, sitemapProducts, robotsDisallowed: 0, requested: 0, unavailable: { code: 'SOURCE_UNAVAILABLE', reason }, refused, parsed: empty() });
+  // robots.txt disallowing this collector refuses it, with no Retry-After.
+  const disallowed: HostRefusal = { status: null, retryAfter: null };
 
-  // Read once, first, through the host's own bucket. Not followed if it
-  // redirects; a refusal or failure to serve it is a refusal of the run.
+  // Read once, first, through the host's own bucket (robots.ts). Not followed
+  // if it redirects; a refusal or failure to serve it stops the run.
   let robots: string | null = null;
   try {
-    const response = await fetcher(`https://${host}/robots.txt`, { redirect: 'manual', headers: { Accept: 'text/plain' } });
-    const early = refusal(response);
-    if (early) { await response.body?.cancel(); return stop(`robots-${early}`); }
-    if (response.status === 404 || response.status === 410) await response.body?.cancel();
-    else if (response.status !== 200) { await response.body?.cancel(); return stop(`robots-http-${response.status}`); }
-    else {
-      const bytes = await readBounded(response, ROBOTS_MAX_BYTES);
-      if (!bytes) return stop('robots-too-large');
-      const challenge = refusal(response, pageHead(bytes));
-      if (challenge) return stop(`robots-${challenge}`);
-      robots = new TextDecoder().decode(bytes);
-    }
+    const read = await readRobotsTxt(fetcher, host);
+    if (read.kind === 'stop') return stop(read.reason === 'fetch-error' && signal.aborted ? 'budget-exhausted-before-robots' : `robots-${read.reason}`, 0, read.refused);
+    if (read.kind === 'rules') robots = read.text;
   } catch {
     return stop(signal.aborted ? 'budget-exhausted-before-robots' : 'robots-fetch-error');
   }
   // Parsed and compiled once: the sitemap's every URL is asked below.
   const allowed: (path: string) => boolean = robots === null ? () => true : compileCardRushRobots(robots);
-  if (!allowed('/product/')) return stop('robots-disallows-product-pages');
-  if (!allowed('/sitemap.xml')) return stop('robots-disallows-sitemap');
+  if (!allowed('/product/')) return stop('robots-disallows-product-pages', 0, disallowed);
+  if (!allowed('/sitemap.xml')) return stop('robots-disallows-sitemap', 0, disallowed);
 
   let sitemap: string;
   try {
     const response = await fetcher(`https://${host}/sitemap.xml`, { redirect: 'manual', headers: { Accept: 'application/xml, text/xml' } });
-    const early = refusal(response);
-    if (early) { await response.body?.cancel(); return stop(`sitemap-${early}`); }
+    const early = pageRefusal(response);
+    if (early) { await response.body?.cancel(); return stop(`sitemap-${early}`, 0, countedRefusal(response, early)); }
     if (response.status !== 200) { await response.body?.cancel(); return stop(`sitemap-http-${response.status}`); }
     const bytes = await readBounded(response, 64 * 1024 * 1024);
     if (!bytes) return stop('sitemap-too-large');
     sitemap = new TextDecoder().decode(bytes);
-    const challenge = refusal(response, pageHead(bytes));
-    if (challenge) return stop(`sitemap-${challenge}`);
+    const challenge = pageRefusal(response, pageHead(bytes));
+    if (challenge) return stop(`sitemap-${challenge}`, 0, countedRefusal(response, challenge));
   } catch {
     return stop(signal.aborted ? 'budget-exhausted-before-sitemap' : 'sitemap-fetch-error');
   }
@@ -379,7 +312,7 @@ export async function acquireCardRushMemberPrices(ctx: IngestContext, input: {
     .filter(url => cardRushSourceProductId(url) === url.replace(/^https:\/\//, ''));
   if (!productUrls.length) return stop('sitemap-empty-or-unparseable');
   const permitted = productUrls.filter(url => allowed(new URL(url).pathname));
-  if (!permitted.length) return { ...stop('robots-disallows-product-pages', productUrls.length), robotsDisallowed: productUrls.length };
+  if (!permitted.length) return { ...stop('robots-disallows-product-pages', productUrls.length, disallowed), robotsDisallowed: productUrls.length };
 
   const capacity = Math.max(0, Math.floor((deadline - Date.now()) / interval));
   const listed = new Set(permitted);
@@ -387,7 +320,7 @@ export async function acquireCardRushMemberPrices(ctx: IngestContext, input: {
   if (chosen.length > capacity || new Set(chosen).size !== chosen.length || chosen.some(url => !listed.has(url))) throw new Error('cardrush-selection-outside-sitemap');
 
   const pages: CardRushPage[] = [], failed: ParsedMemberPrices['quarantine'] = [];
-  let requested = 0, unavailable: CardRushAcquisition['unavailable'] = null;
+  let requested = 0, unavailable: CardRushAcquisition['unavailable'] = null, refused: HostRefusal | null = null;
   for (const url of chosen) {
     if (signal.aborted || Date.now() + interval > deadline) break;
     let response: Response;
@@ -400,8 +333,8 @@ export async function acquireCardRushMemberPrices(ctx: IngestContext, input: {
     }
     const retrievedAt = new Date().toISOString();
     const id = cardRushSourceProductId(url);
-    const early = refusal(response);
-    if (early) { await response.body?.cancel(); unavailable = { code: 'SOURCE_UNAVAILABLE', reason: early }; break; }
+    const early = pageRefusal(response);
+    if (early) { await response.body?.cancel(); unavailable = { code: 'SOURCE_UNAVAILABLE', reason: early }; refused = countedRefusal(response, early); break; }
     if (response.status === 404 || response.status === 410) { await response.body?.cancel(); failed.push({ sourceProductId: id, reason: 'page-not-found' }); continue; }
     // Redirects are not followed: the page read must be the page the sitemap named.
     if (response.status >= 300 && response.status < 400) { await response.body?.cancel(); failed.push({ sourceProductId: id, reason: 'page-redirected' }); continue; }
@@ -413,12 +346,12 @@ export async function acquireCardRushMemberPrices(ctx: IngestContext, input: {
       break;
     }
     if (!bytes) { failed.push({ sourceProductId: id, reason: 'page-too-large' }); continue; }
-    const challenge = refusal(response, pageHead(bytes));
-    if (challenge) { unavailable = { code: 'SOURCE_UNAVAILABLE', reason: challenge }; break; }
+    const challenge = pageRefusal(response, pageHead(bytes));
+    if (challenge) { unavailable = { code: 'SOURCE_UNAVAILABLE', reason: challenge }; refused = countedRefusal(response, challenge); break; }
     pages.push({ url, bytes, retrievedAt });
   }
   const parsed = parseCardRushMemberPrices(pages);
   parsed.quarantine.push(...failed);
   parsed.sourceRows += failed.length;
-  return { host, game, sitemapProducts: productUrls.length, robotsDisallowed: productUrls.length - permitted.length, requested, unavailable, parsed };
+  return { host, game, sitemapProducts: productUrls.length, robotsDisallowed: productUrls.length - permitted.length, requested, unavailable, refused, parsed };
 }
