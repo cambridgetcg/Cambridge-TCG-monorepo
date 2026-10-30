@@ -88,7 +88,7 @@ const site = (url: string): Answer => {
 describe("ingest-official-ja", () => {
   it("does nothing without --game: usage, exit 2, no lock, no request [C24]", async () => {
     const h = harness(site);
-    for (const argv of [[], ["--apply"], ["--game", "op", "--series", "550001"], ["--game", "op", "--bogus"], ["--game", "op", "--no-ssl", "--ca-file", "x.pem"]]) {
+    for (const argv of [[], ["--apply"], ["--game", "op", "--series", "550099"], ["--game", "op", "--bogus"], ["--game", "op", "--no-ssl", "--ca-file", "x.pem"]]) {
       expect(await runIngest(argv, h.deps)).toBe(2);
     }
     expect(h.fetch).not.toHaveBeenCalled();
