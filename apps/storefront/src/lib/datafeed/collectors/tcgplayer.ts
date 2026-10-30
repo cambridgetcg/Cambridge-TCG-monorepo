@@ -74,9 +74,44 @@ const REVOKED = 'member-price-source-revoked-or-unreviewed';
 const ROBOTS_REFUSAL: HostRefusal = { status: null, retryAfter: null };
 const released = (date: string | null) => (date ? Date.parse(date) : NaN) || 0;
 
+/** A line's turn: its sets not yet taken this run, stalest first. The run
+ * takes the turn's set with `sets.shift()`, and every turn takes at least one
+ * (a line that can read nothing this run is emptied), so the turns end. */
+export interface TcgplayerTurn { line: TcgplayerProductLine; sets: TcgplayerSet[] }
+
+/** The lines take turns, one set a turn. Each round gives every line with
+ * sets left one turn, the line whose next set is the stalest first; within a
+ * line, sets go stalest first (never read, then longest ago; newest release
+ * first among equals). So a line with many sets, or many never read, has its
+ * own share of a run and never another line's. One queue across all lines
+ * put every never-read set first: switching on Pokemon's 220 sets would have
+ * read nothing else for the first dozen or so runs, as one global queue
+ * starved One Piece in the wholesale ingest (price-snapshot-v2.ts,
+ * 2026-07-05). The cost is that each line is read through at a pace set by
+ * its own size: a run of 16 sets gives each of three lines 5 or 6 (the spare
+ * turn goes to the line whose next set is stalest), so a line of n sets is
+ * read through in about n/5 runs.
+ */
+export function* tcgplayerTurns(candidates: readonly { line: TcgplayerProductLine; set: TcgplayerSet }[], lastRead: ReadonlyMap<number, number>): Generator<TcgplayerTurn> {
+  const age = (set: TcgplayerSet) => lastRead.get(set.setId) ?? -Infinity;
+  const stalest = (a: TcgplayerSet, b: TcgplayerSet) => (age(a) - age(b)) || (released(b.releaseDate) - released(a.releaseDate)) || (a.setId - b.setId);
+  const turns = new Map<string, TcgplayerTurn>();
+  for (const { line, set } of candidates) {
+    const turn = turns.get(line.slug) ?? { line, sets: [] };
+    turns.set(line.slug, turn);
+    turn.sets.push(set);
+  }
+  for (const turn of turns.values()) turn.sets.sort(stalest);
+  while (true) {
+    const round = [...turns.values()].filter(turn => turn.sets.length).sort((a, b) => stalest(a.sets[0]!, b.sets[0]!));
+    if (!round.length) return;
+    for (const turn of round) if (turn.sets.length) yield turn;
+  }
+}
+
 /** One run: read every TCGplayer host's robots.txt (readTcgplayerRobots),
- * list the configured lines' sets, then read them stalest first (never read,
- * then longest ago; newest release first among equals), one request at a
+ * list the configured lines' sets, then read them with the lines taking
+ * turns (tcgplayerTurns), each line's stalest first, one request at a
  * time, until every set is read or the budget is spent. Each set
  * is one batch named tcgplayer:<setId>:<run>, which is how the next run knows
  * its age, and its crosswalks go through the crosswalk writers. A refusal ends
@@ -84,11 +119,11 @@ const released = (date: string | null) => (date ? Date.parse(date) : NaN) || 0;
  * A set whose read or write fails is recorded as read, with an empty batch
  * whose quarantine names the failure: no observation is invented, and the next
  * run moves on to other sets instead of starting with it forever. A set
- * robots.txt disallows is skipped unasked and unrecorded: it costs no request,
- * so it starves no other set, and leaves no empty batch in the append-only
- * store; robots.txt that leaves no listed set, or a Crawl-delay that leaves
- * the budget no set, refuses the run. The budget's timeout cutting a request
- * short is a budget stop, not that set's failure.
+ * robots.txt disallows is skipped unasked and unrecorded: it costs no request
+ * and no turn, so it starves no other set, and leaves no empty batch in the
+ * append-only store; robots.txt that leaves no listed set, or a Crawl-delay
+ * that leaves the budget no set, refuses the run. The budget's timeout cutting
+ * a request short is a budget stop, not that set's failure.
  * Every TCGplayer host shares one bucket, so one lease ('tcgplayer', migration
  * 0143) covers the run from before its first request to its last write, and
  * keeps the next run's first request the run's interval after it ends. Under
@@ -118,7 +153,7 @@ export async function collectTcgplayer(options: TcgplayerCollectorOptions = {}):
   return leased.ran ? leased.value : { ...leased, runAt: run.runAt, requests: 0 };
 }
 
-/** One leased run: robots.txt, then the lines' sets, stalest first. */
+/** One leased run: robots.txt, then the lines' sets, the lines taking turns. */
 async function readSets(run: TcgplayerRun, options: TcgplayerCollectorOptions & {
   now: () => number; runQuery: typeof query; runTransaction: typeof transaction; started: number; deadline: number;
 }): Promise<TcgplayerRun | TcgplayerRunRefused> {
@@ -166,12 +201,11 @@ async function readSets(run: TcgplayerRun, options: TcgplayerCollectorOptions & 
       catch (error) { if (error instanceof TcgplayerUnavailableError || aborted(error)) throw error; run.errors.push({ line: line.slug, error: message(error) }); }
     }
     run.setsListed = candidates.length;
-    const age = (set: TcgplayerSet) => lastRead.get(set.setId) ?? -Infinity;
-    candidates.sort((a, b) => (age(a.set) - age(b.set)) || (released(b.set.releaseDate) - released(a.set.releaseDate)) || (a.set.setId - b.set.setId));
 
     const productTypes = new Map<string, number | null>();
     let disallowed: string | null = null;
-    for (const { line, set } of candidates) {
+    for (const turn of tcgplayerTurns(candidates, lastRead)) {
+      const { line } = turn;
       if (left() < reserve()) { run.stoppedBy = 'budget'; break; }
       if (!productTypes.has(line.slug)) {
         try { productTypes.set(line.slug, await fetchTcgplayerCardsProductType(fetcher, TCGPLAYER_EVIDENCE_VERSION, line)); }
@@ -179,9 +213,13 @@ async function readSets(run: TcgplayerRun, options: TcgplayerCollectorOptions & 
         if (left() < reserve()) { run.stoppedBy = 'budget'; break; }
       }
       const productTypeId = productTypes.get(line.slug);
-      if (productTypeId == null) continue;
-      const refused = tcgplayerSetDisallowed(fetcher, { line, set, productTypeId });
-      if (refused) { run.robotsDisallowed++; disallowed ??= refused; continue; }
+      // A line without its product type reads nothing this run.
+      if (productTypeId == null) { turn.sets.length = 0; continue; }
+      // A set robots.txt disallows costs no request and no turn: the line's
+      // next set takes the turn.
+      let set: TcgplayerSet | undefined, refused: string | null = null;
+      while ((set = turn.sets.shift()) && (refused = tcgplayerSetDisallowed(fetcher, { line, set, productTypeId }))) { run.robotsDisallowed++; disallowed ??= refused; }
+      if (!set) continue;
       let guide: Awaited<ReturnType<typeof acquireTcgplayerPriceGuide>>;
       try { guide = await acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line, set, productTypeId }); }
       catch (error) { if (error instanceof TcgplayerUnavailableError || aborted(error)) throw error; await recordFailure(line, set, error); continue; }

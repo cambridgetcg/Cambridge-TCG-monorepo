@@ -4,7 +4,7 @@ import type { Fetcher } from '@cambridge-tcg/data-ingest/http';
 import { TCGPLAYER_PRODUCT_LINES } from '@cambridge-tcg/data-ingest/tcgplayer/member-prices';
 import { writeMemberPriceBatch } from '../member-price-writer';
 import { writeProductCrosswalk, writeSetCrosswalk } from '../crosswalks';
-import { collectTcgplayer, TCGPLAYER_RUN_BUDGET_MS } from './tcgplayer';
+import { collectTcgplayer, tcgplayerTurns, TCGPLAYER_RUN_BUDGET_MS } from './tcgplayer';
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/db', () => ({ query: vi.fn(), transaction: vi.fn() }));
@@ -30,13 +30,14 @@ function source(clock: { at: number }, step: number, answer: (url: string) => Re
     if (given) return given;
     // No robots.txt on any host: no rule, the recorded 10 s.
     if (url.endsWith('/robots.txt')) return new Response('', { status: 404 });
-    if (url.includes('SetNames')) return json(fixture('set-names-68.json'));
-    if (url.includes('ProductTypes')) return json(fixture('product-types-68.json'));
-    return json(url.includes('/set/3188/') ? fixture('price-guide-3188-op01.json') : { count: 0, total: 0, result: [] });
+    // Each line's own trimmed set list and product types.
+    const category = /SetNames\?categoryId=(\d+)&active=true$/.exec(url)?.[1] ?? /ProductTypes\/(\d+)\/$/.exec(url)?.[1];
+    if (category) return json(fixture(url.includes('SetNames') ? `set-names-${category}.json` : `product-types-${category}.json`));
+    return json(url.includes('/set/3188/') ? fixture('price-guide-3188-op01.json') : url.includes('/set/24448/') ? fixture('price-guide-24448-pfl.json') : { count: 0, total: 0, result: [] });
   });
   return Object.defineProperties(f, { count: { get: () => urls.length }, via_proxy: { value: null }, via_proxy_label: { value: null }, urls: { value: urls } }) as unknown as Fetcher & { urls: string[] };
 }
-const guide = (setId: number) => `https://infinite-api.tcgplayer.com/priceguide/set/${setId}/cards/?rows=5000&productTypeID=110`;
+const guide = (setId: number, productTypeId = 110) => `https://infinite-api.tcgplayer.com/priceguide/set/${setId}/cards/?rows=5000&productTypeID=${productTypeId}`;
 const ROBOTS = ['https://www.tcgplayer.com/robots.txt', 'https://mpapi.tcgplayer.com/robots.txt', 'https://infinite-api.tcgplayer.com/robots.txt'];
 const hostRow = (host: string, fields: Partial<CollectorHostRow>): CollectorHostRow => ({ host, consecutiveRefusals: 0, lastSuccessAt: null, lastRefusalAt: null, lastRefusalReason: null, notBefore: null, suspendedAt: null, suspendedReason: null, ...fields });
 const released = vi.fn(async (sql: string) => ({
@@ -275,5 +276,134 @@ describe('TCGplayer collector run', () => {
     expect(hostState.read.mock.calls[0]!.slice(0, 2)).toEqual(['tcgplayer', ROBOTS.map(url => new URL(url).hostname)]);
     expect(fetcher.urls).toEqual([]);
     expect(writeMemberPriceBatch).not.toHaveBeenCalled(); expect(hostState.record).not.toHaveBeenCalled();
+  });
+});
+
+describe('TCGplayer lines take turns', () => {
+  const collected = TCGPLAYER_PRODUCT_LINES.filter(line => line.collect);
+  const slugOf = (setId: number) => setId === 3188 || setId === 3189 || setId === 17659 || setId === 17675 || setId === 24537 || setId === 24664 ? 'one-piece-card-game'
+    : setId === 23598 || setId === 23599 || setId === 24172 ? 'pokemon-japan' : 'pokemon';
+  /** One Piece's and Pokemon Japan's trimmed sets were read before, in list order; no Pokemon set has been. */
+  const readBefore = vi.fn(async (sql: string) => ({
+    rows: sql.includes('member_price_source_releases') ? [{ source: 'tcgplayer' }]
+      : [[3188, 1_000], [3189, 1_001], [17659, 1_002], [17675, 1_003], [24537, 1_004], [24664, 1_005], [23598, 2_000], [23599, 2_001], [24172, 2_002]].map(([setId, at]) => ({ set_id: String(setId), last_read: at })),
+    rowCount: 1,
+  }));
+  const LISTS = [68, 3, 85].map(category => `https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=${category}&active=true`);
+  const types = (category: number) => `https://mpapi.tcgplayer.com/v2/Product/ProductTypes/${category}/`;
+
+  it('gives every line one set a turn, the line whose next set is stalest first', async () => {
+    const clock = { at: Date.parse('2026-10-30T18:45:00.000Z') };
+    const fetcher = source(clock, 10_000);
+    const run = await collect({ fetcher, now: () => clock.at, runQuery: readBefore as never, lines: collected });
+    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'all-sets-read', setsListed: 14, requests: 23, errors: [] });
+    expect(fetcher.urls).toEqual([
+      ...ROBOTS, ...LISTS,
+      // Round 1: Pokemon's never-read sets are the stalest, newest release first (ME06, due 2026-11-06).
+      types(3), guide(24831, 1), types(68), guide(3188), types(85), guide(23598, 143),
+      guide(24529, 1), guide(3189), guide(23599, 143),
+      guide(24448, 1), guide(17659), guide(24172, 143),
+      // Pokemon Japan's three are read; the other two lines go on taking turns.
+      guide(604, 1), guide(17675),
+      // Nintendo Promos has no release date, so it is the last of the never-read.
+      guide(1423, 1), guide(24537),
+      guide(24664),
+    ]);
+    // Phantasmal Flames: its 25 rows observed, none mapped (slash numbers name no set).
+    expect(run.sets.find(set => set.setId === 24448)).toMatchObject({ line: 'pokemon', sourceRows: 25, observations: 25, mapped: 0, setCode: null, productCrosswalks: 0 });
+    expect(run.sets.filter(set => set.line === 'pokemon').map(set => set.mapped)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('never lets one line\'s backlog take another line\'s turns: 40 never-read Pokemon sets leave the other two their share', async () => {
+    const backlog = { errors: [], results: Array.from({ length: 40 }, (_, index) => ({
+      setNameId: 990_000 + index, categoryId: 3, name: `Synthetic ${index}`, cleanSetName: `Synthetic ${index}`, urlName: `synthetic-${index}`, abbreviation: `SY${index}`,
+      releaseDate: `20${String(10 + (index % 16)).padStart(2, '0')}-0${1 + (index % 9)}-01T00:00:00`, isSupplemental: false, active: true,
+    })) };
+    const clock = { at: Date.parse('2026-10-30T18:45:00.000Z') };
+    const fetcher = source(clock, 10_000, url => url === LISTS[1] ? json(backlog) : undefined);
+    const run = await collect({ fetcher, now: () => clock.at, runQuery: readBefore as never, lines: collected });
+    // 25 requests in the 270 s: robots.txt, three lists, three product types and 16 sets.
+    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'budget', setsListed: 49, requests: 25 });
+    const read = (slug: string) => run.sets.filter(set => set.line === slug).map(set => set.setId);
+    // One queue for every line spent this whole run on never-read Pokemon sets: none of these.
+    expect(read('one-piece-card-game')).toEqual([3188, 3189, 17659, 17675, 24537, 24664]);
+    expect(read('pokemon-japan')).toEqual([23598, 23599, 24172]);
+    expect(read('pokemon')).toHaveLength(7);
+    expect(run.sets.map(set => set.line).slice(0, 9)).toEqual(Array(3).fill(['pokemon', 'one-piece-card-game', 'pokemon-japan']).flat());
+  });
+
+  it('spends no turn on a set robots.txt disallows: the line\'s next set takes it', async () => {
+    const clock = { at: Date.parse('2026-10-30T18:45:00.000Z') };
+    const fetcher = source(clock, 10_000, url => url === ROBOTS[0] ? new Response('User-agent: *\nCrawl-delay: 10\nDisallow: /categories/trading-and-collectible-card-games/pokemon/price-guides/me06-delta-reign\n', { status: 200 }) : undefined);
+    const run = await collect({ fetcher, now: () => clock.at, runQuery: readBefore as never, lines: collected });
+    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'all-sets-read', robotsDisallowed: 1, errors: [] });
+    expect(fetcher.urls).not.toContain(guide(24831, 1));
+    expect(run.sets.slice(0, 3).map(set => set.setId)).toEqual([24529, 3188, 23598]);
+    expect(vi.mocked(writeMemberPriceBatch).mock.calls.map(call => call[3]?.ingestKey)).not.toContain(`tcgplayer:24831:${run.runAt}`);
+  });
+
+  it('lets the other lines keep their turns when one line\'s product types fail', async () => {
+    const clock = { at: Date.parse('2026-10-30T18:45:00.000Z') };
+    const fetcher = source(clock, 10_000, url => url === types(3) ? json({ errors: [], results: [] }) : undefined);
+    const run = await collect({ fetcher, now: () => clock.at, runQuery: readBefore as never, lines: collected });
+    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'all-sets-read', errors: [{ line: 'pokemon', error: 'tcgplayer-cards-product-type-missing' }] });
+    expect(run.sets.map(set => set.setId)).toEqual([3188, 23598, 3189, 23599, 17659, 24172, 17675, 24537, 24664]);
+    // Pokemon's sets are not asked for, and not recorded as read: the next run tries them first again.
+    expect(fetcher.urls.filter(url => url.endsWith('productTypeID=1'))).toEqual([]);
+    expect(vi.mocked(writeMemberPriceBatch).mock.calls.map(call => slugOf(Number(call[3]!.ingestKey!.split(':')[1])))).not.toContain('pokemon');
+  });
+});
+
+describe('tcgplayerTurns at the lines\' listed sizes', () => {
+  const [onePieceLine, pokemonLine, japanLine] = ['one-piece-card-game', 'pokemon', 'pokemon-japan'].map(slug => TCGPLAYER_PRODUCT_LINES.find(line => line.slug === slug)!);
+  // The sizes the set lists answered: 87 and 461 sets on 2026-10-28, 220 on 2026-10-30.
+  const sizes = [[onePieceLine, 87, 100_000], [pokemonLine, 220, 300_000], [japanLine, 461, 200_000]] as const;
+  const candidates = sizes.flatMap(([line, count, base]) => Array.from({ length: count }, (_, index) => ({
+    line, set: { setId: base + index, categoryId: line.categoryId, name: `S${index}`, abbreviation: `S${index}`, urlName: `s-${index}`, releaseDate: index % 7 ? `${2000 + (index % 26)}-06-01T00:00:00` : null },
+  })));
+  const lineOf = (setId: number) => setId >= 300_000 ? 'pokemon' : setId >= 200_000 ? 'pokemon-japan' : 'one-piece-card-game';
+  /** One run of `turns` turns, taking one set each, as the collector does. */
+  const runOnce = (lastRead: Map<number, number>, turns: number) => {
+    const taken: number[] = [];
+    for (const turn of tcgplayerTurns(candidates, lastRead)) {
+      taken.push(turn.sets.shift()!.setId);
+      if (taken.length === turns) break;
+    }
+    return taken;
+  };
+
+  it('gives each line its own share from the first run after a line of 220 never-read sets is switched on, and reads every set within its own line\'s pace', () => {
+    // One Piece and Pokemon Japan were read through over the last 30 runs; Pokemon never.
+    const lastRead = new Map<number, number>();
+    candidates.filter(({ line }) => line !== pokemonLine).forEach(({ set }, index) => lastRead.set(set.setId, -30 + Math.floor(index / 18)));
+    const reads = new Map<number, number[]>();
+    for (let run = 0; run < 300; run++) {
+      const taken = runOnce(lastRead, 16);
+      const share = { 'one-piece-card-game': 0, pokemon: 0, 'pokemon-japan': 0 } as Record<string, number>;
+      for (const setId of taken) { share[lineOf(setId)]!++; lastRead.set(setId, run); reads.set(setId, [...(reads.get(setId) ?? []), run]); }
+      // 16 turns over three lines: 5 each, and the spare one to the line whose next set is stalest.
+      expect(Object.values(share).sort()).toEqual([5, 5, 6]);
+    }
+    // Every Pokemon set was first read within 44 runs (220 / 5), not after the others waited.
+    expect(Math.max(...candidates.filter(({ line }) => line === pokemonLine).map(({ set }) => reads.get(set.setId)![0]!))).toBeLessThanOrEqual(44);
+    // From then on, the longest gap between two readings of one set, in runs (hours).
+    const longest = (slug: string) => Math.max(...candidates.filter(({ line }) => line.slug === slug).flatMap(({ set }) => {
+      const at = reads.get(set.setId)!.filter(run => run >= 100);
+      return at.slice(1).map((run, index) => run - at[index]!);
+    }));
+    expect(longest('one-piece-card-game')).toBeLessThanOrEqual(18);
+    expect(longest('pokemon')).toBeLessThanOrEqual(44);
+    expect(longest('pokemon-japan')).toBeLessThanOrEqual(93);
+  });
+
+  it('ends once every turn has taken its sets, and yields no line with none left', () => {
+    const few = candidates.filter(({ set }) => [100_000, 100_001, 300_000].includes(set.setId));
+    const seen: string[] = [];
+    for (const turn of tcgplayerTurns(few, new Map([[100_000, 5], [100_001, 6]]))) {
+      seen.push(turn.line.slug);
+      // A turn may take more than one set (robots.txt skips), or empty its line.
+      turn.sets.splice(0, turn.line === pokemonLine ? 1 : 2);
+    }
+    expect(seen).toEqual(['pokemon', 'one-piece-card-game']);
   });
 });

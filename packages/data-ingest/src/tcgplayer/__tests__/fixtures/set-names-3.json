@@ -1,0 +1,61 @@
+{
+ "_fixture": "Trimmed from https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=3&active=true, read 2026-10-30 by the identified collector. The listed rows are verbatim; the rest of its 220 are left out.",
+ "errors": [],
+ "results": [
+  {
+   "setNameId": 604,
+   "categoryId": 3,
+   "name": "Base Set",
+   "cleanSetName": "Base Set",
+   "urlName": "base-set",
+   "abbreviation": "BS",
+   "releaseDate": "1999-01-09T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 1423,
+   "categoryId": 3,
+   "name": "Nintendo Promos",
+   "cleanSetName": "Nintendo Promos",
+   "urlName": "nintendo-promos",
+   "abbreviation": "PR",
+   "releaseDate": null,
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 24448,
+   "categoryId": 3,
+   "name": "ME02: Phantasmal Flames",
+   "cleanSetName": "ME02 Phantasmal Flames",
+   "urlName": "me02-phantasmal-flames",
+   "abbreviation": "PFL",
+   "releaseDate": "2025-11-14T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 24529,
+   "categoryId": 3,
+   "name": "Player Placement Trainer Promos",
+   "cleanSetName": "Player Placement Trainer Promos",
+   "urlName": "player-placement-trainer-promos",
+   "abbreviation": "",
+   "releaseDate": "2026-01-02T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 24831,
+   "categoryId": 3,
+   "name": "ME06: Delta Reign",
+   "cleanSetName": "ME06 Delta Reign",
+   "urlName": "me06-delta-reign",
+   "abbreviation": "DLR",
+   "releaseDate": "2026-11-06T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  }
+ ]
+}

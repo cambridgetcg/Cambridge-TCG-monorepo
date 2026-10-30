@@ -60,17 +60,18 @@ export interface TcgplayerProductLine {
   conditionLanguage: string | null;
   collect: boolean;
 }
-/** 68 and 85, with their row labels, were read from TCGplayer on 2026-10-28.
- * 3, 1 and 2 come from the legacy category map and were not re-read, so none
- * is collected: a line is collected only once a probe has confirmed its
- * category id and the `game` label its rows carry (a row whose `game` differs
- * would be quarantined, never relabelled, but a wrong id would be read for
- * nothing). Pokemon (3) waits for that probe; Magic and Yu-Gi-Oh are listed
- * and off as well.
+/** 68 and 85, with their row labels, were read from TCGplayer on 2026-10-28,
+ * and 3 on 2026-10-30: its set list answered 220 sets of category 3, and
+ * ME02: Phantasmal Flames' guide 720 rows labelled `Pokemon`, with English
+ * grades. 1 and 2 come from the legacy category map and were not re-read, so
+ * neither is collected: a line is collected only once a probe has confirmed
+ * its category id and the `game` label its rows carry (a row whose `game`
+ * differs would be quarantined, never relabelled, but a wrong id would be
+ * read for nothing). Magic and Yu-Gi-Oh are listed and off.
  */
 export const TCGPLAYER_PRODUCT_LINES: readonly TcgplayerProductLine[] = [
   { slug: 'one-piece-card-game', categoryId: 68, gameLabel: 'One Piece Card Game', game: 'one-piece', language: 'en', conditionLanguage: null, collect: true },
-  { slug: 'pokemon', categoryId: 3, gameLabel: 'Pokemon', game: 'pokemon', language: 'en', conditionLanguage: null, collect: false },
+  { slug: 'pokemon', categoryId: 3, gameLabel: 'Pokemon', game: 'pokemon', language: 'en', conditionLanguage: null, collect: true },
   { slug: 'pokemon-japan', categoryId: 85, gameLabel: 'Pokemon Japan', game: 'pokemon', language: 'ja', conditionLanguage: 'Japanese', collect: true },
   { slug: 'magic', categoryId: 1, gameLabel: 'Magic', game: 'magic', language: 'en', conditionLanguage: null, collect: false },
   { slug: 'yugioh', categoryId: 2, gameLabel: 'YuGiOh', game: 'yu-gi-oh', language: 'en', conditionLanguage: null, collect: false },
