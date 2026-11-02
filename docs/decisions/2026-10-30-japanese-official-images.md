@@ -6,7 +6,7 @@ Yu's word, through the option they chose below. Everything under
 [The agents' reading](#the-agents-reading) is how agents built that choice;
 Yu overturns any of it by saying so. Two acts stay Yu's, each needing their
 word for that act: [collection and the upload](#what-still-needs-yus-word).
-Nothing here has run against Bandai, AWS or a production database.
+Both acts have since run on Yu's word ([runs](#runs)).
 
 **Recorded by:** Claude Code (a subagent of workflow session 8ef55b5e), on
 branch `claude/official-images-japanese`, from the lead's brief and the
@@ -208,6 +208,33 @@ scripts name no other S3 subcommand (`s3`, `sync`, `mv`, `rm`,
 `copy-object`, `delete-object(s)`, `put-object-acl`, multipart) and no
 `--endpoint-url`.
 
+## Runs
+
+Recorded by an agent (Claude Code session 8ef55b5e); times UTC.
+
+- **Yu's word, 2026-10-30, verbatim:** "1.go for it 2. signed in." The first
+  part answered collection, the second the upload. The upload ran under the
+  SSO profile Yu signed in with; D6 was set aside for that upload only.
+- **Collection.**
+  - 2026-10-30 15:41–15:47: 53 list pages, 24 One Piece series and 27
+    Fusion World categories, no refusal. 4,420 base rows inserted; 2,539
+    parallels skipped.
+  - 2026-11-02 12:38–12:41: 40 pages for the starter decks, family set,
+    limited and promotion cards added after CardRush's first run mapped only
+    starter-deck cards. 538 base rows inserted; 845 parallels skipped.
+- **Upload.** 2026-10-30 15:48 to 2026-11-02 13:54. The first 20 were checked
+  end to end before the rest. The run stopped cleanly three times: a local
+  network fault (EADDRNOTAVAIL), its orphaned database session (ended by
+  matching pid, start time and lock), and the SSO session expiring overnight.
+  It resumed each time with a fresh dry run and `--expect`. Final count: 4,958
+  objects (One Piece 2,896, Fusion World 2,062), each recorded with sha256,
+  width and height. No English row or object was touched (8,322 rows, 8,321
+  objects, unchanged).
+- **Coverage on `/prices`.** All 591 CardRush cards matched to a Japanese SKU
+  have a same-language official image.
+- **The Fusion World English check below,** run 2026-11-02: 0 images and 0 texts
+  hidden by the tightened check (3,751 English Fusion World images pass).
+
 ## What still needs Yu's word
 
 1. **Collection.** Running `ingest-official-ja.mjs` at all, dry run included,
@@ -224,7 +251,7 @@ fresh `--expect`. A host refusal (exit 4) ends collection until Yu decides;
 it is never retried. Deploying this code is a separate step for the lead.
 
 The read-only check for the Fusion World English tightening, for someone with
-database access (not run):
+database access (run 2026-11-02: both counts 0, see [Runs](#runs)):
 
 ```sql
 SELECT count(*) FROM card_images

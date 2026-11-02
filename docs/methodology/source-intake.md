@@ -229,7 +229,7 @@ Same basis and plan as CardRush above. Yu chose collection from TCGplayer pages 
 
 **Gate D — Partial, gated branch.** As CardRush: open for collection (the data the public price-guide pages load included, Yu's answer of 2026-10-29), member display with TCGplayer named (evidence `tcgplayer/2026-10-28.1`) and derivation input, where the headline metric is Market Price for Near Mint; never member API, download, bulk or a paid route. The legacy paths stay locked: `TCGPLAYER_ACQUISITION_ENABLED = false`, the OAuth reader and the wholesale `ingest/tcgplayer` cron. `pnpm audit:redistribution` (check 11) pins those locks and the collector as the only path.
 
-**Graduation, revocation, needs Yu:** as CardRush, with `DATA_COLLECT_TCGPLAYER`. The module is `partial` in code; nothing runs in production until migrations 0139, 0140 and 0143 (the collector lease, without which the route answers 503 and reads nothing) are applied and the flag is on; 0146, without which it runs with no backoff or suspension, goes with them. The cron is in `apps/storefront/vercel.json`.
+**Graduation, revocation, needs Yu:** as CardRush, with `DATA_COLLECT_TCGPLAYER`. The module is `partial` in code. Migrations 0139–0147 were applied and `DATA_COLLECT_TCGPLAYER` turned on on 2026-10-30; the first run read 17 sets at 10:47 UTC ([decision record](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#done-on-2026-10-30)). Before that, nothing ran in production: the route answers 503 without 0143's lease table, and runs with no backoff or suspension without 0146. The cron is in `apps/storefront/vercel.json`.
 
 ### Pokemon line (3), 2026-10-30
 
