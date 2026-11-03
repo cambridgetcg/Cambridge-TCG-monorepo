@@ -13,6 +13,7 @@ import {
 } from "@shopify/polaris-icons";
 
 import { CHANCE_MECHANICS_PAUSED } from "~/constants/chance-mechanics";
+import { FEATURES_AVAILABLE } from "~/constants/feature-availability";
 import { APP_ROUTES } from "./routes";
 
 export type NavigationMatch = {
@@ -99,18 +100,28 @@ export const SECTION_NAVIGATION = {
     item("Tier benefits", APP_ROUTES.MEMBERS.PRODUCTS, {
       icon: ProductIcon,
     }),
-    item("Gift cards", APP_ROUTES.MEMBERS.GIFT_CARDS, {
-      icon: GiftCardIcon,
-    }),
+    // Hidden until they work (constants/feature-availability.ts)
+    ...(FEATURES_AVAILABLE.giftCards
+      ? [
+          item("Gift cards", APP_ROUTES.MEMBERS.GIFT_CARDS, {
+            icon: GiftCardIcon,
+          }),
+        ]
+      : []),
   ],
   rewards: [
     item("Overview", APP_ROUTES.REWARDS.ROOT, {
       icon: ChartVerticalIcon,
       end: true,
     }),
-    item("Points setup", APP_ROUTES.REWARDS.CONFIG, {
-      icon: StarIcon,
-    }),
+    // Hidden until points can be spent (constants/feature-availability.ts)
+    ...(FEATURES_AVAILABLE.points
+      ? [
+          item("Points setup", APP_ROUTES.REWARDS.CONFIG, {
+            icon: StarIcon,
+          }),
+        ]
+      : []),
     item("Missions", APP_ROUTES.REWARDS.MISSIONS, {
       icon: TargetIcon,
     }),

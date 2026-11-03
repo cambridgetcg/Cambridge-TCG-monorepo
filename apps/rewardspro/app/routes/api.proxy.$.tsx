@@ -37,6 +37,7 @@ import {
   CHANCE_MECHANICS_PAUSED_STATUS,
   chanceMechanicsPausedResult,
 } from "../constants/chance-mechanics";
+import { FEATURES_AVAILABLE } from "../constants/feature-availability";
 
 /** Storefront actions that enter a draw or open a box (games of chance). */
 const CHANCE_PATHS = new Set(["raffles", "raffles/enter", "mystery-boxes/open"]);
@@ -443,7 +444,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       // ═══════════════════════════════════════════════════════════════════════
       // POINTS DATA - Fetch bonus events and redemption tiers if points enabled
       // ═══════════════════════════════════════════════════════════════════════
-      const pointsEnabled = row.points_enabled === true;
+      // Shoppers see no balance they can't spend (constants/feature-availability.ts)
+      const pointsEnabled = FEATURES_AVAILABLE.points && row.points_enabled === true;
       let pointsData = null;
 
       if (pointsEnabled) {

@@ -14,6 +14,7 @@ import {
   type AIAction,
   type AIContext,
 } from "~/services/anthropic.server";
+import { FEATURES_AVAILABLE } from "~/constants/feature-availability";
 
 // ============================================================================
 // REQUEST VALIDATION
@@ -75,6 +76,17 @@ export async function action({ request }: ActionFunctionArgs) {
       status: 401,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Off while its processor, AWS Bedrock, is gone (constants/feature-availability.ts)
+  if (!FEATURES_AVAILABLE.aiEmailAssistant) {
+    return new Response(
+      JSON.stringify({ error: "The AI writing assistant isn't available." }),
+      {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 
   // 2. Check if Anthropic is configured

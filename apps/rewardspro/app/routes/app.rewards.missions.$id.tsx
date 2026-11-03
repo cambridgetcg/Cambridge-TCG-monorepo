@@ -39,6 +39,7 @@ import {
   type MissionTemplate,
   type MissionCadence,
 } from "../constants/mission-templates";
+import { isMissionRewardAvailable } from "../constants/feature-availability";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -103,13 +104,16 @@ const OBJECTIVE_TYPES: { value: ChallengeObjectiveType; label: string }[] = [
   { value: "STREAK", label: "Purchase Streak" },
 ];
 
-const REWARD_TYPES: { value: ChallengeRewardType; label: string }[] = [
+const ALL_REWARD_TYPES: { value: ChallengeRewardType; label: string }[] = [
   { value: "POINTS", label: "Points" },
   { value: "STORE_CREDIT", label: "Store Credit" },
   { value: "DISCOUNT", label: "Discount Code" },
   { value: "TIER_UPGRADE", label: "Tier Upgrade" },
   { value: "CUSTOM", label: "Custom Reward" },
 ];
+
+// Only rewards a shopper can receive today (constants/feature-availability.ts)
+const REWARD_TYPES = ALL_REWARD_TYPES.filter((reward) => isMissionRewardAvailable(reward.value));
 
 const STATUS_CONFIG: Record<string, { label: string; tone: "info" | "success" | "warning" | "attention" | "critical" }> = {
   DRAFT: { label: "Draft", tone: "info" },
@@ -436,7 +440,7 @@ export default function ChallengeDetailPage() {
 
   // Reward modal state
   const [showRewardModal, setShowRewardModal] = useState(false);
-  const [rewardType, setRewardType] = useState<string>(data.challenge?.reward?.rewardType || "POINTS");
+  const [rewardType, setRewardType] = useState<string>(data.challenge?.reward?.rewardType || REWARD_TYPES[0].value);
   const [rewardDescription, setRewardDescription] = useState(data.challenge?.reward?.description || "");
   const [rewardAmount, setRewardAmount] = useState(
     (data.challenge?.reward?.rewardValue as any)?.amount?.toString() || "100"
@@ -674,8 +678,8 @@ export default function ChallengeDetailPage() {
             </Layout.Section>
           )}
 
-          {/* Template Selector (for new missions) */}
-          {data.isNew && data.templates && (
+          {/* Template Selector (for new missions with templates on offer) */}
+          {data.isNew && data.templates && Object.values(data.templates).some((list) => list.length > 0) && (
             <Layout.Section>
               <Card>
                 <BlockStack gap="400">
@@ -930,7 +934,7 @@ export default function ChallengeDetailPage() {
               label="Description"
               value={rewardDescription}
               onChange={setRewardDescription}
-              placeholder="e.g., Earn 500 bonus points!"
+              placeholder="e.g., A free gift with your next order"
               autoComplete="off"
             />
             {(rewardType === "POINTS" || rewardType === "STORE_CREDIT" || rewardType === "DISCOUNT") && (
