@@ -23,8 +23,7 @@ const ASSETS = path.resolve(
 );
 
 const WIDGETS: Array<{ file: string; scope: string }> = [
-  { file: "membership-widget.js", scope: "RewardsWidget" },
-  { file: "missions-widget.js", scope: "MissionsWidget" }
+  { file: "membership-widget.js", scope: "RewardsWidget" }
 ];
 
 describe("Storefront widgets — missing RPUtils guard", () => {

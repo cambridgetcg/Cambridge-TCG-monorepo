@@ -15,14 +15,18 @@ const read = (file: string) => fs.readFileSync(path.join(EXTENSION, file), "utf8
 const list = (dir: string) => fs.readdirSync(path.join(EXTENSION, dir));
 
 /**
- * Raffles and mystery boxes are paused (CHANCE_MECHANICS_PAUSED), and
- * gift cards need the write_gift_cards scope the app doesn't request, so
- * the theme editor must not offer their blocks.
+ * Raffles and mystery boxes are paused (CHANCE_MECHANICS_PAUSED), gift
+ * cards need the write_gift_cards scope the app doesn't request, and
+ * missions never switch on for shoppers (nothing sets
+ * PointsConfig.missionsEnabled, so the missions proxy always answers
+ * enabled: false). The theme editor must not offer their blocks.
  */
 const PAUSED = [
   { block: "raffles", assets: ["raffles.js", "raffles.css"] },
   { block: "mystery_boxes", assets: ["mystery-boxes-widget.js", "mystery-boxes-widget.css"] },
   { block: "gift_cards", assets: ["gift-cards.js", "gift-cards.css"] },
+  { block: "missions_widget", assets: ["missions-widget.js", "missions-widget.css"] },
+  { block: "missions_section", assets: ["missions-widget.js", "missions-widget.css"] },
 ];
 
 const ignored = () => {

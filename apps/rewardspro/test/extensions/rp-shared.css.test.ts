@@ -215,7 +215,6 @@ describe("widget JS renders use the coherent button system for retries", () => {
   // rp-missions-btn--secondary) — now they thread through .rp-btn so the
   // shape + focus ring + tap-target are identical everywhere.
   const ASSET_JS = [
-    ["missions-widget.js", /Try again/],
     ["membership-widget.js", /Try Again|Try again/],
   ] as const;
 
@@ -247,7 +246,6 @@ describe("widget CSS files — no longer redeclare shared tokens", () => {
   // consolidation regressed.
   const WIDGETS = [
     "membership-widget.css",
-    "missions-widget.css",
   ];
 
   for (const file of WIDGETS) {
@@ -286,7 +284,6 @@ describe("widget JS — number formatting routes through RP.format", () => {
   // through `RP.format.currency` and `RP.format.number`, which apply one
   // locale decision per page.
   const ASSET_JS = [
-    "missions-widget.js",
     "membership-widget.js",
   ];
 
@@ -330,7 +327,6 @@ describe("widget JS — copy voice is conversational, not technical", () => {
   // failure as "Failed to ...". These guards stop that voice from drifting
   // back into the other widgets during future changes.
   const ASSET_JS = [
-    "missions-widget.js",
     "membership-widget.js",
   ];
 
@@ -384,11 +380,9 @@ describe("widget CSS files — design rhythm budget", () => {
   // up; they should not go up without justification.
   const RADIUS_BUDGET: Record<string, number> = {
     "membership-widget.css": 12,
-    "missions-widget.css": 5,
   };
   const TRANSITION_BUDGET: Record<string, number> = {
     "membership-widget.css": 2,
-    "missions-widget.css": 3,
   };
 
   for (const [file, budget] of Object.entries(RADIUS_BUDGET)) {
@@ -456,7 +450,6 @@ describe("DESIGN.md — the principles document exists and covers the rules", ()
 describe("widget CSS files — no 9/10px font sizes (WCAG floor)", () => {
   const WIDGETS = [
     "membership-widget.css",
-    "missions-widget.css",
   ];
 
   for (const file of WIDGETS) {

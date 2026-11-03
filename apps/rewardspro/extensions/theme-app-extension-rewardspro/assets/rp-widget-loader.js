@@ -3,9 +3,7 @@
   'use strict';
 
   var ROOT_RULES = [
-    { selector: '#membership-widget-root', runtime: 'membership-widget.js' },
-    { selector: '#missions-widget-root', runtime: 'missions-widget.js' },
-    { selector: '.rp-missions-section-root', runtime: 'missions-widget.js' }
+    { selector: '#membership-widget-root', runtime: 'membership-widget.js' }
   ];
   var ROOT_SELECTOR = ROOT_RULES.map(function (rule) {
     return rule.selector + '[data-rp-utils-src][data-rp-widget-src]';

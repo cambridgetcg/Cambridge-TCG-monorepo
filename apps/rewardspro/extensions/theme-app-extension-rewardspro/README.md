@@ -1,7 +1,7 @@
 # RewardsPro Theme App Extension
 
-Storefront surface for the RewardsPro loyalty app. Injects three widgets into
-Shopify themes via app blocks and app embeds. **No build step** — assets
+Storefront surface for the RewardsPro loyalty app. Injects the membership
+widget into Shopify themes as an app embed. **No build step** — assets
 under `assets/` are hand-written vanilla JavaScript and CSS, loaded directly
 by Shopify when a merchant enables a block.
 
@@ -12,8 +12,7 @@ extensions/theme-app-extension-rewardspro/
 ├── assets/
 │   ├── rp-widget-loader.js         # SHARED — small visibility/ordering entry
 │   ├── rp-utils.js                 # SHARED — window.RPUtils (see below)
-│   ├── membership-widget.{js,css}  # Floating tier + store-credit badge
-│   └── missions-widget.{js,css}    # Missions overlay and section
+│   └── membership-widget.{js,css}  # Floating tier + store-credit badge
 ├── blocks/                         # Liquid templates (one per widget)
 ├── snippets/
 │   ├── rp_utils_loader.liquid      # Links shared widget-state styles
@@ -22,10 +21,12 @@ extensions/theme-app-extension-rewardspro/
 └── shopify.extension.toml          # Extension manifest
 ```
 
-The raffle, mystery-box and gift-card blocks were removed while those
-features are paused (raffles and boxes by `CHANCE_MECHANICS_PAUSED`, gift
-cards because the app doesn't request `write_gift_cards`). They are in git
-history if the features come back.
+The raffle, mystery-box, gift-card and missions blocks were removed while
+those features can't work in a storefront: raffles and boxes are paused by
+`CHANCE_MECHANICS_PAUSED`, gift cards need `write_gift_cards`, which the app
+doesn't request, and nothing switches missions on for shoppers
+(`PointsConfig.missionsEnabled` is never set). They are in git history if
+the features come back.
 
 ## Shared module — `assets/rp-utils.js` (`window.RPUtils`)
 
@@ -64,8 +65,7 @@ the Shopify theme editor without executing the asset twice.
 
 `assets/membership-widget.js` is the canonical consumer. It has no local
 sanitize/fetch/cache helpers — everything comes from `RP.*`. Use it as the
-template when porting `missions-widget.js` (it carries a `MIGRATION NOTE`
-comment pointing here).
+template for any new widget.
 
 ## Security model
 
@@ -73,8 +73,8 @@ comment pointing here).
   (`/apps/rewardspro/<widget>`). The backend verifies the HMAC signature and
   reads `logged_in_customer_id` from the signed URL — never from the POST
   body. See `app/routes/api.proxy.$.tsx` and `test/routes/api.proxy.auth.test.ts`.
-- **Idempotency**: State-changing POSTs (mission claims) send an
-  `Idempotency-Key` header.
+- **Idempotency**: The proxy's state-changing POSTs (mission claims)
+  require an `Idempotency-Key` header.
   Server dedupes via Vercel KV (`SET NX EX 120`) so double-clicks, network
   retries, and replays are safe.
 - **Cache keys**: Always include the customer ID so a shared device can't
@@ -106,8 +106,7 @@ hits, fetch URLs, retries, and render branches.
 ## Enabling in a theme
 
 1. Online Store → Themes → Customize.
-2. Theme settings → App embeds (membership and missions widgets), or add
-   the missions section to a page template.
+2. Theme settings → App embeds (the membership widget).
 3. Toggle the RewardsPro block on and configure settings.
 4. Save.
 

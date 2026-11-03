@@ -11,11 +11,3 @@ handle = "rewardspro-theme-extension"
 target = "body"
 module = "./blocks/membership_widget.liquid"
 
-[[extensions.targeting]]
-target = "body"
-module = "./blocks/missions_widget.liquid"
-
-[[extensions.targeting]]
-target = "section"
-module = "./blocks/missions_section.liquid"
-

@@ -15,8 +15,6 @@ const LOADER_SOURCE = fs.readFileSync(LOADER_PATH, "utf-8");
 
 const BLOCK_RUNTIMES: Record<string, string> = {
   "membership_widget.liquid": "membership-widget.js",
-  "missions_section.liquid": "missions-widget.js",
-  "missions_widget.liquid": "missions-widget.js",
 };
 
 type MockObserver = {
@@ -187,9 +185,9 @@ afterEach(() => {
 
 describe("rp-widget-loader", () => {
   const ROOT = `
-    <div class="rp-missions-section-root"
+    <div id="membership-widget-root"
       data-rp-utils-src="/assets/rp-utils.js"
-      data-rp-widget-src="/assets/missions-widget.js"></div>`;
+      data-rp-widget-src="/assets/membership-widget.js"></div>`;
 
   it("waits for visibility and ordered-loads RPUtils before the widget runtime", async () => {
     const harness = createHarness(ROOT);
@@ -210,7 +208,7 @@ describe("rp-widget-loader", () => {
 
     expect(harness.scripts().map((script) => script.src)).toEqual([
       "https://shop.example/assets/rp-utils.js",
-      "https://shop.example/assets/missions-widget.js",
+      "https://shop.example/assets/membership-widget.js",
     ]);
 
     dispatchScriptEvent(harness.dom, harness.scripts()[1], "load");
@@ -222,14 +220,14 @@ describe("rp-widget-loader", () => {
 
   it("deduplicates equivalent utility and runtime URLs across roots", async () => {
     const harness = createHarness(`
-      <div id="first" class="rp-missions-section-root"
+      <div id="membership-widget-root"
         data-rp-utils-src="/assets/rp-utils.js"
-        data-rp-widget-src="/assets/missions-widget.js"></div>
-      <div id="second" class="rp-missions-section-root"
+        data-rp-widget-src="/assets/membership-widget.js"></div>
+      <div id="membership-widget-root" data-second
         data-rp-utils-src="https://shop.example/assets/rp-utils.js"
-        data-rp-widget-src="https://shop.example/assets/missions-widget.js"></div>
+        data-rp-widget-src="https://shop.example/assets/membership-widget.js"></div>
     `);
-    const second = harness.document.getElementById("second") as HTMLElement;
+    const second = harness.document.querySelector("[data-second]") as HTMLElement;
 
     harness.observer?.trigger(harness.root);
     harness.observer?.trigger(second);
@@ -246,7 +244,7 @@ describe("rp-widget-loader", () => {
     expect(harness.root.dataset.rpLoaderState).toBe("ready");
     expect(second.dataset.rpLoaderState).toBe("ready");
     expect(harness.scripts().filter((script) =>
-      script.src.endsWith("/assets/missions-widget.js")
+      script.src.endsWith("/assets/membership-widget.js")
     )).toHaveLength(1);
   });
 
@@ -298,9 +296,9 @@ describe("rp-widget-loader", () => {
     await flush();
 
     const inserted = harness.document.createElement("div");
-    inserted.className = "rp-missions-section-root";
+    inserted.id = "membership-widget-root";
     inserted.dataset.rpUtilsSrc = "/assets/rp-utils.js";
-    inserted.dataset.rpWidgetSrc = "/assets/missions-widget.js";
+    inserted.dataset.rpWidgetSrc = "/assets/membership-widget.js";
     const ready = vi.fn();
     inserted.addEventListener("rewardspro:widget-ready", ready);
     harness.document.body.appendChild(inserted);
@@ -321,9 +319,9 @@ describe("rp-widget-loader", () => {
   it("rejects untrusted origins and runtime filenames without appending scripts", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     const external = createHarness(`
-      <div class="rp-missions-section-root"
+      <div id="membership-widget-root"
         data-rp-utils-src="https://evil.example/rp-utils.js"
-        data-rp-widget-src="https://evil.example/missions-widget.js"></div>
+        data-rp-widget-src="https://evil.example/membership-widget.js"></div>
     `, { intersectionObserver: false });
     await flush();
 
@@ -332,9 +330,9 @@ describe("rp-widget-loader", () => {
     expect(external.root.querySelector("[data-rp-loader-retry]")).not.toBeNull();
 
     const wrongRuntime = createHarness(`
-      <div class="rp-missions-section-root"
+      <div id="membership-widget-root"
         data-rp-utils-src="/assets/rp-utils.js"
-        data-rp-widget-src="/assets/membership-widget.js"></div>
+        data-rp-widget-src="/assets/other-widget.js"></div>
     `);
     markUtilsReady(wrongRuntime.dom);
     wrongRuntime.observer?.trigger(wrongRuntime.root);
@@ -366,44 +364,21 @@ describe("rp-widget-loader", () => {
 });
 
 describe("runtime bootstrap lifecycle", () => {
-  it("initializes interactive missions roots without replacing the server-rendered guest section", async () => {
-    const dom = new JSDOM(`<!doctype html><body>
-      <div id="missions-widget-root" class="rp-missions-root" data-state="guest"></div>
-      <div class="rp-missions-section-root" data-state="authenticated" data-inline="true"></div>
-      <div class="rp-missions-section-root" data-state="guest" data-inline="true">
-        <div id="guest-preview">Localized mission preview</div>
-        <a href="/en/account/login">Market-aware sign in</a>
-      </div>
-    </body>`, { runScripts: "outside-only", url: "https://shop.example" });
+  it("initializes a membership root inserted after the runtime has loaded, once", async () => {
+    const dom = new JSDOM("<!doctype html><body></body>", {
+      runScripts: "outside-only",
+      url: "https://shop.example",
+    });
     openDoms.push(dom);
     installRuntimeStub(dom);
 
-    dom.window.eval(fs.readFileSync(path.join(ASSETS, "missions-widget.js"), "utf-8"));
-    dom.window.document.dispatchEvent(new dom.window.Event("DOMContentLoaded"));
+    dom.window.eval(fs.readFileSync(path.join(ASSETS, "membership-widget.js"), "utf-8"));
     await flush();
 
-    const initialRoots = Array.from(
-      dom.window.document.querySelectorAll<HTMLElement>(
-        "#missions-widget-root, .rp-missions-section-root"
-      )
-    );
-    expect(initialRoots).toHaveLength(3);
-    initialRoots.slice(0, 2).forEach((root) => {
-      expect(root.dataset.initialized).toBe("true");
-      expect(root.querySelector(".rp-missions-widget")).not.toBeNull();
-    });
-    expect(initialRoots[2].dataset.initialized).toBeUndefined();
-    expect(initialRoots[2].querySelector("#guest-preview")?.textContent).toBe(
-      "Localized mission preview"
-    );
-    expect(initialRoots[2].querySelector("a")?.getAttribute("href")).toBe(
-      "/en/account/login"
-    );
-
     const inserted = dom.window.document.createElement("div");
-    inserted.className = "rp-missions-section-root";
-    inserted.dataset.state = "authenticated";
-    inserted.dataset.inline = "true";
+    inserted.id = "membership-widget-root";
+    inserted.dataset.state = "guest";
+    inserted.dataset.message = "Join our rewards program!";
     dom.window.document.body.appendChild(inserted);
     inserted.dispatchEvent(new dom.window.CustomEvent("rewardspro:widget-ready", {
       bubbles: true,
@@ -411,7 +386,7 @@ describe("runtime bootstrap lifecycle", () => {
     await flush();
 
     expect(inserted.dataset.initialized).toBe("true");
-    expect(inserted.querySelector(".rp-missions-widget")).not.toBeNull();
+    expect(inserted.textContent).toContain("Join our rewards program!");
 
     inserted.innerHTML = '<span id="sentinel">unchanged</span>';
     inserted.dispatchEvent(new dom.window.CustomEvent("rewardspro:widget-ready", {
