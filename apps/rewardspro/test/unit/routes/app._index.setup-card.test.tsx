@@ -1,15 +1,19 @@
+// @vitest-environment jsdom
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AppProvider } from "@shopify/polaris";
 import en from "@shopify/polaris/locales/en.json";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // The dashboard is rendered for real below; only its server-side neighbours are stubbed.
-const remix = vi.hoisted(() => ({ loaderData: {} as Record<string, unknown> }));
+// Every fetcher shares one submit, so a test sees what the page posts.
+const remix = vi.hoisted(() => ({ loaderData: {} as Record<string, unknown>, submit: vi.fn() }));
 vi.mock("@remix-run/react", () => ({
   useLoaderData: () => remix.loaderData,
   useNavigate: () => vi.fn(),
-  useFetcher: () => ({ submit: vi.fn(), state: "idle", data: undefined }),
+  useFetcher: () => ({ submit: remix.submit, state: "idle", data: undefined }),
   useRouteError: () => undefined,
   isRouteErrorResponse: () => false,
 }));
@@ -83,5 +87,38 @@ describe("dashboard first-run setup card", () => {
   it("hides once every step is done", () => {
     const html = dashboardHtml(dashboardData({ hasTier: true, widgetOn: true }, true));
     expect(html).not.toContain(SETUP_TITLE);
+  });
+});
+
+describe("dashboard first-run setup card, clicked", () => {
+  beforeEach(() => {
+    remix.loaderData = dashboardData({});
+  });
+
+  function renderDashboard() {
+    render(createElement(AppProvider, { i18n: en }, createElement(Dashboard)));
+  }
+
+  it("Dismiss hides the card and saves it, so it stays hidden after a reload", async () => {
+    renderDashboard();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Dismiss" }));
+
+    expect(remix.submit).toHaveBeenCalledWith({}, { method: "POST", action: "/api/dismiss-customer-account-block" });
+    expect(screen.queryByText(SETUP_TITLE)).not.toBeInTheDocument();
+  });
+
+  it("Turn on switches automatic cashback on and marks that step Done at once", async () => {
+    renderDashboard();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Turn on" }));
+
+    const form = remix.submit.mock.calls[0][0] as FormData;
+    expect(form.get("feature")).toBe("autoCashbackProcessingEnabled");
+    expect(form.get("enabled")).toBe("true");
+    expect(screen.queryByRole("button", { name: "Turn on" })).not.toBeInTheDocument();
+    const cashbackStep = screen.getByText("Turn on automatic cashback").closest(".Polaris-InlineStack");
+    expect(cashbackStep?.textContent).toContain("Done");
+    expect(screen.getByText(SETUP_TITLE)).toBeInTheDocument();
   });
 });

@@ -5,10 +5,14 @@
  * nothing to Shopify until automatic cashback is on; shoppers see nothing
  * until the widget's app embed is on in the theme. Each step links to where
  * it is done and shows Done once it is.
+ *
+ * The card hides once the steps are done or it is dismissed, so a warning a
+ * set-up shop still needs (such as legacy customer accounts, where shoppers
+ * cannot spend store credit) belongs in its own banner, not in this card.
  */
 
 import { Badge, BlockStack, Button, Card, Divider, InlineStack, Text } from "@shopify/polaris";
-import { Fragment, type ReactNode } from "react";
+import { Fragment } from "react";
 
 export interface FirstRunSetupState {
   hasTier: boolean;
@@ -22,8 +26,6 @@ export interface FirstRunSetupCardProps extends FirstRunSetupState {
   onCreateTier: () => void;
   onTurnOnCashback: () => void;
   onDismiss: () => void;
-  /** Shop-specific warnings shown above the steps */
-  notices?: ReactNode;
 }
 
 export function shouldShowFirstRunSetup(state: FirstRunSetupState, dismissed: boolean): boolean {
@@ -38,7 +40,6 @@ export function FirstRunSetupCard({
   onCreateTier,
   onTurnOnCashback,
   onDismiss,
-  notices,
 }: FirstRunSetupCardProps) {
   const steps = [
     {
@@ -84,8 +85,6 @@ export function FirstRunSetupCard({
             Dismiss
           </Button>
         </InlineStack>
-
-        {notices}
 
         {steps.map((step) => (
           <Fragment key={step.title}>

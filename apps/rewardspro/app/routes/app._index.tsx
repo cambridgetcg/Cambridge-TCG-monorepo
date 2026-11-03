@@ -427,17 +427,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Uses in-memory caching (5 min TTL) to prevent excessive API calls
     let widgetDetectionResult = {
       isEnabled: false,
+      membershipWidgetEnabled: false,
       blockType: 'none' as 'app_embed' | 'section' | 'none',
       themeName: null as string | null,
       lastChecked: new Date(),
     };
+    const setupCardDismissed = shopSettings?.customerAccountBlockDismissed ?? false;
 
     try {
       const { detectWidgetStatus, updateWidgetStatusCache } = await import("~/services/widget-detection.server");
       // Pass shop for caching - subsequent calls within 5 min will use cache
-      const detection = await detectWidgetStatus(authResult.admin, shop);
+      const detectionStartedAt = Date.now();
+      let detection = await detectWidgetStatus(authResult.admin, shop);
+      // While the setup card waits on the widget, a cached "off" is checked
+      // again, so the step shows Done as soon as the merchant saves the embed
+      if (!setupCardDismissed && !detection.membershipWidgetEnabled && detection.lastChecked.getTime() < detectionStartedAt) {
+        detection = await detectWidgetStatus(authResult.admin, shop, true);
+      }
       widgetDetectionResult = {
         isEnabled: detection.isEnabled,
+        membershipWidgetEnabled: detection.membershipWidgetEnabled,
         blockType: detection.blockType,
         themeName: detection.themeName,
         lastChecked: detection.lastChecked,
@@ -468,8 +477,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       firstRun: {
         hasTier: hasTiers,
         autoCashbackOn: cashbackEnabled,
-        widgetOn: widgetDetectionResult.isEnabled,
-        dismissed: shopSettings?.customerAccountBlockDismissed ?? false,
+        // The step's own embed: isEnabled also counts the missions embed
+        widgetOn: widgetDetectionResult.membershipWidgetEnabled,
+        dismissed: setupCardDismissed,
         // Shopify's deep link that activates an app embed: the block's
         // handle is its Liquid file name (blocks/membership_widget.liquid)
         themeEditorUrl: `https://${shop}/admin/themes/current/editor?context=apps&activateAppId=${process.env.SHOPIFY_API_KEY}/membership_widget`,

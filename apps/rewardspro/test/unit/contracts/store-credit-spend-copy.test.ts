@@ -7,7 +7,7 @@ const workflowsSource = readFileSync(
   "utf8",
 );
 
-/** The default body of the email sent when a shopper earns cashback. */
+/** The default body of the "Cashback Balance Reminder" marketing automation email. */
 function cashbackEmailBody(): string {
   const match = workflowsSource.match(/cashback_reminder: `([\s\S]*?)`/);
   if (!match) throw new Error("the cashback_reminder template is missing");
@@ -19,6 +19,10 @@ describe("cashback email tells shoppers how to spend store credit", () => {
   // accounts (or paying with Shop Pay), and only as the full balance.
   it("tells them to sign in at checkout", () => {
     expect(cashbackEmailBody()).toMatch(/sign in to your account at checkout/i);
+  });
+
+  it("names Shop Pay as the other way to spend it, as the widget and the listing do", () => {
+    expect(cashbackEmailBody()).toMatch(/or pay with Shop Pay/);
   });
 
   it("tells them the full balance is applied", () => {

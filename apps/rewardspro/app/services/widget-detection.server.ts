@@ -20,6 +20,9 @@ const APP_HANDLES = [
 const WIDGET_BLOCKS = [
   "membership_widget",
 ];
+// The membership widget's app embed, in a block type such as
+// shopify://apps/<app-handle>/blocks/membership_widget/<uuid>
+const MEMBERSHIP_WIDGET_EMBED = "/blocks/membership_widget/";
 
 // ============================================
 // IN-MEMORY CACHE
@@ -72,7 +75,10 @@ export function clearWidgetStatusCache(shop: string): void {
 }
 
 export interface WidgetDetectionResult {
+  /** Any of the app's blocks or embeds is on */
   isEnabled: boolean;
+  /** The membership widget's app embed is on (the first-run setup step) */
+  membershipWidgetEnabled: boolean;
   blockType: 'app_embed' | 'section' | 'none';
   themeName: string | null;
   themeId: string | null;
@@ -273,6 +279,18 @@ function checkAppEmbedEnabled(settingsData: any): { isEnabled: boolean; blockTyp
 }
 
 /**
+ * Check if the membership widget's own app embed is on. checkAppEmbedEnabled
+ * counts any of the app's blocks, such as the missions embed.
+ */
+function isMembershipWidgetEmbedOn(settingsData: any): boolean {
+  const blocks = settingsData?.current?.blocks || {};
+  return Object.values(blocks).some((blockData) => {
+    const block = blockData as any;
+    return typeof block?.type === 'string' && block.type.includes(MEMBERSHIP_WIDGET_EMBED) && block.disabled !== true;
+  });
+}
+
+/**
  * Detect if the widget is enabled in the merchant's theme
  * Uses in-memory caching (5 min TTL) to prevent excessive API calls
  *
@@ -302,6 +320,7 @@ export async function detectWidgetStatus(
     if (!mainTheme) {
       const result: WidgetDetectionResult = {
         isEnabled: false,
+        membershipWidgetEnabled: false,
         blockType: 'none',
         themeName: null,
         themeId: null,
@@ -320,6 +339,7 @@ export async function detectWidgetStatus(
     if (!settingsData) {
       const result: WidgetDetectionResult = {
         isEnabled: false,
+        membershipWidgetEnabled: false,
         blockType: 'none',
         themeName: mainTheme.name,
         themeId: mainTheme.id,
@@ -337,6 +357,7 @@ export async function detectWidgetStatus(
 
     const result: WidgetDetectionResult = {
       isEnabled,
+      membershipWidgetEnabled: isMembershipWidgetEmbedOn(settingsData),
       blockType,
       themeName: mainTheme.name,
       themeId: mainTheme.id,
@@ -354,6 +375,7 @@ export async function detectWidgetStatus(
     console.error("[Widget Detection] Error detecting widget status:", error);
     return {
       isEnabled: false,
+      membershipWidgetEnabled: false,
       blockType: 'none',
       themeName: null,
       themeId: null,

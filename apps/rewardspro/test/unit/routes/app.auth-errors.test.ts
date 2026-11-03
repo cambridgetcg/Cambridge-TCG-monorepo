@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as RequestLogger from "~/utils/request-logger";
 
 // /app's loader is exercised for real; only its server neighbours are stubbed.
 vi.mock("@shopify/polaris/build/esm/styles.css?url", () => ({ default: "polaris.css" }));
@@ -22,7 +23,10 @@ vi.mock("~/shopify.server", () => ({
 vi.mock("~/db.server", () => ({ default: {} }));
 vi.mock("~/services/entitlements.server", () => ({ getEntitlements: vi.fn() }));
 vi.mock("~/services/shop-data-provider.server", () => ({ getShopSettings: vi.fn() }));
-vi.mock("~/utils/request-logger", () => ({
+// The real module stays underneath, so a helper app.tsx starts using later
+// is there; only the logging calls are silenced.
+vi.mock("~/utils/request-logger", async (importOriginal) => ({
+  ...(await importOriginal<typeof RequestLogger>()),
   logRequest: vi.fn(async () => ({ startTime: 0, requestId: "test" })),
   logResponse: vi.fn(),
   logError: vi.fn(),

@@ -398,14 +398,14 @@ export class TierProductPurchaseService {
           topic: "tier_purchase_failed",
           orderId: order.id.toString(),
           error: errorMessage,
+          // No shopper email or id: customers/redact does not reach this
+          // table, and the order id finds the shopper in Shopify
           payload: {
             tierProductId,
             tierId,
             lineItemId: lineItem.id,
             lineItemPrice: lineItem.price,
             currency: order.currency,
-            customerEmail: order.customer?.email,
-            customerId: order.customer?.id,
             sku: lineItem.sku,
             productTitle: lineItem.name || lineItem.title,
             requiresManualReview: true,

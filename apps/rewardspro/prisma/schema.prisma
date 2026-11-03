@@ -97,8 +97,9 @@ model ShopSettings {
   reviewBannerDismissed Boolean   @default(false) // Has merchant dismissed the review request banner
   reviewClickedAt       DateTime? // When merchant clicked "I've left my review"
 
-  // Customer Account Block Detection (Cache-based)
-  customerAccountBlockDismissed Boolean @default(false) // Has merchant clicked "Enable customer account block" button
+  // First-run setup card on the dashboard. The column is named for the removed
+  // customer-account block banner; app._index.tsx reuses it for the setup card.
+  customerAccountBlockDismissed Boolean @default(false) // Has merchant dismissed the first-run setup card
 
   currencySelected Boolean @default(false) // Has merchant selected cashback currency
 

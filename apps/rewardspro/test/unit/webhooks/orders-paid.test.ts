@@ -146,7 +146,7 @@ describe("orders/paid", () => {
     expect(Number(cashback?.amount)).toBeCloseTo(5, 2);
   });
 
-  it("keeps ids and the error kind in the webhook error log, never the order payload", async () => {
+  it("keeps the order id and the error kind in the webhook error log, never the order payload or the shopper's ids", async () => {
     vi.mocked(db.customer.findUnique).mockRejectedValue(new Error("Invalid customer record"));
     const payload = createOrderPayload({ customerId: SHOPIFY_CUSTOMER_ID, totalPrice: 100, email: "shopper@example.com" });
 
@@ -155,7 +155,9 @@ describe("orders/paid", () => {
     expect(db.webhookError.create).toHaveBeenCalledTimes(1);
     const logged = vi.mocked(db.webhookError.create).mock.calls[0][0].data;
     expect(logged).toMatchObject({ shop: SHOP, orderId: String(payload.id), error: "Invalid customer record" });
-    expect(logged.payload).toEqual({ orderId: payload.id, customerId: Number(SHOPIFY_CUSTOMER_ID), errorKind: "Error" });
+    // customers/redact does not reach this table, so it holds nothing that names the shopper
+    expect(logged.payload).toEqual({ orderId: payload.id, errorKind: "Error" });
     expect(JSON.stringify(logged)).not.toContain("shopper@example.com");
+    expect(JSON.stringify(logged)).not.toContain(SHOPIFY_CUSTOMER_ID);
   });
 });

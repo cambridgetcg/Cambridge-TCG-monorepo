@@ -609,11 +609,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           topic: topic || 'orders/paid',
           orderId: order.id?.toString() ?? null,
           error: error instanceof Error ? error.message : 'Unknown error',
-          // Ids and the error kind only: the order payload carries the
-          // shopper's name, email, addresses and payment details
+          // The order id and the error kind only: the order payload carries
+          // the shopper's name, email, addresses and payment details, and
+          // customers/redact does not reach this table
           payload: {
             orderId: order.id ?? null,
-            customerId: order.customer?.id ?? null,
             errorKind: error instanceof Error ? error.name : typeof error,
           },
           createdAt: new Date(),

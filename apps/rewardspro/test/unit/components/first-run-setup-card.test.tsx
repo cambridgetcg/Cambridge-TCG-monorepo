@@ -20,7 +20,7 @@ const newShop: FirstRunSetupState = {
   themeEditorUrl: THEME_EDITOR_URL,
 };
 
-function cardHtml(state: FirstRunSetupState, notices?: string) {
+function cardHtml(state: FirstRunSetupState) {
   const view = renderToStaticMarkup(
     createElement(
       AppProvider,
@@ -30,7 +30,6 @@ function cardHtml(state: FirstRunSetupState, notices?: string) {
         onCreateTier: vi.fn(),
         onTurnOnCashback: vi.fn(),
         onDismiss: vi.fn(),
-        notices: notices ? createElement("p", null, notices) : undefined,
       }),
     ),
   );
@@ -64,13 +63,6 @@ describe("first-run setup card", () => {
     expect(html).not.toContain("Create a tier");
     expect(html).not.toContain(">Turn on<");
     expect(html).toContain("Open theme editor");
-  });
-
-  it("shows notices above the steps", () => {
-    const html = cardHtml(newShop, "A notice for this shop");
-
-    expect(html.indexOf("A notice for this shop")).toBeGreaterThan(-1);
-    expect(html.indexOf("A notice for this shop")).toBeLessThan(html.indexOf("Create your first tier"));
   });
 });
 
