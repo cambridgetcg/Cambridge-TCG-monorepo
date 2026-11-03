@@ -386,7 +386,7 @@ describe("runtime bootstrap lifecycle", () => {
     await flush();
 
     expect(inserted.dataset.initialized).toBe("true");
-    expect(inserted.textContent).toContain("Join our rewards program!");
+    expect(inserted).toHaveTextContent("Join our rewards program!");
 
     inserted.innerHTML = '<span id="sentinel">unchanged</span>';
     inserted.dispatchEvent(new dom.window.CustomEvent("rewardspro:widget-ready", {

@@ -42,7 +42,7 @@ function mount(attributes: string, response: unknown = membership("NEW_CUSTOMER_
 const signedIn = `data-state="authenticated" data-customer-id="1"
   data-api-endpoint="/apps/rewardspro/membership"`;
 
-async function rendered(root: HTMLElement) {
+async function balanceHero(root: HTMLElement) {
   await vi.waitFor(() => expect(root.querySelector(".rp-auth-c__balance-amount")).not.toBeNull());
   return root.querySelector(".rp-auth-c__balance-hero")!;
 }
@@ -54,27 +54,27 @@ describe("membership widget: spending store credit", () => {
   });
 
   it("tells a signed-in shopper how to spend their credit on a shop with new customer accounts", async () => {
-    const hero = await rendered(mount(signedIn));
+    const hero = await balanceHero(mount(signedIn));
     expect(hero).toHaveTextContent(SPEND);
   });
 
   it("says nothing about spending on a shop with legacy customer accounts", async () => {
-    const hero = await rendered(mount(signedIn, membership("CLASSIC")));
+    const hero = await balanceHero(mount(signedIn, membership("CLASSIC")));
     expect(hero.querySelector(".rp-auth__balance-spend")).toBeNull();
   });
 
   it("says nothing about spending when the proxy couldn't tell which accounts the shop uses", async () => {
-    const hero = await rendered(mount(signedIn, membership(undefined)));
+    const hero = await balanceHero(mount(signedIn, membership(undefined)));
     expect(hero.querySelector(".rp-auth__balance-spend")).toBeNull();
   });
 
   it("says nothing about spending when there is no credit to spend", async () => {
-    const hero = await rendered(mount(signedIn, membership("NEW_CUSTOMER_ACCOUNTS", 0)));
+    const hero = await balanceHero(mount(signedIn, membership("NEW_CUSTOMER_ACCOUNTS", 0)));
     expect(hero.querySelector(".rp-auth__balance-spend")).toBeNull();
   });
 
   it("uses the theme's translation when there is one", async () => {
-    const hero = await rendered(mount(`${signedIn} data-i18n-spend-at-checkout="Translated line"`));
+    const hero = await balanceHero(mount(`${signedIn} data-i18n-spend-at-checkout="Translated line"`));
     expect(hero).toHaveTextContent("Translated line");
     expect(hero).not.toHaveTextContent(SPEND);
   });
