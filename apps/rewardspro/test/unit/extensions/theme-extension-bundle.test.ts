@@ -55,10 +55,13 @@ describe("blocks the theme editor offers", () => {
     for (const asset of assets) expect(list("assets")).not.toContain(asset);
   });
 
-  it("names only blocks that exist in shopify.extension.toml", () => {
+  // The theme editor offers every file in blocks/. For a theme extension
+  // the CLI doesn't read [[extensions.targeting]], so those entries are
+  // inert and may go; while they stay, they must not name a deleted block.
+  it("shopify.extension.toml names no block that doesn't exist", () => {
     const modules = [...read("shopify.extension.toml").matchAll(/module = "\.\/blocks\/([^"]+)"/g)]
       .map((match) => match[1]);
-    expect(modules.sort()).toEqual(list("blocks").sort());
+    for (const file of modules) expect(list("blocks")).toContain(file);
   });
 });
 
