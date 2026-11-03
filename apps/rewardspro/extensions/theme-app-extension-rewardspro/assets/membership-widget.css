@@ -3044,6 +3044,14 @@
   letter-spacing: 0.02em;
 }
 
+/* Hero balance: how store credit is spent at checkout (Shopify's rule). */
+.rp-auth__balance-spend {
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  margin-top: 4px;
+  text-align: center;
+}
+
 /* Max-tier celebratory panel — replaces the generic "Max tier reached". */
 .rp-auth__maxtier {
   display: flex;

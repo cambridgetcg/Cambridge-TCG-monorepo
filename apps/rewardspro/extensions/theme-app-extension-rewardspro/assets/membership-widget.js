@@ -113,6 +113,7 @@
           perkTierStatus: dataset.i18nPerkTierStatus || 'Unlock higher tiers',
           perkProgress: dataset.i18nPerkProgress || 'Track your progress',
           storeCreditBalance: dataset.i18nStoreCreditBalance || 'Your credit',
+          spendAtCheckout: dataset.i18nSpendAtCheckout || 'Spend it at checkout while signed in or with Shop Pay. Your full balance is applied.',
           tierLabel: dataset.i18nTierLabel || 'Tier',
           cashbackLabel: dataset.i18nCashbackLabel || 'Cashback',
           progressLabel: dataset.i18nProgressLabel || 'Progress',
@@ -728,6 +729,7 @@
               <div class="rp-auth-c__balance-label">${this.escapeHtml(t.storeCreditBalance)}</div>
               <div class="rp-auth-c__balance-amount">${this.escapeHtml(storeCreditFormatted)}</div>
               <div class="rp-auth__balance-rate">${this.escapeHtml(this.interpolate(t.cashbackRate, { percent: cashbackPercent }))}</div>
+              <div class="rp-auth__balance-spend">${this.escapeHtml(t.spendAtCheckout)}</div>
             </div>
             ${progressBlock}
             ${this.renderPointsSection()}
