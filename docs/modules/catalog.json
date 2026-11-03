@@ -30,7 +30,7 @@
       "path": "apps/rewardspro-api", "group": "apps", "label": "RewardsPro API foundation",
       "purpose": "Receive verified Shopify commerce events, persist an idempotent inbox and project supported orders through a worker.",
       "scope": "Backend foundation; does not claim legacy RewardsPro feature, data or business-rule parity, and does not mutate a financial ledger.",
-      "progress": "Fastify routes, PostgreSQL repositories, migrations, webhook normalization and worker code are present. The README specifies event retention, immutable metadata and optional SQS delivery.",
+      "progress": "Fastify routes, PostgreSQL repositories, migrations, webhook normalization and worker code are present. The README specifies event retention, immutable metadata and optional SQS delivery. Dormant since 2026-11-03: never deployed, kept for the engine design; its unused AWS deploy job was removed from CI.",
       "next": "Extend only the supported event contract with matching repository and worker tests; validate migrations against the documented local PostgreSQL fixture before any separately authorized deployment.",
       "evidence": ["apps/rewardspro-api/README.md", "apps/rewardspro-api/src/routes", "apps/rewardspro-api/src/repositories", "apps/rewardspro-api/src/domain", "apps/rewardspro-api/src/webhooks"]
     },
@@ -193,14 +193,6 @@
       "progress": "Assets, blocks, snippets and locale files are present. The shared RPUtils module owns common widget helpers.",
       "next": "Reuse RPUtils and verify widget behavior against current API and retirement boundaries; preserve translations and safe rendering.",
       "evidence": ["apps/rewardspro/extensions/theme-app-extension-rewardspro/README.md", "apps/rewardspro/extensions/theme-app-extension-rewardspro/shopify.extension.toml", "apps/rewardspro/extensions/theme-app-extension-rewardspro/assets", "apps/rewardspro/extensions/theme-app-extension-rewardspro/blocks"]
-    },
-    {
-      "path": "apps/rewardspro/lambda", "group": "tooling", "label": "RewardsPro legacy Lambda handlers",
-      "purpose": "Handle the legacy Shopify webhook, order queue and scheduled-job integrations described by RewardsPro.",
-      "scope": "Nested support package outside the root pnpm workspace patterns. Deployment commands affect AWS and require their own authorization.",
-      "progress": "JavaScript handlers, package scripts and architecture notes are present. This map has not checked deployed functions or established parity with rewardspro-api workers.",
-      "next": "Identify which worker owns a flow before changing it; review legacy and foundation migration evidence to avoid duplicate processing.",
-      "evidence": ["apps/rewardspro/lambda/README.md", "apps/rewardspro/lambda/package.json", "apps/rewardspro/lambda/order-queue-processor.js"]
     },
     {
       "path": "apps/rewardspro/tools", "group": "tooling", "label": "RewardsPro development tools",
