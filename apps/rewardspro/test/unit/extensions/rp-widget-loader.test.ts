@@ -6,7 +6,7 @@ import * as path from "path";
 
 const EXTENSION = path.resolve(
   __dirname,
-  "../../extensions/theme-app-extension-rewardspro"
+  "../../../extensions/theme-app-extension-rewardspro"
 );
 const ASSETS = path.join(EXTENSION, "assets");
 const BLOCKS = path.join(EXTENSION, "blocks");

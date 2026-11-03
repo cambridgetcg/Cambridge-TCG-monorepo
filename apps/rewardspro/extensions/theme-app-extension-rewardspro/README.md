@@ -113,12 +113,13 @@ hits, fetch URLs, retries, and render branches.
 ## Tests
 
 `test/extensions/rp-utils.test.ts` covers the `window.RPUtils` surface.
-`test/extensions/rp-widget-loader.test.ts` covers ordered loading,
+`test/unit/extensions/rp-widget-loader.test.ts` covers ordered loading,
 deduplication, viewport/interaction fallback, theme-editor insertion, and
-Liquid wiring. Run:
+Liquid wiring; it and the rest of `test/unit/extensions/` run in CI with
+`test:unit`. Run:
 
 ```sh
-npm test -- test/extensions/rp-utils.test.ts test/extensions/rp-widget-loader.test.ts
+npm test -- test/extensions/rp-utils.test.ts test/unit/extensions/
 ```
 
 `test/routes/api.proxy.auth.test.ts` locks in the proxy auth contract

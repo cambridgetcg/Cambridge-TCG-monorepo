@@ -19,7 +19,7 @@ import * as path from "path";
 
 const ASSETS = path.resolve(
   __dirname,
-  "../../extensions/theme-app-extension-rewardspro/assets"
+  "../../../extensions/theme-app-extension-rewardspro/assets"
 );
 
 const WIDGETS: Array<{ file: string; scope: string }> = [
