@@ -537,7 +537,11 @@
                       Hosts the RewardsPro database, which holds all the
                       shopper data the app keeps.
                     </td>
-                    <td>London, UK</td>
+                    <td>
+                      Database in London, UK. Supabase’s staff may access it
+                      from other countries, under Supabase’s data-processing
+                      terms.
+                    </td>
                   </tr>
                   <tr data-provider="Vercel" data-scope="shopper-data">
                     <td><strong>Vercel</strong></td>
@@ -547,22 +551,27 @@
                     </td>
                     <td>
                       Functions in London, UK. Vercel is a US company, and its
-                      network carries requests worldwide.
+                      network carries requests worldwide. Its logs and
+                      analytics may be stored in the United States and other
+                      countries where Vercel or its providers operate.
                     </td>
                   </tr>
                   <tr data-provider="Sentry" data-scope="shopper-data">
                     <td><strong>Sentry</strong></td>
                     <td>
-                      Error and performance monitoring, and sampled session
-                      replay of merchant screens, which can show shopper data.
+                      Error and performance monitoring. Events can include shop
+                      and customer identifiers; tokens, cookies and email
+                      addresses are removed first. It does not record sessions.
                     </td>
                     <td>Sentry’s EU region (Germany)</td>
                   </tr>
                   <tr data-provider="Twilio SendGrid" data-scope="shopper-data">
                     <td><strong>Twilio SendGrid</strong></td>
                     <td>
-                      Delivers the emails a merchant switches on, and reports
-                      delivery events such as bounces and unsubscribes.
+                      Delivers RewardsPro’s emails to shoppers (welcome, tier and
+                      membership emails, and the campaigns a merchant sends),
+                      and reports delivery events such as bounces and
+                      unsubscribes.
                     </td>
                     <td>United States</td>
                   </tr>
@@ -579,8 +588,9 @@
           <section id="website">
             <h2>Other providers</h2>
             <p>
-              These support our own website and help tools. RewardsPro does not
-              send them shopper data.
+              These support our own website, email and help tools. The
+              RewardsPro app doesn’t send them shopper data, but a message
+              sent to us can contain it.
             </p>
             <div class="table-wrap">
               <table>
@@ -607,6 +617,14 @@
                       documentation assistant, when they use it.
                     </td>
                     <td>[Yu: confirm GitBook’s data location]</td>
+                  </tr>
+                  <tr data-provider="Google Workspace" data-scope="website">
+                    <td><strong>Google Workspace</strong></td>
+                    <td>
+                      Hosts the contact@rewardspro.io mailbox, including
+                      privacy and support requests.
+                    </td>
+                    <td>Google’s data centres worldwide, including the United States</td>
                   </tr>
                 </tbody>
               </table>

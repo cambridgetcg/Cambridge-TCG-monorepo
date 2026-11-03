@@ -600,9 +600,12 @@
               <p>
                 We are based in the UK. Our representative in the EU for
                 data-protection matters is
-                [Yu: pending appointment — the representative’s name, postal
-                address and email go here]. You can contact them instead of us
-                about anything in this policy.
+                [Yu: decide whether to appoint an EU representative (shortlist
+                in #131). If yes, publish this block only once the contract is
+                signed, with their name, postal address and email. If no, delete
+                this block, the last sentence of section 9 and the last sentence
+                of terms 10.7]. You can contact them instead of us about
+                anything in this policy.
               </p>
             </section>
 
@@ -622,8 +625,8 @@
                       <td><strong>Website visitors</strong></td>
                       <td>
                         Request and device metadata ordinarily processed by
-                        hosting, DNS, security, and email-obfuscation services;
-                        information you include in a direct email.
+                        hosting, DNS, and security services; information you
+                        include in a direct email.
                       </td>
                       <td>Your browser, Cloudflare, and your message.</td>
                     </tr>
@@ -660,9 +663,8 @@
                       <td>
                         Session, webhook and external-platform identifiers;
                         event times and status; diagnostics, security records,
-                        request metadata, device/browser information,
-                        performance traces, and sampled replay data when the
-                        relevant monitoring tool is configured.
+                        request metadata, device/browser information, and
+                        performance traces.
                       </td>
                       <td>
                         Shopify, your browser, our application, and our
@@ -747,7 +749,8 @@
                     </tr>
                     <tr>
                       <td>
-                        Run merchant-selected emails, automations, analytics,
+                        Send the shopper emails described in section 6, and run
+                        merchant-selected campaigns, automations, analytics,
                         and connected services.
                       </td>
                       <td>
@@ -827,15 +830,15 @@
                 </div>
                 <div class="processor">
                   <strong>Cloudflare</strong>
-                  <span>Hosting, DNS, network security, and email-address protection for the rewardspro.io website.</span>
+                  <span>Hosting, DNS, and network security for the rewardspro.io website.</span>
                 </div>
                 <div class="processor">
                   <strong>Twilio SendGrid</strong>
-                  <span>Delivery of the emails a merchant switches on, and delivery-event processing.</span>
+                  <span>Delivery of RewardsPro’s emails to shoppers, described in section 6, and delivery-event processing.</span>
                 </div>
                 <div class="processor">
                   <strong>Sentry</strong>
-                  <span>Error, performance, reliability, and sampled session-replay monitoring, in Sentry’s EU region.</span>
+                  <span>Error, performance, and reliability monitoring, in Sentry’s EU region. It does not record sessions.</span>
                 </div>
                 <div class="processor">
                   <strong>Merchant-enabled services</strong>
@@ -844,6 +847,10 @@
                 <div class="processor">
                   <strong>GitBook</strong>
                   <span>Merchant help questions are sent to the documentation assistant only when that tool is used.</span>
+                </div>
+                <div class="processor">
+                  <strong>Google Workspace</strong>
+                  <span>Email for contact@rewardspro.io, including privacy and support requests.</span>
                 </div>
               </div>
               <p style="margin-top: 20px">
@@ -864,13 +871,12 @@
             </section>
 
             <section id="analytics">
-              <h2>5. Cookies, telemetry, and session replay</h2>
+              <h2>5. Cookies and telemetry</h2>
               <h3>The public website</h3>
               <p>
                 The rewardspro.io landing pages do not load a first-party
                 advertising or product-analytics script. Cloudflare processes
-                ordinary request metadata and may rewrite displayed email
-                addresses to reduce automated scraping.
+                ordinary request metadata.
               </p>
               <h3>The embedded merchant application</h3>
               <p>
@@ -880,19 +886,17 @@
               </p>
               <p>
                 When Sentry is configured in production, it receives error and
-                performance information and may sample session replay. Form
-                inputs are configured to be masked, but visible page text and
-                interaction context can still appear in replay or diagnostic
-                records. Merchants should not place unnecessary personal or
-                secret information in free-text fields.
+                performance events. It does not record sessions. Tokens, cookies
+                and email addresses are removed before events are sent.
               </p>
               <p>
                 Diagnostic events sent to monitoring providers may include shop
                 or customer identifiers and relevant loyalty or transaction
-                context, such as tier or spend. Application logs may include
-                request headers and submitted request content for diagnostics,
-                security, and reliability. Access is restricted to operational
-                purposes.
+                context, such as tier or spend. Application logs record request
+                details such as the method, the path, the browser type, and
+                the names (not the values) of headers and query parameters,
+                along with the shop and record identifiers needed to trace a
+                problem. Access is restricted to operational purposes.
               </p>
               <p>
                 The embedded application currently loads the telemetry tools
@@ -913,6 +917,29 @@
                 and remains responsible for its audience, lawful basis,
                 message, and required opt-out route. RewardsPro does not use
                 Shopify customer data for its own unrelated marketing.
+              </p>
+              <p>
+                Some shopper emails go out without a separate switch, through
+                Twilio SendGrid:
+              </p>
+              <ul>
+                <li>
+                  a welcome email when RewardsPro first adds a shopper to the
+                  programme, and an email when their tier goes up, once the
+                  merchant has opened Marketing in RewardsPro and made or
+                  dismissed its first email choice, or saved email settings. If
+                  the merchant uses Klaviyo only, these two are left to its
+                  Klaviyo flows;
+                </li>
+                <li>an email when a shopper’s tier goes down; and</li>
+                <li>
+                  for a tier membership a shopper has bought, reminders 7 days
+                  and 1 day before it ends, and an email when it ends.
+                </li>
+              </ul>
+              <p>
+                Campaigns and automations go out only when the merchant sends
+                them or switches them on.
               </p>
               <p>
                 When SendGrid email is enabled, delivery records can include
@@ -972,8 +999,10 @@
                   scheduled for deletion after seven days.
                 </li>
                 <li>
-                  Email suppression information may be retained as needed to
-                  continue honouring an opt-out, complaint, or delivery block.
+                  While a shop uses RewardsPro, email suppression information is
+                  kept so that opt-outs, complaints and delivery blocks keep
+                  being honoured; it is erased with the shop’s other records on
+                  uninstall.
                 </li>
                 <li>
                   Our own business records, such as correspondence, complaints,
@@ -1000,8 +1029,9 @@
                   record RewardsPro holds about that shopper, store it
                   encrypted, and show it to the merchant under Settings ›
                   Privacy requests to download and pass on. Each report can be
-                  downloaded for 45 days and is then deleted. It is deleted
-                  sooner if the shopper’s data is erased or the shop uninstalls.
+                  downloaded for 45 days. It is then deleted at the weekly
+                  cleanup, so within 52 days. It is deleted sooner if the
+                  shopper’s data is erased or the shop uninstalls.
                 </li>
                 <li>
                   <strong>Shopper erasure.</strong> We erase every RewardsPro
@@ -1013,13 +1043,14 @@
                 </li>
               </ul>
               <p>
-                If a step fails, the application tells Shopify, and Shopify
-                sends the request again. Shoppers should contact the relevant
-                merchant first, or email
+                If a step fails, the application answers Shopify with an error,
+                and Shopify retries the request for up to four hours. Shoppers
+                should contact the relevant merchant first. If you think a
+                request wasn’t completed, or you need help or confirmation,
+                email
                 <a href="mailto:contact@rewardspro.io?subject=Shopify%20privacy%20request">
-                  contact@rewardspro.io
-                </a>
-                for assistance and confirmation.
+                  contact@rewardspro.io</a
+                >.
               </p>
             </section>
 
@@ -1088,10 +1119,11 @@
                 the data-protection authority in your country, or in the
                 country where you think the problem happened. The European Data
                 Protection Board
-                <a href="https://www.edpb.europa.eu/about-edpb/about-edpb/members_en" target="_blank" rel="noopener noreferrer">
+                <a href="https://www.edpb.europa.eu/about-edpb/our-members_en" target="_blank" rel="noopener noreferrer">
                   lists every authority</a
                 >. You can also contact our representative in the EU, named in
-                section 1.
+                section 1. [Yu: delete this sentence if no EU representative is
+                appointed.]
               </p>
             </section>
 
@@ -1100,10 +1132,11 @@
               <p>
                 The RewardsPro database (Supabase) and application functions
                 (Vercel) run in London, UK, and our Sentry monitoring uses
-                Sentry’s EU region in Germany. Shopify, Cloudflare, Vercel,
-                SendGrid, GitBook, and merchant-enabled providers may also
-                process data in the UK, EEA, United States, and locations used
-                by their networks, so we do not promise that data stays in one
+                Sentry’s EU region in Germany. Supabase’s staff may access the
+                database from other countries. Shopify, Cloudflare, Vercel,
+                SendGrid, GitBook, Google, and merchant-enabled providers may
+                also process data in the UK, EEA, United States, and locations
+                used by their networks, so we do not promise that data stays in one
                 country. Our <a href="/subprocessors/">subprocessor list</a>
                 shows where each provider handles data.
               </p>

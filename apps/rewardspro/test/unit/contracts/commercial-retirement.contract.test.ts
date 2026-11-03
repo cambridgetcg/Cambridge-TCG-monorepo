@@ -25,6 +25,6 @@ describe("retired commercial doors", () => {
     }
     // The free install goes through the App Store listing; a paid agreement keeps its terms
     expect(pages[0]).toContain('href="https://apps.shopify.com/rewards-pro"');
-    expect(pages[0]).toContain("Already on a paid agreement? It keeps its recorded terms.");
+    expect(pages[0]).toContain("Already on a paid agreement? It keeps the terms Shopify recorded when you approved it.");
   });
 });

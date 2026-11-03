@@ -209,7 +209,7 @@ describe("RewardsPro pricing contract", () => {
 
     expect(landing).toContain('href="https://apps.shopify.com/rewards-pro"');
     expect(landing).toContain(
-      "Already on a paid agreement? It keeps its recorded terms.",
+      "Already on a paid agreement? It keeps the terms Shopify recorded when you approved it.",
     );
     expect(landing).toContain('href="mailto:contact@rewardspro.io"');
     expect(landing).not.toMatch(/retire/i);
