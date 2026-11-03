@@ -1,9 +1,9 @@
 /**
  * Cross-widget contract test.
  *
- * Every storefront widget now expects `window.RPUtils` to be defined before
- * its IIFE runs (the `rp_utils_loader` Liquid snippet loads rp-utils.js
- * first). If it's absent, each widget must log a clear, scoped error and
+ * Every storefront widget expects `window.RPUtils` to be defined before its
+ * IIFE runs (`rp-widget-loader.js` enforces that ordered dependency). If
+ * RPUtils is absent after loading, each widget must log a clear, scoped error and
  * refuse to render — it must NOT crash the page with an uncaught
  * ReferenceError, because that would take down the rest of the theme.
  *

@@ -1,6 +1,10 @@
 <!-- MOBILE-REVIEWED: 2026-03-22 -->
 <!-- Membership Widget Block -->
 {%- render 'rp_utils_loader' -%}
+{%- assign guest_cta_url = block.settings.guest_cta_url -%}
+{%- if guest_cta_url == blank or guest_cta_url == '/account/login' -%}
+  {%- assign guest_cta_url = routes.account_login_url -%}
+{%- endif -%}
 {% comment %}
   Enhanced Dynamic Widget:
   - Detects customer login status automatically
@@ -53,6 +57,8 @@
   {% comment %} AUTHENTICATED STATE - Customer is logged in {% endcomment %}
   <div id="membership-widget-root"
        class="rp-widget-root"
+       data-rp-utils-src="{{ 'rp-utils.js' | asset_url }}"
+       data-rp-widget-src="{{ 'membership-widget.js' | asset_url }}"
        data-state="authenticated"
        data-customer-id="{{ customer.id }}"
        data-customer-email="{{ customer.email }}"
@@ -71,12 +77,14 @@
   {% comment %} GUEST STATE - Customer is NOT logged in {% endcomment %}
   <div id="membership-widget-root"
        class="rp-widget-root"
+       data-rp-utils-src="{{ 'rp-utils.js' | asset_url }}"
+       data-rp-widget-src="{{ 'membership-widget.js' | asset_url }}"
        data-state="guest"
        data-shop-domain="{{ shop.permanent_domain }}"
        data-shop-currency="{{ shop.currency }}"
        data-message="{{ block.settings.guest_message | default: 'Join our rewards program!' }}"
        data-cta-text="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
-       data-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}"
+       data-cta-url="{{ guest_cta_url }}"
        {{ i18n_data }}>
     {% comment %} Guest placeholder - replaced by JavaScript {% endcomment %}
     <div class="rp-widget-guest">{{ 'widget.membership.guestFallback' | t }}</div>
@@ -88,9 +96,9 @@
   <div class="rp-widget-noscript">
     {% if customer %}
       {{ 'widget.membership.noscriptAuthed' | t: name: customer.first_name }}
-      <a href="/account">{{ 'widget.membership.perkStoreCredit' | t }}</a>
+      <a href="{{ routes.account_url }}">{{ 'widget.membership.perkStoreCredit' | t }}</a>
     {% else %}
-      <a href="/account/login">{{ 'widget.membership.guestFallback' | t }}</a>
+      <a href="{{ routes.account_login_url }}">{{ 'widget.membership.guestFallback' | t }}</a>
     {% endif %}
   </div>
 </noscript>
@@ -100,7 +108,7 @@
   "name": "RewardsPro Widget",
   "target": "body",
   "stylesheet": "membership-widget.css",
-  "javascript": "membership-widget.js",
+  "javascript": "rp-widget-loader.js",
   "settings": [
     {
       "type": "header",
@@ -150,8 +158,7 @@
       "type": "text",
       "id": "guest_cta_url",
       "label": "Guest Button URL",
-      "default": "/account/login",
-      "info": "URL the sign-in button links to (e.g., /account/login or /pages/join-rewards)"
+      "info": "Optional custom URL. Leave blank to use the store's customer-account sign-in route."
     }
   ]
 }

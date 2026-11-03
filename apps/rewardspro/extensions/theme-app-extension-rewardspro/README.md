@@ -10,6 +10,7 @@ by Shopify when a merchant enables a block.
 ```
 extensions/theme-app-extension-rewardspro/
 ├── assets/
+│   ├── rp-widget-loader.js         # SHARED — small visibility/ordering entry
 │   ├── rp-utils.js                 # SHARED — window.RPUtils (see below)
 │   ├── membership-widget.{js,css}  # Floating tier + store-credit badge
 │   ├── raffles.{js,css}            # Raffle grid (section block)
@@ -18,7 +19,7 @@ extensions/theme-app-extension-rewardspro/
 │   └── gift-cards.{js,css}
 ├── blocks/                         # Liquid templates (one per widget)
 ├── snippets/
-│   ├── rp_utils_loader.liquid      # Loads rp-utils.js before any widget
+│   ├── rp_utils_loader.liquid      # Links shared widget-state styles
 │   └── stars.liquid                # Star rating helper
 ├── locales/                        # Translatable strings (| t in Liquid)
 └── shopify.extension.toml          # Extension manifest
@@ -44,10 +45,18 @@ helpers into each widget.** Current surface (v1.0.0):
 | `RP.format.currency(amount, currency, locale?)` | `Intl.NumberFormat` with safe fallback. |
 | `RP.readTranslations(dataset, schema)` | Resolves `data-i18n-*` values with fallbacks. |
 
-Every Liquid block already ships with `{% render 'rp_utils_loader' %}` at
-the top, so `window.RPUtils` is defined before widget JS runs. The browser
-dedupes identical script tags — multiple widgets on the same page cost one
-HTTP request.
+Every block references the sub-10 KB `rp-widget-loader.js` schema asset and
+supplies Shopify CDN URLs through `data-rp-utils-src` and
+`data-rp-widget-src`. Shopify can load the entry asynchronously without an
+ordering race: it observes roots with a 300 px viewport margin, loads
+`rp-utils.js` once, awaits it, and only then requests each widget runtime.
+First interaction also starts loading, and browsers without
+`IntersectionObserver` load immediately.
+
+The loader deduplicates canonical asset URLs with page-global promises and
+emits a root-scoped `rewardspro:widget-ready` event after a runtime is ready.
+That event lets already-cached runtimes initialize blocks inserted later by
+the Shopify theme editor without executing the asset twice.
 
 ### Reference implementation
 
@@ -71,12 +80,14 @@ template when porting the other four widgets (they each carry a
 
 ## Data flow
 
-1. Liquid gates on `{% if customer %}` and emits a container with `data-*`
-   attributes plus the `rp_utils_loader` snippet.
-2. Widget JS reads `element.dataset`, fetches from its proxy endpoint
+1. Liquid gates on `{% if customer %}` and emits a container with settings
+   plus the utility and widget CDN URLs. `rp_utils_loader` links shared CSS.
+2. `rp-widget-loader.js` waits until the container is near the viewport or
+   interacted with, then ordered-loads RPUtils and the widget runtime.
+3. Widget JS reads `element.dataset`, fetches from its proxy endpoint
    (`RP.fetchWithRetry`), caches in localStorage (`RP.cache.write`), and
    renders via `innerHTML` using `RP.escapeHtml` for dynamic values.
-3. Merchant theme editor settings (colors, cache duration, copy) flow
+4. Merchant theme editor settings (colors, cache duration, copy) flow
    through `data-*` and are sanitized on the client before inline
    `style=` / text interpolation.
 
@@ -100,11 +111,13 @@ hits, fetch URLs, retries, and render branches.
 
 ## Tests
 
-`test/extensions/rp-utils.test.ts` covers the entire `window.RPUtils`
-surface (50 tests, jsdom + vitest). Run:
+`test/extensions/rp-utils.test.ts` covers the `window.RPUtils` surface.
+`test/extensions/rp-widget-loader.test.ts` covers ordered loading,
+deduplication, viewport/interaction fallback, theme-editor insertion, and
+Liquid wiring. Run:
 
 ```sh
-npm test -- test/extensions/rp-utils.test.ts
+npm test -- test/extensions/rp-utils.test.ts test/extensions/rp-widget-loader.test.ts
 ```
 
 `test/routes/api.proxy.auth.test.ts` locks in the proxy auth contract
@@ -120,6 +133,6 @@ and any HTTP error.
 replay. In normal usage this means the user double-clicked; the first
 request is still in flight. Wait and retry.
 
-**`window.RPUtils is missing` in console** — the `rp_utils_loader` snippet
-wasn't rendered before the widget's schema-injected script. Confirm each
-Liquid block starts with `{% render 'rp_utils_loader' %}`.
+**`window.RPUtils is missing` in console** — the ordered loader contract was
+bypassed. Confirm the block schema references `rp-widget-loader.js` and its
+root includes both `data-rp-utils-src` and `data-rp-widget-src`.

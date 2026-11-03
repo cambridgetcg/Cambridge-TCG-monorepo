@@ -1,6 +1,10 @@
 <!-- MOBILE-REVIEWED: 2026-03-22 -->
 <!-- RewardsPro Gift Cards Block -->
 {%- render 'rp_utils_loader' -%}
+{%- assign guest_cta_url = block.settings.guest_cta_url -%}
+{%- if guest_cta_url == blank or guest_cta_url == '/account/login' -%}
+  {%- assign guest_cta_url = routes.account_login_url -%}
+{%- endif -%}
 {% comment %}
   Storefront section block showing:
   - Gift card bundles customers can purchase with store credit
@@ -13,6 +17,8 @@
 {% if customer %}
   {% comment %} AUTHENTICATED STATE {% endcomment %}
   <div class="rp-giftcards-root"
+       data-rp-utils-src="{{ 'rp-utils.js' | asset_url }}"
+       data-rp-widget-src="{{ 'gift-cards.js' | asset_url }}"
        data-state="authenticated"
        data-customer-id="{{ customer.id }}"
        data-customer-email="{{ customer.email }}"
@@ -33,12 +39,14 @@
 {% else %}
   {% comment %} GUEST STATE {% endcomment %}
   <div class="rp-giftcards-root rp-giftcards-guest"
+       data-rp-utils-src="{{ 'rp-utils.js' | asset_url }}"
+       data-rp-widget-src="{{ 'gift-cards.js' | asset_url }}"
        data-state="guest"
        data-shop-domain="{{ shop.permanent_domain }}"
        data-heading="{{ block.settings.heading | default: 'Gift Cards' }}"
        data-guest-message="{{ block.settings.guest_message | default: 'Sign in to view and redeem gift cards.' }}"
        data-guest-cta="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
-       data-guest-url="{{ block.settings.guest_cta_url | default: '/account/login' }}"
+       data-guest-url="{{ guest_cta_url }}"
        data-primary-color="{{ block.settings.primary_color | default: '#FFD700' }}"
        data-bg-color="{{ block.settings.bg_color | default: '#1a1a2e' }}">
   </div>
@@ -47,9 +55,9 @@
 <noscript>
   <p>
     {% if customer %}
-      <a href="/account">View your gift cards</a>
+      <a href="{{ routes.account_url }}">View your gift cards</a>
     {% else %}
-      <a href="/account/login">Sign in</a> to view gift cards
+      <a href="{{ routes.account_login_url }}">Sign in</a> to view gift cards
     {% endif %}
   </p>
 </noscript>
@@ -59,7 +67,7 @@
   "name": "RewardsPro Gift Cards",
   "target": "section",
   "stylesheet": "gift-cards.css",
-  "javascript": "gift-cards.js",
+  "javascript": "rp-widget-loader.js",
   "settings": [
     {
       "type": "text",
@@ -137,8 +145,7 @@
     {
       "type": "text",
       "id": "guest_cta_url",
-      "label": "Sign-in URL",
-      "default": "/account/login"
+      "label": "Optional custom sign-in URL"
     }
   ]
 }
