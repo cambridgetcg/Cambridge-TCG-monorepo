@@ -45,6 +45,8 @@ import type { MarketingHubMode } from "@prisma/client";
 import {
   checkLimitAccess,
 } from "~/utils/require-feature.server";
+import { CHANCE_MECHANICS_PAUSED } from "~/constants/chance-mechanics";
+import { FEATURES_AVAILABLE } from "~/constants/feature-availability";
 
 // ============================================
 // TYPES
@@ -1085,139 +1087,147 @@ export default function MarketingHub() {
                 </BlockStack>
               </Card>
 
-              {/* Points Engagement Bridge */}
-              <Card>
-                <BlockStack gap="400">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <BlockStack gap="100">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text as="h2" variant="headingMd">Points Engagement</Text>
-                        <Badge tone="magic">Gamification</Badge>
-                      </InlineStack>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        Promote gamified features to boost customer engagement
-                      </Text>
-                    </BlockStack>
-                    <Button
-                      variant="plain"
-                      onClick={() => navigate("/app/rewards")}
-                    >
-                      View Points Hub
-                    </Button>
-                  </InlineStack>
-
-                  <BlockStack gap="200">
-                    {/* Raffles */}
-                    <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="300" blockAlign="center">
-                          <div style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: '8px',
-                            backgroundColor: '#e3f1df',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}>
-                            <Icon source={GiftCardIcon} tone="success" />
-                          </div>
-                          <BlockStack gap="050">
-                            <Text as="span" variant="bodyMd" fontWeight="medium">
-                              Raffles
-                            </Text>
-                            <Text as="span" variant="bodySm" tone="subdued">
-                              Prize drawings customers enter with points
-                            </Text>
-                          </BlockStack>
+              {/* Points Engagement Bridge: only once points can be spent (constants/feature-availability.ts) */}
+              {FEATURES_AVAILABLE.points && (
+                <Card>
+                  <BlockStack gap="400">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <BlockStack gap="100">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Points Engagement</Text>
+                          <Badge tone="magic">Gamification</Badge>
                         </InlineStack>
-                        <Button
-                          size="slim"
-                          onClick={() => navigate("/app/marketing/campaigns/create?preset=raffle")}
-                        >
-                          Announce
-                        </Button>
-                      </InlineStack>
-                    </Box>
-
-                    {/* Mystery Boxes */}
-                    <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="300" blockAlign="center">
-                          <div style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: '8px',
-                            backgroundColor: '#fef3cd',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}>
-                            <Icon source={StarIcon} tone="warning" />
-                          </div>
-                          <BlockStack gap="050">
-                            <Text as="span" variant="bodyMd" fontWeight="medium">
-                              Mystery Boxes
-                            </Text>
-                            <Text as="span" variant="bodySm" tone="subdued">
-                              Surprise rewards with random outcomes
-                            </Text>
-                          </BlockStack>
-                        </InlineStack>
-                        <Button
-                          size="slim"
-                          onClick={() => navigate("/app/marketing/campaigns/create?preset=mystery-box")}
-                        >
-                          Promote
-                        </Button>
-                      </InlineStack>
-                    </Box>
-
-                    {/* Challenges */}
-                    <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="300" blockAlign="center">
-                          <div style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: '8px',
-                            backgroundColor: '#dbeafe',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}>
-                            <Icon source={TargetIcon} tone="info" />
-                          </div>
-                          <BlockStack gap="050">
-                            <Text as="span" variant="bodyMd" fontWeight="medium">
-                              Challenges
-                            </Text>
-                            <Text as="span" variant="bodySm" tone="subdued">
-                              Goal-based activities for bonus points
-                            </Text>
-                          </BlockStack>
-                        </InlineStack>
-                        <Button
-                          size="slim"
-                          onClick={() => navigate("/app/marketing/campaigns/create?preset=challenge")}
-                        >
-                          Announce
-                        </Button>
-                      </InlineStack>
-                    </Box>
-                  </BlockStack>
-
-                  {/* Tip */}
-                  <Box padding="300" background="bg-surface-info" borderRadius="200">
-                    <InlineStack gap="200" blockAlign="center">
-                      <Icon source={EmailIcon} tone="info" />
-                      <Text as="p" variant="bodySm">
-                        <Text as="span" fontWeight="semibold">Pro tip:</Text> Segment by tier to send exclusive high-value raffles to VIP members
-                      </Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Promote gamified features to boost customer engagement
+                        </Text>
+                      </BlockStack>
+                      <Button
+                        variant="plain"
+                        onClick={() => navigate("/app/rewards")}
+                      >
+                        View Points Hub
+                      </Button>
                     </InlineStack>
-                  </Box>
-                </BlockStack>
-              </Card>
+
+                    <BlockStack gap="200">
+                      {/* Raffles: paused, like mystery boxes (constants/chance-mechanics.ts) */}
+                      {!CHANCE_MECHANICS_PAUSED && (
+                        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                          <InlineStack align="space-between" blockAlign="center">
+                            <InlineStack gap="300" blockAlign="center">
+                              <div style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: '8px',
+                                backgroundColor: '#e3f1df',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                <Icon source={GiftCardIcon} tone="success" />
+                              </div>
+                              <BlockStack gap="050">
+                                <Text as="span" variant="bodyMd" fontWeight="medium">
+                                  Raffles
+                                </Text>
+                                <Text as="span" variant="bodySm" tone="subdued">
+                                  Prize drawings customers enter with points
+                                </Text>
+                              </BlockStack>
+                            </InlineStack>
+                            <Button
+                              size="slim"
+                              onClick={() => navigate("/app/marketing/campaigns/create?preset=raffle")}
+                            >
+                              Announce
+                            </Button>
+                          </InlineStack>
+                        </Box>
+                      )}
+
+                      {/* Mystery Boxes */}
+                      {!CHANCE_MECHANICS_PAUSED && (
+                        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                          <InlineStack align="space-between" blockAlign="center">
+                            <InlineStack gap="300" blockAlign="center">
+                              <div style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: '8px',
+                                backgroundColor: '#fef3cd',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                <Icon source={StarIcon} tone="warning" />
+                              </div>
+                              <BlockStack gap="050">
+                                <Text as="span" variant="bodyMd" fontWeight="medium">
+                                  Mystery Boxes
+                                </Text>
+                                <Text as="span" variant="bodySm" tone="subdued">
+                                  Surprise rewards with random outcomes
+                                </Text>
+                              </BlockStack>
+                            </InlineStack>
+                            <Button
+                              size="slim"
+                              onClick={() => navigate("/app/marketing/campaigns/create?preset=mystery-box")}
+                            >
+                              Promote
+                            </Button>
+                          </InlineStack>
+                        </Box>
+                      )}
+
+                      {/* Challenges */}
+                      <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="300" blockAlign="center">
+                            <div style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: '8px',
+                              backgroundColor: '#dbeafe',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <Icon source={TargetIcon} tone="info" />
+                            </div>
+                            <BlockStack gap="050">
+                              <Text as="span" variant="bodyMd" fontWeight="medium">
+                                Challenges
+                              </Text>
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                Goal-based activities for bonus points
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <Button
+                            size="slim"
+                            onClick={() => navigate("/app/marketing/campaigns/create?preset=challenge")}
+                          >
+                            Announce
+                          </Button>
+                        </InlineStack>
+                      </Box>
+                    </BlockStack>
+
+                    {/* Tip (it's about raffles) */}
+                    {!CHANCE_MECHANICS_PAUSED && (
+                      <Box padding="300" background="bg-surface-info" borderRadius="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Icon source={EmailIcon} tone="info" />
+                          <Text as="p" variant="bodySm">
+                            <Text as="span" fontWeight="semibold">Pro tip:</Text> Segment by tier to send exclusive high-value raffles to VIP members
+                          </Text>
+                        </InlineStack>
+                      </Box>
+                    )}
+                  </BlockStack>
+                </Card>
+              )}
             </BlockStack>
 
             {/* Right Column - Audience & Recommendations */}

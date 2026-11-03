@@ -96,7 +96,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Hidden until points can be spent (constants/feature-availability.ts)
     if (!FEATURES_AVAILABLE.points) {
-      throw redirect(APP_ROUTES.REWARDS.ROOT);
+      throw redirect(`${APP_ROUTES.REWARDS.ROOT}${new URL(request.url).search}`);
     }
 
     // Verify db models exist
@@ -162,7 +162,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   // Hidden until points can be spent (constants/feature-availability.ts)
   if (!FEATURES_AVAILABLE.points) {
-    throw redirect(APP_ROUTES.REWARDS.ROOT);
+    throw redirect(`${APP_ROUTES.REWARDS.ROOT}${new URL(request.url).search}`);
   }
 
   const formData = await request.formData();

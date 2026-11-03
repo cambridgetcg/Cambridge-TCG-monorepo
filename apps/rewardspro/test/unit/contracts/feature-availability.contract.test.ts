@@ -57,7 +57,7 @@ import {
   isMissionRewardAvailable,
   missionRewardUnavailableReason,
 } from "~/constants/feature-availability";
-import { TEMPLATES_BY_CADENCE } from "~/constants/mission-templates";
+import { MISSION_REWARD_TYPES, TEMPLATES_BY_CADENCE } from "~/constants/mission-templates";
 import { SECTION_NAVIGATION } from "~/navigation/registry";
 import { setChallengeReward, transitionChallengeStatus } from "~/services/challenge-management.server";
 import { loader as missionEditorLoader } from "~/routes/app.rewards.missions.$id";
@@ -70,6 +70,8 @@ import { action as aiAction } from "~/routes/api.ai-email-assistant";
 import { loader as proxyLoader } from "~/routes/api.proxy.$";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
+// What Shopify adds to an embedded page load; a redirect must keep it
+const EMBEDDED = `?embedded=1&shop=${SHOP}&host=YWRtaW4uc2hvcGlmeS5jb20vc3RvcmUvaG9uZXN0`;
 const args = (url: string, init?: RequestInit, params: Record<string, string> = {}) => ({
   request: new Request(url, init),
   params,
@@ -120,9 +122,15 @@ describe("feature availability switch", () => {
 
 describe("mission rewards", () => {
   it("offers only rewards a shopper can receive today", () => {
-    expect(["POINTS", "STORE_CREDIT", "DISCOUNT"].filter(isMissionRewardAvailable)).toEqual([]);
-    expect(["TIER_UPGRADE", "CUSTOM"].every(isMissionRewardAvailable)).toBe(true);
+    expect(["POINTS", "STORE_CREDIT", "DISCOUNT", "TIER_UPGRADE"].filter(isMissionRewardAvailable)).toEqual([]);
+    expect(isMissionRewardAvailable("CUSTOM")).toBe(true);
     expect(missionRewardUnavailableReason("DISCOUNT")).toMatch(/can't be a mission reward yet/);
+    expect(missionRewardUnavailableReason("TIER_UPGRADE")).toMatch(/no way to choose the tier/);
+  });
+
+  it("the mission editor's reward picker lists only those rewards", () => {
+    expect(MISSION_REWARD_TYPES.map((reward) => reward.value)).toEqual(["CUSTOM"]);
+    expect(read("app/routes/app.rewards.missions.$id.tsx")).toMatch(/options=\{MISSION_REWARD_TYPES\.map/);
   });
 
   it("offers no template whose reward can't be received", async () => {
@@ -140,11 +148,17 @@ describe("mission rewards", () => {
     }
   });
 
-  it.each(["POINTS", "STORE_CREDIT", "DISCOUNT"] as const)(
+  it.each([
+    ["POINTS", { amount: 100 }],
+    ["STORE_CREDIT", { amount: 100 }],
+    ["DISCOUNT", { type: "percentage", value: 15 }],
+    // What the editor saves for a tier upgrade: it has no tier field
+    ["TIER_UPGRADE", {}],
+  ] as const)(
     "refuses to save a %s reward without touching the database",
-    async (rewardType) => {
+    async (rewardType, rewardValue) => {
       await expect(
-        setChallengeReward("challenge-1", SHOP, { rewardType, rewardValue: { amount: 100 }, description: "x" }),
+        setChallengeReward("challenge-1", SHOP, { rewardType, rewardValue, description: "x" }),
       ).rejects.toThrow(/can't be a mission reward yet/);
       expect(prisma.challenge.findFirst).not.toHaveBeenCalled();
       expect(prisma.challengeReward.create).not.toHaveBeenCalled();
@@ -163,6 +177,21 @@ describe("mission rewards", () => {
 
     await expect(transitionChallengeStatus("challenge-1", SHOP, status)).rejects.toThrow(
       /Discount codes can't be a mission reward yet/,
+    );
+    expect(prisma.challenge.update).not.toHaveBeenCalled();
+  });
+
+  it.each(["ACTIVE", "SCHEDULED"] as const)("won't make a tier-upgrade mission with no tier %s", async (status) => {
+    prisma.challenge.findFirst.mockResolvedValue({
+      id: "challenge-1",
+      shop: SHOP,
+      status: "DRAFT",
+      endsAt: new Date(Date.now() + 86_400_000),
+      reward: { rewardType: "TIER_UPGRADE", rewardValue: {} },
+    });
+
+    await expect(transitionChallengeStatus("challenge-1", SHOP, status)).rejects.toThrow(
+      /Tier upgrades can't be a mission reward yet/,
     );
     expect(prisma.challenge.update).not.toHaveBeenCalled();
   });
@@ -213,8 +242,8 @@ describe("points", () => {
 
   it("sends the Points setup page back to the rewards overview", async () => {
     for (const call of [
-      pointsSetupLoader(args("https://app.test/app/rewards/config")),
-      pointsSetupAction(post("https://app.test/app/rewards/config", { intent: "save", isEnabled: "true" })),
+      pointsSetupLoader(args(`https://app.test/app/rewards/config${EMBEDDED}`)),
+      pointsSetupAction(post(`https://app.test/app/rewards/config${EMBEDDED}`, { intent: "save", isEnabled: "true" })),
     ]) {
       const response: Response = await call.then(
         () => {
@@ -223,7 +252,8 @@ describe("points", () => {
         (thrown: Response) => thrown,
       );
       expect(response.status).toBe(302);
-      expect(response.headers.get("Location")).toBe("/app/rewards");
+      // Keeps shop and host, or the admin would show the login page
+      expect(response.headers.get("Location")).toBe(`/app/rewards${EMBEDDED}`);
     }
     expect(pointsConfig.updatePointsConfig).not.toHaveBeenCalled();
   });
@@ -274,8 +304,8 @@ describe("points", () => {
 describe("gift cards", () => {
   it("send the gift cards page back to Customers", async () => {
     for (const call of [
-      giftCardsLoader(args("https://app.test/app/members/gift-cards")),
-      giftCardsAction(post("https://app.test/app/members/gift-cards", { intent: "createBundle" })),
+      giftCardsLoader(args(`https://app.test/app/members/gift-cards${EMBEDDED}`)),
+      giftCardsAction(post(`https://app.test/app/members/gift-cards${EMBEDDED}`, { intent: "createBundle" })),
     ]) {
       const response: Response = await call.then(
         () => {
@@ -284,7 +314,7 @@ describe("gift cards", () => {
         (thrown: Response) => thrown,
       );
       expect(response.status).toBe(302);
-      expect(response.headers.get("Location")).toBe("/app/members");
+      expect(response.headers.get("Location")).toBe(`/app/members${EMBEDDED}`);
     }
   });
 });

@@ -523,6 +523,17 @@ export const TEMPLATES_BY_CADENCE: Record<MissionCadence, MissionTemplate[]> = {
   SPECIAL: offered(SPECIAL_TEMPLATES),
 };
 
+const ALL_REWARD_TYPES: { value: ChallengeRewardType; label: string }[] = [
+  { value: "POINTS", label: "Points" },
+  { value: "STORE_CREDIT", label: "Store Credit" },
+  { value: "DISCOUNT", label: "Discount Code" },
+  { value: "TIER_UPGRADE", label: "Tier Upgrade" },
+  { value: "CUSTOM", label: "Custom Reward" },
+];
+
+/** Rewards the mission editor offers: those a shopper can receive today */
+export const MISSION_REWARD_TYPES = ALL_REWARD_TYPES.filter((reward) => isMissionRewardAvailable(reward.value));
+
 /**
  * Get templates by cadence
  */

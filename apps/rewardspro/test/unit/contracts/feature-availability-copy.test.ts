@@ -1,5 +1,7 @@
 import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AppProvider } from "@shopify/polaris";
 import en from "@shopify/polaris/locales/en.json";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,6 +23,7 @@ vi.mock("@remix-run/react", () => ({
   useSubmit: () => vi.fn(),
   useNavigation: () => ({ state: "idle" }),
   useFetcher: () => ({ data: undefined, state: "idle", submit: vi.fn() }),
+  useNavigate: () => vi.fn(),
 }));
 vi.mock("~/constants/feature-availability", async (importOriginal) => {
   const actual = await importOriginal<typeof FeatureAvailability>();
@@ -44,6 +47,9 @@ import PointsSetupPage from "~/routes/app.rewards.config";
 import { AIAssistantPanel } from "~/components/AIEmailAssistant";
 import { IconPicker } from "~/components/IconPicker";
 import { PointsTab } from "~/components/Points";
+import EditEmailTemplate from "~/routes/app.marketing.templates.$id";
+import NewEmailTemplate from "~/routes/app.marketing.templates.new";
+import MarketingHub from "~/routes/app.marketing._index";
 
 function renderPage(Component: ComponentType, loaderData: Record<string, unknown> = {}) {
   remix.loaderData = loaderData;
@@ -222,5 +228,75 @@ describe("AI email assistant panel", () => {
     expect(html).toContain("The AI writing assistant isn't available.");
     expect(html).not.toMatch(/API key/i);
     expect(html).not.toContain("Generate");
+  });
+});
+
+describe("email template editors", () => {
+  const tabNames = () => screen.queryAllByRole("tab").map((tab) => tab.textContent);
+
+  it("show no AI tab while the assistant isn't available", () => {
+    remix.loaderData = {
+      shop: "honest.myshopify.com",
+      template: {
+        id: "template-1",
+        name: "Welcome",
+        type: "promotional",
+        subject: "Hello",
+        previewText: "",
+        bodyHtml: "",
+        content: { blocks: [], styles: {} },
+        createdAt: new Date(0).toISOString(),
+        updatedAt: new Date(0).toISOString(),
+      },
+      brandKit: null,
+      brandKitEnabled: false,
+    };
+    render(createElement(AppProvider, { i18n: en }, createElement(EditEmailTemplate)));
+
+    expect(tabNames()).toContain("Content");
+    expect(tabNames()).not.toContain("AI");
+  });
+
+  it("show no AI tab on a new template either", async () => {
+    const user = userEvent.setup();
+    remix.loaderData = { shop: "honest.myshopify.com", brandKit: null, brandKitEnabled: false };
+    render(createElement(AppProvider, { i18n: en }, createElement(NewEmailTemplate)));
+
+    await user.click(screen.getByRole("button", { name: "Start Fresh" }));
+
+    expect(tabNames()).toContain("Content");
+    expect(tabNames()).not.toContain("AI");
+  });
+});
+
+describe("marketing home", () => {
+  it("doesn't promote points, raffles or mystery boxes", () => {
+    const html = text(
+      renderPage(MarketingHub, {
+        showChoiceModal: false,
+        isConfigured: true,
+        isKlaviyoConnected: false,
+        marketingMode: "INHOUSE",
+        klaviyoData: null,
+        metrics: {
+          totalSent: 0,
+          sentChange: 0,
+          openRate: 0,
+          openRateChange: 0,
+          clickRate: 0,
+          clickRateChange: 0,
+          totalRevenue: 0,
+          revenueChange: 0,
+          totalOrders: 0,
+        },
+        recentCampaigns: [],
+        automations: [],
+        customerStats: { total: 0, withEmail: 0, subscribed: 0 },
+        recommendations: [],
+      }),
+    );
+
+    expect(html).toContain("Marketing Hub");
+    expect(html).not.toMatch(/Points Engagement|View Points Hub|Raffles|Mystery Boxes/);
   });
 });

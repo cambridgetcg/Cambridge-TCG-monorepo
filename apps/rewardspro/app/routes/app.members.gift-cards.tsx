@@ -101,7 +101,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   // Hidden: gift cards need the write_gift_cards scope (constants/feature-availability.ts)
   if (!FEATURES_AVAILABLE.giftCards) {
-    throw redirect(APP_ROUTES.MEMBERS.ROOT);
+    throw redirect(`${APP_ROUTES.MEMBERS.ROOT}${new URL(request.url).search}`);
   }
 
   const shop = session.shop;
@@ -207,7 +207,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   // Hidden: gift cards need the write_gift_cards scope (constants/feature-availability.ts)
   if (!FEATURES_AVAILABLE.giftCards) {
-    throw redirect(APP_ROUTES.MEMBERS.ROOT);
+    throw redirect(`${APP_ROUTES.MEMBERS.ROOT}${new URL(request.url).search}`);
   }
 
   const shop = session.shop;

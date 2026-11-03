@@ -49,6 +49,8 @@ const UNAVAILABLE_MISSION_REWARDS: Partial<Record<ChallengeRewardType, string>> 
   STORE_CREDIT: "Store credit can't be a mission reward yet: claiming it doesn't add credit in Shopify.",
   // No write_discounts scope, so Shopify can't create the code
   DISCOUNT: "Discount codes can't be a mission reward yet: RewardsPro can't create discounts in Shopify.",
+  // The mission editor has no tier field, so deliverTierUpgradeReward never gets a tierId
+  TIER_UPGRADE: "Tier upgrades can't be a mission reward yet: there's no way to choose the tier.",
 };
 
 /** Why a mission reward type can't be offered today, or null when it can. */
