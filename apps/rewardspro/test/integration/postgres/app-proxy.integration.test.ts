@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
 import { loader } from "~/routes/api.proxy.$";
 import { hasTestDatabase, resetDatabase } from "./database";
-import { seedOfflineSession, signedProxyRequest } from "./shopify";
+import { adminGraphqlUrl, seedOfflineSession, signedProxyRequest } from "./shopify";
 import { server } from "../../mocks/server";
 
 const SHOP = "proxy-test.myshopify.com";
@@ -64,7 +64,7 @@ describe.skipIf(!hasTestDatabase)("app proxy identity on Postgres", () => {
 
   it("serves the signed-in shopper their own data", async () => {
     server.use(
-      graphql.link(`https://${SHOP}/admin/api/2025-01/graphql.json`).query("CustomerAccountsVersion", () =>
+      graphql.link(adminGraphqlUrl(SHOP)).query("CustomerAccountsVersion", () =>
         HttpResponse.json({ data: { shop: { customerAccountsV2: { customerAccountsVersion: "NEW_CUSTOMER_ACCOUNTS" } } } }),
       ),
     );
