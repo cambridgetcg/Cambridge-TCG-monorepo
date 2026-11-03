@@ -23,7 +23,8 @@ describe("retired commercial doors", () => {
       expect(source).not.toContain("Choose Your Plan");
       expect(source).not.toContain("pricingPlans.map");
     }
-    expect(pages[0]).not.toContain('https://apps.shopify.com/rewards-pro');
-    expect(pages[0]).toContain("Existing account support");
+    // The free install goes through the App Store listing; a paid agreement keeps its terms
+    expect(pages[0]).toContain('href="https://apps.shopify.com/rewards-pro"');
+    expect(pages[0]).toContain("Already on a paid agreement? It keeps its recorded terms.");
   });
 });

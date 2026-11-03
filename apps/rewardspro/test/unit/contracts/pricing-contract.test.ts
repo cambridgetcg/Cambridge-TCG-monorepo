@@ -201,21 +201,18 @@ describe("RewardsPro pricing contract", () => {
     }
   });
 
-  it("keeps the public landing focused on retired subscriptions and existing account support", () => {
+  it("keeps the public landing free of plan prices and points paid agreements to their recorded terms", () => {
     const landing = readFileSync(
       resolve(process.cwd(), "landing/public/index.html"),
       "utf8",
     );
 
+    expect(landing).toContain('href="https://apps.shopify.com/rewards-pro"');
     expect(landing).toContain(
-      "New paid subscriptions are retired.",
+      "Already on a paid agreement? It keeps its recorded terms.",
     );
-    expect(landing).toContain(
-      "Existing subscription records, cancellation, refunds and support remain available under the agreed terms.",
-    );
-    expect(landing).toContain('href="#subscription-records"');
     expect(landing).toContain('href="mailto:contact@rewardspro.io"');
-    expect(landing).toContain("Existing account support");
+    expect(landing).not.toMatch(/retire/i);
 
     for (const planKey of PUBLIC_PLAN_KEYS) {
       const plan = PRICING_PLANS[planKey];

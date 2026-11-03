@@ -26,8 +26,10 @@ deployment on 23 July 2026; forcing the three public assets plus `_headers`
 produced a byte-identical, healthy deployment.
 
 Verify the immutable `*.pages.dev` URL before checking the custom domain. Then
-verify `https://rewardspro.io`, `/privacy-policy`, `robots.txt`, `sitemap.xml`,
-external links, responsive layout, and the visible integration status labels.
+verify `https://rewardspro.io`, `/privacy-policy`, `/terms`, `/subprocessors`,
+`/.well-known/security.txt`, `robots.txt`, `sitemap.xml`, external links,
+responsive layout, and the visible integration status labels. `security.txt`
+carries an `Expires` date: renew it before then.
 Cloudflare Pages retains earlier deployments for rollback.
 
 ## Embedded Shopify application
