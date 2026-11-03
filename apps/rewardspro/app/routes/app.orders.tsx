@@ -962,19 +962,8 @@ export default function OrdersPage() {
       });
     }
 
-    // Add export action if orders are selected
-    if (selectedOrders.length > 0) {
-      actions.push({
-        content: `Export ${selectedOrders.length} order${selectedOrders.length > 1 ? 's' : ''}`,
-        onAction: () => {
-          // TODO: Implement export functionality
-          showSuccess('Export functionality coming soon');
-        },
-      });
-    }
-
     return actions;
-  }, [selectedResources, orders, showSuccess]);
+  }, [selectedResources, orders]);
 
   // Handle clear filters
   const handleClearAll = useCallback(() => {
