@@ -78,10 +78,10 @@ repo-root [`AGENTS.md`](../../AGENTS.md) principles apply here too.
 ```
 pnpm dev:rewardspro              # shopify app dev (SKIP_DB_CHECKS=1)
 pnpm build:rewardspro            # prisma generate && remix vite:build
-pnpm test:rewardspro             # vitest unit suite
+pnpm test:rewardspro             # vitest suite: everything in test/ but the Postgres tests
 pnpm --filter rewardspro exec tsc --noEmit   # typecheck
 pnpm --filter rewardspro test:postgres       # Postgres integration suites (needs REWARDSPRO_TEST_DATABASE_URL; docs/DATABASE.md)
-pnpm --filter rewardspro lint    # eslint — RED, see debt below
+pnpm --filter rewardspro lint    # eslint (CI lints this app too)
 ```
 
 On a fresh clone, run `pnpm --filter rewardspro exec prisma generate` before
@@ -126,8 +126,5 @@ element type"), extend mechanism 1 or 2 — don't pin a global `@types/react`.
 
 ## Known debt (inherited from standalone, 2026-06-10)
 
-- **Lint is red** (817 errors standalone, 1029 under the workspace incl.
-  extensions/) — excluded from the CI lint sweep in `.github/workflows/ci.yml`;
-  burn it down before re-including.
 - `npm run`-style strings remain inside some package.json script bodies and
   older docs here; they work under pnpm but read stale.

@@ -25,8 +25,6 @@ export function FeatureGate({
   hasAccess,
   children,
   feature,
-  upgradeMessage,
-  upgradeUrl = "/app/billing",
   fallback,
 }: FeatureGateProps) {
   if (hasAccess) {
@@ -62,8 +60,6 @@ interface LockedFeatureProps {
  */
 export function LockedFeature({
   feature,
-  upgradeMessage,
-  upgradeUrl = "/app/billing",
   tone = "info",
 }: LockedFeatureProps) {
   return (
@@ -93,8 +89,6 @@ export function LimitReached({
   type,
   current,
   max,
-  upgradeMessage,
-  upgradeUrl = "/app/billing",
 }: LimitReachedProps) {
   return (
     <Banner

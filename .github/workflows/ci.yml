@@ -94,11 +94,7 @@ jobs:
       - name: Check module documentation coverage and drift
         run: pnpm audit:modules
       - name: Lint all workspaces
-        # rewardspro excluded: its lint has been red since the standalone repo
-        # (817 errors at fuse time, 2026-06-10) and was never a gate there.
-        # Run `pnpm --filter rewardspro lint` locally; debt tracked in
-        # apps/rewardspro/CLAUDE.md.
-        run: pnpm --filter '!rewardspro' -r --if-present lint
+        run: pnpm -r --if-present lint
 
   storefront:
     name: storefront (typecheck + test + build)

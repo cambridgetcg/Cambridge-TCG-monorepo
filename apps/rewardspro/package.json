@@ -22,7 +22,7 @@
     "db:studio": "prisma studio",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:unit": "vitest run --dir test/unit",
+    "test:unit": "vitest run --dir test --exclude '**/integration/postgres/**'",
     "test:integration": "vitest run --dir test/integration",
     "test:postgres": "vitest run --config vitest.postgres.config.ts",
     "test:e2e": "playwright test",
