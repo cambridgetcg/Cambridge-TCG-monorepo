@@ -4,9 +4,12 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Shopify sends a merchant back after OAuth only to a URL listed in
- * shopify.app.toml's [auth] redirect_urls. A listed URL that no route
- * serves is a dead end, so every one must sit under the app's auth path
- * prefix, which app/routes/auth.$.tsx serves.
+ * shopify.app.toml's [auth] redirect_urls. The app installs through token
+ * exchange (unstable_newEmbeddedAuthStrategy), which needs no redirect;
+ * the auth-code flow, if it ever runs, handles the callback only at
+ * `${authPathPrefix}/callback` (app/routes/auth.$.tsx). Any other listed
+ * URL is a dead end, even one under the auth prefix, so each must be
+ * exactly that path.
  */
 
 const APP_ROOT = resolve(__dirname, "../../..");
@@ -32,8 +35,8 @@ describe("OAuth redirect URLs", () => {
     expect(paths.length).toBeGreaterThan(0);
   });
 
-  it.each(paths)("%s is served by the auth route", (path) => {
-    expect(path.startsWith(`${authPathPrefix()}/`)).toBe(true);
+  it.each(paths)("%s is the OAuth callback the auth route serves", (path) => {
+    expect(path).toBe(`${authPathPrefix()}/callback`);
     expect(existsSync(resolve(APP_ROOT, "app/routes/auth.$.tsx"))).toBe(true);
   });
 });
