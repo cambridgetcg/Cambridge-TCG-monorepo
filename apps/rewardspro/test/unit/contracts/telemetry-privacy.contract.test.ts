@@ -36,11 +36,12 @@ describe("telemetry privacy", () => {
     expect(client).toMatch(/beforeSendTransaction\(event\)\s*\{[\s\S]*?redactSensitiveTelemetryValue\(event\)/);
   });
 
-  it("scrubs server-side Sentry events and breadcrumbs", () => {
+  it("scrubs server-side Sentry events, breadcrumbs and transactions", () => {
     const server = read("app/entry.server.tsx");
 
     expect(server).toMatch(/beforeSend\([^)]*\)\s*\{[\s\S]*?redactSensitiveTelemetryValue\(event\)/);
     expect(server).toMatch(/beforeBreadcrumb\(breadcrumb\)\s*\{[\s\S]*?redactSensitiveTelemetryValue\(breadcrumb\)/);
+    expect(server).toMatch(/beforeSendTransaction\(event\)\s*\{[\s\S]*?redactSensitiveTelemetryValue\(event\)/);
   });
 });
 

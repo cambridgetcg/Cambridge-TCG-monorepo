@@ -11,10 +11,10 @@
  */
 
 import { jsonObject } from "~/utils/json-object";
+import { privacySafeConsole, privacySafeLogTemplate } from "~/utils/pii-masker";
 import prisma from "~/db.server";
 import { expirePoints } from "./points-ledger.server";
 import { getPointsConfig, getExpirationSettings } from "./points-config.server";
-import { privacySafeConsole, privacySafeLogTemplate } from "~/utils/pii-masker";
 
 // ============================================
 // TYPES

@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/remix";
 import { describe, expect, it } from "vitest";
 import {
   redactSensitiveTelemetryValue,
@@ -152,5 +153,46 @@ describe("telemetry redaction", () => {
     expect(serialized).not.toContain(token);
     expect(serialized).not.toContain("shopper@example.com");
     expect(serialized).toContain("[REDACTED]");
+  });
+
+  it("keeps the spans of a real Sentry transaction, with their URLs scrubbed", async () => {
+    const token = "header.payload.signature";
+    const sent: Array<{ spans?: unknown[] }> = [];
+
+    // Sentry v7 hands beforeSendTransaction its spans as live Span objects.
+    Sentry.init({
+      dsn: "https://public@example.invalid/1",
+      tracesSampleRate: 1,
+      defaultIntegrations: false,
+      transport: () => ({
+        send: async (envelope) => {
+          sent.push(envelope[1][0][1] as { spans?: unknown[] });
+          return {};
+        },
+        flush: async () => true,
+      }),
+      beforeSendTransaction(event) {
+        return redactSensitiveTelemetryValue(event) as typeof event;
+      },
+    });
+    const transaction = Sentry.startTransaction({ name: "GET /app", op: "http.server" });
+    transaction
+      .startChild({
+        op: "http.client",
+        description: `GET https://example.com/x?id_token=${token} shopper@example.com`,
+      })
+      .end();
+    transaction.end();
+    await Sentry.close(2000);
+
+    const serialized = JSON.stringify(sent);
+    expect(serialized).not.toContain(token);
+    expect(serialized).not.toContain("shopper@example.com");
+    expect(sent[0]?.spans).toEqual([
+      expect.objectContaining({
+        op: "http.client",
+        description: "GET https://example.com/x?id_token=[REDACTED] [REDACTED_EMAIL]",
+      }),
+    ]);
   });
 });

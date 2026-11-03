@@ -468,7 +468,7 @@ export async function getKlaviyoService(
 
 /**
  * Check if Klaviyo is enabled for a shop
- * Returns true if either OAuth is connected or API key is set
+ * Returns true if either OAuth is connected or a saved API key can be read
  */
 export async function isKlaviyoEnabled(shop: string): Promise<boolean> {
   const settings = await prisma.emailSettings.findUnique({
@@ -484,8 +484,8 @@ export async function isKlaviyoEnabled(shop: string): Promise<boolean> {
     return false;
   }
 
-  // Either OAuth connected or API key must be present
-  return !!(settings.klaviyoOAuthConnected || settings.klaviyoApiKey);
+  // Either OAuth connected or an API key we can read (as getKlaviyoService needs)
+  return settings.klaviyoOAuthConnected || decryptSecret(settings.klaviyoApiKey) !== null;
 }
 
 /**

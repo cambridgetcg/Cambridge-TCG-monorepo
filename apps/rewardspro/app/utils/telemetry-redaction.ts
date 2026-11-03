@@ -59,6 +59,17 @@ export function redactSensitiveTelemetryValue(
   if (value instanceof Error) {
     return redactSensitiveUrlText(`${value.name}: ${value.message}`);
   }
+  // Sentry v7 passes transaction spans as Span objects, and serialises them
+  // (like URLs and dates) through toJSON. Scrub what toJSON returns.
+  const { toJSON } = value as { toJSON?: unknown };
+  if (typeof toJSON === "function") {
+    seen.add(value);
+    try {
+      return redactSensitiveTelemetryValue(toJSON.call(value), seen);
+    } catch {
+      // Fall through and keep only the type name.
+    }
+  }
   // Breadcrumbs can hold raw console arguments: DOM nodes, requests, class
   // instances. Don't walk their internals; keep only the type name.
   if (!isPlainObject(value)) return `[${value.constructor?.name ?? "Object"}]`;

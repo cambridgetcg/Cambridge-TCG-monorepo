@@ -17,13 +17,14 @@ vi.mock("~/services/klaviyo.server", () => ({ KlaviyoService: class {} }));
 
 import KlaviyoSettings from "~/routes/app.marketing.klaviyo";
 
-function pageHtml(hasKlaviyoApiKey: boolean) {
+function pageHtml(hasKlaviyoApiKey: boolean, hasStoredKlaviyoApiKey = hasKlaviyoApiKey) {
   remix.loaderData = {
     shop: "test-shop.myshopify.com",
     emailSettings: {
       emailProvider: "KLAVIYO",
       klaviyoEnabled: true,
       hasKlaviyoApiKey,
+      hasStoredKlaviyoApiKey,
       klaviyoPublicKey: null,
       klaviyoDefaultListId: null,
       klaviyoSyncProfiles: true,
@@ -65,6 +66,16 @@ describe("Klaviyo private API key field", () => {
     expect(privateKeyInput(html)).toMatch(/value=""/);
     expect(html).toContain("Find this in Klaviyo → Settings → API Keys");
     expect(html).not.toContain("Remove saved key");
+    expect(html).toContain("Not Connected");
+  });
+
+  it("says when the saved key can't be read, and still offers to remove it", () => {
+    const html = pageHtml(false, true);
+
+    expect(privateKeyInput(html)).toMatch(/value=""/);
+    expect(html).toContain("The saved key can't be read, so Klaviyo isn't connected. Enter the key again, or remove it.");
+    expect(html).not.toContain("Leave this blank to keep it");
+    expect(html).toContain("Remove saved key");
     expect(html).toContain("Not Connected");
   });
 });

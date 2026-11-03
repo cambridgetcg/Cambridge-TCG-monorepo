@@ -51,6 +51,8 @@ interface LoaderData {
     klaviyoEnabled: boolean;
     // The private key itself never leaves the server.
     hasKlaviyoApiKey: boolean;
+    // A key is stored, readable or not (so an unreadable one can be removed).
+    hasStoredKlaviyoApiKey: boolean;
     klaviyoPublicKey: string | null;
     klaviyoDefaultListId: string | null;
     klaviyoSyncProfiles: boolean;
@@ -169,7 +171,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     let clientEmailSettings: LoaderData["emailSettings"] = null;
     if (emailSettings) {
       const { klaviyoApiKey: _storedKey, ...settings } = emailSettings;
-      clientEmailSettings = { ...settings, hasKlaviyoApiKey: klaviyoApiKey !== null };
+      clientEmailSettings = {
+        ...settings,
+        hasKlaviyoApiKey: klaviyoApiKey !== null,
+        hasStoredKlaviyoApiKey: Boolean(emailSettings.klaviyoApiKey),
+      };
     }
     return json({
       shop,
@@ -401,9 +407,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   if (intent === "removeApiKey") {
+    const settings = await prisma.emailSettings.findUnique({
+      where: { shop },
+      select: { klaviyoOAuthConnected: true },
+    });
+    // Without a key, Klaviyo stays connected only through OAuth.
     await prisma.emailSettings.update({
       where: { shop },
-      data: { klaviyoApiKey: null },
+      data: { klaviyoApiKey: null, klaviyoEnabled: settings?.klaviyoOAuthConnected ?? false },
     });
     return json({ success: true, message: "Klaviyo API key removed" });
   }
@@ -441,6 +452,7 @@ export default function KlaviyoSettings() {
   // The saved key is never sent to the browser; this holds only a new key.
   const [klaviyoApiKey, setKlaviyoApiKey] = useState("");
   const hasSavedApiKey = data.emailSettings?.hasKlaviyoApiKey ?? false;
+  const hasStoredApiKey = data.emailSettings?.hasStoredKlaviyoApiKey ?? false;
   const [klaviyoPublicKey, setKlaviyoPublicKey] = useState(
     data.emailSettings?.klaviyoPublicKey || ""
   );
@@ -728,10 +740,12 @@ export default function KlaviyoSettings() {
                             helpText={
                               hasSavedApiKey
                                 ? "A key is saved. Leave this blank to keep it, or enter a new key to replace it."
-                                : "Find this in Klaviyo → Settings → API Keys"
+                                : hasStoredApiKey
+                                  ? "The saved key can't be read, so Klaviyo isn't connected. Enter the key again, or remove it."
+                                  : "Find this in Klaviyo → Settings → API Keys"
                             }
                           />
-                          {hasSavedApiKey && (
+                          {hasStoredApiKey && (
                             <InlineStack>
                               <Button
                                 variant="plain"

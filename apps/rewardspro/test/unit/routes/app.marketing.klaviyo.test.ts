@@ -139,6 +139,23 @@ describe("Klaviyo settings route", () => {
       expect(data.emailSettings.hasKlaviyoApiKey).toBe(false);
       expect(klaviyo.constructedWith).toEqual([]);
     });
+
+    it("says a stored key exists, even one it can't read, so it can be removed", async () => {
+      prisma.emailSettings.findUnique.mockResolvedValue(storedSettings(PRIVATE_KEY));
+
+      const { data } = await runLoader();
+
+      expect(data.emailSettings.hasStoredKlaviyoApiKey).toBe(true);
+    });
+
+    it("says no key is stored when the column is empty", async () => {
+      prisma.emailSettings.findUnique.mockResolvedValue(storedSettings(null));
+
+      const { data } = await runLoader();
+
+      expect(data.emailSettings.hasStoredKlaviyoApiKey).toBe(false);
+      expect(data.emailSettings.hasKlaviyoApiKey).toBe(false);
+    });
   });
 
   describe("saveConnection", () => {
@@ -181,18 +198,35 @@ describe("Klaviyo settings route", () => {
     });
   });
 
-  it("removes the saved key on request", async () => {
-    const body = new FormData();
-    body.set("intent", "removeApiKey");
+  describe("removeApiKey", () => {
+    function removeRequest() {
+      const body = new FormData();
+      body.set("intent", "removeApiKey");
+      return new Request("https://app.test/app/marketing/klaviyo", { method: "POST", body });
+    }
 
-    const { data } = await runAction(
-      new Request("https://app.test/app/marketing/klaviyo", { method: "POST", body }),
-    );
+    it("removes the saved key and marks Klaviyo as not connected", async () => {
+      prisma.emailSettings.findUnique.mockResolvedValue({ klaviyoOAuthConnected: false });
 
-    expect(data.success).toBe(true);
-    expect(prisma.emailSettings.update).toHaveBeenCalledWith({
-      where: { shop: SHOP },
-      data: { klaviyoApiKey: null },
+      const { data } = await runAction(removeRequest());
+
+      expect(data.success).toBe(true);
+      // The marketing hub reads klaviyoEnabled as "connected".
+      expect(prisma.emailSettings.update).toHaveBeenCalledWith({
+        where: { shop: SHOP },
+        data: { klaviyoApiKey: null, klaviyoEnabled: false },
+      });
+    });
+
+    it("keeps Klaviyo connected when OAuth is still connected", async () => {
+      prisma.emailSettings.findUnique.mockResolvedValue({ klaviyoOAuthConnected: true });
+
+      await runAction(removeRequest());
+
+      expect(prisma.emailSettings.update).toHaveBeenCalledWith({
+        where: { shop: SHOP },
+        data: { klaviyoApiKey: null, klaviyoEnabled: true },
+      });
     });
   });
 });
