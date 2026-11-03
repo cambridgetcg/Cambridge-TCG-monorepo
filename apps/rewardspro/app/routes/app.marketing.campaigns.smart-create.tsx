@@ -19,6 +19,7 @@ import {
 import { authenticate } from "~/shopify.server";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
 import prisma from "~/db.server";
+import { EMAIL_SETTINGS_SECRET_FIELDS } from "~/utils/encryption.server";
 import type { Prisma } from "@prisma/client";
 import { jsonObject } from "~/utils/json-object";
 import { v4 as uuidv4 } from "uuid";
@@ -67,6 +68,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     emailSettings = await prisma.emailSettings.findUnique({
       where: { shop },
+      omit: EMAIL_SETTINGS_SECRET_FIELDS,
     });
   } catch (error) {
     console.error('[Smart Campaign Creator] Email settings error:', error);

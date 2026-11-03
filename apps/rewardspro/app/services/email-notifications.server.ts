@@ -20,6 +20,7 @@ import {
 import { sendMarketingEmail } from "./marketing-email.server";
 import { checkEmailLimit, recordEmailSent } from "./email-usage-control.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
+import { privacySafeConsole, privacySafeLogTemplate } from "~/utils/pii-masker";
 import {
   buildPointsEarnedEmail,
   buildPointsExpiringEmail,
@@ -495,7 +496,7 @@ export async function sendPointsEarnedEmail(
     });
 
     if (result.success) {
-      console.log(`[EmailNotifications] ✅ Points earned email sent to ${data.email}`);
+      privacySafeConsole.log(privacySafeLogTemplate`[EmailNotifications] ✅ Points earned email sent to ${data.email}`);
       return { success: true };
     } else {
       return { success: false, error: result.error };
@@ -553,7 +554,7 @@ export async function sendPointsExpiringEmail(
     });
 
     if (result.success) {
-      console.log(`[EmailNotifications] ✅ Points expiring email sent to ${data.email}`);
+      privacySafeConsole.log(privacySafeLogTemplate`[EmailNotifications] ✅ Points expiring email sent to ${data.email}`);
       return { success: true };
     } else {
       return { success: false, error: result.error };
@@ -633,7 +634,7 @@ export async function sendPointsRedeemedEmail(
     });
 
     if (result.success) {
-      console.log(`[EmailNotifications] ✅ Points redeemed email sent to ${data.email}`);
+      privacySafeConsole.log(privacySafeLogTemplate`[EmailNotifications] ✅ Points redeemed email sent to ${data.email}`);
       return { success: true };
     } else {
       return { success: false, error: result.error };
@@ -691,7 +692,7 @@ export async function sendStreakMilestoneEmail(
     });
 
     if (result.success) {
-      console.log(`[EmailNotifications] ✅ Streak milestone email sent to ${data.email}`);
+      privacySafeConsole.log(privacySafeLogTemplate`[EmailNotifications] ✅ Streak milestone email sent to ${data.email}`);
       return { success: true };
     } else {
       return { success: false, error: result.error };
@@ -771,7 +772,7 @@ export async function sendTierExpirationWarningEmail(
     });
 
     if (result.success) {
-      console.log(`[EmailNotifications] ✅ Tier expiration warning email sent to ${data.email}`);
+      privacySafeConsole.log(privacySafeLogTemplate`[EmailNotifications] ✅ Tier expiration warning email sent to ${data.email}`);
 
       // Record email sent for usage tracking
       await recordEmailSent(shop, 1, "transactional");
@@ -871,7 +872,7 @@ export async function sendTierExpiredEmail(
     });
 
     if (result.success) {
-      console.log(`[EmailNotifications] ✅ Tier expired email sent to ${data.email}`);
+      privacySafeConsole.log(privacySafeLogTemplate`[EmailNotifications] ✅ Tier expired email sent to ${data.email}`);
 
       // Record email sent for usage tracking
       await recordEmailSent(shop, 1, "transactional");

@@ -65,6 +65,7 @@ import {
 import { getEntitlements } from "../services/entitlements.server";
 import { getShopSettings, getShopTiers, getTierDistribution } from "../services/shop-data-provider.server";
 import { trackCashbackAdjusted } from "../services/klaviyo-events.server";
+import { privacySafeConsole, privacySafeLogTemplate } from "~/utils/pii-masker";
 import {
   getCustomerOrderSummariesBatch,
   type ActivityStatus,
@@ -1743,7 +1744,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Process each customer - collect newTierIds for batch lookup later
       for (const customer of allCustomers) {
         try {
-          console.log(`[RECALCULATE ALL] Processing customer ${results.processed + 1}/${allCustomers.length}: ${customer.email}`);
+          privacySafeConsole.log(privacySafeLogTemplate`[RECALCULATE ALL] Processing customer ${results.processed + 1}/${allCustomers.length}: ${customer.email}`);
 
           // OPTIMIZED: Use tier from included relation instead of separate query
           const previousTierName = customer.currentTier?.name || null;
@@ -1776,7 +1777,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         } catch (error) {
           results.errors++;
           results.processed++;
-          console.error(`  ❌ Error processing ${customer.email}:`, error);
+          privacySafeConsole.error(privacySafeLogTemplate`  ❌ Error processing ${customer.email}:`, error);
 
           results.details.push({
             customerId: customer.id,

@@ -49,7 +49,8 @@ interface LoaderData {
   emailSettings: {
     emailProvider: EmailProvider;
     klaviyoEnabled: boolean;
-    klaviyoApiKey: string | null;
+    // The private key itself never leaves the server.
+    hasKlaviyoApiKey: boolean;
     klaviyoPublicKey: string | null;
     klaviyoDefaultListId: string | null;
     klaviyoSyncProfiles: boolean;
@@ -134,11 +135,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Get Klaviyo lists if API key is configured
+    const klaviyoApiKey = decryptSecret(emailSettings?.klaviyoApiKey);
     let klaviyoLists: Array<{ id: string; name: string }> = [];
-    if (emailSettings?.klaviyoApiKey) {
+    if (klaviyoApiKey) {
       try {
         const klaviyo = new KlaviyoService({
-          apiKey: decryptSecret(emailSettings.klaviyoApiKey),
+          apiKey: klaviyoApiKey,
         });
         klaviyoLists = await klaviyo.getLists();
       } catch (error) {
@@ -164,9 +166,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     console.log("[Klaviyo] Loader completed successfully");
+    let clientEmailSettings: LoaderData["emailSettings"] = null;
+    if (emailSettings) {
+      const { klaviyoApiKey: _storedKey, ...settings } = emailSettings;
+      clientEmailSettings = { ...settings, hasKlaviyoApiKey: klaviyoApiKey !== null };
+    }
     return json({
       shop,
-      emailSettings,
+      emailSettings: clientEmailSettings,
       automationSettings,
       klaviyoLists,
       profileCount,
@@ -247,11 +254,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     }
 
+    // The form never holds the saved key, so a blank field means "keep it".
+    let encryptedApiKey: string | null = null;
+    if (klaviyoApiKey) {
+      try {
+        encryptedApiKey = encryptSecret(klaviyoApiKey);
+      } catch {
+        console.error("[Klaviyo] Could not encrypt the API key; nothing was saved");
+        return json(
+          { success: false, error: "Couldn't save the API key securely. Nothing was saved." },
+          { status: 500 }
+        );
+      }
+    }
+
     // Build connection data (DRY: shared between create and update)
     const connectionData = {
       emailProvider: emailProvider as EmailProvider,
       klaviyoEnabled: emailProvider !== "SENDGRID",
-      klaviyoApiKey: klaviyoApiKey ? encryptSecret(klaviyoApiKey) : null,
       klaviyoPublicKey: klaviyoPublicKey || null,
       klaviyoDefaultListId: klaviyoDefaultListId || null,
       klaviyoSyncProfiles,
@@ -261,8 +281,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     try {
       await prisma.emailSettings.upsert({
         where: { shop },
-        create: { shop, senderEmail: `noreply@${shop}`, ...connectionData },
-        update: connectionData,
+        create: { shop, senderEmail: `noreply@${shop}`, ...connectionData, klaviyoApiKey: encryptedApiKey },
+        update: encryptedApiKey ? { ...connectionData, klaviyoApiKey: encryptedApiKey } : connectionData,
       });
 
       return json({ success: true, message: "Connection settings saved!" });
@@ -357,7 +377,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       select: { klaviyoApiKey: true },
     });
 
-    if (!settings?.klaviyoApiKey) {
+    const apiKey = decryptSecret(settings?.klaviyoApiKey);
+    if (!apiKey) {
       return json(
         { success: false, error: "Klaviyo API key not configured" },
         { status: 400 }
@@ -365,7 +386,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     try {
-      const klaviyo = new KlaviyoService({ apiKey: decryptSecret(settings.klaviyoApiKey) });
+      const klaviyo = new KlaviyoService({ apiKey });
       const isValid = await klaviyo.validateApiKey();
       return json({
         success: isValid,
@@ -377,6 +398,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         { status: 500 }
       );
     }
+  }
+
+  if (intent === "removeApiKey") {
+    await prisma.emailSettings.update({
+      where: { shop },
+      data: { klaviyoApiKey: null },
+    });
+    return json({ success: true, message: "Klaviyo API key removed" });
   }
 
   if (intent === "disconnectOAuth") {
@@ -409,9 +438,9 @@ export default function KlaviyoSettings() {
   const [emailProvider, setEmailProvider] = useState<EmailProvider>(
     data.emailSettings?.emailProvider || "SENDGRID"
   );
-  const [klaviyoApiKey, setKlaviyoApiKey] = useState(
-    data.emailSettings?.klaviyoApiKey || ""
-  );
+  // The saved key is never sent to the browser; this holds only a new key.
+  const [klaviyoApiKey, setKlaviyoApiKey] = useState("");
+  const hasSavedApiKey = data.emailSettings?.hasKlaviyoApiKey ?? false;
   const [klaviyoPublicKey, setKlaviyoPublicKey] = useState(
     data.emailSettings?.klaviyoPublicKey || ""
   );
@@ -495,6 +524,12 @@ export default function KlaviyoSettings() {
   const handleTestConnection = useCallback(() => {
     const formData = new FormData();
     formData.append("intent", "testConnection");
+    fetcher.submit(formData, { method: "post" });
+  }, [fetcher]);
+
+  const handleRemoveApiKey = useCallback(() => {
+    const formData = new FormData();
+    formData.append("intent", "removeApiKey");
     fetcher.submit(formData, { method: "post" });
   }, [fetcher]);
 
@@ -584,7 +619,7 @@ export default function KlaviyoSettings() {
                   </Text>
                   {data.emailSettings?.klaviyoOAuthConnected ? (
                     <Badge tone="success">Connected (OAuth)</Badge>
-                  ) : data.emailSettings?.klaviyoEnabled && data.emailSettings?.klaviyoApiKey ? (
+                  ) : data.emailSettings?.klaviyoEnabled && hasSavedApiKey ? (
                     <Badge tone="success">Connected (API Key)</Badge>
                   ) : (
                     <Badge tone="warning">Not Connected</Badge>
@@ -689,8 +724,25 @@ export default function KlaviyoSettings() {
                             onChange={setKlaviyoApiKey}
                             type="password"
                             autoComplete="off"
-                            helpText="Find this in Klaviyo → Settings → API Keys"
+                            placeholder={hasSavedApiKey ? "A key is saved" : undefined}
+                            helpText={
+                              hasSavedApiKey
+                                ? "A key is saved. Leave this blank to keep it, or enter a new key to replace it."
+                                : "Find this in Klaviyo → Settings → API Keys"
+                            }
                           />
+                          {hasSavedApiKey && (
+                            <InlineStack>
+                              <Button
+                                variant="plain"
+                                tone="critical"
+                                onClick={handleRemoveApiKey}
+                                loading={isSaving}
+                              >
+                                Remove saved key
+                              </Button>
+                            </InlineStack>
+                          )}
                         </>
                       )}
 
@@ -733,7 +785,7 @@ export default function KlaviyoSettings() {
                   >
                     Save Connection Settings
                   </Button>
-                  {emailProvider !== "SENDGRID" && klaviyoApiKey && (
+                  {emailProvider !== "SENDGRID" && (klaviyoApiKey || hasSavedApiKey) && (
                     <Button onClick={handleTestConnection} loading={isSaving}>
                       Test Connection
                     </Button>

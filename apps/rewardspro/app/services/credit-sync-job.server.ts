@@ -1,6 +1,7 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import prisma from "../db.server";
 import { ShopifyStoreCreditService } from "./shopify-store-credit.service";
+import { privacySafeConsole, privacySafeLogTemplate } from "~/utils/pii-masker";
 
 /**
  * Store Credit Sync Job Service
@@ -306,9 +307,8 @@ export async function processCreditSyncBatch(
           });
         });
 
-        console.log(
-          `[Credit Sync Job] Updated ${customer.email}: ` +
-          `${localBalance.toFixed(2)} -> ${shopifyBalance.toFixed(2)} (${difference > 0 ? '+' : ''}${difference.toFixed(2)})`
+        privacySafeConsole.log(
+          privacySafeLogTemplate`[Credit Sync Job] Updated ${customer.email}: ${localBalance.toFixed(2)} -> ${shopifyBalance.toFixed(2)} (${difference > 0 ? '+' : ''}${difference.toFixed(2)})`
         );
 
         batchUpdated++;

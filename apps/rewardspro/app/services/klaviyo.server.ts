@@ -454,9 +454,10 @@ export async function getKlaviyoService(
   }
 
   // Fall back to API key if OAuth not connected
-  if (settings.klaviyoApiKey) {
+  const apiKey = decryptSecret(settings.klaviyoApiKey);
+  if (apiKey) {
     return new KlaviyoService({
-      apiKey: decryptSecret(settings.klaviyoApiKey),
+      apiKey,
       publicKey: settings.klaviyoPublicKey || undefined,
       defaultListId: settings.klaviyoDefaultListId || undefined,
     });

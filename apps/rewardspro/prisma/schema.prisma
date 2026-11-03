@@ -2532,7 +2532,7 @@ model EmailSettings {
   // KLAVIYO CONFIGURATION
   // ═══════════════════════════════════════════════════════════════════════
   klaviyoEnabled       Boolean @default(false) // Feature flag
-  klaviyoApiKey        String? // Private API key (encrypted in production)
+  klaviyoApiKey        String? // Private API key, encrypted at rest (utils/encryption.server.ts)
   klaviyoPublicKey     String? // 6-char public key for client-side
   klaviyoDefaultListId String? // Default list for new subscribers
   klaviyoIntegrationId String? // Custom integration identifier

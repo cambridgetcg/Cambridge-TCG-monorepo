@@ -37,6 +37,7 @@ import {
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
+import { EMAIL_SETTINGS_SECRET_FIELDS } from "~/utils/encryption.server";
 import { getMarketingModeInfo, switchMarketingMode } from "~/services/marketing-mode.server";
 import { getEmailUsageStats } from "~/services/email-usage-control.server";
 import type { MarketingHubMode } from "@prisma/client";
@@ -78,9 +79,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Get email settings or create default
+  // Get email settings or create default (credentials stay on the server)
   const emailSettings = await prisma.emailSettings.findUnique({
     where: { shop },
+    omit: EMAIL_SETTINGS_SECRET_FIELDS,
   });
 
   // Get shop settings for defaults
