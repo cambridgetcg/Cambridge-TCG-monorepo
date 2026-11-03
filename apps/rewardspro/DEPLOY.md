@@ -32,6 +32,15 @@ Cloudflare Pages retains earlier deployments for rollback.
 
 ## Embedded Shopify application
 
+The app calls the Admin API at the version `app/shopify.server.ts` pins
+(2026-10, accessible until 2027-10-16); a push to `main` changes it.
+Webhooks are delivered at `[webhooks] api_version` in `shopify.app.toml`
+(2026-01), which changes only when a new app version is released. 2026-01 is
+accessible until 2027-01-16 15:00 UTC: re-pin it, check the subscribed
+topics' payloads against their handlers, and release a new app version
+before then. After that date Shopify moves the webhooks to the oldest version
+it still supports, without anyone having tested it.
+
 ## Pre-Push Checklist
 
 - [ ] `pnpm --filter rewardspro build` passes with no errors
