@@ -26,6 +26,7 @@ const fulfillmentStatusMap: Record<string, { tone: StatusTone; label: string }> 
   SCHEDULED: { tone: 'info', label: 'Scheduled' },
   ON_HOLD: { tone: 'warning', label: 'On Hold' },
   IN_PROGRESS: { tone: 'info', label: 'In Progress' },
+  FULFILLMENT_NOT_REQUIRED: { tone: 'success', label: 'Not Required' },
 };
 
 const toneColors: Record<StatusTone, string> = {
