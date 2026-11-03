@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Session } from "@shopify/shopify-api";
 import { setAbstractFetchFunc } from "@shopify/shopify-api/runtime";
-import { graphql, HttpResponse } from "msw";
+import { graphql, http, HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import { apiVersion, unauthenticated } from "~/shopify.server";
 import { server } from "../../mocks/server";
@@ -26,7 +26,7 @@ vi.mock("~/utils/session-storage.server", () => ({
 }));
 
 // The Shopify runtime captured the global fetch before MSW patched it (see
-// test/integration/postgres/shopify.ts); an unhandled request fails the test.
+// test/integration/postgres/shopify.ts)
 setAbstractFetchFunc((input, init) => globalThis.fetch(input, init));
 
 describe("Admin API version", () => {
@@ -34,17 +34,28 @@ describe("Admin API version", () => {
     loadSession.mockResolvedValue(
       new Session({ id: `offline_${SHOP}`, shop: SHOP, state: "state", isOnline: false, accessToken: "shpat_unit" }),
     );
+    const elsewhere: string[] = [];
     server.use(
       graphql.link(`https://${SHOP}/admin/api/2026-10/graphql.json`).query("ShopName", () =>
         HttpResponse.json({ data: { shop: { name: "Version test" } } }),
       ),
+      // MSW sends an unhandled request whose path ends in .json, as Admin
+      // GraphQL's does, to the real network whatever onUnhandledRequest says.
+      // Anything else stops here.
+      http.all("*", ({ request }) => {
+        elsewhere.push(request.url);
+        return HttpResponse.error();
+      }),
     );
 
     const { admin } = await unauthenticated.admin(SHOP);
-    const response = await admin.graphql(`#graphql
-      query ShopName { shop { name } }`);
+    const answer = await admin
+      .graphql(`#graphql
+      query ShopName { shop { name } }`)
+      .then((response) => response.json(), (error: Error) => error.message);
 
-    expect(await response.json()).toMatchObject({ data: { shop: { name: "Version test" } } });
+    expect(elsewhere).toEqual([]);
+    expect(answer).toMatchObject({ data: { shop: { name: "Version test" } } });
   });
 
   it("exports the version the Admin mocks are built from", () => {
