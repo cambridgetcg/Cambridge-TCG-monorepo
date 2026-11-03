@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { Session } from "@shopify/shopify-api";
 import { setAbstractFetchFunc } from "@shopify/shopify-api/runtime";
 import { graphql, HttpResponse } from "msw";
-import { sessionStorage } from "~/shopify.server";
+import { apiVersion, sessionStorage } from "~/shopify.server";
 import { server } from "../../mocks/server";
 
 /**
@@ -33,6 +33,9 @@ export function signedWebhook(topic: string, shop: string, payload: unknown, web
     },
   });
 }
+
+/** The Admin GraphQL endpoint the app calls for `shop`, at the version it pins. */
+export const adminGraphqlUrl = (shop: string) => `https://${shop}/admin/api/${apiVersion}/graphql.json`;
 
 /** The offline session authenticate.webhook and unauthenticated.admin load. */
 export async function seedOfflineSession(shop: string): Promise<void> {
@@ -93,7 +96,7 @@ export function mockStoreCredit(
     }
     return HttpResponse.json(body);
   };
-  const link = graphql.link(`https://${shop}/admin/api/2025-01/graphql.json`);
+  const link = graphql.link(adminGraphqlUrl(shop));
   const transaction = (customerId: string) => ({
     id: `gid://shopify/StoreCreditAccountDebitTransaction/${calls.length}`,
     amount: { amount: "0.00", currencyCode: "GBP" },
@@ -146,7 +149,7 @@ export function mockStoreCredit(
  */
 export function mockRefundedOrder(shop: string, order: { customerId: string | null; createdAt: Date }): void {
   server.use(
-    graphql.link(`https://${shop}/admin/api/2025-01/graphql.json`).query("RefundedOrderCustomer", ({ variables }) =>
+    graphql.link(adminGraphqlUrl(shop)).query("RefundedOrderCustomer", ({ variables }) =>
       HttpResponse.json({
         data: {
           order: {

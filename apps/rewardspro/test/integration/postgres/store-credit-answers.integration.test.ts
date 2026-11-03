@@ -15,7 +15,7 @@ import { issueCashbackByHand } from "~/services/cashback-ledger.server";
 import { unauthenticated } from "~/shopify.server";
 import { server } from "../../mocks/server";
 import { hasTestDatabase, resetDatabase } from "./database";
-import { mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
+import { adminGraphqlUrl, mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
 
 /**
  * Shopify can apply a store-credit credit or debit and still answer with an
@@ -130,7 +130,7 @@ function paidOrderDelivery(webhookId: string) {
 /** The order's payments, as the transaction analyzer reads them: £100 by card. */
 function mockOrderPayments() {
   server.use(
-    graphql.link(`https://${SHOP}/admin/api/2025-01/graphql.json`).query("GetOrderPaymentDetails", ({ variables }) =>
+    graphql.link(adminGraphqlUrl(SHOP)).query("GetOrderPaymentDetails", ({ variables }) =>
       HttpResponse.json({
         data: {
           order: {

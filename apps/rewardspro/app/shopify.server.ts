@@ -1,6 +1,6 @@
 import "@shopify/shopify-app-remix/adapters/node";
 import {
-  ApiVersion,
+  type ApiVersion,
   AppDistribution,
   shopifyApp,
   BillingInterval,
@@ -43,10 +43,16 @@ export {
   ANNUAL_PLAN,
 };
 
+// Admin API 2026-10, supported until 2027-10-16. The installed
+// @shopify/shopify-api 11 has no enum member past October25 but takes the
+// version as a plain string, so it is named here. .graphqlrc.ts names the
+// same version for codegen.
+const SHOPIFY_API_VERSION = "2026-10" as ApiVersion;
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: ApiVersion.January25,
+  apiVersion: SHOPIFY_API_VERSION,
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
@@ -297,7 +303,7 @@ const shopify = shopifyApp({
 });
 
 export default shopify;
-export const apiVersion = ApiVersion.January25;
+export const apiVersion = SHOPIFY_API_VERSION;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;
