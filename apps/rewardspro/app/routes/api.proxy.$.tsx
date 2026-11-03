@@ -21,6 +21,7 @@ import { appProxyRateLimit } from "../utils/rate-limiter-redis";
 import { getActiveEvents } from "../services/points-bonus-events.server";
 import { getRedemptionTiers } from "../services/points-redemption.server";
 import { getEnabledFeatures, getCurrencyBranding } from "../services/points-config.server";
+import { getCustomerAccountsVersion } from "../services/customer-accounts-version.server";
 // Engagement action imports
 import { purchaseRaffleEntries, claimDailyFreeEntry } from "../services/raffle-entry.server";
 import { getRaffleStreakInfo } from "../services/raffle-streak.server";
@@ -163,9 +164,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   log.debug('=== AUTH: Starting HMAC authentication ===');
 
   let session;
+  let admin;
   try {
     const authResult = await authenticate.public.appProxy(request);
     session = authResult.session;
+    admin = authResult.admin;
     log.debug('=== AUTH SUCCESS ===', {
       shop: session?.shop,
       hasSession: !!session
@@ -287,7 +290,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       });
 
       const startTime = Date.now();
-      const [customer, shopSettings, pointsConfig] = await Promise.all([
+      const [customer, shopSettings, pointsConfig, customerAccountsVersion] = await Promise.all([
         prisma.customer.findUnique({
           where: { shop_shopifyCustomerId: { shop, shopifyCustomerId: customerId } },
           select: {
@@ -354,6 +357,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             streakBonusMultiplier: true,
           },
         }),
+        // Which customer accounts the shop uses: store credit can be spent
+        // signed in only with new customer accounts (cached; null if unknown)
+        getCustomerAccountsVersion(shop, admin),
       ]);
 
       const executionTime = Date.now() - startTime;
@@ -677,6 +683,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         },
         settings: {
           currency: row.storeCurrency || 'USD',
+          // The widget explains spending store credit only for NEW_CUSTOMER_ACCOUNTS
+          customerAccountsVersion,
         },
         // Points Engagement System data
         points: pointsData,

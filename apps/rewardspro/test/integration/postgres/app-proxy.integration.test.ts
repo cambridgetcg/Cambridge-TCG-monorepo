@@ -1,8 +1,10 @@
+import { graphql, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
 import { loader } from "~/routes/api.proxy.$";
 import { hasTestDatabase, resetDatabase } from "./database";
 import { seedOfflineSession, signedProxyRequest } from "./shopify";
+import { server } from "../../mocks/server";
 
 const SHOP = "proxy-test.myshopify.com";
 const VICTIM = { shopifyCustomerId: "9876543210", email: "victim@example.test" };
@@ -61,6 +63,11 @@ describe.skipIf(!hasTestDatabase)("app proxy identity on Postgres", () => {
   });
 
   it("serves the signed-in shopper their own data", async () => {
+    server.use(
+      graphql.link(`https://${SHOP}/admin/api/2025-01/graphql.json`).query("CustomerAccountsVersion", () =>
+        HttpResponse.json({ data: { shop: { customerAccountsV2: { customerAccountsVersion: "NEW_CUSTOMER_ACCOUNTS" } } } }),
+      ),
+    );
     const response = await get("membership", signedProxyRequest("membership", SHOP, SHOPPER.shopifyCustomerId));
 
     expect(response.status).toBe(200);
@@ -68,6 +75,8 @@ describe.skipIf(!hasTestDatabase)("app proxy identity on Postgres", () => {
     expect(body.success).toBe(true);
     expect(JSON.stringify(body)).toContain(SHOPPER.email);
     expect(JSON.stringify(body)).not.toContain(VICTIM.email);
+    // The widget explains spending store credit only on these shops
+    expect(body.settings.customerAccountsVersion).toBe("NEW_CUSTOMER_ACCOUNTS");
   });
 
   it("does not read another shopper's balance through customer-summary", async () => {
