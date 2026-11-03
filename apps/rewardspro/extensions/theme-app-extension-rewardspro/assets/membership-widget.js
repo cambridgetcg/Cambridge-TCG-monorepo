@@ -113,7 +113,7 @@
           perkTierStatus: dataset.i18nPerkTierStatus || 'Unlock higher tiers',
           perkProgress: dataset.i18nPerkProgress || 'Track your progress',
           storeCreditBalance: dataset.i18nStoreCreditBalance || 'Your credit',
-          spendAtCheckout: dataset.i18nSpendAtCheckout || 'Spend it at checkout while signed in or with Shop Pay. Your full balance is applied.',
+          spendAtCheckout: dataset.i18nSpendAtCheckout || "To spend it, select Apply store credit at checkout while signed in or using Shop Pay. You can't choose to use only part of it.",
           tierLabel: dataset.i18nTierLabel || 'Tier',
           cashbackLabel: dataset.i18nCashbackLabel || 'Cashback',
           progressLabel: dataset.i18nProgressLabel || 'Progress',
@@ -646,6 +646,14 @@
       try { cashbackPercent = (membership.tier && membership.tier.cashbackPercent) != null ? membership.tier.cashbackPercent : 0; } catch (e) {}
       try { storeCreditFormatted = this.formatCurrency(balance.storeCredit); } catch (e) {}
 
+      // How to spend it: Shopify applies store credit only for shoppers
+      // signed in through new customer accounts (or using Shop Pay), never
+      // legacy accounts, so the proxy says which kind the shop uses. No
+      // answer, or no credit, means no line.
+      var settings = data.settings || {};
+      var showSpend = settings.customerAccountsVersion === 'NEW_CUSTOMER_ACCOUNTS' &&
+        Number(balance.storeCredit) > 0;
+
       // Tier progress — show when the shopper either owns the top tier or has
       // a meaningful target to aim at.
       var progressPercent = 0, nextTierName = '', nextTierCashback = null;
@@ -729,7 +737,7 @@
               <div class="rp-auth-c__balance-label">${this.escapeHtml(t.storeCreditBalance)}</div>
               <div class="rp-auth-c__balance-amount">${this.escapeHtml(storeCreditFormatted)}</div>
               <div class="rp-auth__balance-rate">${this.escapeHtml(this.interpolate(t.cashbackRate, { percent: cashbackPercent }))}</div>
-              <div class="rp-auth__balance-spend">${this.escapeHtml(t.spendAtCheckout)}</div>
+              ${showSpend ? `<div class="rp-auth__balance-spend">${this.escapeHtml(t.spendAtCheckout)}</div>` : ''}
             </div>
             ${progressBlock}
             ${this.renderPointsSection()}
