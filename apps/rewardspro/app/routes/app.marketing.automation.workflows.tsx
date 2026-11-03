@@ -324,7 +324,7 @@ function getDefaultEmailHtml(templateId: string): string {
 <p>We hope you have an amazing day filled with joy and celebration.</p>
 <p>As a birthday gift, we've got something special waiting for you.</p>`,
     cashback_reminder: `<p>Great news! You have store credit available.</p>
-<p>Don't let it go unused - treat yourself to something special.</p>
+<p>To spend it, sign in to your account at checkout and apply your store credit. It is applied as your full balance; you can't choose part of it.</p>
 <p>Shop now and put your rewards to work!</p>`,
     tier_milestone: `<p>You're almost there!</p>
 <p>Just a little more and you'll reach the next tier with even better rewards.</p>

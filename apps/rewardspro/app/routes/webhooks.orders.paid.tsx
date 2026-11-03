@@ -204,7 +204,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Step 1: The order row references the customer, so make sure the
         // customer exists first (customers/create may not have arrived yet).
-        const { customer: orderCustomer, created: customerCreated } = await ensureCustomer(shop!, order);
+        const { customer: orderCustomer } = await ensureCustomer(shop!, order);
 
         // Step 2: Create Order record (NO TRANSACTION - match sync service)
         const orderCreated = await createOrderRecord(db, {
@@ -257,6 +257,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // A previous attempt may have stopped after creating the order.
           // Cashback (guarded by its ledger entry) and spending totals
           // (recomputed from orders) are idempotent, so finish them here.
+          await placeTierlessCustomer(db, { shop: shop!, order, customer: orderCustomer, admin });
           await processCashback(db, { shop: shop!, order, admin });
           await updateCustomerSpendingFromOrders(db, { shop: shop!, order });
           return { success: true, results: [], usageEligible: false };
@@ -366,17 +367,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Step 4: Cashback and spending totals. These are the money path, so a
         // failure fails the delivery (5xx) and Shopify redelivers; the retry
         // path above completes them idempotently.
-        if (customerCreated) {
-          // A first-time customer has no tier yet: place them using this
-          // order's spend, so the order earns at the tier it reaches.
-          await updateCustomerSpendingFromOrders(db, { shop: shop!, order });
-          await checkTierProgression(db, {
-            shop: shop!,
-            customerId: orderCustomer.id,
-            admin: admin,
-            orderId: order.id?.toString()
-          });
-        }
+        const placedBeforeCashback = await placeTierlessCustomer(db, {
+          shop: shop!,
+          order,
+          customer: orderCustomer,
+          admin,
+        });
 
         await processCashback(db, {
           shop: shop!,
@@ -443,9 +439,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Check for tier progression
           const dbCustomer = orderCustomer;
-          // Skip tier resolution if Step 3.5 or the first-order placement above already resolved it
+          // Skip tier resolution if Step 3.5 or the placement before cashback already resolved it
           const skipTierResolution =
-            customerCreated || (tierPurchaseMade && tierPurchaseCustomerId === dbCustomer.id);
+            placedBeforeCashback || (tierPurchaseMade && tierPurchaseCustomerId === dbCustomer.id);
           if (skipTierResolution) {
             console.log(`[OrderPaid] Skipping tier progression - already resolved for customer ${dbCustomer.id}`);
           } else {
@@ -613,7 +609,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           topic: topic || 'orders/paid',
           orderId: order.id?.toString() ?? null,
           error: error instanceof Error ? error.message : 'Unknown error',
-          payload: order,
+          // Ids and the error kind only: the order payload carries the
+          // shopper's name, email, addresses and payment details
+          payload: {
+            orderId: order.id ?? null,
+            customerId: order.customer?.id ?? null,
+            errorKind: error instanceof Error ? error.name : typeof error,
+          },
           createdAt: new Date(),
         }
       }).catch(e => errorLogger.error('Failed to log webhook error', e));
@@ -1448,6 +1450,34 @@ async function updateCustomerSpendingFromOrders(tx: PrismaClient, params: {
   });
   
   console.log(`[OrderPaid] Updated customer ${customer.id} spending totals`);
+}
+
+/**
+ * Place a customer who has no tier yet, using this order's spend, so the
+ * order earns cashback at the tier it reaches instead of nothing. That is a
+ * customer on their first order here, and one created earlier without a tier:
+ * by customers/create, by a customer sync, or before the shop had any tier.
+ * Returns whether the customer was placed.
+ */
+async function placeTierlessCustomer(tx: PrismaClient, params: {
+  shop: string;
+  order: any;
+  customer: Customer;
+  admin: any;
+}): Promise<boolean> {
+  const { shop, order, customer, admin } = params;
+  if (customer.currentTierId) {
+    return false;
+  }
+
+  await updateCustomerSpendingFromOrders(tx, { shop, order });
+  await checkTierProgression(tx, {
+    shop,
+    customerId: customer.id,
+    admin,
+    orderId: order.id?.toString()
+  });
+  return true;
 }
 
 async function checkTierProgression(_dbOrTx: PrismaClient, params: {

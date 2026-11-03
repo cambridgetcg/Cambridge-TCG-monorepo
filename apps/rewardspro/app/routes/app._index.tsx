@@ -37,6 +37,7 @@ import {
 } from "~/constants/pricing-contract";
 import { measureQuery, getDatabaseHealth } from "~/utils/database-health.server";
 import { FeatureTogglesList } from "~/components/DesignSystem";
+import { FirstRunSetupCard, shouldShowFirstRunSetup, type FirstRunSetupState } from "~/components/FirstRunSetupCard";
 import { APP_ROUTES } from "~/navigation/routes";
 import { countPendingDataRequests } from "~/services/customer-data-request.server";
 
@@ -131,6 +132,8 @@ interface DashboardData {
     };
     webhookHealth: 'healthy' | 'degraded' | 'critical';
   };
+  // First-run setup card
+  firstRun: FirstRunSetupState & { dismissed: boolean };
   // Review banner
   reviewBannerDismissed: boolean;
   // Customer data requests the merchant has not downloaded
@@ -225,6 +228,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             widgetIsActive: true,
             widgetSetupDismissed: true,
             reviewBannerDismissed: true,
+            // Reused for the first-run setup card: unused since the
+            // customer-account extension was removed (2026-10-20)
+            customerAccountBlockDismissed: true,
           }
         })
       ),
@@ -459,6 +465,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Simplified dashboard data
     const dashboardData: DashboardData = {
       shop,
+      firstRun: {
+        hasTier: hasTiers,
+        autoCashbackOn: cashbackEnabled,
+        widgetOn: widgetDetectionResult.isEnabled,
+        dismissed: shopSettings?.customerAccountBlockDismissed ?? false,
+        // Shopify's deep link that activates an app embed: the block's
+        // handle is its Liquid file name (blocks/membership_widget.liquid)
+        themeEditorUrl: `https://${shop}/admin/themes/current/editor?context=apps&activateAppId=${process.env.SHOPIFY_API_KEY}/membership_widget`,
+      },
       reviewBannerDismissed: shopSettings?.reviewBannerDismissed ?? false,
       pendingDataRequests,
       shopSettings: shopSettings ? {
@@ -658,6 +673,15 @@ export default function Dashboard() {
     reviewFetcher.submit({}, { method: 'POST', action: '/api/dismiss-review-banner' });
   }, [reviewFetcher]);
 
+  // First-run setup card: dismissal is stored in customerAccountBlockDismissed
+  const [setupCardDismissed, setSetupCardDismissed] = useState(data?.firstRun?.dismissed ?? false);
+  const setupFetcher = useFetcher();
+
+  const handleDismissSetupCard = useCallback(() => {
+    setSetupCardDismissed(true);
+    setupFetcher.submit({}, { method: 'POST', action: '/api/dismiss-customer-account-block' });
+  }, [setupFetcher]);
+
   // Analytics tracking
   const { trackCustomEvent } = useAnalytics({ pageTitle: 'Dashboard' });
   const hasTrackedDashboardView = useRef(false);
@@ -786,6 +810,9 @@ export default function Dashboard() {
   const healthyCount = systemComponents.filter(c => c.ok).length;
   const allHealthy = healthyCount === systemComponents.length;
 
+  // The setup card follows the optimistic toggle, like the Features card
+  const firstRunState: FirstRunSetupState = { ...data.firstRun, autoCashbackOn: cashbackEnabled };
+
   const usagePercent = data.monthlyOrderUsage
     ? Math.round((data.monthlyOrderUsage.orderCount / data.monthlyOrderUsage.planLimit) * 100)
     : 0;
@@ -806,6 +833,18 @@ export default function Dashboard() {
                 Shopify sent a customer data request. Download the report and send it to the customer within 30 days.
               </Text>
             </Banner>
+          </Layout.Section>
+        )}
+
+        {/* First-run setup: tier, automatic cashback, storefront widget */}
+        {shouldShowFirstRunSetup(firstRunState, setupCardDismissed) && (
+          <Layout.Section>
+            <FirstRunSetupCard
+              {...firstRunState}
+              onCreateTier={() => navigate(APP_ROUTES.MEMBERS.TIERS)}
+              onTurnOnCashback={() => handleToggleFeature('autoCashbackProcessingEnabled', true)}
+              onDismiss={handleDismissSetupCard}
+            />
           </Layout.Section>
         )}
 

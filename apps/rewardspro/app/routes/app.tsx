@@ -76,8 +76,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           // Ignore body read errors
         }
 
-        // Return the error response (will be caught by ErrorBoundary)
-        return authError;
+        // Thrown, not returned: a returned Response becomes the page's loader
+        // data, and the shell rendered it as if the API key were missing.
+        // boundary.error (ErrorBoundary below) renders Shopify's answer.
+        throw authError;
       }
 
       // Non-Response errors - log and re-throw
@@ -258,8 +260,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         console.log("[App Loader] Returning redirect response from error handler");
         return error;
       }
+      // Other answers (auth errors, 401) were logged where they were thrown
+      throw error;
     }
-    
+
     logError(error, 'App Route Loader', requestId);
     console.error("[App Loader] Authentication error:", error);
     throw error;
@@ -269,11 +273,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function App() {
   const { apiKey, ga4MeasurementId } = useLoaderData<typeof loader>();
   const skipToContentTarget = useRef<HTMLAnchorElement>(null);
-
-  if (!apiKey) {
-    console.error("[App Component] No API key available!");
-    return <div>Error: API key not configured</div>;
-  }
 
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>

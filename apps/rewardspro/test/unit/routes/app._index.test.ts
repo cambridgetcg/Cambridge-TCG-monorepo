@@ -376,6 +376,72 @@ describe('app._index (dashboard) loader', () => {
     expect(db.order.count).toHaveBeenCalled();
   });
 
+  it('reports every first-run setup step as done for a set-up shop', async () => {
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.firstRun).toEqual({
+      hasTier: true,
+      autoCashbackOn: true,
+      widgetOn: true,
+      dismissed: false,
+      themeEditorUrl:
+        'https://test-shop.myshopify.com/admin/themes/current/editor?context=apps&activateAppId=test-api-key/membership_widget',
+    });
+  });
+
+  it('reports the first-run setup steps a new shop still needs', async () => {
+    vi.mocked(db.tier.count).mockResolvedValue(0);
+    vi.mocked(detectWidgetStatus).mockResolvedValue({
+      isEnabled: false,
+      blockType: 'none',
+      themeName: 'Dawn',
+      lastChecked: new Date('2026-03-22T12:00:00Z'),
+    });
+    vi.mocked(db.shopSettings.findUnique).mockResolvedValue({
+      storeCurrency: 'GBP',
+      autoCashbackProcessingEnabled: false,
+      customersInitialSynced: false,
+      customersSyncInProgress: true,
+      widgetIsActive: false,
+      widgetSetupDismissed: false,
+      reviewBannerDismissed: false,
+      customerAccountBlockDismissed: false,
+    } as any);
+
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.firstRun).toMatchObject({
+      hasTier: false,
+      autoCashbackOn: false,
+      widgetOn: false,
+      dismissed: false,
+    });
+  });
+
+  it('remembers a dismissed first-run setup card in the unused customer-account flag', async () => {
+    vi.mocked(db.shopSettings.findUnique).mockResolvedValue({
+      storeCurrency: 'USD',
+      autoCashbackProcessingEnabled: false,
+      widgetIsActive: false,
+      customerAccountBlockDismissed: true,
+    } as any);
+
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.firstRun.dismissed).toBe(true);
+    expect(db.shopSettings.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ customerAccountBlockDismissed: true }),
+      }),
+    );
+  });
+
   it('should detect failed data sync status', async () => {
     vi.mocked(db.syncStatus.findMany).mockResolvedValue([
       { syncType: 'customers', status: 'FAILED', lastSyncAt: null, recordsProcessed: 0 },
