@@ -8,6 +8,11 @@
  * Every customer is resolved by the same rules orders use
  * (recalculateTiersSmart → updateCustomerToEffectiveTier).
  *
+ * A pass over a shop resolves every customer not resolved since the shop
+ * became due. It can span several runs, and each due shop gets a share of a
+ * run's time, so a big shop finishes and can't hold up the others. The shop's
+ * last run is stamped only when its pass is complete and error-free.
+ *
  * IMPORTANT: Uses distributed locking to prevent concurrent execution
  * across multiple Vercel regions.
  */
@@ -52,6 +57,24 @@ function shouldRunRecalculation(
   if (!days) return false;
 
   return Date.now() - lastRun.getTime() >= days * DAY_MS - DUE_SLACK_MS;
+}
+
+// Customers resolved at or after this time are up to date for this pass: an
+// earlier run of the pass, or an order, resolved them after the shop became
+// due. A shop that never finished a pass has no due time, so a customer
+// resolved within the last period (and the slack) counts as up to date.
+function passStartedAt(frequency: RecalculationFrequency, lastRun: Date | null): Date {
+  const period = DAYS_BETWEEN_RUNS[frequency] * DAY_MS;
+  return lastRun
+    ? new Date(lastRun.getTime() + period - DUE_SLACK_MS)
+    : new Date(Date.now() - period - DUE_SLACK_MS);
+}
+
+// No complete pass for two periods: the shop is falling behind, so the run
+// answers 500 for the cron monitor
+function isOverdue(frequency: RecalculationFrequency, lastRun: Date | null, createdAt: Date): boolean {
+  const period = DAYS_BETWEEN_RUNS[frequency] * DAY_MS;
+  return Date.now() - (lastRun ?? createdAt).getTime() > 2 * period;
 }
 
 // Use loader for GET requests (Vercel sends GET, not POST)
@@ -113,6 +136,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     errors: 0,
     skippedShops: 0,
     unfinishedShops: 0,
+    overdueShops: [] as string[],
     // Track tier sources across all shops
     bySource: {
       manualOverride: 0,
@@ -132,7 +156,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 
   try {
-    // 3. Find all shops with automatic recalculation enabled
+    // 3. Find all shops with automatic recalculation enabled, those that
+    // waited longest first
     const shops = await prisma.shopSettings.findMany({
       where: {
         tierRecalculationEnabled: true
@@ -140,49 +165,66 @@ export async function loader({ request }: LoaderFunctionArgs) {
       select: {
         shop: true,
         tierRecalculationFrequency: true,
-        tierRecalculationLastRun: true
-      }
+        tierRecalculationLastRun: true,
+        createdAt: true
+      },
+      orderBy: { tierRecalculationLastRun: { sort: 'asc', nulls: 'first' } }
     });
 
     log('info', `Found ${shops.length} shops with auto-recalculation enabled`);
 
-    // 4. For each shop, check if it's time to run based on frequency
-    for (const shopSettings of shops) {
+    // 4. Keep the shops that are due, based on their frequency
+    const dueShops = shops.filter((shopSettings) => {
+      const shouldRun = shouldRunRecalculation(
+        shopSettings.tierRecalculationFrequency as RecalculationFrequency,
+        shopSettings.tierRecalculationLastRun
+      );
+      if (!shouldRun) {
+        log('info', `Skipping ${shopSettings.shop} - not due yet`, {
+          frequency: shopSettings.tierRecalculationFrequency,
+          lastRun: shopSettings.tierRecalculationLastRun
+        });
+        results.skippedShops++;
+      }
+      return shouldRun;
+    });
+
+    for (const [index, shopSettings] of dueShops.entries()) {
+      const frequency = shopSettings.tierRecalculationFrequency as RecalculationFrequency;
+      let stamped = false;
       try {
-        const shouldRun = shouldRunRecalculation(
-          shopSettings.tierRecalculationFrequency as RecalculationFrequency,
-          shopSettings.tierRecalculationLastRun
-        );
-
-        if (!shouldRun) {
-          log('info', `Skipping ${shopSettings.shop} - not due yet`, {
-            frequency: shopSettings.tierRecalculationFrequency,
-            lastRun: shopSettings.tierRecalculationLastRun
-          });
-          results.skippedShops++;
-          continue;
-        }
-
-        if (Date.now() >= deadline) {
+        const now = Date.now();
+        if (now >= deadline) {
           log('warn', `Out of time before ${shopSettings.shop}; it stays due for the next run`);
           results.unfinishedShops++;
           continue;
         }
+        // An equal share of the time left, so every due shop moves forward;
+        // time a shop doesn't use goes to the shops after it
+        const shopDeadline = now + (deadline - now) / (dueShops.length - index);
 
         log('info', `Processing ${shopSettings.shop}`);
 
         if (!isDryRun) {
-          // 5a. Refresh Customer.annualSpent (the shopper's account page shows
-          // it). Tiers don't read it: the resolver sums orders itself.
+          // 5a. Resolve the tier, by the rules orders use, of every customer
+          // not resolved since the shop became due
+          const recalcResult = await recalculateTiersSmart(shopSettings.shop, {
+            deadline: shopDeadline,
+            resolvedBefore: passStartedAt(frequency, shopSettings.tierRecalculationLastRun),
+          });
+
+          // 5b. Refresh Customer.annualSpent (the shopper's account page shows
+          // it) with what is left of the shop's share. Tiers don't read it: the
+          // resolver sums orders itself.
           log('info', `Refreshing annual spending for ${shopSettings.shop}`);
           try {
-            const spendingRefreshResult = await refreshAnnualSpending(shopSettings.shop);
+            const spendingRefreshResult = await refreshAnnualSpending(shopSettings.shop, { deadline: shopDeadline });
             results.annualSpendingRefresh.customersProcessed += spendingRefreshResult.processed;
             results.annualSpendingRefresh.customersUpdated += spendingRefreshResult.updated;
             results.annualSpendingRefresh.errors += spendingRefreshResult.errors;
             results.annualSpendingRefresh.totalDurationMs += spendingRefreshResult.duration;
 
-            log('info', `Annual spending refresh complete for ${shopSettings.shop}`, {
+            log('info', `Annual spending refresh ${spendingRefreshResult.complete ? 'complete' : 'stopped at the time limit'} for ${shopSettings.shop}`, {
               processed: spendingRefreshResult.processed,
               updated: spendingRefreshResult.updated,
               errors: spendingRefreshResult.errors,
@@ -192,11 +234,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
             log('error', `Annual spending refresh failed for ${shopSettings.shop}`, {
               error: spendingError.message
             });
-            // Continue with tier recalculation even if spending refresh fails
           }
-
-          // 5b. Resolve every customer's tier by the rules orders use
-          const recalcResult = await recalculateTiersSmart(shopSettings.shop, { deadline });
 
           // 6. Stamp the last run only when every customer was resolved, so a
           // shop with failures or one that ran out of time stays due
@@ -204,7 +242,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
           if (!recalcResult.complete) {
             results.unfinishedShops++;
             log('warn', `Ran out of time for ${shopSettings.shop}; the next run carries on`, {
-              processed: recalcResult.processed
+              processed: recalcResult.processed,
+              remaining: recalcResult.remaining
             });
           }
           if (recalcResult.errors === 0 && recalcResult.complete) {
@@ -215,6 +254,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
                 updatedAt: new Date()
               }
             });
+            stamped = true;
           }
 
           results.shopsProcessed++;
@@ -266,6 +306,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
       } catch (error: any) {
         log('error', `Error processing shop ${shopSettings.shop}`, { error: error.message });
         results.errors++;
+      } finally {
+        if (!isDryRun && !stamped && isOverdue(frequency, shopSettings.tierRecalculationLastRun, shopSettings.createdAt)) {
+          results.overdueShops.push(shopSettings.shop);
+        }
       }
     }
 
@@ -274,6 +318,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
       shopsProcessed: results.shopsProcessed,
       shopsSkipped: results.skippedShops,
       shopsUnfinished: results.unfinishedShops,
+      // No complete pass for two of their periods
+      shopsOverdue: results.overdueShops.length,
+      overdueShops: results.overdueShops,
       customersProcessed: results.customersProcessed,
       totalUpgraded: results.totalUpgraded,
       totalDowngraded: results.totalDowngraded,
@@ -300,16 +347,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     log('info', 'Tier recalculation cron completed', summary);
 
-    // 8. Send alert if there were errors
+    // 8. Send alert if there were errors (only when SLACK_WEBHOOK_URL is set)
     if (results.errors > 0 && process.env.SLACK_WEBHOOK_URL) {
       await sendAlert(`⚠️ Tier recalculation cron had ${results.errors} errors`);
     }
 
+    // Customers left with a stale tier, or a shop falling behind, make this a
+    // failed run, so the cron monitor and the logs show it as one
+    const failed = results.errors > 0 || results.overdueShops.length > 0;
     return json({
-      success: true,
+      success: !failed,
       correlationId,
       summary
-    });
+    }, { status: failed ? 500 : 200 });
 
   } catch (error: any) {
     log('error', 'Tier recalculation cron failed', { error: error.message, stack: error.stack });

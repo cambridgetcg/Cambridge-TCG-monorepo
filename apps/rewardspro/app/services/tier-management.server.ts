@@ -202,12 +202,19 @@ export async function assignBaseTierToAllCustomersWithoutTier(shop: string): Pro
  *   customer is started; the result then has complete: false. Customers who
  *   were never resolved go first, then those resolved longest ago, so the next
  *   run carries on where this one stopped.
+ * @param options.resolvedBefore - Resolve only customers last resolved before
+ *   this time (and those never resolved). The cron passes the time the shop
+ *   became due, so customers an earlier run of the same pass (or an order)
+ *   resolved since are skipped and a pass bigger than one run still finishes.
+ *   Without it every customer is resolved.
  */
 export async function recalculateTiersForAllCustomers(
   shop: string,
-  options?: { deadline?: number }
+  options?: { deadline?: number; resolvedBefore?: Date }
 ): Promise<{
   processed: number;
+  /** Customers this call should have resolved but didn't reach */
+  remaining: number;
   upgraded: number;
   downgraded: number;
   unchanged: number;
@@ -233,7 +240,12 @@ export async function recalculateTiersForAllCustomers(
       orderBy: { id: 'asc' }
     })),
     ...(await prisma.customer.findMany({
-      where: { shop, tierState: { isNot: null } },
+      where: {
+        shop,
+        tierState: options?.resolvedBefore
+          ? { is: { lastResolvedAt: { lt: options.resolvedBefore } } }
+          : { isNot: null },
+      },
       select: { id: true, currentTierId: true },
       orderBy: [{ tierState: { lastResolvedAt: 'asc' } }, { id: 'asc' }]
     })),
@@ -348,6 +360,7 @@ export async function recalculateTiersForAllCustomers(
 
   return {
     processed,
+    remaining: customers.length - processed,
     upgraded,
     downgraded,
     unchanged,
@@ -376,14 +389,17 @@ export async function recalculateTiersForAllCustomers(
  *
  * @param shop - Shop domain
  * @param options.deadline - Passed to recalculateTiersForAllCustomers
+ * @param options.resolvedBefore - Passed to recalculateTiersForAllCustomers
  */
 export async function recalculateTiersSmart(
   shop: string,
   options?: {
     deadline?: number;
+    resolvedBefore?: Date;
   }
 ): Promise<{
   processed: number;
+  remaining: number;
   upgraded: number;
   downgraded: number;
   unchanged: number;
@@ -423,15 +439,19 @@ export async function recalculateTiersSmart(
  * evaluation period from the orders themselves.
  *
  * @param shop - Shop domain
+ * @param options.deadline - Time (ms since epoch) after which no further
+ *   batch is started; the result then has complete: false
  * @returns Statistics about the refresh operation
  */
 export async function refreshAnnualSpending(
-  shop: string
+  shop: string,
+  options?: { deadline?: number }
 ): Promise<{
   processed: number;
   updated: number;
   errors: number;
   duration: number;
+  complete: boolean;
 }> {
   const startTime = Date.now();
   console.log(`[Tier Management] Starting annual spending refresh for ${shop}`);
@@ -443,6 +463,7 @@ export async function refreshAnnualSpending(
   let processed = 0;
   let updated = 0;
   let errors = 0;
+  let complete = true;
 
   try {
     // Get all customers for this shop
@@ -460,6 +481,11 @@ export async function refreshAnnualSpending(
     const batchSize = 100;
 
     for (let i = 0; i < customers.length; i += batchSize) {
+      if (options?.deadline !== undefined && Date.now() >= options.deadline) {
+        complete = false;
+        console.warn(`[Tier Management] Out of time after refreshing annual spending for ${processed} of ${customers.length} customers`);
+        break;
+      }
       const batch = customers.slice(i, i + batchSize);
       const batchNumber = Math.floor(i / batchSize) + 1;
       const totalBatches = Math.ceil(customers.length / batchSize);
@@ -515,14 +541,14 @@ export async function refreshAnnualSpending(
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[Tier Management] Annual spending refresh complete:`, {
+    console.log(`[Tier Management] Annual spending refresh ${complete ? 'complete' : 'stopped early'}:`, {
       processed,
       updated,
       errors,
       durationMs: duration
     });
 
-    return { processed, updated, errors, duration };
+    return { processed, updated, errors, duration, complete };
   } catch (error) {
     console.error(`[Tier Management] Error in annual spending refresh:`, error);
     throw error;

@@ -7,8 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const db = vi.hoisted(() => ({
-  customer: { findMany: vi.fn() },
+  customer: { findMany: vi.fn(), update: vi.fn() },
   tier: { findUnique: vi.fn() },
+  order: { aggregate: vi.fn() },
 }));
 
 const tierResolution = vi.hoisted(() => ({ updateCustomerToEffectiveTier: vi.fn() }));
@@ -16,7 +17,7 @@ const tierResolution = vi.hoisted(() => ({ updateCustomerToEffectiveTier: vi.fn(
 vi.mock("~/db.server", () => ({ default: db, db, prisma: db }));
 vi.mock("~/services/tier-resolution.server", () => tierResolution);
 
-import { recalculateTiersSmart } from "~/services/tier-management.server";
+import { recalculateTiersSmart, refreshAnnualSpending } from "~/services/tier-management.server";
 
 const SHOP = "shop.myshopify.com";
 const resolved = { success: true, changed: false, previousTierId: "tier-bronze", newTierId: "tier-bronze", source: "SPENDING_BASED" };
@@ -82,6 +83,37 @@ describe("recalculateTiersSmart", () => {
     const result = await recalculateTiersSmart(SHOP, { deadline: 2_000 });
 
     expect(resolvedCustomers()).toEqual(["new", "stale"]);
-    expect(result).toMatchObject({ processed: 2, complete: false, errors: 0 });
+    expect(result).toMatchObject({ processed: 2, remaining: 1, complete: false, errors: 0 });
+  });
+
+  it("with resolvedBefore, skips customers resolved since then, so a pass can span several runs", async () => {
+    const resolvedBefore = new Date("2026-11-01T08:00:00Z");
+
+    const result = await recalculateTiersSmart(SHOP, { resolvedBefore });
+
+    expect(db.customer.findMany).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      where: { shop: SHOP, tierState: { is: { lastResolvedAt: { lt: resolvedBefore } } } },
+      orderBy: [{ tierState: { lastResolvedAt: "asc" } }, { id: "asc" }],
+    }));
+    expect(result).toMatchObject({ processed: 3, remaining: 0, complete: true });
+  });
+});
+
+describe("refreshAnnualSpending", () => {
+  it("starts no batch after the deadline and says it didn't finish", async () => {
+    let now = 1_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    db.customer.findMany.mockReset().mockResolvedValue(
+      Array.from({ length: 150 }, (_, i) => ({ id: `c${i}`, annualSpent: 0 })),
+    );
+    db.order.aggregate.mockReset().mockImplementation(async () => {
+      now += 10; // 100 customers take a second
+      return { _sum: { totalPrice: null, totalRefunded: null } };
+    });
+
+    const result = await refreshAnnualSpending(SHOP, { deadline: 1_500 });
+
+    expect(db.order.aggregate).toHaveBeenCalledTimes(100);
+    expect(result).toMatchObject({ processed: 100, complete: false });
   });
 });

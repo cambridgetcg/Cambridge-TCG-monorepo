@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * The daily tier-recalculation cron decides which shops are due and stamps
  * each shop's last run. A shop is due again a whole number of days after its
  * last run, and a run that failed for some customers isn't stamped as done.
+ * Each due shop gets a share of the run's time, and a pass over a shop's
+ * customers can span several runs.
  */
 
 const db = vi.hoisted(() => ({
@@ -55,10 +57,11 @@ async function runCron() {
   return { status: response.status, body: await response.json() };
 }
 
-const shop = (name: string, frequency: string, lastRun: Date | null) => ({
+const shop = (name: string, frequency: string, lastRun: Date | null, createdAt = ago(365 * DAY)) => ({
   shop: `${name}.myshopify.com`,
   tierRecalculationFrequency: frequency,
   tierRecalculationLastRun: lastRun,
+  createdAt,
 });
 
 const recalculatedShops = () => tierManagement.recalculateTiersSmart.mock.calls.map(([name]) => name);
@@ -128,27 +131,133 @@ describe("tier-recalculation cron", () => {
     );
   });
 
-  it("counts customers it couldn't resolve as errors and leaves the shop due", async () => {
+  it("counts customers it couldn't resolve as errors, leaves the shop due and answers 500", async () => {
     db.shopSettings.findMany.mockResolvedValue([shop("flaky", "WEEKLY", null)]);
     tierManagement.recalculateTiersSmart.mockResolvedValue(recalcResult({ errors: 2 }));
 
     const { status, body } = await runCron();
 
-    expect(status).toBe(200);
+    // A failed answer is what the cron monitor and Vercel's logs show as a
+    // failed run; a Slack alert needs SLACK_WEBHOOK_URL, which may not be set
+    expect(status).toBe(500);
+    expect(body.success).toBe(false);
     expect(body.summary.errorCount).toBe(2);
     expect(db.shopSettings.update).not.toHaveBeenCalled();
   });
 
   it("leaves a shop that ran out of time due, so the next run carries on", async () => {
-    db.shopSettings.findMany.mockResolvedValue([shop("big", "WEEKLY", null)]);
+    // Installed yesterday
+    db.shopSettings.findMany.mockResolvedValue([shop("big", "WEEKLY", null, ago(DAY))]);
     tierManagement.recalculateTiersSmart.mockResolvedValue(recalcResult({ complete: false }));
 
-    const { body } = await runCron();
+    const { status, body } = await runCron();
 
     expect(tierManagement.recalculateTiersSmart).toHaveBeenCalledWith("big.myshopify.com", {
       deadline: expect.any(Number),
+      resolvedBefore: expect.any(Date),
     });
     expect(body.summary.shopsUnfinished).toBe(1);
+    expect(body.summary.shopsOverdue).toBe(0);
+    expect(status).toBe(200);
     expect(db.shopSettings.update).not.toHaveBeenCalled();
+  });
+
+  it("asks for the shops that waited longest first", async () => {
+    await runCron();
+
+    expect(db.shopSettings.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { tierRecalculationEnabled: true },
+      orderBy: { tierRecalculationLastRun: { sort: "asc", nulls: "first" } },
+    }));
+  });
+
+  it("carries on a pass a run didn't finish: only customers not resolved since the shop became due", async () => {
+    const lastRun = ago(8 * DAY);
+    db.shopSettings.findMany.mockResolvedValue([
+      shop("weekly", "WEEKLY", lastRun),
+      shop("new", "DAILY", null),
+    ]);
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    await runCron();
+
+    // Due an hour before a full week after the last complete run
+    expect(tierManagement.recalculateTiersSmart).toHaveBeenNthCalledWith(1, "weekly.myshopify.com", expect.objectContaining({
+      resolvedBefore: new Date(lastRun.getTime() + 7 * DAY - 60 * 60 * 1000),
+    }));
+    // Never finished a pass: customers resolved within the last day and an hour
+    // (by an earlier run of this pass, or by an order) are up to date
+    expect(tierManagement.recalculateTiersSmart).toHaveBeenNthCalledWith(2, "new.myshopify.com", expect.objectContaining({
+      resolvedBefore: new Date(now - DAY - 60 * 60 * 1000),
+    }));
+  });
+
+  it("gives each due shop its share of the time left, so one big shop can't hold up the rest", async () => {
+    let now = 1_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    db.shopSettings.findMany.mockResolvedValue([
+      shop("big", "DAILY", null),
+      shop("not-due", "WEEKLY", ago(DAY)),
+      shop("small", "WEEKLY", null),
+    ]);
+    tierManagement.recalculateTiersSmart.mockImplementation(async (_shop: string, opts: { deadline: number }) => {
+      now = opts.deadline; // uses all the time it is given
+      return recalcResult({ complete: false });
+    });
+
+    await runCron();
+
+    expect(recalculatedShops()).toEqual(["big.myshopify.com", "small.myshopify.com"]);
+    const deadlines = tierManagement.recalculateTiersSmart.mock.calls.map(([, opts]) => opts.deadline);
+    expect(deadlines).toEqual([1_000_000 + 120_000, 1_000_000 + 240_000]);
+  });
+
+  it("starts no shop once the run's time is up", async () => {
+    let now = 1_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    db.shopSettings.findMany.mockResolvedValue([shop("slow", "WEEKLY", null), shop("next", "WEEKLY", null)]);
+    tierManagement.recalculateTiersSmart.mockImplementation(async () => {
+      now += 240_000; // a slow shop that overran its share
+      return recalcResult();
+    });
+
+    const { body } = await runCron();
+
+    expect(recalculatedShops()).toEqual(["slow.myshopify.com"]);
+    expect(body.summary.shopsUnfinished).toBe(1);
+    expect(db.shopSettings.update).toHaveBeenCalledTimes(1);
+    expect(db.shopSettings.update).toHaveBeenCalledWith(expect.objectContaining({ where: { shop: "slow.myshopify.com" } }));
+  });
+
+  it("refreshes annual spending after the tiers, within the shop's share of the time", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+    db.shopSettings.findMany.mockResolvedValue([shop("one", "WEEKLY", null), shop("two", "WEEKLY", null)]);
+
+    await runCron();
+
+    expect(tierManagement.recalculateTiersSmart).toHaveBeenNthCalledWith(1, "one.myshopify.com", expect.objectContaining({
+      deadline: 1_000_000 + 120_000,
+    }));
+    expect(tierManagement.refreshAnnualSpending).toHaveBeenNthCalledWith(1, "one.myshopify.com", { deadline: 1_000_000 + 120_000 });
+    expect(tierManagement.refreshAnnualSpending.mock.invocationCallOrder[0])
+      .toBeGreaterThan(tierManagement.recalculateTiersSmart.mock.invocationCallOrder[0]);
+  });
+
+  it("answers 500 when a shop has had no complete pass for two of its periods", async () => {
+    db.shopSettings.findMany.mockResolvedValue([
+      shop("stuck", "WEEKLY", ago(15 * DAY)),
+      shop("late", "WEEKLY", ago(8 * DAY)),
+      shop("new-big", "WEEKLY", null, ago(3 * DAY)),
+      shop("old-big", "WEEKLY", null, ago(20 * DAY)),
+    ]);
+    tierManagement.recalculateTiersSmart.mockResolvedValue(recalcResult({ complete: false }));
+
+    const { status, body } = await runCron();
+
+    expect(body.summary.shopsOverdue).toBe(2);
+    expect(body.summary.overdueShops).toEqual(["stuck.myshopify.com", "old-big.myshopify.com"]);
+    expect(status).toBe(500);
+    expect(body.success).toBe(false);
   });
 });

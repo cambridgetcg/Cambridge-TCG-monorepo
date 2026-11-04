@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
 import { loader as tierRecalculation } from "~/routes/api.cron.tier-recalculation";
 import { resolveEffectiveTier } from "~/services/tier-resolution.server";
-import { hasTestDatabase, resetDatabase } from "./database";
+import { failNextCall, hasTestDatabase, resetDatabase, restoreFailedCalls } from "./database";
 
 // The tier-recalculation cron against Postgres. It must put every shopper in
 // the tier that the resolver orders use would give them, because the next
@@ -83,6 +83,7 @@ describe.skipIf(!hasTestDatabase)("tier-recalculation cron on Postgres", () => {
   afterEach(() => {
     process.env = { ...env };
     vi.restoreAllMocks();
+    restoreFailedCalls();
   });
 
   it("gives shoppers the tier orders give them: annual tiers count the last 12 months, and membership orders don't count", async () => {
@@ -129,6 +130,102 @@ describe.skipIf(!hasTestDatabase)("tier-recalculation cron on Postgres", () => {
     ]);
     const settings = await prisma.shopSettings.findUniqueOrThrow({ where: { shop: SHOP } });
     expect(settings.tierRecalculationLastRun).not.toBeNull();
+  });
+
+  // A dropped pooled connection fails one read. The resolver used to treat
+  // the failed read as "nothing found" and write the lower tier it got.
+  it.each([
+    ["the shopper's orders", "order", "findMany", "tier-gold"],
+    ["the shopper's manual tier", "customerTierState", "findUnique", "tier-gold"],
+    ["the shop's base tier setting", "shopSettings", "findUnique", "tier-silver"],
+  ] as const)("keeps a shopper's tier when the read of %s fails, and counts the error", async (_read, model, method, heldTier) => {
+    await prisma.shopSettings.create({ data: { shop: SHOP, storeName: "Card Shop", storeUrl: `https://${SHOP}` } });
+    if (heldTier === "tier-gold") {
+      await prisma.tier.create({ data: { id: "tier-bronze", shop: SHOP, name: "Bronze", minSpend: 0, cashbackPercent: 5 } });
+      await prisma.tier.create({ data: { id: "tier-gold", shop: SHOP, name: "Gold", minSpend: 500, cashbackPercent: 10 } });
+    } else {
+      // The only tier needs spending, so a shopper with none holds it as the base tier
+      await prisma.tier.create({ data: { id: "tier-silver", shop: SHOP, name: "Silver", minSpend: 100, cashbackPercent: 3 } });
+    }
+    const shopper = await seedCustomer(5, model === "order" ? 700 : 0, heldTier);
+    if (model === "order") await seedOrder(shopper.id, 700, new Date(Date.now() - 30 * DAY));
+    if (model === "customerTierState") {
+      // Gold by hand; spending alone gives Bronze
+      await prisma.customerTierState.create({
+        data: {
+          shop: SHOP,
+          customerId: shopper.id,
+          effectiveTierId: "tier-gold",
+          tierSource: "MANUAL_OVERRIDE",
+          hasManualOverride: true,
+          manualOverrideTierId: "tier-gold",
+          manualOverrideAt: new Date(Date.now() - 10 * DAY),
+          lastResolvedAt: new Date(Date.now() - 10 * DAY),
+        },
+      });
+    }
+
+    failNextCall(model, method, new Error("Server has closed the connection"));
+
+    const response = await tierRecalculation({
+      request: new Request("https://test.example.com/api/cron/tier-recalculation", {
+        headers: { Authorization: `Bearer ${CRON_SECRET}` },
+      }),
+      params: {},
+      context: {},
+    });
+    const { summary } = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(await tierOf(shopper.id)).toBe(heldTier);
+    expect(summary).toMatchObject({ errorCount: 1, totalDowngraded: 0 });
+    expect(await prisma.tierChangeLog.count({ where: { shop: SHOP } })).toBe(0);
+    const settings = await prisma.shopSettings.findUniqueOrThrow({ where: { shop: SHOP } });
+    expect(settings.tierRecalculationLastRun).toBeNull();
+  });
+
+  it("finishes a pass an earlier run ran out of time on, resolving only the customers it didn't reach", async () => {
+    const lastRun = new Date(Date.now() - 8 * DAY);
+    await prisma.shopSettings.create({
+      data: {
+        shop: SHOP,
+        storeName: "Card Shop",
+        storeUrl: `https://${SHOP}`,
+        tierRecalculationFrequency: "WEEKLY",
+        tierRecalculationLastRun: lastRun,
+      },
+    });
+    await prisma.tier.create({ data: { id: "tier-bronze", shop: SHOP, name: "Bronze", minSpend: 0, cashbackPercent: 5 } });
+    // Yesterday's run resolved four of the six before it ran out of time
+    const resolvedYesterday = new Date(Date.now() - DAY);
+    const notReached = new Date(Date.now() - 20 * DAY);
+    const customers = [];
+    for (let i = 0; i < 6; i++) {
+      const customer = await seedCustomer(10 + i, 0, "tier-bronze");
+      await prisma.customerTierState.create({
+        data: {
+          shop: SHOP,
+          customerId: customer.id,
+          effectiveTierId: "tier-bronze",
+          tierSource: "SPENDING_BASED",
+          lastResolvedAt: i < 4 ? resolvedYesterday : notReached,
+        },
+      });
+      customers.push(customer);
+    }
+    const runStart = new Date();
+
+    const { summary } = await runTierRecalculation();
+
+    expect(summary).toMatchObject({ customersProcessed: 2, shopsUnfinished: 0, errorCount: 0 });
+    const states = await prisma.customerTierState.findMany({ where: { shop: SHOP } });
+    const lastResolved = new Map(states.map((state) => [state.customerId, state.lastResolvedAt]));
+    for (const [i, customer] of customers.entries()) {
+      if (i < 4) expect(lastResolved.get(customer.id)).toEqual(resolvedYesterday);
+      else expect(lastResolved.get(customer.id)!.getTime()).toBeGreaterThanOrEqual(runStart.getTime());
+    }
+    const settings = await prisma.shopSettings.findUniqueOrThrow({ where: { shop: SHOP } });
+    expect(settings.tierRecalculationLastRun!.getTime()).toBeGreaterThanOrEqual(runStart.getTime());
   });
 
   it("leaves a shopper with no tier when the shop turned off automatic base tiers, as orders do", async () => {
