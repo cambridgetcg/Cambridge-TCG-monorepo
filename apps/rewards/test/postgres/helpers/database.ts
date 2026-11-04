@@ -13,8 +13,9 @@ export const hasTestDatabase = Boolean(testDatabaseUrl) && process.env.REWARDS_D
 
 /**
  * Empty every table in the app schema except Prisma's migration ledger.
- * TRUNCATE fires no row-level triggers, so ledger_entry's append-only
- * trigger lets it through.
+ * ledger_entry's append-only trigger refuses TRUNCATE too, so the reset runs
+ * as the erasure purge does: in a transaction with SET LOCAL
+ * rewards.erasing = 'on'.
  */
 export async function resetDatabase(): Promise<void> {
   if (!hasTestDatabase) {
@@ -25,7 +26,10 @@ export async function resetDatabase(): Promise<void> {
     WHERE schemaname = ${databaseSchema} AND tablename <> '_prisma_migrations'`;
   if (tables.length === 0) return;
   const names = tables.map(({ tablename }) => `"${databaseSchema}"."${tablename}"`).join(", ");
-  await prisma.$executeRaw`TRUNCATE ${Prisma.raw(names)} RESTART IDENTITY CASCADE`;
+  await prisma.$transaction([
+    prisma.$executeRaw`SET LOCAL rewards.erasing = 'on'`,
+    prisma.$executeRaw`TRUNCATE ${Prisma.raw(names)} RESTART IDENTITY CASCADE`,
+  ]);
 }
 
 const failedCallRestores: Array<() => void> = [];
@@ -36,6 +40,11 @@ const failedCallRestores: Array<() => void> = [];
  * the client's model method undefined. Undo with restoreFailedCalls().
  * `model` is any model, by its name ("LedgerEntry") or its client key
  * ("ledgerEntry").
+ *
+ * It patches `prisma.<model>` only. Inside an interactive
+ * `prisma.$transaction(async (tx) => ...)`, `tx.<model>` is a separate
+ * delegate that this patch does not reach, so tests must not rely on it to
+ * fail a call made through `tx`.
  */
 export function failNextCall(
   model: Prisma.ModelName | Uncapitalize<Prisma.ModelName>,

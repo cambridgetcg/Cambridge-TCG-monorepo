@@ -336,9 +336,9 @@ model LedgerEntry {
   // Restrict for the same reason as Customer.tier.
   order      Order?     @relation(fields: [merchantId, orderId], references: [merchantId, id], onDelete: Restrict)
   refund     Refund?    @relation(fields: [merchantId, refundId], references: [merchantId, id], onDelete: Restrict)
-  // At most one: payout.ledger_entry_id is unique. Prisma models it as a
-  // list because the composite key's columns aren't unique together.
-  payouts    Payout[]
+  // At most one: payout.ledger_entry_id is unique, and so is
+  // [merchant_id, ledger_entry_id], which lets Prisma model it one-to-one.
+  payout     Payout?
 
   @@unique([merchantId, idempotencyKey])
   @@unique([merchantId, id])
@@ -376,6 +376,9 @@ model Payout {
   ledgerEntry LedgerEntry @relation(fields: [merchantId, ledgerEntryId], references: [merchantId, id])
   customer    Customer    @relation(fields: [merchantId, customerId], references: [merchantId, id])
 
+  // Redundant with ledgerEntryId's own unique, but the composite relation
+  // needs it to be one-to-one.
+  @@unique([merchantId, ledgerEntryId])
   @@index([state, nextAttemptAt])
   @@map("payout")
 }

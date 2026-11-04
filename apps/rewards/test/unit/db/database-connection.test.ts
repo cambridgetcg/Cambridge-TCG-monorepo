@@ -1,5 +1,5 @@
 import { X509Certificate } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { databaseConnectionConfig } from "~/db/database-connection.server";
 import { SUPABASE_ROOT_CA_2021 } from "~/db/database-tls.server";
 
@@ -51,9 +51,11 @@ describe("databaseConnectionConfig", () => {
   });
 
   it("connects to loopback databases without TLS and defaults the schema", () => {
-    const { pool, schema } = databaseConnectionConfig("postgresql://postgres@127.0.0.1:5432/rewards_test");
+    const { pool, schema, schemaInUrl } = databaseConnectionConfig("postgresql://postgres@127.0.0.1:5432/rewards_test");
     expect(pool.ssl).toBe(false);
     expect(schema).toBe("public");
+    expect(schemaInUrl).toBe(false);
+    expect(databaseConnectionConfig(SUPABASE_URL).schemaInUrl).toBe(true);
   });
 
   it("keeps a small pool with a short idle timeout unless the URL caps it", () => {
@@ -77,5 +79,38 @@ describe("databaseConnectionConfig", () => {
 
   it("rejects non-Postgres URLs", () => {
     expect(() => databaseConnectionConfig("mysql://root@127.0.0.1/db")).toThrow(/postgresql:\/\//);
+  });
+});
+
+// Nothing here connects: pg.Pool opens a connection only on the first query.
+const LOOPBACK_WITH_SCHEMA = "postgresql://rewards_app@127.0.0.1:9/postgres?schema=rewards";
+const LOOPBACK_WITHOUT_SCHEMA = "postgresql://rewards_app@127.0.0.1:9/postgres";
+
+/** ~/db.server creates its client on import, so it needs a URL first. */
+async function importDbServer() {
+  vi.stubEnv("REWARDS_DATABASE_URL", LOOPBACK_WITH_SCHEMA);
+  return import("~/db.server");
+}
+
+describe("createPrismaClient", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("refuses a URL without ?schema= in production, naming REWARDS_DATABASE_URL", async () => {
+    const { createPrismaClient } = await importDbServer();
+    vi.stubEnv("NODE_ENV", "production");
+
+    expect(() => createPrismaClient(LOOPBACK_WITHOUT_SCHEMA)).toThrow(/REWARDS_DATABASE_URL has no \?schema=/);
+    const client = createPrismaClient(LOOPBACK_WITH_SCHEMA);
+    await client.$disconnect();
+  });
+
+  it("falls back to schema public outside production", async () => {
+    const { createPrismaClient } = await importDbServer();
+    vi.stubEnv("NODE_ENV", "test");
+
+    const client = createPrismaClient(LOOPBACK_WITHOUT_SCHEMA);
+    await client.$disconnect();
   });
 });

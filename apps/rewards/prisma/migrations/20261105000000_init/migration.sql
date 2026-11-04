@@ -2,7 +2,8 @@
 --
 -- Generated from prisma/schema.prisma with
 --   prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script
--- plus the append-only trigger at the end, written by hand.
+-- plus, at the end, the append-only triggers and the payout checks, written
+-- by hand.
 --
 -- Object names are unqualified: they are created in the schema named by the
 -- connection URL (?schema=rewards). The generated
@@ -327,6 +328,9 @@ CREATE UNIQUE INDEX "payout_ledger_entry_id_key" ON "payout"("ledger_entry_id");
 CREATE INDEX "payout_state_next_attempt_at_idx" ON "payout"("state", "next_attempt_at");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "payout_merchant_id_ledger_entry_id_key" ON "payout"("merchant_id", "ledger_entry_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "cron_lock_job_name_key" ON "cron_lock"("job_name");
 
 -- CreateIndex
@@ -403,8 +407,11 @@ ALTER TABLE "privacy_request" ADD CONSTRAINT "privacy_request_merchant_id_connec
 
 
 -- ledger_entry is append-only: what RewardsPro issued and took back is
--- never changed or removed. The one exception is the erasure purge, which
--- runs in a transaction that has SET LOCAL rewards.erasing = 'on'.
+-- never changed or removed, row by row (UPDATE, DELETE) or all at once
+-- (TRUNCATE, which fires no row triggers and which rewards_app, the table's
+-- owner, could otherwise run). The one exception is the erasure purge (and
+-- the test bed's reset), which runs in a transaction that has
+-- SET LOCAL rewards.erasing = 'on'.
 -- (Written by hand; prisma migrate diff does not generate triggers.)
 CREATE FUNCTION "ledger_entry_append_only"() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -422,3 +429,15 @@ $$;
 CREATE TRIGGER "ledger_entry_append_only"
 BEFORE UPDATE OR DELETE ON "ledger_entry"
 FOR EACH ROW EXECUTE FUNCTION "ledger_entry_append_only"();
+
+-- A statement trigger's return value is ignored, so the function's
+-- RETURN NEW (NULL here) lets the TRUNCATE through.
+CREATE TRIGGER "ledger_entry_append_only_truncate"
+BEFORE TRUNCATE ON "ledger_entry"
+FOR EACH STATEMENT EXECUTE FUNCTION "ledger_entry_append_only"();
+
+-- A payout moves a positive amount (direction says which way), and one that
+-- needs a look says why. (Written by hand; Prisma does not model CHECKs.)
+ALTER TABLE "payout" ADD CONSTRAINT "payout_amount_positive" CHECK ("amount" > 0);
+ALTER TABLE "payout" ADD CONSTRAINT "payout_needs_look_has_reason"
+    CHECK ("state" <> 'needs_look' OR "look_reason" IS NOT NULL);

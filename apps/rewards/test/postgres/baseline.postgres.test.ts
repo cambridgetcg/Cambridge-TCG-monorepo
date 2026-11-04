@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma, { databaseSchema } from "~/db.server";
-import { hasTestDatabase, resetDatabase } from "./helpers/database";
+import { failNextCall, hasTestDatabase, resetDatabase, restoreFailedCalls } from "./helpers/database";
 
 /** One merchant with one store, one buyer and one cashback entry. */
 async function seedMerchant(domain: string) {
@@ -39,6 +39,25 @@ async function seedMerchant(domain: string) {
   return { merchant, connection, customer, entry };
 }
 
+/** A pending credit payout of one ledger entry; `overrides` changes any field. */
+function payoutData(
+  { merchant, customer, entry }: Awaited<ReturnType<typeof seedMerchant>>,
+  overrides: Partial<Prisma.PayoutUncheckedCreateInput> = {},
+): Prisma.PayoutUncheckedCreateInput {
+  return {
+    merchantId: merchant.id,
+    ledgerEntryId: entry.id,
+    customerId: customer.id,
+    rail: "shopify_store_credit",
+    direction: "credit",
+    amount: new Prisma.Decimal("2.5000"),
+    currency: "GBP",
+    state: "pending",
+    nextAttemptAt: new Date("2026-11-01T00:00:00Z"),
+    ...overrides,
+  };
+}
+
 /**
  * The client logs each refused query (log: ["error"]) through console.log.
  * Tests that expect a refusal keep that out of the output and check it.
@@ -53,6 +72,7 @@ describe.skipIf(!hasTestDatabase)("database baseline", () => {
   });
 
   afterEach(() => {
+    restoreFailedCalls();
     vi.restoreAllMocks();
   });
 
@@ -96,6 +116,19 @@ describe.skipIf(!hasTestDatabase)("database baseline", () => {
     expect(logs).toHaveBeenCalledWith(expect.stringContaining("prisma:error"), expect.stringMatching(/append-only/));
   });
 
+  it("refuses TRUNCATE on ledger_entry", async () => {
+    // A statement trigger: it fires on an empty table too.
+    captureQueryErrorLogs();
+
+    await expect(prisma.$executeRawUnsafe(`TRUNCATE "${databaseSchema}".ledger_entry CASCADE`)).rejects.toThrow(
+      /append-only/,
+    );
+    // Through a table that cascades to it, as well.
+    await expect(prisma.$executeRawUnsafe(`TRUNCATE "${databaseSchema}".merchant CASCADE`)).rejects.toThrow(
+      /append-only/,
+    );
+  });
+
   it("allows DELETE on ledger_entry inside an erasure transaction", async () => {
     const { merchant } = await seedMerchant("erased.myshopify.com");
 
@@ -132,6 +165,42 @@ describe.skipIf(!hasTestDatabase)("database baseline", () => {
       }),
     ).rejects.toThrow(/ledger_entry_merchant_id_customer_id_fkey/);
     expect(await prisma.ledgerEntry.count({ where: { merchantId: own.merchant.id } })).toBe(1);
+  });
+
+  it("refuses a payout of zero and a needs_look payout without a reason", async () => {
+    const seeded = await seedMerchant("payout.myshopify.com");
+    captureQueryErrorLogs();
+
+    await expect(
+      prisma.payout.create({ data: payoutData(seeded, { amount: new Prisma.Decimal("0.0000") }) }),
+    ).rejects.toThrow(/payout_amount_positive/);
+    await expect(prisma.payout.create({ data: payoutData(seeded, { state: "needs_look" }) })).rejects.toThrow(
+      /payout_needs_look_has_reason/,
+    );
+    expect(await prisma.payout.count()).toBe(0);
+
+    // The same payout with a positive amount and a reason is accepted, and is
+    // the entry's one payout.
+    await prisma.payout.create({ data: payoutData(seeded, { state: "needs_look", lookReason: "refused" }) });
+    const entry = await prisma.ledgerEntry.findUniqueOrThrow({
+      where: { id: seeded.entry.id },
+      include: { payout: true },
+    });
+    expect(entry.payout?.state).toBe("needs_look");
+  });
+
+  it("fails the next call of a model method once, then calls through", async () => {
+    const error = new Error("connection dropped");
+    failNextCall("merchant", "create", error);
+    const data = { name: "flaky.myshopify.com", currency: "GBP", timezone: "Europe/London" };
+
+    await expect(prisma.merchant.create({ data })).rejects.toBe(error);
+    expect(await prisma.merchant.count()).toBe(0);
+    const merchant = await prisma.merchant.create({ data });
+    expect(merchant.name).toBe("flaky.myshopify.com");
+
+    restoreFailedCalls();
+    expect(await prisma.merchant.count()).toBe(1);
   });
 
   it("grants nothing on schema rewards to PUBLIC", async () => {

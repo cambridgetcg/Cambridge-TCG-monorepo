@@ -24,7 +24,15 @@ export function createPrismaClient(url = process.env.REWARDS_DATABASE_URL): Pris
   if (!url) {
     throw new Error(`${LOG_PREFIX} REWARDS_DATABASE_URL is not set`);
   }
-  const { pool: poolConfig, schema } = databaseConnectionConfig(url);
+  const { pool: poolConfig, schema, schemaInUrl } = databaseConnectionConfig(url);
+  // Without ?schema= the client would query schema public, where production
+  // has none of the app's tables. Outside production (dev, tests) the
+  // fallback stays.
+  if (!schemaInUrl && process.env.NODE_ENV === "production") {
+    throw new Error(
+      `${LOG_PREFIX} REWARDS_DATABASE_URL has no ?schema= parameter; production needs ?schema=rewards, and the client will not fall back to schema public`,
+    );
+  }
   const pool = new pg.Pool(poolConfig);
   attachDatabasePool(pool);
   const adapter = new PrismaPg(pool, {

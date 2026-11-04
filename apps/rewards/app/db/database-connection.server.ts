@@ -21,6 +21,8 @@ export interface DatabaseConnectionConfig {
   pool: PoolConfig;
   /** Postgres schema Prisma qualifies its queries with (`?schema=`). */
   schema: string;
+  /** False when the URL has no `?schema=` and `schema` fell back to `public`. */
+  schemaInUrl: boolean;
 }
 
 /**
@@ -58,6 +60,7 @@ export function databaseConnectionConfig(databaseUrl: string): DatabaseConnectio
     throw new Error(`${LOG_PREFIX} TLS is required for database host ${host}; remove sslmode=disable`);
   }
 
+  const schemaInUrl = Boolean(params.get("schema"));
   const schema = params.get("schema") || "public";
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(schema)) {
     throw new Error(`${LOG_PREFIX} database URL schema must be a plain identifier`);
@@ -68,6 +71,7 @@ export function databaseConnectionConfig(databaseUrl: string): DatabaseConnectio
 
   return {
     schema,
+    schemaInUrl,
     pool: {
       host,
       port: url.port ? Number(url.port) : 5432,
