@@ -95,7 +95,6 @@ interface DashboardData {
     tierRecalculationEnabled?: boolean;
     advancedAnalyticsEnabled?: boolean;
     autoCashbackProcessingEnabled?: boolean;
-    emailMarketingEnabled?: boolean;
     tierProductsEnabled?: boolean;
   } | null;
   widgetStatus: {
@@ -238,7 +237,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             storeCurrency: true,
             advancedAnalyticsEnabled: true,
             autoCashbackProcessingEnabled: true,
-            emailMarketingEnabled: true,
             tierProductsEnabled: true,
             customersInitialSynced: true,
             customersSyncInProgress: true,
@@ -522,7 +520,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         tierRecalculationEnabled: false,
         advancedAnalyticsEnabled: shopSettings.advancedAnalyticsEnabled,
         autoCashbackProcessingEnabled: shopSettings.autoCashbackProcessingEnabled,
-        emailMarketingEnabled: shopSettings.emailMarketingEnabled,
         tierProductsEnabled: shopSettings.tierProductsEnabled,
       } : null,
       widgetStatus: {
@@ -612,7 +609,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const validFeatures = [
       'advancedAnalyticsEnabled',
       'autoCashbackProcessingEnabled',
-      'emailMarketingEnabled',
       'tierProductsEnabled'
     ];
 
@@ -787,7 +783,6 @@ export default function Dashboard() {
         const featureNames: Record<string, string> = {
           'advancedAnalyticsEnabled': 'Advanced Analytics',
           'autoCashbackProcessingEnabled': 'Automatic Cashback Processing',
-          'emailMarketingEnabled': 'Email Marketing Campaigns',
           'tierProductsEnabled': 'Membership Tiers Module',
         };
 

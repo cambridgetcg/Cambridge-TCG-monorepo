@@ -58,7 +58,12 @@ function saveRequest(fields: Record<string, string>) {
   return { request: new Request("https://app.test/app/marketing/settings", { method: "POST", body }), params: {}, context: {} };
 }
 
-function pageHtml(emailSettings: Record<string, unknown> | null, sendgridConfigured = true, klaviyoSending = false) {
+function pageHtml(
+  emailSettings: Record<string, unknown> | null,
+  sendgridConfigured = true,
+  klaviyoSending = false,
+  usage: Record<string, unknown> = {},
+) {
   remix.loaderData = {
     shop: SHOP,
     emailSettings,
@@ -71,6 +76,7 @@ function pageHtml(emailSettings: Record<string, unknown> | null, sendgridConfigu
     emailUsageStats: {
       percentage: 0, planName: "Free", limit: 50, totalEmails: 0, remaining: 50, isLocked: false,
       campaignEmails: 0, automationEmails: 0, transactionalEmails: 0,
+      ...usage,
     },
   };
   return renderToStaticMarkup(createElement(AppProvider, { i18n: en }, createElement(EmailSettings))).replaceAll("&#x27;", "'");
@@ -199,5 +205,28 @@ describe("Email settings: shopper email switches", () => {
     const html = pageHtml({ sendTimePrefs: { ...SEND_TIME_PREFS, shopperEmails: { welcome: true } }, emailProvider: "SENDGRID" }, false);
 
     expect(html).toContain("Email sending isn't set up yet, so RewardsPro sends none of these, even the ones you turn on.");
+  });
+});
+
+describe("Email settings: the monthly email limit", () => {
+  const settings = { sendTimePrefs: SEND_TIME_PREFS, emailProvider: "SENDGRID" };
+  const used = (totalEmails: number) =>
+    pageHtml(settings, true, false, { percentage: Math.round((totalEmails / 1000) * 100), limit: 1000, totalEmails, remaining: Math.max(0, 1000 - totalEmails) });
+
+  it("says marketing email has stopped until next month once the limit is reached", () => {
+    for (const html of [used(1000), used(1004)]) {
+      expect(html).toContain("Monthly email limit reached");
+      expect(html).toContain("Campaigns and automation emails won't send until next month. Shopper account emails still go out.");
+      expect(html).not.toContain("Approaching Email Limit");
+    }
+  });
+
+  it("warns as the limit gets close, without offering a larger plan the app doesn't have", () => {
+    const html = used(950);
+
+    expect(html).toContain("Approaching Email Limit");
+    expect(html).toContain("Campaigns and automation emails stop when the limit is reached, until next month.");
+    expect(html).not.toContain("Monthly email limit reached");
+    expect(html).not.toMatch(/upgrad/i);
   });
 });

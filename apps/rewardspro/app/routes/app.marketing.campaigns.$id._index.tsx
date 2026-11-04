@@ -22,6 +22,7 @@ import { useState } from "react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
+import { shopTimeZone } from "~/services/campaign-send.server";
 
 interface CampaignMetrics {
   sent: number;
@@ -32,6 +33,10 @@ interface CampaignMetrics {
   unsubscribed: number;
   revenue: number;
   orders: number;
+  /** Why nothing was sent, for a missed or failed campaign */
+  notSentReason?: string;
+  /** Why a failed campaign may have gone out to some customers */
+  interruptedReason?: string;
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -82,6 +87,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       updatedAt: campaign.updatedAt.toISOString(),
     },
     templates,
+    timeZone: await shopTimeZone(shop),
   });
 };
 
@@ -189,7 +195,7 @@ function MetricCard({ label, value, subValue }: { label: string; value: string |
 }
 
 export default function CampaignDetail() {
-  const { campaign, templates } = useLoaderData<typeof loader>();
+  const { campaign, templates, timeZone } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
 
@@ -208,6 +214,7 @@ export default function CampaignDetail() {
       sending: { tone: "attention", label: "Sending" },
       sent: { tone: "success", label: "Sent" },
       failed: { tone: "critical", label: "Failed" },
+      missed: { tone: "warning", label: "Missed" },
     };
     const config = statusConfig[status] || { tone: "info", label: status };
     return <Badge tone={config.tone}>{config.label}</Badge>;
@@ -221,6 +228,8 @@ export default function CampaignDetail() {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone,
+      timeZoneName: "short",
     });
   };
 
@@ -275,6 +284,27 @@ export default function CampaignDetail() {
           <Layout.Section>
             <Banner tone="critical" title="Error">
               <p>{(actionData as any).error}</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {campaign.metrics?.notSentReason && (campaign.status === "missed" || campaign.status === "failed") && (
+          <Layout.Section>
+            <Banner tone="warning" title="This campaign was not sent">
+              <p>{campaign.metrics.notSentReason}</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {campaign.metrics?.interruptedReason && campaign.status === "failed" && (
+          <Layout.Section>
+            <Banner tone="warning" title="This campaign may have been sent">
+              <p>{campaign.metrics.interruptedReason}</p>
+              {/* What SendGrid's event webhook has counted on it (webhooks.sendgrid.tsx) */}
+              <p>
+                So far SendGrid has reported {campaign.metrics.delivered ?? 0} delivered and {campaign.metrics.bounced ?? 0} bounced.
+                It reports each email as it arrives, so check again in a few minutes.
+              </p>
             </Banner>
           </Layout.Section>
         )}
@@ -388,7 +418,7 @@ export default function CampaignDetail() {
                   </InlineStack>
                   {campaign.sentAt && (
                     <InlineStack align="space-between">
-                      <Text as="span" tone="subdued">Sent</Text>
+                      <Text as="span" tone="subdued">{isSent ? "Sent" : "Send started"}</Text>
                       <Text as="span">{formatDate(campaign.sentAt)}</Text>
                     </InlineStack>
                   )}

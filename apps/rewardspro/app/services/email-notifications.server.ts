@@ -22,7 +22,7 @@ import {
   sendWelcomeEmailUnified,
   sendTierUpgradeEmailUnified,
 } from "./email-provider.server";
-import { sendMarketingEmail } from "./marketing-email.server";
+import { type MarketingSendResult, sendMarketingEmail } from "./marketing-email.server";
 import { checkEmailLimit, recordEmailSent } from "./email-usage-control.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 import { privacySafeConsole, privacySafeLogTemplate } from "~/utils/pii-masker";
@@ -410,12 +410,14 @@ export async function sendTierDowngradeEmailNotification(
  * @param shop - Shop domain
  * @param campaignId - Campaign ID
  * @param recipients - Customers to send to
+ * @param onHandOff - Called just before the email goes to the email service
  */
 export async function sendCampaignEmails(
   shop: string,
   campaignId: string,
-  recipients: Array<{ customerId: string }>
-): Promise<{ sent: number; skipped: number; failed: number; errors: string[] }> {
+  recipients: Array<{ customerId: string }>,
+  onHandOff?: () => void
+): Promise<MarketingSendResult> {
   console.log(`[EmailNotifications] Sending campaign ${campaignId} to ${recipients.length} recipients`);
 
   // Campaigns have no switch: the merchant sends each one
@@ -438,19 +440,26 @@ export async function sendCampaignEmails(
     where: { id: campaign.templateId, shop },
   });
 
-  const rawHtmlContent = template?.htmlContent || "";
+  // Smart Create and applied recommendations keep their email in bodyHtml
+  const rawHtmlContent = template?.htmlContent || template?.bodyHtml || "";
 
   if (!rawHtmlContent) {
-    return { sent: 0, skipped: 0, failed: recipients.length, errors: ["No email content - template not found or has no content"] };
+    return {
+      sent: 0,
+      skipped: 0,
+      failed: recipients.length,
+      errors: ["No email content - template not found or has no content"],
+      refused: "This campaign has no email content, so nothing was sent. Choose a template for it, or write the email again.",
+    };
   }
 
   const result = await sendMarketingEmail(shop, recipients, {
-    subject: campaign.subject || "Update from us",
+    subject: campaign.subject || template?.subject || "Update from us",
     // Sanitize HTML to strip dangerous tags/attributes (XSS prevention)
     html: sanitizeEmailHtml(rawHtmlContent),
     categories: ["campaign", campaignId],
     customArgs: { campaign_id: campaignId, shop },
-  });
+  }, onHandOff);
 
   // Log campaign send event (counts only)
   try {
