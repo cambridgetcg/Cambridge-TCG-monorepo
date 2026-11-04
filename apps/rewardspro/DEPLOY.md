@@ -149,3 +149,8 @@ campaigns and automations can send. Before setting it, know that marketing
 email does not carry a sender postal address yet, which CAN-SPAM requires
 for US recipients (the "Add physical address" setting is not applied), and
 that SPF, DKIM and DMARC must be in place for the sending domain.
+
+**Emails RewardsPro sends shoppers by itself** (welcome, tier changes,
+membership reminders) need `SENDGRID_API_KEY` and are off for every shop
+until its merchant turns each one on in Email settings
+(`app/constants/shopper-emails.ts`). No server-side setting turns them on.
