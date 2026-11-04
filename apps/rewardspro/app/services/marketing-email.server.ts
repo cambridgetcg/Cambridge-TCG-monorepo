@@ -86,11 +86,14 @@ function withUnsubscribeFooter(html: string, storeName: string): string {
 /**
  * Send one marketing email to the consenting customers among `recipients`.
  * Recipients are customers of `shop`, named by internal id or by email.
+ * `onHandOff` is called just before the email goes to the email service:
+ * anything thrown before it means nothing was sent.
  */
 export async function sendMarketingEmail(
   shop: string,
   recipients: MarketingRecipient[],
   email: MarketingEmail,
+  onHandOff?: () => void,
 ): Promise<MarketingSendResult> {
   const refused = (reason: string, error = reason): MarketingSendResult => ({
     sent: 0,
@@ -119,19 +122,8 @@ export async function sendMarketingEmail(
   const skipped = recipients.length - customers.length;
   if (customers.length === 0) return { sent: 0, skipped, failed: 0, errors: [] };
 
-  // The free app pays for every email it sends, so marketing stops at the
-  // shop's monthly limit: the emails are counted before they are sent, and a
-  // send that would go past it, even at the same moment as another, is
-  // refused whole. Nothing is sent while the usage can't be read.
-  let reservation: EmailReservation;
-  try {
-    reservation = await reserveEmails(shop, customers.length);
-  } catch (error) {
-    console.error(`[MarketingEmail] Couldn't read this month's email usage for ${shop}; sending nothing:`, error);
-    return { sent: 0, skipped, failed: customers.length, errors: ["Couldn't read this month's email usage"] };
-  }
-  if (!reservation.reserved) return refused(limitReached(customers.length, reservation.remaining, reservation.limit));
-
+  // Everything that can fail is read before the emails are counted, so a
+  // failure here leaves the shop's limit as it was
   const settings = await prisma.shopSettings.findUnique({ where: { shop }, select: { storeName: true } });
   const storeName = settings?.storeName || shop.replace(/\.myshopify\.com$/, "");
 
@@ -147,10 +139,27 @@ export async function sendMarketingEmail(
       customArgs: email.customArgs,
     };
   });
+  const html = withUnsubscribeFooter(email.html, storeName);
 
+  // The free app pays for every email it sends, so marketing stops at the
+  // shop's monthly limit: the emails are counted before they are sent, and a
+  // send that would go past it, even at the same moment as another, is
+  // refused whole. Nothing is sent while the usage can't be read.
+  let reservation: EmailReservation;
+  try {
+    reservation = await reserveEmails(shop, customers.length);
+  } catch (error) {
+    console.error(`[MarketingEmail] Couldn't read this month's email usage for ${shop}; sending nothing:`, error);
+    return { sent: 0, skipped, failed: customers.length, errors: ["Couldn't read this month's email usage"] };
+  }
+  if (!reservation.reserved) return refused(limitReached(customers.length, reservation.remaining, reservation.limit));
+
+  // From here nothing throws (sendPersonalizedEmails catches its own errors),
+  // so the reservation is always settled below
+  onHandOff?.();
   const result = await sendPersonalizedEmails(shop, personalizations, {
     subject: email.subject,
-    html: withUnsubscribeFooter(email.html, storeName),
+    html,
     categories: email.categories,
   });
   // Give back the emails that didn't go out. Those the email service gave no

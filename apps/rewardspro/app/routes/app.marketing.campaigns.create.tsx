@@ -1,6 +1,6 @@
 import { json, redirect } from "@remix-run/node";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, Form, useActionData } from "@remix-run/react";
+import { useLoaderData, useNavigate, useNavigation, Form, useActionData } from "@remix-run/react";
 import { useState } from "react";
 import {
   Page,
@@ -19,6 +19,7 @@ import {
   Badge,
   FormLayout,
 } from "@shopify/polaris";
+import { Prisma } from "@prisma/client";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
@@ -51,6 +52,8 @@ interface Segment {
 }
 
 interface LoaderData {
+  /** The id of the campaign this page creates, so pressing its button twice creates one */
+  createKey: string;
   shop: string;
   templates: Template[];
   segments: Segment[];
@@ -145,6 +148,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
 
     return json<LoaderData>({
+      createKey: uuidv4(),
       shop,
       templates,
       segments,
@@ -169,11 +173,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ACTION
 // ============================================
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
   const formData = await request.formData();
+  // The page's key becomes the campaign's id: a second press of its button,
+  // even one sent while the first is still sending, finds the campaign made
+  const campaignId = String(formData.get("createKey") ?? "");
+  if (!UUID.test(campaignId)) {
+    return json({ error: "Reload the page and create the campaign again." }, { status: 400 });
+  }
   const campaignName = formData.get("campaignName") as string;
   const contentMode = formData.get("contentMode") as string;
   const templateId = formData.get("templateId") as string;
@@ -222,13 +234,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   let subject = campaignName;
   let previewText = "";
   let finalTemplateId: string;
+  let inlineTemplateId: string | null = null;
 
   if (contentMode === "inline") {
     // For inline mode, create an EmailTemplate first, then reference it
     subject = inlineSubject;
     previewText = inlinePreviewText || "";
 
-    const inlineTemplateId = uuidv4();
+    inlineTemplateId = uuidv4();
     await prisma.emailTemplate.create({
       data: {
         id: inlineTemplateId,
@@ -261,7 +274,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   try {
-    const campaignId = uuidv4();
     const now = new Date();
 
     // Send immediately starts as a draft and is sent below
@@ -320,6 +332,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (e instanceof LimitExceededError) {
       return e.toJsonResponse();
     }
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      // This page already created its campaign: go to it, and send nothing
+      if (inlineTemplateId) {
+        await prisma.emailTemplate.deleteMany({ where: { id: inlineTemplateId, shop } }).catch(() => {});
+      }
+      return redirect(`/app/marketing/campaigns/${campaignId}`);
+    }
     console.error("[Create Campaign] Error creating campaign:", e);
     return json({ error: e.message }, { status: 500 });
   }
@@ -333,6 +352,10 @@ export default function CreateCampaign() {
   const data = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
+  // Busy from the press until the next page is shown
+  const busy = useNavigation().state !== "idle";
+  // The key the page opened with: reloading its data after a press brings a new one
+  const [createKey] = useState(data.createKey);
 
   // Form state
   const [campaignName, setCampaignName] = useState("");
@@ -359,6 +382,7 @@ export default function CreateCampaign() {
       backAction={{ content: "Campaigns", onAction: () => navigate("/app/marketing/campaigns") }}
     >
       <Form method="post">
+        <input type="hidden" name="createKey" value={createKey} />
         <Layout>
           {/* Subtle limit status hint (shows when 50%+ used) */}
           <Layout.Section>
@@ -791,6 +815,7 @@ export default function CreateCampaign() {
                     variant="primary"
                     submit
                     disabled={!isValid || (Boolean(data.marketingBlocked) && scheduleType !== "draft")}
+                    loading={busy}
                   >
                     {scheduleType === "immediate" ? "Launch Campaign" : scheduleType === "draft" ? "Save Draft" : "Schedule Campaign"}
                   </Button>

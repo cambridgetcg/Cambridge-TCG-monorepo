@@ -300,6 +300,11 @@ export default function CampaignDetail() {
           <Layout.Section>
             <Banner tone="warning" title="This campaign may have been sent">
               <p>{campaign.metrics.interruptedReason}</p>
+              {/* What SendGrid's event webhook has counted on it (webhooks.sendgrid.tsx) */}
+              <p>
+                So far SendGrid has reported {campaign.metrics.delivered ?? 0} delivered and {campaign.metrics.bounced ?? 0} bounced.
+                It reports each email as it arrives, so check again in a few minutes.
+              </p>
             </Banner>
           </Layout.Section>
         )}
@@ -413,7 +418,7 @@ export default function CampaignDetail() {
                   </InlineStack>
                   {campaign.sentAt && (
                     <InlineStack align="space-between">
-                      <Text as="span" tone="subdued">Sent</Text>
+                      <Text as="span" tone="subdued">{isSent ? "Sent" : "Send started"}</Text>
                       <Text as="span">{formatDate(campaign.sentAt)}</Text>
                     </InlineStack>
                   )}

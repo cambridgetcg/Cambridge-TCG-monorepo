@@ -31,11 +31,15 @@ interface Campaign {
   scheduledFor: string | null;
   sentAt: string | null;
   metrics: {
-    sent: number;
-    delivered: number;
-    opened: number;
-    clicked: number;
-    revenue: number;
+    sent?: number;
+    delivered?: number;
+    opened?: number;
+    clicked?: number;
+    revenue?: number;
+    /** Why nothing was sent, for a missed or failed campaign */
+    notSentReason?: string;
+    /** Why a failed campaign may have gone out to some customers */
+    interruptedReason?: string;
   } | null;
   createdAt: string;
 }
@@ -237,14 +241,22 @@ export default function CampaignsList() {
         ? formatDate(campaign.scheduledFor)
         : formatDate(campaign.createdAt)}
     </Text>,
-    campaign.metrics ? (
+    campaign.metrics?.interruptedReason ? (
+      <Text as="p" variant="bodySm">
+        May have gone out
+      </Text>
+    ) : campaign.metrics?.notSentReason ? (
+      <Text as="p" variant="bodySm">
+        Not sent
+      </Text>
+    ) : typeof campaign.metrics?.sent === "number" ? (
       <BlockStack gap="100">
         <Text as="p" variant="bodySm">
           {campaign.metrics.sent.toLocaleString()} sent
         </Text>
         <Text as="p" variant="bodySm" tone="subdued">
           {campaign.metrics.sent > 0
-            ? `${((campaign.metrics.opened / campaign.metrics.sent) * 100).toFixed(1)}% opened`
+            ? `${(((campaign.metrics.opened ?? 0) / campaign.metrics.sent) * 100).toFixed(1)}% opened`
             : "—"}
         </Text>
       </BlockStack>

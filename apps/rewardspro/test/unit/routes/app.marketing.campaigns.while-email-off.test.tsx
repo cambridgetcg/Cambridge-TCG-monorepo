@@ -7,11 +7,12 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // The campaign pages are rendered for real; only Remix hooks and server neighbours are stubbed.
-const remix = vi.hoisted(() => ({ loaderData: {} as Record<string, unknown> }));
+const remix = vi.hoisted(() => ({ loaderData: {} as Record<string, unknown>, navigationState: "idle" }));
 vi.mock("@remix-run/react", () => ({
   useLoaderData: () => remix.loaderData,
   useActionData: () => undefined,
   useNavigate: () => vi.fn(),
+  useNavigation: () => ({ state: remix.navigationState }),
   Form: ({ children }: { children: ReactNode }) => createElement("form", null, children),
 }));
 vi.mock("~/shopify.server", () => ({ authenticate: { admin: vi.fn() } }));
@@ -22,8 +23,11 @@ import SendCampaign from "~/routes/app.marketing.campaigns.$id.send";
 
 const OFF = "RewardsPro can't send marketing email yet. You can write campaigns and save them as drafts, and send them once sending is switched on.";
 
-function createPage(marketingBlocked: string | null) {
+const CREATE_KEY = "6f1c2b9e-3d4a-4e5f-8a7b-9c0d1e2f3a4b";
+
+function createPage(marketingBlocked: string | null, createKey = CREATE_KEY) {
   remix.loaderData = {
+    createKey,
     shop: "test-shop.myshopify.com",
     templates: [],
     segments: [{ id: "all", name: "All Customers", customerCount: 2 }],
@@ -31,7 +35,7 @@ function createPage(marketingBlocked: string | null) {
     marketingBlocked,
     timeZone: "America/New_York",
   };
-  render(createElement(AppProvider, { i18n: en }, createElement(CreateCampaign)));
+  return render(createElement(AppProvider, { i18n: en }, createElement(CreateCampaign)));
 }
 
 async function writeACampaign() {
@@ -45,6 +49,7 @@ async function writeACampaign() {
 describe("the Create page while marketing email is off", () => {
   beforeEach(() => {
     remix.loaderData = {};
+    remix.navigationState = "idle";
   });
 
   it("offers a draft, and nothing that would send", async () => {
@@ -66,6 +71,50 @@ describe("the Create page while marketing email is off", () => {
 
     expect(screen.getByLabelText("Send immediately")).toBeChecked();
     expect(screen.getByRole("button", { name: "Launch Campaign" })).toBeEnabled();
+  });
+});
+
+describe("the Create page's Launch Campaign", () => {
+  beforeEach(() => {
+    remix.loaderData = {};
+    remix.navigationState = "idle";
+  });
+
+  const keyPosted = () => document.querySelector<HTMLInputElement>('input[name="createKey"]')?.value;
+
+  it("posts the key the page was opened with, every time it is pressed, so a second press can't make a second campaign", async () => {
+    const view = createPage(null);
+    await writeACampaign();
+    expect(keyPosted()).toBe(CREATE_KEY);
+
+    // After a press, Remix reloads the page's data, which brings a new key
+    remix.loaderData = { ...remix.loaderData, createKey: "0b6a1d2c-7e8f-4a9b-8c1d-2e3f4a5b6c7d" };
+    view.rerender(createElement(AppProvider, { i18n: en }, createElement(CreateCampaign)));
+
+    expect(keyPosted()).toBe(CREATE_KEY);
+  });
+
+  it("can't be pressed again while the campaign is being created and sent", async () => {
+    const view = createPage(null);
+    await writeACampaign();
+    let submits = 0;
+    document.querySelector("form")!.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submits++;
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Launch Campaign" }));
+    expect(submits).toBe(1);
+
+    for (const state of ["submitting", "loading"]) {
+      remix.navigationState = state;
+      view.rerender(createElement(AppProvider, { i18n: en }, createElement(CreateCampaign)));
+      const button = screen.getByRole("button", { name: "Loading Launch Campaign" });
+      expect(button).toHaveAttribute("aria-disabled", "true");
+      await user.click(button);
+    }
+    expect(submits).toBe(1);
   });
 });
 

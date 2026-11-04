@@ -16,13 +16,14 @@ const cronLock = vi.hoisted(() => ({
   cleanupExpiredLocks: vi.fn(),
 }));
 
-const campaigns = vi.hoisted(() => ({ sendCampaign: vi.fn() }));
+const campaigns = vi.hoisted(() => ({ sendCampaign: vi.fn(), markCutOffSends: vi.fn() }));
 
 vi.mock("~/db.server", () => ({ default: db, db, prisma: db }));
 vi.mock("~/services/cron-lock.server", () => cronLock);
 vi.mock("~/services/campaign-send.server", async (importOriginal) => ({
   ...(await importOriginal<typeof CampaignSend>()),
   sendCampaign: campaigns.sendCampaign,
+  markCutOffSends: campaigns.markCutOffSends,
 }));
 
 import { loader } from "~/routes/api.cron.scheduled-campaigns";
@@ -49,6 +50,7 @@ beforeEach(() => {
   db.emailCampaign.count.mockReset().mockResolvedValue(0);
   db.emailCampaign.findMany.mockReset().mockResolvedValue([]);
   campaigns.sendCampaign.mockReset();
+  campaigns.markCutOffSends.mockReset().mockResolvedValue(0);
   for (const method of ["log", "warn", "error"] as const) vi.spyOn(console, method).mockImplementation(() => {});
 });
 

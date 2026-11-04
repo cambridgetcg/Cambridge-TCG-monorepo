@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The merchant's admin session is injected; everything below it is real.
@@ -57,6 +57,8 @@ function create(fields: Record<string, string>) {
       contentMode: "inline",
       inlineSubject: "Autumn sale",
       inlineContent: "<p>20% off this weekend</p>",
+      // A fresh Create page each time, unless a test posts one page twice
+      createKey: crypto.randomUUID(),
       ...fields,
     }),
     params: {},
@@ -94,6 +96,35 @@ function sendGridGivesNoAnswer(): { requests: number } {
     http.post("https://api.sendgrid.com/v3/mail/send", () => {
       calls.requests++;
       return HttpResponse.error();
+    }),
+  );
+  return calls;
+}
+
+/**
+ * SendGrid's mail/send answering with a server error. A 5xx doesn't show the
+ * mail wasn't sent: a 500 can come after SendGrid accepted it, and a 502 or
+ * 504 is its edge saying its servers didn't answer in time.
+ */
+function sendGridServerError(status: number): { requests: number } {
+  const calls = { requests: 0 };
+  server.use(
+    http.post("https://api.sendgrid.com/v3/mail/send", () => {
+      calls.requests++;
+      return HttpResponse.json({ errors: [{ message: "Upstream request timeout" }] }, { status });
+    }),
+  );
+  return calls;
+}
+
+/** SendGrid's mail/send never answering at all. */
+function sendGridHangs(): { requests: number } {
+  const calls = { requests: 0 };
+  server.use(
+    http.post("https://api.sendgrid.com/v3/mail/send", async () => {
+      calls.requests++;
+      await delay("infinite");
+      return new HttpResponse(null, { status: 202 });
     }),
   );
   return calls;
@@ -291,7 +322,9 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: due.id } });
       expect(after.status).toBe("failed");
       expect(after.sentAt).toBeNull();
-      expect((after.metrics as { notSentReason?: string }).notSentReason).toMatch(/no one in its audience had agreed to marketing email/);
+      expect((after.metrics as { notSentReason?: string }).notSentReason).toMatch(
+        /no one in its audience could get marketing email \(the audience was empty, or no one in it had agreed to marketing email\)/,
+      );
     });
 
     it("refuses Send now to a tier where no one agreed to marketing, and keeps the draft", async () => {
@@ -435,6 +468,78 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({ status: "sent" });
     });
 
+    it("sends once when the Create page's Launch Campaign is pressed twice", async () => {
+      // The first press is still waiting for SendGrid when the second arrives
+      const requests: string[][] = [];
+      let arrived!: () => void;
+      const firstArrived = new Promise<void>((resolve) => (arrived = resolve));
+      let answer!: () => void;
+      const answered = new Promise<void>((resolve) => (answer = resolve));
+      server.use(
+        http.post("https://api.sendgrid.com/v3/mail/send", async ({ request }) => {
+          const body = (await request.json()) as { personalizations: Array<{ to: Array<{ email: string }> }> };
+          requests.push(body.personalizations.flatMap((p) => p.to.map((t) => t.email)).sort());
+          if (requests.length === 1) {
+            arrived();
+            await answered;
+          }
+          return new HttpResponse(null, { status: 202 });
+        }),
+      );
+      await usage(10);
+      const createKey = crypto.randomUUID();
+      const press = () => create({ segmentId: "all", scheduleType: "immediate", createKey });
+
+      const first = press();
+      await firstArrived;
+      const second = await press();
+      answer();
+      const responses = [await first, second];
+
+      expect(requests).toEqual([[emails.bronzeYes, emails.goldYes]]);
+      for (const response of responses) {
+        expect(response.status).toBe(302);
+        expect(response.headers.get("Location")).toBe(`/app/marketing/campaigns/${createKey}`);
+      }
+      expect(await prisma.emailCampaign.findMany({ where: { shop: SHOP }, select: { id: true, status: true } })).toEqual([
+        { id: createKey, status: "sent" },
+      ]);
+      // and the second press leaves no copy of the email behind among the templates
+      expect(await prisma.emailTemplate.count({ where: { shop: SHOP, name: "Campaign: Autumn sale" } })).toBe(1);
+      expect(await emailsUsed()).toBe(12);
+    });
+
+    it("takes a second Save Draft or Schedule from the same Create page to the campaign it already made", async () => {
+      const createKey = crypto.randomUUID();
+      for (const fields of [
+        { segmentId: "all", scheduleType: "draft", createKey },
+        { segmentId: "all", scheduleType: "scheduled", scheduledDate: nyDate(1), scheduledTime: "09:00", createKey },
+      ]) {
+        await prisma.emailCampaign.deleteMany({ where: { shop: SHOP } });
+        const first = await create(fields);
+        const second = await create(fields);
+        for (const response of [first, second]) {
+          expect(response.status).toBe(302);
+          expect(response.headers.get("Location")).toBe(`/app/marketing/campaigns/${createKey}`);
+        }
+        expect(await prisma.emailCampaign.count({ where: { shop: SHOP } })).toBe(1);
+      }
+    });
+
+    it("refuses a Create that doesn't come from the page, and creates nothing", async () => {
+      const sent = mockSendGrid();
+
+      for (const createKey of ["", "not-a-key"]) {
+        const response = await create({ segmentId: "all", scheduleType: "immediate", createKey });
+        expect(response.status).toBe(400);
+        expect((await response.json()).error).toMatch(/Reload the page/);
+      }
+
+      expect(sent).toEqual([]);
+      expect(await prisma.emailCampaign.count({ where: { shop: SHOP } })).toBe(0);
+      expect(await prisma.emailTemplate.count({ where: { shop: SHOP } })).toBe(1);
+    });
+
     it("sends a scheduled campaign once when two sends of it race", async () => {
       const sent = mockSendGrid();
       const scheduled = await campaign({ status: "scheduled", segmentRules: { allCustomers: true }, scheduledFor: new Date(Date.now() - 60_000) });
@@ -502,6 +607,38 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       expect(after.status).toBe("failed");
       expect(after.sentAt).toBeNull();
       expect((after.metrics as { notSentReason?: string }).notSentReason).toMatch(/nothing went out/);
+    });
+
+    it("says nothing went out when reading the campaign's email fails before the email service has it", async () => {
+      const sent = mockSendGrid();
+      const due = await campaign({ status: "scheduled", segmentRules: { allCustomers: true }, scheduledFor: new Date(Date.now() - 60_000) });
+      swap(prisma.emailCampaign, "findFirst", (findFirst) => (() => dropped()) as unknown as typeof findFirst);
+
+      await runCron();
+
+      expect(sent).toEqual([]);
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: due.id } });
+      expect(after.status).toBe("failed");
+      expect(after.sentAt).toBeNull();
+      expect((after.metrics as { notSentReason?: string }).notSentReason).toMatch(/nothing went out/);
+      expect(after.metrics).not.toHaveProperty("interruptedReason");
+    });
+
+    it("keeps the draft and gives the emails back when the store's name can't be read", async () => {
+      const sent = mockSendGrid();
+      await usage(10);
+      const draft = await campaign({ status: "draft", segmentRules: { allCustomers: true } });
+      swap(prisma.shopSettings, "findUnique", (findUnique) =>
+        ((args: Parameters<typeof findUnique>[0]) =>
+          (args.select as { storeName?: boolean } | undefined)?.storeName ? dropped() : findUnique(args)) as typeof findUnique,
+      );
+
+      const response = await send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      expect(sent).toEqual([]);
+      expect((await response.json()).error).not.toMatch(/may have/);
+      expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({ status: "draft", sentAt: null });
+      expect(await emailsUsed()).toBe(10);
     });
 
     it("doesn't let Schedule overwrite a campaign that stopped being a draft after the page read it", async () => {
@@ -614,6 +751,91 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       expect(calls.requests).toBe(1);
     });
 
+    it.each([500, 502, 503, 504])("treats a %i from SendGrid the same, and won't send it again", async (status) => {
+      const calls = sendGridServerError(status);
+      await usage(10);
+      const draft = await campaign({ status: "draft", segmentRules: { allCustomers: true } });
+      const press = () => send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      const first = await press();
+
+      expect(first.status).toBe(500);
+      const { error } = await first.json();
+      expect(error).toMatch(mayHaveGoneOut);
+      expect(error).not.toMatch(/Try again later|Upstream/);
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } });
+      expect(after.status).toBe("failed");
+      expect(after.metrics).toMatchObject({ interruptedReason: expect.stringMatching(mayHaveGoneOut) });
+      expect(after.metrics).not.toHaveProperty("notSentReason");
+      expect(await emailsUsed()).toBe(12);
+
+      const second = await press();
+      expect(second.status).toBe(409);
+      expect(calls.requests).toBe(1);
+    });
+
+    it("doesn't say nothing was sent when SendGrid's gateway times out on a scheduled campaign", async () => {
+      const calls = sendGridServerError(504);
+      const due = await campaign({ status: "scheduled", segmentRules: { allCustomers: true }, scheduledFor: new Date(Date.now() - 60_000) });
+
+      const response = await runCron();
+
+      expect(response.status).toBe(500);
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: due.id } });
+      expect(after.status).toBe("failed");
+      expect(after.metrics).toMatchObject({ interruptedReason: expect.stringMatching(mayHaveGoneOut) });
+      expect(JSON.stringify(after.metrics)).not.toMatch(/nothing was sent|Duplicate it to try again/);
+
+      await runCron();
+      expect(calls.requests).toBe(1);
+    });
+
+    it("stops waiting for an answer after 20 seconds, says it may have gone out, and won't send it again", async () => {
+      const calls = sendGridHangs();
+      // Twenty seconds are made 50 ms here
+      const timeout = AbortSignal.timeout.bind(AbortSignal);
+      const waits: number[] = [];
+      const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
+        waits.push(ms);
+        return timeout(ms === 20_000 ? 50 : ms);
+      });
+      restores.push(() => spy.mockRestore());
+      const draft = await campaign({ status: "draft", segmentRules: { allCustomers: true } });
+      const press = () => send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      const first = await press();
+
+      expect(waits).toContain(20_000);
+      expect(first.status).toBe(500);
+      expect((await first.json()).error).toMatch(mayHaveGoneOut);
+      expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({
+        status: "failed",
+        metrics: expect.objectContaining({ interruptedReason: expect.stringMatching(mayHaveGoneOut) }),
+      });
+
+      expect((await press()).status).toBe(409);
+      expect(calls.requests).toBe(1);
+    });
+
+    it("keeps what SendGrid reported about the campaign while RewardsPro waited for an answer", async () => {
+      // SendGrid's event webhook counts deliveries on the campaign (webhooks.sendgrid.tsx)
+      const reported = { sent: 0, delivered: 2, opened: 0, clicked: 0, bounced: 1, unsubscribed: 0, revenue: 0, orders: 0 };
+      server.use(
+        http.post("https://api.sendgrid.com/v3/mail/send", async () => {
+          await prisma.emailCampaign.updateMany({ where: { shop: SHOP }, data: { metrics: reported } });
+          return HttpResponse.error();
+        }),
+      );
+      const draft = await campaign({ status: "draft", segmentRules: { allCustomers: true } });
+
+      await send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      expect((await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).metrics).toMatchObject({
+        ...reported,
+        interruptedReason: expect.stringMatching(mayHaveGoneOut),
+      });
+    });
+
     it("tells the Create page's Send immediately the same, and doesn't call it a draft", async () => {
       const calls = sendGridGivesNoAnswer();
 
@@ -651,6 +873,33 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       expect(error).toMatch(mayHaveGoneOut);
       expect(error).not.toMatch(/saved as a draft/);
       expect(await prisma.emailCampaign.findFirstOrThrow({ where: { shop: SHOP } })).toMatchObject({ status: "failed" });
+    });
+  });
+
+  describe("a send that was cut off", () => {
+    it("is marked as may have gone out once it has been sending for 15 minutes, keeping what SendGrid reported, and isn't sent again", async () => {
+      const sent = mockSendGrid();
+      const startedAt = new Date(Date.now() - 20 * 60_000);
+      const reported = { sent: 0, delivered: 2, opened: 1, clicked: 0, bounced: 0, unsubscribed: 0, revenue: 0, orders: 0 };
+      // SendGrid's events kept arriving (webhooks.sendgrid.tsx), so it was updated a minute ago
+      const cutOff = await campaign({ status: "sending", segmentRules: { allCustomers: true }, name: "Cut off" });
+      await prisma.emailCampaign.update({ where: { id: cutOff.id }, data: { sentAt: startedAt, metrics: reported } });
+      const stillSending = await campaign({ status: "sending", segmentRules: { allCustomers: true }, name: "Still sending" });
+      await prisma.emailCampaign.update({ where: { id: stillSending.id }, data: { sentAt: new Date(Date.now() - 2 * 60_000) } });
+
+      const response = await runCron();
+
+      expect(sent).toEqual([]);
+      expect(response.status).toBe(500);
+      expect((await response.json()).summary).toMatchObject({ interrupted: 1 });
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: cutOff.id } });
+      expect(after).toMatchObject({ status: "failed", sentAt: startedAt });
+      expect(after.metrics).toMatchObject({ ...reported, interruptedReason: expect.stringMatching(/may have received it/) });
+      expect(after.metrics).not.toHaveProperty("notSentReason");
+      expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: stillSending.id } })).toMatchObject({ status: "sending" });
+
+      await runCron();
+      expect(sent).toEqual([]);
     });
   });
 

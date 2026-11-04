@@ -592,11 +592,20 @@ export default function EmailSettings() {
                   </Banner>
                 )}
 
-                {data.emailUsageStats.percentage >= 90 && data.emailUsageStats.limit < 999999 && !data.emailUsageStats.isLocked && (
+                {/* Marketing email stops at the limit (marketing-email.server.ts); shopper account email doesn't */}
+                {data.emailUsageStats.totalEmails >= data.emailUsageStats.limit && data.emailUsageStats.limit < 999999 && !data.emailUsageStats.isLocked && (
+                  <Banner tone="critical" title="Monthly email limit reached">
+                    <p>
+                      Campaigns and automation emails won't send until next month. Shopper account emails still go out.
+                    </p>
+                  </Banner>
+                )}
+
+                {data.emailUsageStats.percentage >= 90 && data.emailUsageStats.totalEmails < data.emailUsageStats.limit && data.emailUsageStats.limit < 999999 && !data.emailUsageStats.isLocked && (
                   <Banner tone="warning" title="Approaching Email Limit">
                     <p>
                       You've used {data.emailUsageStats.percentage}% of your monthly email allowance.
-                      Consider upgrading your plan for more emails.
+                      Campaigns and automation emails stop when the limit is reached, until next month.
                     </p>
                   </Banner>
                 )}

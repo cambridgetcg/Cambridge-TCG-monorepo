@@ -954,6 +954,8 @@ export default function MarketingHub() {
                                   ? `Scheduled for ${formatDate(campaign.scheduledFor)}`
                                   : (campaign.status === "missed" || campaign.status === "failed") && campaign.scheduledFor
                                   ? `Was due ${formatDate(campaign.scheduledFor)}`
+                                  : (campaign.status === "failed" || campaign.status === "sending") && campaign.sentAt
+                                  ? `Send started ${formatDate(campaign.sentAt)}`
                                   : `Last edited ${formatDate(campaign.sentAt || campaign.scheduledFor)}`}
                               </Text>
                             </BlockStack>

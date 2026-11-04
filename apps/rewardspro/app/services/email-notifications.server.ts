@@ -410,11 +410,13 @@ export async function sendTierDowngradeEmailNotification(
  * @param shop - Shop domain
  * @param campaignId - Campaign ID
  * @param recipients - Customers to send to
+ * @param onHandOff - Called just before the email goes to the email service
  */
 export async function sendCampaignEmails(
   shop: string,
   campaignId: string,
-  recipients: Array<{ customerId: string }>
+  recipients: Array<{ customerId: string }>,
+  onHandOff?: () => void
 ): Promise<MarketingSendResult> {
   console.log(`[EmailNotifications] Sending campaign ${campaignId} to ${recipients.length} recipients`);
 
@@ -457,7 +459,7 @@ export async function sendCampaignEmails(
     html: sanitizeEmailHtml(rawHtmlContent),
     categories: ["campaign", campaignId],
     customArgs: { campaign_id: campaignId, shop },
-  });
+  }, onHandOff);
 
   // Log campaign send event (counts only)
   try {

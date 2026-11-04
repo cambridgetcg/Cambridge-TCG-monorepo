@@ -2,6 +2,9 @@
  * Hourly cron job for processing scheduled email campaigns
  * - Mark campaigns more than LATE_LIMIT_HOURS past their time as "missed"
  *   (they piled up while email was off; old news is not sent)
+ * - Mark campaigns whose send was cut off part way (still "sending" long
+ *   after any send could be running) as "failed": they may have gone out, so
+ *   they are never sent again by themselves
  * - Send up to CAMPAIGNS_PER_RUN due campaigns, oldest first, through
  *   sendCampaign() (services/campaign-send.server.ts), the same path as the
  *   send page's Send now; the rest wait for the next run
@@ -20,7 +23,7 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
-import { notSentMetrics, sendCampaign } from "../services/campaign-send.server";
+import { markCutOffSends, notSentMetrics, sendCampaign } from "../services/campaign-send.server";
 import { marketingEmailBlockedReason } from "../services/marketing-email.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
@@ -90,6 +93,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     sentCount: 0,
     failedCount: 0,
     missedCount: 0,
+    interruptedCount: 0,
     errors: 0,
     details: [] as any[]
   };
@@ -110,7 +114,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('warn', `${results.missedCount} scheduled campaigns were more than ${LATE_LIMIT_HOURS} hours late; marked missed`);
     }
 
-    // 6. Find scheduled campaigns that are due, oldest first
+    // 6. Sends cut off part way may have gone out: marked failed, and the run
+    // fails so the operator sees that something stopped them
+    results.interruptedCount = await markCutOffSends(now, isDryRun);
+    if (results.interruptedCount > 0) {
+      results.errors += results.interruptedCount;
+      log('error', `${results.interruptedCount} campaigns were cut off while sending; marked failed, as they may have gone out`);
+    }
+
+    // 7. Find scheduled campaigns that are due, oldest first
     const dueCampaigns = await prisma.emailCampaign.findMany({
       where: {
         status: 'scheduled',
@@ -198,11 +210,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     }
 
-    // 7. Log summary
+    // 8. Log summary
     const summary = {
       sent: results.sentCount,
       failed: results.failedCount,
       missed: results.missedCount,
+      interrupted: results.interruptedCount,
       errorCount: results.errors,
       duration: Date.now() - startTime,
       dryRun: isDryRun,
