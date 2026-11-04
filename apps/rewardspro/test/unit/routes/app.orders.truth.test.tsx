@@ -201,9 +201,11 @@ describe("Orders page", () => {
   });
 
   it("names the customer, with their tier beside the name", () => {
-    const html = ordersPageHtml([serializedOrder()], true);
+    const customer = { ...serializedOrder().customer, email: "ada@example.com" };
+    const html = ordersPageHtml([serializedOrder({ customer })], true);
 
     expect(html).toContain("Ada Lovelace Info Bronze");
+    expect(html).not.toContain("ada@example.com");
   });
 
   it("shows the customer's email when Shopify gave no name", () => {

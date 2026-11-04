@@ -127,6 +127,16 @@ describe("dashboard health row", () => {
     expect(text).not.toContain("Still to do");
   });
 
+  it("counts the widget done only once the rewards widget is on, as the setup card does", () => {
+    // widgetStatus is active for any of the app's blocks, such as the missions embed
+    const missionsEmbedOnly = { isActive: true, setupDismissed: false, status: "active", blockType: "app_embed", themeName: null, lastChecked: null };
+    const text = dashboardText(dashboardData({ widgetOn: false }, { widgetStatus: missionsEmbedOnly }));
+
+    expect(text).toContain("Finish setup");
+    expect(text).toContain("Still to do: turn on the rewards widget.");
+    expect(text).not.toContain("All Systems Operational");
+  });
+
   it("still reports a failing system, counting only the systems", () => {
     const text = dashboardText(dashboardData({ webhooks: "critical" }));
 

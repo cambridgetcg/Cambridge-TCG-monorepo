@@ -378,16 +378,20 @@ describe('app._index (dashboard) loader', () => {
     expect(data.webhookStats.status).toBe('critical');
   });
 
-  it('should fall back to direct order count when cache is empty', async () => {
+  it('counts no orders this month until orders/paid starts the month\'s counter', async () => {
+    // orders/paid creates the month's row with the first order it counts.
+    // Both order syncs write past orders with createdAt set to the sync
+    // time, so counting Order rows would show every synced order as this
+    // month's.
     vi.mocked(db.monthlyOrderUsage.findFirst).mockResolvedValue(null);
-    vi.mocked(db.order.count).mockResolvedValue(55);
+    vi.mocked(db.order.count).mockResolvedValue(2000);
 
     const request = new Request('https://app.example.com/app');
     const response = await loader({ request, params: {}, context: {} });
     const data = await response.json();
 
-    expect(data.monthlyOrderUsage.orderCount).toBe(55);
-    expect(db.order.count).toHaveBeenCalled();
+    expect(data.monthlyOrderUsage.orderCount).toBe(0);
+    expect(db.order.count).not.toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ createdAt: expect.anything() }) }));
   });
 
   it('reports every first-run setup step as done for a set-up shop', async () => {

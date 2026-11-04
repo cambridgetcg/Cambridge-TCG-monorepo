@@ -359,7 +359,7 @@ export default function OrdersSyncPage() {
                 <Badge tone="success">Faster Tier Calculations</Badge>
                 <Badge tone="success">Instant Analytics</Badge>
                 <Badge tone="success">No API Rate Limits</Badge>
-                <Badge tone="success">Complete Order History</Badge>
+                <Badge tone="success">Orders from the last 12 months</Badge>
               </InlineStack>
 
               <Text as="p" tone="subdued">

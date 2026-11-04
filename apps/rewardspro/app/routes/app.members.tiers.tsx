@@ -674,14 +674,16 @@ export default function TiersPage() {
               <Select
                 label="Evaluation Period"
                 options={
-                  // ANNUAL counts orders from the 12 months up to today
-                  // (services/tier-calculation.server.ts), not a calendar year
+                  // Tier spend is the Order rows RewardsPro holds, less refunds
+                  // (services/tier-calculation.server.ts): install syncs
+                  // customers, never orders. ANNUAL counts those from the 12
+                  // months up to today, not a calendar year
                   data.hasAnnualEval
                     ? [
                         { label: "Last 12 months (rolling)", value: "ANNUAL" },
-                        { label: "Lifetime (all spend)", value: "LIFETIME" },
+                        { label: "Lifetime (all recorded orders)", value: "LIFETIME" },
                       ]
-                    : [{ label: "Lifetime (all spend)", value: "LIFETIME" }]
+                    : [{ label: "Lifetime (all recorded orders)", value: "LIFETIME" }]
                 }
                 value={tierFormData.evaluationPeriod}
                 onChange={(value) =>
@@ -693,7 +695,7 @@ export default function TiersPage() {
                 helpText={
                   !data.hasAnnualEval
                     ? "Annual evaluation is unavailable under the existing agreement. Paid plans aren't offered right now."
-                    : "Last 12 months counts what a customer spent in the 12 months up to today, so an order stops counting a year after it was placed. Lifetime counts everything they've spent."
+                    : "Both count the orders RewardsPro has recorded for a customer, less refunds: orders paid since you installed the app, plus orders from the past 12 months that you bring in with Sync Orders. Last 12 months counts orders placed in the 12 months up to today, so an order stops counting a year after it was placed. Lifetime counts every recorded order."
                 }
               />
             </FormLayout>

@@ -280,7 +280,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       autoCashbackBacklog(shop).catch(() => null),
     ]);
 
-    // Simple direct order count for current month
+    // This month's order count
     const now = new Date();
     const year = now.getUTCFullYear();
     const month = now.getUTCMonth() + 1;
@@ -289,7 +289,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     let orderCount = 0;
     try {
-      // Try to get from cache first
       // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
       const cachedUsage = await prisma.monthlyOrderUsage.findFirst({
         where: {
@@ -299,25 +298,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         },
       });
 
-      if (cachedUsage) {
-        orderCount = cachedUsage.orderCount;
-        console.log(`[Dashboard] Using cached order count: ${orderCount}`);
-      } else {
-        // Simple direct count from Order table for current month
-        const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
-        const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-
-        orderCount = await prisma.order.count({
-          where: {
-            shop,
-            createdAt: {
-              gte: startOfMonth,
-              lte: endOfMonth,
-            },
-          },
-        });
-        console.log(`[Dashboard] Direct order count: ${orderCount}`);
-      }
+      // orders/paid creates the month's row with the first order it counts
+      // (utils/order-count.server.ts), so with no row nothing is counted yet.
+      // Order rows are no stand-in: both order syncs write past orders with
+      // createdAt set to the sync time.
+      orderCount = cachedUsage?.orderCount ?? 0;
+      console.log(`[Dashboard] Monthly order count: ${orderCount}`);
     } catch (error) {
       console.error("[Dashboard] Error counting orders:", error);
       orderCount = 0;
@@ -858,9 +844,10 @@ export default function Dashboard() {
     { label: 'Sync', ok: data.dataSyncHealth.status === 'operational' || data.dataSyncHealth.status === 'syncing' },
   ];
   // The widget and the engine (a tier and automatic cashback) are setup a
-  // shop finishes, not systems that fail. The engine follows the optimistic
-  // toggle, like the Features card.
-  const widgetOn = data.widgetStatus.status === 'active';
+  // shop finishes, not systems that fail. The widget is the setup card's
+  // (the membership embed: widgetStatus counts any of the app's blocks), and
+  // the engine follows the optimistic toggle, like the Features card.
+  const widgetOn = data.firstRun.widgetOn;
   const setupComponents = [
     { label: 'Widget', ok: widgetOn },
     { label: 'Engine', ok: data.loyaltyEngine.status !== 'needs_setup' && cashbackEnabled },

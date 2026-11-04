@@ -11,10 +11,15 @@ import { describe, expect, it, vi } from "vitest";
 
 /**
  * What the Tiers page tells merchants about tiers: no figures nobody
- * measured, and an annual period that says what the tier resolver counts
- * (services/tier-calculation.server.ts: orders from the last 12 months,
- * counted back from today).
+ * measured, and evaluation periods that say what the tier resolver counts.
+ * services/tier-calculation.server.ts sums the Order rows RewardsPro holds,
+ * less refunds: orders/paid writes them from install on, and Sync Orders
+ * brings in the last 12 months (install syncs customers, never orders). The
+ * annual period counts those placed in the 12 months up to today.
  */
+
+const PERIOD_HELP =
+  "Both count the orders RewardsPro has recorded for a customer, less refunds: orders paid since you installed the app, plus orders from the past 12 months that you bring in with Sync Orders. Last 12 months counts orders placed in the 12 months up to today, so an order stops counting a year after it was placed. Lifetime counts every recorded order.";
 
 const remix = vi.hoisted(() => ({ loaderData: {} as Record<string, unknown> }));
 vi.mock("@remix-run/react", () => ({
@@ -88,18 +93,38 @@ describe("tier form evaluation period", () => {
     const dialog = await screen.findByRole("dialog");
     const period = within(dialog).getByLabelText("Evaluation Period") as HTMLSelectElement;
 
-    expect([...period.options].map((option) => option.textContent)).toEqual(["Last 12 months (rolling)", "Lifetime (all spend)"]);
-    expect(dialog).toHaveTextContent(
-      "Last 12 months counts what a customer spent in the 12 months up to today, so an order stops counting a year after it was placed. Lifetime counts everything they've spent.",
-    );
+    expect([...period.options].map((option) => option.textContent)).toEqual(["Last 12 months (rolling)", "Lifetime (all recorded orders)"]);
+    expect(dialog).toHaveTextContent(PERIOD_HELP);
     expect(dialog).not.toHaveTextContent(/resets yearly|annually reset/i);
+  });
+
+  it("names lifetime by what it counts where it is the only period", async () => {
+    remix.loaderData = { ...tiersPageData([]), hasAnnualEval: false };
+    render(createElement(AppProvider, { i18n: en }, createElement(TiersPage)));
+
+    await userEvent.setup().click(screen.getAllByRole("button", { name: "Create Tier" })[0]);
+    const period = within(await screen.findByRole("dialog")).getByLabelText("Evaluation Period") as HTMLSelectElement;
+
+    expect([...period.options].map((option) => option.textContent)).toEqual(["Lifetime (all recorded orders)"]);
+  });
+
+  it("doesn't promise that spend from before the app was installed counts", async () => {
+    remix.loaderData = tiersPageData([]);
+    render(createElement(AppProvider, { i18n: en }, createElement(TiersPage)));
+
+    await userEvent.setup().click(screen.getAllByRole("button", { name: "Create Tier" })[0]);
+    const dialog = await screen.findByRole("dialog");
+
+    expect(dialog).not.toHaveTextContent(/all spend|everything they've spent|what a customer spent/i);
   });
 
   it("is named the same way on the Members page's tier form", () => {
     const source = readFileSync(resolve(process.cwd(), "app/routes/app.members._index.tsx"), "utf8");
 
     expect(source).toContain('{ label: "Last 12 months (rolling)", value: "ANNUAL" }');
-    expect(source).not.toMatch(/resets yearly|annually reset/i);
+    expect(source).toContain('{ label: "Lifetime (all recorded orders)", value: "LIFETIME" }');
+    expect(source).toContain(`"${PERIOD_HELP}"`);
+    expect(source).not.toMatch(/resets yearly|annually reset|all spend|everything they've spent/i);
   });
 
   it("labels an annual tier by the period it counts", () => {

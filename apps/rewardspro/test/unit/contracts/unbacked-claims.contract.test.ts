@@ -54,9 +54,29 @@ describe("unbacked claims in the embedded admin", () => {
     const claims = [
       ["routes/app.analytics.tsx", "boost engagement"],
       ["routes/app.analytics.tsx", "boost repeat purchases"],
+      ["routes/app.analytics.tsx", "driving engagement"],
+      ["routes/app.analytics.tsx", "keeps customers engaged"],
+      // The two LTV averages cover different cohorts, so no conclusion is drawn from them
+      ["routes/app.analytics.tsx", "at least half of what customers spend"],
     ];
     for (const [path, claim] of claims) {
       expect(readFileSync(join(appRoot, path), "utf8")).not.toContain(claim);
     }
+  });
+
+  it("words the cohort insights from the shop's own cohorts (utils/cohort-insights.ts)", () => {
+    const source = readFileSync(join(appRoot, "routes/app.analytics.tsx"), "utf8");
+
+    for (const insight of ["monthOneRetentionInsight(", "earlySpendInsight(", "tierProgressionInsight("]) {
+      expect(source).toContain(insight);
+    }
+  });
+
+  it("says how far back the order sync reaches", () => {
+    // The sync page posts no start date, so it fetches the last 365 days (services/order-sync-job.server.ts)
+    const source = readFileSync(join(appRoot, "routes/app.orders-sync.tsx"), "utf8");
+
+    expect(source).not.toContain("Complete Order History");
+    expect(source).toContain("Orders from the last 12 months");
   });
 });

@@ -48,6 +48,7 @@ import {
 } from "../constants/pricing-contract";
 import { getEntitlements } from "../services/entitlements.server";
 import { formatCurrency } from "../utils/currency";
+import { earlySpendInsight, monthOneRetentionInsight, tierProgressionInsight } from "../utils/cohort-insights";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
 import { getCachedOrCompute } from "~/utils/analytics-cache.server";
 import {
@@ -2570,18 +2571,16 @@ export default function AnalyticsPage() {
                                 <Text variant="bodyMd" as="p" fontWeight="semibold">🔄 Month 1 Retention</Text>
                                 {/* The shop's own figure: RewardsPro has no measured benchmark to compare it with */}
                                 <Text variant="bodySm" tone="subdued" as="p">
-                                  {`Your Month 1 retention is ${data.cohortAnalysis.summaryMetrics.avgRetentionMonth1.toFixed(0)}% on average across your cohorts.`}
+                                  {monthOneRetentionInsight(data.cohortAnalysis.retentionCohorts, data.cohortAnalysis.summaryMetrics.avgRetentionMonth1)}
                                 </Text>
                               </BlockStack>
                             </Box>
                             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
                               <BlockStack gap="200">
                                 <Text variant="bodyMd" as="p" fontWeight="semibold">💰 LTV Growth Pattern</Text>
+                                {/* Both figures from the same cohorts: avgLTV30Days and avgLTV90Days average different ones */}
                                 <Text variant="bodySm" tone="subdued" as="p">
-                                  {data.cohortAnalysis.summaryMetrics.avgLTV90Days > data.cohortAnalysis.summaryMetrics.avgLTV30Days * 2
-                                    ? "Strong LTV growth! Customers are returning and spending more over time."
-                                    : "On average, at least half of what customers spend in their first 90 days comes in their first 30."
-                                  }
+                                  {earlySpendInsight(data.cohortAnalysis.revenueCohorts, (amount) => formatCurrency(amount, data.shopSettings as any))}
                                 </Text>
                               </BlockStack>
                             </Box>
@@ -2589,10 +2588,7 @@ export default function AnalyticsPage() {
                               <BlockStack gap="200">
                                 <Text variant="bodyMd" as="p" fontWeight="semibold">🏆 Tier Progression</Text>
                                 <Text variant="bodySm" tone="subdued" as="p">
-                                  {data.cohortAnalysis.summaryMetrics.tierUpgradeRate >= 20
-                                    ? `${data.cohortAnalysis.summaryMetrics.tierUpgradeRate.toFixed(0)}% of customers upgraded tiers - your program is driving engagement!`
-                                    : `Only ${data.cohortAnalysis.summaryMetrics.tierUpgradeRate.toFixed(0)}% upgraded tiers. Consider adjusting tier thresholds or rewards.`
-                                  }
+                                  {tierProgressionInsight(data.cohortAnalysis.retentionCohorts, data.cohortAnalysis.summaryMetrics.tierUpgradeRate)}
                                 </Text>
                               </BlockStack>
                             </Box>
@@ -2603,7 +2599,7 @@ export default function AnalyticsPage() {
                                   {data.cohortAnalysis.summaryMetrics.avgTimeToTierUpgrade > 0
                                     ? `Average time to first tier upgrade: ${data.cohortAnalysis.summaryMetrics.avgTimeToTierUpgrade} days. ${
                                         data.cohortAnalysis.summaryMetrics.avgTimeToTierUpgrade <= 60
-                                          ? "Quick progression keeps customers engaged!"
+                                          ? ""
                                           : "Consider adding intermediate rewards to maintain momentum."
                                       }`
                                     : "Track tier upgrades to understand customer progression velocity."
