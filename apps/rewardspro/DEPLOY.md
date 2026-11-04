@@ -113,13 +113,17 @@ How Vercel runs them:
   cron route answers 401 to anything else. `CRON_SECRET` must be set in the
   Production environment, or every run fails.
 - Vercel doesn't retry a failed run and doesn't tell anyone. It doesn't stop
-  two runs overlapping, and now and then it delivers the same run twice. The
-  jobs that must not overlap take a database lock (`CronLock`); the others
-  are safe to repeat.
+  two runs overlapping. Its delivery is best effort: now and then a run never
+  arrives, and now and then the same run arrives twice. The jobs that must
+  not overlap take a database lock (`CronLock`); the others are safe to
+  repeat, and each run picks up what the one before left.
 - A run is stopped after 300 seconds (the project's function limit; nothing
   sets `maxDuration`).
 - Vercel shows a run as failed only when it answers 5xx. Every cron route
-  answers 500 when its job fails.
+  answers 500 when its job fails. A run that finishes but fails part of its
+  work (a shop, an entry, a mission) answers 200 and tells the cron monitor
+  what failed, which reports it (below). The two tier crons answer 500 for
+  any error.
 
 To run one now, for real against production, exactly as the schedule would:
 
@@ -128,38 +132,62 @@ vercel crons run /api/cron/session-cleanup --project rewardspro-production --sco
 ```
 
 (or the Run button next to the job in the project's Cron Jobs settings).
+Either way the run arrives from Vercel's cron service, like a scheduled one;
+the log line's `onSchedule: false` tells it apart.
 
 ### When a cron fails or stops
 
 Every scheduled run goes through `monitoredCron`
-(`app/services/cron-monitor.server.ts`), which records it and reports a
-failure. To see what happened:
+(`app/services/cron-monitor.server.ts`), which records it and reports what
+went wrong. To see what happened:
 
-1. **Sentry.** Each failed run is an error with the real cause, tagged
-   `cron.job:<job>`.
+1. **Sentry.** Every event below is tagged `cron.job:<job>`:
+   - a failed run: an error with the real cause;
+   - a run that finished with problems: a warning, "Cron `<job>` finished
+     with problems", with how many failed and the first error;
+   - a cron that stopped finishing its runs while the others still run (it
+     times out, stops being called, or fails every time): a warning, "Cron
+     `<job>` has not finished a run within twice its schedule", sent once per
+     stop.
 2. **`/api/operator/readiness`**, with `Authorization: Bearer $CRON_SECRET`,
-   lists each cron's last start, success and failure, and answers 503
-   `crons_stale` when one hasn't succeeded within twice its schedule (2 hours
-   for the hourly ones, 2 days for the daily ones, 2 weeks for
-   webhook-cleanup). An uptime check pointed at it notices a cron that fails
-   or stops. Before any cron has run with this code, it reads `crons_stale`.
+   lists each cron's last start, success, partial run and failure, and
+   answers 503 `crons_stale` when one hasn't finished a run within twice its
+   schedule and 15 minutes (2 h 15 min for the hourly ones, 2 days and 15 min
+   for the daily ones, 2 weeks and 15 min for webhook-cleanup), so one run
+   Vercel didn't deliver isn't stale. A run that finished with problems
+   counts as a run; Sentry reports its problems. Before any cron has run with
+   this code, it reads `crons_stale`. An uptime check could poll it, but the
+   check would then hold `CRON_SECRET`, which can also start every cron; the
+   Sentry Crons monitor below notices a stop without it.
 3. **Logs.** Each run ends with one `cron-monitor` line: the job, the HTTP
-   status, how long it took, and `vercelCron: true` when Vercel's scheduler
-   sent it. Vercel keeps runtime logs only for a short time:
+   status, how many parts failed, how long it took, `vercelCron: true` when
+   Vercel's cron service sent it (the schedule, the Run button or
+   `vercel crons run`), and `onSchedule: false` when it started more than 5
+   minutes after its slot, which marks a run started by hand. Vercel keeps
+   runtime logs only for a short time:
 
    ```bash
    vercel logs --project rewardspro-production --environment production --query /api/cron/tier-maintenance --since 24h
    ```
 
 4. **The records.** `SyncStatus` rows with shop `rewardspro:cron`:
-   `<job>:started`, `<job>:succeeded` and `<job>:failed`, each with the
-   start time of that run in `lastSyncAt`. The failed row holds the error.
+   `<job>:started`, `<job>:succeeded`, `<job>:partial` and `<job>:failed`,
+   each with the start time of that run in `lastSyncAt`. The partial and
+   failed rows hold what went wrong. `<job>:stale` holds when Sentry was told
+   the job had stopped.
 
-Sentry Crons can also flag a missed or failed run. It is off because
-Sentry includes one cron monitor per plan and bills the others from the
-pay-as-you-go budget. To turn it on, set `SENTRY_CRON_MONITORS=true` in
-Production and redeploy: each cron then creates a `rewardspro-<job>` monitor
-on its first run.
+When every cron stops at once (the project's Cron Jobs switch is off,
+`CRON_SECRET` is missing from Production, a deploy dropped them), nothing in
+the app runs to notice. Sentry Crons does: it alerts when a monitor's
+check-ins stop. `SENTRY_CRON_MONITORS` names the jobs that check in,
+comma-separated, or `true` for all 8. Sentry includes one cron monitor per
+plan and bills each further one ($0.78 a month) from the pay-as-you-go
+budget, so set `SENTRY_CRON_MONITORS=mission-status` in Production and
+redeploy: the hourly job then creates a `rewardspro-mission-status` monitor
+on its first run, at no cost unless another project in the Sentry
+organisation already uses the included monitor. Each monitor expects a
+check-in within twice its cron's schedule and 15 minutes, as readiness
+does.
 
 A new scheduled cron goes in `vercel.json`, in `CRON_SCHEDULES` in
 `app/services/cron-monitor.server.ts`, and through `monitoredCron`; the

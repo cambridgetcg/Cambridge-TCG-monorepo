@@ -15,7 +15,7 @@ import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
-import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
+import { cronFailed, cronProblems, monitoredCron } from "~/services/cron-monitor.server";
 
 // Use loader for GET requests (Vercel sends GET, not POST)
 export const loader = monitoredCron("mission-status", async ({ request }: LoaderFunctionArgs) => {
@@ -74,6 +74,8 @@ export const loader = monitoredCron("mission-status", async ({ request }: Loader
   };
 
   const now = new Date();
+  // The first mission that couldn't be moved, for the cron monitor
+  let firstProblem: unknown;
 
   try {
     // 5. Transition SCHEDULED → ACTIVE
@@ -141,6 +143,7 @@ export const loader = monitoredCron("mission-status", async ({ request }: Loader
         }
       } catch (error: any) {
         log('error', `Failed to activate mission ${mission.id}`, { error: error.message });
+        firstProblem ??= error;
         results.errors++;
       }
     }
@@ -186,6 +189,7 @@ export const loader = monitoredCron("mission-status", async ({ request }: Loader
         log('info', `Mission ${mission.id} (${mission.name}) transitioned ACTIVE → CLOSED`);
       } catch (error: any) {
         log('error', `Failed to close mission ${mission.id}`, { error: error.message });
+        firstProblem ??= error;
         results.errors++;
       }
     }
@@ -201,6 +205,8 @@ export const loader = monitoredCron("mission-status", async ({ request }: Loader
 
     log('info', 'Mission status cron completed', summary);
 
+    // Missions it couldn't move are retried next hour; Sentry hears of them
+    cronProblems(request, results.errors, firstProblem);
     return json({
       success: true,
       correlationId,

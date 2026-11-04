@@ -1,7 +1,8 @@
 import { json } from "@remix-run/node";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
-import { CRON_RECORD_SHOP, cronFailed, cronHealth, monitoredCron } from "~/services/cron-monitor.server";
+import { CRON_RECORD_SHOP, CRON_SCHEDULES, cronFailed, cronHealth, cronProblems, monitoredCron } from "~/services/cron-monitor.server";
+import { SentryService } from "~/services/monitoring/sentry.service";
 import { loader as webhookCleanup } from "~/routes/api.cron.webhook-cleanup";
 import { hasTestDatabase, resetDatabase } from "./database";
 
@@ -51,6 +52,40 @@ describe.skipIf(!hasTestDatabase)("cron run records on Postgres", () => {
     const health = await cronHealth();
     expect(health.jobs["mission-status"]).toMatchObject({ stale: false });
     expect(health.jobs["mission-status"].lastFailedAt).toBe(rows[0].lastSyncAt.toISOString());
+  });
+
+  it("records a run that finished with problems, counts it as a run, and reports a stopped cron once", async () => {
+    const captureMessage = vi.spyOn(SentryService, "captureMessage").mockReturnValue("event-1");
+    // Every cron finished an hour ago but tier-product-cleanup (daily), three days ago
+    const now = Date.now();
+    await prisma.syncStatus.createMany({
+      data: Object.keys(CRON_SCHEDULES).map((job) => ({
+        shop: CRON_RECORD_SHOP,
+        syncType: `${job}:succeeded`,
+        status: "COMPLETED" as const,
+        lastSyncAt: new Date(now - (job === "tier-product-cleanup" ? 72 : 1) * 60 * 60 * 1000),
+        createdAt: new Date(now - 30 * DAY),
+      })),
+    });
+    const partial = monitoredCron("mission-status", async ({ request }) => {
+      cronProblems(request, 1, new Error("challenge row locked"));
+      return json({ success: true });
+    });
+
+    await partial({ request: cronRequest("mission-status"), params: {}, context: {} });
+    await partial({ request: cronRequest("mission-status"), params: {}, context: {} });
+
+    const row = await prisma.syncStatus.findUniqueOrThrow({
+      where: { shop_syncType: { shop: CRON_RECORD_SHOP, syncType: "mission-status:partial" } },
+    });
+    expect(row).toMatchObject({ status: "COMPLETED", errorMessage: "1 failed; first: Error: challenge row locked" });
+    const health = await cronHealth();
+    expect(health.jobs["mission-status"]).toMatchObject({ lastPartialAt: row.lastSyncAt.toISOString(), stale: false });
+    expect(health.stale).toEqual(["tier-product-cleanup"]);
+    expect(health.jobs["tier-product-cleanup"].staleReportedAt).not.toBeNull();
+
+    const stopped = captureMessage.mock.calls.filter(([message]) => message.includes("has not finished a run"));
+    expect(stopped.map(([message]) => message)).toEqual(["Cron tier-product-cleanup has not finished a run within twice its schedule"]);
   });
 
   it("webhook-cleanup deletes order webhook records after 30 days and errors after 90", async () => {

@@ -12,10 +12,10 @@ const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
  * Runs the same bounded `SELECT 1` probe as public `/api/health`, behind the
  * cron bearer credential, then reads the scheduled crons' run records
  * (services/cron-monitor.server.ts). It answers 503 `crons_stale` when a cron
- * hasn't succeeded within twice its schedule, so an uptime check pointed here
- * notices a cron that fails or stops. It never returns configuration or
- * error detail: only each cron's schedule and last start, success and
- * failure times.
+ * hasn't finished a run within twice its schedule and 15 minutes, so an
+ * uptime check pointed here notices a cron that fails or stops. It never
+ * returns configuration or error detail: only each cron's schedule and the
+ * times of its last start, success, partial run, failure and stop report.
  */
 export async function loader({ request }: LoaderFunctionArgs) {
   if (!verifyCronAuth(request)) {

@@ -26,6 +26,10 @@
  * (services/stuck-cashback.server.ts). PENDING entries older than
  * AUTO_SEND_MAX_AGE_DAYS are not sent; each run logs how many there are.
  *
+ * A run in which an entry, a shop or the stuck-cashback check failed still
+ * answers 200, and tells the cron monitor what failed (cronProblems), so
+ * Sentry hears of it.
+ *
  * Schedule: hourly at :30, UTC ("30 * * * *" in vercel.json)
  * Endpoint: GET /api/cron/cashback-reconciliation
  *
@@ -46,7 +50,7 @@ import { createStoreCreditService } from "~/services/shopify-store-credit.servic
 import { AUTO_SEND_MAX_AGE_DAYS, claimLedgerEntry, markUnconfirmed } from "~/services/cashback-ledger.server";
 import { cashbackLeftAfterRefunds } from "~/services/refund-handler.server";
 import { reconcileStuckCashback } from "~/services/stuck-cashback.server";
-import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
+import { cronFailed, cronProblems, monitoredCron } from "~/services/cron-monitor.server";
 
 const JOB_NAME = "cashback-reconciliation";
 const LOCK_TTL_MINUTES = 15;
@@ -101,6 +105,8 @@ export const loader = monitoredCron("cashback-reconciliation", async ({ request 
     // before PENDING entries are sent, so one handed back is sent this run.
     // A failure here leaves them SYNCING and does not stop the sending below.
     let stuck: Awaited<ReturnType<typeof reconcileStuckCashback>> | null = null;
+    // The first thing that failed this run, for the cron monitor
+    let firstProblem: unknown;
     try {
       stuck = await reconcileStuckCashback({
         now,
@@ -109,8 +115,11 @@ export const loader = monitoredCron("cashback-reconciliation", async ({ request 
       });
       log('info', 'Checked cashback Shopify never confirmed', { ...stuck });
     } catch (stuckError: any) {
+      firstProblem = stuckError;
       log('error', 'Checking cashback Shopify never confirmed failed', { error: stuckError.message });
     }
+    // The whole check, or the entries it couldn't check
+    const stuckProblems = stuck === null ? 1 : stuck.failed;
 
     // Only merchants who turned automatic processing on
     const autoShops = await prisma.shopSettings.findMany({
@@ -166,6 +175,7 @@ export const loader = monitoredCron("cashback-reconciliation", async ({ request 
     }
 
     if (pendingEntries.length === 0) {
+      cronProblems(request, stuckProblems, firstProblem);
       return json({ success: true, correlationId, processed: 0, synced: 0, failed: 0, stuck, tooOldToSend });
     }
 
@@ -188,6 +198,7 @@ export const loader = monitoredCron("cashback-reconciliation", async ({ request 
         admin = result.admin;
       } catch (err) {
         log('error', `Failed to get admin API for shop ${shop}`, { error: (err as Error).message });
+        firstProblem ??= err;
         failed += entries.length;
         continue;
       }
@@ -329,15 +340,18 @@ export const loader = monitoredCron("cashback-reconciliation", async ({ request 
             // Shopify may have credited it, so it stays SYNCING
             await markUnconfirmed(id, result.error);
             failed++;
+            firstProblem ??= new Error(`Shopify did not confirm cashback entry ${id}: ${result.error}`);
             log('error', `Shopify did not confirm cashback entry ${id}`, { error: result.error, leftSyncing: true });
           } else {
             // Shopify refused: back to PENDING for the next run
             await settle(id, { ...metadata, syncStatus: 'PENDING' });
             failed++;
+            firstProblem ??= new Error(`Shopify refused cashback entry ${id}: ${result.error}`);
             log('error', `Failed to sync cashback entry ${id}`, { error: result.error });
           }
         } catch (entryError: any) {
           failed++;
+          firstProblem ??= entryError;
           if (claimed && !issueSent) {
             try { await claimLedgerEntry(id, 'SYNCING', 'PENDING'); } catch { /* retried next run */ }
           }
@@ -360,6 +374,7 @@ export const loader = monitoredCron("cashback-reconciliation", async ({ request 
 
     log('info', 'Cashback reconciliation completed', summary);
 
+    cronProblems(request, failed + stuckProblems, firstProblem);
     return json({ success: true, correlationId, ...summary });
 
   } catch (error: any) {

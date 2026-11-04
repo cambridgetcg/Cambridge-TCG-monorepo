@@ -140,7 +140,10 @@ on every change.
 6. Smoke test: `GET /api/health` returns
    `200 {"status":"ok","database":"ready"}`.
    `GET /api/operator/readiness` with `Authorization: Bearer $CRON_SECRET`
-   returns `200 {"status":"ready"}`. Then open the app in a development store and
+   returns `200 {"status":"ready","crons":{...}}`, or
+   `503 {"status":"crons_stale",...}` until each cron has run once on this
+   code (up to an hour for the hourly ones); `503 {"status":"unavailable"}`
+   means the database. Then open the app in a development store and
    place a paid test order (`orders/paid` records a PENDING cashback entry).
 
 ## Driver notes
@@ -168,10 +171,12 @@ on every change.
 - `GET /api/operator/readiness` (Bearer `CRON_SECRET`) runs the same probe
   for operators, then reads the scheduled crons' run records (SyncStatus
   rows with shop `rewardspro:cron`): 200 `{"status":"ready","crons":{...}}`,
-  503 `{"status":"crons_stale","crons":{...}}` when a cron hasn't succeeded
-  within twice its schedule, 503 `{"status":"unavailable"}`, or 401 without
-  the exact credential. `crons` holds each cron's schedule and last start,
-  success and failure times, never error detail (DEPLOY.md, "Crons").
+  503 `{"status":"crons_stale","crons":{...}}` when a cron hasn't finished a
+  run within twice its schedule and 15 minutes, 503
+  `{"status":"unavailable"}`, or 401 without the exact credential. `crons`
+  holds each cron's schedule and the times of its last start, success,
+  partial run, failure and stop report, never error detail (DEPLOY.md,
+  "Crons").
 
 ## Local development and tests
 

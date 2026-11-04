@@ -27,7 +27,7 @@ import { markCutOffSends, notSentMetrics, sendCampaign } from "../services/campa
 import { marketingEmailBlockedReason } from "../services/marketing-email.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
-import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
+import { cronFailed, cronProblems, monitoredCron } from "~/services/cron-monitor.server";
 
 /** A campaign this late when email can go out is held back, not sent */
 const LATE_LIMIT_HOURS = 24;
@@ -100,6 +100,8 @@ export const loader = monitoredCron("scheduled-campaigns", async ({ request }: L
   };
 
   const now = new Date();
+  // The first campaign that failed to send, for the cron monitor
+  let firstProblem: unknown;
   const lateCutoff = new Date(now.getTime() - LATE_LIMIT_HOURS * 60 * 60 * 1000);
 
   try {
@@ -199,6 +201,7 @@ export const loader = monitoredCron("scheduled-campaigns", async ({ request }: L
         // sendCampaign has marked it failed. It is not retried, because some
         // of its emails may already have gone out.
         log('error', `Failed to send campaign ${campaign.id}`, { error: error.message });
+        firstProblem ??= error;
         results.errors++;
         results.failedCount++;
 
@@ -227,6 +230,7 @@ export const loader = monitoredCron("scheduled-campaigns", async ({ request }: L
     const runFailed = results.errors > 0;
     log(runFailed ? 'error' : 'info', 'Scheduled campaigns cron completed', summary);
 
+    cronProblems(request, results.errors, firstProblem);
     return json({
       success: !runFailed,
       correlationId,
