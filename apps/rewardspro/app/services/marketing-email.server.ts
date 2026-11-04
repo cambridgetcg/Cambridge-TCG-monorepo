@@ -7,6 +7,9 @@
  * - Every message carries the recipient's own unsubscribe link and
  *   List-Unsubscribe / List-Unsubscribe-Post headers (RFC 8058 one-click),
  *   both served by routes/email.unsubscribe.tsx.
+ * - Nothing is sent past the shop's monthly email limit (checkEmailLimit):
+ *   the free app pays for every email, so a send that would go past it is
+ *   refused whole.
  * - Nothing is sent while SendGrid's signed event webhook is unconfigured,
  *   because bounces, spam reports and SendGrid-side unsubscribes would then
  *   be lost (routes/webhooks.sendgrid.tsx refuses unsigned events).
@@ -55,6 +58,11 @@ export function marketingEmailBlockedReason(): string | null {
   return null;
 }
 
+function limitReached(requested: number, remaining: number, limit: number): string {
+  const n = (count: number) => count.toLocaleString("en-US");
+  return `Sending this would use ${n(requested)} email${requested === 1 ? "" : "s"}, and the shop has ${n(remaining)} of its ${n(limit)} emails left this month. The limit starts again next month.`;
+}
+
 function withUnsubscribeFooter(html: string, storeName: string): string {
   const store = sanitizeText(storeName);
   return `${html}
@@ -94,8 +102,10 @@ export async function sendMarketingEmail(
   const skipped = recipients.length - customers.length;
   if (customers.length === 0) return { sent: 0, skipped, failed: 0, errors: [] };
 
+  // The free app pays for every email it sends, so marketing stops at the
+  // shop's monthly limit: a send that would go past it is refused whole
   const usage = await checkEmailLimit(shop, customers.length);
-  if (usage.capacityExceeded) console.warn(`[MarketingEmail] ${usage.message}`);
+  if (usage.capacityExceeded) return refused(limitReached(customers.length, usage.remaining, usage.limit));
 
   const settings = await prisma.shopSettings.findUnique({ where: { shop }, select: { storeName: true } });
   const storeName = settings?.storeName || shop.replace(/\.myshopify\.com$/, "");

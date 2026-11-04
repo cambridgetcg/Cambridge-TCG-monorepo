@@ -29,6 +29,9 @@ import {
 } from "~/utils/atomic-limit-control.server";
 import { checkLimitAccess } from "~/utils/require-feature.server";
 import { PageLimitStatus } from "~/components/Billing/UpgradePrompt";
+import { sendCampaign, shopTimeZone } from "~/services/campaign-send.server";
+import { marketingEmailBlockedReason } from "~/services/marketing-email.server";
+import { zonedTimeToUtc } from "~/utils/zoned-time";
 
 // ============================================
 // TYPES
@@ -56,6 +59,8 @@ interface LoaderData {
     max: number;
     message?: string;
   };
+  marketingBlocked: string | null;
+  timeZone: string;
 }
 
 // ============================================
@@ -147,6 +152,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         max: limitAccess.error?.maxLimit ?? 999999,
         message: limitAccess.error?.message,
       },
+      marketingBlocked: marketingEmailBlockedReason(),
+      timeZone: await shopTimeZone(shop),
     });
   } catch (error: any) {
     console.error("[Create Campaign] ========== LOADER ERROR ==========");
@@ -189,6 +196,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     if (!inlineContent) {
       return json({ error: "Email content is required" }, { status: 400 });
+    }
+  }
+
+  // Nothing can be sent or scheduled while marketing email is off
+  const blocked = marketingEmailBlockedReason();
+  if (blocked && (scheduleType === "immediate" || scheduleType === "scheduled")) {
+    return json({ error: blocked }, { status: 409 });
+  }
+
+  // The date and time are the shop's local time
+  let scheduledFor: Date | null = null;
+  if (scheduleType === "scheduled") {
+    scheduledFor = zonedTimeToUtc(scheduledDate ?? "", scheduledTime ?? "", await shopTimeZone(shop));
+    if (!scheduledFor) {
+      return json({ error: "Schedule date is required" }, { status: 400 });
+    }
+    if (scheduledFor.getTime() <= Date.now()) {
+      return json({ error: "Choose a date and time in the future." }, { status: 400 });
     }
   }
 
@@ -238,15 +263,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const campaignId = uuidv4();
     const now = new Date();
 
-    let status = "draft";
-    let scheduledFor: Date | null = null;
-
-    if (scheduleType === "immediate") {
-      status = "sending";
-    } else if (scheduleType === "scheduled" && scheduledDate && scheduledTime) {
-      status = "scheduled";
-      scheduledFor = new Date(`${scheduledDate}T${scheduledTime}`);
-    }
+    // Send immediately starts as a draft and is sent below
+    const status = scheduledFor ? "scheduled" : "draft";
 
     // Atomic campaign creation with limit check
     // This prevents TOCTOU race conditions where two concurrent requests
@@ -264,34 +282,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           previewText,
           templateId: finalTemplateId,
           status,
-          segmentRules: segmentId ? { tierIds: [segmentId] } : { allCustomers: true },
+          // One audience shape, read by services/campaign-send.server.ts
+          segmentRules: segmentId && segmentId !== "all" ? { tierIds: [segmentId] } : { allCustomers: true },
           scheduledFor,
-          sentAt: status === "sending" ? now : null,
-          metrics: status === "sending" ? {
-            sent: 0,
-            delivered: 0,
-            opened: 0,
-            clicked: 0,
-            bounced: 0,
-            unsubscribed: 0,
-            revenue: 0,
-            orders: 0,
-          } : undefined,
           createdAt: now,
           updatedAt: now,
         },
       })
     );
 
-    // If immediate send, mark as sent (in production would trigger actual sending)
-    if (status === "sending") {
-      await prisma.emailCampaign.updateMany({
-        where: { id: campaignId, shop },
-        data: {
-          status: "sent",
-          updatedAt: new Date(),
-        },
-      });
+    // Send immediately goes out the same way as the send page's Send now
+    if (scheduleType === "immediate") {
+      const outcome = await sendCampaign(shop, campaignId, "draft");
+      if (outcome.status === "not_sent") {
+        return json(
+          { error: `Your campaign was saved as a draft but not sent. ${outcome.reason}`, draftId: campaignId },
+          { status: 400 }
+        );
+      }
     }
 
     return redirect(`/app/marketing/campaigns/${campaignId}`);
@@ -356,8 +364,21 @@ export default function CreateCampaign() {
               <Banner
                 tone="critical"
                 title={(actionData as any).code === "LIMIT_EXCEEDED" ? "Campaign Limit Reached" : "Error"}
+                action={
+                  (actionData as any).draftId
+                    ? { content: "Open the draft", onAction: () => navigate(`/app/marketing/campaigns/${(actionData as any).draftId}`) }
+                    : undefined
+                }
               >
                 <p>{(actionData as any).message || actionData.error}</p>
+              </Banner>
+            </Layout.Section>
+          )}
+
+          {data.marketingBlocked && (
+            <Layout.Section>
+              <Banner tone="warning" title="Marketing email is off">
+                <p>{data.marketingBlocked}</p>
               </Banner>
             </Layout.Section>
           )}
@@ -657,6 +678,7 @@ export default function CreateCampaign() {
                               ]}
                               value={scheduledTime}
                               onChange={setScheduledTime}
+                              helpText={`Your store's time zone (${data.timeZone})`}
                             />
                           </div>
                         </InlineStack>

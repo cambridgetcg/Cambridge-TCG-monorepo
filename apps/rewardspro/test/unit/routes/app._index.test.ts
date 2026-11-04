@@ -126,7 +126,7 @@ import db from '~/db.server';
 import { getSubscriptionDetails } from '~/services/billing/subscription-details.server';
 import { detectWidgetStatus, updateWidgetStatusCache } from '~/services/widget-detection.server';
 import { getStoreCreditSpendProblems } from '~/services/store-credit-spend.server';
-import { loader } from '~/routes/app._index';
+import { action, loader } from '~/routes/app._index';
 
 // ============================================
 // TEST HELPERS
@@ -676,5 +676,37 @@ describe('app._index (dashboard) loader: subscription records', () => {
     } as any);
 
     expect((await load()).hasSubscriptionRecords).toBe(true);
+  });
+});
+
+describe('app._index (dashboard) feature switches', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupDefaultMocks();
+  });
+
+  function toggle(feature: string, enabled: boolean) {
+    const body = new FormData();
+    body.append('action', 'toggle-feature');
+    body.append('feature', feature);
+    body.append('enabled', String(enabled));
+    return action({ request: new Request('https://app.example.com/app', { method: 'POST', body }), params: {}, context: {} });
+  }
+
+  it('saves a switch the app reads', async () => {
+    const response = await toggle('autoCashbackProcessingEnabled', true);
+
+    expect(response.status).toBe(200);
+    expect(db.shopSettings.update).toHaveBeenCalledWith({ where: { shop: MOCK_SHOP }, data: { autoCashbackProcessingEnabled: true } });
+  });
+
+  it('offers no email marketing switch, because nothing reads it', async () => {
+    const response = await toggle('emailMarketingEnabled', true);
+
+    expect(response.status).toBe(400);
+    expect(db.shopSettings.update).not.toHaveBeenCalled();
+    // The column is still in the database; the dashboard no longer passes it on
+    const loaded = await (await loader({ request: new Request('https://app.example.com/app'), params: {}, context: {} })).json();
+    expect(loaded.shopSettings).not.toHaveProperty('emailMarketingEnabled');
   });
 });

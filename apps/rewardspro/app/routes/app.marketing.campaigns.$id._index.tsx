@@ -22,6 +22,7 @@ import { useState } from "react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
+import { shopTimeZone } from "~/services/campaign-send.server";
 
 interface CampaignMetrics {
   sent: number;
@@ -32,6 +33,8 @@ interface CampaignMetrics {
   unsubscribed: number;
   revenue: number;
   orders: number;
+  /** Why nothing was sent, for a missed or failed campaign */
+  notSentReason?: string;
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -82,6 +85,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       updatedAt: campaign.updatedAt.toISOString(),
     },
     templates,
+    timeZone: await shopTimeZone(shop),
   });
 };
 
@@ -189,7 +193,7 @@ function MetricCard({ label, value, subValue }: { label: string; value: string |
 }
 
 export default function CampaignDetail() {
-  const { campaign, templates } = useLoaderData<typeof loader>();
+  const { campaign, templates, timeZone } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
 
@@ -208,6 +212,7 @@ export default function CampaignDetail() {
       sending: { tone: "attention", label: "Sending" },
       sent: { tone: "success", label: "Sent" },
       failed: { tone: "critical", label: "Failed" },
+      missed: { tone: "warning", label: "Missed" },
     };
     const config = statusConfig[status] || { tone: "info", label: status };
     return <Badge tone={config.tone}>{config.label}</Badge>;
@@ -221,6 +226,8 @@ export default function CampaignDetail() {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone,
+      timeZoneName: "short",
     });
   };
 
@@ -275,6 +282,14 @@ export default function CampaignDetail() {
           <Layout.Section>
             <Banner tone="critical" title="Error">
               <p>{(actionData as any).error}</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {campaign.metrics?.notSentReason && (campaign.status === "missed" || campaign.status === "failed") && (
+          <Layout.Section>
+            <Banner tone="warning" title="This campaign was not sent">
+              <p>{campaign.metrics.notSentReason}</p>
             </Banner>
           </Layout.Section>
         )}

@@ -20,10 +20,15 @@ import {
 import { useState } from "react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import type { Prisma } from "@prisma/client";
-import { sendCampaignEmails } from "~/services/email-notifications.server";
+import {
+  type CampaignAudience,
+  sendCampaign,
+  shopTimeZone,
+  withCampaignAudience,
+} from "~/services/campaign-send.server";
 import { MARKETING_AUDIENCE } from "~/services/marketing-consent.server";
 import { marketingEmailBlockedReason } from "~/services/marketing-email.server";
+import { zonedTimeToUtc } from "~/utils/zoned-time";
 
 interface Campaign {
   id: string;
@@ -162,8 +167,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     // Tables might not exist
   }
 
-  return json({ campaign, audienceStats, tiers, marketingBlocked: marketingEmailBlockedReason() });
+  return json({
+    campaign,
+    audienceStats,
+    tiers,
+    marketingBlocked: marketingEmailBlockedReason(),
+    timeZone: await shopTimeZone(shop),
+  });
 };
+
+const NOT_A_DRAFT = "This campaign has already been scheduled or sent. Reload the page to see where it is.";
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -183,154 +196,93 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     return json({ error: blocked }, { status: 409 });
   }
 
+  if (intent !== "send_now" && intent !== "schedule") {
+    return json({ error: "Unknown action" }, { status: 400 });
+  }
+
+  // The audience chosen on this page, saved on the campaign either way so
+  // Send now and the scheduled send read the same thing
+  const draft = await prisma.emailCampaign.findFirst({
+    where: { id, shop, status: "draft" },
+    select: { segmentRules: true },
+  });
+  if (!draft) {
+    return json({ error: NOT_A_DRAFT }, { status: 409 });
+  }
+  const selectedTiers = formData.getAll("selectedTiers") as string[];
+  const recommended = (draft.segmentRules as Campaign["segmentRules"])?.targetCustomerIds ?? [];
+  const audience: CampaignAudience | null =
+    formData.get("sendToRecommended") === "true"
+      ? recommended.length > 0 ? { kind: "customers", customerIds: recommended } : null
+      : formData.get("sendToAll") === "true"
+        ? { kind: "all" }
+        : selectedTiers.length > 0 ? { kind: "tiers", tierIds: selectedTiers } : null;
+  if (!audience) {
+    return json(
+      { error: "No recipients match your audience selection. Adjust your filters and try again." },
+      { status: 400 }
+    );
+  }
+  const segmentRules = withCampaignAudience(draft.segmentRules, audience);
+
   if (intent === "send_now") {
     try {
-      // Get audience filter from form
-      const sendToAll = formData.get("sendToAll") === "true";
-      const sendToRecommended = formData.get("sendToRecommended") === "true";
-      const selectedTiers = formData.getAll("selectedTiers") as string[];
+      // Saves the audience as it takes the draft: pressing twice, or sending
+      // one scheduled in another tab, finds it no longer a draft
+      const outcome = await sendCampaign(shop, id, "draft", segmentRules);
 
-      // Update campaign status to sending
-      await prisma.emailCampaign.updateMany({
-        where: { id, shop },
-        data: {
-          status: "sending",
-          sentAt: new Date(),
-          updatedAt: new Date(),
-        },
-      });
-
-      // Get recipients based on filter; only customers who consent to
-      // marketing (sendCampaignEmails checks again)
-      const audience = { shop, ...MARKETING_AUDIENCE };
-      let where: Prisma.CustomerWhereInput | null = null;
-
-      if (sendToRecommended) {
-        // Get the campaign to access targetCustomerIds
-        const campaignData = await prisma.emailCampaign.findFirst({
-          where: { id, shop },
-          select: { segmentRules: true },
-        });
-        const segmentRules = campaignData?.segmentRules as any;
-        const targetCustomerIds = segmentRules?.targetCustomerIds || [];
-        if (targetCustomerIds.length > 0) {
-          where = { ...audience, id: { in: targetCustomerIds } };
-        }
-      } else if (sendToAll) {
-        where = audience;
-      } else if (selectedTiers.length > 0) {
-        where = { ...audience, currentTierId: { in: selectedTiers } };
+      if (outcome.status === "taken") {
+        return json({ error: NOT_A_DRAFT }, { status: 409 });
+      }
+      if (outcome.status === "not_sent") {
+        return json({ error: outcome.reason }, { status: 400 });
       }
 
-      const recipients = where
-        ? (await prisma.customer.findMany({ where, select: { id: true } })).map((c) => ({ customerId: c.id }))
-        : [];
-
-      // Guard: prevent sending to zero recipients
-      if (recipients.length === 0) {
-        // Reset status back to draft
-        await prisma.emailCampaign.updateMany({
-          where: { id, shop, status: "sending" },
-          data: { status: "draft", updatedAt: new Date() },
-        });
-        return json(
-          { error: "No recipients match your audience selection. Adjust your filters and try again." },
-          { status: 400 }
-        );
-      }
-
-      // Snapshot template HTML at send time for audit trail
-      let templateSnapshot: { subject?: string; htmlContent?: string } = {};
-      try {
-        const campaignData = await prisma.emailCampaign.findFirst({
-          where: { id, shop },
-          select: { templateId: true, subject: true },
-        });
-        if (campaignData?.templateId) {
-          const tmpl = await prisma.emailTemplate.findFirst({
-            where: { id: campaignData.templateId, shop },
-            select: { subject: true, htmlContent: true },
-          });
-          if (tmpl) {
-            templateSnapshot = {
-              subject: campaignData.subject || tmpl.subject || undefined,
-              htmlContent: tmpl.htmlContent || undefined,
-            };
-          }
-        }
-      } catch (e) {
-        // Non-critical — proceed with send even if snapshot fails
-      }
-
-      // Send emails
-      const sendResult = await sendCampaignEmails(shop, id, recipients);
-
-      // Update campaign with results + template snapshot
-      await prisma.emailCampaign.updateMany({
-        where: { id, shop },
-        data: {
-          status: "sent",
-          metrics: {
-            sent: sendResult.sent,
-            delivered: 0, // Actual delivery count comes from SendGrid webhook events
-            opened: 0,
-            clicked: 0,
-            bounced: sendResult.failed,
-            unsubscribed: 0,
-            revenue: 0,
-            orders: 0,
-            templateSnapshot,
-          },
-          updatedAt: new Date(),
-        },
-      });
-
-      console.log(`[Campaign] Sent campaign ${id}: ${sendResult.sent} sent, ${sendResult.failed} failed`);
+      console.log(`[Campaign] Sent campaign ${id}: ${outcome.sent} sent, ${outcome.failed} failed`);
 
       return redirect(`/app/marketing/campaigns/${id}`);
     } catch (e: any) {
       console.error(`[Campaign] Error sending campaign:`, e);
-      // Reset status from "sending" back to "draft" so campaign isn't orphaned
-      try {
-        await prisma.emailCampaign.updateMany({
-          where: { id, shop, status: "sending" },
-          data: { status: "draft", updatedAt: new Date() },
-        });
-      } catch (resetError) {
-        console.error(`[Campaign] Failed to reset campaign status:`, resetError);
-      }
       return json({ error: e.message }, { status: 500 });
     }
   }
 
-  if (intent === "schedule") {
-    const scheduledFor = formData.get("scheduledFor") as string;
+  // Schedule: the date and time are the shop's local time
+  const scheduledFor = zonedTimeToUtc(
+    String(formData.get("scheduledDate") ?? ""),
+    String(formData.get("scheduledTime") ?? ""),
+    await shopTimeZone(shop),
+  );
 
-    if (!scheduledFor) {
-      return json({ error: "Schedule date is required" }, { status: 400 });
-    }
-
-    try {
-      await prisma.emailCampaign.updateMany({
-        where: { id, shop },
-        data: {
-          status: "scheduled",
-          scheduledFor: new Date(scheduledFor),
-          updatedAt: new Date(),
-        },
-      });
-
-      return redirect(`/app/marketing/campaigns/${id}`);
-    } catch (e: any) {
-      return json({ error: e.message }, { status: 500 });
-    }
+  if (!scheduledFor) {
+    return json({ error: "Schedule date is required" }, { status: 400 });
+  }
+  if (scheduledFor.getTime() <= Date.now()) {
+    return json({ error: "Choose a date and time in the future." }, { status: 400 });
   }
 
-  return json({ error: "Unknown action" }, { status: 400 });
+  try {
+    const scheduled = await prisma.emailCampaign.updateMany({
+      where: { id, shop, status: "draft" },
+      data: {
+        status: "scheduled",
+        scheduledFor,
+        segmentRules,
+        updatedAt: new Date(),
+      },
+    });
+    if (scheduled.count !== 1) {
+      return json({ error: NOT_A_DRAFT }, { status: 409 });
+    }
+
+    return redirect(`/app/marketing/campaigns/${id}`);
+  } catch (e: any) {
+    return json({ error: e.message }, { status: 500 });
+  }
 };
 
 export default function SendCampaign() {
-  const { campaign, audienceStats, tiers, marketingBlocked } = useLoaderData<typeof loader>();
+  const { campaign, audienceStats, tiers, marketingBlocked, timeZone } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
 
@@ -578,6 +530,7 @@ export default function SendCampaign() {
                       ]}
                       value={scheduledTime}
                       onChange={setScheduledTime}
+                      helpText={`Your store's time zone (${timeZone})`}
                     />
                   </div>
                 </InlineStack>
@@ -610,11 +563,8 @@ export default function SendCampaign() {
               ) : (
                 <>
                   <input type="hidden" name="intent" value="schedule" />
-                  <input
-                    type="hidden"
-                    name="scheduledFor"
-                    value={`${scheduledDate}T${scheduledTime}:00`}
-                  />
+                  <input type="hidden" name="scheduledDate" value={scheduledDate} />
+                  <input type="hidden" name="scheduledTime" value={scheduledTime} />
                   <Button
                     variant="primary"
                     submit
