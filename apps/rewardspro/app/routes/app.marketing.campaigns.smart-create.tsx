@@ -23,6 +23,8 @@ import { EMAIL_SETTINGS_SECRET_FIELDS } from "~/utils/encryption.server";
 import type { Prisma } from "@prisma/client";
 import { jsonObject } from "~/utils/json-object";
 import { v4 as uuidv4 } from "uuid";
+import { sendCampaign } from "~/services/campaign-send.server";
+import { MARKETING_EMAIL_OFF, marketingEmailBlockedReason } from "~/services/marketing-email.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -100,6 +102,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const bodyHtml = formData.get("bodyHtml") as string;
     const sendImmediately = formData.get("sendImmediately") === "true";
 
+    // Nothing is created to be sent while marketing email is off
+    if (sendImmediately && marketingEmailBlockedReason()) {
+      return json({ success: false, error: MARKETING_EMAIL_OFF }, { status: 409 });
+    }
+
     const recommendationsService = new AnalyticsRecommendationsService(shop);
 
     // If this is from a recommendation, mark it as applied
@@ -152,12 +159,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         shop,
         name,
         templateId: template.id,
-        status: sendImmediately ? 'scheduled' : 'draft',
-        scheduledFor: sendImmediately ? new Date() : null,
+        status: 'draft',
         segmentRules,
         metrics: {},
       },
     });
+
+    // Send immediately goes out the same way as the Create page's
+    if (sendImmediately) {
+      const outcome = await sendCampaign(shop, campaign.id, 'draft');
+      if (outcome.status === 'not_sent') {
+        return json(
+          { success: false, error: `Your campaign was saved as a draft but not sent. ${outcome.reason}`, draftId: campaign.id },
+          { status: 400 }
+        );
+      }
+    }
 
     // Redirect to the newly created campaign
     return redirect(`/app/marketing/campaigns/${campaign.id}`);

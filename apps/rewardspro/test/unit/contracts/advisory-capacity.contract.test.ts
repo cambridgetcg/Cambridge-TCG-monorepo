@@ -52,10 +52,11 @@ describe("advisory-only plan capacities", () => {
   it("stops marketing email at the shop's monthly email limit", () => {
     const marketingSource = read("services/marketing-email.server.ts");
 
-    // The free app pays for every marketing email: a send that would go past
-    // the limit is refused whole (test/integration/postgres/scheduled-campaigns)
-    expect(marketingSource).toContain("await checkEmailLimit(shop, customers.length)");
-    expect(marketingSource).toContain("if (usage.capacityExceeded) return refused(");
+    // The free app pays for every marketing email: the emails are counted
+    // before sending, and a send that would go past the limit is refused
+    // whole (test/integration/postgres/scheduled-campaigns)
+    expect(marketingSource).toContain("reservation = await reserveEmails(shop, customers.length)");
+    expect(marketingSource).toContain("if (!reservation.reserved) return refused(");
   });
 
   it("retains the Corporate gate for white-label controls", () => {

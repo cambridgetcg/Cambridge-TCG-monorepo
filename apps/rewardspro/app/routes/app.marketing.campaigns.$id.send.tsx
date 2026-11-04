@@ -22,12 +22,13 @@ import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import {
   type CampaignAudience,
+  campaignAudience,
   sendCampaign,
   shopTimeZone,
   withCampaignAudience,
 } from "~/services/campaign-send.server";
 import { MARKETING_AUDIENCE } from "~/services/marketing-consent.server";
-import { marketingEmailBlockedReason } from "~/services/marketing-email.server";
+import { MARKETING_EMAIL_OFF, marketingEmailBlockedReason } from "~/services/marketing-email.server";
 import { zonedTimeToUtc } from "~/utils/zoned-time";
 
 interface Campaign {
@@ -73,6 +74,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   // Fetch campaign
   let campaign: Campaign | null = null;
+  let audience: CampaignAudience | null = null;
   try {
     const dbCampaign = await prisma.emailCampaign.findFirst({
       where: { id, shop },
@@ -95,6 +97,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       templateId: dbCampaign.templateId,
       segmentRules: dbCampaign.segmentRules as Campaign['segmentRules'],
     };
+    // The page opens on the audience saved on the campaign
+    audience = campaignAudience(dbCampaign.segmentRules);
     // Recommendation context is stored alongside the targeting in segmentRules
     campaign.metadata = campaign.segmentRules?.fromRecommendation
       ? {
@@ -169,14 +173,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   return json({
     campaign,
+    audience,
     audienceStats,
     tiers,
-    marketingBlocked: marketingEmailBlockedReason(),
+    marketingBlocked: marketingEmailBlockedReason() ? MARKETING_EMAIL_OFF : null,
     timeZone: await shopTimeZone(shop),
   });
 };
 
 const NOT_A_DRAFT = "This campaign has already been scheduled or sent. Reload the page to see where it is.";
+const SEND_WENT_WRONG = "Something went wrong while sending this campaign. Reload the page to see whether it went out before you try again.";
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -191,9 +197,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const intent = formData.get("intent") as string;
 
   // Server-side switch: no marketing email while it cannot be sent safely
-  const blocked = marketingEmailBlockedReason();
-  if (blocked && (intent === "send_now" || intent === "schedule")) {
-    return json({ error: blocked }, { status: 409 });
+  if (marketingEmailBlockedReason() && (intent === "send_now" || intent === "schedule")) {
+    return json({ error: MARKETING_EMAIL_OFF }, { status: 409 });
   }
 
   if (intent !== "send_now" && intent !== "schedule") {
@@ -242,8 +247,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
       return redirect(`/app/marketing/campaigns/${id}`);
     } catch (e: any) {
-      console.error(`[Campaign] Error sending campaign:`, e);
-      return json({ error: e.message }, { status: 500 });
+      console.error(`[Campaign] Error sending campaign ${id}:`, e);
+      return json({ error: SEND_WENT_WRONG }, { status: 500 });
     }
   }
 
@@ -282,22 +287,29 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 };
 
 export default function SendCampaign() {
-  const { campaign, audienceStats, tiers, marketingBlocked, timeZone } = useLoaderData<typeof loader>();
+  const { campaign, audience, audienceStats, tiers, marketingBlocked, timeZone } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
 
   const [sendOption, setSendOption] = useState<"now" | "schedule">("now");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("09:00");
-  const [selectedTiers, setSelectedTiers] = useState<string[]>([]);
+  // Start from the audience saved on the campaign (a duplicate keeps its tiers)
+  const [selectedTiers, setSelectedTiers] = useState<string[]>(
+    audience?.kind === "tiers" ? audience.tierIds.filter((tierId) => tiers.some((t) => t.id === tierId)) : []
+  );
 
   // Check if campaign is from a recommendation
   const isFromRecommendation = campaign.segmentRules?.fromRecommendation;
   const hasRecommendedSegment = (campaign.segmentRules?.targetCustomerIds?.length ?? 0) > 0;
 
-  // Default to recommended segment if available, otherwise all
+  // Otherwise the recommended segment if there is one, then all
   const [audienceType, setAudienceType] = useState<"recommended" | "all" | "tiers">(
-    isFromRecommendation && hasRecommendedSegment ? "recommended" : "all"
+    audience?.kind === "tiers"
+      ? "tiers"
+      : audience?.kind === "all"
+        ? "all"
+        : isFromRecommendation && hasRecommendedSegment ? "recommended" : "all"
   );
   const sendToAll = audienceType === "all";
   const sendToRecommended = audienceType === "recommended";

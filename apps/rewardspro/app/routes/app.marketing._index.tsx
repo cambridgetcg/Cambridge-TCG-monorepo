@@ -47,6 +47,7 @@ import {
 } from "~/utils/require-feature.server";
 import { CHANCE_MECHANICS_PAUSED } from "~/constants/chance-mechanics";
 import { FEATURES_AVAILABLE } from "~/constants/feature-availability";
+import { shopTimeZone } from "~/services/campaign-send.server";
 
 // ============================================
 // TYPES
@@ -120,6 +121,8 @@ interface RecentKlaviyoEvent {
 
 interface LoaderData {
   shop: string;
+  /** Campaign times are shown in the store's time zone */
+  timeZone: string;
   isConfigured: boolean;
   // Plan Access
   planAccess: {
@@ -420,6 +423,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   return json<LoaderData>({
     shop,
+    timeZone: await shopTimeZone(shop),
     isConfigured,
     // Plan Access - Rate-based model: All features enabled for all plans
     planAccess: {
@@ -601,6 +605,7 @@ function CampaignStatusBadge({ status }: { status: string }) {
     sending: { tone: "attention", label: "Sending" },
     sent: { tone: "success", label: "Sent" },
     failed: { tone: "critical", label: "Failed" },
+    missed: { tone: "warning", label: "Missed" },
   };
 
   const config = statusConfig[status] || { tone: "info", label: status };
@@ -641,6 +646,8 @@ export default function MarketingHub() {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: data.timeZone,
+      timeZoneName: "short",
     });
   };
 
@@ -945,6 +952,8 @@ export default function MarketingHub() {
                                   ? `Sent ${formatDate(campaign.sentAt)}`
                                   : campaign.status === "scheduled"
                                   ? `Scheduled for ${formatDate(campaign.scheduledFor)}`
+                                  : (campaign.status === "missed" || campaign.status === "failed") && campaign.scheduledFor
+                                  ? `Was due ${formatDate(campaign.scheduledFor)}`
                                   : `Last edited ${formatDate(campaign.sentAt || campaign.scheduledFor)}`}
                               </Text>
                             </BlockStack>

@@ -35,6 +35,8 @@ interface CampaignMetrics {
   orders: number;
   /** Why nothing was sent, for a missed or failed campaign */
   notSentReason?: string;
+  /** Why a failed campaign may have gone out to some customers */
+  interruptedReason?: string;
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -290,6 +292,14 @@ export default function CampaignDetail() {
           <Layout.Section>
             <Banner tone="warning" title="This campaign was not sent">
               <p>{campaign.metrics.notSentReason}</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {campaign.metrics?.interruptedReason && campaign.status === "failed" && (
+          <Layout.Section>
+            <Banner tone="warning" title="This campaign may have been sent">
+              <p>{campaign.metrics.interruptedReason}</p>
             </Banner>
           </Layout.Section>
         )}

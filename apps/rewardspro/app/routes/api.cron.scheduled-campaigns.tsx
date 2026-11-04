@@ -6,6 +6,9 @@
  *   sendCampaign() (services/campaign-send.server.ts), the same path as the
  *   send page's Send now; the rest wait for the next run
  * - sendCampaign marks each "sent", or "failed" with the reason
+ * - The run answers 500 if any campaign couldn't be sent because RewardsPro
+ *   or its email service failed (not when its audience or the monthly limit
+ *   held it back), after trying the others
  *
  * Runs hourly at :15 (vercel.json: "15 * * * *")
  *
@@ -151,8 +154,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
         if (outcome.status === 'not_sent') {
           results.failedCount++;
-          results.details.push({ type: 'not_sent', campaignId: campaign.id, name: campaign.name, reason: outcome.reason });
-          log('warn', `Campaign ${campaign.id} not sent`, { reason: outcome.reason });
+          if (outcome.cause === 'failed') results.errors++;
+          results.details.push({ type: 'not_sent', campaignId: campaign.id, name: campaign.name, reason: outcome.reason, cause: outcome.cause });
+          log(outcome.cause === 'failed' ? 'error' : 'warn', `Campaign ${campaign.id} not sent`, { reason: outcome.reason, cause: outcome.cause });
           continue;
         }
 
@@ -194,13 +198,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
       dryRun: isDryRun,
     };
 
-    log('info', 'Scheduled campaigns cron completed', summary);
+    // A campaign RewardsPro or its email service failed to send makes the
+    // run fail, so Vercel and the operator see it
+    const runFailed = results.errors > 0;
+    log(runFailed ? 'error' : 'info', 'Scheduled campaigns cron completed', summary);
 
     return json({
-      success: true,
+      success: !runFailed,
       correlationId,
       summary,
-    });
+    }, { status: runFailed ? 500 : 200 });
   } catch (error: any) {
     log('error', 'Scheduled campaigns cron failed', { error: error.message });
     return json({

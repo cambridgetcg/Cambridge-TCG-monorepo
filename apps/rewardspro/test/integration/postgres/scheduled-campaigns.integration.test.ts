@@ -8,8 +8,9 @@ vi.mock("~/shopify.server", () => ({
 
 import prisma from "~/db.server";
 import { loader as cron } from "~/routes/api.cron.scheduled-campaigns";
-import { action as createAction } from "~/routes/app.marketing.campaigns.create";
-import { action as sendAction } from "~/routes/app.marketing.campaigns.$id.send";
+import { action as createAction, loader as createLoader } from "~/routes/app.marketing.campaigns.create";
+import { action as sendAction, loader as sendLoader } from "~/routes/app.marketing.campaigns.$id.send";
+import { action as smartCreateAction } from "~/routes/app.marketing.campaigns.smart-create";
 import { sendCampaign } from "~/services/campaign-send.server";
 import { server } from "../../mocks/server";
 import { hasTestDatabase, resetDatabase } from "./database";
@@ -71,6 +72,76 @@ function send(id: string, fields: Record<string, string | string[]>) {
   });
 }
 
+/** SendGrid's mail/send refusing every request, as it does for a revoked key. */
+function sendGridRefuses(): { requests: number } {
+  const calls = { requests: 0 };
+  server.use(
+    http.post("https://api.sendgrid.com/v3/mail/send", () => {
+      calls.requests++;
+      return HttpResponse.json(
+        { errors: [{ message: "The provided authorization grant is invalid, expired, or revoked" }] },
+        { status: 401 },
+      );
+    }),
+  );
+  return calls;
+}
+
+/** This month's email usage for the shop, as recorded so far. */
+async function usage(emailCount: number) {
+  const now = new Date();
+  await prisma.monthlyEmailUsage.create({
+    data: { shop: SHOP, year: now.getFullYear(), month: now.getMonth() + 1, emailCount, planLimit: 1000, planName: "Free" },
+  });
+}
+
+async function emailsUsed(): Promise<number> {
+  return (await prisma.monthlyEmailUsage.findFirst({ where: { shop: SHOP } }))?.emailCount ?? 0;
+}
+
+const restores: Array<() => void> = [];
+
+/**
+ * Swap one of Prisma's model methods for the rest of this test. (vi.spyOn
+ * can't be used: restoring it leaves the method undefined on the client
+ * every later suite shares.)
+ */
+function swap<M extends object, K extends keyof M>(model: M, method: K, replacement: (original: M[K]) => M[K]) {
+  const original = model[method];
+  model[method] = replacement((original as (...args: unknown[]) => unknown).bind(model) as M[K]);
+  restores.push(() => {
+    model[method] = original;
+  });
+}
+
+const dropped = () => Promise.reject(new Error("Connection terminated unexpectedly"));
+
+/** Makes the campaign's final "sent" write fail once, after the email service has it. */
+function failTheSentWriteOnce() {
+  let failed = false;
+  swap(prisma.emailCampaign, "updateMany", (updateMany) =>
+    ((args: Parameters<typeof updateMany>[0]) => {
+      if (failed || (args.data as { status?: string }).status !== "sent") return updateMany(args);
+      failed = true;
+      return dropped();
+    }) as typeof updateMany,
+  );
+}
+
+function smartCreate(fields: Record<string, string>) {
+  return smartCreateAction({
+    request: post("https://test.example.com/app/marketing/campaigns/smart-create", {
+      action: "create_campaign",
+      name: "Win back",
+      subject: "We miss you",
+      bodyHtml: "<p>Come back for 10% off</p>",
+      ...fields,
+    }),
+    params: {},
+    context: {},
+  });
+}
+
 /** The date `days` from today in New York, as the date picker posts it. */
 function nyDate(days: number): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(Date.now() + days * 24 * HOUR));
@@ -117,6 +188,7 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
 
   afterEach(() => {
     process.env = { ...env };
+    while (restores.length > 0) restores.pop()!();
   });
 
   describe("who gets a campaign", () => {
@@ -191,7 +263,87 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
         const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id } });
         expect(after.status).toBe("failed");
         expect((after.metrics as { notSentReason?: string }).notSentReason).toMatch(/couldn't tell who this campaign is for/);
+        expect(after.sentAt).toBeNull();
       }
+    });
+
+    it("marks a scheduled campaign that reaches no one as not sent, and says why", async () => {
+      const sent = mockSendGrid();
+      const silver = await prisma.tier.create({ data: { id: "tier-silver", shop: SHOP, name: "Silver", minSpend: 200, cashbackPercent: 7 } });
+      await prisma.customer.create({ data: { shop: SHOP, shopifyCustomerId: "silver-no", email: "silver-no@example.test", currentTierId: silver.id, acceptsMarketing: false } });
+      const due = await campaign({ status: "scheduled", segmentRules: { tierIds: [silver.id] }, scheduledFor: new Date(Date.now() - 60_000) });
+
+      await runCron();
+
+      expect(sent).toEqual([]);
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: due.id } });
+      expect(after.status).toBe("failed");
+      expect(after.sentAt).toBeNull();
+      expect((after.metrics as { notSentReason?: string }).notSentReason).toMatch(/no one in its audience had agreed to marketing email/);
+    });
+
+    it("refuses Send now to a tier where no one agreed to marketing, and keeps the draft", async () => {
+      const sent = mockSendGrid();
+      const silver = await prisma.tier.create({ data: { id: "tier-silver", shop: SHOP, name: "Silver", minSpend: 200, cashbackPercent: 7 } });
+      const draft = await campaign({ status: "draft", segmentRules: { tierIds: [silver.id] } });
+
+      const response = await send(draft.id, { intent: "send_now", sendToAll: "false", sendToRecommended: "false", selectedTiers: [silver.id] });
+
+      expect(response.status).toBe(400);
+      expect(sent).toEqual([]);
+      expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({ status: "draft", sentAt: null });
+    });
+
+    it("opens the send page on the audience saved on the campaign", async () => {
+      const draft = await campaign({ status: "draft", segmentRules: { tierIds: [bronze.id] } });
+
+      const response = await sendLoader({
+        request: new Request(`https://test.example.com/app/marketing/campaigns/${draft.id}/send`),
+        params: { id: draft.id },
+        context: {},
+      });
+
+      expect((await response.json()).audience).toEqual({ kind: "tiers", tierIds: [bronze.id] });
+    });
+
+    it("puts the saved audience back when a Send now doesn't go out", async () => {
+      mockSendGrid();
+      await usage(999);
+      const fromRecommendation = { fromRecommendation: true, recommendationType: "inactive_customers", targetCustomerIds: ["c1", "c2"] };
+      const draft = await campaign({ status: "draft", segmentRules: fromRecommendation });
+
+      const response = await send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      expect(response.status).toBe(400);
+      expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({
+        status: "draft",
+        segmentRules: fromRecommendation,
+      });
+    });
+
+    it("sends a campaign whose template keeps its email in bodyHtml, with the template's subject", async () => {
+      const mails: Array<{ subject: string; html: string }> = [];
+      server.use(
+        http.post("https://api.sendgrid.com/v3/mail/send", async ({ request }) => {
+          const body = (await request.json()) as { subject: string; content: Array<{ type: string; value: string }> };
+          mails.push({ subject: body.subject, html: body.content.find((c) => c.type === "text/html")!.value });
+          return new HttpResponse(null, { status: 202 });
+        }),
+      );
+      // Smart Create and applying a recommendation save templates like this
+      const template = await prisma.emailTemplate.create({
+        data: { shop: SHOP, name: "Win back", type: "promotional", subject: "We miss you", content: {}, bodyHtml: "<p>Come back</p>" },
+      });
+      const draft = await prisma.emailCampaign.create({
+        data: { shop: SHOP, name: "Win back", templateId: template.id, status: "draft", segmentRules: { allCustomers: true } },
+      });
+
+      const response = await send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      expect(response.status).toBe(302);
+      expect(mails).toHaveLength(1);
+      expect(mails[0].subject).toBe("We miss you");
+      expect(mails[0].html).toContain("<p>Come back</p>");
     });
   });
 
@@ -232,6 +384,14 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       expect(response.status).toBe(400);
       expect((await response.json()).error).toMatch(/future/);
       expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({ status: "draft", scheduledFor: null });
+    });
+
+    it("refuses a time that has already passed on the Create page too, and creates nothing", async () => {
+      const response = await create({ segmentId: "all", scheduleType: "scheduled", scheduledDate: nyDate(-1), scheduledTime: "09:00" });
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toMatch(/future/);
+      expect(await prisma.emailCampaign.count({ where: { shop: SHOP } })).toBe(0);
     });
 
     it("sends at most 10 campaigns a run, oldest first, and the rest on the next run", async () => {
@@ -285,6 +445,112 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       expect(sent).toHaveLength(1);
       expect(pressed.status).toBe(409);
     });
+
+    it("doesn't put a campaign back to draft once the email service has it, so Send now can't send it twice", async () => {
+      const sent = mockSendGrid();
+      const draft = await campaign({ status: "draft", segmentRules: { allCustomers: true } });
+      failTheSentWriteOnce();
+      const press = () => send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      const first = await press();
+
+      expect(first.status).toBe(500);
+      expect((await first.json()).error).not.toMatch(/Connection terminated/);
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } });
+      expect(after.status).toBe("failed");
+      expect((after.metrics as { interruptedReason?: string }).interruptedReason).toMatch(/may have received it/);
+
+      const second = await press();
+      expect(second.status).toBe(409);
+      expect(sent).toHaveLength(1);
+    });
+
+    it("says what is known when a scheduled send goes wrong after the email service has it", async () => {
+      mockSendGrid();
+      const due = await campaign({ status: "scheduled", segmentRules: { allCustomers: true }, scheduledFor: new Date(Date.now() - 60_000) });
+      failTheSentWriteOnce();
+
+      await runCron();
+
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: due.id } });
+      expect(after.status).toBe("failed");
+      expect((after.metrics as { interruptedReason?: string }).interruptedReason).toMatch(/may have received it/);
+    });
+
+    it("says nothing went out when a scheduled send goes wrong before the email service has it", async () => {
+      const sent = mockSendGrid();
+      const due = await campaign({ status: "scheduled", segmentRules: { allCustomers: true }, scheduledFor: new Date(Date.now() - 60_000) });
+      let calls = 0;
+      swap(prisma.customer, "findMany", (findMany) => ((args) => (calls++ === 0 ? dropped() : findMany(args))) as typeof findMany);
+
+      await runCron();
+
+      expect(sent).toEqual([]);
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: due.id } });
+      expect(after.status).toBe("failed");
+      expect(after.sentAt).toBeNull();
+      expect((after.metrics as { notSentReason?: string }).notSentReason).toMatch(/nothing went out/);
+    });
+
+    it("doesn't let Schedule overwrite a campaign that stopped being a draft after the page read it", async () => {
+      const scheduledFor = new Date(Date.now() + 2 * HOUR);
+      const taken = await campaign({ status: "scheduled", segmentRules: { allCustomers: true }, scheduledFor });
+      // The page's read still sees a draft; the row has moved on by the time of the write
+      let reads = 0;
+      swap(prisma.emailCampaign, "findFirst", (findFirst) =>
+        ((args) => (reads++ === 0 ? Promise.resolve({ segmentRules: { allCustomers: true } }) : findFirst(args))) as typeof findFirst,
+      );
+
+      const response = await send(taken.id, {
+        intent: "schedule",
+        sendToAll: "false",
+        sendToRecommended: "false",
+        selectedTiers: [gold.id],
+        scheduledDate: nyDate(3),
+        scheduledTime: "09:00",
+      });
+
+      expect(response.status).toBe(409);
+      expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: taken.id } })).toMatchObject({
+        status: "scheduled",
+        scheduledFor,
+        segmentRules: { allCustomers: true },
+      });
+    });
+  });
+
+  describe("when the email service refuses a campaign", () => {
+    it("tells the merchant plainly, keeps the draft, and gives the emails back", async () => {
+      const calls = sendGridRefuses();
+      await usage(10);
+      const draft = await campaign({ status: "draft", segmentRules: { allCustomers: true } });
+
+      const response = await send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      expect(calls.requests).toBe(1);
+      expect(response.status).toBe(400);
+      const { error } = await response.json();
+      expect(error).toMatch(/RewardsPro couldn't send this campaign/);
+      expect(error).not.toMatch(/authorization grant/);
+      expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({ status: "draft" });
+      expect(await emailsUsed()).toBe(10);
+    });
+
+    it("marks a scheduled campaign failed with a plain reason, and the cron run answers 500", async () => {
+      sendGridRefuses();
+      const due = await campaign({ status: "scheduled", segmentRules: { allCustomers: true }, scheduledFor: new Date(Date.now() - 60_000) });
+
+      const response = await runCron();
+
+      expect(response.status).toBe(500);
+      expect((await response.json()).summary).toMatchObject({ failed: 1 });
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: due.id } });
+      expect(after.status).toBe("failed");
+      expect(after.sentAt).toBeNull();
+      const { notSentReason } = after.metrics as { notSentReason?: string };
+      expect(notSentReason).toMatch(/RewardsPro couldn't send this campaign/);
+      expect(notSentReason).not.toMatch(/authorization grant/);
+    });
   });
 
   describe("the shop's monthly email limit", () => {
@@ -305,6 +571,7 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       expect(sent).toEqual([]);
       const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: due.id } });
       expect(after.status).toBe("failed");
+      expect(after.sentAt).toBeNull();
       expect((after.metrics as { notSentReason?: string }).notSentReason).toMatch(/1 of its 1,000 emails left this month/);
     });
 
@@ -320,6 +587,57 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       expect((await response.json()).error).toMatch(/1 of its 1,000 emails left this month/);
       expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({ status: "draft" });
     });
+
+    it("lets only one of two sends at the same moment through when only one fits", async () => {
+      const sent = mockSendGrid();
+      await usage(998);
+      const drafts = [
+        await campaign({ status: "draft", segmentRules: { allCustomers: true }, name: "A" }),
+        await campaign({ status: "draft", segmentRules: { allCustomers: true }, name: "B" }),
+      ];
+
+      const responses = await Promise.all(
+        drafts.map((d) => send(d.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" })),
+      );
+
+      expect(sent).toHaveLength(1);
+      expect(responses.map((r) => r.status).sort()).toEqual([302, 400]);
+      expect(await emailsUsed()).toBe(1000);
+    });
+
+    it("sends nothing when it can't read how many emails are left", async () => {
+      const sent = mockSendGrid();
+      const draft = await campaign({ status: "draft", segmentRules: { allCustomers: true } });
+      swap(prisma.monthlyEmailUsage, "findUnique", (findUnique) => (() => dropped()) as unknown as typeof findUnique);
+
+      const response = await send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      expect(sent).toEqual([]);
+      expect(response.status).toBe(400);
+      expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({ status: "draft" });
+    });
+
+    it("says so when the audience is bigger than the whole monthly limit", async () => {
+      const sent = mockSendGrid();
+      await prisma.customer.createMany({
+        data: Array.from({ length: 1000 }, (_, i) => ({
+          shop: SHOP,
+          shopifyCustomerId: `bulk-${i}`,
+          email: `bulk-${i}@example.test`,
+          currentTierId: bronze.id,
+          acceptsMarketing: true,
+        })),
+      });
+      const draft = await campaign({ status: "draft", segmentRules: { allCustomers: true } });
+
+      const response = await send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      expect(sent).toEqual([]);
+      expect(response.status).toBe(400);
+      const { error } = await response.json();
+      expect(error).toMatch(/1,002 customers who agreed to marketing, more than the shop's limit of 1,000 emails a month/);
+      expect(error).not.toMatch(/starts again next month/);
+    });
   });
 
   describe("the Create page's Send immediately", () => {
@@ -334,7 +652,7 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       expect(created).toMatchObject({ status: "sent", metrics: expect.objectContaining({ sent: 1 }) });
     });
 
-    it("creates nothing while marketing email is off, and says why", async () => {
+    it("sends or schedules nothing while marketing email is off, says so plainly, and still saves a draft", async () => {
       const sent = mockSendGrid();
       delete process.env.SENDGRID_WEBHOOK_VERIFICATION_KEY;
 
@@ -344,11 +662,83 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       ]) {
         const response = await create(fields);
         expect(response.status).toBe(409);
-        expect((await response.json()).error).toMatch(/Marketing email is off/);
+        const { error } = await response.json();
+        expect(error).toMatch(/can't send marketing email yet/);
+        expect(error).not.toMatch(/SENDGRID/);
       }
-
-      expect(sent).toEqual([]);
       expect(await prisma.emailCampaign.count({ where: { shop: SHOP } })).toBe(0);
+
+      const saved = await create({ segmentId: bronze.id, scheduleType: "draft" });
+
+      expect(saved.status).toBe(302);
+      expect(sent).toEqual([]);
+      expect(await prisma.emailCampaign.findFirstOrThrow({ where: { shop: SHOP } })).toMatchObject({
+        status: "draft",
+        scheduledFor: null,
+        segmentRules: { tierIds: [bronze.id] },
+      });
+    });
+
+    it("tells the merchant plainly on the send page too while marketing email is off", async () => {
+      const sent = mockSendGrid();
+      delete process.env.SENDGRID_WEBHOOK_VERIFICATION_KEY;
+      const draft = await campaign({ status: "draft", segmentRules: { allCustomers: true } });
+
+      const page = await (
+        await sendLoader({ request: new Request(`https://test.example.com/app/marketing/campaigns/${draft.id}/send`), params: { id: draft.id }, context: {} })
+      ).json();
+      const response = await send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      expect(response.status).toBe(409);
+      for (const text of [page.marketingBlocked, (await response.json()).error]) {
+        expect(text).toMatch(/can't send marketing email yet/);
+        expect(text).not.toMatch(/SENDGRID/);
+      }
+      expect(sent).toEqual([]);
+      expect(await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({ status: "draft" });
+    });
+
+    it("counts only customers who agreed to marketing, and says plainly when email is off", async () => {
+      delete process.env.SENDGRID_WEBHOOK_VERIFICATION_KEY;
+
+      const response = await createLoader({
+        request: new Request("https://test.example.com/app/marketing/campaigns/create"),
+        params: {},
+        context: {},
+      });
+
+      const data = await response.json();
+      expect(data.segments).toEqual([
+        { id: "all", name: "All Customers", customerCount: 2 },
+        { id: bronze.id, name: "Bronze", customerCount: 1 },
+        { id: gold.id, name: "Gold", customerCount: 1 },
+      ]);
+      expect(data.marketingBlocked).toMatch(/can't send marketing email yet/);
+      expect(data.marketingBlocked).not.toMatch(/SENDGRID/);
+    });
+  });
+
+  describe("Smart Create's Send immediately", () => {
+    it("creates nothing while marketing email is off", async () => {
+      delete process.env.SENDGRID_WEBHOOK_VERIFICATION_KEY;
+
+      const response = await smartCreate({ sendImmediately: "true" });
+
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toMatch(/can't send marketing email yet/);
+      expect(await prisma.emailCampaign.count({ where: { shop: SHOP } })).toBe(0);
+      expect(await prisma.emailTemplate.count({ where: { shop: SHOP } })).toBe(1);
+    });
+
+    it("sends the way the Create page does instead of scheduling it", async () => {
+      mockSendGrid();
+
+      const response = await smartCreate({ sendImmediately: "true" });
+
+      // Without a recommendation there is no audience yet, so it stays a draft and says why
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toMatch(/couldn't tell who this campaign is for/);
+      expect(await prisma.emailCampaign.findFirstOrThrow({ where: { shop: SHOP } })).toMatchObject({ status: "draft", scheduledFor: null });
     });
   });
 });
