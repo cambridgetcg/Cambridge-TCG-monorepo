@@ -990,6 +990,18 @@ export async function cleanupExpiredDeletedProducts(shop?: string): Promise<numb
 
   for (const product of expiredProducts) {
     try {
+      // A shopper can still hold a membership bought from this product (one
+      // bought while Shopify was deleting it, or one tier-maintenance hasn't
+      // ended yet). Deleting it would take their tier with no word to them,
+      // so keep the product until every membership from it has ended.
+      const activePurchases = await prisma.tierPurchase.count({
+        where: { tierProductId: product.id, status: 'ACTIVE' }
+      });
+      if (activePurchases > 0) {
+        console.warn(`[TierProductDeletion] Cleanup: kept ${product.id}, ${activePurchases} membership(s) bought from it still active`);
+        continue;
+      }
+
       // Delete tier purchases first
       await prisma.tierPurchase.deleteMany({
         where: { tierProductId: product.id }
