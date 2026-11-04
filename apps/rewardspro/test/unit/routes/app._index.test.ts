@@ -62,6 +62,7 @@ vi.mock('~/constants/billing.constants', () => ({
     'RewardsPro Pro': { ordersIncluded: 1000 },
     'RewardsPro Max': { ordersIncluded: 5000 },
   },
+  getPlanOrderLimit: vi.fn(() => 10000),
 }));
 
 vi.mock('~/utils/database-health.server', () => ({
@@ -594,5 +595,82 @@ describe('app._index (dashboard) loader', () => {
 
     expect(data.dataSyncHealth.status).toBe('failed');
     expect(data.dataSyncHealth.customerSync.status).toBe('failed');
+  });
+});
+
+describe('app._index (dashboard) loader: review request', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupDefaultMocks();
+  });
+
+  /** A shop installed `days` ago, with `issued` orders whose cashback reached the customer */
+  async function reviewBannerFor(days: number, issued: number, dismissed = false) {
+    vi.mocked(db.shopSettings.findUnique).mockResolvedValue({
+      storeCurrency: 'GBP',
+      autoCashbackProcessingEnabled: true,
+      reviewBannerDismissed: dismissed,
+      createdAt: new Date(Date.now() - days * DAY),
+    } as any);
+    vi.mocked(db.order.count).mockImplementation((async (args: any) =>
+      args?.where?.cashbackProcessed === true ? issued : 0) as any);
+
+    const response = await loader({ request: new Request('https://app.example.com/app'), params: {}, context: {} });
+    return (await response.json()).showReviewBanner;
+  }
+
+  it('does not ask on a fresh install with no orders', async () => {
+    expect(await reviewBannerFor(0, 0)).toBe(false);
+  });
+
+  it('does not ask in the first week, however many orders earned cashback', async () => {
+    expect(await reviewBannerFor(6, 50)).toBe(false);
+  });
+
+  it('does not ask before three orders have had their cashback issued', async () => {
+    expect(await reviewBannerFor(30, 2)).toBe(false);
+  });
+
+  it('asks after a week once three orders have had their cashback issued', async () => {
+    expect(await reviewBannerFor(7, 3)).toBe(true);
+    expect(db.order.count).toHaveBeenCalledWith({
+      where: { shop: MOCK_SHOP, cashbackProcessed: true, cashbackAmount: { gt: 0 } },
+    });
+  });
+
+  it('never asks again once dismissed', async () => {
+    expect(await reviewBannerFor(30, 10, true)).toBe(false);
+  });
+});
+
+describe('app._index (dashboard) loader: subscription records', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupDefaultMocks();
+  });
+
+  async function load() {
+    const response = await loader({ request: new Request('https://app.example.com/app'), params: {}, context: {} });
+    return response.json();
+  }
+
+  it('says a free shop with no agreement has no subscription records', async () => {
+    expect((await load()).hasSubscriptionRecords).toBe(false);
+  });
+
+  it('says a shop with a stored subscription has records', async () => {
+    vi.mocked(db.billingSubscription.findUnique).mockResolvedValue({ shop: MOCK_SHOP, planName: 'RewardsPro Pro' } as any);
+
+    expect((await load()).hasSubscriptionRecords).toBe(true);
+  });
+
+  it('says a shop Shopify reports an active subscription for has records', async () => {
+    vi.mocked(getSubscriptionDetails).mockResolvedValue({
+      currentAppInstallation: { activeSubscriptions: [{ name: 'RewardsPro Pro', status: 'ACTIVE' }] },
+    } as any);
+
+    expect((await load()).hasSubscriptionRecords).toBe(true);
   });
 });
