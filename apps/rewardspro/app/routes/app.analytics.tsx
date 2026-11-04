@@ -1375,7 +1375,7 @@ export default function AnalyticsPage() {
                                   ? "Great! Customers are actively using their rewards."
                                   : data.programImpact.currentUsageRate >= 30
                                   ? "There's room to encourage more reward redemptions."
-                                  : "Consider promoting rewards to boost engagement."}
+                                  : "Consider reminding customers about their rewards."}
                               </Text>
                             </BlockStack>
                           </Box>
@@ -2567,12 +2567,10 @@ export default function AnalyticsPage() {
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
                             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
                               <BlockStack gap="200">
-                                <Text variant="bodyMd" as="p" fontWeight="semibold">🔄 Retention Benchmark</Text>
+                                <Text variant="bodyMd" as="p" fontWeight="semibold">🔄 Month 1 Retention</Text>
+                                {/* The shop's own figure: RewardsPro has no measured benchmark to compare it with */}
                                 <Text variant="bodySm" tone="subdued" as="p">
-                                  {data.cohortAnalysis.summaryMetrics.avgRetentionMonth1 >= 40
-                                    ? `Great! Your Month 1 retention of ${data.cohortAnalysis.summaryMetrics.avgRetentionMonth1.toFixed(0)}% is above the 30-40% industry average.`
-                                    : `Your Month 1 retention of ${data.cohortAnalysis.summaryMetrics.avgRetentionMonth1.toFixed(0)}% has room to grow. Industry average is 30-40%.`
-                                  }
+                                  {`Your Month 1 retention is ${data.cohortAnalysis.summaryMetrics.avgRetentionMonth1.toFixed(0)}% on average across your cohorts.`}
                                 </Text>
                               </BlockStack>
                             </Box>
@@ -2582,7 +2580,7 @@ export default function AnalyticsPage() {
                                 <Text variant="bodySm" tone="subdued" as="p">
                                   {data.cohortAnalysis.summaryMetrics.avgLTV90Days > data.cohortAnalysis.summaryMetrics.avgLTV30Days * 2
                                     ? "Strong LTV growth! Customers are returning and spending more over time."
-                                    : "Focus on re-engagement campaigns to boost repeat purchases and LTV growth."
+                                    : "On average, at least half of what customers spend in their first 90 days comes in their first 30."
                                   }
                                 </Text>
                               </BlockStack>

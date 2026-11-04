@@ -356,7 +356,7 @@ export default function OrdersSyncPage() {
               <Text as="h2" variant="headingMd">Performance Benefits</Text>
 
               <InlineStack gap="400" wrap>
-                <Badge tone="success">100x Faster Tier Calculations</Badge>
+                <Badge tone="success">Faster Tier Calculations</Badge>
                 <Badge tone="success">Instant Analytics</Badge>
                 <Badge tone="success">No API Rate Limits</Badge>
                 <Badge tone="success">Complete Order History</Badge>

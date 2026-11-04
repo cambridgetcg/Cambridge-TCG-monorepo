@@ -543,7 +543,7 @@ export default function TiersPage() {
                                               <Icon source={CalendarIcon} tone="subdued" />
                                               <Text variant="bodyMd" tone="subdued" as="span">
                                                 {tier.evaluationPeriod === "ANNUAL"
-                                                  ? "Annual"
+                                                  ? "Last 12 months"
                                                   : "Lifetime"}
                                               </Text>
                                             </InlineStack>
@@ -674,12 +674,14 @@ export default function TiersPage() {
               <Select
                 label="Evaluation Period"
                 options={
+                  // ANNUAL counts orders from the 12 months up to today
+                  // (services/tier-calculation.server.ts), not a calendar year
                   data.hasAnnualEval
                     ? [
-                        { label: "Annual (resets yearly)", value: "ANNUAL" },
-                        { label: "Lifetime (cumulative)", value: "LIFETIME" },
+                        { label: "Last 12 months (rolling)", value: "ANNUAL" },
+                        { label: "Lifetime (all spend)", value: "LIFETIME" },
                       ]
-                    : [{ label: "Lifetime (cumulative)", value: "LIFETIME" }]
+                    : [{ label: "Lifetime (all spend)", value: "LIFETIME" }]
                 }
                 value={tierFormData.evaluationPeriod}
                 onChange={(value) =>
@@ -691,7 +693,7 @@ export default function TiersPage() {
                 helpText={
                   !data.hasAnnualEval
                     ? "Annual evaluation is unavailable under the existing agreement. Paid plans aren't offered right now."
-                    : "Choose how tier status is calculated: annually reset or lifetime cumulative"
+                    : "Last 12 months counts what a customer spent in the 12 months up to today, so an order stops counting a year after it was placed. Lifetime counts everything they've spent."
                 }
               />
             </FormLayout>
