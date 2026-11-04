@@ -79,7 +79,7 @@ Database and session storage need these four. The other variables (Shopify,
 |---|---|---|
 | `DATABASE_URL` | yes, runtime | Transaction pooler URL above. Not needed to build. |
 | `DIRECT_URL` | for migrations | Session pooler URL above. Not read at runtime or build. |
-| `ENCRYPTION_SECRET` | yes, runtime | Encrypts Shopify access tokens and integration credentials at rest (AES-256-GCM). Generate with `openssl rand -hex 32`. No fallback: the app refuses to start without it. |
+| `ENCRYPTION_SECRET` | yes, runtime | Encrypts Shopify access tokens and integration credentials (Klaviyo OAuth tokens and private API key) at rest (AES-256-GCM). Generate with `openssl rand -hex 32`. No fallback: the app refuses to start without it. |
 | `ENCRYPTION_SALT` | yes, runtime | Key-derivation salt. `openssl rand -hex 32`. |
 
 **Key rotation.** `ENCRYPTION_SECRET` is independent of the Shopify client

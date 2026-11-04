@@ -1,7 +1,6 @@
 import pino from 'pino';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
-import { DatadogService } from './monitoring/datadog.service';
 
 // AsyncLocalStorage for correlation ID
 const correlationStore = new AsyncLocalStorage<string>();
@@ -91,11 +90,9 @@ export class CorrelationId {
 export class Logger {
   private static getContext() {
     const correlationId = CorrelationId.get();
-    const traceContext = DatadogService.getTraceContext();
 
     return {
       correlationId,
-      ...traceContext,
       timestamp: new Date().toISOString(),
     };
   }
@@ -162,9 +159,6 @@ export class Logger {
         orderId,
         category: 'business',
       });
-
-      // Track metric
-      DatadogService.metrics.trackCashback(amount, currency, 'unknown');
     },
 
     tierChanged(customerId: string, fromTier: string, toTier: string, reason: string) {
@@ -176,9 +170,6 @@ export class Logger {
         reason,
         category: 'business',
       });
-
-      // Track metric
-      DatadogService.metrics.trackTierChange(fromTier, toTier, customerId);
     },
 
     subscriptionEvent(customerId: string, event: string, plan: string, mrr?: number) {
@@ -189,12 +180,6 @@ export class Logger {
         mrr,
         category: 'business',
       });
-
-      // Track metric
-      DatadogService.metrics.trackSubscription(
-        event as 'created' | 'renewed' | 'cancelled' | 'failed',
-        mrr
-      );
     },
 
     paymentFailed(customerId: string, amount: number, reason: string) {
@@ -218,9 +203,6 @@ export class Logger {
         category: 'business',
         critical: true, // Send to Sentry
       });
-
-      // Track metric
-      DatadogService.metrics.trackLedgerConsistency(1);
     },
   };
 
@@ -288,9 +270,6 @@ export class Logger {
         statusCode,
         category: 'performance',
       });
-
-      // Track metric
-      DatadogService.metrics.trackAPILatency(endpoint, method, duration, statusCode);
     },
 
     externalAPICall(service: string, endpoint: string, duration: number, success: boolean) {
@@ -302,9 +281,6 @@ export class Logger {
         success,
         category: 'performance',
       });
-
-      // Track metric
-      DatadogService.metrics.trackExternalAPI(service, endpoint, duration, success);
     },
   };
 
@@ -329,9 +305,6 @@ export class Logger {
         duration,
         category: 'webhook',
       });
-
-      // Track metric
-      DatadogService.metrics.trackWebhook(topic, true, duration);
     },
 
     failed(topic: string, shop: string, webhookId: string, error: Error, duration: number) {
@@ -344,9 +317,6 @@ export class Logger {
         category: 'webhook',
         alert: true,
       });
-
-      // Track metric
-      DatadogService.metrics.trackWebhook(topic, false, duration);
     },
 
     duplicate(topic: string, shop: string, webhookId: string) {
@@ -369,13 +339,11 @@ export class Logger {
     const startTime = Date.now();
     const url = new URL(request.url);
 
-    // Log request
+    // Log request (no query values or client IP: they can carry tokens and personal data)
     Logger.info('Request received', {
       method: request.method,
       path: url.pathname,
-      query: url.search,
       userAgent: request.headers.get('user-agent'),
-      ip: request.headers.get('x-forwarded-for'),
     });
 
     try {

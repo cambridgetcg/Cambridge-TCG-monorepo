@@ -45,6 +45,7 @@ import { getShopSettings } from "../services/shop-data-provider.server";
 import { formatCurrency, type ShopSettings } from "../utils/currency";
 import type { Decimal } from "@prisma/client/runtime/library";
 import { useToast } from "../hooks/useToast";
+import { privacySafeConsole } from "~/utils/pii-masker";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -458,7 +459,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Log first order as sample if available
     if (serializedOrders.length > 0) {
-      console.log('[Orders Loader] Sample order (first):', {
+      privacySafeConsole.log('[Orders Loader] Sample order (first):', {
         id: serializedOrders[0].id,
         shopifyOrderName: serializedOrders[0].shopifyOrderName,
         email: serializedOrders[0].email,
@@ -800,7 +801,7 @@ export default function OrdersPage() {
   });
 
   if (orders && orders.length > 0) {
-    console.log('[Orders Page Client] First order sample:', {
+    privacySafeConsole.log('[Orders Page Client] First order sample:', {
       id: orders[0].id,
       shopifyOrderName: orders[0].shopifyOrderName,
       email: orders[0].email

@@ -14,7 +14,7 @@ import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
 import { HelpAssistant } from "../components/HelpAssistant";
 import { PageAnimationProvider, NavigationProgress } from "../components/PageAnimation";
 import { GA4Provider } from "../components/GA4Provider";
-import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
+import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues, describeRequestUrl } from "../utils/request-logger";
 import prisma from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
 import { getShopSettings } from "../services/shop-data-provider.server";
@@ -59,7 +59,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         const location = authError.headers.get('Location');
 
         // Log details for debugging
-        console.log(`[App Loader] Auth threw Response: status=${status}, location=${location || 'none'}`);
+        console.log(`[App Loader] Auth threw Response: status=${status}, location=${location ? describeRequestUrl(location) : 'none'}`);
 
         // 3xx redirects are normal (OAuth flow, billing redirect, etc.)
         if (status >= 300 && status < 400) {

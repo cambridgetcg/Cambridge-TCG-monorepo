@@ -2,6 +2,7 @@ import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { Prisma, type OrderFinancialStatus } from "@prisma/client";
 import { db } from "../db.server";
 import { v4 as uuidv4 } from "uuid";
+import { privacySafeConsole } from "~/utils/pii-masker";
 
 // Types
 export interface OrderSyncOptions {
@@ -643,7 +644,7 @@ export class OrderSyncService {
       });
 
       if (customer) {
-        console.log(`[PROCESS] Customer found:`, {
+        privacySafeConsole.log(`[PROCESS] Customer found:`, {
           customerId: customer.id,
           email: customer.email,
           hasTier: !!customer.currentTier,
