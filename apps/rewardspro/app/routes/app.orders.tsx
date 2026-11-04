@@ -660,7 +660,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           throw new Error(
             settlement.unconfirmed
               ? "Shopify did not confirm this reversal's debit when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again"
-              : "This reversal is already being processed",
+              : settlement.held
+                ? "This refund's cashback reversal waits until RewardsPro knows whether the order's cashback reached the customer. If the order says to check the customer's store credit in Shopify, take this amount back there by hand."
+                : "This reversal is already being processed",
           );
         }
 

@@ -33,6 +33,7 @@ import { incrementMonthlyOrderCount } from "../utils/order-count.server";
 import { claimLedgerEntry, isAutoCashbackEnabled, lockOrder, markUnconfirmed } from "../services/cashback-ledger.server";
 import { cashbackLeftAfterRefunds } from "../services/refund-handler.server";
 import { jsonObject } from "../utils/json-object";
+import { fitsNumeric } from "../utils/fits-numeric";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'node:crypto';
@@ -1073,6 +1074,8 @@ async function recordCashback(tx: PrismaClient, params: {
           // As recordRefund records a refund before issue
           ...(reversedBeforeIssue.length > 0 ? { originalAmount: earned.toFixed(2), reversedBeforeIssue } : {}),
           syncStatus: autoProcessingEnabled ? 'SYNCING' : 'PENDING',
+          // Created claimed, so the claim starts now (claimLedgerEntry)
+          ...(autoProcessingEnabled ? { claimedAt: now.toISOString() } : {}),
           autoProcessed: false,
         },
         createdAt: now,
@@ -1297,25 +1300,35 @@ async function createOrderRecord(_dbOrTx: PrismaClient, params: {
   // IMPORTANT: REST API total_price is in SHOP CURRENCY, not presentment currency
   // So we must store the shop currency code to match the amount
   // See: docs/multi-currency-order-handling.md for full analysis
+  // REST `currency` is the shop's currency too; the shopper's is
+  // `presentment_currency` (and total_price_set.presentment_money), as the
+  // order sync job reads it from GraphQL
   const shopCurrencyCode = order.total_price_set?.shop_money?.currency_code;
-  const presentmentCurrencyCode = order.currency;
-  const orderCurrency = shopCurrencyCode || presentmentCurrencyCode || 'USD';
+  const presentmentCurrencyCode = order.presentment_currency || order.total_price_set?.presentment_money?.currency_code;
+  const orderCurrency = shopCurrencyCode || order.currency || 'USD';
 
   // Multi-currency tracking
   const shopAmount = parseFloat(order.total_price_set?.shop_money?.amount || order.total_price || '0');
   const presentmentAmount = parseFloat(order.total_price_set?.presentment_money?.amount || order.total_price || '0');
-  const isMultiCurrency = shopCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode;
+  const isMultiCurrency = Boolean(shopCurrencyCode && presentmentCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode);
 
   // Calculate exchange rate: presentment / shop (e.g., €100 / £86.21 = 1.16)
-  const exchangeRate = isMultiCurrency && shopAmount > 0
+  const rate = isMultiCurrency && shopAmount > 0
     ? presentmentAmount / shopAmount
     : null;
+  // Order.exchangeRate is numeric(10,6) and presentmentTotal numeric(10,2):
+  // a currency worth far less than the shop's (IDR, VND) can pass them, and
+  // the order must be recorded all the same. The rate is only for audit.
+  // Without the shopper's total, a refund in their currency can't be
+  // counted in the shop's, as before the shopper's currency was recorded.
+  const exchangeRate = rate !== null && fitsNumeric(rate, 10, 6) ? rate : null;
+  const keepsPresentment = isMultiCurrency && fitsNumeric(presentmentAmount, 10, 2);
 
   if (isMultiCurrency) {
     console.log(`[OrderPaid] Multi-currency order detected:`);
     console.log(`  - Customer paid in: ${presentmentCurrencyCode} (${presentmentAmount})`);
     console.log(`  - Shop receives: ${shopCurrencyCode} (${shopAmount})`);
-    console.log(`  - Exchange rate: ${exchangeRate?.toFixed(6)}`);
+    console.log(`  - Exchange rate: ${rate?.toFixed(6)}`);
     console.log(`  - Storing as: ${orderCurrency}`);
   }
 
@@ -1330,8 +1343,8 @@ async function createOrderRecord(_dbOrTx: PrismaClient, params: {
       email: order.email || order.customer?.email || '',
       currency: orderCurrency, // Use shop currency to match total_price amount
       // Multi-currency tracking fields
-      presentmentCurrency: isMultiCurrency ? presentmentCurrencyCode : null,
-      presentmentTotal: isMultiCurrency ? presentmentAmount : null,
+      presentmentCurrency: keepsPresentment ? presentmentCurrencyCode : null,
+      presentmentTotal: keepsPresentment ? presentmentAmount : null,
       exchangeRate: exchangeRate,
       subtotalPrice: parseFloat(order.subtotal_price || '0'),
       totalDiscounts: parseFloat(order.total_discounts || '0'),
