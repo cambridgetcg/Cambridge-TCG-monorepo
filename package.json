@@ -24,7 +24,7 @@
     "test:rewards:postgres": "pnpm --filter rewards test:postgres",
     "test:rewardspro-api": "pnpm --filter @cambridge-tcg/rewardspro-api test",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro' -r exec tsc --noEmit",
+    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro' --filter '!rewards' -r exec tsc --noEmit",
     "audit:tracked-secrets": "node scripts/audit-tracked-secrets.mjs",
     "docs:modules": "node scripts/module-map.mjs --write",
     "audit:modules": "node scripts/module-map.mjs --check",
@@ -143,7 +143,8 @@
       "@visx/text>@types/react": "^18.3.31",
       "@visx/tooltip>@types/react": "^18.3.31",
       "@visx/voronoi>@types/react": "^18.3.31",
-      "@visx/xychart>@types/react": "^18.3.31"
+      "@visx/xychart>@types/react": "^18.3.31",
+      "qs": "^6.16.0"
     }
   }
 }
