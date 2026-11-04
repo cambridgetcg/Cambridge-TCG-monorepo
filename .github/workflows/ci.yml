@@ -24,6 +24,7 @@ jobs:
       storefront: ${{ steps.filter.outputs.storefront }}
       wholesale:  ${{ steps.filter.outputs.wholesale }}
       rewardspro: ${{ steps.filter.outputs.rewardspro }}
+      rewards:    ${{ steps.filter.outputs.rewards }}
       shared:     ${{ steps.filter.outputs.shared }}
       answering_rhymes: ${{ steps.filter.outputs.answering_rhymes }}
       data:       ${{ steps.filter.outputs.data }}
@@ -40,6 +41,8 @@ jobs:
               - 'apps/wholesale/**'
             rewardspro:
               - 'apps/rewardspro/**'
+            rewards:
+              - 'apps/rewards/**'
             shared:
               - 'packages/**'
               - 'pnpm-lock.yaml'
@@ -309,18 +312,38 @@ jobs:
       # The build needs no database: no DATABASE_URL or DIRECT_URL here.
       - run: pnpm --filter rewardspro build
 
+  rewards:
+    name: rewards (typecheck + unit)
+    runs-on: ubuntu-latest
+    needs: [detect, install]
+    if: needs.detect.outputs.rewards == 'true' || needs.detect.outputs.shared == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      # Before typecheck, as in the rewardspro job: without it the client
+      # has no model types. Skipped until the app has a Prisma schema.
+      - if: hashFiles('apps/rewards/prisma/schema.prisma') != ''
+        run: pnpm --filter rewards exec prisma generate
+      - run: pnpm --filter rewards typecheck
+      - run: pnpm --filter rewards test:unit
+
   ci-status:
     name: CI status
     runs-on: ubuntu-latest
     if: always()
-    needs: [install, answering_rhymes, data, storefront, wholesale, rewardspro]
+    needs: [install, answering_rhymes, data, storefront, wholesale, rewardspro, rewards]
     steps:
       - name: Fail if any required job failed
         # `install` always runs; the per-app jobs may be skipped if no relevant
         # files changed. A skipped job is fine — only failures block.
         run: |
           if [ "${{ needs.install.result }}" != "success" ]; then exit 1; fi
-          for r in "${{ needs.answering_rhymes.result }}" "${{ needs.data.result }}" "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}" "${{ needs.rewardspro.result }}"; do
+          for r in "${{ needs.answering_rhymes.result }}" "${{ needs.data.result }}" "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}" "${{ needs.rewardspro.result }}" "${{ needs.rewards.result }}"; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then exit 1; fi
           done
           echo "CI green"

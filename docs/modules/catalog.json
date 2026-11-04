@@ -27,6 +27,14 @@
       "evidence": ["apps/rewardspro/README.md", "apps/rewardspro/app/services", "apps/rewardspro/app/repositories", "apps/rewardspro/app/navigation/registry.ts", "apps/rewardspro/scripts/architecture/README.md", "apps/rewardspro/landing/public", "docs/decisions/2026-07-23-rewardspro-platform.md"]
     },
     {
+      "path": "apps/rewards", "group": "apps", "label": "RewardsPro rebuild",
+      "purpose": "The new RewardsPro: one embedded Shopify app where a paid order earns cashback as Shopify store credit, tiers raise the rate, a widget shows tier and credit, and refunds take the cashback back.",
+      "scope": "Being built on Shopify's React Router template to replace apps/rewardspro. Not deployed: production still serves apps/rewardspro, and the switch waits for Yu's yes.",
+      "progress": "2026-11-04: scaffold only. The template's root, server entry and route config, a root route that redirects, the Vercel preset in lhr1 on Node 24, the ignore-build script and a CI job (typecheck and unit tests). No database, Shopify connection, admin pages or widget yet.",
+      "next": "Build the data model and Postgres test bed, then the money rules, the Shopify adapter, the webhooks, the admin and the widget, task by task; prove it on a staging app before any switch.",
+      "evidence": ["apps/rewards/package.json", "apps/rewards/app", "apps/rewards/vercel.json", "apps/rewards/react-router.config.ts", "apps/rewards/scripts/vercel-ignore-build.sh", "apps/rewards/test/unit"]
+    },
+    {
       "path": "apps/rewardspro-api", "group": "apps", "label": "RewardsPro API foundation",
       "purpose": "Receive verified Shopify commerce events, persist an idempotent inbox and project supported orders through a worker.",
       "scope": "Backend foundation; does not claim legacy RewardsPro feature, data or business-rule parity, and does not mutate a financial ledger.",

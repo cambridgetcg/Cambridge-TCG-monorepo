@@ -1,0 +1,8 @@
+name = "React Router"
+roles = ["frontend", "backend"]
+webhooks_path = "/webhooks/app/uninstalled"
+
+[commands]
+# No migration here: `shopify app dev` never changes a database schema.
+predev = "pnpm exec prisma generate"
+dev = "pnpm exec react-router dev"

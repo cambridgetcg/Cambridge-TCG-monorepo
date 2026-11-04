@@ -4,7 +4,7 @@
 
 [Project entry](../../README.md) · [Documentation](../README.md) · [Agent guide](../agents/README.md)
 
-Find a module's purpose, source, scope, recorded progress and next review. This map covers **26 module roots**: 23 pnpm workspace packages, 1 extension without package.json, and 2 nested support packages. Source review: **2026-09-28**.
+Find a module's purpose, source, scope, recorded progress and next review. This map covers **27 module roots**: 24 pnpm workspace packages, 1 extension without package.json, and 2 nested support packages. Source review: **2026-09-28**.
 
 **Start with the website:** [Storefront domains](storefront/README.md) groups 72 library directories and 77 route families by purpose.
 
@@ -17,6 +17,7 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 | [Storefront and admin](apps/storefront.md) | Human and API entry to Cambridge TCG data infrastructure: SKU identity, images, prices and market observations, alongside collector tools, retained account records and the operator console. |
 | [Wholesale records and research](apps/wholesale.md) | Price and stock research plus the lifecycle of existing wholesale orders. |
 | [RewardsPro loyalty platform](apps/rewardspro.md) | Loyalty tiers, credit, points and reward records, with Shopify integration and merchant-facing administration. |
+| [RewardsPro rebuild](apps/rewards.md) | The new RewardsPro: one embedded Shopify app where a paid order earns cashback as Shopify store credit, tiers raise the rate, a widget shows tier and credit, and refunds take the cashback back. |
 | [RewardsPro API foundation](apps/rewardspro-api.md) | Receive verified Shopify commerce events, persist an idempotent inbox and project supported orders through a worker. |
 | [Admin redirect shell](apps/admin.md) | Preserve old admin bookmarks by redirecting to the storefront operator console. |
 
