@@ -88,6 +88,20 @@ This triggers Vercel auto-deploy for production.
 - [ ] Webhook endpoints respond (check Shopify webhook logs)
 - [ ] Storefront widget renders for logged-in customers
 
+## Crons
+
+`vercel.json` lists the crons production runs, and the project's Cron Jobs
+setting in Vercel switches them all on or off. Each cron route answers only
+`Authorization: Bearer $CRON_SECRET`. `test/unit/routes/cron-schedule.test.ts`
+says why each cron route is scheduled or not.
+
+**Do not switch Vercel crons on for rewardspro-production until the
+email-switches PR (#136) is merged and deployed.** Before it, every shopper
+email goes out wherever `SENDGRID_API_KEY` is set, whatever the shop's
+settings (`isEmailEnabled` in `app/services/email-notifications.server.ts`
+ignores the shop), and `tier-maintenance` emails shoppers when a membership
+ends and 7 days and 1 day before. If #136 slips, keep the crons off.
+
 ## Database Migrations
 
 The database is Postgres on Supabase; [docs/DATABASE.md](./docs/DATABASE.md)

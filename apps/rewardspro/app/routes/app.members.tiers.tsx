@@ -604,9 +604,9 @@ export default function TiersPage() {
             <Banner title="Sell tier memberships as products" tone="info" icon={PackageIcon}>
               <BlockStack gap="200">
                 <p>
-                  Create Shopify products that customers can purchase to gain access to
-                  specific loyalty tiers. These products can be one-time purchases or
-                  recurring subscriptions.
+                  Create Shopify products that customers can buy to join a loyalty tier.
+                  Each is a one-time purchase that gives membership for one month, one
+                  year or a lifetime, and it doesn't renew automatically.
                 </p>
                 <Link to="/app/members/products">
                   <Button>Manage Tier Products</Button>

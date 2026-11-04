@@ -1332,7 +1332,8 @@ export default function SettingsPage() {
   const [autoAssignBaseTier, setAutoAssignBaseTier] = useState(settings.autoAssignBaseTier ?? true);
   const [defaultBaseTierId, setDefaultBaseTierId] = useState<string>(settings.defaultBaseTierId || "");
 
-  // Tier trial abuse prevention settings state
+  // Tier trial settings: saved unchanged but not shown, since nothing grants
+  // tier trials (memberships are one-time purchases)
   const [maxLifetimeTrialDays, setMaxLifetimeTrialDays] = useState<string>(String(settings.maxLifetimeTrialDays ?? 30));
   const [minDaysBetweenTrials, setMinDaysBetweenTrials] = useState<string>(String(settings.minDaysBetweenTrials ?? 30));
   const [allowMultipleTierTrials, setAllowMultipleTierTrials] = useState(settings.allowMultipleTierTrials ?? false);
@@ -2587,7 +2588,7 @@ export default function SettingsPage() {
                               Tier Priority (highest to lowest):
                             </Text>
                             <Text as="span" variant="bodySm" tone="subdued">
-                              Manual Override → Subscription → Purchase → Spending-Based → Default Base Tier
+                              Manual Override → Purchase → Spending-Based → Default Base Tier
                             </Text>
                             <Text as="span" variant="bodySm" tone="subdued">
                               The base tier only applies when no other tier source qualifies.
@@ -2603,71 +2604,6 @@ export default function SettingsPage() {
                           </Text>
                         </Banner>
                       )}
-
-                      <Divider />
-
-                      {/* Trial Abuse Prevention Section */}
-                      <BlockStack gap="200">
-                        <InlineStack gap="200" blockAlign="center">
-                          <Text as="h2" variant="headingMd">Trial Abuse Prevention</Text>
-                          <Badge tone="info">Protection</Badge>
-                        </InlineStack>
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          Control how tier subscription trials are granted to prevent abuse
-                        </Text>
-                      </BlockStack>
-
-                      <FormLayout>
-                        <Checkbox
-                          label="Allow multiple tier trials"
-                          checked={allowMultipleTierTrials}
-                          onChange={setAllowMultipleTierTrials}
-                          helpText="When enabled, customers can trial different tiers (one trial per tier). When disabled, customers get only one trial ever."
-                        />
-
-                        <FormLayout.Group>
-                          <TextField
-                            label="Maximum lifetime trial days"
-                            type="number"
-                            value={maxLifetimeTrialDays}
-                            onChange={setMaxLifetimeTrialDays}
-                            helpText="Total trial days a customer can accumulate across all tiers"
-                            min={7}
-                            max={90}
-                            suffix="days"
-                            autoComplete="off"
-                          />
-
-                          <TextField
-                            label="Minimum days between trials"
-                            type="number"
-                            value={minDaysBetweenTrials}
-                            onChange={setMinDaysBetweenTrials}
-                            helpText="Cooldown period before starting another tier trial"
-                            min={7}
-                            max={365}
-                            suffix="days"
-                            autoComplete="off"
-                          />
-                        </FormLayout.Group>
-                      </FormLayout>
-
-                      <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-                        <BlockStack gap="200">
-                          <Text as="span" variant="bodySm" fontWeight="semibold">
-                            How Trial Protection Works:
-                          </Text>
-                          <Text as="span" variant="bodySm" tone="subdued">
-                            • Customers are tracked for total trial days used across all tiers
-                          </Text>
-                          <Text as="span" variant="bodySm" tone="subdued">
-                            • The cooldown period prevents rapid trial switching between tiers
-                          </Text>
-                          <Text as="span" variant="bodySm" tone="subdued">
-                            • Trial grants are logged for audit and compliance purposes
-                          </Text>
-                        </BlockStack>
-                      </Box>
 
                       {/* Recalculate Confirmation Modal */}
                       <Modal
