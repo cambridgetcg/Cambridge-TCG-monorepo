@@ -5,7 +5,9 @@
  * 30-day recovery window. Also detects orphaned tier products (DB record
  * exists but Shopify product is missing).
  *
- * Schedule: Daily at 3 AM UTC
+ * It keeps a product while any membership bought from it is still ACTIVE.
+ *
+ * Schedule: Daily at 03:30 UTC (vercel.json: "30 3 * * *")
  * Endpoint: GET /api/cron/tier-product-cleanup
  *
  * @security Requires CRON_SECRET header

@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const db = vi.hoisted(() => ({
-  tierSubscription: { findMany: vi.fn(), update: vi.fn() },
-  tierPurchase: { findMany: vi.fn(), update: vi.fn() },
+  tierSubscription: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+  tierPurchase: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   emailEvent: { findFirst: vi.fn() },
   customer: { findMany: vi.fn() },
   tier: { findFirst: vi.fn() },
@@ -39,8 +39,33 @@ import { loader } from "~/routes/api.cron.tier-maintenance";
 const SHOP = "shop.myshopify.com";
 const daysFromNow = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
-const gold = { id: "tier-gold", name: "Gold", cashbackPercent: 5, pointsMultiplier: null, benefits: null };
-const silver = { id: "tier-silver", name: "Silver", cashbackPercent: 2, pointsMultiplier: null, benefits: null };
+const gold = { id: "tier-gold", name: "Gold", minSpend: 500, cashbackPercent: 5, pointsMultiplier: null, benefits: null };
+const silver = { id: "tier-silver", name: "Silver", minSpend: 100, cashbackPercent: 2, pointsMultiplier: null, benefits: null };
+
+/** A Gold membership that ran out yesterday */
+const endedGold = () => ({
+  id: "purchase-1",
+  shop: SHOP,
+  customerId: "customer-1",
+  tierId: gold.id,
+  status: "ACTIVE",
+  endDate: daysFromNow(-1),
+  customer: { email: "member@example.com", firstName: "Sam" },
+  tier: gold,
+});
+
+const resolvedTo = (newTierId: string | null) => ({
+  success: true,
+  changed: newTierId !== gold.id,
+  previousTierId: gold.id,
+  newTierId,
+  source: newTierId ? "SPENDING_BASED" : "NONE",
+});
+
+async function runCronForJson() {
+  const response = await runCron();
+  return { status: response.status, body: await response.json() };
+}
 
 function runCron() {
   return loader({
@@ -69,7 +94,7 @@ beforeEach(() => {
   db.customer.findMany.mockResolvedValue([]);
   email.sendTierExpirationWarningEmail.mockReset().mockResolvedValue({ success: true });
   email.sendTierExpiredEmail.mockReset().mockResolvedValue({ success: true });
-  tierResolution.updateCustomerToEffectiveTier.mockReset().mockResolvedValue({ changed: false });
+  tierResolution.updateCustomerToEffectiveTier.mockReset().mockResolvedValue({ success: true, changed: false, newTierId: null });
   cronLock.acquireCronLock.mockReset().mockResolvedValue({ acquired: true, lockId: "lock-1" });
   cronLock.releaseCronLock.mockReset().mockResolvedValue(undefined);
   cronLock.cleanupExpiredLocks.mockReset().mockResolvedValue(undefined);
@@ -137,5 +162,157 @@ describe("tier-maintenance cron", () => {
     expect(output).toContain("expiration warning");
     expect(output).toContain("Already sent");
     expect(output).not.toMatch(/@example\.com/);
+  });
+
+  it("sends no membership-ended email to a shopper who keeps the tier", async () => {
+    // Renewed, or a manual tier or their spending holds Gold
+    db.tierPurchase.findMany.mockResolvedValueOnce([endedGold()]);
+    tierResolution.updateCustomerToEffectiveTier.mockResolvedValue(resolvedTo(gold.id));
+
+    const { status, body } = await runCronForJson();
+
+    expect(status).toBe(200);
+    expect(db.tierPurchase.update).toHaveBeenCalledWith({ where: { id: "purchase-1" }, data: { status: "EXPIRED" } });
+    expect(email.sendTierExpiredEmail).not.toHaveBeenCalled();
+    expect(body.summary).toMatchObject({ expiredMemberships: 1, errorCount: 0 });
+  });
+
+  it("names the tier the shopper moves to when a membership ends", async () => {
+    db.tierPurchase.findMany.mockResolvedValueOnce([endedGold()]);
+    tierResolution.updateCustomerToEffectiveTier.mockResolvedValue(resolvedTo(silver.id));
+    db.tier.findFirst.mockResolvedValue({ name: silver.name });
+
+    await runCron();
+
+    expect(db.tier.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: silver.id, shop: SHOP } }));
+    expect(email.sendTierExpiredEmail).toHaveBeenCalledWith(
+      SHOP,
+      expect.objectContaining({ expiredTierName: "Gold", newTierName: "Silver" }),
+    );
+  });
+
+  it("says the membership was removed only when the shopper is left with no tier", async () => {
+    db.tierPurchase.findMany.mockResolvedValueOnce([endedGold()]);
+    tierResolution.updateCustomerToEffectiveTier.mockResolvedValue(resolvedTo(null));
+
+    await runCron();
+
+    expect(email.sendTierExpiredEmail).toHaveBeenCalledWith(SHOP, expect.objectContaining({ newTierName: null }));
+  });
+
+  it("puts a membership back to ACTIVE, counts an error, emails nobody and answers 500 when its tier can't be re-resolved", async () => {
+    db.tierPurchase.findMany.mockResolvedValueOnce([endedGold()]);
+    tierResolution.updateCustomerToEffectiveTier.mockResolvedValue({
+      success: false,
+      changed: false,
+      previousTierId: null,
+      newTierId: null,
+      source: "NONE",
+      error: "connection reset",
+    });
+
+    const { status, body } = await runCronForJson();
+
+    // A failed answer is what the cron monitor and Vercel's logs show as a
+    // failed run; a Slack alert needs SLACK_WEBHOOK_URL, which may not be set
+    expect(status).toBe(500);
+    expect(body.success).toBe(false);
+    expect(db.tierPurchase.update.mock.calls).toEqual([
+      [{ where: { id: "purchase-1" }, data: { status: "EXPIRED" } }],
+      [{ where: { id: "purchase-1" }, data: { status: "ACTIVE" } }],
+    ]);
+    expect(email.sendTierExpiredEmail).not.toHaveBeenCalled();
+    expect(body.summary).toMatchObject({ expiredMemberships: 0, errorCount: 1 });
+  });
+
+  it("puts a subscription back as it was when its tier can't be re-resolved", async () => {
+    const endDate = daysFromNow(-1);
+    db.tierSubscription.findMany.mockResolvedValueOnce([
+      { id: "subscription-1", shop: SHOP, customerId: "customer-1", endDate, customer: {}, tier: gold },
+    ]);
+    tierResolution.updateCustomerToEffectiveTier.mockResolvedValue({ success: false, error: "connection reset" });
+
+    const { body } = await runCronForJson();
+
+    expect(db.tierSubscription.update).toHaveBeenLastCalledWith({
+      where: { id: "subscription-1" },
+      data: { status: "ACTIVE", endDate },
+    });
+    expect(body.summary).toMatchObject({ expiredMemberships: 0, errorCount: 1 });
+  });
+
+  it("doesn't warn a shopper whose membership goes on through another one that lasts longer", async () => {
+    const ending = { ...endedGold(), endDate: daysFromNow(7), tierProduct: null };
+    db.tierPurchase.findMany
+      .mockResolvedValueOnce([]) // memberships that already ran out
+      .mockResolvedValueOnce([ending]) // 7 days left
+      .mockResolvedValueOnce([]); // 1 day left
+    // They bought Gold again, which ends in 37 days
+    db.tierPurchase.findFirst.mockResolvedValue({ id: "purchase-2" });
+
+    await runCron();
+
+    expect(db.tierPurchase.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          shop: SHOP,
+          customerId: "customer-1",
+          id: { not: "purchase-1" },
+          status: "ACTIVE",
+          tier: { is: { minSpend: { gte: gold.minSpend } } },
+          OR: [{ endDate: null }, { endDate: { gt: ending.endDate } }],
+        },
+      }),
+    );
+    expect(email.sendTierExpirationWarningEmail).not.toHaveBeenCalled();
+  });
+
+  it("doesn't warn a shopper with a subscription to the same or a higher tier that lasts longer", async () => {
+    const ending = { ...endedGold(), endDate: daysFromNow(1), tierProduct: null };
+    db.tierPurchase.findMany
+      .mockResolvedValueOnce([]) // memberships that already ran out
+      .mockResolvedValueOnce([]) // 7 days left
+      .mockResolvedValueOnce([ending]); // 1 day left
+    db.tierSubscription.findFirst.mockResolvedValue({ id: "subscription-1" });
+
+    await runCron();
+
+    expect(db.tierSubscription.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          shop: SHOP,
+          customerId: "customer-1",
+          status: "ACTIVE",
+          tier: { is: { minSpend: { gte: gold.minSpend } } },
+          OR: [{ endDate: null }, { endDate: { gt: ending.endDate } }],
+        },
+      }),
+    );
+    expect(email.sendTierExpirationWarningEmail).not.toHaveBeenCalled();
+  });
+
+  it("answers 500 when the whole job fails", async () => {
+    db.tierSubscription.findMany.mockRejectedValue(new Error("database unavailable"));
+
+    const response = await runCron();
+
+    expect(response.status).toBe(500);
+    expect(cronLock.releaseCronLock).toHaveBeenCalledWith("lock-1");
+  });
+
+  it("counts a tier mismatch as repaired only when the repair worked, newest mismatches first", async () => {
+    db.$queryRaw.mockResolvedValue([
+      { id: "customer-1", shop: SHOP, currentTierId: gold.id, effectiveTierId: silver.id },
+      { id: "customer-2", shop: SHOP, currentTierId: gold.id, effectiveTierId: null },
+    ]);
+    tierResolution.updateCustomerToEffectiveTier
+      .mockResolvedValueOnce(resolvedTo(silver.id))
+      .mockResolvedValueOnce({ success: false, error: "connection reset" });
+
+    const { body } = await runCronForJson();
+
+    expect(body.summary).toMatchObject({ consistencyRepairs: 1, errorCount: 1 });
+    const sql = (db.$queryRaw.mock.calls[0][0] as TemplateStringsArray).join("?");
+    expect(sql).toMatch(/ORDER BY c\."updatedAt" DESC, c\.id\s+LIMIT 100/);
   });
 });
