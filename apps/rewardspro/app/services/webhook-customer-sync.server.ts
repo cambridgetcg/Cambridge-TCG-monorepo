@@ -45,14 +45,27 @@ export interface ShopifyCustomerWebhook {
 }
 
 /**
- * Process a customers/create webhook
+ * Process a customers/create webhook: a shopper created after install, the
+ * only kind of customer the welcome email is for.
  */
 export async function handleCustomerCreate(
   payload: ShopifyCustomerWebhook,
   shopDomain: string
 ): Promise<{ action: string; customerId: string }> {
   console.log(`[CustomerSync] Processing customers/create for shop: ${shopDomain}`);
-  
+  return createCustomer(payload, shopDomain, { welcome: true });
+}
+
+/**
+ * Store a customer RewardsPro hasn't seen yet (or update the stored one).
+ * Customers first seen through customers/update or a bulk sync were already
+ * the store's customers, so they are stored without a welcome.
+ */
+async function createCustomer(
+  payload: ShopifyCustomerWebhook,
+  shopDomain: string,
+  { welcome }: { welcome: boolean }
+): Promise<{ action: string; customerId: string }> {
   const customerData = parseCustomerPayload(payload);
   
   // Check if customer already exists
@@ -106,45 +119,47 @@ export async function handleCustomerCreate(
     console.log(`[CustomerSync] Assigned tier ${tier.name} to customer ${customerId}`);
   }
 
-  // Send welcome email (non-blocking - errors won't fail the webhook)
-  try {
-    await sendWelcomeEmailNotification(
-      shopDomain,
-      {
-        id: customerId,
-        email: customerData.email,
-        firstName: customerData.firstName,
-        lastName: customerData.lastName,
-        shop: shopDomain,
-      },
-      tier ? {
-        id: tier.id,
-        name: tier.name,
-        cashbackPercent: tier.cashbackPercent,
-      } : null
-    );
-  } catch (emailError) {
-    // Log but don't fail the webhook
-    console.error(`[CustomerSync] Failed to send welcome email (non-fatal):`, emailError);
-  }
-
-  // Fire "welcome" automation trigger (non-blocking)
-  try {
-    if (customerData.email) {
-      await processAutomationTrigger({
-        type: "welcome",
-        shop: shopDomain,
-        customer: {
+  if (welcome) {
+    // Send welcome email (non-blocking - errors won't fail the webhook)
+    try {
+      await sendWelcomeEmailNotification(
+        shopDomain,
+        {
+          id: customerId,
           email: customerData.email,
           firstName: customerData.firstName,
           lastName: customerData.lastName,
-          customerId,
+          shop: shopDomain,
         },
-        data: tier ? { tierId: tier.id, tierName: tier.name } : undefined,
-      });
+        tier ? {
+          id: tier.id,
+          name: tier.name,
+          cashbackPercent: tier.cashbackPercent,
+        } : null
+      );
+    } catch (emailError) {
+      // Log but don't fail the webhook
+      console.error(`[CustomerSync] Failed to send welcome email (non-fatal):`, emailError);
     }
-  } catch (autoError) {
-    console.error(`[CustomerSync] Welcome automation trigger failed (non-fatal):`, autoError);
+
+    // Fire "welcome" automation trigger (non-blocking)
+    try {
+      if (customerData.email) {
+        await processAutomationTrigger({
+          type: "welcome",
+          shop: shopDomain,
+          customer: {
+            email: customerData.email,
+            firstName: customerData.firstName,
+            lastName: customerData.lastName,
+            customerId,
+          },
+          data: tier ? { tierId: tier.id, tierName: tier.name } : undefined,
+        });
+      }
+    } catch (autoError) {
+      console.error(`[CustomerSync] Welcome automation trigger failed (non-fatal):`, autoError);
+    }
   }
 
   // Sync to Klaviyo if enabled (non-blocking)
@@ -204,8 +219,8 @@ export async function handleCustomerUpdate(
   
   if (!existingCustomer) {
     console.log(`[CustomerSync] Customer not found, creating: ${customerData.shopifyCustomerId}`);
-    // Create if doesn't exist
-    return await handleCustomerCreate(payload, shopDomain);
+    // Create if doesn't exist: an existing customer, so no welcome
+    return await createCustomer(payload, shopDomain, { welcome: false });
   }
   
   return await updateCustomer(existingCustomer.id, customerData, shopDomain);
@@ -428,7 +443,7 @@ export async function syncBulkCustomers(
         await handleCustomerUpdate(customer, shopDomain);
         updated++;
       } else {
-        await handleCustomerCreate(customer, shopDomain);
+        await createCustomer(customer, shopDomain, { welcome: false });
         created++;
       }
     } catch (error) {
