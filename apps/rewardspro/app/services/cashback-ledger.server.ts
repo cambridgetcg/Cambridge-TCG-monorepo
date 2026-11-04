@@ -16,6 +16,8 @@
  * A claim records when it was made (claimedAt), so the reconciliation cron
  * can tell an entry still being sent from one whose sending is over, and ask
  * Shopify whether its credit arrived (services/stuck-cashback.server.ts).
+ * While a cashback entry is SYNCING its amount is what is sent: the cron
+ * compares the customer's credits in Shopify with it.
  */
 
 import { Prisma, type Order, type StoreCreditLedger } from "@prisma/client";
@@ -65,9 +67,11 @@ export async function lockOrder(tx: Prisma.TransactionClient, id: string): Promi
 
 /**
  * Leave a claimed (SYNCING) entry as it is after Shopify did not confirm
- * its credit or debit: Shopify may have applied it, so nothing may send it
- * again. The note tells the merchant (manualCashbackRefusal) and whoever
- * reconciles the shopper's balance in Shopify. One statement, like a claim.
+ * its credit or debit: Shopify may have applied it, so no writer sends it
+ * again. For cashback, the reconciliation cron later asks Shopify whether
+ * the credit arrived and moves the entry on (services/stuck-cashback.server.ts);
+ * a debit stays as it is. The note tells the merchant (manualCashbackRefusal)
+ * and that cron. One statement, like a claim.
  */
 export async function markUnconfirmed(id: string, error: string | undefined): Promise<void> {
   await noteSyncingEntry(id, { unconfirmedAt: new Date().toISOString(), lastError: error ?? "No answer from Shopify" });
@@ -165,9 +169,14 @@ const NOT_RECORDED = "No cashback was recorded for this order when it was paid, 
 const NOTHING_LEFT = "No cashback is left to issue for this order";
 const ALREADY_ISSUING = "Cashback for this order is already being issued or was issued";
 const UNCONFIRMED =
-  "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again";
+  "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. RewardsPro will check the customer's store credit in Shopify: if the credit arrived, it marks the cashback issued, and if it never did, the cashback can be issued again. Don't add it in Shopify by hand.";
 const NEEDS_REVIEW =
   "Shopify never confirmed this order's cashback, and its store credit history doesn't show whether the credit arrived. Check the customer's store credit in Shopify and add the cashback there if it's missing. RewardsPro won't send it again or take it back for refunds.";
+const CUSTOMER_GONE =
+  "The customer was deleted in Shopify, so RewardsPro can't tell whether this order's cashback arrived. Nothing more will be sent.";
+
+/** Why the reconciliation cron could not check an entry whose customer Shopify no longer has (metadata.reviewReason) */
+export const CUSTOMER_MISSING_REASON = "The customer no longer exists in Shopify";
 
 /**
  * Whether an order counts as refunded in full: Shopify says REFUNDED (a
@@ -197,7 +206,9 @@ export function manualCashbackRefusal(
   const metadata = jsonObject(entry.metadata);
   const status = metadata.syncStatus;
   // The reconciliation cron could not tell from Shopify whether it arrived
-  if (status === "SYNCING" && metadata.needsReview === true) return NEEDS_REVIEW;
+  if (status === "SYNCING" && metadata.needsReview === true) {
+    return metadata.reviewReason === CUSTOMER_MISSING_REASON ? CUSTOMER_GONE : NEEDS_REVIEW;
+  }
   if (status === "SYNCING" && typeof metadata.unconfirmedAt === "string") return UNCONFIRMED;
   if (status === "SYNCED" || status === "SYNCING") return ALREADY_ISSUING;
   // Fully reversed by refunds before it was issued
@@ -215,8 +226,10 @@ export function manualCashbackRefusal(
  * records what was actually issued, so later refunds reverse the right
  * amount. Without an `amount` it issues what the entry holds once claimed,
  * after any refunds so far; the merchant's `amount` may not exceed that.
- * When Shopify does not confirm the credit the entry stays SYNCING and is
- * refused from then on: the credit may have been applied.
+ * A smaller amount is recorded on the entry before Shopify is called, and
+ * put back only when Shopify turns it away. When Shopify does not confirm
+ * the credit the entry stays SYNCING, holding what was sent, and is refused
+ * until the reconciliation cron has asked Shopify whether it arrived.
  */
 export async function issueCashbackByHand({
   shop,
@@ -272,16 +285,6 @@ export async function issueCashbackByHand({
   }
   const due = (requested ?? claimed.amount).toNumber();
 
-  const result = await createStoreCreditService(admin, shop).issueStoreCredit(order.customer.shopifyCustomerId, due, currency, reason);
-  if (!result.success && result.ambiguous) {
-    await markUnconfirmed(entry.id, result.error);
-    return { success: false, error: UNCONFIRMED };
-  }
-  if (!result.success) {
-    await release();
-    return { success: false, error: result.error || "Failed to add store credit" };
-  }
-
   // Later refunds reverse shares of the cashback as first recorded
   // (refund-handler.server.ts). Issuing less than is due scales that by the
   // part issued, so a refund takes back its share of what the shopper got.
@@ -289,9 +292,39 @@ export async function issueCashbackByHand({
   const recordedOriginal = claimedMetadata.originalAmount;
   const original =
     typeof recordedOriginal === "string" || typeof recordedOriginal === "number" ? new Prisma.Decimal(recordedOriginal) : claimed.amount;
-  const issuedOriginal = claimed.amount.gt(due)
+  const issuingLess = claimed.amount.gt(due);
+  const issuedOriginal = issuingLess
     ? { originalAmount: original.times(due).dividedBy(claimed.amount).toDecimalPlaces(2).toFixed(2) }
     : {};
+
+  // The entry holds what is sent before Shopify is called: when Shopify's
+  // answer is unclear, the reconciliation cron compares the customer's
+  // credits with it, and sends it again only if none arrived
+  // (stuck-cashback.server.ts). Refunds wait while it is claimed, so the
+  // order's cashback read now is what to put back if Shopify refuses.
+  let putBack: () => Promise<unknown> = release;
+  if (issuingLess) {
+    const { cashbackAmount } = await prisma.order.findUniqueOrThrow({ where: { id: order.id }, select: { cashbackAmount: true } });
+    await prisma.$transaction([
+      prisma.storeCreditLedger.update({ where: { id: entry.id }, data: { amount: due, metadata: { ...claimedMetadata, ...issuedOriginal } } }),
+      prisma.order.update({ where: { id: order.id }, data: { cashbackAmount: due } }),
+    ]);
+    putBack = () =>
+      prisma.$transaction([
+        prisma.storeCreditLedger.update({ where: { id: entry.id }, data: { amount: claimed.amount, metadata: { ...claimedMetadata, syncStatus: "PENDING" } } }),
+        prisma.order.update({ where: { id: order.id }, data: { cashbackAmount } }),
+      ]);
+  }
+
+  const result = await createStoreCreditService(admin, shop).issueStoreCredit(order.customer.shopifyCustomerId, due, currency, reason);
+  if (!result.success && result.ambiguous) {
+    await markUnconfirmed(entry.id, result.error);
+    return { success: false, error: UNCONFIRMED };
+  }
+  if (!result.success) {
+    await putBack();
+    return { success: false, error: result.error || "Failed to add store credit" };
+  }
 
   const balance = result.balance ?? Number(order.customer.storeCredit) + due;
   const now = new Date();

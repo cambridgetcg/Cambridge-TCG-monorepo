@@ -83,6 +83,15 @@ describe("judgeStuckCashback (did a credit Shopify never confirmed arrive?)", ()
       // 08:30 is when the entry was recorded: a credit after it may be this one
       expect(judge([credit(-600)], { metadata: seenOnly })).toMatchObject({ outcome: "unknown" });
     });
+
+    it("never says it did not arrive when a smaller credit came, since nothing recorded what a hand issue sent", () => {
+      // The Orders page could send less than the entry held and leave the entry as it was
+      const answered = { unconfirmedAt: at(20).toISOString() };
+      expect(judge([credit(10, "3.00")], { metadata: answered })).toMatchObject({ outcome: "unknown" });
+      expect(judge([credit(-600, "3.00")], { metadata: { syncingSeenAt: at(7200).toISOString() } })).toMatchObject({ outcome: "unknown" });
+      // A larger credit cannot be this one
+      expect(judge([credit(10, "6.00")], { metadata: answered })).toEqual({ outcome: "not_landed" });
+    });
   });
 });
 

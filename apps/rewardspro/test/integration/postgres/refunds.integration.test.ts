@@ -18,7 +18,7 @@ const SHOPIFY_ORDER = 7770001;
 const NOT_RECORDED = "No cashback was recorded for this order when it was paid, so there is none to issue";
 const HISTORY_RECORD = "This order's cashback is a record imported with the order history, not cashback waiting to be issued";
 const UNCONFIRMED =
-  "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again";
+  "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. RewardsPro will check the customer's store credit in Shopify: if the credit arrived, it marks the cashback issued, and if it never did, the cashback can be issued again. Don't add it in Shopify by hand.";
 
 /** A paid £100 order with £5.00 cashback, issued (SYNCED) or still pending. */
 async function seedOrder({ cashback = "issued" }: { cashback?: "issued" | "pending" } = {}) {
@@ -718,15 +718,44 @@ describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
       expect(refunded.totalRefunded.toFixed(2)).toBe("40.00");
       expect(await clawbacks()).toMatchObject([{ metadata: { syncStatus: "HELD", reversalAmount: "2.00" } }]);
       expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 5.00"]);
+      // The Orders page's "Process Adjustment" learns why it waits
+      const [held] = await clawbacks();
+      const { admin } = await unauthenticated.admin(SHOP);
+      await expect(settleRefundClawback(held.id, { shop: SHOP, admin })).resolves.toMatchObject({ settled: false, held: true });
+      // Each run counts the reversals waiting
+      await expect(runReconciliation()).resolves.toMatchObject({ stuck: { checked: 0, heldClawbacks: 1 } });
 
       await backdateClaim(entry.id, 60, history);
-      await expect(runReconciliation()).resolves.toMatchObject({ stuck: { issued: 1 } });
+      await expect(runReconciliation()).resolves.toMatchObject({ stuck: { issued: 1, heldClawbacks: 0 } });
       await runReconciliation();
 
       expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 5.00", "debit 2.00"]);
       expect(balances[SHOPIFY_CUSTOMER]).toBe(3);
       expect((await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } })).metadata).toMatchObject({ syncStatus: "SYNCED" });
       expect(await clawbacks()).toMatchObject([{ metadata: { syncStatus: "SYNCED", debitedAmount: "2.00" }, refund: { cashbackProcessed: true } }]);
+    });
+
+    it("takes back a released reversal on a later run when Shopify turned the first debit away", async () => {
+      const { order, entry } = await seedOrder({ cashback: "pending" });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const history = creditHistory();
+      const balances = { [SHOPIFY_CUSTOMER]: 0 };
+      mockStoreCredit(SHOP, balances, { unanswered: 1, history });
+      await expect(issueByHand(order.id)).resolves.toEqual({ success: false, error: UNCONFIRMED });
+      expect((await deliverRefund(refundPayload(1, "40.00"))).status).toBe(200);
+      await backdateClaim(entry.id, 60, history);
+      // Shopify turns the first debit away; nothing else would try it again
+      const calls = mockStoreCredit(SHOP, balances, { throttled: 1, history });
+
+      await expect(runReconciliation()).resolves.toMatchObject({ stuck: { issued: 1, clawbacksSettled: 0 } });
+      expect(balances[SHOPIFY_CUSTOMER]).toBe(5);
+      await expect(runReconciliation()).resolves.toMatchObject({ stuck: { clawbacksSettled: 1 } });
+      await runReconciliation();
+
+      // Turned away, then applied once
+      expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["debit 2.00", "debit 2.00"]);
+      expect(balances[SHOPIFY_CUSTOMER]).toBe(3);
+      expect(await clawbacks()).toMatchObject([{ metadata: { syncStatus: "SYNCED", debitedAmount: "2.00" } }]);
     });
 
     it("issues only what a refund left once the cron finds the credit never arrived", async () => {

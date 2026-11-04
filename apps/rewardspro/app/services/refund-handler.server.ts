@@ -496,6 +496,8 @@ export interface ClawbackSettlement {
   unrecovered: Prisma.Decimal;
   /** Not settled because Shopify never confirmed an earlier debit of it */
   unconfirmed: boolean;
+  /** Not settled because it waits until RewardsPro knows whether its order's cashback arrived (HELD) */
+  held: boolean;
 }
 
 /**
@@ -520,9 +522,11 @@ export async function settleRefundClawback(
     },
   });
   if (!entry) throw new Error(`Clawback entry ${entryId} not found`);
-  const idle: ClawbackSettlement = { settled: false, debited: ZERO, unrecovered: ZERO, unconfirmed: false };
+  const idle: ClawbackSettlement = { settled: false, debited: ZERO, unrecovered: ZERO, unconfirmed: false, held: false };
   const current = jsonObject(entry.metadata);
-  if (current.syncStatus !== "PENDING") return { ...idle, unconfirmed: typeof current.unconfirmedAt === "string" };
+  if (current.syncStatus !== "PENDING") {
+    return { ...idle, unconfirmed: typeof current.unconfirmedAt === "string", held: current.syncStatus === "HELD" };
+  }
   if (!admin) throw new RefundRetryableError(`No Shopify session for ${shop}; cannot debit store credit`);
   if (!(await claimLedgerEntry(entry.id))) return idle;
 
@@ -607,5 +611,5 @@ export async function settleRefundClawback(
   if (unrecovered.gt(0)) {
     console.warn(`${LOG_PREFIX} Clawback ${entry.id}: ${unrecovered.toFixed(2)} ${currency} was already spent and could not be debited`);
   }
-  return { settled: true, debited: debit, unrecovered, unconfirmed: false };
+  return { settled: true, debited: debit, unrecovered, unconfirmed: false, held: false };
 }

@@ -305,7 +305,8 @@ describe.skipIf(!hasTestDatabase)("orders/paid on Postgres", () => {
 
     expect((await deliver("wh-5", paidOrder({ id: 5550005 }))).status).toBe(200);
     const [entry] = await prisma.storeCreditLedger.findMany({ where: { customerId: customer.id } });
-    expect(entry.metadata).toMatchObject({ syncStatus: "SYNCING", unconfirmedAt: expect.any(String) });
+    // Created claimed, so it records when: the cron can tell when sending it was over
+    expect(entry.metadata).toMatchObject({ syncStatus: "SYNCING", claimedAt: expect.any(String), unconfirmedAt: expect.any(String) });
     await expect(prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550005" } })).resolves.toMatchObject({ cashbackProcessed: false });
 
     // The reconciliation cron's next run, once the entry is old enough

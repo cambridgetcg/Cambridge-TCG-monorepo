@@ -2,8 +2,9 @@ import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
 import { loader as reconcile } from "~/routes/api.cron.cashback-reconciliation";
-import { claimLedgerEntry, manualCashbackRefusal } from "~/services/cashback-ledger.server";
+import { claimLedgerEntry, issueCashbackByHand, manualCashbackRefusal } from "~/services/cashback-ledger.server";
 import { recordRefund } from "~/services/refund-handler.server";
+import { unauthenticated } from "~/shopify.server";
 import { hasTestDatabase, resetDatabase } from "./database";
 import { backdateClaim, creditHistory, mockStoreCredit, seedOfflineSession } from "./shopify";
 
@@ -12,11 +13,11 @@ const MANUAL_SHOP = "auto-off.myshopify.com";
 const CRON_SECRET = "cron-secret-for-tests";
 
 /** A shop with one order whose £5.00 cashback is PENDING (created 10 minutes ago). */
-async function seedShop(shop: string, autoCashbackProcessingEnabled: boolean) {
+async function seedShop(shop: string, autoCashbackProcessingEnabled: boolean, { session = true }: { session?: boolean } = {}) {
   await prisma.shopSettings.create({
     data: { shop, storeName: shop, storeUrl: `https://${shop}`, storeCurrency: "GBP", autoCashbackProcessingEnabled },
   });
-  await seedOfflineSession(shop);
+  if (session) await seedOfflineSession(shop);
   const customer = await prisma.customer.create({ data: { shop, shopifyCustomerId: "100", email: `a@${shop}` } });
   const order = await prisma.order.create({
     data: {
@@ -53,6 +54,21 @@ async function seedShop(shop: string, autoCashbackProcessingEnabled: boolean) {
     },
   });
   return { order, entry };
+}
+
+/** The Orders page issuing an order's cashback; `amount` is the merchant's own. */
+async function issueByHand(shop: string, orderId: string, amount?: number) {
+  const { admin } = await unauthenticated.admin(shop);
+  return issueCashbackByHand({ shop, admin, orderId, amount, currency: "GBP", reason: "Loyalty reward" });
+}
+
+/** The cron's own log lines (JSON), parsed */
+function cronLog() {
+  return vi
+    .mocked(console.log)
+    .mock.calls.map(([message]) => String(message))
+    .filter((message) => message.startsWith("{"))
+    .map((message) => JSON.parse(message));
 }
 
 function run() {
@@ -280,8 +296,10 @@ describe.skipIf(!hasTestDatabase)("cashback reconciliation cron on Postgres", ()
       history.credits.push({ ...history.credits[0], id: "gid://shopify/StoreCreditAccountCreditTransaction/999" });
       await backdateClaim(entry.id, 60, history);
 
-      await expect((await run()).json()).resolves.toMatchObject({ stuck: { checked: 1, needsReview: 1 } });
-      await run();
+      await expect((await run()).json()).resolves.toMatchObject({ stuck: { checked: 1, needsReview: 1, awaitingReview: 1 } });
+      // Every run still counts it, and says so for its shop
+      await expect((await run()).json()).resolves.toMatchObject({ stuck: { checked: 0, needsReview: 0, awaitingReview: 1 } });
+      expect(cronLog().filter((line) => line.shop === AUTO_SHOP && line.awaitingReview === 1).at(-1)).toMatchObject({ level: "warn" });
 
       expect(history.reads).toBe(1);
       expect(calls).toHaveLength(1);
@@ -289,6 +307,126 @@ describe.skipIf(!hasTestDatabase)("cashback reconciliation cron on Postgres", ()
       expect(kept.metadata).toMatchObject({ syncStatus: "SYNCING", needsReview: true });
       const orderRow = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
       expect(manualCashbackRefusal(orderRow, kept)).toMatch(/^Shopify never confirmed this order's cashback/);
+    });
+
+    describe("cashback the merchant issued by hand, less than was due", () => {
+      it("marks what was sent issued when Shopify applied it though its answer was lost, and sends nothing more", async () => {
+        const { order, entry } = await seedShop(AUTO_SHOP, true);
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        const history = creditHistory();
+        const balances = { "100": 0 };
+        const calls = mockStoreCredit(AUTO_SHOP, balances, { unanswered: 1, history });
+        // £5.00 is due; the merchant issues £3.00 from the Orders page
+        await expect(issueByHand(AUTO_SHOP, order.id, 3)).resolves.toMatchObject({ success: false });
+        await backdateClaim(entry.id, 60, history);
+
+        await expect((await run()).json()).resolves.toMatchObject({ stuck: { checked: 1, issued: 1 } });
+        await run();
+
+        expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 3.00"]);
+        expect(balances["100"]).toBe(3);
+        const issued = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+        expect(issued.amount.toFixed(2)).toBe("3.00");
+        // A later refund takes back its share of the 3.00 the shopper got
+        expect(issued.metadata).toMatchObject({ syncStatus: "SYNCED", shopifyTransactionId: history.credits[0].id, originalAmount: "3.00" });
+        expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).cashbackAmount?.toFixed(2)).toBe("3.00");
+      });
+
+      it("sends only what the merchant chose again when that credit never arrived", async () => {
+        const { order, entry } = await seedShop(AUTO_SHOP, true);
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        const history = creditHistory();
+        const balances = { "100": 0 };
+        const calls = mockStoreCredit(AUTO_SHOP, balances, { unanswered: 1, history });
+        await expect(issueByHand(AUTO_SHOP, order.id, 3)).resolves.toMatchObject({ success: false });
+        // This time Shopify applied nothing (the mock applies a credit before losing its answer)
+        history.credits.length = 0;
+        balances["100"] = 0;
+        await backdateClaim(entry.id, 60, history);
+
+        await expect((await run()).json()).resolves.toMatchObject({ stuck: { checked: 1, returned: 1 }, synced: 1 });
+
+        expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 3.00", "credit 3.00"]);
+        expect(balances["100"]).toBe(3);
+        const issued = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+        expect(issued.amount.toFixed(2)).toBe("3.00");
+        expect(issued.metadata).toMatchObject({ syncStatus: "SYNCED" });
+      });
+
+      it("puts back all that was due when Shopify turns the smaller credit away (control)", async () => {
+        const { order, entry } = await seedShop(MANUAL_SHOP, false);
+        const calls = mockStoreCredit(MANUAL_SHOP, { "100": 0 }, { throttled: 1 });
+
+        await expect(issueByHand(MANUAL_SHOP, order.id, 3)).resolves.toEqual({ success: false, error: "Throttled" });
+
+        const refused = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+        expect(refused.amount.toFixed(2)).toBe("5.00");
+        expect(refused.metadata).toMatchObject({ syncStatus: "PENDING" });
+        expect(refused.metadata).not.toHaveProperty("originalAmount");
+        expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).cashbackAmount?.toFixed(2)).toBe("5.00");
+        await expect(issueByHand(MANUAL_SHOP, order.id)).resolves.toMatchObject({ success: true, amount: 5 });
+        expect(calls.map((c) => c.amount)).toEqual(["3.00", "5.00"]);
+      });
+    });
+
+    it("keeps reaching new entries however many wait for the merchant to check", async () => {
+      const { order, entry } = await seedShop(AUTO_SHOP, true);
+      // More entries than one run looks at, older, all needing the merchant
+      const old = new Date(Date.now() - 2 * 24 * 60 * 60_000);
+      await prisma.storeCreditLedger.createMany({
+        data: Array.from({ length: 201 }, () => ({
+          shop: AUTO_SHOP,
+          customerId: order.customerId,
+          type: "CASHBACK_EARNED" as const,
+          amount: 1,
+          balance: 1,
+          metadata: { syncStatus: "SYNCING", claimedAt: old.toISOString(), needsReview: true },
+          createdAt: old,
+        })),
+      });
+      await claimLedgerEntry(entry.id);
+      const history = creditHistory();
+      const calls = mockStoreCredit(AUTO_SHOP, { "100": 0 }, { history });
+      await backdateClaim(entry.id, 60, history);
+
+      await expect((await run()).json()).resolves.toMatchObject({ stuck: { checked: 1, returned: 1, awaitingReview: 201 } });
+      expect(calls.map((c) => c.amount)).toEqual(["5.00"]);
+    });
+
+    it("settles a refund reversal released earlier, however many other reversals are pending", async () => {
+      // Automatic cashback off: this run sends no cashback
+      const { order } = await seedShop(MANUAL_SHOP, false);
+      const clawback = (metadata: Record<string, unknown>, createdAt: Date) => ({
+        shop: MANUAL_SHOP,
+        customerId: order.customerId,
+        orderId: order.id,
+        type: "REFUND_CLAWBACK" as const,
+        amount: -1,
+        balance: 0,
+        metadata: { syncStatus: "PENDING", reversalAmount: "1.00", ...metadata },
+        createdAt,
+      });
+      // Reversals whose refunds/create gave up, recorded before and after the released one
+      const gaveUp = () => prisma.storeCreditLedger.createMany({ data: Array.from({ length: 300 }, () => clawback({}, new Date(Date.now() - 60 * 60_000))) });
+      await gaveUp();
+      await prisma.storeCreditLedger.create({ data: clawback({ releasedAt: new Date().toISOString() }, new Date()) });
+      await gaveUp();
+      const balances = { "100": 5 };
+      const calls = mockStoreCredit(MANUAL_SHOP, balances);
+
+      await expect((await run()).json()).resolves.toMatchObject({ stuck: { clawbacksSettled: 1 } });
+      expect(calls).toEqual([{ operation: "debit", customerId: "100", amount: "1.00", currency: "GBP" }]);
+    });
+
+    it("moves an entry of a shop it cannot reach to the back of the queue", async () => {
+      const { entry } = await seedShop(MANUAL_SHOP, false, { session: false });
+      await claimLedgerEntry(entry.id);
+      await backdateClaim(entry.id, 60);
+
+      await expect((await run()).json()).resolves.toMatchObject({ stuck: { failed: 1 } });
+
+      const waiting = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+      expect(waiting.metadata).toMatchObject({ syncStatus: "SYNCING", lastCheckedAt: expect.any(String), lastCheckError: expect.any(String) });
     });
 
     it("waits for a claim made before claims were timed, then checks it", async () => {

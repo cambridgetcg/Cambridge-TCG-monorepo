@@ -32,7 +32,7 @@ const CUSTOMER = "100";
 const ORDER = 4440001;
 const CRON_SECRET = "store-credit-answers-cron";
 const UNCONFIRMED =
-  "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again";
+  "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. RewardsPro will check the customer's store credit in Shopify: if the credit arrived, it marks the cashback issued, and if it never did, the cashback can be issued again. Don't add it in Shopify by hand.";
 
 const ANSWERS: Array<[string, { internalErrors: number } | { badGateways: number }]> = [
   ["200 with INTERNAL_SERVER_ERROR", { internalErrors: 1 }],

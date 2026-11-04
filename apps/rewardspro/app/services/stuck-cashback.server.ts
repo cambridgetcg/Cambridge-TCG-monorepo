@@ -9,7 +9,8 @@
  *
  * Once the claim is over (CLAIM_FINISHED_MS), the reconciliation cron reads
  * the customer's store credit history in Shopify. The credit carries no
- * reference of ours, so its amount and time are the evidence
+ * reference of ours, so its amount and time are the evidence; a SYNCING
+ * entry's amount is what was sent (services/cashback-ledger.server.ts)
  * (judgeStuckCashback):
  * - No credit of that amount since the claim: it never arrived. The entry
  *   goes back to PENDING, less what held refunds took, and is sent again like
@@ -28,13 +29,22 @@
 
 import { Prisma, type StoreCreditLedger } from "@prisma/client";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
-import prisma from "~/db.server";
+import prisma, { databaseSchema } from "~/db.server";
 import { jsonObject } from "~/utils/json-object";
-import { CLAIM_FINISHED_MS, claimStartedAt, lockLedgerEntry, lockOrder, noteSyncingEntry, parseTime } from "./cashback-ledger.server";
+import {
+  CLAIM_FINISHED_MS,
+  CUSTOMER_MISSING_REASON,
+  claimStartedAt,
+  lockLedgerEntry,
+  lockOrder,
+  noteSyncingEntry,
+  parseTime,
+} from "./cashback-ledger.server";
 import { settleRefundClawback } from "./refund-handler.server";
 
 const ZERO = new Prisma.Decimal(0);
 const CHECKED_BY = "cashback-reconciliation-cron";
+const ledgerTable = () => Prisma.raw(`"${databaseSchema}"."StoreCreditLedger"`);
 
 /** How far apart the app's and Shopify's clocks may be */
 export const CLOCK_SLACK_MS = 5 * 60 * 1000;
@@ -44,6 +54,9 @@ export const SEND_WINDOW_MS = 15 * 60 * 1000;
 export const REVIEW_AFTER_MS = 24 * 60 * 60 * 1000;
 /** Store credit histories read per run */
 const MAX_CHECKS_PER_RUN = 20;
+/** SYNCING entries looked at per run, and released clawbacks debited per run */
+const MAX_SYNCING_PER_RUN = 200;
+const MAX_RELEASED_PER_RUN = 100;
 
 /** The Admin API client, as far as this module uses it */
 export interface GraphqlClient {
@@ -221,6 +234,9 @@ export type StuckCashbackVerdict =
  * exactly one credit of that amount in the shop's currency made while the
  * entry was being sent, when no other RewardsPro credit of that amount went
  * to the customer around then (`ownCreditTimes`). Otherwise "unknown".
+ * Before claims were timed, the Orders page could send less than the entry
+ * held and leave the entry as it was, so for such a claim any smaller credit
+ * since may be this one: never "not_landed" then.
  */
 export function judgeStuckCashback({
   entry,
@@ -235,14 +251,20 @@ export function judgeStuckCashback({
   ownCreditTimes: Date[];
 }): StuckCashbackVerdict {
   const since = historyStart(entry);
-  const sameAmount = history.credits.filter((credit) => credit.amount.equals(entry.amount) && credit.createdAt >= since);
+  const metadata = jsonObject(entry.metadata);
+  const sinceClaim = history.credits.filter((credit) => credit.createdAt >= since);
+  const sameAmount = sinceClaim.filter((credit) => credit.amount.equals(entry.amount));
   if (sameAmount.length === 0) {
-    return history.complete
-      ? { outcome: "not_landed" }
-      : { outcome: "unknown", reason: "Shopify's store credit history for this customer is too long to read back to when it was sent" };
+    if (!history.complete) {
+      return { outcome: "unknown", reason: "Shopify's store credit history for this customer is too long to read back to when it was sent" };
+    }
+    if (parseTime(metadata.claimedAt) === null && sinceClaim.some((credit) => credit.amount.lt(entry.amount))) {
+      return { outcome: "unknown", reason: "Shopify holds a smaller credit made since this was sent, and nothing records how much was sent" };
+    }
+    return { outcome: "not_landed" };
   }
 
-  const window = sendWindow(jsonObject(entry.metadata));
+  const window = sendWindow(metadata);
   if (!window) return { outcome: "unknown", reason: "Shopify holds a credit of this amount, and nothing records when this one was sent" };
   const candidates = sameAmount.filter(
     (credit) => credit.createdAt >= window.from && credit.createdAt <= window.to && (!shopCurrency || credit.currency === shopCurrency),
@@ -423,7 +445,7 @@ export async function checkStuckCashback(
   }
   const verdict: StuckCashbackVerdict =
     read.status === "customer_missing"
-      ? { outcome: "unknown", reason: "The customer no longer exists in Shopify" }
+      ? { outcome: "unknown", reason: CUSTOMER_MISSING_REASON }
       : judgeStuckCashback({ entry, history: read.history, shopCurrency, ownCreditTimes: await otherCreditTimes(entry) });
 
   if (verdict.outcome === "landed") {
@@ -458,6 +480,10 @@ export interface StuckCashbackSummary {
   failed: number;
   /** Clawbacks released earlier and debited now */
   clawbacksSettled: number;
+  /** After this run, in every shop: entries left for the merchant to check (needsReview) */
+  awaitingReview: number;
+  /** After this run, in every shop: refund reversals HELD until their cashback is known */
+  heldClawbacks: number;
 }
 
 type Log = (level: string, message: string, data?: Record<string, unknown>) => void;
@@ -468,7 +494,8 @@ type Log = (level: string, message: string, data?: Record<string, unknown>) => v
  * at most MAX_CHECKS_PER_RUN a run, least recently checked first. An entry
  * claimed before claims were timed is marked seen and checked from then.
  * Clawbacks released by an earlier run that Shopify turned away are debited
- * again first.
+ * again first. Each run also counts, per shop, the entries left for the
+ * merchant to check and the refund reversals held on entries.
  */
 export async function reconcileStuckCashback({
   now,
@@ -479,7 +506,17 @@ export async function reconcileStuckCashback({
   adminFor: (shop: string) => Promise<AdminApiContext>;
   log: Log;
 }): Promise<StuckCashbackSummary> {
-  const summary: StuckCashbackSummary = { checked: 0, issued: 0, returned: 0, needsReview: 0, waiting: 0, failed: 0, clawbacksSettled: 0 };
+  const summary: StuckCashbackSummary = {
+    checked: 0,
+    issued: 0,
+    returned: 0,
+    needsReview: 0,
+    waiting: 0,
+    failed: 0,
+    clawbacksSettled: 0,
+    awaitingReview: 0,
+    heldClawbacks: 0,
+  };
   const admins = new Map<string, AdminApiContext | null>();
   const adminOf = async (shop: string) => {
     if (!admins.has(shop)) {
@@ -493,12 +530,15 @@ export async function reconcileStuckCashback({
     return admins.get(shop) ?? null;
   };
 
-  const released = await prisma.storeCreditLedger.findMany({
-    where: { type: "REFUND_CLAWBACK", metadata: { path: ["syncStatus"], equals: "PENDING" } },
-    select: { id: true, shop: true, metadata: true },
-    take: 100,
-  });
-  for (const clawback of released.filter((row) => typeof jsonObject(row.metadata).releasedAt === "string")) {
+  // Filtered in SQL: PENDING clawbacks whose refunds/create gave up, and
+  // entries left for the merchant, stay as they are and must not crowd out
+  // the ones this pass can move on
+  const released = await prisma.$queryRaw<Array<{ id: string; shop: string }>>`
+    SELECT "id", "shop" FROM ${ledgerTable()}
+    WHERE "type" = 'REFUND_CLAWBACK' AND "metadata"->>'syncStatus' = 'PENDING' AND "metadata"->>'releasedAt' IS NOT NULL
+    ORDER BY "createdAt" ASC
+    LIMIT ${MAX_RELEASED_PER_RUN}`;
+  for (const clawback of released) {
     const admin = await adminOf(clawback.shop);
     if (!admin) continue;
     await settleReleasedClawback(clawback.id, clawback.shop, admin);
@@ -506,16 +546,15 @@ export async function reconcileStuckCashback({
     if (jsonObject(after.metadata).syncStatus === "SYNCED") summary.clawbacksSettled++;
   }
 
-  const syncing = await prisma.storeCreditLedger.findMany({
-    where: { type: "CASHBACK_EARNED", metadata: { path: ["syncStatus"], equals: "SYNCING" } },
-    select: { id: true, shop: true, metadata: true },
-    orderBy: { createdAt: "asc" },
-    take: 200,
-  });
+  const syncing = await prisma.$queryRaw<Array<{ id: string; shop: string; metadata: Prisma.JsonValue }>>`
+    SELECT "id", "shop", "metadata" FROM ${ledgerTable()}
+    WHERE "type" = 'CASHBACK_EARNED' AND "metadata"->>'syncStatus' = 'SYNCING'
+      AND ("metadata"->>'needsReview') IS DISTINCT FROM 'true'
+    ORDER BY "createdAt" ASC
+    LIMIT ${MAX_SYNCING_PER_RUN}`;
   const due: Array<{ id: string; shop: string; lastCheckedAt: number }> = [];
   for (const entry of syncing) {
     const metadata = jsonObject(entry.metadata);
-    if (metadata.needsReview === true) continue;
     const started = claimStartedAt(metadata);
     if (!started) {
       // Claimed before claims were timed: wait as long from now
@@ -537,6 +576,8 @@ export async function reconcileStuckCashback({
   for (const { id, shop } of due.slice(0, MAX_CHECKS_PER_RUN)) {
     const admin = await adminOf(shop);
     if (!admin) {
+      // To the back of the queue, so entries of shops it can reach are checked
+      await noteSyncingEntry(id, { lastCheckedAt: now.toISOString(), lastCheckError: "No Admin API session for the shop" });
       summary.failed++;
       continue;
     }
@@ -549,6 +590,34 @@ export async function reconcileStuckCashback({
       summary.failed++;
       log("error", `Could not check cashback entry ${id} with Shopify`, { shop, error: error instanceof Error ? error.message : String(error) });
     }
+  }
+
+  // What still waits, every run, not only the run that left it waiting
+  const [awaitingReview, held] = await Promise.all([
+    prisma.storeCreditLedger.groupBy({
+      by: ["shop"],
+      where: { type: "CASHBACK_EARNED", AND: [{ metadata: { path: ["syncStatus"], equals: "SYNCING" } }, { metadata: { path: ["needsReview"], equals: true } }] },
+      _count: { _all: true },
+    }),
+    prisma.storeCreditLedger.groupBy({
+      by: ["shop"],
+      where: { type: "REFUND_CLAWBACK", metadata: { path: ["syncStatus"], equals: "HELD" } },
+      _count: { _all: true },
+    }),
+  ]);
+  for (const group of awaitingReview) {
+    summary.awaitingReview += group._count._all;
+    log("warn", `${group._count._all} cashback entries Shopify never confirmed wait for the merchant to check the customer's store credit in Shopify`, {
+      shop: group.shop,
+      awaitingReview: group._count._all,
+    });
+  }
+  for (const group of held) {
+    summary.heldClawbacks += group._count._all;
+    log("info", `${group._count._all} refund reversals wait until RewardsPro knows whether their order's cashback arrived`, {
+      shop: group.shop,
+      heldClawbacks: group._count._all,
+    });
   }
   return summary;
 }
