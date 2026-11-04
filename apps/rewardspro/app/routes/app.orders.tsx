@@ -41,8 +41,8 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { issueCashbackByHand, manualCashbackRefusal } from "../services/cashback-ledger.server";
 import { settleRefundClawback } from "../services/refund-handler.server";
-import { getShopSettings } from "../services/shop-data-provider.server";
 import { formatCurrency, type ShopSettings } from "../utils/currency";
+import { cashbackRateUsed, cashbackTierUsed, orderCustomerName } from "../utils/orders-page-display";
 import type { Decimal } from "@prisma/client/runtime/library";
 import { useToast } from "../hooks/useToast";
 import { privacySafeConsole } from "~/utils/pii-masker";
@@ -60,6 +60,8 @@ interface Order {
   customer: {
     id: string;
     email: string;
+    firstName: string | null;
+    lastName: string | null;
     shopifyCustomerId: string;
     storeCredit: Decimal;
     currentTier: {
@@ -81,6 +83,9 @@ interface Order {
   /** Why they cannot (manualCashbackRefusal), or null */
   cashbackRefusal: string | null;
   cashbackPercent: number | null;
+  /** The rate and tier the cashback was worked out at (utils/orders-page-display.ts) */
+  cashbackRateUsed: number | null;
+  cashbackTierUsed: string | null;
   financialStatus: string;
   fulfillmentStatus: string | null;
   tierNameAtOrder: string | null;
@@ -356,11 +361,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }));
 
     console.log('[Orders Loader] Fetching shop settings...');
-    // Fetch shop settings (CACHED via shop-data-provider)
+    // Read from the row itself, not the 15-minute settings cache: the
+    // dashboard toggle writes autoCashbackProcessingEnabled there, and
+    // orders/paid reads it there
     const [orders, totalCount, shopSettings] = await Promise.all([
       Promise.resolve(ordersQuery),
       Promise.resolve(filteredTotalCount),
-      getShopSettings(shop), // CACHED
+      prisma.shopSettings.findUnique({
+        where: { shop },
+        select: { storeCurrency: true, currencyDisplayType: true, autoCashbackProcessingEnabled: true },
+      }),
     ]);
 
     console.log('[Orders Loader] Promise.all resolved:');
@@ -432,6 +442,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           : null,
         cashbackDue: cashbackRefusal === null && cashbackEntry ? Number(cashbackEntry.amount) : null,
         cashbackRefusal,
+        cashbackRateUsed: cashbackRateUsed(order, cashbackEntry),
+        cashbackTierUsed: cashbackTierUsed(order, cashbackEntry),
         customer: order.customer ? {
           ...order.customer,
           storeCredit: order.customer.storeCredit
@@ -1306,7 +1318,7 @@ export default function OrdersPage() {
       <IndexTable.Cell>
         <BlockStack gap="100">
           <Text variant="bodyMd" as="span">
-            {order.customer ? order.customer.email : (order.email || 'Guest')}
+            {orderCustomerName(order.customer, order.email)}
           </Text>
           {order.customer?.currentTier && (
             <Badge tone="info">{order.customer.currentTier.name}</Badge>
@@ -1320,7 +1332,8 @@ export default function OrdersPage() {
           </Text>
           {Number(order.cashbackAmount) > 0 && (
             <Text variant="bodySm" as="span" tone="subdued">
-              {formatCurrency(Number(order.cashbackAmount), shopSettings)} back ({order.cashbackPercent}%)
+              {formatCurrency(Number(order.cashbackAmount), shopSettings)} back
+              {order.cashbackRateUsed !== null && ` (${order.cashbackRateUsed}%)`}
             </Text>
           )}
         </BlockStack>
@@ -1410,7 +1423,7 @@ export default function OrdersPage() {
                         {`${orders.length} of ${pagination.totalCount}`}
                       </Badge>
                       <Badge tone={shopSettings?.autoCashbackProcessingEnabled === true ? "success" : "warning"}>
-                        {shopSettings?.autoCashbackProcessingEnabled === true ? "Auto Processing: On" : "Auto Processing: Off"}
+                        {shopSettings?.autoCashbackProcessingEnabled === true ? "Automatic cashback: On" : "Automatic cashback: Off"}
                       </Badge>
                     </InlineStack>
                     <Select
@@ -1661,7 +1674,7 @@ export default function OrdersPage() {
                       },
                       {
                         term: "Customer",
-                        description: selectedOrder.customer?.email || selectedOrder.email || 'Guest',
+                        description: orderCustomerName(selectedOrder.customer, selectedOrder.email),
                       },
                       {
                         term: "Financial Status",
@@ -1696,11 +1709,11 @@ export default function OrdersPage() {
                     items={[
                       {
                         term: "Tier at Order",
-                        description: selectedOrder.tierNameAtOrder || "No tier",
+                        description: selectedOrder.cashbackTierUsed || "No tier",
                       },
                       {
                         term: "Cashback Rate",
-                        description: selectedOrder.cashbackPercent ? `${selectedOrder.cashbackPercent}%` : "N/A",
+                        description: selectedOrder.cashbackRateUsed !== null ? `${selectedOrder.cashbackRateUsed}%` : "N/A",
                       },
                       {
                         term: "Cashback Amount",
