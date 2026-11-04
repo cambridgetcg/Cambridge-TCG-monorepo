@@ -27,6 +27,7 @@ import { markCutOffSends, notSentMetrics, sendCampaign } from "../services/campa
 import { marketingEmailBlockedReason } from "../services/marketing-email.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
 /** A campaign this late when email can go out is held back, not sent */
 const LATE_LIMIT_HOURS = 24;
@@ -35,7 +36,7 @@ const CAMPAIGNS_PER_RUN = 10;
 
 const MISSED_REASON = `It was more than ${LATE_LIMIT_HOURS} hours past its scheduled time when email could go out, so it was held back rather than sent late. Duplicate it to send it again.`;
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export const loader = monitoredCron("scheduled-campaigns", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -233,6 +234,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }, { status: runFailed ? 500 : 200 });
   } catch (error: any) {
     log('error', 'Scheduled campaigns cron failed', { error: error.message });
+    cronFailed(request, error);
     return json({
       success: false,
       correlationId,
@@ -244,4 +246,4 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('info', 'Released distributed lock');
     }
   }
-}
+});

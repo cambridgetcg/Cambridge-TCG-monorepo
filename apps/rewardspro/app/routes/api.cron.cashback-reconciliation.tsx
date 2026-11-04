@@ -26,10 +26,8 @@
  * (services/stuck-cashback.server.ts). PENDING entries older than
  * AUTO_SEND_MAX_AGE_DAYS are not sent; each run logs how many there are.
  *
- * Schedule: Every 15 minutes
+ * Schedule: hourly at :30, UTC ("30 * * * *" in vercel.json)
  * Endpoint: GET /api/cron/cashback-reconciliation
- *
- * Add to vercel.json crons with schedule every 15 minutes
  *
  * @security Requires CRON_SECRET header
  */
@@ -48,6 +46,7 @@ import { createStoreCreditService } from "~/services/shopify-store-credit.servic
 import { AUTO_SEND_MAX_AGE_DAYS, claimLedgerEntry, markUnconfirmed } from "~/services/cashback-ledger.server";
 import { cashbackLeftAfterRefunds } from "~/services/refund-handler.server";
 import { reconcileStuckCashback } from "~/services/stuck-cashback.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
 const JOB_NAME = "cashback-reconciliation";
 const LOCK_TTL_MINUTES = 15;
@@ -61,7 +60,7 @@ async function settle(id: string, metadata: Prisma.InputJsonObject) {
   await prisma.storeCreditLedger.update({ where: { id }, data: { metadata } });
 }
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = monitoredCron("cashback-reconciliation", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -365,6 +364,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   } catch (error: any) {
     log('error', 'Cashback reconciliation failed', { error: error.message, stack: error.stack });
+    cronFailed(request, error);
     return json(
       { success: false, correlationId, error: "Cashback reconciliation failed" },
       { status: 500 },
@@ -375,4 +375,4 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       log('info', 'Released distributed lock');
     }
   }
-};
+});

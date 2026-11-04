@@ -25,12 +25,13 @@ import {
 } from "../services/email-notifications.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
 // Tier purchase expiration warning configuration
 const EXPIRATION_WARNING_DAYS = [7, 1]; // Send warnings at 7 days and 1 day before expiry
 
 // Use loader for GET requests (Vercel sends GET, not POST)
-export async function loader({ request }: LoaderFunctionArgs) {
+export const loader = monitoredCron("tier-maintenance", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -431,6 +432,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   } catch (error: any) {
     log('error', 'Tier maintenance job failed', { error: error.message });
+    cronFailed(request, error);
     return json({
       success: false,
       correlationId,
@@ -443,7 +445,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('info', 'Released distributed lock');
     }
   }
-}
+});
 
 // Helper function to send alerts
 async function sendAlert(message: string) {

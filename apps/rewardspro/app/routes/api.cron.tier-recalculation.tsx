@@ -24,6 +24,7 @@ import { recalculateTiersSmart, refreshAnnualSpending } from "../services/tier-m
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
 // Configuration
 type RecalculationFrequency = "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
@@ -78,7 +79,7 @@ function isOverdue(frequency: RecalculationFrequency, lastRun: Date | null, crea
 }
 
 // Use loader for GET requests (Vercel sends GET, not POST)
-export async function loader({ request }: LoaderFunctionArgs) {
+export const loader = monitoredCron("tier-recalculation", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -363,6 +364,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   } catch (error: any) {
     log('error', 'Tier recalculation cron failed', { error: error.message, stack: error.stack });
+    cronFailed(request, error);
     return json({
       success: false,
       correlationId,
@@ -375,7 +377,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('info', 'Released distributed lock');
     }
   }
-}
+});
 
 // Helper function to send alerts
 async function sendAlert(message: string) {
