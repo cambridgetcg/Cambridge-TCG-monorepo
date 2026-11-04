@@ -4,7 +4,7 @@
 
 [Project entry](../../README.md) · [Documentation](../README.md) · [Agent guide](../agents/README.md)
 
-Find a module's purpose, source, scope, recorded progress and next review. This map covers **27 module roots**: 23 pnpm workspace packages, 1 extension without package.json, and 3 nested support packages. Source review: **2026-09-28**.
+Find a module's purpose, source, scope, recorded progress and next review. This map covers **26 module roots**: 23 pnpm workspace packages, 1 extension without package.json, and 2 nested support packages. Source review: **2026-09-28**.
 
 **Start with the website:** [Storefront domains](storefront/README.md) groups 72 library directories and 77 route families by purpose.
 
@@ -53,7 +53,6 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 
 | Module | Purpose |
 |---|---|
-| [RewardsPro legacy Lambda handlers](tooling/lambda.md) | Handle the legacy Shopify webhook, order queue and scheduled-job integrations described by RewardsPro. |
 | [RewardsPro development tools](tooling/tools.md) | Provide webhook simulation, shop inspection and scenario-running tools for local RewardsPro development. |
 | [Exploration prompt evaluator](tooling/prompt-evaluator.md) | Record structured evaluations and reports for code-exploration prompts. |
 

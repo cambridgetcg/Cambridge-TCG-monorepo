@@ -12,7 +12,7 @@ Receive verified Shopify commerce events, persist an idempotent inbox and projec
 
 ## Progress
 
-Source review recorded **2026-09-28**. Fastify routes, PostgreSQL repositories, migrations, webhook normalization and worker code are present. The README specifies event retention, immutable metadata and optional SQS delivery.
+Source review recorded **2026-09-28**. Fastify routes, PostgreSQL repositories, migrations, webhook normalization and worker code are present. The README specifies event retention, immutable metadata and optional SQS delivery. Dormant since 2026-11-03: never deployed, kept for the engine design; its unused AWS deploy job was removed from CI.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
