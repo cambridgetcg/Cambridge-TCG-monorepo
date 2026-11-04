@@ -90,6 +90,10 @@ vi.mock('~/services/widget-detection.server', () => ({
   updateWidgetStatusCache: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('~/services/store-credit-spend.server', () => ({
+  getStoreCreditSpendProblems: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock('~/hooks/useAnalytics', () => ({
   useAnalytics: vi.fn(),
 }));
@@ -117,6 +121,7 @@ import { authenticate } from '~/shopify.server';
 import db from '~/db.server';
 import { getSubscriptionDetails } from '~/services/billing/subscription-details.server';
 import { detectWidgetStatus, updateWidgetStatusCache } from '~/services/widget-detection.server';
+import { getStoreCreditSpendProblems } from '~/services/store-credit-spend.server';
 import { loader } from '~/routes/app._index';
 
 // ============================================
@@ -164,6 +169,9 @@ function setupDefaultMocks() {
     lastChecked: new Date('2026-03-22T12:00:00Z'),
   });
   vi.mocked(updateWidgetStatusCache).mockResolvedValue(undefined);
+
+  // Shoppers can spend store credit: nothing to warn about
+  vi.mocked(getStoreCreditSpendProblems).mockResolvedValue([]);
 
   // Shop settings
   vi.mocked(db.shopSettings.findUnique).mockResolvedValue({
@@ -518,6 +526,25 @@ describe('app._index (dashboard) loader', () => {
 
     await loader({ request: new Request('https://app.example.com/app'), params: {}, context: {} });
     expect(detectWidgetStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports what stops shoppers spending store credit, asking Shopify with the shop\'s Admin client', async () => {
+    vi.mocked(getStoreCreditSpendProblems).mockResolvedValue(['legacy-accounts', 'store-credit-off']);
+
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.storeCreditSpendProblems).toEqual(['legacy-accounts', 'store-credit-off']);
+    expect(getStoreCreditSpendProblems).toHaveBeenCalledWith(expect.objectContaining({ graphql: expect.any(Function) }), MOCK_SHOP);
+  });
+
+  it('reports no store credit problems on a shop where shoppers can spend it', async () => {
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.storeCreditSpendProblems).toEqual([]);
   });
 
   it('should detect failed data sync status', async () => {

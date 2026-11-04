@@ -38,8 +38,10 @@ import {
 import { measureQuery, getDatabaseHealth } from "~/utils/database-health.server";
 import { FeatureTogglesList } from "~/components/DesignSystem";
 import { FirstRunSetupCard, shouldShowFirstRunSetup, type FirstRunSetupState } from "~/components/FirstRunSetupCard";
+import { StoreCreditSpendBanner } from "~/components/StoreCreditSpendBanner";
 import { APP_ROUTES } from "~/navigation/routes";
 import { countPendingDataRequests } from "~/services/customer-data-request.server";
+import { getStoreCreditSpendProblems, type StoreCreditSpendProblem } from "~/services/store-credit-spend.server";
 
 // ============================================
 // HELPER FUNCTIONS
@@ -138,6 +140,8 @@ interface DashboardData {
   reviewBannerDismissed: boolean;
   // Customer data requests the merchant has not downloaded
   pendingDataRequests: number;
+  // What stops shoppers spending their store credit at checkout
+  storeCreditSpendProblems: StoreCreditSpendProblem[];
 
   // Billing data
   currentPlan: any | null;
@@ -212,7 +216,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Fetch only essential data in parallel
     // Wrap shopSettings query with health monitoring
-    const [shopSettings, billingSubscription, tierCount, syncStatusRecords, pendingDataRequests] = await Promise.all([
+    const [shopSettings, billingSubscription, tierCount, syncStatusRecords, pendingDataRequests, storeCreditSpendProblems] = await Promise.all([
       // Shop settings for feature manager and currency (with health monitoring)
       measureQuery(() =>
         prisma.shopSettings.findUnique({
@@ -253,6 +257,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       // Customer data requests waiting for the merchant
       countPendingDataRequests(shop),
+
+      // Customer accounts and store credit settings, asked fresh from Shopify
+      getStoreCreditSpendProblems(authResult.admin, shop),
     ]);
 
     // Simple direct order count for current month
@@ -486,6 +493,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
       reviewBannerDismissed: shopSettings?.reviewBannerDismissed ?? false,
       pendingDataRequests,
+      storeCreditSpendProblems,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency || 'USD',
         tierRecalculationEnabled: false,
@@ -843,6 +851,13 @@ export default function Dashboard() {
                 Shopify sent a customer data request. Download the report and send it to the customer within 30 days.
               </Text>
             </Banner>
+          </Layout.Section>
+        )}
+
+        {/* Customer accounts or store credit settings that stop shoppers spending it */}
+        {data.storeCreditSpendProblems.length > 0 && (
+          <Layout.Section>
+            <StoreCreditSpendBanner shop={data.shop} problems={data.storeCreditSpendProblems} />
           </Layout.Section>
         )}
 
