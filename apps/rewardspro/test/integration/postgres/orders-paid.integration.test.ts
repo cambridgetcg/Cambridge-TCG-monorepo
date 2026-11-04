@@ -287,6 +287,56 @@ describe.skipIf(!hasTestDatabase)("orders/paid on Postgres", () => {
     expect(refund.appliedAmount.toFixed(2)).toBe("43.10");
   });
 
+  describe("an order paid in a currency worth far less than the shop's", () => {
+    async function deliverPaidIn(id: number, shopTotal: string, presentment: { amount: string; currency: string }) {
+      const { gold } = await seedShop();
+      await prisma.customer.create({ data: { shop: SHOP, shopifyCustomerId: "100", email: "alice@example.test", currentTierId: gold.id } });
+      shopify.graphql.mockResolvedValue(cardPaymentResponse(id));
+      return deliver(`wh-${id}`, {
+        ...paidOrder({ id }),
+        currency: "GBP",
+        presentment_currency: presentment.currency,
+        total_price: shopTotal,
+        subtotal_price: shopTotal,
+        total_price_set: {
+          shop_money: { amount: shopTotal, currency_code: "GBP" },
+          presentment_money: { amount: presentment.amount, currency_code: presentment.currency },
+        },
+      });
+    }
+
+    it("records it and its cashback, without a rate too large to keep", async () => {
+      // 21,000 rupiah to the pound: more than Order.exchangeRate holds
+      expect((await deliverPaidIn(5550008, "86.21", { amount: "1810410.00", currency: "IDR" })).status).toBe(200);
+
+      const order = await prisma.order.findFirstOrThrow({ where: { shop: SHOP, shopifyOrderId: "5550008" } });
+      expect(order).toMatchObject({ currency: "GBP", presentmentCurrency: "IDR", exchangeRate: null });
+      expect(order.presentmentTotal?.toFixed(2)).toBe("1810410.00");
+      await expect(prisma.storeCreditLedger.count({ where: { shop: SHOP, shopifyOrderId: "5550008", type: "CASHBACK_EARNED" } })).resolves.toBe(1);
+      // A refund in rupiah is counted in pounds
+      const refund = await recordRefund({
+        shop: SHOP,
+        shopifyOrderId: "5550008",
+        shopifyRefundId: "1",
+        amount: new Prisma.Decimal("905205.00"),
+        currency: "IDR",
+        createdAt: new Date(),
+      });
+      expect(refund).toMatchObject({ status: "recorded" });
+      if (refund.status === "recorded") expect(refund.appliedAmount.toFixed(2)).toBe("43.10");
+    });
+
+    it("records it and its cashback when the shopper's total is too large to keep", async () => {
+      // Over £3,000 in dong passes 100 million
+      expect((await deliverPaidIn(5550009, "3100.00", { amount: "102300000.00", currency: "VND" })).status).toBe(200);
+
+      const order = await prisma.order.findFirstOrThrow({ where: { shop: SHOP, shopifyOrderId: "5550009" } });
+      expect(order).toMatchObject({ currency: "GBP", presentmentCurrency: null, presentmentTotal: null, exchangeRate: null });
+      expect(order.totalPrice.toFixed(2)).toBe("3100.00");
+      await expect(prisma.storeCreditLedger.count({ where: { shop: SHOP, shopifyOrderId: "5550009", type: "CASHBACK_EARNED" } })).resolves.toBe(1);
+    });
+  });
+
   it("never sends cashback again when Shopify's answer to the credit is lost", async () => {
     const { gold } = await seedShop({ auto: true });
     const customer = await prisma.customer.create({

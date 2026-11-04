@@ -387,6 +387,32 @@ describe('Order Sync Job Service', () => {
       expect(db.order.create).toHaveBeenCalled();
     });
 
+    it('records an order paid in rupiah without an exchange rate too large for its column', async () => {
+      const job = createMockJob();
+      // 21,000 rupiah to the pound; Order.exchangeRate is numeric(10,6)
+      const order = createMockShopifyOrder({
+        currencyCode: 'IDR',
+        subtotalPriceSet: { shopMoney: { amount: '86.21', currencyCode: 'GBP' }, presentmentMoney: { amount: '1810410.00', currencyCode: 'IDR' } },
+        totalPriceSet: { shopMoney: { amount: '86.21', currencyCode: 'GBP' }, presentmentMoney: { amount: '1810410.00', currencyCode: 'IDR' } },
+      });
+      const customer = { id: 'customer-uuid', shop: 'test-shop.myshopify.com', shopifyCustomerId: '67890', email: 'customer@example.com', currentTier: null };
+      const mockAdmin = createMockAdminContext({
+        orders: { data: { orders: { edges: [{ cursor: 'cursor1', node: order }], pageInfo: { hasNextPage: false, endCursor: 'cursor1' } } } },
+      });
+      (db.orderSyncJob.findUnique as Mock).mockResolvedValue(job);
+      (db.customer.findFirst as Mock).mockResolvedValue(customer);
+      (db.order.findFirst as Mock).mockResolvedValue(null);
+      (db.order.create as Mock).mockResolvedValue({});
+      (db.customer.findMany as Mock).mockResolvedValue([]);
+      (db.orderSyncJob.update as Mock).mockImplementation(async ({ data }) => ({ ...job, ...data }));
+
+      await processOrderBatch('job-123', mockAdmin);
+
+      expect(db.order.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ currency: 'GBP', presentmentCurrency: 'IDR', presentmentTotal: 1810410, exchangeRate: null }),
+      });
+    });
+
     it('should update existing order instead of creating new one', async () => {
       const job = createMockJob();
       const order = createMockShopifyOrder();
