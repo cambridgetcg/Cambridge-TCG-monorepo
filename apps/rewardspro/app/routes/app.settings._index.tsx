@@ -991,38 +991,62 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       try {
         console.log(`[Settings Action] ${shop} triggering manual tier recalculation`);
 
-        // Import the tier management service - use smart engine (same as cron job)
+        // Same function as the scheduled run: every customer through the
+        // resolver orders use
         const { recalculateTiersSmart, refreshAnnualSpending } = await import("~/services/tier-management.server");
 
-        // CRITICAL: Refresh annual spending BEFORE tier recalculation
-        // This ensures ANNUAL evaluation period tiers use up-to-date spending data
+        // The function stops at 300 seconds; start no customer after 240
+        const deadline = Date.now() + 240_000;
+        const result = await recalculateTiersSmart(shop, { deadline });
+
+        // Annual spending is shown on the shopper's account page; tiers don't
+        // read it, so it gets what time is left
         console.log(`[Settings Action] Refreshing annual spending for ${shop}`);
-        const spendingResult = await refreshAnnualSpending(shop);
-        console.log(`[Settings Action] Annual spending refreshed: ${spendingResult.updated}/${spendingResult.processed} customers updated in ${spendingResult.duration}ms`);
+        let spendingResult = { processed: 0, updated: 0, duration: 0 };
+        try {
+          spendingResult = await refreshAnnualSpending(shop, { deadline });
+          console.log(`[Settings Action] Annual spending refreshed: ${spendingResult.updated}/${spendingResult.processed} customers updated in ${spendingResult.duration}ms`);
+        } catch (spendingError) {
+          console.error("[Settings Action] Annual spending refresh failed:", spendingError);
+        }
 
-        // Use smart engine selection (auto-selects based on customer count)
-        // < 100: LEGACY, 100-499: OPTIMIZED, 500-2499: NEURAL_V2, 2500+: NEURAL_V3
-        const result = await recalculateTiersSmart(shop);
+        // A complete run pushes the next scheduled run a full period away, so
+        // record one only when every customer was resolved
+        if (result.errors === 0 && result.complete) {
+          await prisma.shopSettings.update({
+            where: { shop },
+            data: {
+              tierRecalculationLastRun: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+        }
 
-        // Update last run timestamp
-        await prisma.shopSettings.update({
-          where: { shop },
-          data: {
-            tierRecalculationLastRun: new Date(),
-            updatedAt: new Date(),
-          },
-        });
-
-        console.log(`[Settings Action] Recalculation completed: ${result.processed} customers processed using ${result.engine} engine in ${result.timing?.totalMs || 'N/A'}ms`);
+        console.log(`[Settings Action] Recalculation finished: ${result.processed} customers processed, ${result.errors} errors, ${result.remaining} not reached, in ${result.timing?.totalMs || 'N/A'}ms`);
 
         // Build detailed message with engine info
         const engineLabel = result.engine === 'OPTIMIZED' ? 'Optimized' : 'Standard';
         const timingInfo = result.timing?.totalMs ? ` (${(result.timing.totalMs / 1000).toFixed(1)}s)` : '';
+        const counts = `${result.upgraded} upgraded, ${result.downgraded} downgraded, ${result.unchanged} unchanged`;
+        const customers = (n: number) => `${n} customer${n === 1 ? '' : 's'}`;
+        const notReached = result.complete
+          ? ''
+          : `${customers(result.remaining)} ${result.remaining === 1 ? "wasn't reached and keeps their" : "weren't reached and keep their"} current tier. Press Recalculate Now again to carry on with them.`;
+
+        if (result.errors > 0) {
+          return json({
+            recalculationComplete: true,
+            success: false,
+            error: `${customers(result.errors)} couldn't be updated and ${result.errors === 1 ? 'keeps' : 'keep'} their current tier. Press Recalculate Now to try them again. The others: ${counts}.${notReached ? ` ${notReached}` : ''}`,
+          });
+        }
 
         return json({
           recalculationComplete: true,
           success: true,
-          message: `Tier recalculation completed${timingInfo}: ${result.upgraded} upgraded, ${result.downgraded} downgraded, ${result.unchanged} unchanged`,
+          message: result.complete
+            ? `Tier recalculation completed${timingInfo}: ${counts}`
+            : `Tier recalculation stopped at the time limit: ${counts}. ${notReached}`,
           result: {
             ...result,
             spendingRefresh: {
@@ -1632,8 +1656,8 @@ export default function SettingsPage() {
   const confirmRecalculation = useCallback(() => {
     setShowRecalculateModal(false);
 
-    // Show immediate feedback - fire and forget pattern
-    showInfo("Tier recalculation started. This runs in the background and may take several minutes.");
+    // The request stays open until the recalculation finishes
+    showInfo("Tier recalculation started. This can take a few minutes. Keep this page open.");
 
     // Submit without blocking UI
     fetcher.submit(
@@ -1883,6 +1907,10 @@ export default function SettingsPage() {
         nextRun.setDate(nextRun.getDate() + 90);
         break;
     }
+
+    // A run that ran out of time or hit errors doesn't count as complete, so
+    // the shop stays due and the daily run carries on
+    if (nextRun.getTime() <= Date.now()) return "due, runs at 09:00 UTC";
 
     return nextRun.toLocaleDateString();
   }, []);
@@ -2515,10 +2543,11 @@ export default function SettingsPage() {
                             <Text as="span" variant="bodyMd" fontWeight="semibold">Manual Recalculation</Text>
                             {settings.tierRecalculationLastRun ? (
                               <Text as="span" variant="bodySm" tone="subdued">
-                                Last run: {formatDate(settings.tierRecalculationLastRun)} • Next: {calculateNextRun(settings.tierRecalculationLastRun, tierRecalculationFrequency)}
+                                Last complete run: {formatDate(settings.tierRecalculationLastRun)}
+                                {tierRecalculationEnabled && ` • Next: ${calculateNextRun(settings.tierRecalculationLastRun, tierRecalculationFrequency)}`}
                               </Text>
                             ) : (
-                              <Text as="span" variant="bodySm" tone="subdued">Never run</Text>
+                              <Text as="span" variant="bodySm" tone="subdued">No complete run yet</Text>
                             )}
                           </BlockStack>
                           <Button
@@ -2532,8 +2561,7 @@ export default function SettingsPage() {
 
                       <Banner tone="info">
                         <Text as="p" variant="bodyMd">
-                          Recalculation respects manual tier overrides, uses your tier's evaluation period (Annual/Lifetime),
-                          includes a grace period before downgrades, and logs all changes.
+                          Recalculation respects manual tier overrides and memberships, uses your tier's evaluation period (Annual/Lifetime), and logs all changes.
                         </Text>
                       </Banner>
 
