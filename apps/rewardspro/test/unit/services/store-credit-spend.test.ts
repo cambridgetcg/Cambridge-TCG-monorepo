@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Kind, parse, type SelectionSetNode } from "graphql";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { getStoreCreditSpendProblems } from "~/services/store-credit-spend.server";
 
@@ -10,6 +11,32 @@ import { getStoreCreditSpendProblems } from "~/services/store-credit-spend.serve
  * (help.shopify.com/en/manual/customers/store-credit). The dashboard warns
  * about each of these that Shopify confirms.
  */
+
+// The fields each query must select, as Admin API 2026-10 names them
+const CUSTOMER_ACCOUNTS_FIELDS = [
+  "shop.customerAccountsV2.customerAccountsVersion",
+  "shop.customerAccountsV2.loginLinksVisibleOnStorefrontAndCheckout",
+];
+const STORE_CREDIT_FIELDS = ["storeCreditConfiguration.storeCreditEnabled"];
+
+/** Every leaf field a query selects, as a dotted path */
+function selectedFields(query: string): string[] {
+  const fields: string[] = [];
+  const walk = (selectionSet: SelectionSetNode, prefix: string) => {
+    for (const selection of selectionSet.selections) {
+      if (selection.kind !== Kind.FIELD) continue;
+      const path = prefix + selection.name.value;
+      if (selection.selectionSet) walk(selection.selectionSet, `${path}.`);
+      else fields.push(path);
+    }
+  };
+  for (const definition of parse(query).definitions) {
+    if (definition.kind === Kind.OPERATION_DEFINITION) walk(definition.selectionSet, "");
+  }
+  return fields.sort();
+}
+
+const selects = (query: string, fields: string[]) => selectedFields(query).join() === fields.join();
 
 interface Answers {
   version?: unknown;
@@ -27,7 +54,7 @@ function admin({
   storeCreditFail = false,
 }: Answers = {}) {
   const graphql = vi.fn(async (query: string) => {
-    if (query.includes("customerAccountsV2")) {
+    if (selects(query, CUSTOMER_ACCOUNTS_FIELDS)) {
       if (accountsFail) throw new Error("fetch failed");
       return {
         json: async () => ({
@@ -42,8 +69,12 @@ function admin({
         }),
       };
     }
-    if (storeCreditFail) throw new Error("fetch failed");
-    return { json: async () => ({ data: { storeCreditConfiguration: { storeCreditEnabled: storeCreditOn } } }) };
+    if (selects(query, STORE_CREDIT_FIELDS)) {
+      if (storeCreditFail) throw new Error("fetch failed");
+      return { json: async () => ({ data: { storeCreditConfiguration: { storeCreditEnabled: storeCreditOn } } }) };
+    }
+    // Shopify answers a field its schema doesn't have with an error, not data
+    throw new Error(`Shopify doesn't answer: ${selectedFields(query).join(", ")}`);
   });
   return { admin: { graphql } as unknown as AdminApiContext, graphql };
 }

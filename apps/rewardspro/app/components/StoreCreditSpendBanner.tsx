@@ -13,7 +13,7 @@ import type { StoreCreditSpendProblem } from "~/services/store-credit-spend.serv
 
 const PROBLEM_TEXT: Record<StoreCreditSpendProblem, string> = {
   "legacy-accounts":
-    "Your store uses legacy customer accounts, which don't support store credit. Upgrade to new customer accounts.",
+    "Your store uses legacy customer accounts, which don't support store credit. Upgrade to customer accounts (click Upgrade at the top of Settings > Customer accounts).",
   "sign-in-links-hidden":
     "Your store hides its sign-in links, so shoppers can't sign in at checkout. Show the sign-in links.",
   "store-credit-off": "Store credit is turned off, so checkout doesn't offer it. Turn on Store credit.",
@@ -40,7 +40,7 @@ export function StoreCreditSpendBanner({ shop, problems }: StoreCreditSpendBanne
       <BlockStack gap="200">
         <Text as="p" variant="bodySm">
           RewardsPro pays cashback as Shopify store credit. Shoppers can spend it at checkout only when they sign in
-          with new customer accounts or pay with Shop Pay.
+          with Shopify customer accounts (not legacy accounts) or pay with Shop Pay.
         </Text>
         <List>
           {problems.map((problem) => (

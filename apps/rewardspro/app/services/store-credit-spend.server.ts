@@ -28,6 +28,7 @@ const QUERY_CUSTOMER_ACCOUNTS = `#graphql
   }
 `;
 
+// storeCreditConfiguration needs Admin API 2026-10 or later (SHOPIFY_API_VERSION in app/shopify.server.ts)
 const QUERY_STORE_CREDIT = `#graphql
   query StoreCreditSpendConfiguration {
     storeCreditConfiguration {

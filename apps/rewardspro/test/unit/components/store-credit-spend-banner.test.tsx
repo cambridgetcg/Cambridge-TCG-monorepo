@@ -13,7 +13,7 @@ function bannerHtml(problems: StoreCreditSpendProblem[]) {
   const view = renderToStaticMarkup(
     createElement(AppProvider, { i18n: en }, createElement(StoreCreditSpendBanner, { shop: "shop.myshopify.com", problems })),
   );
-  return view.replaceAll("&#x27;", "'").replaceAll("&amp;", "&");
+  return view.replaceAll("&#x27;", "'").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
 }
 
 describe("store credit spend banner", () => {
@@ -22,10 +22,11 @@ describe("store credit spend banner", () => {
 
     expect(html).toContain("Make sure shoppers can spend their store credit");
     expect(html).toContain(
-      "Shoppers can spend it at checkout only when they sign in with new customer accounts or pay with Shop Pay.",
+      "Shoppers can spend it at checkout only when they sign in with Shopify customer accounts (not legacy accounts) or pay with Shop Pay.",
     );
     expect(html).toContain("Your store uses legacy customer accounts, which don't support store credit.");
-    expect(html).toContain("Upgrade to new customer accounts.");
+    expect(html).toContain("Upgrade to customer accounts (click Upgrade at the top of Settings > Customer accounts).");
+    expect(html).not.toContain("new customer accounts");
   });
 
   it.each([
