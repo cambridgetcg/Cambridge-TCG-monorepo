@@ -4,11 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "shopify app dev --config shopify.app.staging.toml",
-    "build": "react-router build",
+    "build": "prisma generate && react-router build",
     "typecheck": "react-router typegen && tsc --noEmit",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
     "test:unit": "vitest run",
-    "test:postgres": "vitest run --config vitest.postgres.config.ts"
+    "test:postgres": "vitest run --config vitest.postgres.config.ts",
+    "migrate:deploy": "tsx scripts/prisma-tls.ts migrate deploy",
+    "migrate:drift": "tsx scripts/prisma-tls.ts migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code"
   },
   "engines": {
     "node": "24.x"
