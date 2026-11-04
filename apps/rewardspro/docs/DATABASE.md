@@ -166,8 +166,12 @@ on every change.
   `{"status":"unavailable","database":"unavailable"}` with no detail. Each
   instance reuses one result for 5 seconds.
 - `GET /api/operator/readiness` (Bearer `CRON_SECRET`) runs the same probe
-  for operators: 200 `{"status":"ready"}`, 503 `{"status":"unavailable"}`, or
-  401 without the exact credential.
+  for operators, then reads the scheduled crons' run records (SyncStatus
+  rows with shop `rewardspro:cron`): 200 `{"status":"ready","crons":{...}}`,
+  503 `{"status":"crons_stale","crons":{...}}` when a cron hasn't succeeded
+  within twice its schedule, 503 `{"status":"unavailable"}`, or 401 without
+  the exact credential. `crons` holds each cron's schedule and last start,
+  success and failure times, never error detail (DEPLOY.md, "Crons").
 
 ## Local development and tests
 
@@ -182,7 +186,7 @@ pnpm --filter rewardspro migrate:deploy
 
 The integration suites (`test/integration/postgres`) cover encrypted session
 storage, the baseline, `orders/paid` end to end with Shopify mocked, the
-compliance webhooks and the cron locks:
+compliance webhooks, the cron locks and the cron run records:
 
 ```sh
 REWARDSPRO_TEST_DATABASE_URL='postgresql://rewardspro_app:rewardspro_app@127.0.0.1:5432/postgres?schema=rewardspro&connection_limit=1' \

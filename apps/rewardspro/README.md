@@ -120,7 +120,8 @@ const verified = await verifyHmac(rawBody, hmacHeader, secret);
   succeeds, 503 otherwise
 - **Operator readiness**: `/api/operator/readiness` performs the same
   read-only database probe, authenticated with the exact `CRON_SECRET` Bearer
-  credential
+  credential, and answers 503 when a scheduled cron has stopped succeeding
+  (DEPLOY.md, "Crons")
 - **Local**: Postgres 17 on loopback; `test:postgres` runs the integration
   suites against it
 

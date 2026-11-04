@@ -18,7 +18,8 @@ RewardsPro is a **Shopify loyalty & rewards app**: points, tiers, cashback, stor
 credit, memberships, mystery boxes, raffles, missions, and email campaigns for
 Shopify merchants. Remix (Vite) + Polaris embedded app, Prisma → Postgres 17
 on Supabase ([`docs/DATABASE.md`](docs/DATABASE.md)), deployed on Vercel (see
-`vercel.json` — it also carries ~24 cron routes). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
+`vercel.json` — it also schedules 8 of the app's 24 cron routes; DEPLOY.md
+lists them and says where to look when one fails). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
 
 Guards that need a decision to lift, not a refactor:
 
