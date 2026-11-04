@@ -3,11 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma, { createPrismaClient } from "~/db.server";
 import { action as refundsCreate } from "~/routes/webhooks.orders.refunded";
 import { action as ordersCancelled } from "~/routes/webhooks.orders.cancelled";
-import { issueCashbackByHand, lockLedgerEntry, lockOrder } from "~/services/cashback-ledger.server";
+import { loader as reconcile } from "~/routes/api.cron.cashback-reconciliation";
+import { claimLedgerEntry, issueCashbackByHand, lockLedgerEntry, lockOrder } from "~/services/cashback-ledger.server";
 import { RefundRetryableError, recordRefund, settleRefundClawback } from "~/services/refund-handler.server";
 import { unauthenticated } from "~/shopify.server";
 import { hasTestDatabase, resetDatabase } from "./database";
-import { mockRefundedOrder, mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
+import { backdateClaim, creditHistory, mockRefundedOrder, mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
 
 const SHOP = "refunds-test.myshopify.com";
 const SHOPIFY_CUSTOMER = "100";
@@ -94,6 +95,17 @@ function deliverRefund(payload: unknown, webhookId?: string) {
 
 const clawbacks = () =>
   prisma.storeCreditLedger.findMany({ where: { shop: SHOP, type: "REFUND_CLAWBACK" }, orderBy: { createdAt: "asc" }, include: { refund: true } });
+
+/** The cashback reconciliation cron's next run. */
+async function runReconciliation() {
+  process.env.CRON_SECRET = "cron-secret-for-tests";
+  const response = await reconcile({
+    request: new Request("https://test.example.com/api/cron/cashback-reconciliation", { headers: { Authorization: "Bearer cron-secret-for-tests" } }),
+    params: {},
+    context: {},
+  });
+  return response.json();
+}
 
 /** The Orders page issuing an order's cashback; without `amount`, its batch action. */
 async function issueByHand(orderId: string, amount?: number) {
@@ -684,10 +696,66 @@ describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
       expect(balances[SHOPIFY_CUSTOMER]).toBe(5);
       const unconfirmed = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
       expect(unconfirmed.metadata).toMatchObject({ syncStatus: "SYNCING", unconfirmedAt: expect.any(String) });
-      // A refund cannot tell what to reverse either: it is retried until
-      // someone settles the entry by hand (a follow-up)
-      expect((await deliverRefund(refundPayload(1, "100.00"))).status).toBe(503);
+      // A refund is recorded; what it takes back waits until the cron knows
+      // whether the credit arrived
+      expect((await deliverRefund(refundPayload(1, "100.00"))).status).toBe(200);
       expect(calls).toHaveLength(1);
+      expect(await clawbacks()).toMatchObject([{ metadata: { syncStatus: "HELD", reversalAmount: "5.00" }, refund: { cashbackProcessed: false } }]);
+    });
+
+    it("takes back a refund's share once the cron finds the credit arrived", async () => {
+      const { order, entry } = await seedOrder({ cashback: "pending" });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const history = creditHistory();
+      const balances = { [SHOPIFY_CUSTOMER]: 0 };
+      const calls = mockStoreCredit(SHOP, balances, { unanswered: 1, history });
+      await expect(issueByHand(order.id)).resolves.toEqual({ success: false, error: UNCONFIRMED });
+
+      // Shopify's redeliveries would run out long before anyone settled the entry
+      expect((await deliverRefund(refundPayload(1, "40.00"))).status).toBe(200);
+      const refunded = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+      expect(refunded).toMatchObject({ financialStatus: "PARTIALLY_REFUNDED" });
+      expect(refunded.totalRefunded.toFixed(2)).toBe("40.00");
+      expect(await clawbacks()).toMatchObject([{ metadata: { syncStatus: "HELD", reversalAmount: "2.00" } }]);
+      expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 5.00"]);
+
+      await backdateClaim(entry.id, 60, history);
+      await expect(runReconciliation()).resolves.toMatchObject({ stuck: { issued: 1 } });
+      await runReconciliation();
+
+      expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 5.00", "debit 2.00"]);
+      expect(balances[SHOPIFY_CUSTOMER]).toBe(3);
+      expect((await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } })).metadata).toMatchObject({ syncStatus: "SYNCED" });
+      expect(await clawbacks()).toMatchObject([{ metadata: { syncStatus: "SYNCED", debitedAmount: "2.00" }, refund: { cashbackProcessed: true } }]);
+    });
+
+    it("issues only what a refund left once the cron finds the credit never arrived", async () => {
+      const { order, entry } = await seedOrder({ cashback: "pending" });
+      // Claimed by a run that stopped before it sent anything
+      await claimLedgerEntry(entry.id);
+      const history = creditHistory();
+      const balances = { [SHOPIFY_CUSTOMER]: 0 };
+      const calls = mockStoreCredit(SHOP, balances, { history });
+      await backdateClaim(entry.id, 60, history);
+
+      expect((await deliverRefund(refundPayload(1, "40.00"))).status).toBe(200);
+      expect(await clawbacks()).toMatchObject([{ metadata: { syncStatus: "HELD", reversalAmount: "2.00" } }]);
+
+      await expect(runReconciliation()).resolves.toMatchObject({ stuck: { returned: 1 } });
+      const returned = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+      expect(returned.amount.toFixed(2)).toBe("3.00");
+      expect(returned.metadata).toMatchObject({ syncStatus: "PENDING", originalAmount: "5.00", reversedBeforeIssue: [{ shopifyRefundId: "1", amount: "2.00" }] });
+      // The held clawback became part of the cashback never issued
+      expect(await clawbacks()).toMatchObject([{ metadata: { syncStatus: "NOT_APPLICABLE", reversalAmount: "0.00" }, refund: { cashbackProcessed: true } }]);
+
+      // This shop issues cashback by hand: the Orders page now offers what is left
+      await expect(issueByHand(order.id)).resolves.toMatchObject({ success: true, amount: 3 });
+      expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 3.00"]);
+      expect(balances[SHOPIFY_CUSTOMER]).toBe(3);
+      // The refund's whole refund-and-cashback record adds up once
+      await deliverRefund(refundPayload(2, "60.00"));
+      expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 3.00", "debit 3.00"]);
+      expect(balances[SHOPIFY_CUSTOMER]).toBe(0);
     });
 
     it("hands the entry back when Shopify turns the credit away (control)", async () => {

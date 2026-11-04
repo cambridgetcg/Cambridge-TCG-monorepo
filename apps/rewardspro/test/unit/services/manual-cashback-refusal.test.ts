@@ -48,6 +48,13 @@ describe("manualCashbackRefusal (what the Orders page may issue by hand)", () =>
     );
   });
 
+  it("tells the merchant to check Shopify once the cron could not tell whether the credit arrived", () => {
+    const unknown = entry({ syncStatus: "SYNCING", unconfirmedAt: "2026-10-19T10:00:00.000Z", needsReview: true });
+    expect(manualCashbackRefusal(paidOrder, unknown)).toBe(
+      "Shopify never confirmed this order's cashback, and its store credit history doesn't show whether the credit arrived. Check the customer's store credit in Shopify and add the cashback there if it's missing. RewardsPro won't send it again or take it back for refunds.",
+    );
+  });
+
   it("refuses processed, fully refunded and excluded orders before looking at the entry", () => {
     const pending = entry({ syncStatus: "PENDING" });
     expect(manualCashbackRefusal({ ...paidOrder, cashbackProcessed: true }, pending)).toBe("Cashback already processed");

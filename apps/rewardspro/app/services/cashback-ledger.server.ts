@@ -13,6 +13,9 @@
  * nothing, or nothing was sent. When Shopify may have applied it (no answer,
  * a 5xx, an error Shopify can raise after running the mutation: the store
  * credit service's `ambiguous`) the entry stays SYNCING (markUnconfirmed).
+ * A claim records when it was made (claimedAt), so the reconciliation cron
+ * can tell an entry still being sent from one whose sending is over, and ask
+ * Shopify whether its credit arrived (services/stuck-cashback.server.ts).
  */
 
 import { Prisma, type Order, type StoreCreditLedger } from "@prisma/client";
@@ -26,8 +29,9 @@ const orderTable = () => Prisma.raw(`"${databaseSchema}"."Order"`);
 
 /**
  * Move an entry's syncStatus from `from` to `to` in one statement, leaving
- * the rest of its metadata untouched. True only for the caller that made
- * the move; the UPDATE waits for a row lock a refund may hold.
+ * the rest of its metadata untouched; a move to SYNCING also records when it
+ * was made (claimedAt). True only for the caller that made the move; the
+ * UPDATE waits for a row lock a refund may hold.
  */
 export async function claimLedgerEntry(
   id: string,
@@ -35,9 +39,10 @@ export async function claimLedgerEntry(
   to = "SYNCING",
   db: Pick<typeof prisma, "$executeRaw"> = prisma,
 ): Promise<boolean> {
+  const change = JSON.stringify(to === "SYNCING" ? { syncStatus: to, claimedAt: new Date().toISOString() } : { syncStatus: to });
   const moved = await db.$executeRaw`
     UPDATE ${ledgerTable()}
-    SET "metadata" = jsonb_set(COALESCE("metadata", '{}'::jsonb), '{syncStatus}', to_jsonb(${to}::text))
+    SET "metadata" = COALESCE("metadata", '{}'::jsonb) || ${change}::jsonb
     WHERE "id" = ${id} AND "metadata"->>'syncStatus' = ${from}`;
   return moved === 1;
 }
@@ -65,12 +70,62 @@ export async function lockOrder(tx: Prisma.TransactionClient, id: string): Promi
  * reconciles the shopper's balance in Shopify. One statement, like a claim.
  */
 export async function markUnconfirmed(id: string, error: string | undefined): Promise<void> {
-  const note = JSON.stringify({ unconfirmedAt: new Date().toISOString(), lastError: error ?? "No answer from Shopify" });
+  await noteSyncingEntry(id, { unconfirmedAt: new Date().toISOString(), lastError: error ?? "No answer from Shopify" });
+}
+
+/** Add `note` to an entry's metadata while it is SYNCING, in one statement. */
+export async function noteSyncingEntry(id: string, note: Prisma.InputJsonObject): Promise<void> {
   await prisma.$executeRaw`
     UPDATE ${ledgerTable()}
-    SET "metadata" = COALESCE("metadata", '{}'::jsonb) || ${note}::jsonb
+    SET "metadata" = COALESCE("metadata", '{}'::jsonb) || ${JSON.stringify(note)}::jsonb
     WHERE "id" = ${id} AND "metadata"->>'syncStatus' = 'SYNCING'`;
 }
+
+/**
+ * How long after a claim its writer has certainly finished: it sent the
+ * entry and had Shopify's answer, or it stopped. A function runs for 300
+ * seconds at most; this allows six times that.
+ */
+export const CLAIM_FINISHED_MS = 30 * 60 * 1000;
+
+/** A metadata timestamp (an ISO string) in milliseconds, or null. */
+export function parseTime(value: unknown): number | null {
+  const time = typeof value === "string" ? Date.parse(value) : NaN;
+  return Number.isFinite(time) ? time : null;
+}
+
+/**
+ * When a SYNCING entry's current claim began, as late as its metadata shows:
+ * the claim (claimedAt), Shopify's unclear answer to it (unconfirmedAt) or,
+ * for a claim made before claims were timed, when the reconciliation cron
+ * first saw it SYNCING (syncingSeenAt). Null when none is recorded.
+ */
+export function claimStartedAt(metadata: Prisma.JsonObject): Date | null {
+  const times = [metadata.claimedAt, metadata.unconfirmedAt, metadata.syncingSeenAt]
+    .map(parseTime)
+    .filter((time): time is number => time !== null);
+  return times.length > 0 ? new Date(Math.max(...times)) : null;
+}
+
+/**
+ * Whether nothing is still sending a SYNCING entry: Shopify's answer came
+ * back unclear, or the claim is older than CLAIM_FINISHED_MS. False for a
+ * claim made before claims were timed until the reconciliation cron has seen
+ * it. Only that cron moves such an entry on, once it has asked Shopify
+ * whether the credit arrived (services/stuck-cashback.server.ts).
+ */
+export function isClaimFinished(metadata: Prisma.JsonObject, now: Date = new Date()): boolean {
+  if (metadata.syncStatus !== "SYNCING") return false;
+  if (typeof metadata.unconfirmedAt === "string") return true;
+  const started = claimStartedAt(metadata);
+  return started !== null && now.getTime() - started.getTime() >= CLAIM_FINISHED_MS;
+}
+
+/**
+ * How old a PENDING entry may be for the reconciliation cron to send it in a
+ * shop with automatic cashback on. Older ones are issued from the Orders page.
+ */
+export const AUTO_SEND_MAX_AGE_DAYS = 7;
 
 /**
  * The merchant's "Automatic cashback processing" switch. Off unless turned
@@ -89,6 +144,8 @@ const NOTHING_LEFT = "No cashback is left to issue for this order";
 const ALREADY_ISSUING = "Cashback for this order is already being issued or was issued";
 const UNCONFIRMED =
   "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again";
+const NEEDS_REVIEW =
+  "Shopify never confirmed this order's cashback, and its store credit history doesn't show whether the credit arrived. Check the customer's store credit in Shopify and add the cashback there if it's missing. RewardsPro won't send it again or take it back for refunds.";
 
 /**
  * Whether an order counts as refunded in full: Shopify says REFUNDED (a
@@ -117,6 +174,8 @@ export function manualCashbackRefusal(
   if (!entry) return NOT_RECORDED;
   const metadata = jsonObject(entry.metadata);
   const status = metadata.syncStatus;
+  // The reconciliation cron could not tell from Shopify whether it arrived
+  if (status === "SYNCING" && metadata.needsReview === true) return NEEDS_REVIEW;
   if (status === "SYNCING" && typeof metadata.unconfirmedAt === "string") return UNCONFIRMED;
   if (status === "SYNCED" || status === "SYNCING") return ALREADY_ISSUING;
   // Fully reversed by refunds before it was issued

@@ -4,7 +4,8 @@
  * An order's cashback is one CASHBACK_EARNED ledger entry. Its
  * metadata.syncStatus says whether it reached the shopper's Shopify store
  * credit: PENDING (recorded, not issued yet; the reconciliation cron or the
- * merchant issues it later), SYNCING (being issued right now) or SYNCED.
+ * merchant issues it later), SYNCING (being issued right now, or sent with no
+ * clear answer from Shopify) or SYNCED.
  *
  * A refund reverses its share of that cashback:
  * - Not issued yet: the pending entry is reduced, so only the remainder is
@@ -14,6 +15,12 @@
  *   (settleRefundClawback). Reversals never exceed what was credited for the
  *   order, and a debit never exceeds what the shopper still holds: spent
  *   credit cannot be taken back, so the shortfall is recorded on the entry.
+ * - Being issued: the refund is retried (RefundRetryableError) until the
+ *   send is over. Once it is over with no clear answer from Shopify
+ *   (isClaimFinished), the refund is recorded and its clawback is HELD: the
+ *   reconciliation cron debits it if Shopify shows the credit arrived, or
+ *   takes it off the cashback before it is sent again if it never did
+ *   (services/stuck-cashback.server.ts).
  *
  * Partial refunds reverse proportionally; the refund that completes the
  * order reverses whatever remains. Each step is idempotent per Shopify
@@ -34,7 +41,7 @@ import { Prisma, type OrderFinancialStatus } from "@prisma/client";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import prisma from "~/db.server";
 import { jsonObject } from "~/utils/json-object";
-import { claimLedgerEntry, isRefundedInFull, lockLedgerEntry, lockOrder, markUnconfirmed } from "./cashback-ledger.server";
+import { claimLedgerEntry, isClaimFinished, isRefundedInFull, lockLedgerEntry, lockOrder, markUnconfirmed } from "./cashback-ledger.server";
 import { createStoreCreditService } from "./shopify-store-credit.service";
 
 const LOG_PREFIX = "[Refund Handler]";
@@ -347,6 +354,7 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
     let reversed = ZERO;
     let takenBefore = existing?.cashbackAdjustment ?? ZERO;
     let pendingClawbackId: string | null = null;
+    let heldClawback = false;
     const syncStatus = cashback ? syncStatusOf(cashback) : undefined;
     // Refunds reverse shares of the cashback as first recorded, before any
     // reversal shrank it (a refund before issue sets originalAmount)
@@ -354,9 +362,12 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
     const original = cashback ? decimalOf(metadata.originalAmount, cashback.amount) : ZERO;
 
     if (cashback && cashback.amount.gt(0)) {
-      if (syncStatus === "SYNCING") {
+      if (syncStatus === "SYNCING" && !isClaimFinished(metadata, now)) {
         throw new RefundRetryableError(`Cashback for order ${shopifyOrderId} is being issued; retry the refund later`);
       }
+      // Sent, but Shopify never said whether it applied: reversed as if
+      // credited, and debited only once the cron finds it did
+      const hold = syncStatus === "SYNCING";
 
       const priorClawbacks = await tx.storeCreditLedger.findMany({
         where: { orderId: order.id, type: "REFUND_CLAWBACK" },
@@ -376,7 +387,7 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
       });
       const due = Prisma.Decimal.max(ZERO, share(original).minus(takenBefore));
 
-      if (syncStatus === "SYNCED" || order.cashbackProcessed) {
+      if (syncStatus === "SYNCED" || order.cashbackProcessed || hold) {
         // Credited: reverse at most what is left of the credit, then debit it
         const remaining = Prisma.Decimal.max(ZERO, cashback.amount.minus(alreadyReversed));
         reversed = completesOrder ? remaining : Prisma.Decimal.min(remaining, due);
@@ -403,11 +414,12 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
                 refundAmount: applied.toFixed(2),
                 reversalAmount: reversed.toFixed(2),
                 description: `Cashback reversed for refund on order ${order.shopifyOrderName}`,
-                syncStatus: "PENDING",
+                ...(hold ? { syncStatus: "HELD", heldAt: now.toISOString() } : { syncStatus: "PENDING" }),
               },
             },
           });
-          pendingClawbackId = clawback.id;
+          if (hold) heldClawback = true;
+          else pendingClawbackId = clawback.id;
         }
       } else {
         // Not issued yet: shrink what will be issued; nothing to debit
@@ -433,7 +445,7 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
     // The refund's share of the cashback: taken before it arrived, and now
     await tx.orderRefund.update({
       where: { id: refund.id },
-      data: { cashbackAdjustment: takenBefore.plus(reversed), cashbackProcessed: pendingClawbackId === null },
+      data: { cashbackAdjustment: takenBefore.plus(reversed), cashbackProcessed: pendingClawbackId === null && !heldClawback },
     });
 
     await tx.order.update({

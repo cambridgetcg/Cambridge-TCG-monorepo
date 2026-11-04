@@ -1073,6 +1073,8 @@ async function recordCashback(tx: PrismaClient, params: {
           // As recordRefund records a refund before issue
           ...(reversedBeforeIssue.length > 0 ? { originalAmount: earned.toFixed(2), reversedBeforeIssue } : {}),
           syncStatus: autoProcessingEnabled ? 'SYNCING' : 'PENDING',
+          // Created claimed, so the claim starts now (claimLedgerEntry)
+          ...(autoProcessingEnabled ? { claimedAt: now.toISOString() } : {}),
           autoProcessed: false,
         },
         createdAt: now,
