@@ -82,6 +82,7 @@ vi.mock('~/services/billing/subscription-details.server', () => ({
 vi.mock('~/services/widget-detection.server', () => ({
   detectWidgetStatus: vi.fn().mockResolvedValue({
     isEnabled: true,
+    membershipWidgetEnabled: true,
     blockType: 'app_embed',
     themeName: 'Dawn',
     lastChecked: new Date('2026-03-22T12:00:00Z'),
@@ -157,6 +158,7 @@ function setupDefaultMocks() {
   // Mock detectWidgetStatus (used via dynamic import in the route)
   vi.mocked(detectWidgetStatus).mockResolvedValue({
     isEnabled: true,
+    membershipWidgetEnabled: true,
     blockType: 'app_embed',
     themeName: 'Dawn',
     lastChecked: new Date('2026-03-22T12:00:00Z'),
@@ -374,6 +376,148 @@ describe('app._index (dashboard) loader', () => {
 
     expect(data.monthlyOrderUsage.orderCount).toBe(55);
     expect(db.order.count).toHaveBeenCalled();
+  });
+
+  it('reports every first-run setup step as done for a set-up shop', async () => {
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.firstRun).toEqual({
+      hasTier: true,
+      autoCashbackOn: true,
+      widgetOn: true,
+      dismissed: false,
+      themeEditorUrl:
+        'https://test-shop.myshopify.com/admin/themes/current/editor?context=apps&activateAppId=test-api-key/membership_widget',
+    });
+  });
+
+  it('reports the first-run setup steps a new shop still needs', async () => {
+    vi.mocked(db.tier.count).mockResolvedValue(0);
+    vi.mocked(detectWidgetStatus).mockResolvedValue({
+      isEnabled: false,
+      membershipWidgetEnabled: false,
+      blockType: 'none',
+      themeName: 'Dawn',
+      lastChecked: new Date('2026-03-22T12:00:00Z'),
+    });
+    vi.mocked(db.shopSettings.findUnique).mockResolvedValue({
+      storeCurrency: 'GBP',
+      autoCashbackProcessingEnabled: false,
+      customersInitialSynced: false,
+      customersSyncInProgress: true,
+      widgetIsActive: false,
+      widgetSetupDismissed: false,
+      reviewBannerDismissed: false,
+      customerAccountBlockDismissed: false,
+    } as any);
+
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.firstRun).toMatchObject({
+      hasTier: false,
+      autoCashbackOn: false,
+      widgetOn: false,
+      dismissed: false,
+    });
+  });
+
+  it('remembers a dismissed first-run setup card in the unused customer-account flag', async () => {
+    vi.mocked(db.shopSettings.findUnique).mockResolvedValue({
+      storeCurrency: 'USD',
+      autoCashbackProcessingEnabled: false,
+      widgetIsActive: false,
+      customerAccountBlockDismissed: true,
+    } as any);
+
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.firstRun.dismissed).toBe(true);
+    expect(db.shopSettings.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ customerAccountBlockDismissed: true }),
+      }),
+    );
+  });
+
+  it('marks the widget step done only for the membership widget embed, not another of the app\'s blocks', async () => {
+    // The missions embed is on; the membership widget embed is not
+    vi.mocked(detectWidgetStatus).mockImplementation(async () => ({
+      isEnabled: true,
+      membershipWidgetEnabled: false,
+      blockType: 'app_embed',
+      themeName: 'Dawn',
+      lastChecked: new Date(),
+    }) as any);
+
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.firstRun.widgetOn).toBe(false);
+    expect(data.widgetStatus.status).toBe('active');
+  });
+
+  it('checks the theme again when a cached answer says the widget is off while the setup card is open', async () => {
+    // The merchant turned the embed on after the answer was cached
+    vi.mocked(detectWidgetStatus)
+      .mockResolvedValueOnce({
+        isEnabled: false,
+        membershipWidgetEnabled: false,
+        blockType: 'none',
+        themeName: 'Dawn',
+        lastChecked: new Date(Date.now() - 60_000),
+      } as any)
+      .mockImplementationOnce(async () => ({
+        isEnabled: true,
+        membershipWidgetEnabled: true,
+        blockType: 'app_embed',
+        themeName: 'Dawn',
+        lastChecked: new Date(),
+      }) as any);
+
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.firstRun.widgetOn).toBe(true);
+    expect(detectWidgetStatus).toHaveBeenCalledTimes(2);
+    expect(detectWidgetStatus).toHaveBeenLastCalledWith(expect.anything(), MOCK_SHOP, true);
+  });
+
+  it('checks the theme once when the answer is fresh or the setup card was dismissed', async () => {
+    vi.mocked(detectWidgetStatus).mockImplementation(async () => ({
+      isEnabled: false,
+      membershipWidgetEnabled: false,
+      blockType: 'none',
+      themeName: 'Dawn',
+      lastChecked: new Date(),
+    }) as any);
+
+    await loader({ request: new Request('https://app.example.com/app'), params: {}, context: {} });
+    expect(detectWidgetStatus).toHaveBeenCalledTimes(1);
+
+    vi.mocked(detectWidgetStatus).mockClear().mockResolvedValue({
+      isEnabled: false,
+      membershipWidgetEnabled: false,
+      blockType: 'none',
+      themeName: 'Dawn',
+      lastChecked: new Date(Date.now() - 60_000),
+    } as any);
+    vi.mocked(db.shopSettings.findUnique).mockResolvedValue({
+      storeCurrency: 'USD',
+      autoCashbackProcessingEnabled: false,
+      widgetIsActive: false,
+      customerAccountBlockDismissed: true,
+    } as any);
+
+    await loader({ request: new Request('https://app.example.com/app'), params: {}, context: {} });
+    expect(detectWidgetStatus).toHaveBeenCalledTimes(1);
   });
 
   it('should detect failed data sync status', async () => {

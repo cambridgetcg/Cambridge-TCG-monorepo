@@ -9,6 +9,7 @@ import prisma from "./db.server";
 import { toCurrency } from "./utils/currency-code.server";
 import { EncryptedPrismaSessionStorage } from "./utils/session-storage.server";
 import { syncCustomersInBackground } from "./services/background-customer-sync.server";
+import { waitUntil } from "./utils/wait-until.server";
 import { PRICING_PLANS } from "./constants/pricing-contract";
 
 // Import and re-export billing plan names from shared constants
@@ -282,12 +283,15 @@ const shopify = shopifyApp({
         }
       }
 
-      // Trigger customer sync if not completed
+      // Trigger customer sync if not completed. It runs after the install
+      // response is sent, so Vercel is asked to keep the function alive for it.
       if (!shopSettings?.customersInitialSynced) {
         console.log(`[AfterAuth] Starting initial customer sync for ${session.shop}`);
-        syncCustomersInBackground(session.shop, admin).catch((error) => {
-          console.error(`[AfterAuth] Customer sync failed for ${session.shop}:`, error);
-        });
+        waitUntil(
+          syncCustomersInBackground(session.shop, admin).catch((error) => {
+            console.error(`[AfterAuth] Customer sync failed for ${session.shop}:`, error);
+          }),
+        );
       } else {
         console.log(`[AfterAuth] Customers already synced for ${session.shop}, skipping re-sync`);
       }
