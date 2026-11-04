@@ -51,6 +51,7 @@ function dashboardData({ hasTier = true, cashbackOn = true, widgetOn = true, web
     hasSubscriptionRecords: false,
     pendingDataRequests: 0,
     storeCreditSpendProblems: [],
+    autoCashbackBacklog: { count: 0, total: 0 },
     shopSettings: { storeCurrency: "GBP", autoCashbackProcessingEnabled: cashbackOn, advancedAnalyticsEnabled: true, tierProductsEnabled: true },
     widgetStatus: {
       isActive: widgetOn,
@@ -150,6 +151,21 @@ describe("dashboard health row", () => {
     expect(screen.getByText("Finish setup")).toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Turn on" }));
+
+    expect(screen.getByText("All Systems Operational")).toBeInTheDocument();
+    expect(screen.queryByText("Finish setup")).not.toBeInTheDocument();
+  });
+
+  it("follows the toggle at once when cashback is waiting, once the merchant confirms", async () => {
+    // jsdom has no scrolling, which Polaris' modal asks for
+    vi.spyOn(window, "scroll").mockImplementation(() => {});
+    remix.loaderData = dashboardData({ cashbackOn: false }, { autoCashbackBacklog: { count: 3, total: 7.5 } });
+    render(createElement(AppProvider, { i18n: en }, createElement(Dashboard)));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Turn on" }));
+    expect(screen.getByText("Finish setup")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Turn on and pay them" }));
 
     expect(screen.getByText("All Systems Operational")).toBeInTheDocument();
     expect(screen.queryByText("Finish setup")).not.toBeInTheDocument();
