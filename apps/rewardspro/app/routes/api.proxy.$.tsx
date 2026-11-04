@@ -646,8 +646,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           isNewCustomer: Number(row.orderCount || 0) === 0 && Number(row.totalCashbackEarned || 0) === 0
         },
         balance: {
-          // Our copy misses credit spent at checkout or changed in Shopify
-          // admin, so it stands in only when Shopify can't be reached
+          // Our copy lags credit changed in Shopify admin, by other apps or by
+          // expiry, so it stands in only when Shopify can't say
           storeCredit: liveStoreCredit ?? Number(row.storeCredit || 0),
           totalEarned: Number(row.totalCashbackEarned || 0),
           lastSynced: row.updatedAt || null

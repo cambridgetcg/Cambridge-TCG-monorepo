@@ -99,7 +99,7 @@ describe.skipIf(!hasTestDatabase)("app proxy identity on Postgres", () => {
   });
 
   it("shows the store credit Shopify holds, not the stored copy", async () => {
-    // Stored as 42, then some spent at checkout. A shopper of its own, as the
+    // Stored as 42, then changed in Shopify. A shopper of its own, as the
     // proxy keeps each shopper's balance for 30 seconds
     const spender = { shopifyCustomerId: "200", email: "spender@example.test" };
     await prisma.customer.create({ data: { shop: SHOP, ...spender, storeCredit: 42 } });

@@ -4,9 +4,10 @@ import { selectedFields } from "../../helpers/graphql-fields";
 
 /**
  * The membership widget shows the store credit the proxy returns. RewardsPro's
- * copy of it changes only when the app credits or debits, so after a shopper
- * spends credit at checkout the widget would show too much. The proxy returns
- * Shopify's balance, and the copy only when Shopify can't be reached.
+ * copy of it is refreshed when the app credits or debits, on each
+ * orders/create and by Sync Store Credit, so it lags credit changed in Shopify
+ * admin, by another app or by expiry. The proxy returns Shopify's balance, and
+ * the copy only when Shopify can't say.
  */
 
 const SHOP = "live-balance.myshopify.com";
@@ -41,8 +42,8 @@ const BALANCE_FIELDS = [
 const selects = (query: string, fields: string[]) => selectedFields(query).join() === fields.join();
 const askedForBalance = () => graphql.mock.calls.filter(([query]) => selects(query, BALANCE_FIELDS)).length;
 
-/** Shopify answers with `balance` in GBP for every shopper, or fails to answer it */
-function shopify({ balance = "12.50", fail = false }: { balance?: string; fail?: boolean } = {}) {
+/** Shopify answers with `balance` in `currency` for every shopper of a GBP shop, or fails to answer it */
+function shopify({ balance = "12.50", currency = "GBP", fail = false }: { balance?: string; currency?: string; fail?: boolean } = {}) {
   graphql.mockImplementation(async (query: string) => {
     if (selects(query, CUSTOMER_ACCOUNTS_FIELDS)) {
       return { json: async () => ({ data: { shop: { customerAccountsV2: { customerAccountsVersion: "NEW_CUSTOMER_ACCOUNTS" } } } }) };
@@ -55,7 +56,7 @@ function shopify({ balance = "12.50", fail = false }: { balance?: string; fail?:
             shop: { currencyCode: "GBP" },
             customer: {
               storeCreditAccounts: {
-                nodes: [{ balance: { amount: balance, currencyCode: "GBP" } }],
+                nodes: [{ balance: { amount: balance, currencyCode: currency } }],
                 pageInfo: { hasNextPage: false },
               },
             },
@@ -107,11 +108,23 @@ afterEach(() => {
 });
 
 describe("membership store credit", () => {
-  it("shows the lower balance Shopify holds after the shopper spent credit", async () => {
+  it("shows the balance Shopify holds when the stored copy is stale", async () => {
     shopify({ balance: "12.50" });
     const body = await membership("101");
     expect(body.success).toBe(true);
     expect(body.balance.storeCredit).toBe(12.5);
+  });
+
+  it("shows 0 when Shopify says the shopper has spent it all", async () => {
+    shopify({ balance: "0.00" });
+    const body = await membership("101");
+    expect(body.balance.storeCredit).toBe(0);
+  });
+
+  it("keeps the stored balance when the shopper's credit is in another currency", async () => {
+    shopify({ balance: "5.00", currency: "EUR" });
+    const body = await membership("101");
+    expect(body.balance.storeCredit).toBe(STORED_CREDIT);
   });
 
   it("falls back to the stored balance when Shopify can't be reached", async () => {
