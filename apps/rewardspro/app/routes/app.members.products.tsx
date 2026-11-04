@@ -2741,7 +2741,7 @@ export default function TierProducts() {
                       <BlockStack gap="300">
                         <Banner tone="info">
                           <Text as="p" variant="bodyMd">
-                            Deleted products can be restored within 30 days. After that, they are permanently removed.
+                            Deleted products can be restored within 30 days. After that, they are permanently removed, unless a shopper still holds a membership from one.
                           </Text>
                         </Banner>
 

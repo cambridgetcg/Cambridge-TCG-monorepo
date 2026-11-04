@@ -803,6 +803,22 @@ export async function permanentlyDeleteTierProduct(
     // Use the resolved DB ID for all subsequent operations
     const resolvedId = product.id;
 
+    // Deleting the purchases would take a shopper's tier with no word to
+    // them, so wait until every membership from it has ended, as the
+    // tier-product-cleanup cron does
+    const activePurchases = await prisma.tierPurchase.count({
+      where: { tierProductId: resolvedId, status: 'ACTIVE' }
+    });
+    if (activePurchases > 0) {
+      console.log(`[TierProductDeletion] Kept ${resolvedId}: ${activePurchases} membership(s) bought from it still active`);
+      return {
+        success: false,
+        error: activePurchases === 1
+          ? '1 shopper still holds a membership from this product. It can be deleted for good once that membership ends.'
+          : `${activePurchases} shoppers still hold a membership from this product. It can be deleted for good once those memberships end.`
+      };
+    }
+
     // Create snapshot for audit log (persisted to console since DB audit cascades)
     const previousState = {
       id: product.id,

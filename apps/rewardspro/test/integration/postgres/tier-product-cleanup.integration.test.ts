@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
 import { loader as tierProductCleanup } from "~/routes/api.cron.tier-product-cleanup";
+import { permanentlyDeleteTierProduct } from "~/services/tier-products/tier-product-deletion.server";
 import { hasTestDatabase, resetDatabase } from "./database";
 
 // The tier-product-cleanup cron against Postgres: 30 days after a merchant
@@ -110,5 +111,28 @@ describe.skipIf(!hasTestDatabase)("tier-product-cleanup cron on Postgres", () =>
     expect(left.map((product) => product.id).sort()).toEqual([lifetime.id, justEnded.id, recoverable.id].sort());
     expect(await prisma.tierPurchase.findUnique({ where: { id: held.id } })).not.toBeNull();
     expect(await prisma.tierPurchase.count({ where: { tierProductId: finished.id } })).toBe(0);
+  });
+
+  it("won't delete a deleted product for good by hand while a shopper still holds a membership from it", async () => {
+    await prisma.tier.create({ data: { id: "tier-gold", shop: SHOP, name: "Gold", minSpend: 500, cashbackPercent: 10 } });
+    const shopper = await prisma.customer.create({
+      data: { shop: SHOP, shopifyCustomerId: "100", email: "member@example.test", currentTierId: "tier-gold" },
+    });
+    const held = await seedProduct(3);
+    const membership = await seedPurchase(held.id, shopper.id, "ACTIVE", new Date(Date.now() + 20 * DAY));
+    const finished = await seedProduct(3);
+    await seedPurchase(finished.id, shopper.id, "EXPIRED", new Date(Date.now() - 40 * DAY));
+
+    const refused = await permanentlyDeleteTierProduct(SHOP, held.id);
+    const deleted = await permanentlyDeleteTierProduct(SHOP, finished.id);
+
+    expect(refused).toMatchObject({ success: false });
+    expect(refused.error).toBe(
+      "1 shopper still holds a membership from this product. It can be deleted for good once that membership ends.",
+    );
+    expect(await prisma.tierProduct.findUnique({ where: { id: held.id } })).not.toBeNull();
+    expect(await prisma.tierPurchase.findUnique({ where: { id: membership.id } })).not.toBeNull();
+    expect(deleted).toMatchObject({ success: true });
+    expect(await prisma.tierProduct.findUnique({ where: { id: finished.id } })).toBeNull();
   });
 });
