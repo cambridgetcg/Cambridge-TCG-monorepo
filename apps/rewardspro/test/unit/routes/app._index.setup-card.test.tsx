@@ -148,3 +148,43 @@ describe("dashboard first-run setup card, clicked", () => {
     expect(screen.getByText(SETUP_TITLE)).toBeInTheDocument();
   });
 });
+
+describe("turning on automatic cashback while cashback is waiting", () => {
+  beforeEach(() => {
+    remix.submit.mockClear();
+    // jsdom has no scrolling, which Polaris' modal asks for
+    vi.spyOn(window, "scroll").mockImplementation(() => {});
+    remix.loaderData = { ...dashboardData({}), autoCashbackBacklog: { count: 3, total: 7.5 } };
+  });
+
+  function renderDashboard() {
+    render(createElement(AppProvider, { i18n: en }, createElement(Dashboard)));
+  }
+
+  it("says how many waiting orders it pays, and how much, before turning it on", async () => {
+    renderDashboard();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Turn on" }));
+
+    expect(remix.submit).not.toHaveBeenCalled();
+    expect(await screen.findByText(/3 paid orders from the last 7 days are waiting for cashback \(£7\.50 in all\)/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Turn on and pay them" }));
+
+    const form = remix.submit.mock.calls[0][0] as FormData;
+    expect(form.get("feature")).toBe("autoCashbackProcessingEnabled");
+    expect(form.get("enabled")).toBe("true");
+  });
+
+  it("Cancel leaves automatic cashback off", async () => {
+    renderDashboard();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Turn on" }));
+    await user.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    expect(remix.submit).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Turn on" })).toBeInTheDocument();
+  });
+});

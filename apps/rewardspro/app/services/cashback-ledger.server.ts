@@ -128,6 +128,28 @@ export function isClaimFinished(metadata: Prisma.JsonObject, now: Date = new Dat
 export const AUTO_SEND_MAX_AGE_DAYS = 7;
 
 /**
+ * The PENDING cashback the reconciliation cron sends once the merchant turns
+ * automatic cashback on: entries from the last AUTO_SEND_MAX_AGE_DAYS days
+ * with cashback left. Refunds made since are taken off when each is sent, so
+ * `total` is the most it pays.
+ */
+export async function autoCashbackBacklog(shop: string, now: Date = new Date()): Promise<{ count: number; total: number }> {
+  const since = new Date(now.getTime() - AUTO_SEND_MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
+  const backlog = await prisma.storeCreditLedger.aggregate({
+    where: {
+      shop,
+      type: "CASHBACK_EARNED",
+      createdAt: { gte: since },
+      amount: { gt: 0 },
+      metadata: { path: ["syncStatus"], equals: "PENDING" },
+    },
+    _count: { _all: true },
+    _sum: { amount: true },
+  });
+  return { count: backlog._count._all, total: Number(backlog._sum.amount ?? 0) };
+}
+
+/**
  * The merchant's "Automatic cashback processing" switch. Off unless turned
  * on, matching the ShopSettings default.
  */

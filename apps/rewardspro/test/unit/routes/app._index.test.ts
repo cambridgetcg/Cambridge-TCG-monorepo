@@ -50,6 +50,9 @@ vi.mock('~/db.server', () => ({
     customerDataRequest: {
       count: vi.fn(),
     },
+    storeCreditLedger: {
+      aggregate: vi.fn(),
+    },
   },
 }));
 
@@ -537,6 +540,29 @@ describe('app._index (dashboard) loader', () => {
 
     expect(data.storeCreditSpendProblems).toEqual(['legacy-accounts', 'store-credit-off']);
     expect(getStoreCreditSpendProblems).toHaveBeenCalledWith(expect.objectContaining({ graphql: expect.any(Function) }), MOCK_SHOP);
+  });
+
+  it('says how much pending cashback turning automatic cashback on would pay at once', async () => {
+    vi.mocked(db.storeCreditLedger.aggregate).mockResolvedValue({ _count: { _all: 3 }, _sum: { amount: 7.5 } } as any);
+
+    const response = await loader({ request: new Request('https://app.example.com/app'), params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.autoCashbackBacklog).toEqual({ count: 3, total: 7.5 });
+    // What the reconciliation cron sends: PENDING cashback from the last 7 days with some left
+    expect(db.storeCreditLedger.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          shop: MOCK_SHOP,
+          type: 'CASHBACK_EARNED',
+          createdAt: { gte: expect.any(Date) },
+          amount: { gt: 0 },
+          metadata: { path: ['syncStatus'], equals: 'PENDING' },
+        },
+      }),
+    );
+    const since = vi.mocked(db.storeCreditLedger.aggregate).mock.calls[0][0]!.where!.createdAt as { gte: Date };
+    expect(Date.now() - since.gte.getTime()).toBeCloseTo(7 * 24 * 60 * 60 * 1000, -4);
   });
 
   it('reports no store credit problems on a shop where shoppers can spend it', async () => {
