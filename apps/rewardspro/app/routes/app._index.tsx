@@ -33,6 +33,8 @@ import prisma from "../db.server";
 import { getPlanOrderLimit } from "~/constants/billing.constants";
 import {
   PRICING_PLANS,
+  UNLIMITED_PLAN_LIMIT,
+  formatPlanLimit,
   getPricingPlan,
 } from "~/constants/pricing-contract";
 import { measureQuery, getDatabaseHealth } from "~/utils/database-health.server";
@@ -76,6 +78,11 @@ const calculateProjectedOrders = (currentOrders: number, daysRemaining: number):
   const dailyRate = currentOrders / daysPassed;
   return Math.ceil(dailyRate * totalDaysInMonth);
 };
+
+/** The review request waits for this many orders whose cashback reached the customer */
+const REVIEW_REQUEST_MIN_ORDERS = 3;
+/** ...and this many days since the app was installed */
+const REVIEW_REQUEST_MIN_DAYS = 7;
 
 // ============================================
 // TYPE DEFINITIONS
@@ -138,8 +145,10 @@ interface DashboardData {
   };
   // First-run setup card
   firstRun: FirstRunSetupState & { dismissed: boolean };
-  // Review banner
-  reviewBannerDismissed: boolean;
+  // Review banner: not dismissed, and the app has done its job for a while
+  showReviewBanner: boolean;
+  // The shop has a paid agreement on record (the Subscription records page)
+  hasSubscriptionRecords: boolean;
   // Customer data requests the merchant has not downloaded
   pendingDataRequests: number;
   // What stops shoppers spending their store credit at checkout
@@ -236,6 +245,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             widgetIsActive: true,
             widgetSetupDismissed: true,
             reviewBannerDismissed: true,
+            // Set when the app is first installed (shopify.server.ts afterAuth)
+            createdAt: true,
             // Reused for the first-run setup card: unused since the
             // customer-account extension was removed (2026-10-20)
             customerAccountBlockDismissed: true,
@@ -269,7 +280,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       autoCashbackBacklog(shop).catch(() => null),
     ]);
 
-    // Simple direct order count for current month
+    // This month's order count
     const now = new Date();
     const year = now.getUTCFullYear();
     const month = now.getUTCMonth() + 1;
@@ -278,7 +289,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     let orderCount = 0;
     try {
-      // Try to get from cache first
       // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
       const cachedUsage = await prisma.monthlyOrderUsage.findFirst({
         where: {
@@ -288,25 +298,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         },
       });
 
-      if (cachedUsage) {
-        orderCount = cachedUsage.orderCount;
-        console.log(`[Dashboard] Using cached order count: ${orderCount}`);
-      } else {
-        // Simple direct count from Order table for current month
-        const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
-        const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-
-        orderCount = await prisma.order.count({
-          where: {
-            shop,
-            createdAt: {
-              gte: startOfMonth,
-              lte: endOfMonth,
-            },
-          },
-        });
-        console.log(`[Dashboard] Direct order count: ${orderCount}`);
-      }
+      // orders/paid creates the month's row with the first order it counts
+      // (utils/order-count.server.ts), so with no row nothing is counted yet.
+      // Order rows are no stand-in: both order syncs write past orders with
+      // createdAt set to the sync time.
+      orderCount = cachedUsage?.orderCount ?? 0;
+      console.log(`[Dashboard] Monthly order count: ${orderCount}`);
     } catch (error) {
       console.error("[Dashboard] Error counting orders:", error);
       orderCount = 0;
@@ -477,6 +474,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       widgetDetectionResult.isEnabled = shopSettings?.widgetIsActive ?? false;
     }
 
+    // Ask for a review only once the app has done its job for a while.
+    // Shopify asks apps to ask after a successful workflow, not when a
+    // merchant first opens the app, and its own review request never shows
+    // in a shop's first 24 hours.
+    const reviewBannerDismissed = shopSettings?.reviewBannerDismissed ?? false;
+    const ordersWithCashbackIssued = reviewBannerDismissed
+      ? 0
+      : await prisma.order.count({ where: { shop, cashbackProcessed: true, cashbackAmount: { gt: 0 } } });
+    const daysSinceInstall = shopSettings?.createdAt
+      ? (Date.now() - shopSettings.createdAt.getTime()) / (24 * 60 * 60 * 1000)
+      : 0;
+    const showReviewBanner =
+      !reviewBannerDismissed &&
+      ordersWithCashbackIssued >= REVIEW_REQUEST_MIN_ORDERS &&
+      daysSinceInstall >= REVIEW_REQUEST_MIN_DAYS;
+
     const widgetSetupDismissed = shopSettings?.widgetSetupDismissed ?? false;
     let widgetStatusValue: 'active' | 'inactive' | 'not_configured' = 'not_configured';
     if (widgetDetectionResult.isEnabled) {
@@ -498,7 +511,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         // handle is its Liquid file name (blocks/membership_widget.liquid)
         themeEditorUrl: `https://${shop}/admin/themes/current/editor?context=apps&activateAppId=${process.env.SHOPIFY_API_KEY}/membership_widget`,
       },
-      reviewBannerDismissed: shopSettings?.reviewBannerDismissed ?? false,
+      showReviewBanner,
+      // A free shop with no paid agreement, past or present, has none
+      hasSubscriptionRecords: Boolean(billingSubscription || subscriptionName || activeSubscription),
       pendingDataRequests,
       storeCreditSpendProblems,
       autoCashbackBacklog: cashbackBacklog,
@@ -642,27 +657,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 // ============================================
-// SHOULD REVALIDATE - Prevent full loader reload on feature toggle
-// ============================================
-
-export function shouldRevalidate({
-  formData,
-  defaultShouldRevalidate,
-}: {
-  formAction?: string;
-  formData?: FormData;
-  defaultShouldRevalidate: boolean;
-}) {
-  // Skip loader revalidation for feature toggle actions
-  // The optimistic UI handles the immediate visual update
-  if (formData?.get("action") === "toggle-feature") {
-    return false;
-  }
-
-  return defaultShouldRevalidate;
-}
-
-// ============================================
 // DASHBOARD COMPONENT
 // ============================================
 
@@ -674,7 +668,7 @@ export default function Dashboard() {
 
   // Review prompts are neutral and never linked to billing or plan rewards.
   const [reviewBannerState, setReviewBannerState] = useState<'idle' | 'leaving' | 'recorded'>('idle');
-  const [reviewBannerVisible, setReviewBannerVisible] = useState(!data?.reviewBannerDismissed);
+  const [reviewBannerVisible, setReviewBannerVisible] = useState(data?.showReviewBanner ?? false);
   const reviewFetcher = useFetcher();
 
   const handleLeaveReview = useCallback(() => {
@@ -783,16 +777,13 @@ export default function Dashboard() {
     switchCashback(true);
   }, [switchCashback]);
 
-  // Handle fetcher completion - show toast (keep optimistic state since loader won't revalidate)
+  // Handle fetcher completion - show toast. Remix then reloads the dashboard,
+  // and the optimistic value, now saved, matches what it loads.
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data) {
       const result = fetcher.data as { success?: boolean; feature?: string; enabled?: boolean; error?: string };
 
       if (result.success && result.feature && typeof result.enabled === 'boolean') {
-        // NOTE: We keep the optimistic state because shouldRevalidate returns false
-        // The optimistic value will persist until full page navigation/refresh
-        // This is intentional to prevent the toggle from reverting
-
         const featureNames: Record<string, string> = {
           'advancedAnalyticsEnabled': 'Advanced Analytics',
           'autoCashbackProcessingEnabled': 'Automatic Cashback Processing',
@@ -851,11 +842,31 @@ export default function Dashboard() {
     { label: 'Database', ok: data.databaseHealth.status === 'connected' },
     { label: 'Webhooks', ok: data.webhookStats.status === 'healthy' },
     { label: 'Sync', ok: data.dataSyncHealth.status === 'operational' || data.dataSyncHealth.status === 'syncing' },
-    { label: 'Widget', ok: data.widgetStatus.status === 'active' },
-    { label: 'Engine', ok: data.loyaltyEngine.status === 'operational' },
   ];
+  // The widget and the engine (a tier and automatic cashback) are setup a
+  // shop finishes, not systems that fail. The widget is the setup card's
+  // (the membership embed: widgetStatus counts any of the app's blocks), and
+  // the engine follows the optimistic toggle, like the Features card.
+  const widgetOn = data.firstRun.widgetOn;
+  const setupComponents = [
+    { label: 'Widget', ok: widgetOn },
+    { label: 'Engine', ok: data.loyaltyEngine.status !== 'needs_setup' && cashbackEnabled },
+  ];
+  const setupToDo = [
+    data.loyaltyEngine.tierCount === 0 && 'create a tier',
+    !cashbackEnabled && 'turn on automatic cashback',
+    !widgetOn && 'turn on the rewards widget',
+  ].filter(Boolean);
   const healthyCount = systemComponents.filter(c => c.ok).length;
-  const allHealthy = healthyCount === systemComponents.length;
+  const systemsHealthy = healthyCount === systemComponents.length;
+  const setupDone = setupComponents.every(c => c.ok);
+  const allHealthy = systemsHealthy && setupDone;
+  const healthHeadline = !systemsHealthy
+    ? `${healthyCount}/${systemComponents.length} Systems Healthy`
+    : !setupDone
+      ? 'Finish setup'
+      : 'All Systems Operational';
+  const orderGuide = data.monthlyOrderUsage?.planLimit || PRICING_PLANS.free.limits.orders;
 
   // The setup card follows the optimistic toggle, like the Features card
   const firstRunState: FirstRunSetupState = { ...data.firstRun, autoCashbackOn: cashbackEnabled };
@@ -952,9 +963,11 @@ export default function Dashboard() {
                     {data.currentMonth} • {data.daysRemaining}d remaining in cycle
                   </Text>
                 </BlockStack>
-                <Button variant="plain" onClick={() => navigate('/app/billing')}>
-                  Subscription records
-                </Button>
+                {data.hasSubscriptionRecords && (
+                  <Button variant="plain" onClick={() => navigate('/app/billing')}>
+                    Subscription records
+                  </Button>
+                )}
               </InlineStack>
 
               <Divider />
@@ -970,10 +983,10 @@ export default function Dashboard() {
                 </BlockStack>
                 <BlockStack gap="050">
                   <Text variant="heading2xl" as="p" fontWeight="bold">
-                    {data.monthlyOrderUsage?.planLimit || PRICING_PLANS.free.limits.orders}
+                    {formatPlanLimit(orderGuide)}
                   </Text>
                   <Text variant="bodySm" as="span" tone="subdued">
-                    Plan limit
+                    Monthly order guide
                   </Text>
                 </BlockStack>
                 <BlockStack gap="050">
@@ -993,6 +1006,12 @@ export default function Dashboard() {
                   </Text>
                 </BlockStack>
               </InlineGrid>
+              {/* Capacity is advisory: orders/paid credits cashback before it counts the order, and nothing locks */}
+              {orderGuide < UNLIMITED_PLAN_LIMIT && (
+                <Text variant="bodySm" as="p" tone="subdued">
+                  This is a guide, not a cap: orders past it still earn cashback.
+                </Text>
+              )}
             </BlockStack>
           </Card>
         </Layout.Section>
@@ -1000,21 +1019,36 @@ export default function Dashboard() {
         {/* System Health — one compact row */}
         <Layout.Section>
           <Card>
-            <InlineStack align="space-between" blockAlign="center">
-              <InlineStack gap="200" blockAlign="center">
-                <Icon source={allHealthy ? CheckCircleIcon : StatusActiveIcon} tone={allHealthy ? 'success' : 'warning'} />
-                <Text variant="bodyMd" as="span" fontWeight="semibold">
-                  {allHealthy ? 'All Systems Operational' : `${healthyCount}/${systemComponents.length} Systems Healthy`}
+            <BlockStack gap="200">
+              <InlineStack align="space-between" blockAlign="center">
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon
+                    source={allHealthy ? CheckCircleIcon : StatusActiveIcon}
+                    tone={allHealthy ? 'success' : systemsHealthy ? 'info' : 'warning'}
+                  />
+                  <Text variant="bodyMd" as="span" fontWeight="semibold">
+                    {healthHeadline}
+                  </Text>
+                </InlineStack>
+                <InlineStack gap="300">
+                  {systemComponents.map((c) => (
+                    <Badge key={c.label} tone={c.ok ? 'success' : 'warning'}>
+                      {c.label}
+                    </Badge>
+                  ))}
+                  {setupComponents.map((c) => (
+                    <Badge key={c.label} tone={c.ok ? 'success' : undefined}>
+                      {c.label}
+                    </Badge>
+                  ))}
+                </InlineStack>
+              </InlineStack>
+              {setupToDo.length > 0 && (
+                <Text variant="bodySm" as="p" tone="subdued">
+                  {`Still to do: ${setupToDo.join(', ')}.`}
                 </Text>
-              </InlineStack>
-              <InlineStack gap="300">
-                {systemComponents.map((c) => (
-                  <Badge key={c.label} tone={c.ok ? 'success' : 'warning'}>
-                    {c.label}
-                  </Badge>
-                ))}
-              </InlineStack>
-            </InlineStack>
+              )}
+            </BlockStack>
           </Card>
         </Layout.Section>
 

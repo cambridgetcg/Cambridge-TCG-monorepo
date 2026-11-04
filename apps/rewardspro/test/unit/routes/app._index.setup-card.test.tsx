@@ -35,7 +35,7 @@ const STORE_CREDIT_WARNING = "Make sure shoppers can spend their store credit";
 function dashboardData(firstRun: Record<string, unknown>, autoCashbackProcessingEnabled = false) {
   return {
     shop: "shop.myshopify.com",
-    reviewBannerDismissed: true,
+    showReviewBanner: false,
     pendingDataRequests: 0,
     storeCreditSpendProblems: [],
     shopSettings: { storeCurrency: "GBP", autoCashbackProcessingEnabled },

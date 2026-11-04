@@ -543,7 +543,7 @@ export default function TiersPage() {
                                               <Icon source={CalendarIcon} tone="subdued" />
                                               <Text variant="bodyMd" tone="subdued" as="span">
                                                 {tier.evaluationPeriod === "ANNUAL"
-                                                  ? "Annual"
+                                                  ? "Last 12 months"
                                                   : "Lifetime"}
                                               </Text>
                                             </InlineStack>
@@ -674,12 +674,16 @@ export default function TiersPage() {
               <Select
                 label="Evaluation Period"
                 options={
+                  // Tier spend is the Order rows RewardsPro holds, less refunds
+                  // (services/tier-calculation.server.ts): install syncs
+                  // customers, never orders. ANNUAL counts those from the 12
+                  // months up to today, not a calendar year
                   data.hasAnnualEval
                     ? [
-                        { label: "Annual (resets yearly)", value: "ANNUAL" },
-                        { label: "Lifetime (cumulative)", value: "LIFETIME" },
+                        { label: "Last 12 months (rolling)", value: "ANNUAL" },
+                        { label: "Lifetime (all recorded orders)", value: "LIFETIME" },
                       ]
-                    : [{ label: "Lifetime (cumulative)", value: "LIFETIME" }]
+                    : [{ label: "Lifetime (all recorded orders)", value: "LIFETIME" }]
                 }
                 value={tierFormData.evaluationPeriod}
                 onChange={(value) =>
@@ -691,7 +695,7 @@ export default function TiersPage() {
                 helpText={
                   !data.hasAnnualEval
                     ? "Annual evaluation is unavailable under the existing agreement. Paid plans aren't offered right now."
-                    : "Choose how tier status is calculated: annually reset or lifetime cumulative"
+                    : "Both count the orders RewardsPro has recorded for a customer, less refunds: orders paid since you installed the app, plus orders from the past 12 months that you bring in with Sync Orders. Last 12 months counts orders placed in the 12 months up to today, so an order stops counting a year after it was placed. Lifetime counts every recorded order."
                 }
               />
             </FormLayout>

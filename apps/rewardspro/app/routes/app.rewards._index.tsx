@@ -857,7 +857,7 @@ export default function PointsOverview() {
                   <InlineStack gap="200" blockAlign="center">
                     <Icon source={EmailIcon} tone="info" />
                     <Text variant="bodySm" as="p">
-                      <Text as="span" fontWeight="semibold">Tip:</Text> Email campaigns announcing bonus {config.currencyNamePlural.toLowerCase()} events see 2-3x higher engagement
+                      <Text as="span" fontWeight="semibold">Tip:</Text> Tell customers about bonus {config.currencyNamePlural.toLowerCase()} events, for example in an email campaign
                     </Text>
                   </InlineStack>
                 </Box>
