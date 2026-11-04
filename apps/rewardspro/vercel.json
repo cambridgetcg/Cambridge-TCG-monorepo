@@ -27,6 +27,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/mission-status",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/cron/scheduled-campaigns",
       "schedule": "15 * * * *"
     },

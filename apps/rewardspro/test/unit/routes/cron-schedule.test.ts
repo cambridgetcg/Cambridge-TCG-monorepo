@@ -52,6 +52,8 @@ const SCHEDULED_CRONS: Record<string, () => Promise<{ loader: unknown }>> = {
   "/api/cron/webhook-cleanup": () => import("~/routes/api.cron.webhook-cleanup"),
   // Permanently deletes membership products 30 days after a merchant deletes them
   "/api/cron/tier-product-cleanup": () => import("~/routes/api.cron.tier-product-cleanup"),
+  // Starts and closes the missions merchants schedule in the admin
+  "/api/cron/mission-status": () => import("~/routes/api.cron.mission-status"),
 };
 
 // Cron routes left unscheduled on purpose, and why. The route files stay.
@@ -69,8 +71,7 @@ const UNSCHEDULED_CRONS: Record<string, string> = {
     "Entitlements read AppSubscription first; this only copies it into two other tables or logs rows nothing reads",
   "/api/cron/subscription-reconciliation": "Memberships are one-time purchases, so no TierSubscription row is ever created",
   "/api/cron/points-maintenance": "Points are off (FEATURES_AVAILABLE.points)",
-  "/api/cron/mission-generator": "Missions aren't live in the storefront",
-  "/api/cron/mission-status": "Missions aren't live in the storefront",
+  "/api/cron/mission-generator": "Nothing creates the mission templates it makes missions from",
   "/api/cron/raffle-status": "Raffles are paused (CHANCE_MECHANICS_PAUSED)",
   "/api/cron/raffle-draw": "Raffles are paused (CHANCE_MECHANICS_PAUSED)",
   "/api/cron/mystery-box-status": "Mystery boxes are paused (CHANCE_MECHANICS_PAUSED)",
@@ -103,7 +104,30 @@ describe("scheduled crons", () => {
 
     expect([...Object.keys(SCHEDULED_CRONS), ...Object.keys(UNSCHEDULED_CRONS)].sort()).toEqual(routePaths);
   });
+
+  // Logs record identifiers, not contact data (the privacy policy says so)
+  it.each(scheduledPaths)("%s logs no shopper contact data", (path) => {
+    const name = path.replace("/api/cron/", "");
+    const source = readFileSync(resolve(process.cwd(), `app/routes/api.cron.${name}.tsx`), "utf8");
+
+    expect(logCalls(source).filter((call) => CONTACT_DATA.test(call))).toEqual([]);
+  });
 });
+
+const CONTACT_DATA = /\.(?:email|firstName|lastName|phone)\b|\b(?:email|firstName|lastName|phone)\s*:/;
+
+// The full text of every log() and console.*() call in a source file
+function logCalls(source: string): string[] {
+  return [...source.matchAll(/\b(?:log|console\.(?:log|info|warn|error|debug))\(/g)].map((match) => {
+    let depth = 0;
+    let end = match.index + match[0].length - 1;
+    for (; end < source.length; end++) {
+      if (source[end] === "(") depth++;
+      else if (source[end] === ")" && --depth === 0) break;
+    }
+    return source.slice(match.index, end + 1);
+  });
+}
 
 describe("scheduled crons refuse callers without the cron secret", () => {
   const originalSecret = process.env.CRON_SECRET;

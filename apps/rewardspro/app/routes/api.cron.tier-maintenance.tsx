@@ -1,8 +1,11 @@
 /**
  * Daily cron job for tier maintenance tasks
  * - Process membership expirations
- * - Evaluate tier downgrades with grace periods
- * - Send tier change notifications
+ * - Warn shoppers before a membership runs out
+ * - Repair Customer / CustomerTierState tier mismatches
+ *
+ * It doesn't downgrade customers who stopped ordering: spending-based tiers
+ * change on orders and in tier-recalculation, for shops that switch it on.
  *
  * Should run daily at midnight UTC
  * Add to vercel.json: { "path": "/api/cron/tier-maintenance", "schedule": "0 0 * * *" }
@@ -22,10 +25,6 @@ import {
 } from "../services/email-notifications.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
-
-// Configuration
-const DOWNGRADE_GRACE_PERIOD_DAYS = 30;
-const DOWNGRADE_WARNING_DAYS = 7;
 
 // Tier purchase expiration warning configuration
 const EXPIRATION_WARNING_DAYS = [7, 1]; // Send warnings at 7 days and 1 day before expiry
@@ -82,8 +81,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const results = {
     expiredMemberships: 0,
     expirationWarnings: 0,
-    downgradeWarnings: 0,
-    downgrades: 0,
     errors: 0,
     details: [] as any[]
   };
@@ -249,7 +246,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
           });
 
           if (existingWarning) {
-            log('info', `Already sent ${warningDays}-day warning to ${purchase.customer?.email}, skipping`);
+            log('info', `Already sent ${warningDays}-day warning to customer ${purchase.customerId}, skipping`);
             continue;
           }
 
@@ -295,7 +292,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
                 shop: purchase.shop
               });
 
-              log('info', `Sent ${warningDays}-day expiration warning to ${purchase.customer.email}`);
+              log('info', `Sent ${warningDays}-day expiration warning to customer ${purchase.customerId}`);
             }
           } else if (isDryRun && purchase.customer?.email) {
             results.expirationWarnings++;
@@ -312,141 +309,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
           log('error', `Failed to send expiration warning for purchase ${purchase.id}`, { error: error.message });
           results.errors++;
         }
-      }
-    }
-
-    // 5. Evaluate earned tier downgrades (with grace period)
-    const gracePeriodDate = new Date();
-    gracePeriodDate.setDate(gracePeriodDate.getDate() - DOWNGRADE_GRACE_PERIOD_DAYS);
-
-    // Find customers who haven't made a purchase recently and might need downgrading
-    const inactiveCustomers = await prisma.customer.findMany({
-      where: {
-        currentTierId: { not: null },
-        // No active purchased tiers
-        currentSubscriptionId: null,
-        // Haven't ordered in grace period
-        lastOrderDate: { lt: gracePeriodDate }
-      },
-      include: {
-        currentTier: true
-      }
-    });
-
-    log('info', `Found ${inactiveCustomers.length} potentially inactive customers to evaluate`);
-
-    for (const customer of inactiveCustomers) {
-      try {
-        // Check if they still qualify for their current tier based on spending
-        const earnedTier = await prisma.tier.findFirst({
-          where: {
-            shop: customer.shop,
-            minSpend: { lte: customer.netSpent.toNumber() }
-          },
-          orderBy: { minSpend: 'desc' }
-        });
-
-        const shouldDowngrade = !earnedTier || earnedTier.id !== customer.currentTierId;
-
-        if (shouldDowngrade) {
-          // Check if we've already warned them
-          const recentWarning = await prisma.tierChangeLog.findFirst({
-            where: {
-              customerId: customer.id,
-              metadata: {
-                path: ['warningType'],
-                equals: 'DOWNGRADE_WARNING'
-              },
-              createdAt: {
-                gte: new Date(Date.now() - DOWNGRADE_WARNING_DAYS * 24 * 60 * 60 * 1000)
-              }
-            }
-          });
-
-          if (!recentWarning) {
-            // Send warning
-            if (!isDryRun) {
-              await prisma.tierChangeLog.create({
-                data: {
-                  id: crypto.randomUUID(),
-                  customerId: customer.id,
-                  shop: customer.shop,
-                  fromTierId: customer.currentTierId,
-                  fromTierName: customer.currentTier?.name,
-                  toTierId: earnedTier?.id,
-                  toTierName: earnedTier?.name,
-                  changeType: 'DOWNGRADE',
-                  triggerType: 'PERIODIC_REVIEW',
-                  totalSpending: customer.totalSpent,
-                  periodSpending: customer.netSpent,
-                  metadata: {
-                    warningType: 'DOWNGRADE_WARNING',
-                    scheduledDate: new Date(Date.now() + DOWNGRADE_WARNING_DAYS * 24 * 60 * 60 * 1000),
-                    reason: 'Inactive for grace period'
-                  },
-                  createdAt: new Date()
-                }
-              });
-
-              // TODO: Send warning email
-              // await sendDowngradeWarningEmail(customer, earnedTier);
-            }
-
-            results.downgradeWarnings++;
-            results.details.push({
-              type: 'downgrade_warning',
-              customerId: customer.id,
-              fromTier: customer.currentTier?.name,
-              toTier: earnedTier?.name,
-              shop: customer.shop
-            });
-          } else {
-            // Warning was sent, check if it's time to downgrade
-            const warningDate = new Date(recentWarning.createdAt);
-            const daysSinceWarning = Math.floor(
-              (Date.now() - warningDate.getTime()) / (24 * 60 * 60 * 1000)
-            );
-
-            if (daysSinceWarning >= DOWNGRADE_WARNING_DAYS) {
-              // Execute downgrade using tier resolution system
-              // This respects priority: Manual Override > Subscription > Purchase > Spending-based
-              if (!isDryRun) {
-                const result = await updateCustomerToEffectiveTier(customer.shop, customer.id, {
-                  triggeredBy: 'periodic_maintenance_downgrade'
-                });
-
-                // Only count as downgrade if tier actually changed
-                if (result.changed) {
-                  results.downgrades++;
-                  results.details.push({
-                    type: 'downgrade_executed',
-                    customerId: customer.id,
-                    fromTier: customer.currentTier?.name,
-                    toTier: result.newTierId ? 'resolved by system' : null,
-                    source: result.source,
-                    shop: customer.shop
-                  });
-                }
-
-                // TODO: Send downgrade notification email
-                // await sendDowngradeEmail(customer, earnedTier);
-              } else {
-                // Dry run - just record what would happen
-                results.downgrades++;
-                results.details.push({
-                  type: 'downgrade_executed',
-                  customerId: customer.id,
-                  fromTier: customer.currentTier?.name,
-                  toTier: earnedTier?.name,
-                  shop: customer.shop
-                });
-              }
-            }
-          }
-        }
-      } catch (error: any) {
-        log('error', `Failed to evaluate customer ${customer.id}`, { error: error.message });
-        results.errors++;
       }
     }
 
@@ -492,8 +354,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const summary = {
       expiredMemberships: results.expiredMemberships,
       expirationWarnings: results.expirationWarnings,
-      downgradeWarnings: results.downgradeWarnings,
-      downgrades: results.downgrades,
       consistencyRepairs,
       errorCount: results.errors,
       duration: Date.now() - startTime,
