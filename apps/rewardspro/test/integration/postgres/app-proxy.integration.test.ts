@@ -14,6 +14,29 @@ function get(path: string, request: Request) {
   return loader({ request, params: { "*": path }, context: {} });
 }
 
+/** Admin GraphQL as the membership proxy asks it: the shop's customer accounts and a shopper's store credit (GBP). */
+function answerMembership(storeCredit: string) {
+  const link = graphql.link(adminGraphqlUrl(SHOP));
+  server.use(
+    link.query("CustomerAccountsVersion", () =>
+      HttpResponse.json({ data: { shop: { customerAccountsV2: { customerAccountsVersion: "NEW_CUSTOMER_ACCOUNTS" } } } }),
+    ),
+    link.query("MembershipStoreCreditBalance", () =>
+      HttpResponse.json({
+        data: {
+          shop: { currencyCode: "GBP" },
+          customer: {
+            storeCreditAccounts: {
+              nodes: [{ balance: { amount: storeCredit, currencyCode: "GBP" } }],
+              pageInfo: { hasNextPage: false },
+            },
+          },
+        },
+      }),
+    ),
+  );
+}
+
 /** Everything a response could leak about the victim. */
 async function leaksVictim(response: Response) {
   const body = await response.text();
@@ -63,11 +86,7 @@ describe.skipIf(!hasTestDatabase)("app proxy identity on Postgres", () => {
   });
 
   it("serves the signed-in shopper their own data", async () => {
-    server.use(
-      graphql.link(adminGraphqlUrl(SHOP)).query("CustomerAccountsVersion", () =>
-        HttpResponse.json({ data: { shop: { customerAccountsV2: { customerAccountsVersion: "NEW_CUSTOMER_ACCOUNTS" } } } }),
-      ),
-    );
+    answerMembership("42.00");
     const response = await get("membership", signedProxyRequest("membership", SHOP, SHOPPER.shopifyCustomerId));
 
     expect(response.status).toBe(200);
@@ -77,6 +96,18 @@ describe.skipIf(!hasTestDatabase)("app proxy identity on Postgres", () => {
     expect(JSON.stringify(body)).not.toContain(VICTIM.email);
     // The widget explains spending store credit only on these shops
     expect(body.settings.customerAccountsVersion).toBe("NEW_CUSTOMER_ACCOUNTS");
+  });
+
+  it("shows the store credit Shopify holds, not the stored copy", async () => {
+    // Stored as 42, then changed in Shopify. A shopper of its own, as the
+    // proxy keeps each shopper's balance for 30 seconds
+    const spender = { shopifyCustomerId: "200", email: "spender@example.test" };
+    await prisma.customer.create({ data: { shop: SHOP, ...spender, storeCredit: 42 } });
+    answerMembership("10.00");
+    const response = await get("membership", signedProxyRequest("membership", SHOP, spender.shopifyCustomerId));
+
+    const body = await response.json();
+    expect(body.balance.storeCredit).toBe(10);
   });
 
   it("does not read another shopper's balance through customer-summary", async () => {

@@ -11,6 +11,7 @@
 // - CustomerTierState (effectiveTier, progress, tierSource)
 // - Tier details (name, cashbackPercent)
 // - ShopSettings (theme, currency)
+// The store credit balance is Shopify's, read alongside (cached briefly).
 //
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate, unauthenticated } from "../shopify.server";
@@ -22,6 +23,7 @@ import { getActiveEvents } from "../services/points-bonus-events.server";
 import { getRedemptionTiers } from "../services/points-redemption.server";
 import { getEnabledFeatures, getCurrencyBranding } from "../services/points-config.server";
 import { getCustomerAccountsVersion } from "../services/customer-accounts-version.server";
+import { getLiveStoreCreditBalance } from "../services/store-credit-balance.server";
 // Engagement action imports
 import { purchaseRaffleEntries, claimDailyFreeEntry } from "../services/raffle-entry.server";
 import { getRaffleStreakInfo } from "../services/raffle-streak.server";
@@ -291,7 +293,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       });
 
       const startTime = Date.now();
-      const [customer, shopSettings, pointsConfig, customerAccountsVersion] = await Promise.all([
+      const [customer, shopSettings, pointsConfig, customerAccountsVersion, liveStoreCredit] = await Promise.all([
         prisma.customer.findUnique({
           where: { shop_shopifyCustomerId: { shop, shopifyCustomerId: customerId } },
           select: {
@@ -361,6 +363,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         // Which customer accounts the shop uses: store credit can be spent
         // signed in only with new customer accounts (cached; null if unknown)
         getCustomerAccountsVersion(shop, admin),
+        // The shopper's store credit as Shopify holds it now, in the shop's
+        // currency (cached briefly; null if Shopify can't say)
+        getLiveStoreCreditBalance(shop, customerId, admin),
       ]);
 
       const executionTime = Date.now() - startTime;
@@ -641,7 +646,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           isNewCustomer: Number(row.orderCount || 0) === 0 && Number(row.totalCashbackEarned || 0) === 0
         },
         balance: {
-          storeCredit: Number(row.storeCredit || 0),
+          // Our copy lags credit changed in Shopify admin, by other apps or by
+          // expiry, so it stands in only when Shopify can't say
+          storeCredit: liveStoreCredit ?? Number(row.storeCredit || 0),
           totalEarned: Number(row.totalCashbackEarned || 0),
           lastSynced: row.updatedAt || null
         },
