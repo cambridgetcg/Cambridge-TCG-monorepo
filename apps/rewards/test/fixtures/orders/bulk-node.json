@@ -1,0 +1,103 @@
+{
+  "id": "gid://shopify/Order/5013",
+  "name": "#1013",
+  "test": false,
+  "createdAt": "2026-11-02T10:15:00Z",
+  "processedAt": "2026-11-02T10:15:04Z",
+  "cancelledAt": null,
+  "displayFinancialStatus": "PARTIALLY_REFUNDED",
+  "currencyCode": "GBP",
+  "presentmentCurrencyCode": "GBP",
+  "customer": {
+    "id": "gid://shopify/Customer/7001"
+  },
+  "totalPriceSet": {
+    "shopMoney": {
+      "amount": "70.49"
+    },
+    "presentmentMoney": {
+      "amount": "70.49"
+    }
+  },
+  "lineItems": {
+    "nodes": [
+      {
+        "id": "gid://shopify/LineItem/6301",
+        "quantity": 3,
+        "currentQuantity": 1,
+        "isGiftCard": false,
+        "originalTotalSet": {
+          "shopMoney": {
+            "amount": "45.0",
+            "currencyCode": "GBP"
+          },
+          "presentmentMoney": {
+            "amount": "45.0",
+            "currencyCode": "GBP"
+          }
+        },
+        "discountAllocations": [
+          {
+            "allocatedAmountSet": {
+              "shopMoney": {
+                "amount": "4.5"
+              },
+              "presentmentMoney": {
+                "amount": "4.5"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "gid://shopify/LineItem/6302",
+        "quantity": 2,
+        "currentQuantity": 1,
+        "isGiftCard": false,
+        "originalTotalSet": {
+          "shopMoney": {
+            "amount": "19.99",
+            "currencyCode": "GBP"
+          },
+          "presentmentMoney": {
+            "amount": "19.99",
+            "currencyCode": "GBP"
+          }
+        },
+        "discountAllocations": []
+      },
+      {
+        "id": "gid://shopify/LineItem/6303",
+        "quantity": 1,
+        "currentQuantity": 0,
+        "isGiftCard": true,
+        "originalTotalSet": {
+          "shopMoney": {
+            "amount": "10.0",
+            "currencyCode": "GBP"
+          },
+          "presentmentMoney": {
+            "amount": "10.0",
+            "currencyCode": "GBP"
+          }
+        },
+        "discountAllocations": []
+      }
+    ]
+  },
+  "transactions": [
+    {
+      "gateway": "shopify_payments",
+      "status": "SUCCESS",
+      "kind": "SALE",
+      "amountSet": {
+        "shopMoney": {
+          "amount": "70.49"
+        },
+        "presentmentMoney": {
+          "amount": "70.49"
+        }
+      }
+    }
+  ]
+}

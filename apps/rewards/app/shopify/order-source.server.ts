@@ -1,0 +1,425 @@
+import type { Decimal } from "decimal.js";
+import { Money, currencyDecimals, floorMoney } from "~/lib/money";
+import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
+import type { OrderSource } from "~/lib/ports";
+import { RewardsOrderFacts, RewardsRecentPaidOrders, RewardsRefundFacts, type GraphqlClient } from "./graphql";
+import { askShopify } from "./store-credit-rail.server";
+
+/**
+ * The order source on Shopify (spec 6.1): what the engine needs to know about
+ * an order, read from its line items, tenders and refunds, in exact decimals
+ * and in both the buyer's and the shop's currency (rules 1, 4 and 7). The
+ * tender sums are carried from apps/rewardspro/app/utils/transaction-analyzer.ts;
+ * the product value replaces its "everything paid by card".
+ *
+ * Every read throws when Shopify can't be reached or its answer can't be
+ * read, so a webhook answers an error and is delivered again; a read answers
+ * null only when Shopify says there is no such order or refund.
+ */
+
+/** How long one read waits for Shopify: one call fits inside a webhook's 5 s. */
+export const ORDER_READ_TIMEOUT_MS = 4000;
+/** Pages of 100 line items read for one order before giving up. */
+export const MAX_LINE_PAGES = 25;
+/** Pages of 50 orders the sweep reads at most. */
+export const MAX_RECENT_PAGES = 10;
+/**
+ * RewardsOrderFacts reads 20 transactions and 20 refund ids, and
+ * RewardsRefundFacts 20 transactions and 20 shipping lines. A full list may
+ * have more behind it, and money read from part of a list would be wrong.
+ */
+const LIST_LIMIT = 20;
+
+/** Shopify's answer, or the order in it, can't be read as order facts. */
+export class OrderReadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OrderReadError";
+  }
+}
+
+type Rec = Record<string, unknown>;
+
+function asRecord(value: unknown): Rec | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Rec) : null;
+}
+
+function rec(value: unknown, what: string): Rec {
+  const record = asRecord(value);
+  if (!record) throw new OrderReadError(`Expected ${what} in Shopify's answer`);
+  return record;
+}
+
+function list(value: unknown, what: string): unknown[] {
+  if (!Array.isArray(value)) throw new OrderReadError(`Expected a list of ${what} in Shopify's answer`);
+  return value;
+}
+
+function text(value: unknown, what: string): string {
+  if (typeof value !== "string" || value === "") throw new OrderReadError(`Expected ${what} in Shopify's answer`);
+  return value;
+}
+
+function flag(value: unknown, what: string): boolean {
+  if (typeof value !== "boolean") throw new OrderReadError(`Expected ${what} to be true or false`);
+  return value;
+}
+
+function count(value: unknown, what: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) throw new OrderReadError(`Expected ${what} to be a count`);
+  return value;
+}
+
+function dateOf(value: unknown, what: string): Date {
+  const date = new Date(text(value, what));
+  if (Number.isNaN(date.getTime())) throw new OrderReadError(`Expected ${what} to be a date`);
+  return date;
+}
+
+function currencyOf(value: unknown, what: string): string {
+  const code = text(value, what);
+  currencyDecimals(code);
+  return code;
+}
+
+function amountOf(value: unknown, what: string): Decimal {
+  if (typeof value === "string") {
+    try {
+      const amount = new Money(value);
+      if (amount.isFinite()) return amount;
+    } catch {
+      // not a decimal: refused below
+    }
+  }
+  throw new OrderReadError(`Expected ${what} to be an amount`);
+}
+
+/** A MoneyBag as a MoneyPair: presentmentMoney is the buyer's currency, shopMoney the shop's. */
+function pairOf(bag: unknown, what: string): MoneyPair {
+  const set = rec(bag, what);
+  return {
+    amount: amountOf(rec(set.presentmentMoney, what).amount, what),
+    shopAmount: amountOf(rec(set.shopMoney, what).amount, what),
+  };
+}
+
+const zero = (): MoneyPair => ({ amount: new Money(0), shopAmount: new Money(0) });
+const plus = (a: MoneyPair, b: MoneyPair): MoneyPair => ({ amount: a.amount.plus(b.amount), shopAmount: a.shopAmount.plus(b.shopAmount) });
+const minus = (a: MoneyPair, b: MoneyPair): MoneyPair => ({ amount: a.amount.minus(b.amount), shopAmount: a.shopAmount.minus(b.shopAmount) });
+const sum = (pairs: MoneyPair[]): MoneyPair => pairs.reduce(plus, zero());
+
+/** `value` × `quantity` / `of`, exactly. */
+function shareOf(value: MoneyPair, quantity: number, of: number): MoneyPair {
+  if (of === 0) return zero();
+  return { amount: value.amount.times(quantity).div(of), shopAmount: value.shopAmount.times(quantity).div(of) };
+}
+
+/** Each side between 0 and its cap. */
+function clamp(value: MoneyPair, cap: MoneyPair): MoneyPair {
+  const one = (v: Decimal, c: Decimal) => Money.max(0, Money.min(v, c));
+  return { amount: one(value.amount, cap.amount), shopAmount: one(value.shopAmount, cap.shopAmount) };
+}
+
+interface Currencies {
+  currency: string;
+  shopCurrency: string;
+}
+
+/** A pair whose amounts are not exact minor units (refund shares), rounded down to each currency's minor unit (rule 3). */
+function floorPair(value: MoneyPair, c: Currencies): MoneyPair {
+  return { amount: floorMoney(value.amount, c.currency), shopAmount: floorMoney(value.shopAmount, c.shopCurrency) };
+}
+
+interface Line {
+  quantity: number;
+  currentQuantity: number;
+  /** originalTotal − Σ discountAllocations; zero for a gift-card line, which is no product (rule 1). */
+  value: MoneyPair;
+}
+
+interface ParsedOrder extends Currencies {
+  facts: Omit<OrderFacts, "refundedProductValue" | "refunds">;
+  lines: Map<string, Line>;
+}
+
+const CUSTOMER_GID = /^gid:\/\/shopify\/Customer\/(\d+)$/;
+
+/** Whether a tender's gateway is a gift card or store credit (carried from the transaction analyzer). */
+function tenderOf(gateway: string): "gift_card" | "store_credit" | null {
+  const name = gateway.toLowerCase();
+  if (name.includes("gift_card")) return "gift_card";
+  if (name.includes("store_credit") || name.includes("cashback") || name.includes("rewards")) return "store_credit";
+  return null;
+}
+
+/**
+ * Reads an order node in RewardsOrderFacts's shape, with every line in
+ * `lineItems.nodes`. Throws OrderReadError when any part can't be read, or
+ * when its shop money isn't in `shopCurrency`: amounts in the shop's old
+ * currency must not be counted as its current one.
+ */
+function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
+  const node = rec(value, "an order");
+  currencyOf(shopCurrency, "the shop's currency");
+  const orderShopCurrency = currencyOf(node.currencyCode, "the order's shop currency");
+  if (orderShopCurrency !== shopCurrency) {
+    throw new OrderReadError(`The order's shop money is in ${orderShopCurrency}, but the shop's currency is ${shopCurrency}`);
+  }
+  const currency = currencyOf(node.presentmentCurrencyCode, "the order's presentment currency");
+
+  const lines = new Map<string, Line>();
+  for (const item of list(rec(node.lineItems, "the order's line items").nodes, "line items")) {
+    const line = rec(item, "a line item");
+    const id = text(line.id, "a line item id");
+    const quantity = count(line.quantity, "a line's quantity");
+    const currentQuantity = count(line.currentQuantity, "a line's current quantity");
+    const totalSet = rec(line.originalTotalSet, "a line's original total");
+    if (
+      rec(totalSet.presentmentMoney, "a line's original total").currencyCode !== currency ||
+      rec(totalSet.shopMoney, "a line's original total").currencyCode !== shopCurrency
+    ) {
+      throw new OrderReadError(`A line's currencies are not the order's (${currency}, ${shopCurrency})`);
+    }
+    const discounts = list(line.discountAllocations, "discount allocations").map((a) =>
+      pairOf(rec(a, "a discount allocation").allocatedAmountSet, "a discount allocation"),
+    );
+    const value = minus(pairOf(totalSet, "a line's original total"), sum(discounts));
+    lines.set(id, { quantity, currentQuantity, value: flag(line.isGiftCard, "isGiftCard") ? zero() : value });
+  }
+
+  let storeCreditUsed = zero();
+  let giftCardUsed = zero();
+  for (const item of list(node.transactions, "transactions")) {
+    const tx = rec(item, "a transaction");
+    if (tx.status !== "SUCCESS" || (tx.kind !== "SALE" && tx.kind !== "CAPTURE")) continue;
+    const tender = tenderOf(text(tx.gateway, "a transaction's gateway"));
+    if (tender === "gift_card") giftCardUsed = plus(giftCardUsed, pairOf(tx.amountSet, "a transaction's amount"));
+    if (tender === "store_credit") storeCreditUsed = plus(storeCreditUsed, pairOf(tx.amountSet, "a transaction's amount"));
+  }
+
+  let externalCustomerId: string | null = null;
+  if (node.customer !== null) {
+    const gid = text(rec(node.customer, "the order's customer").id, "the customer id");
+    const match = CUSTOMER_GID.exec(gid);
+    if (!match) throw new OrderReadError("Expected a Shopify customer id");
+    externalCustomerId = match[1];
+  }
+
+  return {
+    currency,
+    shopCurrency,
+    lines,
+    facts: {
+      externalOrderId: text(node.id, "the order id"),
+      name: text(node.name, "the order's name"),
+      externalCustomerId,
+      currency,
+      shopCurrency,
+      test: flag(node.test, "test"),
+      cancelledAt: node.cancelledAt === null ? null : dateOf(node.cancelledAt, "cancelledAt"),
+      orderedAt: dateOf(node.createdAt, "createdAt"),
+      paidAt: dateOf(node.processedAt, "processedAt"),
+      financialStatus: text(node.displayFinancialStatus, "the financial status"),
+      total: pairOf(node.totalPriceSet, "the order's total"),
+      productValue: sum([...lines.values()].map((line) => line.value)),
+      storeCreditUsed,
+      giftCardUsed,
+    },
+  };
+}
+
+/** Throws when a list Shopify gave is as long as the most it was asked for: there may be more. */
+function ensureWhole(items: unknown[], what: string): void {
+  if (items.length >= LIST_LIMIT) throw new OrderReadError(`Shopify gave ${LIST_LIMIT} ${what}, the most one read takes; there may be more`);
+}
+
+/**
+ * The product value one refund returned (rule 7), rounded down to the minor
+ * unit: its items at their discounted price, or, with no items, its
+ * successful money less the shipping it refunded, capped at the product
+ * value not yet refunded (`left`) and never below 0.
+ */
+function refundValue(refund: Rec, order: ParsedOrder, left: MoneyPair): RefundFacts {
+  const lineItems = rec(refund.refundLineItems, "a refund's line items");
+  if (rec(lineItems.pageInfo, "a refund's line items").hasNextPage !== false) {
+    throw new OrderReadError("A refund returned more than 100 lines, the most one read takes");
+  }
+  const items = list(lineItems.nodes, "refund line items");
+  let value: MoneyPair;
+  if (items.length > 0) {
+    value = sum(
+      items.map((item) => {
+        const refundLine = rec(item, "a refund line");
+        const id = text(rec(refundLine.lineItem, "a refund line's line item").id, "a refund line's line item id");
+        const line = order.lines.get(id);
+        if (!line) throw new OrderReadError("A refund returned a line the order doesn't have");
+        return shareOf(line.value, count(refundLine.quantity, "a refund line's quantity"), line.quantity);
+      }),
+    );
+  } else {
+    const transactions = list(rec(refund.transactions, "a refund's transactions").nodes, "refund transactions");
+    const shippingLines = list(rec(refund.refundShippingLines, "a refund's shipping lines").nodes, "refund shipping lines");
+    ensureWhole(transactions, "refund transactions");
+    ensureWhole(shippingLines, "refund shipping lines");
+    const money = sum(
+      transactions
+        .map((item) => rec(item, "a refund transaction"))
+        .filter((tx) => tx.kind === "REFUND" && tx.status === "SUCCESS")
+        .map((tx) => pairOf(tx.amountSet, "a refund transaction's amount")),
+    );
+    const shipping = sum(shippingLines.map((item) => pairOf(rec(item, "a refund shipping line").subtotalAmountSet, "a refunded shipping line")));
+    value = clamp(minus(money, shipping), left);
+  }
+  return {
+    externalRefundId: text(refund.id, "the refund id"),
+    productValue: floorPair(value, order),
+    refundedAt: dateOf(refund.createdAt, "the refund's createdAt"),
+  };
+}
+
+/** Every refund of the order, oldest first, each capped by the ones before it. */
+function refundsOf(order: ParsedOrder, refundNodes: Rec[]): RefundFacts[] {
+  const dated = refundNodes.map((node) => ({ node, at: dateOf(node.createdAt, "the refund's createdAt").getTime() }));
+  dated.sort((a, b) => a.at - b.at);
+  let refunded = zero();
+  return dated.map(({ node }) => {
+    const refund = refundValue(node, order, minus(order.facts.productValue, refunded));
+    refunded = plus(refunded, refund.productValue);
+    return refund;
+  });
+}
+
+function factsFrom(order: ParsedOrder, refunds: RefundFacts[]): OrderFacts {
+  // A node with no refunds read (the import's bulk node): the quantities no
+  // longer on the order were refunded or removed
+  const refundedProductValue =
+    refunds.length > 0
+      ? sum(refunds.map((refund) => refund.productValue))
+      : floorPair(
+          sum([...order.lines.values()].map((line) => shareOf(line.value, Math.max(0, line.quantity - line.currentQuantity), line.quantity))),
+          order,
+        );
+  return { ...order.facts, refundedProductValue, refunds };
+}
+
+/**
+ * An order's facts from one order node in RewardsOrderFacts's shape, with
+ * every line in `lineItems.nodes`. Pure: the live read passes the query's
+ * `shop.currencyCode` and the order's refunds; the import passes the
+ * connection's currency and no refunds, and the refunded quantities on the
+ * lines are valued instead. Throws OrderReadError when the node can't be read.
+ */
+export function factsFromOrderNode(node: unknown, shopCurrency: string, refunds: RefundFacts[]): OrderFacts {
+  return factsFrom(parseOrderNode(node, shopCurrency), refunds);
+}
+
+function firstErrorMessage(errors: unknown): string {
+  const all = Array.isArray(errors) ? errors : asRecord(errors)?.graphQLErrors;
+  const message = Array.isArray(all) ? asRecord(all[0])?.message : undefined;
+  return typeof message === "string" ? message : "unknown error";
+}
+
+export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
+  /** The `data` of one answer; throws on GraphQL errors or an answer that can't be read. */
+  async function ask(query: string, variables: Record<string, unknown>): Promise<Rec> {
+    const body = asRecord(await askShopify(admin, query, variables, ORDER_READ_TIMEOUT_MS));
+    if (body?.errors) throw new OrderReadError(`Shopify answered with errors: ${firstErrorMessage(body.errors)}`);
+    return rec(body?.data, "data");
+  }
+
+  /** The order with every page of its lines, and the shop's currency; null when Shopify has no such order. */
+  async function orderNode(orderGid: string): Promise<{ node: Rec; shopCurrency: string } | null> {
+    let data = await ask(RewardsOrderFacts, { id: orderGid, after: null });
+    if (data.order === null) return null;
+    const first = rec(data.order, "the order");
+    const shopCurrency = text(rec(data.shop, "the shop").currencyCode, "the shop's currency");
+    const nodes: unknown[] = [];
+    for (let pages = 1; ; pages++) {
+      const lineItems = rec(rec(data.order, "the order").lineItems, "the order's line items");
+      nodes.push(...list(lineItems.nodes, "line items"));
+      const pageInfo = rec(lineItems.pageInfo, "the line items' page info");
+      if (pageInfo.hasNextPage === false) break;
+      if (pages >= MAX_LINE_PAGES) throw new OrderReadError(`The order has more lines than ${MAX_LINE_PAGES} pages of 100`);
+      data = await ask(RewardsOrderFacts, { id: orderGid, after: text(pageInfo.endCursor, "the line items' cursor") });
+      if (data.order === null) throw new OrderReadError("The order went away while its lines were read");
+    }
+    return { node: { ...first, lineItems: { nodes } }, shopCurrency };
+  }
+
+  async function refundNode(refundGid: string): Promise<Rec | null> {
+    const data = await ask(RewardsRefundFacts, { id: refundGid });
+    return data.refund === null ? null : rec(data.refund, "the refund");
+  }
+
+  /** The order's refund ids (all of them: throws when the list may be cut short). */
+  function refundIds(node: Rec): string[] {
+    const refunds = list(node.refunds, "refunds");
+    ensureWhole(refunds, "refunds");
+    return refunds.map((r) => text(rec(r, "a refund").id, "a refund id"));
+  }
+
+  async function refundNodes(ids: string[]): Promise<Rec[]> {
+    const nodes: Rec[] = [];
+    for (const id of ids) {
+      const node = await refundNode(id);
+      if (!node) throw new OrderReadError("A refund on the order could not be read");
+      nodes.push(node);
+    }
+    return nodes;
+  }
+
+  return {
+    /** The lines (every page), then each refund, then the facts. */
+    async readOrder(orderGid) {
+      const read = await orderNode(orderGid);
+      if (!read) return null;
+      ensureWhole(list(read.node.transactions, "transactions"), "transactions");
+      const order = parseOrderNode(read.node, read.shopCurrency);
+      const refunds = refundsOf(order, await refundNodes(refundIds(read.node)));
+      return factsFrom(order, refunds);
+    },
+
+    /**
+     * The refund, then its order's lines so its items can be valued. A refund
+     * with no items is capped by the product value not yet refunded, so the
+     * order's other refunds are read for it too, and it is valued exactly as
+     * readOrder values it.
+     */
+    async readRefund(refundGid) {
+      const refund = await refundNode(refundGid);
+      if (!refund) return null;
+      const orderGid = text(rec(refund.order, "the refund's order").id, "the refund's order id");
+      const read = await orderNode(orderGid);
+      if (!read) throw new OrderReadError("The refund's order could not be read");
+      const order = parseOrderNode(read.node, read.shopCurrency);
+      const items = list(rec(refund.refundLineItems, "a refund's line items").nodes, "refund line items");
+      const others = items.length > 0 ? [] : await refundNodes(refundIds(read.node).filter((id) => id !== refundGid));
+      const valued = refundsOf(order, [...others, refund]).find((r) => r.externalRefundId === refundGid);
+      if (!valued) throw new OrderReadError("The refund could not be valued");
+      return { orderGid, refund: valued };
+    },
+
+    /** Oldest first, at most MAX_RECENT_PAGES pages of 50; later orders wait for a later sweep. */
+    async recentPaidOrders(since) {
+      const query = `created_at:>='${since.toISOString()}' AND (financial_status:paid OR financial_status:partially_refunded)`;
+      const found: Array<{ orderGid: string; hasCustomer: boolean; test: boolean; orderedAt: Date }> = [];
+      let after: string | null = null;
+      for (let page = 0; page < MAX_RECENT_PAGES; page++) {
+        const orders = rec((await ask(RewardsRecentPaidOrders, { query, after })).orders, "orders");
+        for (const item of list(orders.nodes, "orders")) {
+          const node = rec(item, "an order");
+          found.push({
+            orderGid: text(node.id, "an order id"),
+            hasCustomer: node.customer !== null && rec(node.customer, "an order's customer") !== null,
+            test: flag(node.test, "test"),
+            orderedAt: dateOf(node.createdAt, "createdAt"),
+          });
+        }
+        const pageInfo = rec(orders.pageInfo, "the orders' page info");
+        if (pageInfo.hasNextPage === false) break;
+        after = text(pageInfo.endCursor, "the orders' cursor");
+      }
+      return found;
+    },
+  };
+}

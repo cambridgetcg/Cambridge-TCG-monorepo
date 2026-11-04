@@ -1,0 +1,81 @@
+{
+  "data": {
+    "shop": {
+      "currencyCode": "USD"
+    },
+    "order": {
+      "id": "gid://shopify/Order/5004",
+      "name": "#1004",
+      "test": false,
+      "createdAt": "2026-11-02T10:15:00Z",
+      "processedAt": "2026-11-02T10:15:04Z",
+      "cancelledAt": null,
+      "displayFinancialStatus": "PAID",
+      "currencyCode": "USD",
+      "presentmentCurrencyCode": "USD",
+      "customer": {
+        "id": "gid://shopify/Customer/7001"
+      },
+      "totalPriceSet": {
+        "shopMoney": {
+          "amount": "49.3"
+        },
+        "presentmentMoney": {
+          "amount": "49.3"
+        }
+      },
+      "lineItems": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "eyJsYXN0X2lkIjogNTQwMSwgImxhc3RfdmFsdWUiOiA1NDAxfQ=="
+        },
+        "nodes": [
+          {
+            "id": "gid://shopify/LineItem/5401",
+            "quantity": 2,
+            "currentQuantity": 2,
+            "isGiftCard": false,
+            "originalTotalSet": {
+              "shopMoney": {
+                "amount": "40.0",
+                "currencyCode": "USD"
+              },
+              "presentmentMoney": {
+                "amount": "40.0",
+                "currencyCode": "USD"
+              }
+            },
+            "discountAllocations": []
+          }
+        ]
+      },
+      "transactions": [
+        {
+          "gateway": "shopify_payments",
+          "status": "SUCCESS",
+          "kind": "SALE",
+          "amountSet": {
+            "shopMoney": {
+              "amount": "49.3"
+            },
+            "presentmentMoney": {
+              "amount": "49.3"
+            }
+          }
+        }
+      ],
+      "refunds": []
+    }
+  },
+  "extensions": {
+    "cost": {
+      "requestedQueryCost": 909,
+      "actualQueryCost": 16,
+      "throttleStatus": {
+        "maximumAvailable": 2000.0,
+        "currentlyAvailable": 1984,
+        "restoreRate": 100.0
+      }
+    }
+  }
+}

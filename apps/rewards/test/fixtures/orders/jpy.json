@@ -1,0 +1,96 @@
+{
+  "data": {
+    "shop": {
+      "currencyCode": "JPY"
+    },
+    "order": {
+      "id": "gid://shopify/Order/5009",
+      "name": "#1009",
+      "test": false,
+      "createdAt": "2026-11-02T10:15:00Z",
+      "processedAt": "2026-11-02T10:15:04Z",
+      "cancelledAt": null,
+      "displayFinancialStatus": "PARTIALLY_REFUNDED",
+      "currencyCode": "JPY",
+      "presentmentCurrencyCode": "JPY",
+      "customer": {
+        "id": "gid://shopify/Customer/7001"
+      },
+      "totalPriceSet": {
+        "shopMoney": {
+          "amount": "3400.0"
+        },
+        "presentmentMoney": {
+          "amount": "3400.0"
+        }
+      },
+      "lineItems": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "eyJsYXN0X2lkIjogNTkwMSwgImxhc3RfdmFsdWUiOiA1OTAxfQ=="
+        },
+        "nodes": [
+          {
+            "id": "gid://shopify/LineItem/5901",
+            "quantity": 3,
+            "currentQuantity": 2,
+            "isGiftCard": false,
+            "originalTotalSet": {
+              "shopMoney": {
+                "amount": "3000.0",
+                "currencyCode": "JPY"
+              },
+              "presentmentMoney": {
+                "amount": "3000.0",
+                "currencyCode": "JPY"
+              }
+            },
+            "discountAllocations": [
+              {
+                "allocatedAmountSet": {
+                  "shopMoney": {
+                    "amount": "100.0"
+                  },
+                  "presentmentMoney": {
+                    "amount": "100.0"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "transactions": [
+        {
+          "gateway": "shopify_payments",
+          "status": "SUCCESS",
+          "kind": "SALE",
+          "amountSet": {
+            "shopMoney": {
+              "amount": "3400.0"
+            },
+            "presentmentMoney": {
+              "amount": "3400.0"
+            }
+          }
+        }
+      ],
+      "refunds": [
+        {
+          "id": "gid://shopify/Refund/5951"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "cost": {
+      "requestedQueryCost": 909,
+      "actualQueryCost": 16,
+      "throttleStatus": {
+        "maximumAvailable": 2000.0,
+        "currentlyAvailable": 1984,
+        "restoreRate": 100.0
+      }
+    }
+  }
+}

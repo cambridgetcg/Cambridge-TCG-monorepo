@@ -157,3 +157,179 @@ export const RewardsCreditHistory = `#graphql
     }
   }
 `;
+
+/**
+ * One order's facts (spec 6.3 rule 1): its lines with their discounts, its
+ * tenders, its refunds' ids and the shop's currency. Line items come 100 to a
+ * page; `$after` reads the next. Kept apart from the refunds so each read
+ * stays under the 1,000-point limit (one query with everything is refused
+ * with MAX_COST_EXCEEDED).
+ * Scopes (as the validator names them): read_orders, read_marketplace_orders,
+ * read_quick_sale, read_customers; read_all_orders for orders older than 60 days.
+ * Cost: 909 = shop 1 + order 1 + customer 1 + totalPriceSet 3 + lineItems
+ * (connection 2, pageInfo 1, 100 × (line 1 + originalTotalSet 3 + one
+ * discount allocation 4)) + transactions 20 × (transaction 1 + amountSet 3)
+ * + refunds 20 × 1.
+ */
+export const RewardsOrderFacts = `#graphql
+  query RewardsOrderFacts($id: ID!, $after: String) {
+    shop {
+      currencyCode
+    }
+    order(id: $id) {
+      id
+      name
+      test
+      createdAt
+      processedAt
+      cancelledAt
+      displayFinancialStatus
+      currencyCode
+      presentmentCurrencyCode
+      customer {
+        id
+      }
+      totalPriceSet {
+        shopMoney {
+          amount
+        }
+        presentmentMoney {
+          amount
+        }
+      }
+      lineItems(first: 100, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          quantity
+          currentQuantity
+          isGiftCard
+          originalTotalSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+            presentmentMoney {
+              amount
+              currencyCode
+            }
+          }
+          discountAllocations {
+            allocatedAmountSet {
+              shopMoney {
+                amount
+              }
+              presentmentMoney {
+                amount
+              }
+            }
+          }
+        }
+      }
+      transactions(first: 20) {
+        gateway
+        status
+        kind
+        amountSet {
+          shopMoney {
+            amount
+          }
+          presentmentMoney {
+            amount
+          }
+        }
+      }
+      refunds(first: 20) {
+        id
+      }
+    }
+  }
+`;
+
+/**
+ * One refund: the lines and quantities it returned, its money and the
+ * shipping it refunded (rule 7).
+ * Scopes (as the validator names them): read_orders, read_marketplace_orders,
+ * read_quick_sale.
+ * Cost: 369 = refund 1 + order 1 + refundLineItems (connection 2, pageInfo 1,
+ * 100 × (refund line 1 + line 1)) + transactions (connection 2, 20 ×
+ * (transaction 1 + amountSet 3)) + refundShippingLines (connection 2, 20 ×
+ * (shipping line 1 + subtotalAmountSet 3)).
+ */
+export const RewardsRefundFacts = `#graphql
+  query RewardsRefundFacts($id: ID!) {
+    refund(id: $id) {
+      id
+      createdAt
+      order {
+        id
+      }
+      refundLineItems(first: 100) {
+        pageInfo {
+          hasNextPage
+        }
+        nodes {
+          quantity
+          lineItem {
+            id
+          }
+        }
+      }
+      transactions(first: 20) {
+        nodes {
+          kind
+          status
+          amountSet {
+            shopMoney {
+              amount
+            }
+            presentmentMoney {
+              amount
+            }
+          }
+        }
+      }
+      refundShippingLines(first: 20) {
+        nodes {
+          subtotalAmountSet {
+            shopMoney {
+              amount
+            }
+            presentmentMoney {
+              amount
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * The paid and partly refunded orders created since a time, oldest first, 50
+ * to a page, for the hourly sweep of missed orders (rule 13).
+ * Scopes (as the validator names them): read_orders, read_marketplace_orders,
+ * read_quick_sale, read_customers.
+ * Cost: 103 = orders (connection 2, pageInfo 1, 50 × (order 1 + customer 1)).
+ */
+export const RewardsRecentPaidOrders = `#graphql
+  query RewardsRecentPaidOrders($query: String!, $after: String) {
+    orders(first: 50, after: $after, query: $query, sortKey: CREATED_AT) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        id
+        test
+        createdAt
+        customer {
+          id
+        }
+      }
+    }
+  }
+`;
