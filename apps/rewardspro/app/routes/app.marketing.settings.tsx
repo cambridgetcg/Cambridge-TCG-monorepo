@@ -39,9 +39,11 @@ import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { EMAIL_SETTINGS_SECRET_FIELDS } from "~/utils/encryption.server";
 import { getMarketingModeInfo, switchMarketingMode } from "~/services/marketing-mode.server";
+import { isKlaviyoEnabled } from "~/services/klaviyo.server";
 import { getEmailUsageStats } from "~/services/email-usage-control.server";
 import type { MarketingHubMode } from "@prisma/client";
 import { LimitHint } from "~/components/Billing/UpgradePrompt";
+import { SHOPPER_EMAIL_SWITCHES, shopperEmailSwitches } from "~/constants/shopper-emails";
 
 // ============================================
 // TYPES
@@ -110,6 +112,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Get marketing mode info
   const marketingModeInfo = await getMarketingModeInfo(shop);
 
+  // Whether events reach Klaviyo now (a failed token refresh stops them but
+  // leaves the mode info saying connected)
+  const klaviyoSending = await isKlaviyoEnabled(shop);
+
   // Get email usage stats
   const emailUsageStats = await getEmailUsageStats(shop);
 
@@ -125,6 +131,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     })),
     sendgridConfigured,
     marketingModeInfo,
+    klaviyoSending,
     emailUsageStats,
   });
 };
@@ -156,11 +163,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const hourlyLimit = parseInt(formData.get("hourlyLimit") as string);
     const preferredTime = formData.get("preferredTime") as string;
     const timezone = formData.get("timezone") as string;
+    // Only the switches this page shows can be turned on; every other kind stays off
+    const shopperEmails = Object.fromEntries(
+      SHOPPER_EMAIL_SWITCHES.map(({ kind }) => [kind, formData.get(`shopperEmails.${kind}`) === "true"]),
+    );
 
     const brandColors = { primary: primaryColor, secondary: secondaryColor };
     const typography = { fontFamily };
     const footerContent = { text: footerText };
-    const sendTimePrefs = { preferredTime, timezone, dailyLimit, hourlyLimit };
+    const sendTimePrefs = { preferredTime, timezone, dailyLimit, hourlyLimit, shopperEmails };
 
     // Upsert settings
     await prisma.emailSettings.upsert({
@@ -270,6 +281,9 @@ export default function EmailSettings() {
     timezone:
       (data.emailSettings?.sendTimePrefs as any)?.timezone || "America/New_York",
   });
+  const [shopperEmails, setShopperEmails] = useState(() =>
+    shopperEmailSwitches(data.emailSettings?.sendTimePrefs),
+  );
 
   // Standardized toast notifications
   const { toast, showSuccess, showError, hideToast } = useToast();
@@ -321,6 +335,9 @@ export default function EmailSettings() {
     formData.append("intent", "saveSettings");
     Object.entries(formValues).forEach(([key, value]) => {
       formData.append(key, String(value));
+    });
+    SHOPPER_EMAIL_SWITCHES.forEach(({ kind }) => {
+      formData.append(`shopperEmails.${kind}`, String(shopperEmails[kind]));
     });
     fetcher.submit(formData, { method: "post" });
   };
@@ -1119,6 +1136,63 @@ export default function EmailSettings() {
                     />
                   </FormLayout.Group>
                 </FormLayout>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+
+          {/* Emails RewardsPro sends customers by itself */}
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                <Text variant="headingMd" as="h3">
+                  Emails to your customers
+                </Text>
+                <Text as="p" variant="bodyMd">
+                  RewardsPro can email your customers about their rewards. Each email is off
+                  until you turn it on and save.
+                </Text>
+
+                {data.emailSettings?.emailProvider === "KLAVIYO" &&
+                  (data.klaviyoSending ? (
+                    <Banner tone="info">
+                      <p>
+                        You send email through Klaviyo, so RewardsPro sends none of these itself.
+                        Your Klaviyo flows decide what your customers get.
+                      </p>
+                    </Banner>
+                  ) : (
+                    <Banner tone="warning">
+                      <p>
+                        Klaviyo isn't connected, so your customers get none of these emails.
+                        Reconnect Klaviyo, or switch to In-House Marketing to send them from RewardsPro.
+                      </p>
+                    </Banner>
+                  ))}
+                {!data.sendgridConfigured && (
+                  <Banner tone="warning">
+                    <p>
+                      Email sending isn't set up yet, so RewardsPro sends none of these, even the
+                      ones you turn on.
+                    </p>
+                  </Banner>
+                )}
+
+                <BlockStack gap="200">
+                  {SHOPPER_EMAIL_SWITCHES.map(({ kind, label, helpText }) => (
+                    <Checkbox
+                      key={kind}
+                      id={`shopper-email-${kind}`}
+                      label={label}
+                      helpText={helpText}
+                      checked={shopperEmails[kind]}
+                      onChange={(checked) => setShopperEmails({ ...shopperEmails, [kind]: checked })}
+                    />
+                  ))}
+                </BlockStack>
+
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Campaigns and automations aren't affected: you send or switch on each one yourself.
+                </Text>
               </BlockStack>
             </Card>
           </Layout.Section>

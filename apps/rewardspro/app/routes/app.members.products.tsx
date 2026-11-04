@@ -2090,7 +2090,8 @@ export default function TierProducts() {
                       <Banner tone="warning">
                         <p>
                           {data.analytics.expiringThisWeek} membership{data.analytics.expiringThisWeek > 1 ? 's are' : ' is'} expiring
-                          in the next 7 days. Customers will receive email notifications.
+                          in the next 7 days. Customers get a reminder email only if you turn on
+                          Membership ending soon in Email settings.
                         </p>
                       </Banner>
                     )}

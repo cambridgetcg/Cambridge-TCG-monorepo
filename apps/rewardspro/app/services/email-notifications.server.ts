@@ -9,9 +9,14 @@
  *
  * ENTITLEMENTS: Email sending is limited by plan (rate-based gating):
  * - Free: 50/month, Pro: 500/month, Max: 2000/month, Ultra: unlimited
+ *
+ * Every email here except campaigns is off for each shop until its merchant
+ * turns that kind on in Email settings (constants/shopper-emails.ts).
  */
 
 import prisma from "~/db.server";
+import { shopperEmailSwitches, type ShopperEmailKind } from "~/constants/shopper-emails";
+import { MARKETING_AUDIENCE } from "./marketing-consent.server";
 import * as sendgrid from "./sendgrid.server";
 import {
   sendWelcomeEmailUnified,
@@ -60,18 +65,41 @@ interface EmailNotificationResult {
 // HELPERS
 // ============================================
 
-/**
- * Check if email notifications are enabled for a shop
- */
-async function isEmailEnabled(_shop: string): Promise<boolean> {
-  // Check if SendGrid API key is configured
+function isSendGridConfigured(): boolean {
   if (!process.env.SENDGRID_API_KEY) {
     console.log(`[EmailNotifications] SendGrid not configured, skipping email`);
     return false;
   }
+  return true;
+}
 
-  // Check if shop has email settings (optional - can be enhanced later)
-  // For now, if SendGrid is configured, emails are enabled
+/**
+ * Whether this kind of email may go to one of the shop's customers: only
+ * when the shop's merchant turned it on in Email settings. A shop with no
+ * settings, or settings saved before the switches existed, gets none.
+ * A shop that sends email through Klaviyo gets none of them from SendGrid;
+ * its Klaviyo flows decide what its customers get.
+ */
+async function isEmailEnabled(shop: string, kind: ShopperEmailKind): Promise<boolean> {
+  if (!isSendGridConfigured()) {
+    return false;
+  }
+
+  const settings = await prisma.emailSettings.findUnique({
+    where: { shop },
+    select: { emailProvider: true, sendTimePrefs: true },
+  });
+
+  if (!settings || !shopperEmailSwitches(settings.sendTimePrefs)[kind]) {
+    console.log(`[EmailNotifications] ${kind} email is off for this shop, skipping`);
+    return false;
+  }
+
+  if (settings.emailProvider === "KLAVIYO") {
+    console.log(`[EmailNotifications] Shop sends email through Klaviyo, skipping ${kind} email`);
+    return false;
+  }
+
   return true;
 }
 
@@ -97,6 +125,10 @@ async function getShopName(shop: string): Promise<string> {
  * Send welcome email to a new customer
  * Called from customers/create webhook
  *
+ * The email invites the customer to shop, so it goes only to customers who
+ * may get marketing email, as campaigns do. It names their tier and
+ * cashback, so a customer with no tier gets none.
+ *
  * @param shop - Shop domain
  * @param customer - Customer info
  * @param tier - Initial tier (if assigned)
@@ -115,8 +147,22 @@ export async function sendWelcomeEmailNotification(
   }
 
   // Check if email is enabled
-  if (!(await isEmailEnabled(shop))) {
+  if (!(await isEmailEnabled(shop, "welcome"))) {
     return { success: true, skipped: true, reason: "Email not enabled" };
+  }
+
+  if (!tier) {
+    console.log(`[EmailNotifications] Customer ${customer.id} has no tier, skipping welcome email`);
+    return { success: true, skipped: true, reason: "No tier" };
+  }
+
+  const marketingAllowed = await prisma.customer.findFirst({
+    where: { id: customer.id, shop, ...MARKETING_AUDIENCE },
+    select: { id: true },
+  });
+  if (!marketingAllowed) {
+    console.log(`[EmailNotifications] Customer ${customer.id} hasn't agreed to marketing email, skipping welcome email`);
+    return { success: true, skipped: true, reason: "No marketing consent" };
   }
 
   // Report capacity without blocking the notification.
@@ -130,8 +176,8 @@ export async function sendWelcomeEmailNotification(
     const success = await sendWelcomeEmailUnified(shop, {
       customer: customer as any,
       storeName: await getShopName(shop),
-      tierName: tier?.name || "Member",
-      cashbackPercent: tier?.cashbackPercent || 0,
+      tierName: tier.name,
+      cashbackPercent: tier.cashbackPercent,
     });
 
     if (success) {
@@ -193,7 +239,7 @@ export async function sendTierUpgradeEmailNotification(
   }
 
   // Check if email is enabled
-  if (!(await isEmailEnabled(shop))) {
+  if (!(await isEmailEnabled(shop, "tierUp"))) {
     return { success: true, skipped: true, reason: "Email not enabled" };
   }
 
@@ -276,7 +322,7 @@ export async function sendTierDowngradeEmailNotification(
     return { success: true, skipped: true, reason: "No email address" };
   }
 
-  if (!(await isEmailEnabled(shop))) {
+  if (!(await isEmailEnabled(shop, "tierDown"))) {
     return { success: true, skipped: true, reason: "Email not enabled" };
   }
 
@@ -372,8 +418,8 @@ export async function sendCampaignEmails(
 ): Promise<{ sent: number; skipped: number; failed: number; errors: string[] }> {
   console.log(`[EmailNotifications] Sending campaign ${campaignId} to ${recipients.length} recipients`);
 
-  // Check if email is enabled
-  if (!(await isEmailEnabled(shop))) {
+  // Campaigns have no switch: the merchant sends each one
+  if (!isSendGridConfigured()) {
     console.log(`[EmailNotifications] Email not enabled, skipping campaign send`);
     return { sent: 0, skipped: 0, failed: 0, errors: ["Email not enabled"] };
   }
@@ -459,7 +505,7 @@ export async function sendPointsEarnedEmail(
   shop: string,
   data: PointsEarnedEmailData
 ): Promise<EmailNotificationResult> {
-  if (!(await isEmailEnabled(shop))) {
+  if (!(await isEmailEnabled(shop, "pointsEarned"))) {
     return { success: true, skipped: true, reason: "Email not enabled" };
   }
 
@@ -527,7 +573,7 @@ export async function sendPointsExpiringEmail(
   shop: string,
   data: PointsExpiringEmailData
 ): Promise<EmailNotificationResult> {
-  if (!(await isEmailEnabled(shop))) {
+  if (!(await isEmailEnabled(shop, "pointsExpiring"))) {
     return { success: true, skipped: true, reason: "Email not enabled" };
   }
 
@@ -589,7 +635,7 @@ export async function sendPointsRedeemedEmail(
   shop: string,
   data: PointsRedeemedEmailData
 ): Promise<EmailNotificationResult> {
-  if (!(await isEmailEnabled(shop))) {
+  if (!(await isEmailEnabled(shop, "pointsRedeemed"))) {
     return { success: true, skipped: true, reason: "Email not enabled" };
   }
 
@@ -665,7 +711,7 @@ export async function sendStreakMilestoneEmail(
   shop: string,
   data: StreakMilestoneEmailData
 ): Promise<EmailNotificationResult> {
-  if (!(await isEmailEnabled(shop))) {
+  if (!(await isEmailEnabled(shop, "streakMilestone"))) {
     return { success: true, skipped: true, reason: "Email not enabled" };
   }
 
@@ -734,7 +780,7 @@ export async function sendTierExpirationWarningEmail(
 ): Promise<EmailNotificationResult> {
   console.log(`[EmailNotifications] Attempting to send tier expiration warning to customer ${data.customerId}`);
 
-  if (!(await isEmailEnabled(shop))) {
+  if (!(await isEmailEnabled(shop, "membershipReminder"))) {
     return { success: true, skipped: true, reason: "Email not enabled" };
   }
 
@@ -838,7 +884,7 @@ export async function sendTierExpiredEmail(
 ): Promise<EmailNotificationResult> {
   console.log(`[EmailNotifications] Attempting to send tier expired notification to customer ${data.customerId}`);
 
-  if (!(await isEmailEnabled(shop))) {
+  if (!(await isEmailEnabled(shop, "membershipEnded"))) {
     return { success: true, skipped: true, reason: "Email not enabled" };
   }
 

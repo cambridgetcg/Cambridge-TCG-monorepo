@@ -25,6 +25,7 @@ vi.mock("~/services/email-notifications.server", () => ({
 }));
 
 import prisma from "~/db.server";
+import { sendTierUpgradeEmailNotification } from "~/services/email-notifications.server";
 import { loader as reconcile } from "~/routes/api.cron.cashback-reconciliation";
 import { action } from "~/routes/webhooks.orders.paid";
 import { hasTestDatabase, resetDatabase } from "./database";
@@ -210,6 +211,22 @@ describe.skipIf(!hasTestDatabase)("orders/paid on Postgres", () => {
     expect(order.customerId).toBe(customer.id);
     const [entry] = await prisma.storeCreditLedger.findMany({ where: { customerId: customer.id } });
     expect(entry.amount.toFixed(2)).toBe("2.00");
+  });
+
+  it("stores a first-time customer whose order has no email without making up an address", async () => {
+    await seedShop();
+    shopify.graphql.mockResolvedValue(cardPaymentResponse(5550003));
+    // A phone-only checkout
+    const order = { ...paidOrder({ id: 5550003, customer: { id: 101, email: null, phone: "+447700900123", first_name: "Pat", last_name: null } }), email: null };
+
+    expect((await deliver("wh-3", order)).status).toBe(200);
+
+    const customer = await prisma.customer.findUniqueOrThrow({
+      where: { shop_shopifyCustomerId: { shop: SHOP, shopifyCustomerId: "101" } },
+    });
+    expect(customer.email).toBe("");
+    // The tier-up email is asked for with no address, so it goes nowhere
+    expect(sendTierUpgradeEmailNotification).toHaveBeenCalledWith(SHOP, expect.objectContaining({ email: "" }), null, expect.anything());
   });
 
   it("leaves no cashback on an order paid with store credit", async () => {
