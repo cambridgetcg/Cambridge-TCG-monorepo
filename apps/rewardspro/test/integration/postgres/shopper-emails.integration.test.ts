@@ -69,8 +69,11 @@ const seedBronze = () =>
 const deliver = (handler: typeof customersCreate, topic: string, body: unknown) =>
   handler({ request: signedWebhook(topic, SHOP, body), params: {}, context: {} });
 
-/** Two bought memberships: one runs out in 7 days, one ran out yesterday. */
+const DAY = 24 * 60 * 60 * 1000;
+
+/** Two bought Gold memberships: one runs out in 7 days, one ran out yesterday. Everyone else is Bronze. */
 async function seedMemberships() {
+  await seedBronze();
   const gold = await prisma.tier.create({ data: { id: "tier-gold", shop: SHOP, name: "Gold", minSpend: 1000, cashbackPercent: 5 } });
   const product = await prisma.tierProduct.create({
     data: {
@@ -84,10 +87,9 @@ async function seedMemberships() {
       price: 10,
     },
   });
-  const day = 24 * 60 * 60 * 1000;
   for (const [n, email, endDate] of [
-    [1, "ending@example.test", new Date(Date.now() + 7 * day)],
-    [2, "ended@example.test", new Date(Date.now() - day)],
+    [1, "ending@example.test", new Date(Date.now() + 7 * DAY)],
+    [2, "ended@example.test", new Date(Date.now() - DAY)],
   ] as const) {
     const customer = await prisma.customer.create({ data: { shop: SHOP, shopifyCustomerId: `${n}00`, email, currentTierId: gold.id } });
     await prisma.tierPurchase.create({
@@ -100,11 +102,12 @@ async function seedMemberships() {
         shopifyLineItemId: `line-${n}`,
         purchasePrice: 10,
         currency: "GBP",
-        startDate: new Date(Date.now() - 30 * day),
+        startDate: new Date(Date.now() - 30 * DAY),
         endDate,
       },
     });
   }
+  return { gold, product };
 }
 
 async function runTierMaintenance() {
@@ -244,5 +247,76 @@ describe.skipIf(!hasTestDatabase)("shopper emails on Postgres", () => {
     await runTierMaintenance();
 
     expect(sent).toEqual([]);
+  });
+
+  it("tells only shoppers who really lose their tier, and names the tier they move to", async () => {
+    const sent = mockSendGrid();
+    await turnOn("membershipReminder", "membershipEnded");
+    const { gold, product } = await seedMemberships();
+
+    // The shopper whose membership ends in 7 days has bought it again
+    const ending = await prisma.customer.findFirstOrThrow({ where: { shop: SHOP, email: "ending@example.test" } });
+    await prisma.tierPurchase.create({
+      data: {
+        shop: SHOP,
+        customerId: ending.id,
+        tierId: gold.id,
+        tierProductId: product.id,
+        shopifyOrderId: "order-renewal",
+        shopifyLineItemId: "line-renewal",
+        purchasePrice: 10,
+        currency: "GBP",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 37 * DAY),
+      },
+    });
+
+    // A shopper whose membership ran out yesterday, but who spent enough this
+    // year to be Gold anyway
+    const spender = await prisma.customer.create({
+      data: { shop: SHOP, shopifyCustomerId: "300", email: "spender@example.test", currentTierId: gold.id },
+    });
+    await prisma.tierPurchase.create({
+      data: {
+        shop: SHOP,
+        customerId: spender.id,
+        tierId: gold.id,
+        tierProductId: product.id,
+        shopifyOrderId: "order-3",
+        shopifyLineItemId: "line-3",
+        purchasePrice: 10,
+        currency: "GBP",
+        startDate: new Date(Date.now() - 30 * DAY),
+        endDate: new Date(Date.now() - DAY),
+      },
+    });
+    const placedAt = new Date(Date.now() - 10 * DAY);
+    await prisma.order.create({
+      data: {
+        shop: SHOP,
+        shopifyOrderId: "5001",
+        shopifyOrderNumber: "#5001",
+        shopifyOrderName: "#5001",
+        customerId: spender.id,
+        email: "",
+        currency: "GBP",
+        subtotalPrice: 1200,
+        totalDiscounts: 0,
+        totalShipping: 0,
+        totalTax: 0,
+        totalPrice: 1200,
+        netAmount: 1200,
+        financialStatus: "PAID",
+        shopifyCreatedAt: placedAt,
+        shopifyUpdatedAt: placedAt,
+      },
+    });
+
+    await runTierMaintenance();
+
+    expect(sent).toEqual(["ended@example.test"]);
+    const ended = await prisma.emailEvent.findFirstOrThrow({ where: { shop: SHOP, eventType: "TIER_EXPIRED" } });
+    expect(ended.metadata).toMatchObject({ expiredTierName: "Gold", newTierName: "Bronze" });
+    expect((await prisma.customer.findUniqueOrThrow({ where: { id: spender.id } })).currentTierId).toBe(gold.id);
   });
 });

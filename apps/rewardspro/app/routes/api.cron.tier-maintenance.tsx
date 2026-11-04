@@ -5,10 +5,10 @@
  * - Repair Customer / CustomerTierState tier mismatches
  *
  * It doesn't downgrade customers who stopped ordering: spending-based tiers
- * change on orders and in tier-recalculation, for shops that switch it on.
+ * change on orders and in tier-recalculation, which is on unless a shop
+ * turns it off.
  *
- * Should run daily at midnight UTC
- * Add to vercel.json: { "path": "/api/cron/tier-maintenance", "schedule": "0 0 * * *" }
+ * Runs daily at 01:00 UTC (vercel.json: "0 1 * * *")
  *
  * IMPORTANT: Uses distributed locking to prevent concurrent execution
  * across multiple Vercel regions.
@@ -116,10 +116,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
           });
 
           // Recalculate effective tier using resolver
-          await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
+          const resolved = await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
             triggeredBy: 'subscription_expired',
             subscriptionId: subscription.id
           });
+          if (!resolved.success) {
+            // Leave it as it was, so the next run tries again
+            await prisma.tierSubscription.update({
+              where: { id: subscription.id },
+              data: { status: 'ACTIVE', endDate: subscription.endDate }
+            });
+            throw new Error(`Could not re-resolve the tier: ${resolved.error ?? 'unknown error'}`);
+          }
         }
 
         results.expiredMemberships++;
@@ -156,6 +164,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     for (const purchase of expiredPurchases) {
       try {
+        let newTierId: string | null = null;
         if (!isDryRun) {
           // Mark as expired
           await prisma.tierPurchase.update({
@@ -164,10 +173,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
           });
 
           // Recalculate effective tier using resolver
-          await updateCustomerToEffectiveTier(purchase.shop, purchase.customerId, {
+          const resolved = await updateCustomerToEffectiveTier(purchase.shop, purchase.customerId, {
             triggeredBy: 'purchase_expired',
             purchaseId: purchase.id
           });
+          if (!resolved.success) {
+            // Leave it ACTIVE, so the next run tries again and no email goes out
+            await prisma.tierPurchase.update({
+              where: { id: purchase.id },
+              data: { status: 'ACTIVE' }
+            });
+            throw new Error(`Could not re-resolve the tier: ${resolved.error ?? 'unknown error'}`);
+          }
+          newTierId = resolved.newTierId;
         }
 
         results.expiredMemberships++;
@@ -180,15 +198,21 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
         log('info', `Processed expired purchase for customer ${purchase.customerId}`);
 
-        // Send expiration notification email
-        if (!isDryRun && purchase.customer?.email) {
+        // Send expiration notification email, unless the shopper keeps the
+        // tier (they renewed, or a manual tier or their spending holds it)
+        if (!isDryRun && purchase.customer?.email && newTierId !== null && newTierId === purchase.tierId) {
+          log('info', `Customer ${purchase.customerId} keeps the tier, so no membership-ended email`);
+        } else if (!isDryRun && purchase.customer?.email) {
           try {
+            const newTier = newTierId
+              ? await prisma.tier.findFirst({ where: { id: newTierId, shop: purchase.shop }, select: { name: true } })
+              : null;
             await sendTierExpiredEmail(purchase.shop, {
               customerId: purchase.customerId,
               email: purchase.customer.email,
               firstName: purchase.customer.firstName,
               expiredTierName: purchase.tier?.name || 'Premium',
-              newTierName: null, // Will be resolved by tier resolution
+              newTierName: newTier?.name ?? null,
             });
           } catch (emailError: any) {
             log('warn', `Failed to send expiration email for ${purchase.customerId}`, { error: emailError.message });
@@ -248,6 +272,28 @@ export async function loader({ request }: LoaderFunctionArgs) {
           if (existingWarning) {
             log('info', `Already sent ${warningDays}-day warning to customer ${purchase.customerId}, skipping`);
             continue;
+          }
+
+          // Nothing is ending for a shopper who renewed, or who holds the same
+          // or a higher tier through another membership that ends later or never
+          if (purchase.tier) {
+            const lastsLonger = {
+              shop: purchase.shop,
+              customerId: purchase.customerId,
+              status: 'ACTIVE' as const,
+              tier: { is: { minSpend: { gte: purchase.tier.minSpend } } },
+              OR: [{ endDate: null }, { endDate: { gt: purchase.endDate! } }],
+            };
+            const continues =
+              (await prisma.tierPurchase.findFirst({
+                where: { ...lastsLonger, id: { not: purchase.id } },
+                select: { id: true }
+              })) ??
+              (await prisma.tierSubscription.findFirst({ where: lastsLonger, select: { id: true } }));
+            if (continues) {
+              log('info', `Customer ${purchase.customerId} has a membership that lasts longer, skipping the ${warningDays}-day warning`);
+              continue;
+            }
           }
 
           if (!isDryRun && purchase.customer?.email && purchase.tier) {
@@ -316,11 +362,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // This detects when the two sources of truth have gotten out of sync
     let consistencyRepairs = 0;
     try {
+      // Newest mismatches first, so a few that keep failing can't hide the rest
       const desyncedCustomers = await prisma.$queryRaw`
         SELECT c.id, c.shop, c."currentTierId", cts."effectiveTierId"
         FROM "Customer" c
         JOIN "CustomerTierState" cts ON c.id = cts."customerId"
         WHERE c."currentTierId" IS DISTINCT FROM cts."effectiveTierId"
+        ORDER BY c."updatedAt" DESC, c.id
         LIMIT 100
       ` as Array<{ id: string; shop: string; currentTierId: string | null; effectiveTierId: string | null }>;
 
@@ -331,10 +379,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
           // Auto-repair by re-resolving each customer's tier
           for (const customer of desyncedCustomers) {
             try {
-              await updateCustomerToEffectiveTier(customer.shop, customer.id, {
+              const repaired = await updateCustomerToEffectiveTier(customer.shop, customer.id, {
                 triggeredBy: 'consistency_repair'
               });
-              consistencyRepairs++;
+              if (repaired.success) {
+                consistencyRepairs++;
+              } else {
+                log('error', `Failed to repair customer ${customer.id}`, { error: repaired.error });
+                results.errors++;
+              }
             } catch (error: any) {
               log('error', `Failed to repair customer ${customer.id}`, { error: error.message });
               results.errors++;
@@ -379,7 +432,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       success: false,
       correlationId,
       error: "Tier maintenance failed"
-    });
+    }, { status: 500 });
   } finally {
     // Always release the lock when done, even if there was an error
     if (lock.lockId) {
