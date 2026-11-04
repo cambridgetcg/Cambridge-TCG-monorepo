@@ -1,7 +1,6 @@
 import prisma from "../db.server";
 import type { Tier } from "@prisma/client";
 import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
-import { recalculateTiersOptimized } from "./tier-recalculation-optimized.server";
 
 /**
  * Ensures a base tier exists for the shop
@@ -198,12 +197,22 @@ export async function assignBaseTierToAllCustomersWithoutTier(shop: string): Pro
  * 4. Spending-based tiers (automatic calculation)
  *
  * This ensures that customers who purchased a tier keep it during recalculation.
+ *
+ * @param options.deadline - Time (ms since epoch) after which no further
+ *   customer is started; the result then has complete: false. Customers who
+ *   were never resolved go first, then those resolved longest ago, so the next
+ *   run carries on where this one stopped.
  */
-export async function recalculateTiersForAllCustomers(shop: string): Promise<{
+export async function recalculateTiersForAllCustomers(
+  shop: string,
+  options?: { deadline?: number }
+): Promise<{
   processed: number;
   upgraded: number;
   downgraded: number;
   unchanged: number;
+  errors: number;
+  complete: boolean;
   bySource: {
     manualOverride: number;
     tierSubscription: number;
@@ -217,16 +226,27 @@ export async function recalculateTiersForAllCustomers(shop: string): Promise<{
   console.log(`[Tier Management] Using Tier Resolution System (respects purchases/subscriptions)`);
   console.log(`[Tier Management] ========================================`);
 
-  const customers = await prisma.customer.findMany({
-    where: { shop },
-    select: { id: true, currentTierId: true }
-  });
+  const customers = [
+    ...(await prisma.customer.findMany({
+      where: { shop, tierState: { is: null } },
+      select: { id: true, currentTierId: true },
+      orderBy: { id: 'asc' }
+    })),
+    ...(await prisma.customer.findMany({
+      where: { shop, tierState: { isNot: null } },
+      select: { id: true, currentTierId: true },
+      orderBy: [{ tierState: { lastResolvedAt: 'asc' } }, { id: 'asc' }]
+    })),
+  ];
 
   console.log(`[Tier Management] Found ${customers.length} customers to process`);
 
+  let processed = 0;
   let upgraded = 0;
   let downgraded = 0;
   let unchanged = 0;
+  let errors = 0;
+  let complete = true;
   const bySource = {
     manualOverride: 0,
     tierSubscription: 0,
@@ -237,16 +257,30 @@ export async function recalculateTiersForAllCustomers(shop: string): Promise<{
 
   // Process customers in batches to avoid overwhelming the database
   const batchSize = 50;
-  for (let i = 0; i < customers.length; i += batchSize) {
+  for (let i = 0; i < customers.length && complete; i += batchSize) {
     const batch = customers.slice(i, i + batchSize);
     console.log(`[Tier Management] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(customers.length / batchSize)}`);
 
     for (const customer of batch) {
+      if (options?.deadline !== undefined && Date.now() >= options.deadline) {
+        complete = false;
+        console.warn(`[Tier Management] Out of time after ${processed} of ${customers.length} customers; the next run carries on`);
+        break;
+      }
+      processed++;
+
       try {
         // Use the Tier Resolution System which considers ALL sources
         const result = await updateCustomerToEffectiveTier(shop, customer.id, {
           triggeredBy: 'tier_recalculation'
         });
+
+        // The resolver reports its own failures instead of throwing
+        if (!result.success) {
+          console.error(`[Tier Management] Could not resolve the tier of customer ${customer.id}: ${result.error ?? 'unknown error'}`);
+          errors++;
+          continue;
+        }
 
         // Track tier source distribution
         switch (result.source) {
@@ -291,18 +325,19 @@ export async function recalculateTiersForAllCustomers(shop: string): Promise<{
         }
       } catch (error) {
         console.error(`[Tier Management] Error processing customer ${customer.id}:`, error);
-        unchanged++; // Count as unchanged if error
+        errors++;
       }
     }
   }
 
   console.log(`[Tier Management] ========================================`);
-  console.log(`[Tier Management] Recalculation Complete`);
+  console.log(`[Tier Management] Recalculation ${complete ? 'Complete' : 'Stopped Early'}`);
   console.log(`[Tier Management] ========================================`);
-  console.log(`[Tier Management] Total Processed: ${customers.length}`);
+  console.log(`[Tier Management] Total Processed: ${processed} of ${customers.length}`);
   console.log(`[Tier Management] Upgraded: ${upgraded}`);
   console.log(`[Tier Management] Downgraded: ${downgraded}`);
   console.log(`[Tier Management] Unchanged: ${unchanged}`);
+  console.log(`[Tier Management] Errors: ${errors}`);
   console.log(`[Tier Management] --- By Source ---`);
   console.log(`[Tier Management] Manual Override: ${bySource.manualOverride}`);
   console.log(`[Tier Management] Tier Subscription: ${bySource.tierSubscription}`);
@@ -312,68 +347,48 @@ export async function recalculateTiersForAllCustomers(shop: string): Promise<{
   console.log(`[Tier Management] ========================================`);
 
   return {
-    processed: customers.length,
+    processed,
     upgraded,
     downgraded,
     unchanged,
+    errors,
+    complete,
     bySource
   };
 }
 
 /**
- * Smart tier recalculation with intelligent engine selection
+ * Recalculate every customer's tier in a shop, for the tier-recalculation cron
+ * and the "Recalculate now" button in Settings.
  *
- * Engine Selection (Auto by customer count):
- * - LEGACY: Original per-customer resolution (< 100 customers)
- * - OPTIMIZED: Three-layer neural architecture (100-499 customers)
- * - NEURAL_V2: CNS/PNS partitioned clustering (500-2499 customers)
- * - NEURAL_V3: Anatomical CNS with multi-level clustering (2500+ customers)
+ * Each customer goes through the Tier Resolution System
+ * (updateCustomerToEffectiveTier), the same rules orders use: each tier's
+ * evaluation period, only cashback-eligible orders (membership purchases don't
+ * count), and the shop's base-tier settings. An in-memory fast path used to
+ * pick tiers by its own copy of the rules (lifetime spending for every tier,
+ * membership orders counted, always the lowest tier as a fallback). It moved
+ * shoppers to a tier their next order then took away, after paying that
+ * order's cashback at the wrong rate, so it has been removed.
  *
- * Performance Characteristics:
- * - LEGACY: 15 queries/customer, reliable for small shops
- * - OPTIMIZED: ~10 total queries, 100x faster than legacy
- * - NEURAL_V2: ~10 queries with parallel streams, source clustering
- * - NEURAL_V3: ~10 queries with anatomical regions, 4-level clustering, synaptic weights
- *
- * Always uses the OPTIMIZED engine (preload + in-memory resolve + batched
- * write-back). The neural V2/V3 variants were decorative metaphors over the
- * same logic and have been removed.
- *
- * ─────────────────────────────────────────────────────────────────────────
- * FUTURE — Step Functions migration (defer until shop scale demands it)
- * ─────────────────────────────────────────────────────────────────────────
- * Trigger: when a single shop has > ~50K customers, OPTIMIZED's in-memory
- * model exceeds Vercel function timeout (60s Pro / 300s Enterprise) or
- * memory cap (1GB Pro / 3GB Enterprise).
- *
- * Design (when needed):
- *   EventBridge (daily 02:00 UTC)
- *   └─→ Step Functions state machine `rewardspro-tier-recalc`
- *       1. PreloadLambda — read tiers, subs, purchases, overrides → S3 staging
- *       2. Map (parallel, MaxConcurrency=10) — chunk customers, resolve in memory
- *       3. WriteBackLambda — batched UPDATE via Data API
- *       4. EmitSNSLambda — publish to rewardspro-prod-tier-changed
- *   Retries: 3 attempts, exponential backoff (2s/8s/30s); failures → SNS alarm
- *
- * Cost vs. benefit at current scale (Cambridge: 209 customers):
- *   • OPTIMIZED runs in ~3s for 10K customers — ~10x headroom for now
- *   • Step Functions adds: 1 SFN execution/day ($0.025), 4 Lambda runs ($0.001)
- *   • Operational cost: new failure mode (SFN provisioning, Lambda packaging)
- *   → Defer until any single shop crosses 50K customers.
+ * Resolving one customer takes a few dozen milliseconds, so a large shop may
+ * not finish before options.deadline; the result then has complete: false
+ * and the next run carries on.
  *
  * @param shop - Shop domain
- * @param options.forceLegacy - Use the per-customer legacy path (debugging only)
+ * @param options.deadline - Passed to recalculateTiersForAllCustomers
  */
 export async function recalculateTiersSmart(
   shop: string,
   options?: {
-    forceLegacy?: boolean;
+    deadline?: number;
   }
 ): Promise<{
   processed: number;
   upgraded: number;
   downgraded: number;
   unchanged: number;
+  errors: number;
+  complete: boolean;
   bySource: {
     manualOverride: number;
     tierSubscription: number;
@@ -382,45 +397,20 @@ export async function recalculateTiersSmart(
     none: number;
   };
   timing?: {
-    contextLoadMs?: number;
-    processingMs?: number;
-    updatesMs?: number;
     totalMs: number;
   };
+  // Always LEGACY, the per-customer resolver; kept for the Settings page
   engine: 'LEGACY' | 'OPTIMIZED';
   optimizedPath: boolean;
 }> {
-  if (options?.forceLegacy) {
-    const result = await recalculateTiersForAllCustomers(shop);
-    return {
-      ...result,
-      engine: 'LEGACY',
-      optimizedPath: false,
-    };
-  }
-
-  const result = await recalculateTiersOptimized(shop);
+  const startedAt = Date.now();
+  const result = await recalculateTiersForAllCustomers(shop, options);
 
   return {
-    processed: result.processed,
-    upgraded: result.upgraded,
-    downgraded: result.downgraded,
-    unchanged: result.unchanged,
-    bySource: {
-      manualOverride: result.bySource.manualOverride,
-      tierSubscription: result.bySource.tierSubscription,
-      tierPurchase: result.bySource.tierPurchase,
-      spendingBased: result.bySource.spendingBased,
-      none: result.bySource.none + result.bySource.defaultBaseTier,
-    },
-    timing: {
-      contextLoadMs: result.timing.contextLoadMs,
-      processingMs: result.timing.processingMs,
-      updatesMs: result.timing.updatesMs,
-      totalMs: result.timing.totalMs,
-    },
-    engine: 'OPTIMIZED',
-    optimizedPath: true,
+    ...result,
+    timing: { totalMs: Date.now() - startedAt },
+    engine: 'LEGACY',
+    optimizedPath: false,
   };
 }
 
@@ -428,10 +418,9 @@ export async function recalculateTiersSmart(
  * Refresh annual spending for all customers in a shop
  *
  * This function recalculates the annualSpent field for all customers based on
- * their orders from the last 12 months. This is critical for spending-based
- * tier calculations that use annual spending thresholds.
- *
- * Should be run BEFORE tier recalculation to ensure accurate spending data.
+ * their orders from the last 12 months. The shopper's account page and the
+ * customer stats show it. Tiers don't read it: the resolver sums each tier's
+ * evaluation period from the orders themselves.
  *
  * @param shop - Shop domain
  * @returns Statistics about the refresh operation

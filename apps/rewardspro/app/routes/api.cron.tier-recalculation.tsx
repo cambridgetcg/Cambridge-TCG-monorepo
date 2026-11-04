@@ -2,10 +2,11 @@
  * Scheduled tier recalculation cron job
  * Runs based on shop-specific frequency settings
  *
- * Should run daily at 3 AM UTC
+ * Runs daily at 09:00 UTC (vercel.json: "0 9 * * *")
  * Will check each shop's settings to determine if recalculation is needed
  *
- * Add to vercel.json: { "path": "/api/cron/tier-recalculation", "schedule": "0 3 * * *" }
+ * Every customer is resolved by the same rules orders use
+ * (recalculateTiersSmart → updateCustomerToEffectiveTier).
  *
  * IMPORTANT: Uses distributed locking to prevent concurrent execution
  * across multiple Vercel regions.
@@ -22,6 +23,24 @@ import { verifyCronAuth } from "~/utils/cron-auth.server";
 // Configuration
 type RecalculationFrequency = "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DAYS_BETWEEN_RUNS: Record<RecalculationFrequency, number> = {
+  DAILY: 1,
+  WEEKLY: 7,
+  MONTHLY: 30,
+  QUARTERLY: 90,
+};
+
+// The cron fires at the same time every day and lastRun is stamped a little
+// after that, so a whole number of days later slightly less than that many
+// days have passed. Without this slack DAILY ran every other day and WEEKLY
+// every 8 days.
+const DUE_SLACK_MS = 60 * 60 * 1000;
+
+// Functions stop at 300 seconds. Start no customer after this, so the run
+// reports what it did and the next run carries on.
+const RUN_TIME_BUDGET_MS = 240 * 1000;
+
 // Helper function to determine if recalculation should run
 function shouldRunRecalculation(
   frequency: RecalculationFrequency,
@@ -29,23 +48,10 @@ function shouldRunRecalculation(
 ): boolean {
   if (!lastRun) return true; // Never run before
 
-  const now = new Date();
-  const daysSinceLastRun = Math.floor(
-    (now.getTime() - lastRun.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const days = DAYS_BETWEEN_RUNS[frequency];
+  if (!days) return false;
 
-  switch (frequency) {
-    case 'DAILY':
-      return daysSinceLastRun >= 1;
-    case 'WEEKLY':
-      return daysSinceLastRun >= 7;
-    case 'MONTHLY':
-      return daysSinceLastRun >= 30;
-    case 'QUARTERLY':
-      return daysSinceLastRun >= 90;
-    default:
-      return false;
-  }
+  return Date.now() - lastRun.getTime() >= days * DAY_MS - DUE_SLACK_MS;
 }
 
 // Use loader for GET requests (Vercel sends GET, not POST)
@@ -55,6 +61,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   const startTime = Date.now();
+  const deadline = startTime + RUN_TIME_BUDGET_MS;
   const correlationId = crypto.randomUUID();
 
   // Structured logging helper
@@ -105,6 +112,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     totalUnchanged: 0,
     errors: 0,
     skippedShops: 0,
+    unfinishedShops: 0,
     // Track tier sources across all shops
     bySource: {
       manualOverride: 0,
@@ -155,11 +163,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
           continue;
         }
 
+        if (Date.now() >= deadline) {
+          log('warn', `Out of time before ${shopSettings.shop}; it stays due for the next run`);
+          results.unfinishedShops++;
+          continue;
+        }
+
         log('info', `Processing ${shopSettings.shop}`);
 
         if (!isDryRun) {
-          // 5a. CRITICAL: Refresh annual spending BEFORE tier recalculation
-          // This ensures spending-based tier calculations use up-to-date annual spending data
+          // 5a. Refresh Customer.annualSpent (the shopper's account page shows
+          // it). Tiers don't read it: the resolver sums orders itself.
           log('info', `Refreshing annual spending for ${shopSettings.shop}`);
           try {
             const spendingRefreshResult = await refreshAnnualSpending(shopSettings.shop);
@@ -181,17 +195,27 @@ export async function loader({ request }: LoaderFunctionArgs) {
             // Continue with tier recalculation even if spending refresh fails
           }
 
-          // 5b. Run tier recalculation for this shop (uses optimized path for 100+ customers)
-          const recalcResult = await recalculateTiersSmart(shopSettings.shop);
+          // 5b. Resolve every customer's tier by the rules orders use
+          const recalcResult = await recalculateTiersSmart(shopSettings.shop, { deadline });
 
-          // 6. Update last run timestamp
-          await prisma.shopSettings.update({
-            where: { shop: shopSettings.shop },
-            data: {
-              tierRecalculationLastRun: new Date(),
-              updatedAt: new Date()
-            }
-          });
+          // 6. Stamp the last run only when every customer was resolved, so a
+          // shop with failures or one that ran out of time stays due
+          results.errors += recalcResult.errors;
+          if (!recalcResult.complete) {
+            results.unfinishedShops++;
+            log('warn', `Ran out of time for ${shopSettings.shop}; the next run carries on`, {
+              processed: recalcResult.processed
+            });
+          }
+          if (recalcResult.errors === 0 && recalcResult.complete) {
+            await prisma.shopSettings.update({
+              where: { shop: shopSettings.shop },
+              data: {
+                tierRecalculationLastRun: new Date(),
+                updatedAt: new Date()
+              }
+            });
+          }
 
           results.shopsProcessed++;
           results.customersProcessed += recalcResult.processed;
@@ -214,6 +238,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
             upgraded: recalcResult.upgraded,
             downgraded: recalcResult.downgraded,
             unchanged: recalcResult.unchanged,
+            errors: recalcResult.errors,
+            complete: recalcResult.complete,
             bySource: recalcResult.bySource,
             engine: recalcResult.engine,
             optimizedPath: recalcResult.optimizedPath,
@@ -224,6 +250,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
             processed: recalcResult.processed,
             upgraded: recalcResult.upgraded,
             downgraded: recalcResult.downgraded,
+            errors: recalcResult.errors,
             engine: recalcResult.engine,
             ...(recalcResult.timing && { totalMs: recalcResult.timing.totalMs })
           });
@@ -246,6 +273,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const summary = {
       shopsProcessed: results.shopsProcessed,
       shopsSkipped: results.skippedShops,
+      shopsUnfinished: results.unfinishedShops,
       customersProcessed: results.customersProcessed,
       totalUpgraded: results.totalUpgraded,
       totalDowngraded: results.totalDowngraded,
