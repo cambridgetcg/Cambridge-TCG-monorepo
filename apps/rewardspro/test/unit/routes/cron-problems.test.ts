@@ -162,20 +162,42 @@ describe("a cron run that fails part of its work", () => {
     expect(problemReport("mission-status")?.[2]).toMatchObject({ tags: { "cron.job": "mission-status" } });
   });
 
-  it("scheduled-campaigns: a campaign that failed to send reaches Sentry", async () => {
+  // scheduled-campaigns answers 500 for any campaign it failed to send (#138); Sentry gets the real error
+  it.each([
+    ["threw", () => campaigns.sendCampaign.mockRejectedValue(new Error("SendGrid answered 401")), "Error: SendGrid answered 401"],
+    [
+      "came back not sent",
+      () => campaigns.sendCampaign.mockResolvedValue({ status: "not_sent", cause: "failed", reason: "Something went wrong while this campaign was sending" }),
+      "Error: Something went wrong while this campaign was sending",
+    ],
+  ])("scheduled-campaigns: a campaign whose sending %s fails the run with that error", async (_case, setUp, expected) => {
     db.emailCampaign.updateMany.mockResolvedValue({ count: 0 });
     db.emailCampaign.findMany.mockResolvedValue([
       { id: "c1", shop: "one.myshopify.com", name: "November", scheduledFor: new Date(Date.now() - 1000) },
     ]);
-    campaigns.sendCampaign.mockRejectedValue(new Error("SendGrid answered 401"));
+    setUp();
+
+    const response = await run(scheduledCampaigns, "scheduled-campaigns");
+
+    expect(response.status).toBe(500);
+    expect(outcome("scheduled-campaigns")).toEqual({ type: "scheduled-campaigns:failed", errorMessage: expected });
+    expect(sentryService.captureException).toHaveBeenCalledTimes(1);
+    expect(String(sentryService.captureException.mock.calls[0][0])).toBe(expected);
+    expect(sentryService.captureException.mock.calls[0][1]).toMatchObject({ tags: { "cron.job": "scheduled-campaigns" } });
+  });
+
+  it("scheduled-campaigns: a campaign its audience held back is not a problem", async () => {
+    db.emailCampaign.updateMany.mockResolvedValue({ count: 0 });
+    db.emailCampaign.findMany.mockResolvedValue([
+      { id: "c1", shop: "one.myshopify.com", name: "November", scheduledFor: new Date(Date.now() - 1000) },
+    ]);
+    campaigns.sendCampaign.mockResolvedValue({ status: "not_sent", cause: "refused", reason: "No customer has agreed to marketing email" });
 
     const response = await run(scheduledCampaigns, "scheduled-campaigns");
 
     expect(response.status).toBe(200);
-    expect(outcome("scheduled-campaigns")).toEqual({
-      type: "scheduled-campaigns:partial",
-      errorMessage: "1 failed; first: Error: SendGrid answered 401",
-    });
-    expect(problemReport("scheduled-campaigns")?.[2]).toMatchObject({ tags: { "cron.job": "scheduled-campaigns" } });
+    expect(outcome("scheduled-campaigns").type).toBe("scheduled-campaigns:succeeded");
+    expect(sentryService.captureException).not.toHaveBeenCalled();
+    expect(problemReport("scheduled-campaigns")).toBeUndefined();
   });
 });

@@ -120,10 +120,11 @@ How Vercel runs them:
 - A run is stopped after 300 seconds (the project's function limit; nothing
   sets `maxDuration`).
 - Vercel shows a run as failed only when it answers 5xx. Every cron route
-  answers 500 when its job fails. A run that finishes but fails part of its
-  work (a shop, an entry, a mission) answers 200 and tells the cron monitor
-  what failed, which reports it (below). The two tier crons answer 500 for
-  any error.
+  answers 500 when its job fails. In `cashback-reconciliation` and
+  `mission-status`, a run that finishes but fails part of its work (a shop,
+  an entry, a mission) answers 200 and tells the cron monitor what failed,
+  which reports it (below). `tier-maintenance`, `tier-recalculation` and
+  `scheduled-campaigns` answer 500 for any such error instead.
 
 To run one now, for real against production, exactly as the schedule would:
 

@@ -27,7 +27,7 @@ import { markCutOffSends, notSentMetrics, sendCampaign } from "../services/campa
 import { marketingEmailBlockedReason } from "../services/marketing-email.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
-import { cronFailed, cronProblems, monitoredCron } from "~/services/cron-monitor.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
 /** A campaign this late when email can go out is held back, not sent */
 const LATE_LIMIT_HOURS = 24;
@@ -100,7 +100,7 @@ export const loader = monitoredCron("scheduled-campaigns", async ({ request }: L
   };
 
   const now = new Date();
-  // The first campaign that failed to send, for the cron monitor
+  // Why the first campaign that failed was not sent, for the cron monitor
   let firstProblem: unknown;
   const lateCutoff = new Date(now.getTime() - LATE_LIMIT_HOURS * 60 * 60 * 1000);
 
@@ -169,7 +169,10 @@ export const loader = monitoredCron("scheduled-campaigns", async ({ request }: L
 
         if (outcome.status === 'not_sent') {
           results.failedCount++;
-          if (outcome.cause === 'failed') results.errors++;
+          if (outcome.cause === 'failed') {
+            results.errors++;
+            firstProblem ??= new Error(outcome.reason);
+          }
           results.details.push({ type: 'not_sent', campaignId: campaign.id, name: campaign.name, reason: outcome.reason, cause: outcome.cause });
           log(outcome.cause === 'failed' ? 'error' : 'warn', `Campaign ${campaign.id} not sent`, { reason: outcome.reason, cause: outcome.cause });
           continue;
@@ -230,7 +233,7 @@ export const loader = monitoredCron("scheduled-campaigns", async ({ request }: L
     const runFailed = results.errors > 0;
     log(runFailed ? 'error' : 'info', 'Scheduled campaigns cron completed', summary);
 
-    cronProblems(request, results.errors, firstProblem);
+    if (runFailed) cronFailed(request, firstProblem);
     return json({
       success: !runFailed,
       correlationId,
