@@ -1299,14 +1299,17 @@ async function createOrderRecord(_dbOrTx: PrismaClient, params: {
   // IMPORTANT: REST API total_price is in SHOP CURRENCY, not presentment currency
   // So we must store the shop currency code to match the amount
   // See: docs/multi-currency-order-handling.md for full analysis
+  // REST `currency` is the shop's currency too; the shopper's is
+  // `presentment_currency` (and total_price_set.presentment_money), as the
+  // order sync job reads it from GraphQL
   const shopCurrencyCode = order.total_price_set?.shop_money?.currency_code;
-  const presentmentCurrencyCode = order.currency;
-  const orderCurrency = shopCurrencyCode || presentmentCurrencyCode || 'USD';
+  const presentmentCurrencyCode = order.presentment_currency || order.total_price_set?.presentment_money?.currency_code;
+  const orderCurrency = shopCurrencyCode || order.currency || 'USD';
 
   // Multi-currency tracking
   const shopAmount = parseFloat(order.total_price_set?.shop_money?.amount || order.total_price || '0');
   const presentmentAmount = parseFloat(order.total_price_set?.presentment_money?.amount || order.total_price || '0');
-  const isMultiCurrency = shopCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode;
+  const isMultiCurrency = Boolean(shopCurrencyCode && presentmentCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode);
 
   // Calculate exchange rate: presentment / shop (e.g., €100 / £86.21 = 1.16)
   const exchangeRate = isMultiCurrency && shopAmount > 0

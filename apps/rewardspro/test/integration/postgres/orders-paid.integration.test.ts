@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // The Shopify boundary: an authenticated webhook and the Admin GraphQL call
@@ -28,6 +29,7 @@ import prisma from "~/db.server";
 import { sendTierUpgradeEmailNotification } from "~/services/email-notifications.server";
 import { loader as reconcile } from "~/routes/api.cron.cashback-reconciliation";
 import { action } from "~/routes/webhooks.orders.paid";
+import { recordRefund } from "~/services/refund-handler.server";
 import { hasTestDatabase, resetDatabase } from "./database";
 
 const SHOP = "cashback-test.myshopify.com";
@@ -245,6 +247,44 @@ describe.skipIf(!hasTestDatabase)("orders/paid on Postgres", () => {
     const order = await prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550004" } });
     expect(order.cashbackAmount?.toFixed(2)).toBe("0.00");
     expect(order.cashbackProcessed).toBe(false);
+  });
+
+  it("records the shopper's currency, so a refund paid back in it is counted in the shop's", async () => {
+    const { gold } = await seedShop();
+    await prisma.customer.create({ data: { shop: SHOP, shopifyCustomerId: "100", email: "alice@example.test", currentTierId: gold.id } });
+    shopify.graphql.mockResolvedValue(cardPaymentResponse(5550007));
+    // Shopify's REST order: `currency` and the plain amounts are the shop's
+    // (GBP); the shopper paid in euros
+    const paidInEuros = {
+      ...paidOrder({ id: 5550007 }),
+      currency: "GBP",
+      presentment_currency: "EUR",
+      total_price: "86.21",
+      subtotal_price: "86.21",
+      total_price_set: {
+        shop_money: { amount: "86.21", currency_code: "GBP" },
+        presentment_money: { amount: "100.00", currency_code: "EUR" },
+      },
+    };
+
+    expect((await deliver("wh-7", paidInEuros)).status).toBe(200);
+
+    const order = await prisma.order.findFirstOrThrow({ where: { shop: SHOP, shopifyOrderId: "5550007" } });
+    expect(order).toMatchObject({ currency: "GBP", presentmentCurrency: "EUR" });
+    expect(order.totalPrice.toFixed(2)).toBe("86.21");
+    expect(order.presentmentTotal?.toFixed(2)).toBe("100.00");
+    // refunds/create carries the refund's transactions in the shopper's currency
+    const refund = await recordRefund({
+      shop: SHOP,
+      shopifyOrderId: "5550007",
+      shopifyRefundId: "1",
+      amount: new Prisma.Decimal("50.00"),
+      currency: "EUR",
+      createdAt: new Date(),
+    });
+    expect(refund.status).toBe("recorded");
+    if (refund.status !== "recorded") return;
+    expect(refund.appliedAmount.toFixed(2)).toBe("43.10");
   });
 
   it("never sends cashback again when Shopify's answer to the credit is lost", async () => {
