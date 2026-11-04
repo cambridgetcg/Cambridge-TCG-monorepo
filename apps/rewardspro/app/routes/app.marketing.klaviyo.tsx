@@ -540,6 +540,8 @@ export default function KlaviyoSettings() {
   }, [fetcher]);
 
   const handleRemoveApiKey = useCallback(() => {
+    // Forget any key typed here too, or the next save would put it back.
+    setKlaviyoApiKey("");
     const formData = new FormData();
     formData.append("intent", "removeApiKey");
     fetcher.submit(formData, { method: "post" });
