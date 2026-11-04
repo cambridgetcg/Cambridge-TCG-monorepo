@@ -310,6 +310,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           { status: 400 }
         );
       }
+      if (outcome.status === "may_have_sent") {
+        return json({ error: outcome.reason, campaignId }, { status: 500 });
+      }
     }
 
     return redirect(`/app/marketing/campaigns/${campaignId}`);

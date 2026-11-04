@@ -160,6 +160,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
           continue;
         }
 
+        // The email service gave no answer: marked failed, and not retried,
+        // because some or all of its emails may have gone out
+        if (outcome.status === 'may_have_sent') {
+          results.failedCount++;
+          results.errors++;
+          results.details.push({ type: 'may_have_sent', campaignId: campaign.id, name: campaign.name, reason: outcome.reason });
+          log('error', `Campaign ${campaign.id} may have been sent; the email service gave no answer`);
+          continue;
+        }
+
         results.sentCount++;
         results.details.push({
           type: 'sent',

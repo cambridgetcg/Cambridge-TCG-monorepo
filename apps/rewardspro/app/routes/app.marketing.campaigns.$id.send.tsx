@@ -242,6 +242,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       if (outcome.status === "not_sent") {
         return json({ error: outcome.reason }, { status: 400 });
       }
+      if (outcome.status === "may_have_sent") {
+        return json({ error: outcome.reason }, { status: 500 });
+      }
 
       console.log(`[Campaign] Sent campaign ${id}: ${outcome.sent} sent, ${outcome.failed} failed`);
 

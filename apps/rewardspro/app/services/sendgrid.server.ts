@@ -55,6 +55,8 @@ interface SendGridResponse {
   messageId?: string;
   error?: string;
   statusCode?: number;
+  /** No answer came back, so SendGrid may have sent it */
+  uncertain?: boolean;
 }
 
 interface DomainAuthenticationParams {
@@ -118,20 +120,32 @@ function getSendGridApiKey(): string {
 // API HELPERS
 // ============================================
 
+/**
+ * `uncertain` is true when the request was made but no answer came back (a
+ * dropped connection, a timeout): SendGrid may have acted on it, so a send
+ * must not be treated as refused.
+ */
 async function sendGridRequest<T>(
   endpoint: string,
   method: "GET" | "POST" | "PATCH" | "DELETE" = "GET",
   body?: any
-): Promise<{ data: T | null; error: string | null; statusCode: number }> {
+): Promise<{ data: T | null; error: string | null; statusCode: number; uncertain?: boolean }> {
   try {
-    const response = await fetch(`${SENDGRID_API_URL}${endpoint}`, {
+    const init = {
       method,
       headers: {
         Authorization: `Bearer ${getSendGridApiKey()}`,
         "Content-Type": "application/json",
       },
       body: body ? JSON.stringify(body) : undefined,
-    });
+    };
+    let response: Response;
+    try {
+      response = await fetch(`${SENDGRID_API_URL}${endpoint}`, init);
+    } catch (error: any) {
+      console.error("[SendGrid] No answer to the request:", error.message);
+      return { data: null, error: error.message, statusCode: 500, uncertain: true };
+    }
 
     const statusCode = response.status;
 
@@ -275,7 +289,7 @@ async function deliver(
     };
 
     // Send the email
-    const { error, statusCode } = await sendGridRequest<void>(
+    const { error, statusCode, uncertain } = await sendGridRequest<void>(
       "/mail/send",
       "POST",
       payload
@@ -283,7 +297,7 @@ async function deliver(
 
     if (error) {
       console.error("[SendGrid] Send failed:", error);
-      return { success: false, error, statusCode };
+      return { success: false, error, statusCode, uncertain };
     }
 
     console.log("[SendGrid] Email sent successfully");
@@ -303,10 +317,16 @@ export async function sendPersonalizedEmails(
   shop: string,
   personalizations: SendGridPersonalization[],
   params: Omit<SendEmailParams, "to" | "dynamicTemplateData" | "customArgs">
-): Promise<{ sent: number; failed: number; errors: string[] }> {
+): Promise<{
+  sent: number;
+  failed: number;
+  /** Of `failed`, those whose request got no answer, so they may have gone out */
+  uncertain: number;
+  errors: string[];
+}> {
   console.log(`[SendGrid] Sending ${personalizations.length} personalized emails`);
 
-  const results = { sent: 0, failed: 0, errors: [] as string[] };
+  const results = { sent: 0, failed: 0, uncertain: 0, errors: [] as string[] };
   const batchSize = 1000;
 
   for (let i = 0; i < personalizations.length; i += batchSize) {
@@ -326,6 +346,7 @@ export async function sendPersonalizedEmails(
       results.sent += batch.length;
     } else {
       results.failed += batch.length;
+      if (result.uncertain) results.uncertain += batch.length;
       if (result.error) {
         results.errors.push(result.error);
       }

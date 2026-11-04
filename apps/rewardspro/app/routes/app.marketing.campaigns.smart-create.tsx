@@ -174,6 +174,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           { status: 400 }
         );
       }
+      if (outcome.status === 'may_have_sent') {
+        return json({ success: false, error: outcome.reason, campaignId: campaign.id }, { status: 500 });
+      }
     }
 
     // Redirect to the newly created campaign

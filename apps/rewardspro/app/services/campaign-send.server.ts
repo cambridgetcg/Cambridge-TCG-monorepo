@@ -32,6 +32,11 @@ export type CampaignSendOutcome =
    * email switched off). "failed": RewardsPro or its email service failed.
    */
   | { status: "not_sent"; reason: string; cause: "refused" | "failed" }
+  /**
+   * The email service gave no answer, so some or all of it may have gone
+   * out. It is marked failed, and never sent again by itself.
+   */
+  | { status: "may_have_sent"; reason: string }
   /** Someone else is sending it, or it is no longer in the state the caller saw */
   | { status: "taken" };
 
@@ -44,7 +49,7 @@ const COULD_NOT_SEND = {
 };
 const WENT_WRONG_BEFORE_SENDING = "Something went wrong before this campaign was sent, so nothing went out. Duplicate it to send it again.";
 const MAY_HAVE_GONE_OUT =
-  "Something went wrong while this campaign was sending, and some customers may have received it. RewardsPro won't send it again by itself, because that could email them twice.";
+  "Something went wrong while this campaign was sending, and some or all customers may have received it. RewardsPro won't send it again by itself. Check whether they got it before you send it again, so no one gets it twice.";
 
 function stringList(value: Prisma.JsonValue | undefined): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && v !== "") : [];
@@ -108,7 +113,8 @@ export function notSentMetrics(reason: string): Prisma.InputJsonObject {
  * When nothing goes out, a draft stays a draft with the audience it had (the
  * caller shows the reason), and a scheduled campaign is marked 'failed' with
  * the reason. If something goes wrong once the email service may have sent
- * some of it, it is marked failed, never put back to draft.
+ * some of it, or the service gives no answer, it is marked failed, never put
+ * back to draft.
  */
 export async function sendCampaign(
   shop: string,
@@ -135,6 +141,11 @@ export async function sendCampaign(
     ...(before && { segmentRules: before.segmentRules as Prisma.InputJsonValue }),
   });
   const failedUnsent = (reason: string) => ({ status: "failed", sentAt: null, metrics: notSentMetrics(reason), updatedAt: new Date() });
+  const failedMaybeSent = (sent: number) => ({
+    status: "failed",
+    metrics: { ...NO_METRICS, sent, interruptedReason: MAY_HAVE_GONE_OUT },
+    updatedAt: new Date(),
+  });
   const notSent = async (reason: string, cause: "refused" | "failed"): Promise<CampaignSendOutcome> => {
     await prisma.emailCampaign.updateMany({
       where: { id: campaignId, shop, status: "sending" },
@@ -175,6 +186,15 @@ export async function sendCampaign(
     // From here the email service may send it
     handedOff = true;
     const result = await sendCampaignEmails(shop, campaignId, recipients);
+    if (result.uncertain) {
+      // No answer isn't a refusal: it may have gone out, so it can't go back to draft
+      console.error(`[Campaign] The email service gave no answer for campaign ${campaignId} for ${shop}:`, result.errors);
+      await prisma.emailCampaign.updateMany({
+        where: { id: campaignId, shop, status: "sending" },
+        data: failedMaybeSent(result.sent),
+      });
+      return { status: "may_have_sent", reason: MAY_HAVE_GONE_OUT };
+    }
     if (result.sent === 0) {
       if (result.refused) return await notSent(result.refused, "refused");
       // Everyone left the audience (stopped agreeing to marketing) since it was read
@@ -211,7 +231,7 @@ export async function sendCampaign(
       await prisma.emailCampaign.updateMany({
         where: { id: campaignId, shop, status: "sending" },
         data: handedOff
-          ? { status: "failed", metrics: { ...NO_METRICS, interruptedReason: MAY_HAVE_GONE_OUT }, updatedAt: new Date() }
+          ? failedMaybeSent(0)
           : from === "draft"
             ? backToDraft()
             : failedUnsent(WENT_WRONG_BEFORE_SENDING),

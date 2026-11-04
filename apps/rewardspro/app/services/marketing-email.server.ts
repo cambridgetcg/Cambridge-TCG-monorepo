@@ -44,6 +44,8 @@ export interface MarketingSendResult {
   /** Recipients without consent (or unknown), not sent */
   skipped: number;
   failed: number;
+  /** Of `failed`, those the email service gave no answer for, so they may have gone out */
+  uncertain?: number;
   errors: string[];
   /** Why RewardsPro refused the whole send (switched off, Klaviyo, the monthly limit), in words for the merchant */
   refused?: string;
@@ -151,13 +153,15 @@ export async function sendMarketingEmail(
     html: withUnsubscribeFooter(email.html, storeName),
     categories: email.categories,
   });
-  // Give back the emails that didn't go out. (If the send threw, they stay
-  // counted, since some of them may have gone.)
+  // Give back the emails that didn't go out. Those the email service gave no
+  // answer for stay counted, as do all of them if the send threw, since some
+  // of them may have gone.
+  const unsent = customers.length - result.sent - result.uncertain;
   try {
-    await releaseEmails(reservation.usageId, customers.length - result.sent);
+    await releaseEmails(reservation.usageId, unsent);
   } catch (error) {
-    console.error(`[MarketingEmail] Couldn't give back ${customers.length - result.sent} unsent emails for ${shop}:`, error);
+    console.error(`[MarketingEmail] Couldn't give back ${unsent} unsent emails for ${shop}:`, error);
   }
 
-  return { sent: result.sent, skipped, failed: result.failed, errors: result.errors };
+  return { sent: result.sent, skipped, failed: result.failed, uncertain: result.uncertain, errors: result.errors };
 }

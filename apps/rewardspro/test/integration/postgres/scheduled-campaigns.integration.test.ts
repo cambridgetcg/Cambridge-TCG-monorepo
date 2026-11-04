@@ -87,6 +87,18 @@ function sendGridRefuses(): { requests: number } {
   return calls;
 }
 
+/** SendGrid's mail/send dropping the connection before it answers, so no one knows whether it sent the mail. */
+function sendGridGivesNoAnswer(): { requests: number } {
+  const calls = { requests: 0 };
+  server.use(
+    http.post("https://api.sendgrid.com/v3/mail/send", () => {
+      calls.requests++;
+      return HttpResponse.error();
+    }),
+  );
+  return calls;
+}
+
 /** This month's email usage for the shop, as recorded so far. */
 async function usage(emailCount: number) {
   const now = new Date();
@@ -550,6 +562,95 @@ describe.skipIf(!hasTestDatabase)("scheduled campaigns on Postgres", () => {
       const { notSentReason } = after.metrics as { notSentReason?: string };
       expect(notSentReason).toMatch(/RewardsPro couldn't send this campaign/);
       expect(notSentReason).not.toMatch(/authorization grant/);
+    });
+  });
+
+  describe("when the email service gives no answer", () => {
+    // The connection dropped, so SendGrid may have sent the mail before it went
+    const mayHaveGoneOut = /some or all customers may have received it/;
+
+    it("marks a Send now failed, says it may have gone out, keeps the emails counted, and won't send it again", async () => {
+      const calls = sendGridGivesNoAnswer();
+      await usage(10);
+      const draft = await campaign({ status: "draft", segmentRules: { allCustomers: true } });
+      const press = () => send(draft.id, { intent: "send_now", sendToAll: "true", sendToRecommended: "false" });
+
+      const first = await press();
+
+      expect(calls.requests).toBe(1);
+      expect(first.status).toBe(500);
+      const { error } = await first.json();
+      expect(error).toMatch(mayHaveGoneOut);
+      expect(error).toMatch(/before you send it again/);
+      expect(error).not.toMatch(/Failed to fetch|Try again later/);
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: draft.id } });
+      expect(after.status).toBe("failed");
+      expect(after.metrics).toMatchObject({ interruptedReason: expect.stringMatching(mayHaveGoneOut) });
+      expect(after.metrics).not.toHaveProperty("notSentReason");
+      expect(await emailsUsed()).toBe(12);
+
+      const second = await press();
+      expect(second.status).toBe(409);
+      expect(calls.requests).toBe(1);
+    });
+
+    it("marks a scheduled campaign failed without saying nothing was sent, fails the run, and doesn't send it again", async () => {
+      const calls = sendGridGivesNoAnswer();
+      const due = await campaign({ status: "scheduled", segmentRules: { allCustomers: true }, scheduledFor: new Date(Date.now() - 60_000) });
+
+      const response = await runCron();
+
+      expect(calls.requests).toBe(1);
+      expect(response.status).toBe(500);
+      expect((await response.json()).summary).toMatchObject({ sent: 0, failed: 1 });
+      const after = await prisma.emailCampaign.findUniqueOrThrow({ where: { id: due.id } });
+      expect(after.status).toBe("failed");
+      expect(after.metrics).toMatchObject({ interruptedReason: expect.stringMatching(mayHaveGoneOut) });
+      expect(after.metrics).not.toHaveProperty("notSentReason");
+      expect(JSON.stringify(after.metrics)).not.toMatch(/nothing was sent|Duplicate it to try again/);
+      expect(await emailsUsed()).toBe(2);
+
+      await runCron();
+      expect(calls.requests).toBe(1);
+    });
+
+    it("tells the Create page's Send immediately the same, and doesn't call it a draft", async () => {
+      const calls = sendGridGivesNoAnswer();
+
+      const response = await create({ segmentId: "all", scheduleType: "immediate" });
+
+      expect(calls.requests).toBe(1);
+      expect(response.status).toBe(500);
+      const { error } = await response.json();
+      expect(error).toMatch(mayHaveGoneOut);
+      expect(error).not.toMatch(/saved as a draft/);
+      expect(await prisma.emailCampaign.findFirstOrThrow({ where: { shop: SHOP } })).toMatchObject({ status: "failed" });
+    });
+
+    it("tells Smart Create's Send immediately the same, and doesn't call it a draft", async () => {
+      const calls = sendGridGivesNoAnswer();
+      const goldCustomer = await prisma.customer.findFirstOrThrow({ where: { shop: SHOP, email: emails.goldYes } });
+      const recommendation = await prisma.analyticsRecommendation.create({
+        data: {
+          shop: SHOP,
+          slug: "win-back",
+          type: "inactive_customers",
+          title: "Win back",
+          description: "Customers who haven't ordered lately",
+          segmentPayload: { customerIds: [goldCustomer.id] },
+          affectedCount: 1,
+          expiresAt: new Date(Date.now() + 24 * HOUR),
+        },
+      });
+
+      const response = await smartCreate({ sendImmediately: "true", recommendationId: recommendation.id });
+
+      expect(calls.requests).toBe(1);
+      expect(response.status).toBe(500);
+      const { error } = await response.json();
+      expect(error).toMatch(mayHaveGoneOut);
+      expect(error).not.toMatch(/saved as a draft/);
+      expect(await prisma.emailCampaign.findFirstOrThrow({ where: { shop: SHOP } })).toMatchObject({ status: "failed" });
     });
   });
 
