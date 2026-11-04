@@ -32,3 +32,128 @@ export const RewardsShopDetails = `#graphql
     }
   }
 `;
+
+/**
+ * Adds store credit to the buyer's account in one currency, creating the
+ * account if the buyer has none in it. The selection set is the old app's,
+ * proven in production.
+ * Scopes: write_store_credit_account_transactions (which includes
+ * read_store_credit_account_transactions).
+ * Cost: 10 for the mutation, plus at most 4 for the objects it returns
+ * (the transaction, its two MoneyV2 and the userErrors): 14 at most.
+ */
+export const RewardsCredit = `#graphql
+  mutation RewardsCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
+    storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
+      storeCreditAccountTransaction {
+        id
+        amount {
+          amount
+          currencyCode
+        }
+        balanceAfterTransaction {
+          amount
+          currencyCode
+        }
+      }
+      userErrors {
+        code
+        field
+        message
+      }
+    }
+  }
+`;
+
+/**
+ * Takes store credit back from the buyer's account in one currency.
+ * Scopes: write_store_credit_account_transactions (which includes
+ * read_store_credit_account_transactions).
+ * Cost: 14 at most, as RewardsCredit.
+ */
+export const RewardsDebit = `#graphql
+  mutation RewardsDebit($id: ID!, $debitInput: StoreCreditAccountDebitInput!) {
+    storeCreditAccountDebit(id: $id, debitInput: $debitInput) {
+      storeCreditAccountTransaction {
+        id
+        amount {
+          amount
+          currencyCode
+        }
+        balanceAfterTransaction {
+          amount
+          currencyCode
+        }
+      }
+      userErrors {
+        code
+        field
+        message
+      }
+    }
+  }
+`;
+
+/**
+ * The buyer's balance in each store credit account (one per currency).
+ * Scopes: read_customers, read_store_credit_accounts.
+ * Cost: 24 = customer 1 + storeCreditAccounts (connection 2, pageInfo 1,
+ * 10 × (account 1 + balance 1)).
+ */
+export const RewardsBalance = `#graphql
+  query RewardsBalance($customerId: ID!) {
+    customer(id: $customerId) {
+      storeCreditAccounts(first: 10) {
+        nodes {
+          balance {
+            amount
+            currencyCode
+          }
+        }
+        pageInfo {
+          hasNextPage
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * The buyer's newest credits in each store credit account, for the hourly
+ * check of unconfirmed payouts (rule 9). Pages of 25: the old app's 50, with
+ * each account's balance and each credit's balance after, cost about 1,550.
+ * Scopes: read_customers, read_store_credit_accounts,
+ * read_store_credit_account_transactions.
+ * Cost: 544 = customer 1 + storeCreditAccounts (connection 2, pageInfo 1,
+ * 10 × (account 1 + transactions (connection 2, pageInfo 1,
+ * 25 × (transaction 1 + amount 1)))).
+ */
+export const RewardsCreditHistory = `#graphql
+  query RewardsCreditHistory($customerId: ID!) {
+    customer(id: $customerId) {
+      storeCreditAccounts(first: 10) {
+        pageInfo {
+          hasNextPage
+        }
+        nodes {
+          transactions(first: 25, reverse: true, query: "type:credit") {
+            pageInfo {
+              hasNextPage
+            }
+            nodes {
+              __typename
+              amount {
+                amount
+                currencyCode
+              }
+              createdAt
+              ... on StoreCreditAccountCreditTransaction {
+                id
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
