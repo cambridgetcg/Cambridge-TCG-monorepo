@@ -182,8 +182,11 @@ async function createCustomer(
       // Sync profile to Klaviyo
       await syncCustomerToKlaviyo(shopDomain, customerWithTier as Customer & { currentTier: Tier | null }, tiers);
 
-      // Track enrollment event
-      await trackCustomerEnrolled(shopDomain, customerWithTier as Customer & { currentTier: Tier | null }, 'checkout');
+      // Track enrollment event: only for a new shopper, since a Klaviyo flow
+      // on it would welcome a customer the store already had
+      if (welcome) {
+        await trackCustomerEnrolled(shopDomain, customerWithTier as Customer & { currentTier: Tier | null }, 'checkout');
+      }
 
       console.log(`[CustomerSync] Klaviyo sync complete for customer: ${customerId}`);
     }

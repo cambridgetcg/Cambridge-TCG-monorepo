@@ -16,6 +16,7 @@
 
 import prisma from "~/db.server";
 import { shopperEmailSwitches, type ShopperEmailKind } from "~/constants/shopper-emails";
+import { MARKETING_AUDIENCE } from "./marketing-consent.server";
 import * as sendgrid from "./sendgrid.server";
 import {
   sendWelcomeEmailUnified,
@@ -124,6 +125,10 @@ async function getShopName(shop: string): Promise<string> {
  * Send welcome email to a new customer
  * Called from customers/create webhook
  *
+ * The email invites the customer to shop, so it goes only to customers who
+ * may get marketing email, as campaigns do. It names their tier and
+ * cashback, so a customer with no tier gets none.
+ *
  * @param shop - Shop domain
  * @param customer - Customer info
  * @param tier - Initial tier (if assigned)
@@ -146,6 +151,20 @@ export async function sendWelcomeEmailNotification(
     return { success: true, skipped: true, reason: "Email not enabled" };
   }
 
+  if (!tier) {
+    console.log(`[EmailNotifications] Customer ${customer.id} has no tier, skipping welcome email`);
+    return { success: true, skipped: true, reason: "No tier" };
+  }
+
+  const marketingAllowed = await prisma.customer.findFirst({
+    where: { id: customer.id, shop, ...MARKETING_AUDIENCE },
+    select: { id: true },
+  });
+  if (!marketingAllowed) {
+    console.log(`[EmailNotifications] Customer ${customer.id} hasn't agreed to marketing email, skipping welcome email`);
+    return { success: true, skipped: true, reason: "No marketing consent" };
+  }
+
   // Report capacity without blocking the notification.
   const usageCheck = await checkEmailLimit(shop, 1);
   if (usageCheck.capacityExceeded) {
@@ -157,8 +176,8 @@ export async function sendWelcomeEmailNotification(
     const success = await sendWelcomeEmailUnified(shop, {
       customer: customer as any,
       storeName: await getShopName(shop),
-      tierName: tier?.name || "Member",
-      cashbackPercent: tier?.cashbackPercent || 0,
+      tierName: tier.name,
+      cashbackPercent: tier.cashbackPercent,
     });
 
     if (success) {

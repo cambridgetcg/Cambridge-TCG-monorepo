@@ -44,7 +44,7 @@ export const SHOPPER_EMAIL_SWITCHES: ReadonlyArray<{
     kind: "welcome",
     label: "Welcome",
     helpText:
-      "When a new customer is added to your store: at checkout, when they sign up, or when you or an import add them. Customers you already had don't get one.",
+      "Sent to a new customer, usually when they check out or sign up, if they agreed to get your marketing emails and qualify for a tier. Customers you already had don't get one.",
   },
   { kind: "tierUp", label: "Moved up a tier", helpText: "When a paid order moves a customer up a tier." },
   { kind: "tierDown", label: "Moved down a tier", helpText: "When a paid order moves a customer down a tier." },

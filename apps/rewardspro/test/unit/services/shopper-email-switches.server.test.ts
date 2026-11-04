@@ -14,6 +14,7 @@ const prisma = vi.hoisted(() => ({
   sendGridDomain: { findFirst: vi.fn() },
   emailEvent: { create: vi.fn() },
   tier: { findMany: vi.fn() },
+  customer: { findFirst: vi.fn() },
 }));
 
 vi.mock("~/db.server", () => ({ default: prisma }));
@@ -35,6 +36,7 @@ import {
   sendWelcomeEmailNotification,
 } from "~/services/email-notifications.server";
 import { SHOPPER_EMAIL_KINDS, type ShopperEmailKind } from "~/constants/shopper-emails";
+import { MARKETING_AUDIENCE } from "~/services/marketing-consent.server";
 
 const shopper = { id: "customer-1", email: "shopper@example.test", firstName: "Sam", lastName: null, shop: SHOP };
 const silver = { id: "tier-silver", name: "Silver", cashbackPercent: 2 };
@@ -122,6 +124,8 @@ describe("emails RewardsPro sends shoppers by itself", () => {
     prisma.sendGridDomain.findFirst.mockResolvedValue(null);
     prisma.emailEvent.create.mockResolvedValue({});
     prisma.tier.findMany.mockResolvedValue([]);
+    // The shopper agreed to marketing email (the welcome email's audience)
+    prisma.customer.findFirst.mockResolvedValue({ id: shopper.id });
     sent = mockSendGrid();
   });
 
@@ -181,5 +185,36 @@ describe("emails RewardsPro sends shoppers by itself", () => {
     await SEND[kind]();
 
     expect(sent).toEqual([]);
+  });
+
+  describe("welcome", () => {
+    beforeEach(() => {
+      prisma.emailSettings.findUnique.mockResolvedValue(settingsWith({ welcome: true }));
+    });
+
+    // It promotes the store, so it goes to the customers campaigns go to
+    it("asks for the stored customer only if they may get marketing email", async () => {
+      await sendWelcomeEmailNotification(SHOP, shopper, silver);
+
+      expect(prisma.customer.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: shopper.id, shop: SHOP, ...MARKETING_AUDIENCE } }),
+      );
+      expect(sent).toEqual([[shopper.email]]);
+    });
+
+    it("sends nothing to a customer who hasn't agreed to marketing email", async () => {
+      prisma.customer.findFirst.mockResolvedValue(null);
+
+      await expect(sendWelcomeEmailNotification(SHOP, shopper, silver)).resolves.toMatchObject({ skipped: true });
+
+      expect(sent).toEqual([]);
+    });
+
+    // The email names their tier and cashback; without one it would make them up
+    it("sends nothing to a customer with no tier", async () => {
+      await expect(sendWelcomeEmailNotification(SHOP, shopper, null)).resolves.toMatchObject({ skipped: true });
+
+      expect(sent).toEqual([]);
+    });
   });
 });

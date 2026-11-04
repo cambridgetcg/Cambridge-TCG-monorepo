@@ -1225,7 +1225,8 @@ async function ensureCustomer(shop: string, order: any) {
       data: {
         shop,
         shopifyCustomerId,
-        email: order.customer?.email || order.email || `customer_${order.customer.id}@shop.com`,
+        // Customer.email is required; a shopper without one is stored as "" (no placeholder address)
+        email: order.customer?.email || order.email || "",
         firstName: order.customer?.first_name || null,
         lastName: order.customer?.last_name || null,
       }

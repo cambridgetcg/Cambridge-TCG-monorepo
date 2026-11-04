@@ -10,7 +10,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const SHOP = "test-shop.myshopify.com";
 
 const remix = vi.hoisted(() => ({ loaderData: {} as Record<string, unknown> }));
-const prisma = vi.hoisted(() => ({ emailSettings: { upsert: vi.fn() } }));
+const prisma = vi.hoisted(() => ({
+  emailSettings: { upsert: vi.fn(), findUnique: vi.fn() },
+  shopSettings: { findUnique: vi.fn() },
+  sendGridDomain: { findMany: vi.fn(), findFirst: vi.fn() },
+}));
 
 vi.mock("@remix-run/react", () => ({
   useLoaderData: () => remix.loaderData,
@@ -25,10 +29,15 @@ vi.mock("~/services/marketing-mode.server", () => ({
   switchMarketingMode: vi.fn(),
 }));
 vi.mock("~/services/email-usage-control.server", () => ({ getEmailUsageStats: vi.fn() }));
+vi.mock("~/services/klaviyo.server", () => ({ isKlaviyoEnabled: vi.fn() }));
 vi.mock("~/components/Billing/UpgradePrompt", () => ({ LimitHint: () => null }));
 
-import EmailSettings, { action } from "~/routes/app.marketing.settings";
+import EmailSettings, { action, loader } from "~/routes/app.marketing.settings";
 import { SHOPPER_EMAIL_KINDS, SHOPPER_EMAIL_SWITCHES, shopperEmailSwitches } from "~/constants/shopper-emails";
+import { FEATURES_AVAILABLE } from "~/constants/feature-availability";
+import { getMarketingModeInfo } from "~/services/marketing-mode.server";
+import { getEmailUsageStats } from "~/services/email-usage-control.server";
+import { isKlaviyoEnabled } from "~/services/klaviyo.server";
 
 const SEND_TIME_PREFS = { preferredTime: "10:00", timezone: "America/New_York", dailyLimit: 1000, hourlyLimit: 100 };
 
@@ -49,7 +58,7 @@ function saveRequest(fields: Record<string, string>) {
   return { request: new Request("https://app.test/app/marketing/settings", { method: "POST", body }), params: {}, context: {} };
 }
 
-function pageHtml(emailSettings: Record<string, unknown> | null, sendgridConfigured = true) {
+function pageHtml(emailSettings: Record<string, unknown> | null, sendgridConfigured = true, klaviyoSending = false) {
   remix.loaderData = {
     shop: SHOP,
     emailSettings,
@@ -57,6 +66,7 @@ function pageHtml(emailSettings: Record<string, unknown> | null, sendgridConfigu
     shopSettings: { storeName: "Card Shop" },
     domains: [],
     sendgridConfigured,
+    klaviyoSending,
     marketingModeInfo: { mode: "INHOUSE", isKlaviyoConnected: false },
     emailUsageStats: {
       percentage: 0, planName: "Free", limit: 50, totalEmails: 0, remaining: 50, isLocked: false,
@@ -78,7 +88,14 @@ describe("Email settings: shopper email switches", () => {
   });
 
   it("saves the switches with the other send controls, and only the ones the page shows", async () => {
-    await action(saveRequest({ "shopperEmails.welcome": "true", "shopperEmails.tierDown": "false", "shopperEmails.pointsExpiring": "true" }));
+    await action(
+      saveRequest({
+        "shopperEmails.welcome": "true",
+        "shopperEmails.tierDown": "false",
+        "shopperEmails.pointsExpiring": "true",
+        "shopperEmails.pointsEarned": "true",
+      }),
+    );
 
     const { create, update } = prisma.emailSettings.upsert.mock.calls[0][0];
     for (const stored of [create.sendTimePrefs, update.sendTimePrefs]) {
@@ -87,6 +104,8 @@ describe("Email settings: shopper email switches", () => {
       expect(switches.welcome).toBe(true);
       // No switch on the page, so it can't be turned on
       expect(switches.pointsExpiring).toBe(false);
+      // Hidden while shoppers can't spend points
+      expect(switches.pointsEarned).toBe(false);
       for (const kind of SHOPPER_EMAIL_KINDS.filter((k) => k !== "welcome")) {
         expect(switches[kind], kind).toBe(false);
       }
@@ -111,6 +130,23 @@ describe("Email settings: shopper email switches", () => {
     }
   });
 
+  it("shows no Points added switch while shoppers can't spend points", () => {
+    expect(FEATURES_AVAILABLE.points).toBe(false);
+    const html = pageHtml({ sendTimePrefs: { ...SEND_TIME_PREFS, shopperEmails: { pointsEarned: true } }, emailProvider: "SENDGRID" });
+
+    expect(SHOPPER_EMAIL_SWITCHES.map(({ kind }) => kind)).not.toContain("pointsEarned");
+    expect(html).not.toContain('id="shopper-email-pointsEarned"');
+    expect(html).not.toContain("Points added");
+  });
+
+  it("tells the merchant who gets the welcome email", () => {
+    const html = pageHtml(null);
+
+    expect(html).toContain(
+      "Sent to a new customer, usually when they check out or sign up, if they agreed to get your marketing emails and qualify for a tier. Customers you already had don't get one.",
+    );
+  });
+
   it("shows every switch off for a shop with no email settings", () => {
     const html = pageHtml(null);
 
@@ -127,9 +163,36 @@ describe("Email settings: shopper email switches", () => {
   });
 
   it("says nothing goes out through RewardsPro for a shop that sends through Klaviyo", () => {
-    const html = pageHtml({ sendTimePrefs: { ...SEND_TIME_PREFS, shopperEmails: { welcome: true } }, emailProvider: "KLAVIYO" });
+    const html = pageHtml({ sendTimePrefs: { ...SEND_TIME_PREFS, shopperEmails: { welcome: true } }, emailProvider: "KLAVIYO" }, true, true);
 
     expect(html).toContain("You send email through Klaviyo, so RewardsPro sends none of these itself.");
+    expect(html).not.toContain("Klaviyo isn't connected");
+  });
+
+  it("warns that nobody emails customers while the shop sends through Klaviyo but Klaviyo isn't connected", () => {
+    const html = pageHtml({ sendTimePrefs: { ...SEND_TIME_PREFS, shopperEmails: { welcome: true } }, emailProvider: "KLAVIYO" }, true, false);
+
+    expect(html).toContain(
+      "Klaviyo isn't connected, so your customers get none of these emails. Reconnect Klaviyo, or switch to In-House Marketing to send them from RewardsPro.",
+    );
+    expect(html).not.toContain("Your Klaviyo flows decide what your customers get.");
+  });
+
+  it("asks Klaviyo's own check whether events reach Klaviyo, not just whether it was once connected", async () => {
+    prisma.emailSettings.findUnique.mockResolvedValue({ shop: SHOP, emailProvider: "KLAVIYO", customDomainId: null });
+    prisma.shopSettings.findUnique.mockResolvedValue({ storeName: "Card Shop" });
+    prisma.sendGridDomain.findMany.mockResolvedValue([]);
+    // A failed token refresh leaves klaviyoEnabled on, so the mode info still says connected
+    vi.mocked(getMarketingModeInfo).mockResolvedValue({
+      mode: "KLAVIYO", modeSetAt: null, hasSeenChoice: true, isKlaviyoConnected: true, isSendGridConfigured: true,
+    });
+    vi.mocked(getEmailUsageStats).mockResolvedValue({} as Awaited<ReturnType<typeof getEmailUsageStats>>);
+    vi.mocked(isKlaviyoEnabled).mockResolvedValue(false);
+
+    const response = await loader({ request: new Request("https://app.test/app/marketing/settings"), params: {}, context: {} });
+
+    expect(isKlaviyoEnabled).toHaveBeenCalledWith(SHOP);
+    await expect(response.json()).resolves.toMatchObject({ klaviyoSending: false });
   });
 
   it("says nothing goes out while email sending isn't set up", () => {

@@ -47,7 +47,7 @@ async function turnOn(...kinds: ShopperEmailKind[]) {
   });
 }
 
-const customerPayload = (id: number, email: string) => ({
+const customerPayload = (id: number, email: string, { subscribed = false } = {}) => ({
   id,
   email,
   first_name: "Sam",
@@ -56,7 +56,15 @@ const customerPayload = (id: number, email: string) => ({
   orders_count: 0,
   created_at: "2026-11-04T10:00:00Z",
   updated_at: "2026-11-04T10:00:00Z",
+  email_marketing_consent: {
+    state: subscribed ? "subscribed" : "not_subscribed",
+    consent_updated_at: "2026-11-04T10:00:00Z",
+  },
 });
+
+/** The tier every customer starts in. */
+const seedBronze = () =>
+  prisma.tier.create({ data: { id: "tier-bronze", shop: SHOP, name: "Bronze", minSpend: 0, cashbackPercent: 1 } });
 
 const deliver = (handler: typeof customersCreate, topic: string, body: unknown) =>
   handler({ request: signedWebhook(topic, SHOP, body), params: {}, context: {} });
@@ -153,6 +161,7 @@ describe.skipIf(!hasTestDatabase)("shopper emails on Postgres", () => {
   it("with Welcome on, welcomes only customers created after install", async () => {
     const sent = mockSendGrid();
     await turnOn("welcome");
+    await seedBronze();
 
     // The first sync after install brings in the store's existing customers
     await syncCustomersInBackground(SHOP, {
@@ -163,7 +172,14 @@ describe.skipIf(!hasTestDatabase)("shopper emails on Postgres", () => {
               edges: [
                 {
                   cursor: "a",
-                  node: { id: "gid://shopify/Customer/1", email: "existing@example.test", displayName: "Existing", createdAt: "2025-01-01T00:00:00Z", updatedAt: "2025-01-01T00:00:00Z", emailMarketingConsent: null },
+                  node: {
+                    id: "gid://shopify/Customer/1",
+                    email: "existing@example.test",
+                    displayName: "Existing",
+                    createdAt: "2025-01-01T00:00:00Z",
+                    updatedAt: "2025-01-01T00:00:00Z",
+                    emailMarketingConsent: { marketingState: "SUBSCRIBED", consentUpdatedAt: "2025-01-01T00:00:00Z" },
+                  },
                 },
               ],
               pageInfo: { hasNextPage: false, endCursor: null },
@@ -172,15 +188,30 @@ describe.skipIf(!hasTestDatabase)("shopper emails on Postgres", () => {
         }),
     });
     // An existing customer the sync hasn't reached yet updates their details
-    await deliver(customersUpdate, "customers/update", customerPayload(2, "updated@example.test"));
+    await deliver(customersUpdate, "customers/update", customerPayload(2, "updated@example.test", { subscribed: true }));
     expect(await prisma.customer.count({ where: { shop: SHOP } })).toBe(2);
     expect(sent).toEqual([]);
 
     // A new customer signs up, and Shopify delivers it twice
-    await deliver(customersCreate, "customers/create", customerPayload(3, "new@example.test"));
-    await deliver(customersCreate, "customers/create", customerPayload(3, "new@example.test"));
+    await deliver(customersCreate, "customers/create", customerPayload(3, "new@example.test", { subscribed: true }));
+    await deliver(customersCreate, "customers/create", customerPayload(3, "new@example.test", { subscribed: true }));
 
     expect(sent).toEqual(["new@example.test"]);
+  });
+
+  it("with Welcome on, welcomes no new customer who hasn't agreed to marketing email or has no tier", async () => {
+    const sent = mockSendGrid();
+    await turnOn("welcome");
+
+    // The shop has no tiers yet
+    await deliver(customersCreate, "customers/create", customerPayload(4, "no-tier@example.test", { subscribed: true }));
+    await seedBronze();
+    // Checked out without ticking "email me with news and offers"
+    await deliver(customersCreate, "customers/create", customerPayload(5, "not-subscribed@example.test"));
+    await deliver(customersCreate, "customers/create", customerPayload(6, "subscribed@example.test", { subscribed: true }));
+
+    expect(await prisma.customer.count({ where: { shop: SHOP } })).toBe(3);
+    expect(sent).toEqual(["subscribed@example.test"]);
   });
 
   it("sends the membership reminder only once it is on, and nothing else", async () => {

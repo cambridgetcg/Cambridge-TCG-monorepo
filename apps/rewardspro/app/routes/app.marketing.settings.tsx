@@ -39,6 +39,7 @@ import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { EMAIL_SETTINGS_SECRET_FIELDS } from "~/utils/encryption.server";
 import { getMarketingModeInfo, switchMarketingMode } from "~/services/marketing-mode.server";
+import { isKlaviyoEnabled } from "~/services/klaviyo.server";
 import { getEmailUsageStats } from "~/services/email-usage-control.server";
 import type { MarketingHubMode } from "@prisma/client";
 import { LimitHint } from "~/components/Billing/UpgradePrompt";
@@ -111,6 +112,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Get marketing mode info
   const marketingModeInfo = await getMarketingModeInfo(shop);
 
+  // Whether events reach Klaviyo now (a failed token refresh stops them but
+  // leaves the mode info saying connected)
+  const klaviyoSending = await isKlaviyoEnabled(shop);
+
   // Get email usage stats
   const emailUsageStats = await getEmailUsageStats(shop);
 
@@ -126,6 +131,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     })),
     sendgridConfigured,
     marketingModeInfo,
+    klaviyoSending,
     emailUsageStats,
   });
 };
@@ -1146,14 +1152,22 @@ export default function EmailSettings() {
                   until you turn it on and save.
                 </Text>
 
-                {data.emailSettings?.emailProvider === "KLAVIYO" && (
-                  <Banner tone="info">
-                    <p>
-                      You send email through Klaviyo, so RewardsPro sends none of these itself.
-                      Your Klaviyo flows decide what your customers get.
-                    </p>
-                  </Banner>
-                )}
+                {data.emailSettings?.emailProvider === "KLAVIYO" &&
+                  (data.klaviyoSending ? (
+                    <Banner tone="info">
+                      <p>
+                        You send email through Klaviyo, so RewardsPro sends none of these itself.
+                        Your Klaviyo flows decide what your customers get.
+                      </p>
+                    </Banner>
+                  ) : (
+                    <Banner tone="warning">
+                      <p>
+                        Klaviyo isn't connected, so your customers get none of these emails.
+                        Reconnect Klaviyo, or switch to In-House Marketing to send them from RewardsPro.
+                      </p>
+                    </Banner>
+                  ))}
                 {!data.sendgridConfigured && (
                   <Banner tone="warning">
                     <p>

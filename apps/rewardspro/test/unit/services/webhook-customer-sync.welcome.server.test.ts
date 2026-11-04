@@ -21,9 +21,12 @@ vi.mock("~/services/tier-resolution.server", () => ({
   updateCustomerToEffectiveTier: vi.fn(async () => ({ changed: false, source: "SPENDING", newTierId: null })),
 }));
 vi.mock("~/services/klaviyo.server", () => ({ isKlaviyoEnabled: vi.fn(async () => false) }));
+vi.mock("~/services/klaviyo-events.server", () => ({ syncCustomerToKlaviyo: vi.fn(), trackCustomerEnrolled: vi.fn() }));
 
 import { sendWelcomeEmailNotification } from "~/services/email-notifications.server";
 import { processAutomationTrigger } from "~/services/automation-trigger.server";
+import { isKlaviyoEnabled } from "~/services/klaviyo.server";
+import { syncCustomerToKlaviyo, trackCustomerEnrolled } from "~/services/klaviyo-events.server";
 import {
   handleCustomerCreate,
   handleCustomerUpdate,
@@ -56,6 +59,7 @@ const welcomeTriggers = () =>
 describe("welcome email: only for shoppers created after install", () => {
   beforeEach(() => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.mocked(isKlaviyoEnabled).mockResolvedValue(false);
     emptyStore();
   });
 
@@ -133,5 +137,34 @@ describe("welcome email: only for shoppers created after install", () => {
     expect(sendWelcomeEmailNotification).not.toHaveBeenCalled();
     expect(processAutomationTrigger).not.toHaveBeenCalled();
     expect(mail).toEqual([]);
+  });
+
+  describe("for a shop that syncs to Klaviyo", () => {
+    beforeEach(() => {
+      vi.mocked(isKlaviyoEnabled).mockResolvedValue(true);
+      prisma.tier.findMany.mockResolvedValue([]);
+    });
+
+    it("customers/create tells Klaviyo the new shopper enrolled", async () => {
+      await handleCustomerCreate(payload(1), SHOP);
+
+      expect(syncCustomerToKlaviyo).toHaveBeenCalledTimes(1);
+      expect(trackCustomerEnrolled).toHaveBeenCalledTimes(1);
+    });
+
+    // A Klaviyo flow on "Customer Enrolled" would otherwise welcome them
+    it("customers/update for an existing customer RewardsPro hasn't seen syncs their profile but reports no enrollment", async () => {
+      await handleCustomerUpdate(payload(2), SHOP);
+
+      expect(syncCustomerToKlaviyo).toHaveBeenCalledTimes(1);
+      expect(trackCustomerEnrolled).not.toHaveBeenCalled();
+    });
+
+    it("a bulk sync syncs profiles but reports no enrollment", async () => {
+      await syncBulkCustomers([payload(3), payload(4)], SHOP);
+
+      expect(syncCustomerToKlaviyo).toHaveBeenCalledTimes(2);
+      expect(trackCustomerEnrolled).not.toHaveBeenCalled();
+    });
   });
 });
