@@ -38,7 +38,7 @@ import {
 import { measureQuery, getDatabaseHealth } from "~/utils/database-health.server";
 import { FeatureTogglesList } from "~/components/DesignSystem";
 import { FirstRunSetupCard, shouldShowFirstRunSetup, type FirstRunSetupState } from "~/components/FirstRunSetupCard";
-import { AutoCashbackConfirmModal } from "~/components/AutoCashbackConfirmModal";
+import { AutoCashbackConfirmModal, type AutoCashbackBacklog } from "~/components/AutoCashbackConfirmModal";
 import { StoreCreditSpendBanner } from "~/components/StoreCreditSpendBanner";
 import { APP_ROUTES } from "~/navigation/routes";
 import { countPendingDataRequests } from "~/services/customer-data-request.server";
@@ -144,8 +144,8 @@ interface DashboardData {
   pendingDataRequests: number;
   // What stops shoppers spending their store credit at checkout
   storeCreditSpendProblems: StoreCreditSpendProblem[];
-  // Pending cashback that turning automatic cashback on pays
-  autoCashbackBacklog: { count: number; total: number };
+  // Pending cashback that turning automatic cashback on pays; null when it could not be counted
+  autoCashbackBacklog: AutoCashbackBacklog;
 
   // Billing data
   currentPlan: any | null;
@@ -266,7 +266,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       getStoreCreditSpendProblems(authResult.admin, shop),
 
       // What turning automatic cashback on would pay at once
-      autoCashbackBacklog(shop).catch(() => ({ count: 0, total: 0 })),
+      autoCashbackBacklog(shop).catch(() => null),
     ]);
 
     // Simple direct order count for current month
@@ -763,17 +763,25 @@ export default function Dashboard() {
   }, [fetcher]);
 
   // Turning automatic cashback on also pays the cashback already waiting:
-  // say how much first (AutoCashbackConfirmModal)
+  // say how much first (AutoCashbackConfirmModal). The count is the last
+  // load's. When it failed, or the switch has moved since that load, it may
+  // be wrong, so the modal asks in general terms.
   const [confirmingCashbackOn, setConfirmingCashbackOn] = useState(false);
-  const waitingCashback = data?.autoCashbackBacklog?.count ?? 0;
+  const loadedBacklog = data?.autoCashbackBacklog ?? null;
+  const [switchedWithBacklog, setSwitchedWithBacklog] = useState<AutoCashbackBacklog | undefined>(undefined);
+  const cashbackBacklog = loadedBacklog !== switchedWithBacklog ? loadedBacklog : null;
+  const switchCashback = useCallback((enabled: boolean) => {
+    setSwitchedWithBacklog(loadedBacklog);
+    handleToggleFeature('autoCashbackProcessingEnabled', enabled);
+  }, [loadedBacklog, handleToggleFeature]);
   const handleTurnOnCashback = useCallback(() => {
-    if (waitingCashback > 0) setConfirmingCashbackOn(true);
-    else handleToggleFeature('autoCashbackProcessingEnabled', true);
-  }, [waitingCashback, handleToggleFeature]);
+    if (cashbackBacklog === null || cashbackBacklog.count > 0) setConfirmingCashbackOn(true);
+    else switchCashback(true);
+  }, [cashbackBacklog, switchCashback]);
   const handleConfirmCashbackOn = useCallback(() => {
     setConfirmingCashbackOn(false);
-    handleToggleFeature('autoCashbackProcessingEnabled', true);
-  }, [handleToggleFeature]);
+    switchCashback(true);
+  }, [switchCashback]);
 
   // Handle fetcher completion - show toast (keep optimistic state since loader won't revalidate)
   useEffect(() => {
@@ -1040,7 +1048,7 @@ export default function Dashboard() {
                     title: 'Automatic Cashback',
                     description: 'Process rewards automatically for orders',
                     enabled: cashbackEnabled,
-                    onChange: (enabled) => (enabled ? handleTurnOnCashback() : handleToggleFeature('autoCashbackProcessingEnabled', false)),
+                    onChange: (enabled) => (enabled ? handleTurnOnCashback() : switchCashback(false)),
                   },
                   {
                     id: 'tiers',
@@ -1059,8 +1067,7 @@ export default function Dashboard() {
     </Page>
     <AutoCashbackConfirmModal
       open={confirmingCashbackOn}
-      count={waitingCashback}
-      total={data.autoCashbackBacklog?.total ?? 0}
+      backlog={cashbackBacklog}
       currency={data.shopSettings?.storeCurrency || 'USD'}
       onConfirm={handleConfirmCashbackOn}
       onCancel={() => setConfirmingCashbackOn(false)}

@@ -565,6 +565,15 @@ describe('app._index (dashboard) loader', () => {
     expect(Date.now() - since.gte.getTime()).toBeCloseTo(7 * 24 * 60 * 60 * 1000, -4);
   });
 
+  it('says it could not count the waiting cashback, rather than that none is waiting', async () => {
+    vi.mocked(db.storeCreditLedger.aggregate).mockRejectedValueOnce(new Error('canceling statement due to statement timeout'));
+
+    const response = await loader({ request: new Request('https://app.example.com/app'), params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.autoCashbackBacklog).toBeNull();
+  });
+
   it('reports no store credit problems on a shop where shoppers can spend it', async () => {
     const request = new Request('https://app.example.com/app');
     const response = await loader({ request, params: {}, context: {} });

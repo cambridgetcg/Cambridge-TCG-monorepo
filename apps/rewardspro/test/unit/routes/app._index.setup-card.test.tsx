@@ -63,6 +63,7 @@ function dashboardData(firstRun: Record<string, unknown>, autoCashbackProcessing
     monthlyOrderUsage: { orderCount: 0, planLimit: 1000, planName: "RewardsPro Free", projectedOrders: 0 },
     currentMonth: "November",
     daysRemaining: 27,
+    autoCashbackBacklog: { count: 0, total: 0 },
   };
 }
 
@@ -186,5 +187,42 @@ describe("turning on automatic cashback while cashback is waiting", () => {
 
     expect(remix.submit).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Turn on" })).toBeInTheDocument();
+  });
+
+  it("asks in general terms when the waiting cashback could not be counted", async () => {
+    remix.loaderData = { ...dashboardData({}), autoCashbackBacklog: null };
+    renderDashboard();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Turn on" }));
+
+    expect(remix.submit).not.toHaveBeenCalled();
+    expect(await screen.findByText(/also pays any cashback still waiting from paid orders of the last 7 days/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Turn on automatic cashback" }));
+
+    const form = remix.submit.mock.calls[0][0] as FormData;
+    expect(form.get("feature")).toBe("autoCashbackProcessingEnabled");
+    expect(form.get("enabled")).toBe("true");
+  });
+
+  it("asks again, in general terms, once the switch has moved since the page loaded", async () => {
+    // Nothing was waiting when the page loaded
+    remix.loaderData = { ...dashboardData({}), autoCashbackBacklog: { count: 0, total: 0 } };
+    renderDashboard();
+    const user = userEvent.setup();
+    const cashbackSwitch = () => screen.getByRole("switch", { name: "Toggle Automatic Cashback" });
+
+    await user.click(cashbackSwitch());
+    expect(remix.submit).toHaveBeenCalledTimes(1);
+    await user.click(cashbackSwitch());
+    expect((remix.submit.mock.calls[1][0] as FormData).get("enabled")).toBe("false");
+
+    // Paid orders may have waited for cashback while it was off, and the page
+    // has not counted them again
+    await user.click(cashbackSwitch());
+
+    expect(remix.submit).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(/also pays any cashback still waiting from paid orders of the last 7 days/)).toBeInTheDocument();
   });
 });
