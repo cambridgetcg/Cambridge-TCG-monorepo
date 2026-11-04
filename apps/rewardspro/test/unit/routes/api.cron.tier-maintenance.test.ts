@@ -200,7 +200,7 @@ describe("tier-maintenance cron", () => {
     expect(email.sendTierExpiredEmail).toHaveBeenCalledWith(SHOP, expect.objectContaining({ newTierName: null }));
   });
 
-  it("puts a membership back to ACTIVE, counts an error and emails nobody when its tier can't be re-resolved", async () => {
+  it("puts a membership back to ACTIVE, counts an error, emails nobody and answers 500 when its tier can't be re-resolved", async () => {
     db.tierPurchase.findMany.mockResolvedValueOnce([endedGold()]);
     tierResolution.updateCustomerToEffectiveTier.mockResolvedValue({
       success: false,
@@ -213,7 +213,10 @@ describe("tier-maintenance cron", () => {
 
     const { status, body } = await runCronForJson();
 
-    expect(status).toBe(200);
+    // A failed answer is what the cron monitor and Vercel's logs show as a
+    // failed run; a Slack alert needs SLACK_WEBHOOK_URL, which may not be set
+    expect(status).toBe(500);
+    expect(body.success).toBe(false);
     expect(db.tierPurchase.update.mock.calls).toEqual([
       [{ where: { id: "purchase-1" }, data: { status: "EXPIRED" } }],
       [{ where: { id: "purchase-1" }, data: { status: "ACTIVE" } }],

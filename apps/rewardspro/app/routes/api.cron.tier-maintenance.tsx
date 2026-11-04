@@ -415,16 +415,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     log('info', 'Tier maintenance job completed', summary);
 
-    // 7. Send alert if there were errors
+    // 7. Send alert if there were errors (only when SLACK_WEBHOOK_URL is set)
     if (results.errors > 0 && process.env.SLACK_WEBHOOK_URL) {
       await sendAlert(`⚠️ Tier maintenance had ${results.errors} errors`);
     }
 
+    // A membership that couldn't be ended, a warning that failed or a repair
+    // that didn't work makes this a failed run, so the cron monitor and the
+    // logs show it as one
     return json({
-      success: true,
+      success: results.errors === 0,
       correlationId,
       summary
-    });
+    }, { status: results.errors > 0 ? 500 : 200 });
 
   } catch (error: any) {
     log('error', 'Tier maintenance job failed', { error: error.message });

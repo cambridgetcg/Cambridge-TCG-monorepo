@@ -8,7 +8,7 @@ import { syncCustomersInBackground } from "~/services/background-customer-sync.s
 import { markChoiceModalSeen } from "~/services/marketing-mode.server";
 import type { ShopperEmailKind } from "~/constants/shopper-emails";
 import { server } from "../../mocks/server";
-import { hasTestDatabase, resetDatabase } from "./database";
+import { failNextCall, hasTestDatabase, resetDatabase, restoreFailedCalls } from "./database";
 import { seedOfflineSession, signedWebhook } from "./shopify";
 
 // The emails RewardsPro sends shoppers by itself, end to end: real webhooks,
@@ -138,6 +138,7 @@ describe.skipIf(!hasTestDatabase)("shopper emails on Postgres", () => {
   afterEach(() => {
     process.env = { ...env };
     vi.restoreAllMocks();
+    restoreFailedCalls();
   });
 
   it("a newly installed shop emails no shopper", async () => {
@@ -317,6 +318,80 @@ describe.skipIf(!hasTestDatabase)("shopper emails on Postgres", () => {
     expect(sent).toEqual(["ended@example.test"]);
     const ended = await prisma.emailEvent.findFirstOrThrow({ where: { shop: SHOP, eventType: "TIER_EXPIRED" } });
     expect(ended.metadata).toMatchObject({ expiredTierName: "Gold", newTierName: "Bronze" });
+    expect((await prisma.customer.findUniqueOrThrow({ where: { id: spender.id } })).currentTierId).toBe(gold.id);
+  });
+  it("puts a membership back and emails no one when the shopper's tier can't be worked out", async () => {
+    const sent = mockSendGrid();
+    await turnOn("membershipEnded");
+    await seedBronze();
+    const gold = await prisma.tier.create({ data: { id: "tier-gold", shop: SHOP, name: "Gold", minSpend: 1000, cashbackPercent: 5 } });
+    const product = await prisma.tierProduct.create({
+      data: {
+        shop: SHOP,
+        tierId: gold.id,
+        shopifyProductId: "1",
+        shopifyVariantId: "2",
+        productHandle: "gold",
+        sku: "GOLD",
+        purchaseType: "ONE_TIME",
+        price: 10,
+      },
+    });
+    // Ran out yesterday, but the shopper spent enough this year to stay Gold
+    const spender = await prisma.customer.create({
+      data: { shop: SHOP, shopifyCustomerId: "300", email: "spender@example.test", currentTierId: gold.id },
+    });
+    const purchase = await prisma.tierPurchase.create({
+      data: {
+        shop: SHOP,
+        customerId: spender.id,
+        tierId: gold.id,
+        tierProductId: product.id,
+        shopifyOrderId: "order-3",
+        shopifyLineItemId: "line-3",
+        purchasePrice: 10,
+        currency: "GBP",
+        startDate: new Date(Date.now() - 30 * DAY),
+        endDate: new Date(Date.now() - DAY),
+      },
+    });
+    const placedAt = new Date(Date.now() - 10 * DAY);
+    await prisma.order.create({
+      data: {
+        shop: SHOP,
+        shopifyOrderId: "5001",
+        shopifyOrderNumber: "#5001",
+        shopifyOrderName: "#5001",
+        customerId: spender.id,
+        email: "",
+        currency: "GBP",
+        subtotalPrice: 1200,
+        totalDiscounts: 0,
+        totalShipping: 0,
+        totalTax: 0,
+        totalPrice: 1200,
+        netAmount: 1200,
+        financialStatus: "PAID",
+        shopifyCreatedAt: placedAt,
+        shopifyUpdatedAt: placedAt,
+      },
+    });
+
+    // The read of the shopper's orders fails once (a dropped pooled connection)
+    failNextCall("order", "findMany", new Error("Server has closed the connection"));
+
+    const response = await tierMaintenance({
+      request: new Request("https://test.example.com/api/cron/tier-maintenance", {
+        headers: { Authorization: `Bearer ${CRON_SECRET}` },
+      }),
+      params: {},
+      context: {},
+    });
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).summary.errorCount).toBe(1);
+    expect(sent).toEqual([]);
+    expect((await prisma.tierPurchase.findUniqueOrThrow({ where: { id: purchase.id } })).status).toBe("ACTIVE");
     expect((await prisma.customer.findUniqueOrThrow({ where: { id: spender.id } })).currentTierId).toBe(gold.id);
   });
 });
