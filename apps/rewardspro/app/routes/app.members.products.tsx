@@ -18,7 +18,6 @@ import {
   Box,
   Modal,
   FormLayout,
-  Checkbox,
   Icon,
   Divider,
   SkeletonBodyText,
