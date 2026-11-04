@@ -232,8 +232,9 @@ export type StuckCashbackVerdict =
  * credit history. "not_landed" only when the whole history since the claim
  * holds no credit of the entry's amount, in any currency. "landed" only for
  * exactly one credit of that amount in the shop's currency made while the
- * entry was being sent, when no other RewardsPro credit of that amount went
- * to the customer around then (`ownCreditTimes`). Otherwise "unknown".
+ * entry was being sent, in a history read back to the claim, when no other
+ * RewardsPro credit of that amount went to the customer around then
+ * (`ownCreditTimes`). Otherwise "unknown".
  * Before claims were timed, the Orders page could send less than the entry
  * held and leave the entry as it was, so for such a claim any smaller credit
  * since may be this one: never "not_landed" then.
@@ -254,10 +255,11 @@ export function judgeStuckCashback({
   const metadata = jsonObject(entry.metadata);
   const sinceClaim = history.credits.filter((credit) => credit.createdAt >= since);
   const sameAmount = sinceClaim.filter((credit) => credit.amount.equals(entry.amount));
+  // An unread page may hold this credit, or another of its amount from when it was sent
+  if (!history.complete) {
+    return { outcome: "unknown", reason: "Shopify's store credit history for this customer is too long to read back to when it was sent" };
+  }
   if (sameAmount.length === 0) {
-    if (!history.complete) {
-      return { outcome: "unknown", reason: "Shopify's store credit history for this customer is too long to read back to when it was sent" };
-    }
     if (parseTime(metadata.claimedAt) === null && sinceClaim.some((credit) => credit.amount.lt(entry.amount))) {
       return { outcome: "unknown", reason: "Shopify holds a smaller credit made since this was sent, and nothing records how much was sent" };
     }

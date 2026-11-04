@@ -63,6 +63,11 @@ describe("judgeStuckCashback (did a credit Shopify never confirmed arrive?)", ()
     expect(judge([], { complete: false })).toMatchObject({ outcome: "unknown" });
   });
 
+  it("never says it arrived from a history it could not read to the end", () => {
+    // The unread page may hold another credit of that amount from when it was sent
+    expect(judge([credit(10)], { complete: false })).toMatchObject({ outcome: "unknown" });
+  });
+
   it("never says it did not arrive when a credit of that amount came in another currency", () => {
     expect(judge([credit(10, "5.00", "EUR")])).toMatchObject({ outcome: "unknown" });
   });
