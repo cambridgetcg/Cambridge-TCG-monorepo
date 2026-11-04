@@ -122,7 +122,9 @@ export const loader = monitoredCron("scheduled-campaigns", async ({ request }: L
     results.interruptedCount = await markCutOffSends(now, isDryRun);
     if (results.interruptedCount > 0) {
       results.errors += results.interruptedCount;
-      log('error', `${results.interruptedCount} campaigns were cut off while sending; marked failed, as they may have gone out`);
+      const cutOff = `${results.interruptedCount} campaigns were cut off while sending; marked failed, as they may have gone out`;
+      firstProblem ??= new Error(cutOff);
+      log('error', cutOff);
     }
 
     // 7. Find scheduled campaigns that are due, oldest first
@@ -183,6 +185,7 @@ export const loader = monitoredCron("scheduled-campaigns", async ({ request }: L
         if (outcome.status === 'may_have_sent') {
           results.failedCount++;
           results.errors++;
+          firstProblem ??= new Error(outcome.reason);
           results.details.push({ type: 'may_have_sent', campaignId: campaign.id, name: campaign.name, reason: outcome.reason });
           log('error', `Campaign ${campaign.id} may have been sent; the email service gave no answer`);
           continue;

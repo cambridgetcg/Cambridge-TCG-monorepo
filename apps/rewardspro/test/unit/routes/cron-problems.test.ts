@@ -17,7 +17,7 @@ const db = vi.hoisted(() => ({
 }));
 const shopify = vi.hoisted(() => ({ unauthenticated: { admin: vi.fn() } }));
 const stuck = vi.hoisted(() => ({ reconcileStuckCashback: vi.fn() }));
-const campaigns = vi.hoisted(() => ({ sendCampaign: vi.fn(), notSentMetrics: vi.fn(() => ({})) }));
+const campaigns = vi.hoisted(() => ({ sendCampaign: vi.fn(), markCutOffSends: vi.fn(), notSentMetrics: vi.fn(() => ({})) }));
 const sentryService = vi.hoisted(() => ({
   isEnabled: vi.fn(() => false),
   captureException: vi.fn(),
@@ -75,6 +75,7 @@ beforeEach(() => {
   shopify.unauthenticated.admin.mockReset();
   stuck.reconcileStuckCashback.mockReset();
   campaigns.sendCampaign.mockReset();
+  campaigns.markCutOffSends.mockReset().mockResolvedValue(0);
   sentryService.captureException.mockReset();
   sentryService.captureMessage.mockReset();
   for (const method of ["log", "info", "warn", "error", "debug"] as const) {
@@ -170,6 +171,11 @@ describe("a cron run that fails part of its work", () => {
       () => campaigns.sendCampaign.mockResolvedValue({ status: "not_sent", cause: "failed", reason: "Something went wrong while this campaign was sending" }),
       "Error: Something went wrong while this campaign was sending",
     ],
+    [
+      "got no answer from the email service",
+      () => campaigns.sendCampaign.mockResolvedValue({ status: "may_have_sent", reason: "Some or all customers may have received it" }),
+      "Error: Some or all customers may have received it",
+    ],
   ])("scheduled-campaigns: a campaign whose sending %s fails the run with that error", async (_case, setUp, expected) => {
     db.emailCampaign.updateMany.mockResolvedValue({ count: 0 });
     db.emailCampaign.findMany.mockResolvedValue([
@@ -184,6 +190,20 @@ describe("a cron run that fails part of its work", () => {
     expect(sentryService.captureException).toHaveBeenCalledTimes(1);
     expect(String(sentryService.captureException.mock.calls[0][0])).toBe(expected);
     expect(sentryService.captureException.mock.calls[0][1]).toMatchObject({ tags: { "cron.job": "scheduled-campaigns" } });
+  });
+
+  it("scheduled-campaigns: sends cut off part way fail the run with what happened to them", async () => {
+    db.emailCampaign.updateMany.mockResolvedValue({ count: 0 });
+    db.emailCampaign.findMany.mockResolvedValue([]);
+    campaigns.markCutOffSends.mockResolvedValue(2);
+
+    const response = await run(scheduledCampaigns, "scheduled-campaigns");
+
+    const expected = "Error: 2 campaigns were cut off while sending; marked failed, as they may have gone out";
+    expect(response.status).toBe(500);
+    expect(outcome("scheduled-campaigns")).toEqual({ type: "scheduled-campaigns:failed", errorMessage: expected });
+    expect(sentryService.captureException).toHaveBeenCalledTimes(1);
+    expect(String(sentryService.captureException.mock.calls[0][0])).toBe(expected);
   });
 
   it("scheduled-campaigns: a campaign its audience held back is not a problem", async () => {
