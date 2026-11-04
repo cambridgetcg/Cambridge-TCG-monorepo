@@ -34,11 +34,26 @@ vi.mock("@remix-run/react", () => ({
   useSearchParams: () => [remix.searchParams, vi.fn()],
   Link: ({ to, children }: { to: string; children: ReactNode }) => createElement("a", { href: to }, children),
 }));
-vi.mock("~/shopify.server", () => ({ authenticate: { admin: vi.fn() } }));
-vi.mock("~/db.server", () => ({ default: {}, db: {} }));
+const server = vi.hoisted(() => ({
+  db: {
+    tier: { findFirst: vi.fn() },
+    shopSettings: { findUnique: vi.fn() },
+  },
+  createAndPublishProductWithRetry: vi.fn(),
+}));
 
+vi.mock("~/shopify.server", () => ({ authenticate: { admin: vi.fn() } }));
+vi.mock("~/db.server", () => ({ default: server.db, db: server.db }));
+vi.mock("~/services/entitlements.server", () => ({
+  getEntitlements: vi.fn(async () => ({ featurePurchasableTiers: true, effectivePlan: "FREE" })),
+}));
+vi.mock("~/services/tier-products/product-creator-v2.server", () => ({
+  ProductCreatorV2: { createAndPublishProductWithRetry: server.createAndPublishProductWithRetry },
+}));
+
+import { authenticate } from "~/shopify.server";
 import TiersPage from "~/routes/app.members.tiers";
-import TierProductsPage from "~/routes/app.members.products";
+import TierProductsPage, { action as tierProductsAction } from "~/routes/app.members.products";
 
 const RECURRING = /recurring|subscription|renews (monthly|annually|every)/i;
 
@@ -129,10 +144,14 @@ describe("membership products page", () => {
     expect(html).not.toMatch(/selling plan/i);
   });
 
-  it("calls a selling plan another app attached what it is, not a subscription", () => {
+  it("warns that a selling plan another app attached gives customers no membership", () => {
     const html = pageText(TierProductsPage, productsPageData([tierProduct({ hasSubscription: true })]));
 
-    expect(html).toContain("Selling plan attached");
+    expect(html).toContain("A selling plan is attached to a membership product");
+    expect(html).toContain(
+      "RewardsPro gives membership only for one-time purchases. Customers who choose the selling plan at checkout pay but don't get the tier. Remove the product from the plan in the app that added it.",
+    );
+    expect(html).toContain("Selling plan attached: orders placed through it don't give membership");
     expect(html).not.toMatch(RECURRING);
   });
 
@@ -174,6 +193,48 @@ describe("membership products page", () => {
     expect(blocked).toHaveTextContent("This product has active purchases that must end first.");
     expect(blocked).toHaveTextContent("You can delete it once none of its purchases are active.");
     expect(blocked).not.toHaveTextContent(RECURRING);
+  });
+});
+
+describe("what shoppers read on a membership product", () => {
+  const createProduct = (duration: string) => {
+    const form = new URLSearchParams({
+      intent: "create-product",
+      tierId: "tier-gold",
+      tierName: "Gold",
+      price: "5",
+      duration,
+    });
+    return tierProductsAction({
+      request: new Request("https://rewardspro.test/app/members/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: form.toString(),
+      }),
+      params: {},
+      context: {},
+    });
+  };
+
+  beforeEach(() => {
+    vi.mocked(authenticate.admin).mockResolvedValue({ session: { shop: "shop.myshopify.com" }, admin: {} } as never);
+    server.db.tier.findFirst.mockResolvedValue(tiers[1]);
+    server.db.shopSettings.findUnique.mockResolvedValue(shopSettings);
+    // Stops the action once the product's text is known
+    server.createAndPublishProductWithRetry.mockReset().mockResolvedValue({ success: false, error: "stopped" });
+  });
+
+  it.each([
+    ["MONTHLY", "One payment gives you Gold tier benefits for one month. It doesn't renew automatically."],
+    ["ANNUAL", "One payment gives you Gold tier benefits for one year. It doesn't renew automatically."],
+    ["LIFETIME", "One payment gives you Gold tier benefits with no end date."],
+  ])("says a %s product is paid for once", async (duration, description) => {
+    await createProduct(duration);
+
+    expect(server.createAndPublishProductWithRetry).toHaveBeenCalledTimes(1);
+    const [, product] = server.createAndPublishProductWithRetry.mock.calls[0];
+    expect(product.description).toBe(description);
+    expect(product.description).not.toMatch(RECURRING);
   });
 });
 

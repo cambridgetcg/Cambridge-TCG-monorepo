@@ -149,6 +149,16 @@ function formatDuration(duration: string): string {
   return durations[duration] || duration;
 }
 
+// What shoppers read on the product: it's paid for once and doesn't renew
+function membershipDescription(tierName: string, duration: ProductDuration): string {
+  const lasts: Record<ProductDuration, string> = {
+    'MONTHLY': 'for one month. It doesn\'t renew automatically.',
+    'ANNUAL': 'for one year. It doesn\'t renew automatically.',
+    'LIFETIME': 'with no end date.'
+  };
+  return `One payment gives you ${tierName} tier benefits ${lasts[duration]}`;
+}
+
 // ============================================
 // LOADER - Fetch tiers and existing tier products
 // ============================================
@@ -561,7 +571,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Prepare product input with proper structure
         const productInput = {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
-          descriptionHtml: `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
+          descriptionHtml: `<p>${membershipDescription(tierName, duration)}</p>`,
           vendor: shop.split('.')[0],
           productType: "Tier Membership",
           status: "ACTIVE",
@@ -858,7 +868,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         console.log(`[TierProducts] Creating product with price: ${price}, SKU: ${sku}`);
         const result = await ProductCreatorV2.createAndPublishProductWithRetry(admin, {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
-          description: `Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.`,
+          description: membershipDescription(tierName, duration),
           vendor: shop.split('.')[0],
           productType: "Tier Membership",
           price: price.toString(),
@@ -2013,6 +2023,19 @@ export default function TierProducts() {
             </Layout.Section>
           )}
 
+          {/* An order placed through a selling plan gives no membership (webhooks.orders.paid.tsx) */}
+          {data.tierProducts.some(p => p.hasSubscription) && (
+            <Layout.Section>
+              <Banner tone="warning" title="A selling plan is attached to a membership product">
+                <p>
+                  RewardsPro gives membership only for one-time purchases. Customers who choose
+                  the selling plan at checkout pay but don't get the tier. Remove the product
+                  from the plan in the app that added it.
+                </p>
+              </Banner>
+            </Layout.Section>
+          )}
+
           {/* Analytics Summary */}
           {data.tierProducts.length > 0 && (
             <Layout.Section>
@@ -2494,7 +2517,7 @@ export default function TierProducts() {
                               borderRadius: '50%',
                               backgroundColor: '#3b82f6'
                             }} />
-                            <Text variant="bodySm" tone="subdued" as="span">Selling plan attached</Text>
+                            <Text variant="bodySm" tone="caution" as="span">Selling plan attached: orders placed through it don't give membership</Text>
                           </InlineStack>
                         )}
                       </InlineStack>
