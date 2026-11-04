@@ -21,6 +21,7 @@ vi.mock("~/shopify.server", () => ({ authenticate: { admin: vi.fn() } }));
 vi.mock("~/db.server", () => ({ default: {} }));
 vi.mock("~/utils/database-health.server", () => ({ measureQuery: vi.fn(), getDatabaseHealth: vi.fn() }));
 vi.mock("~/services/customer-data-request.server", () => ({ countPendingDataRequests: vi.fn() }));
+vi.mock("~/services/store-credit-spend.server", () => ({ getStoreCreditSpendProblems: vi.fn() }));
 vi.mock("~/hooks/useAnalytics", () => ({ useAnalytics: () => ({ trackCustomEvent: vi.fn() }) }));
 vi.mock("~/hooks/useToast", () => ({
   useToast: () => ({ toast: { active: false }, showSuccess: vi.fn(), showError: vi.fn(), hideToast: vi.fn() }),
@@ -29,12 +30,14 @@ vi.mock("~/hooks/useToast", () => ({
 import Dashboard from "~/routes/app._index";
 
 const SETUP_TITLE = "Get RewardsPro ready";
+const STORE_CREDIT_WARNING = "Make sure shoppers can spend their store credit";
 
 function dashboardData(firstRun: Record<string, unknown>, autoCashbackProcessingEnabled = false) {
   return {
     shop: "shop.myshopify.com",
     reviewBannerDismissed: true,
     pendingDataRequests: 0,
+    storeCreditSpendProblems: [],
     shopSettings: { storeCurrency: "GBP", autoCashbackProcessingEnabled },
     widgetStatus: { isActive: false, setupDismissed: false, status: "not_configured", blockType: "none", themeName: null, lastChecked: null },
     shopifyMetrics: { source: "unavailable" },
@@ -87,6 +90,29 @@ describe("dashboard first-run setup card", () => {
   it("hides once every step is done", () => {
     const html = dashboardHtml(dashboardData({ hasTier: true, widgetOn: true }, true));
     expect(html).not.toContain(SETUP_TITLE);
+  });
+});
+
+describe("dashboard store credit warning", () => {
+  it("warns a set-up shop, after the setup card has gone, that shoppers can't spend their credit", () => {
+    const setUp = { ...dashboardData({ hasTier: true, widgetOn: true }, true), storeCreditSpendProblems: ["legacy-accounts"] };
+    const html = dashboardHtml(setUp);
+
+    expect(html).not.toContain(SETUP_TITLE);
+    expect(html).toContain(STORE_CREDIT_WARNING);
+    expect(html).toContain("Your store uses legacy customer accounts");
+  });
+
+  it("still warns once the setup card is dismissed", () => {
+    const dismissed = { ...dashboardData({ dismissed: true }), storeCreditSpendProblems: ["store-credit-off"] };
+    const html = dashboardHtml(dismissed);
+
+    expect(html).not.toContain(SETUP_TITLE);
+    expect(html).toContain(STORE_CREDIT_WARNING);
+  });
+
+  it("says nothing when shoppers can spend their store credit", () => {
+    expect(dashboardHtml(dashboardData({}))).not.toContain(STORE_CREDIT_WARNING);
   });
 });
 
