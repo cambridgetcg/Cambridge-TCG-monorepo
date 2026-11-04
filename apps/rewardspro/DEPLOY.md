@@ -90,17 +90,109 @@ This triggers Vercel auto-deploy for production.
 
 ## Crons
 
-`vercel.json` lists the crons production runs, and the project's Cron Jobs
-setting in Vercel switches them all on or off. Each cron route answers only
-`Authorization: Bearer $CRON_SECRET`. `test/unit/routes/cron-schedule.test.ts`
-says why each cron route is scheduled or not.
+Vercel runs the 8 crons in `vercel.json` against the current production
+deployment. They have been on since 2026-11-04 09:27 UTC; the project's Cron
+Jobs setting in Vercel switches them all on or off.
+`test/unit/routes/cron-schedule.test.ts` says why each cron route is
+scheduled or not. Schedules are UTC.
 
-**Do not switch Vercel crons on for rewardspro-production until the
-email-switches PR (#136) is merged and deployed.** Before it, every shopper
-email goes out wherever `SENDGRID_API_KEY` is set, whatever the shop's
-settings (`isEmailEnabled` in `app/services/email-notifications.server.ts`
-ignores the shop), and `tier-maintenance` emails shoppers when a membership
-ends and 7 days and 1 day before. If #136 slips, keep the crons off.
+| Cron (`/api/cron/...`) | When (UTC) | What it does |
+| --- | --- | --- |
+| `mission-status` | hourly at :00 | Starts the missions merchants scheduled and closes the ones that ended |
+| `scheduled-campaigns` | hourly at :15 | Sends the email campaigns merchants scheduled, up to 10 a run, and holds back any more than 24 hours late (none go out while marketing email is off) |
+| `cashback-reconciliation` | hourly at :30 | Checks cashback Shopify never confirmed against the shopper's store credit history (every shop), and retries automatic cashback Shopify didn't take (shops with automatic cashback on) |
+| `tier-maintenance` | daily 01:00 | Ends memberships that ran out, sends the membership emails a merchant turned on, repairs tier mismatches |
+| `tier-product-cleanup` | daily 03:30 | Permanently deletes membership products 30 days after a merchant deleted them, unless a shopper still holds a membership from one |
+| `session-cleanup` | daily 06:00 | Deletes expired Shopify sessions |
+| `tier-recalculation` | daily 09:00 | Recalculates tiers in each shop whose recalculation is due |
+| `webhook-cleanup` | Sundays 05:00 | Deletes order webhook records after 30 days, webhook errors after 90, billing webhook records after 7, and expired data-request reports |
+
+How Vercel runs them:
+
+- Each run is a GET with `Authorization: Bearer $CRON_SECRET`, and every
+  cron route answers 401 to anything else. `CRON_SECRET` must be set in the
+  Production environment, or every run fails.
+- Vercel doesn't retry a failed run and doesn't tell anyone. It doesn't stop
+  two runs overlapping. Its delivery is best effort: now and then a run never
+  arrives, and now and then the same run arrives twice. The jobs that must
+  not overlap take a database lock (`CronLock`); the others are safe to
+  repeat, and each run picks up what the one before left.
+- A run is stopped after 300 seconds (the project's function limit; nothing
+  sets `maxDuration`).
+- Vercel shows a run as failed only when it answers 5xx. Every cron route
+  answers 500 when its job fails. In `cashback-reconciliation` and
+  `mission-status`, a run that finishes but fails part of its work (a shop,
+  an entry, a mission) answers 200 and tells the cron monitor what failed,
+  which reports it (below). `tier-maintenance`, `tier-recalculation` and
+  `scheduled-campaigns` answer 500 for any such error instead.
+
+To run one now, for real against production, exactly as the schedule would:
+
+```bash
+vercel crons run /api/cron/session-cleanup --project rewardspro-production --scope cambridgetcgs-projects
+```
+
+(or the Run button next to the job in the project's Cron Jobs settings).
+Either way the run arrives from Vercel's cron service, like a scheduled one;
+the log line's `onSchedule: false` tells it apart.
+
+### When a cron fails or stops
+
+Every scheduled run goes through `monitoredCron`
+(`app/services/cron-monitor.server.ts`), which records it and reports what
+went wrong. To see what happened:
+
+1. **Sentry.** Every event below is tagged `cron.job:<job>`:
+   - a failed run: an error with the real cause;
+   - a run that finished with problems: a warning, "Cron `<job>` finished
+     with problems", with how many failed and the first error;
+   - a cron that stopped finishing its runs while the others still run (it
+     times out, stops being called, or fails every time): a warning, "Cron
+     `<job>` has not finished a run within twice its schedule", sent once per
+     stop.
+2. **`/api/operator/readiness`**, with `Authorization: Bearer $CRON_SECRET`,
+   lists each cron's last start, success, partial run and failure, and
+   answers 503 `crons_stale` when one hasn't finished a run within twice its
+   schedule and 15 minutes (2 h 15 min for the hourly ones, 2 days and 15 min
+   for the daily ones, 2 weeks and 15 min for webhook-cleanup), so one run
+   Vercel didn't deliver isn't stale. A run that finished with problems
+   counts as a run; Sentry reports its problems. Before any cron has run with
+   this code, it reads `crons_stale`. An uptime check could poll it, but the
+   check would then hold `CRON_SECRET`, which can also start every cron; the
+   Sentry Crons monitor below notices a stop without it.
+3. **Logs.** Each run ends with one `cron-monitor` line: the job, the HTTP
+   status, how many parts failed, how long it took, `vercelCron: true` when
+   Vercel's cron service sent it (the schedule, the Run button or
+   `vercel crons run`), and `onSchedule: false` when it started more than 5
+   minutes after its slot, which marks a run started by hand. Vercel keeps
+   runtime logs only for a short time:
+
+   ```bash
+   vercel logs --project rewardspro-production --environment production --query /api/cron/tier-maintenance --since 24h
+   ```
+
+4. **The records.** `SyncStatus` rows with shop `rewardspro:cron`:
+   `<job>:started`, `<job>:succeeded`, `<job>:partial` and `<job>:failed`,
+   each with the start time of that run in `lastSyncAt`. The partial and
+   failed rows hold what went wrong. `<job>:stale` holds when Sentry was told
+   the job had stopped.
+
+When every cron stops at once (the project's Cron Jobs switch is off,
+`CRON_SECRET` is missing from Production, a deploy dropped them), nothing in
+the app runs to notice. Sentry Crons does: it alerts when a monitor's
+check-ins stop. `SENTRY_CRON_MONITORS` names the jobs that check in,
+comma-separated, or `true` for all 8. Sentry includes one cron monitor per
+plan and bills each further one ($0.78 a month) from the pay-as-you-go
+budget, so set `SENTRY_CRON_MONITORS=mission-status` in Production and
+redeploy: the hourly job then creates a `rewardspro-mission-status` monitor
+on its first run, at no cost unless another project in the Sentry
+organisation already uses the included monitor. Each monitor expects a
+check-in within twice its cron's schedule and 15 minutes, as readiness
+does.
+
+A new scheduled cron goes in `vercel.json`, in `CRON_SCHEDULES` in
+`app/services/cron-monitor.server.ts`, and through `monitoredCron`; the
+tests check all three.
 
 ## Database Migrations
 

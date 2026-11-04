@@ -25,12 +25,13 @@ import {
 } from "../services/email-notifications.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
 // Tier purchase expiration warning configuration
 const EXPIRATION_WARNING_DAYS = [7, 1]; // Send warnings at 7 days and 1 day before expiry
 
 // Use loader for GET requests (Vercel sends GET, not POST)
-export async function loader({ request }: LoaderFunctionArgs) {
+export const loader = monitoredCron("tier-maintenance", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -84,6 +85,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     errors: 0,
     details: [] as any[]
   };
+  // The first thing that failed, for the cron monitor
+  let firstProblem: unknown;
 
   try {
     // 3. Process expired subscriptions
@@ -142,6 +145,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       } catch (error: any) {
         log('error', `Failed to process subscription ${subscription.id}`, { error: error.message });
         results.errors++;
+        firstProblem ??= error;
       }
     }
 
@@ -221,6 +225,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       } catch (error: any) {
         log('error', `Failed to process purchase ${purchase.id}`, { error: error.message });
         results.errors++;
+        firstProblem ??= error;
       }
     }
 
@@ -354,6 +359,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         } catch (error: any) {
           log('error', `Failed to send expiration warning for purchase ${purchase.id}`, { error: error.message });
           results.errors++;
+          firstProblem ??= error;
         }
       }
     }
@@ -387,10 +393,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
               } else {
                 log('error', `Failed to repair customer ${customer.id}`, { error: repaired.error });
                 results.errors++;
+                firstProblem ??= new Error(`Failed to repair customer ${customer.id}: ${repaired.error ?? 'unknown error'}`);
               }
             } catch (error: any) {
               log('error', `Failed to repair customer ${customer.id}`, { error: error.message });
               results.errors++;
+              firstProblem ??= error;
             }
           }
 
@@ -423,6 +431,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // A membership that couldn't be ended, a warning that failed or a repair
     // that didn't work makes this a failed run, so the cron monitor and the
     // logs show it as one
+    if (results.errors > 0) cronFailed(request, firstProblem);
     return json({
       success: results.errors === 0,
       correlationId,
@@ -431,6 +440,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   } catch (error: any) {
     log('error', 'Tier maintenance job failed', { error: error.message });
+    cronFailed(request, error);
     return json({
       success: false,
       correlationId,
@@ -443,7 +453,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('info', 'Released distributed lock');
     }
   }
-}
+});
 
 // Helper function to send alerts
 async function sendAlert(message: string) {

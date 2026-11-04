@@ -27,6 +27,7 @@ import { markCutOffSends, notSentMetrics, sendCampaign } from "../services/campa
 import { marketingEmailBlockedReason } from "../services/marketing-email.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
 /** A campaign this late when email can go out is held back, not sent */
 const LATE_LIMIT_HOURS = 24;
@@ -35,7 +36,7 @@ const CAMPAIGNS_PER_RUN = 10;
 
 const MISSED_REASON = `It was more than ${LATE_LIMIT_HOURS} hours past its scheduled time when email could go out, so it was held back rather than sent late. Duplicate it to send it again.`;
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export const loader = monitoredCron("scheduled-campaigns", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -99,6 +100,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 
   const now = new Date();
+  // Why the first campaign that failed was not sent, for the cron monitor
+  let firstProblem: unknown;
   const lateCutoff = new Date(now.getTime() - LATE_LIMIT_HOURS * 60 * 60 * 1000);
 
   try {
@@ -119,7 +122,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     results.interruptedCount = await markCutOffSends(now, isDryRun);
     if (results.interruptedCount > 0) {
       results.errors += results.interruptedCount;
-      log('error', `${results.interruptedCount} campaigns were cut off while sending; marked failed, as they may have gone out`);
+      const cutOff = `${results.interruptedCount} campaigns were cut off while sending; marked failed, as they may have gone out`;
+      firstProblem ??= new Error(cutOff);
+      log('error', cutOff);
     }
 
     // 7. Find scheduled campaigns that are due, oldest first
@@ -166,7 +171,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
         if (outcome.status === 'not_sent') {
           results.failedCount++;
-          if (outcome.cause === 'failed') results.errors++;
+          if (outcome.cause === 'failed') {
+            results.errors++;
+            firstProblem ??= new Error(outcome.reason);
+          }
           results.details.push({ type: 'not_sent', campaignId: campaign.id, name: campaign.name, reason: outcome.reason, cause: outcome.cause });
           log(outcome.cause === 'failed' ? 'error' : 'warn', `Campaign ${campaign.id} not sent`, { reason: outcome.reason, cause: outcome.cause });
           continue;
@@ -177,6 +185,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         if (outcome.status === 'may_have_sent') {
           results.failedCount++;
           results.errors++;
+          firstProblem ??= new Error(outcome.reason);
           results.details.push({ type: 'may_have_sent', campaignId: campaign.id, name: campaign.name, reason: outcome.reason });
           log('error', `Campaign ${campaign.id} may have been sent; the email service gave no answer`);
           continue;
@@ -198,6 +207,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         // sendCampaign has marked it failed. It is not retried, because some
         // of its emails may already have gone out.
         log('error', `Failed to send campaign ${campaign.id}`, { error: error.message });
+        firstProblem ??= error;
         results.errors++;
         results.failedCount++;
 
@@ -226,6 +236,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const runFailed = results.errors > 0;
     log(runFailed ? 'error' : 'info', 'Scheduled campaigns cron completed', summary);
 
+    if (runFailed) cronFailed(request, firstProblem);
     return json({
       success: !runFailed,
       correlationId,
@@ -233,6 +244,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }, { status: runFailed ? 500 : 200 });
   } catch (error: any) {
     log('error', 'Scheduled campaigns cron failed', { error: error.message });
+    cronFailed(request, error);
     return json({
       success: false,
       correlationId,
@@ -244,4 +256,4 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('info', 'Released distributed lock');
     }
   }
-}
+});

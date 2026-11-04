@@ -140,7 +140,10 @@ on every change.
 6. Smoke test: `GET /api/health` returns
    `200 {"status":"ok","database":"ready"}`.
    `GET /api/operator/readiness` with `Authorization: Bearer $CRON_SECRET`
-   returns `200 {"status":"ready"}`. Then open the app in a development store and
+   returns `200 {"status":"ready","crons":{...}}`, or
+   `503 {"status":"crons_stale",...}` until each cron has run once on this
+   code (up to an hour for the hourly ones); `503 {"status":"unavailable"}`
+   means the database. Then open the app in a development store and
    place a paid test order (`orders/paid` records a PENDING cashback entry).
 
 ## Driver notes
@@ -166,8 +169,14 @@ on every change.
   `{"status":"unavailable","database":"unavailable"}` with no detail. Each
   instance reuses one result for 5 seconds.
 - `GET /api/operator/readiness` (Bearer `CRON_SECRET`) runs the same probe
-  for operators: 200 `{"status":"ready"}`, 503 `{"status":"unavailable"}`, or
-  401 without the exact credential.
+  for operators, then reads the scheduled crons' run records (SyncStatus
+  rows with shop `rewardspro:cron`): 200 `{"status":"ready","crons":{...}}`,
+  503 `{"status":"crons_stale","crons":{...}}` when a cron hasn't finished a
+  run within twice its schedule and 15 minutes, 503
+  `{"status":"unavailable"}`, or 401 without the exact credential. `crons`
+  holds each cron's schedule and the times of its last start, success,
+  partial run, failure and stop report, never error detail (DEPLOY.md,
+  "Crons").
 
 ## Local development and tests
 
@@ -182,7 +191,7 @@ pnpm --filter rewardspro migrate:deploy
 
 The integration suites (`test/integration/postgres`) cover encrypted session
 storage, the baseline, `orders/paid` end to end with Shopify mocked, the
-compliance webhooks and the cron locks:
+compliance webhooks, the cron locks and the cron run records:
 
 ```sh
 REWARDSPRO_TEST_DATABASE_URL='postgresql://rewardspro_app:rewardspro_app@127.0.0.1:5432/postgres?schema=rewardspro&connection_limit=1' \

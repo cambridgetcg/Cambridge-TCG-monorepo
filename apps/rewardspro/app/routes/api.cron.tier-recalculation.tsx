@@ -24,6 +24,7 @@ import { recalculateTiersSmart, refreshAnnualSpending } from "../services/tier-m
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
 // Configuration
 type RecalculationFrequency = "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
@@ -78,7 +79,7 @@ function isOverdue(frequency: RecalculationFrequency, lastRun: Date | null, crea
 }
 
 // Use loader for GET requests (Vercel sends GET, not POST)
-export async function loader({ request }: LoaderFunctionArgs) {
+export const loader = monitoredCron("tier-recalculation", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -154,6 +155,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     },
     details: [] as any[]
   };
+  // The first thing that failed, for the cron monitor
+  let firstProblem: unknown;
 
   try {
     // 3. Find all shops with automatic recalculation enabled, those that
@@ -239,6 +242,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
           // 6. Stamp the last run only when every customer was resolved, so a
           // shop with failures or one that ran out of time stays due
           results.errors += recalcResult.errors;
+          if (recalcResult.errors > 0) {
+            firstProblem ??= new Error(`${recalcResult.errors} customers failed tier recalculation in ${shopSettings.shop}`);
+          }
           if (!recalcResult.complete) {
             results.unfinishedShops++;
             log('warn', `Ran out of time for ${shopSettings.shop}; the next run carries on`, {
@@ -306,6 +312,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       } catch (error: any) {
         log('error', `Error processing shop ${shopSettings.shop}`, { error: error.message });
         results.errors++;
+        firstProblem ??= error;
       } finally {
         if (!isDryRun && !stamped && isOverdue(frequency, shopSettings.tierRecalculationLastRun, shopSettings.createdAt)) {
           results.overdueShops.push(shopSettings.shop);
@@ -355,6 +362,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Customers left with a stale tier, or a shop falling behind, make this a
     // failed run, so the cron monitor and the logs show it as one
     const failed = results.errors > 0 || results.overdueShops.length > 0;
+    if (failed) {
+      cronFailed(request, firstProblem ?? new Error(`${results.overdueShops.length} shops overdue for tier recalculation: ${results.overdueShops.join(', ')}`));
+    }
     return json({
       success: !failed,
       correlationId,
@@ -363,6 +373,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   } catch (error: any) {
     log('error', 'Tier recalculation cron failed', { error: error.message, stack: error.stack });
+    cronFailed(request, error);
     return json({
       success: false,
       correlationId,
@@ -375,7 +386,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('info', 'Released distributed lock');
     }
   }
-}
+});
 
 // Helper function to send alerts
 async function sendAlert(message: string) {

@@ -21,8 +21,9 @@ import {
 } from "~/services/tier-products/tier-product-deletion.server";
 import prisma from "~/db.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = monitoredCron("tier-product-cleanup", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -130,6 +131,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const duration = Date.now() - startTime;
 
     console.error("[TierProductCleanupCron] Job failed:", error);
+    cronFailed(request, error);
 
     return json(
       {
@@ -142,4 +144,4 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       { status: 500 },
     );
   }
-};
+});
