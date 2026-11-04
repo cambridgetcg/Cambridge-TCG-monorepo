@@ -10,14 +10,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({
   cronLock: { create: vi.fn(), findUnique: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   syncStatus: { upsert: vi.fn(), findMany: vi.fn() },
-  shopSettings: { findMany: vi.fn() },
+  shopSettings: { findMany: vi.fn(), update: vi.fn() },
   storeCreditLedger: { findMany: vi.fn(), groupBy: vi.fn() },
   challenge: { findMany: vi.fn(), update: vi.fn() },
   emailCampaign: { updateMany: vi.fn(), findMany: vi.fn() },
+  tierSubscription: { findMany: vi.fn(), update: vi.fn() },
+  tierPurchase: { findMany: vi.fn() },
+  $queryRaw: vi.fn(),
 }));
 const shopify = vi.hoisted(() => ({ unauthenticated: { admin: vi.fn() } }));
 const stuck = vi.hoisted(() => ({ reconcileStuckCashback: vi.fn() }));
 const campaigns = vi.hoisted(() => ({ sendCampaign: vi.fn(), markCutOffSends: vi.fn(), notSentMetrics: vi.fn(() => ({})) }));
+const tierResolution = vi.hoisted(() => ({ updateCustomerToEffectiveTier: vi.fn() }));
+const tierManagement = vi.hoisted(() => ({ recalculateTiersSmart: vi.fn(), refreshAnnualSpending: vi.fn() }));
 const sentryService = vi.hoisted(() => ({
   isEnabled: vi.fn(() => false),
   captureException: vi.fn(),
@@ -30,11 +35,15 @@ vi.mock("~/shopify.server", () => ({ authenticate: {}, ...shopify }));
 vi.mock("~/services/stuck-cashback.server", () => stuck);
 vi.mock("~/services/campaign-send.server", () => campaigns);
 vi.mock("~/services/marketing-email.server", () => ({ marketingEmailBlockedReason: () => null }));
+vi.mock("~/services/tier-resolution.server", () => tierResolution);
+vi.mock("~/services/tier-management.server", () => tierManagement);
 vi.mock("~/services/monitoring/sentry.service", () => ({ SentryService: sentryService }));
 
 import { loader as cashbackReconciliation } from "~/routes/api.cron.cashback-reconciliation";
 import { loader as missionStatus } from "~/routes/api.cron.mission-status";
 import { loader as scheduledCampaigns } from "~/routes/api.cron.scheduled-campaigns";
+import { loader as tierMaintenance } from "~/routes/api.cron.tier-maintenance";
+import { loader as tierRecalculation } from "~/routes/api.cron.tier-recalculation";
 
 type CronLoader = (args: { request: Request; params: object; context: object }) => Promise<Response>;
 
@@ -65,8 +74,10 @@ const originalSecret = process.env.CRON_SECRET;
 beforeEach(() => {
   process.env.CRON_SECRET = "the-cron-secret";
   for (const table of Object.values(db)) {
+    if (typeof table === "function") continue;
     for (const method of Object.values(table)) method.mockReset();
   }
+  db.$queryRaw.mockReset().mockResolvedValue([]);
   db.cronLock.create.mockImplementation(async ({ data }) => data);
   db.cronLock.deleteMany.mockResolvedValue({ count: 0 });
   db.cronLock.delete.mockResolvedValue({});
@@ -76,6 +87,9 @@ beforeEach(() => {
   stuck.reconcileStuckCashback.mockReset();
   campaigns.sendCampaign.mockReset();
   campaigns.markCutOffSends.mockReset().mockResolvedValue(0);
+  tierResolution.updateCustomerToEffectiveTier.mockReset();
+  tierManagement.recalculateTiersSmart.mockReset();
+  tierManagement.refreshAnnualSpending.mockReset().mockResolvedValue({ processed: 0, updated: 0, errors: 0, duration: 1, complete: true });
   sentryService.captureException.mockReset();
   sentryService.captureMessage.mockReset();
   for (const method of ["log", "info", "warn", "error", "debug"] as const) {
@@ -219,5 +233,80 @@ describe("a cron run that fails part of its work", () => {
     expect(outcome("scheduled-campaigns").type).toBe("scheduled-campaigns:succeeded");
     expect(sentryService.captureException).not.toHaveBeenCalled();
     expect(problemReport("scheduled-campaigns")).toBeUndefined();
+  });
+
+  // The tier crons answer 500 for any customer or shop they failed on; Sentry gets what failed
+  it.each([
+    [
+      "a membership it couldn't end",
+      () => {
+        db.tierSubscription.findMany.mockResolvedValue([
+          { id: "sub-1", shop: "one.myshopify.com", customerId: "customer-1", endDate: new Date(Date.now() - 1000), tier: { name: "Gold" } },
+        ]);
+        db.tierSubscription.update.mockResolvedValue({});
+        tierResolution.updateCustomerToEffectiveTier.mockRejectedValue(new Error("customer row locked"));
+      },
+      "Error: customer row locked",
+    ],
+    [
+      "a tier it couldn't repair",
+      () => {
+        db.$queryRaw.mockResolvedValue([{ id: "customer-1", shop: "one.myshopify.com", currentTierId: "gold", effectiveTierId: null }]);
+        tierResolution.updateCustomerToEffectiveTier.mockResolvedValue({ success: false, error: "Customer not found" });
+      },
+      "Error: Failed to repair customer customer-1: Customer not found",
+    ],
+  ])("tier-maintenance: %s fails the run with what failed", async (_case, setUp, expected) => {
+    db.tierSubscription.findMany.mockResolvedValue([]);
+    db.tierPurchase.findMany.mockResolvedValue([]);
+    setUp();
+
+    const response = await run(tierMaintenance, "tier-maintenance");
+
+    expect(response.status).toBe(500);
+    expect(outcome("tier-maintenance")).toEqual({ type: "tier-maintenance:failed", errorMessage: expected });
+    expect(sentryService.captureException).toHaveBeenCalledTimes(1);
+    expect(String(sentryService.captureException.mock.calls[0][0])).toBe(expected);
+    expect(sentryService.captureException.mock.calls[0][1]).toMatchObject({ tags: { "cron.job": "tier-maintenance" } });
+  });
+
+  const dueShop = (createdAt = new Date()) => ({ shop: "one.myshopify.com", tierRecalculationFrequency: "DAILY", tierRecalculationLastRun: null, createdAt });
+  const recalculated = (overrides: Record<string, unknown>) => ({
+    processed: 3, remaining: 0, upgraded: 0, downgraded: 0, unchanged: 3, errors: 0, complete: true,
+    bySource: { manualOverride: 0, tierSubscription: 0, tierPurchase: 0, spendingBased: 3, none: 0 },
+    engine: "LEGACY", optimizedPath: false, ...overrides,
+  });
+
+  it.each([
+    [
+      "a shop it couldn't recalculate",
+      () => tierManagement.recalculateTiersSmart.mockRejectedValue(new Error("customer table unreadable")),
+      "Error: customer table unreadable",
+    ],
+    [
+      "customers it couldn't recalculate",
+      () => tierManagement.recalculateTiersSmart.mockResolvedValue(recalculated({ errors: 2 })),
+      "Error: 2 customers failed tier recalculation in one.myshopify.com",
+    ],
+    [
+      "a shop that has fallen behind",
+      () => {
+        db.shopSettings.findMany.mockResolvedValue([dueShop(new Date(Date.now() - 30 * 86_400_000))]);
+        tierManagement.recalculateTiersSmart.mockResolvedValue(recalculated({ complete: false, remaining: 5 }));
+      },
+      "Error: 1 shops overdue for tier recalculation: one.myshopify.com",
+    ],
+  ])("tier-recalculation: %s fails the run with what failed", async (_case, setUp, expected) => {
+    db.shopSettings.findMany.mockResolvedValue([dueShop()]);
+    db.shopSettings.update.mockResolvedValue({});
+    setUp();
+
+    const response = await run(tierRecalculation, "tier-recalculation");
+
+    expect(response.status).toBe(500);
+    expect(outcome("tier-recalculation")).toEqual({ type: "tier-recalculation:failed", errorMessage: expected });
+    expect(sentryService.captureException).toHaveBeenCalledTimes(1);
+    expect(String(sentryService.captureException.mock.calls[0][0])).toBe(expected);
+    expect(sentryService.captureException.mock.calls[0][1]).toMatchObject({ tags: { "cron.job": "tier-recalculation" } });
   });
 });

@@ -85,6 +85,8 @@ export const loader = monitoredCron("tier-maintenance", async ({ request }: Load
     errors: 0,
     details: [] as any[]
   };
+  // The first thing that failed, for the cron monitor
+  let firstProblem: unknown;
 
   try {
     // 3. Process expired subscriptions
@@ -143,6 +145,7 @@ export const loader = monitoredCron("tier-maintenance", async ({ request }: Load
       } catch (error: any) {
         log('error', `Failed to process subscription ${subscription.id}`, { error: error.message });
         results.errors++;
+        firstProblem ??= error;
       }
     }
 
@@ -222,6 +225,7 @@ export const loader = monitoredCron("tier-maintenance", async ({ request }: Load
       } catch (error: any) {
         log('error', `Failed to process purchase ${purchase.id}`, { error: error.message });
         results.errors++;
+        firstProblem ??= error;
       }
     }
 
@@ -355,6 +359,7 @@ export const loader = monitoredCron("tier-maintenance", async ({ request }: Load
         } catch (error: any) {
           log('error', `Failed to send expiration warning for purchase ${purchase.id}`, { error: error.message });
           results.errors++;
+          firstProblem ??= error;
         }
       }
     }
@@ -388,10 +393,12 @@ export const loader = monitoredCron("tier-maintenance", async ({ request }: Load
               } else {
                 log('error', `Failed to repair customer ${customer.id}`, { error: repaired.error });
                 results.errors++;
+                firstProblem ??= new Error(`Failed to repair customer ${customer.id}: ${repaired.error ?? 'unknown error'}`);
               }
             } catch (error: any) {
               log('error', `Failed to repair customer ${customer.id}`, { error: error.message });
               results.errors++;
+              firstProblem ??= error;
             }
           }
 
@@ -424,6 +431,7 @@ export const loader = monitoredCron("tier-maintenance", async ({ request }: Load
     // A membership that couldn't be ended, a warning that failed or a repair
     // that didn't work makes this a failed run, so the cron monitor and the
     // logs show it as one
+    if (results.errors > 0) cronFailed(request, firstProblem);
     return json({
       success: results.errors === 0,
       correlationId,
