@@ -37,6 +37,7 @@ import {
   DEFAULT_ICON_CONFIG,
 } from "../utils/points-icon-library";
 import type { CurrencyIconType } from "../services/points-config.server";
+import { FEATURES_AVAILABLE } from "../constants/feature-availability";
 
 // ============================================
 // TYPES
@@ -574,12 +575,17 @@ export function IconPicker({
       accessibilityLabel: "Vector icon library",
       panelID: "library-panel",
     },
-    {
-      id: "upload",
-      content: "Upload",
-      accessibilityLabel: "Upload custom icon",
-      panelID: "upload-panel",
-    },
+    // Hidden: no write_files scope (constants/feature-availability.ts)
+    ...(FEATURES_AVAILABLE.iconUpload
+      ? [
+          {
+            id: "upload",
+            content: "Upload",
+            accessibilityLabel: "Upload custom icon",
+            panelID: "upload-panel",
+          },
+        ]
+      : []),
   ];
 
   const renderTabContent = () => {
@@ -589,6 +595,7 @@ export function IconPicker({
       case 1:
         return <IconLibraryTab value={value} onChange={onChange} />;
       case 2:
+        if (!FEATURES_AVAILABLE.iconUpload) return null;
         return (
           <UploadTab
             value={value}

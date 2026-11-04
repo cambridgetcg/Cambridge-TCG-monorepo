@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import { useAuthenticatedFetch } from "../components/AuthenticatedFetch";
@@ -34,6 +34,9 @@ import { getPointsConfig, updatePointsConfig } from "../services/points-config.s
 import { syncPointsConfigMetafield } from "../services/points-metafield-sync.server";
 import type { PointsRoundingMode } from "@prisma/client";
 import { IconPicker, type IconPickerValue } from "../components/IconPicker";
+import { CHANCE_MECHANICS_PAUSED } from "../constants/chance-mechanics";
+import { FEATURES_AVAILABLE } from "../constants/feature-availability";
+import { APP_ROUTES } from "../navigation/routes";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -90,6 +93,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const { session } = await authenticate.admin(request);
     const shop = session.shop;
     console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
+
+    // Hidden until points can be spent (constants/feature-availability.ts)
+    if (!FEATURES_AVAILABLE.points) {
+      throw redirect(`${APP_ROUTES.REWARDS.ROOT}${new URL(request.url).search}`);
+    }
 
     // Verify db models exist
     console.log(`${LOG_PREFIX} db exists: ${!!prisma}, prisma.tier exists: ${!!prisma?.tier}`);
@@ -151,6 +159,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
+
+  // Hidden until points can be spent (constants/feature-availability.ts)
+  if (!FEATURES_AVAILABLE.points) {
+    throw redirect(`${APP_ROUTES.REWARDS.ROOT}${new URL(request.url).search}`);
+  }
+
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
 
@@ -397,6 +411,70 @@ export default function PointsConfiguration() {
     value: i.toString(),
   }));
 
+  // Only toggles that do something: games of chance are paused
+  // (constants/chance-mechanics.ts) and giveback pools have no service
+  // behind them (constants/feature-availability.ts)
+  const chanceToggles = CHANCE_MECHANICS_PAUSED
+    ? []
+    : [
+        {
+          id: 'raffles',
+          icon: GiftCardIcon,
+          title: 'Raffles',
+          description: 'Allow customers to enter raffles for prizes',
+          enabled: rafflesEnabled,
+          onChange: setRafflesEnabled,
+        },
+        {
+          id: 'mysteryBoxes',
+          icon: ConfettiIcon,
+          title: 'Mystery Boxes',
+          description: 'Offer mystery box rewards with tiered prizes',
+          enabled: mysteryBoxesEnabled,
+          onChange: setMysteryBoxesEnabled,
+        },
+        {
+          id: 'spinWheel',
+          icon: PlayIcon,
+          title: 'Spin Wheel',
+          description: 'Daily and premium spin wheel for rewards',
+          enabled: spinWheelEnabled,
+          onChange: setSpinWheelEnabled,
+        },
+        {
+          id: 'scratchCards',
+          icon: StarIcon,
+          title: 'Scratch Cards',
+          description: 'Instant-win scratch card rewards',
+          enabled: scratchCardsEnabled,
+          onChange: setScratchCardsEnabled,
+        },
+      ];
+  const featureToggles = [
+    ...chanceToggles,
+    {
+      id: 'challenges',
+      icon: TargetIcon,
+      title: 'Challenges',
+      description: 'Create challenges for bonus points',
+      enabled: challengesEnabled,
+      onChange: setChallengesEnabled,
+    },
+    ...(FEATURES_AVAILABLE.givebackPools
+      ? [
+          {
+            id: 'givebackPools',
+            icon: HeartIcon,
+            title: 'Giveback Pools',
+            description: 'Let customers donate points to charity',
+            enabled: givebackPoolsEnabled,
+            onChange: setGivebackPoolsEnabled,
+          },
+        ]
+      : []),
+  ];
+  const activeToggles = featureToggles.filter((toggle) => toggle.enabled).length;
+
   return (
     <>
       <Page
@@ -519,72 +597,21 @@ export default function PointsConfiguration() {
               <BlockStack gap="400">
                 <InlineStack align="space-between" blockAlign="center">
                   <Text variant="headingMd" as="h2">Feature Toggles</Text>
-                  <Badge tone={[rafflesEnabled, mysteryBoxesEnabled, spinWheelEnabled, challengesEnabled, scratchCardsEnabled, givebackPoolsEnabled].filter(Boolean).length === 6 ? 'success' : 'info'}>
-                    {`${[rafflesEnabled, mysteryBoxesEnabled, spinWheelEnabled, challengesEnabled, scratchCardsEnabled, givebackPoolsEnabled].filter(Boolean).length}/6 Active`}
+                  <Badge tone={activeToggles === featureToggles.length ? 'success' : 'info'}>
+                    {`${activeToggles}/${featureToggles.length} Active`}
                   </Badge>
                 </InlineStack>
                 <Text tone="subdued" as="p">
                   Enable or disable individual engagement features
                 </Text>
                 <Divider />
-                <FeatureTogglesList
-                  toggles={[
-                    {
-                      id: 'raffles',
-                      icon: GiftCardIcon,
-                      title: 'Raffles',
-                      description: 'Allow customers to enter raffles for prizes',
-                      enabled: rafflesEnabled,
-                      onChange: setRafflesEnabled,
-                    },
-                    {
-                      id: 'mysteryBoxes',
-                      icon: ConfettiIcon,
-                      title: 'Mystery Boxes',
-                      description: 'Offer mystery box rewards with tiered prizes',
-                      enabled: mysteryBoxesEnabled,
-                      onChange: setMysteryBoxesEnabled,
-                    },
-                    {
-                      id: 'spinWheel',
-                      icon: PlayIcon,
-                      title: 'Spin Wheel',
-                      description: 'Daily and premium spin wheel for rewards',
-                      enabled: spinWheelEnabled,
-                      onChange: setSpinWheelEnabled,
-                    },
-                    {
-                      id: 'challenges',
-                      icon: TargetIcon,
-                      title: 'Challenges',
-                      description: 'Create challenges for bonus points',
-                      enabled: challengesEnabled,
-                      onChange: setChallengesEnabled,
-                    },
-                    {
-                      id: 'scratchCards',
-                      icon: StarIcon,
-                      title: 'Scratch Cards',
-                      description: 'Instant-win scratch card rewards',
-                      enabled: scratchCardsEnabled,
-                      onChange: setScratchCardsEnabled,
-                    },
-                    {
-                      id: 'givebackPools',
-                      icon: HeartIcon,
-                      title: 'Giveback Pools',
-                      description: 'Let customers donate points to charity',
-                      enabled: givebackPoolsEnabled,
-                      onChange: setGivebackPoolsEnabled,
-                    },
-                  ]}
-                />
+                <FeatureTogglesList toggles={featureToggles} />
               </BlockStack>
             </Card>
           </Layout.Section>
 
           {/* Spin Wheel Settings */}
-          {spinWheelEnabled && (
+          {!CHANCE_MECHANICS_PAUSED && spinWheelEnabled && (
             <Layout.Section>
               <Card>
                 <BlockStack gap="400">
