@@ -57,10 +57,26 @@ export interface ReadOptions {
   deadline?: number;
 }
 
+/**
+ * One order the hourly sweep looks at: paid, partly or fully refunded, and
+ * updated since the sweep's start. `refunds` are Shopify's refunds of it (id
+ * and when each was made), or null when the list may be cut short, so the
+ * sweep reads the order itself for them.
+ */
+export interface UpdatedOrder {
+  orderGid: string;
+  hasCustomer: boolean;
+  test: boolean;
+  orderedAt: Date;
+  cancelledAt: Date | null;
+  refunds: Array<{ refundGid: string; refundedAt: Date }> | null;
+}
+
 export interface OrderSource {
   readOrder(orderGid: string, o?: ReadOptions): Promise<OrderFacts | null>;
   readRefund(refundGid: string, o?: ReadOptions): Promise<{ orderGid: string; refund: RefundFacts } | null>;
-  recentPaidOrders(since: Date): Promise<Array<{ orderGid: string; hasCustomer: boolean; test: boolean; orderedAt: Date }>>;
+  /** The orders updated since `since`, most recently updated first (rule 13's backstop for orders, refunds and cancellations). */
+  recentlyUpdatedOrders(since: Date, o?: ReadOptions): Promise<UpdatedOrder[]>;
 }
 
 /** The rail and order source for one store connection, or null when the store can't be reached (no usable session). */

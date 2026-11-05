@@ -184,8 +184,14 @@ model Connection {
   importAttempts      Int              @default(0) @map("import_attempts")
   importedCount       Int              @default(0) @map("imported_count")
   importError         String?          @map("import_error")
+  /// When Shopify began the import's bulk query; a refund of an imported order from before it is already in its quantities.
+  importStartedAt     DateTime?        @map("import_started_at")
+  /// Polls in a row whose bulk file answered 4xx; the second ends the attempt.
+  importFileRefusals  Int              @default(0) @map("import_file_refusals")
   lastTierPassAt      DateTime?        @map("last_tier_pass_at")
   tierPassRequestedAt DateTime?        @map("tier_pass_requested_at")
+  /// When the hourly sweep last finished this store (least recently swept first).
+  lastSweptAt         DateTime?        @map("last_swept_at")
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 

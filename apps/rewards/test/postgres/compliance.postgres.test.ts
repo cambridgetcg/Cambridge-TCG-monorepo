@@ -351,7 +351,7 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
 
       const reopened = await ensureMerchant({ shop: SHOP, name: "Compliance Test", currency: "GBP", timezone: "Europe/London", now: new Date("2026-11-04T09:00:00Z") });
 
-      expect(reopened).toEqual({ merchantId: conn.merchantId, connectionId: conn.connectionId, created: false, reactivated: true });
+      expect(reopened).toMatchObject({ merchantId: conn.merchantId, connectionId: conn.connectionId, created: false, reactivated: true });
       // Rule 12: pending payouts and held take-backs carry on.
       await expect(payoutOf(pending.payoutId)).resolves.toMatchObject({ state: "pending", amount: "2.50" });
       await expect(payoutOf(unconfirmed.payoutId)).resolves.toMatchObject({ state: "unconfirmed" });

@@ -158,7 +158,34 @@ describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
     expect(seen.pings).toEqual([]);
     expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([expect.stringContaining(SHOP)]);
     await expect(prisma.session.count({ where: { id: `offline_${SHOP}` } })).resolves.toBe(1);
+    // The monitor records the run as partial (OPERATIONS-8)
+    const partial = await prisma.cronRun.findUniqueOrThrow({ where: { job_outcome: { job: "housekeeping", outcome: "partial" } } });
+    expect(partial.errorMessage).toMatch(/^1 failed; first: Error: Token refresh for housekeeping\.myshopify\.com: HTTP 500/);
+    await expect(prisma.cronRun.count({ where: { job: "housekeeping", outcome: "succeeded" } })).resolves.toBe(0);
     errors.mockRestore();
+  });
+
+  it("stops reaching stores at its 240 s budget, and records the run as partial with the stores left (A15-F1)", async () => {
+    await storeOfflineSession(SHOP, { expires: new Date(Date.now() - HOUR), refreshTokenExpires: new Date(Date.now() + 2 * DAY) });
+    await storeOfflineSession(QUIET_SHOP, { expires: new Date(Date.now() - HOUR), refreshTokenExpires: new Date(Date.now() + 3 * DAY) });
+    const seen = mockTokenRefresh(SHOP);
+    const quiet = mockTokenRefresh(QUIET_SHOP);
+    // The clock the budget reads has run past 240 s (the rest of the job keeps the real time)
+    const realNow = Date.now.bind(Date);
+    const now = vi.spyOn(Date, "now").mockImplementation(() => realNow() + 241_000);
+
+    let result;
+    try {
+      result = await run();
+    } finally {
+      now.mockRestore();
+    }
+
+    expect(result).toMatchObject({ status: 200, body: { tokensChecked: 0, storesLeft: 2, problems: 0 } });
+    expect(seen.refreshes).toEqual([]);
+    expect(quiet.refreshes).toEqual([]);
+    const partial = await prisma.cronRun.findUniqueOrThrow({ where: { job_outcome: { job: "housekeeping", outcome: "partial" } } });
+    expect(partial.errorMessage).toBe("2 failed; first: Error: 2 stores' tokens were not checked before the deadline");
   });
 
   it("expires privacy reports past their time, and clears expired locks", async () => {

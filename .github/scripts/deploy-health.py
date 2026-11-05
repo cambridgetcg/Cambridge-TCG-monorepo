@@ -4,15 +4,24 @@ Cambridge TCG deploy & domain health probe.
 
 For each of the Vercel projects in PROJECTS:
   1. Fetch the latest production deployment via the Vercel REST API
-  2. Compare its commit SHA to git main HEAD (drift)
-  3. HTTP-probe its domain (at its probePath, `/` by default) for a 2xx/3xx response
+  2. Compare the time of the latest commit touching the project's appPath
+     with the deployment's (drift)
+  3. HTTP-probe its domain (at its probePath, `/` by default)
 
 Exits non-zero (1) if any of:
   - latest production deploy is in ERROR state
   - latest production deploy is older than MAX_DEPLOY_AGE_HOURS
-  - HEAD differs from latest deployed SHA AND the most recent commit
-    touching that app is older than DRIFT_GRACE_MINUTES
-  - HTTP probe returns 5xx or fails to connect
+  - the most recent commit touching that app is newer than the latest
+    deploy by more than DRIFT_GRACE_MINUTES
+  - HTTP probe fails to connect or returns 5xx; for an entry with a
+    probePath (a health endpoint), any answer outside 200-299
+
+A project with "skipsBuilds" (its Ignored Build Step cancels the builds of
+pushes that don't touch it, which Vercel lists as CANCELED deployments)
+takes its state from the newest production deployment that is not
+CANCELED, and its age from the newest READY one, so skipped builds neither
+hide a failed one nor reset the age. The others use the newest deployment
+for both.
 
 Usage: VERCEL_TOKEN=... python3 deploy-health.py
 
@@ -55,11 +64,12 @@ PROJECTS = [
         # /api/health: 200 only when the database answered, 503 otherwise.
         # The project builds apps/rewardspro until the switch moves its root
         # directory to apps/rewards; appPath follows it then.
-        "name":      "rewardspro-production",
-        "id":        "prj_olcLaLOcmg3jKh28LjW2dgh6mUHi",
-        "domain":    "rewardspro-production.vercel.app",
-        "appPath":   "apps/rewardspro",
-        "probePath": "/api/health",
+        "name":        "rewardspro-production",
+        "id":          "prj_olcLaLOcmg3jKh28LjW2dgh6mUHi",
+        "domain":      "rewardspro-production.vercel.app",
+        "appPath":     "apps/rewardspro",
+        "probePath":   "/api/health",
+        "skipsBuilds": True,
     },
 ]
 
@@ -118,27 +128,45 @@ def probe_url(url: str) -> tuple[int, str]:
         return 0, f"error: {type(e).__name__}: {e}"
 
 
+def age_hours(d: dict) -> float:
+    return round((time.time() * 1000 - d.get("created", 0)) / 1000 / 3600, 1)
+
+
 def check_project(p: dict) -> dict:
     out: dict = {"name": p["name"], "domain": p["domain"], "issues": []}
 
-    # 1. Latest prod deploy
+    # 1. Latest prod deploy (newest first). A project that skips builds lists
+    # its skipped ones as CANCELED: the state comes from the newest that isn't,
+    # and the age from the newest READY one.
+    skips = bool(p.get("skipsBuilds"))
     deps = vercel_api(
-        f"/v6/deployments?projectId={p['id']}&limit=1&target=production"
+        f"/v6/deployments?projectId={p['id']}&limit={100 if skips else 1}&target=production"
     ).get("deployments", [])
     if not deps:
         out["issues"].append("no production deployments found")
         return out
     d = deps[0]
-    out["deploy_id"]    = d.get("uid")
-    out["deploy_state"] = d.get("readyState")
-    out["deploy_age_h"] = round((time.time() * 1000 - d.get("created", 0)) / 1000 / 3600, 1)
-    out["deployed_sha"] = (d.get("meta") or {}).get("githubCommitSha", "?")[:8]
+    built = next((x for x in deps if x.get("readyState") != "CANCELED"), None) if skips else d
+    if skips:
+        ready = vercel_api(
+            f"/v6/deployments?projectId={p['id']}&limit=1&target=production&state=READY"
+        ).get("deployments", [])
+        aged = ready[0] if ready else None
+    else:
+        aged = d
+    shown = built or d
+    out["deploy_id"]    = shown.get("uid")
+    out["deploy_state"] = shown.get("readyState") if built else "?"
+    out["deploy_age_h"] = age_hours(aged) if aged else "?"
+    out["deployed_sha"] = (shown.get("meta") or {}).get("githubCommitSha", "?")[:8]
 
-    if out["deploy_state"] == "ERROR":
+    if built and built.get("readyState") == "ERROR":
         out["issues"].append(f"latest prod deploy is ERROR (id={out['deploy_id']})")
     # Don't alert on BUILDING/INITIALIZING/QUEUED — those are transient and
     # the next hourly check will catch any that get stuck.
-    if out["deploy_age_h"] > MAX_DEPLOY_AGE_HOURS:
+    if aged is None:
+        out["issues"].append("no READY production deployment found")
+    elif out["deploy_age_h"] > MAX_DEPLOY_AGE_HOURS:
         out["issues"].append(f"latest prod deploy is {out['deploy_age_h']:.0f}h old (> {MAX_DEPLOY_AGE_HOURS}h)")
 
     # 2. Drift: a commit touching this app exists on HEAD that postdates the
@@ -159,10 +187,11 @@ def check_project(p: dict) -> dict:
                 f"deploy {out['deployed_sha']} ({out['deploy_age_h']}h)"
             )
 
-    # 3. Domain probe
+    # 3. Domain probe. A site's `/` may redirect or answer 4xx and still be
+    # up; a health endpoint (probePath) is healthy only with a 2xx.
     code, msg = probe_url(f"https://{p['domain']}{p.get('probePath', '/')}")
     out["probe"] = f"{code} {msg}"
-    if code == 0 or code >= 500:
+    if code == 0 or code >= 500 or (p.get("probePath") and not 200 <= code < 300):
         out["issues"].append(f"domain probe failed: {out['probe']}")
 
     return out

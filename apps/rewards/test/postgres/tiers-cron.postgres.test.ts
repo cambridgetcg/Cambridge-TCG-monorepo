@@ -36,6 +36,19 @@ async function storeWithBuyers(shop: string, resolvedAt: Array<Date | null>, con
   return { conn, buyers };
 }
 
+/** Run with the clock the budget reads already past the run's 240 s (the rest of the job keeps the real time). */
+async function pastTheBudget<T>(fn: () => Promise<T>): Promise<T> {
+  const realNow = Date.now.bind(Date);
+  const now = vi.spyOn(Date, "now").mockImplementation(() => realNow() + 241_000);
+  try {
+    return await fn();
+  } finally {
+    now.mockRestore();
+  }
+}
+
+const failedRow = () => prisma.cronRun.findUnique({ where: { job_outcome: { job: "tiers", outcome: "failed" } } });
+
 const resolvedAtOf = async (id: string) => (await prisma.customer.findUniqueOrThrow({ where: { id } })).resolvedAt;
 const lastPassOf = async (id: string) => (await prisma.connection.findUniqueOrThrow({ where: { id } })).lastTierPassAt;
 
@@ -95,16 +108,49 @@ describe.skipIf(!hasTestDatabase)("the nightly tier pass", () => {
     expect((await resolvedAtOf(buyers[0].id))!.getTime()).toBeGreaterThanOrEqual(before);
   });
 
-  it("leaves a store with a buyer it could not resolve unstamped, and fails once it is over 2 days behind", async () => {
-    const lastPass = new Date(Date.now() - 3 * DAY);
+  it("fails a run with a buyer it could not resolve, though the store is not overdue, and leaves the store unstamped", async () => {
+    const lastPass = new Date(Date.now() - 23.5 * HOUR);
     const { conn } = await storeWithBuyers(SHOP, [null], { lastTierPassAt: lastPass });
     failNextCall("customer", "findUniqueOrThrow", new Error("connection reset"));
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await expect(run()).resolves.toMatchObject({ status: 500, body: { success: false, errors: 1, overdue: [SHOP] } });
+    await expect(run()).resolves.toMatchObject({ status: 500, body: { success: false, errors: 1, overdue: [] } });
 
     expect(await lastPassOf(conn.connectionId)).toEqual(lastPass);
+    // The monitor records the run as failed, with the error (OPERATIONS-8)
+    await expect(failedRow()).resolves.toMatchObject({ errorMessage: expect.stringContaining("connection reset") });
     errors.mockRestore();
+  });
+
+  it("fails a run with a store over 2 days behind, though no buyer failed", async () => {
+    const lastPass = new Date(Date.now() - 3 * DAY);
+    const { conn } = await storeWithBuyers(SHOP, [null], { lastTierPassAt: lastPass });
+
+    // Out of time before the store's turn: nothing fails, but its pass is still not done
+    await expect(pastTheBudget(run)).resolves.toMatchObject({ status: 500, body: { success: false, errors: 0, unfinished: 1, overdue: [SHOP] } });
+
+    expect(await lastPassOf(conn.connectionId)).toEqual(lastPass);
+    await expect(failedRow()).resolves.toMatchObject({ errorMessage: `Error: 1 stores overdue for a tier pass: ${SHOP}` });
+  });
+
+  it("counts a reinstalled store as overdue only from its reinstall", async () => {
+    // Its last pass was before it was away; it came back an hour ago
+    const lastPass = new Date(Date.now() - 10 * DAY);
+    const { conn } = await storeWithBuyers(SHOP, [null], { lastTierPassAt: lastPass, activatedAt: new Date(Date.now() - HOUR) });
+
+    await expect(pastTheBudget(run)).resolves.toMatchObject({ status: 200, body: { success: true, errors: 0, unfinished: 1, overdue: [] } });
+
+    expect(await lastPassOf(conn.connectionId)).toEqual(lastPass);
+  });
+
+  it("starts no store once the budget has passed, and leaves them for the next run", async () => {
+    const { conn, buyers } = await storeWithBuyers(SHOP, [null], { lastTierPassAt: new Date(Date.now() - 23.5 * HOUR) });
+
+    await expect(pastTheBudget(run)).resolves.toMatchObject({ status: 200, body: { stores: 1, complete: 0, unfinished: 1, processed: 0, overdue: [] } });
+
+    expect(await resolvedAtOf(buyers[0].id)).toBeNull();
+    expect((await lastPassOf(conn.connectionId))!.getTime()).toBeLessThan(Date.now() - 23 * HOUR);
+    await expect(failedRow()).resolves.toBeNull();
   });
 
   it("passes over uninstalled stores", async () => {

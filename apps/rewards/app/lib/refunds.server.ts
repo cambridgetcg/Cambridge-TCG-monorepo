@@ -25,6 +25,10 @@
  * A buyer whose data was erased (customers/redact) can't be debited: the
  * reversal is written for the ledger's trail and its take-back closed at once
  * (MONEY-5), as the redaction closed what was open then.
+ *
+ * A refund of an imported order made before the import's bulk query began
+ * (`importStartedAt`) is already in the bulk file's quantities: its row is
+ * recorded, for idempotency, and the spend is left as it is (Ruling 49).
  */
 import type { PayoutState, Prisma, PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
@@ -167,6 +171,8 @@ export async function recordRefundInTransaction(
   const order = await tx.order.findUniqueOrThrow({
     where: { id: orderId },
     select: {
+      source: true,
+      connection: { select: { importStartedAt: true } },
       customerId: true,
       customer: { select: { redactedAt: true } },
       productAmount: true,
@@ -182,6 +188,12 @@ export async function recordRefundInTransaction(
   const credit = cashback?.payout ?? null;
   // Decided before anything is written; a throw rolls the refund row back.
   const effect: Effect = credit ? effectOf(credit, o.now) : "none";
+  const nothing = { status: "recorded", takenBack: new Money(0), reversalPayoutId: null, customerId: order.customerId } as const;
+
+  // Counted already by the import's quantities. An imported order earns no
+  // cashback, so there is nothing to take back either.
+  const snapshot = order.connection.importStartedAt;
+  if (order.source === "import" && snapshot !== null && refund.refundedAt < snapshot) return nothing;
 
   const refunded = fromDb(order.refundedProductAmount).plus(refund.productValue.amount);
   const shopRefunded = fromDb(order.shopRefundedProductAmount).plus(refund.productValue.shopAmount);
@@ -190,7 +202,6 @@ export async function recordRefundInTransaction(
     data: { refundedProductAmount: refunded.toFixed(), shopRefundedProductAmount: shopRefunded.toFixed() },
   });
 
-  const nothing = { status: "recorded", takenBack: new Money(0), reversalPayoutId: null, customerId: order.customerId } as const;
   // No cashback (off, test, import or nothing earned), or none given: spend only.
   if (!cashback || !credit || effect === "none") return nothing;
 

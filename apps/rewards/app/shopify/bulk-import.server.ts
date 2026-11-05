@@ -11,7 +11,8 @@
  * of the file's orders are written), the horizon, the attempts and the last
  * error. Every step is conditional on the row as it was read, so two polls at
  * once (Home and the hourly job) never both move it; the orders themselves
- * are idempotent by their natural key.
+ * are idempotent by their natural key. The file is read as a stream, one line
+ * at a time (bulk-file.ts, Ruling 48), so it is never held as one string.
  *
  * Bulk limits shape what is read (graphql.ts, RewardsBulkOrderNodes): the
  * node has no refunds, so it is read with "quantities" (Ruling 25), and a
@@ -19,10 +20,11 @@
  */
 import prisma from "~/db.server";
 import { ingestImportedOrders } from "~/lib/import.server";
-import { findConnection } from "~/lib/merchant.server";
+import { type ConnectionContext, findConnection } from "~/lib/merchant.server";
 import type { OrderFacts } from "~/lib/order-facts";
 import { runTierPass } from "~/lib/tiers.server";
 import { askShopify } from "./ask.server";
+import { BulkFileError, streamBulkOrders } from "./bulk-file";
 import { type GraphqlClient, RewardsAccessScopes, RewardsBulkOrderNodes, RewardsBulkOrders, RewardsBulkStatus } from "./graphql";
 import { factsFromOrderNode } from "./order-source.server";
 
@@ -41,14 +43,6 @@ const START_GRACE_MS = 5 * 60 * 1000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Shopify's bulk file can't be read as orders and their line items. */
-export class BulkFileError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "BulkFileError";
-  }
-}
-
 type Rec = Record<string, unknown>;
 
 function asRecord(value: unknown): Rec | null {
@@ -57,50 +51,6 @@ function asRecord(value: unknown): Rec | null {
 
 const messageOf = (error: unknown) =>
   error instanceof Response ? `HTTP ${error.status}` : error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-
-/** The field of its parent each kind of child line goes in (the only nested connection is the order's line items). */
-const CHILD_FIELDS: Record<string, string> = { LineItem: "lineItems" };
-const GID_TYPE = /^gid:\/\/shopify\/([A-Za-z]+)\//;
-
-/**
- * The order nodes of a bulk file, in the file's order: each line with no
- * `__parentId` is an order, and each line item line (which Shopify writes
- * somewhere after its order) is moved into its order's `lineItems.nodes`
- * without its `__parentId`, the shape RewardsOrderFacts's node has. Blank
- * lines are skipped. Throws BulkFileError, naming the line number only (never
- * its text), on a line that isn't a JSON object with an id, a child whose
- * order isn't above it, or a child that isn't a line item.
- */
-export function parseBulkLines(lines: string[]): unknown[] {
-  const orders: Rec[] = [];
-  const byId = new Map<string, Rec>();
-  lines.forEach((line, index) => {
-    if (line.trim() === "") return;
-    const where = `The bulk file's line ${index + 1}`;
-    let value: unknown;
-    try {
-      value = JSON.parse(line);
-    } catch {
-      throw new BulkFileError(`${where} is not JSON`);
-    }
-    const record = asRecord(value);
-    if (!record || typeof record.id !== "string") throw new BulkFileError(`${where} is not an object with an id`);
-    const { __parentId: parentId, ...node } = record;
-    const id = record.id;
-    if (parentId === undefined) {
-      const order = { ...node, lineItems: { nodes: [] as unknown[] } };
-      orders.push(order);
-      byId.set(id, order);
-      return;
-    }
-    const parent = typeof parentId === "string" ? byId.get(parentId) : undefined;
-    if (!parent) throw new BulkFileError(`${where} belongs to an order that isn't above it`);
-    const field = CHILD_FIELDS[GID_TYPE.exec(id)?.[1] ?? ""];
-    if (!field) throw new BulkFileError(`${where} is not a line item`);
-    (parent[field] as { nodes: unknown[] }).nodes.push(node);
-  });
-  return orders;
-}
 
 /** One call's `data`; throws on GraphQL errors or an answer with no data. */
 async function ask(admin: GraphqlClient, query: string, variables: Record<string, unknown>, timeoutMs: number): Promise<Rec> {
@@ -134,12 +84,24 @@ async function launch(admin: GraphqlClient, connectionId: string, installedAt: D
     const horizonDays = (await grantedScopes(admin, timeoutMs)).has("read_all_orders") ? IMPORT_HORIZON_DAYS : SHORT_HORIZON_DAYS;
     const from = new Date(installedAt.getTime() - horizonDays * DAY_MS);
     const search = `created_at:>='${from.toISOString()}' AND created_at:<'${installedAt.toISOString()}'`;
+    const asked = new Date();
+    // If this call times out after Shopify started the query, that operation
+    // is orphaned: a later poll starts another, using an attempt (A17-F8).
+    // Harmless on 2026-10, which runs several bulk queries at once.
     const payload = asRecord((await ask(admin, RewardsBulkOrders, { query: RewardsBulkOrderNodes(search) }, timeoutMs)).bulkOperationRunQuery);
     const refusal = Array.isArray(payload?.userErrors) ? asRecord(payload.userErrors[0]) : null;
     if (refusal) throw new Error(`Shopify refused the bulk query: ${String(refusal.code ?? "no code")}: ${String(refusal.message ?? "")}`);
-    const operationId = asRecord(payload?.bulkOperation)?.id;
+    const operation = asRecord(payload?.bulkOperation);
+    const operationId = operation?.id;
     if (typeof operationId !== "string" || operationId === "") throw new Error("RewardsBulkOrders answered without an operation id");
-    await prisma.connection.updateMany({ where: waiting, data: { importOperationId: operationId, importHorizonDays: horizonDays } });
+    // When Shopify began it: a refund made before then is in the file's
+    // quantities (Ruling 49). Without Shopify's time, the moment it was asked.
+    const createdAt = typeof operation?.createdAt === "string" ? new Date(operation.createdAt) : null;
+    const startedAt = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt : asked;
+    await prisma.connection.updateMany({
+      where: waiting,
+      data: { importOperationId: operationId, importHorizonDays: horizonDays, importStartedAt: startedAt },
+    });
   } catch (error) {
     await prisma.connection.updateMany({ where: waiting, data: { importError: messageOf(error).slice(0, 500) } });
     throw error;
@@ -157,7 +119,15 @@ async function launch(admin: GraphqlClient, connectionId: string, installedAt: D
 export async function startImport(admin: GraphqlClient, connectionId: string, installedAt: Date): Promise<void> {
   const { count } = await prisma.connection.updateMany({
     where: { id: connectionId, importState: "not_started" },
-    data: { importState: "running", importOperationId: null, importCursor: 0, importAttempts: 1, importedCount: 0, importError: null },
+    data: {
+      importState: "running",
+      importOperationId: null,
+      importCursor: 0,
+      importAttempts: 1,
+      importedCount: 0,
+      importError: null,
+      importFileRefusals: 0,
+    },
   });
   if (count === 0) return;
   await launch(admin, connectionId, installedAt, CALL_TIMEOUT_MS);
@@ -172,6 +142,7 @@ type ImportRow = {
   importCursor: number;
   importAttempts: number;
   importError: string | null;
+  importFileRefusals: number;
   tierPassRequestedAt: Date | null;
   updatedAt: Date;
 };
@@ -190,7 +161,7 @@ async function restart(admin: GraphqlClient, row: ImportRow, reason: string, tim
   }
   const { count } = await prisma.connection.updateMany({
     where: asRead,
-    data: { importOperationId: null, importCursor: 0, importAttempts: { increment: 1 }, importError: reason },
+    data: { importOperationId: null, importCursor: 0, importAttempts: { increment: 1 }, importError: reason, importFileRefusals: 0 },
   });
   if (count === 0) return "running";
   try {
@@ -201,23 +172,28 @@ async function restart(admin: GraphqlClient, row: ImportRow, reason: string, tim
   return "running";
 }
 
-/** The bulk file's lines; throws when it can't be fetched (the next poll fetches it again). */
-async function download(url: string, timeoutMs: number): Promise<string[]> {
+/**
+ * The bulk file's answer, to read as a stream. A 4xx from its signed address
+ * twice in a row (counted on the row, conditional on it as read) means the
+ * file can't be had: a BulkFileError, which uses up an attempt. Any other
+ * failure throws plainly, and the next poll fetches again.
+ */
+async function openFile(row: ImportRow, url: string, timeoutMs: number): Promise<ReadableStream<Uint8Array>> {
   if (!url.startsWith("https://")) throw new Error("The bulk file's address is not https");
   const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-  if (!response.ok) throw new Error(`The bulk file answered HTTP ${response.status}`);
-  return (await response.text()).split("\n");
-}
-
-/** An order node's facts, or none when Shopify's node can't be read: logged by the order id, so one bad order never stops the import. */
-function readable(node: unknown, shopCurrency: string, shop: string): OrderFacts[] {
-  try {
-    return [factsFromOrderNode(node, shopCurrency, "quantities")];
-  } catch (error) {
-    const id = asRecord(node)?.id;
-    console.error(`[import] Could not read imported order ${typeof id === "string" ? id : "(no id)"} for ${shop}: ${messageOf(error)}`);
-    return [];
+  const refused = response.status >= 400 && response.status < 500;
+  if (refused || row.importFileRefusals > 0) {
+    await prisma.connection.updateMany({
+      where: { id: row.id, importOperationId: row.importOperationId, importFileRefusals: row.importFileRefusals },
+      data: { importFileRefusals: refused ? { increment: 1 } : 0 },
+    });
   }
+  if (!response.ok || !response.body) {
+    await response.body?.cancel();
+    if (refused && row.importFileRefusals >= 1) throw new BulkFileError(`The bulk file answered HTTP ${response.status} twice in a row`);
+    throw new Error(`The bulk file answered HTTP ${response.status}`);
+  }
+  return response.body;
 }
 
 /** How many order ids an unreadable-orders summary names before it says "and N more". */
@@ -225,45 +201,134 @@ const NAMED_UNREADABLE = 5;
 const countFormat = new Intl.NumberFormat("en-GB");
 
 /**
- * The import's error once it is done: null when every order node of the file
- * could be read, else how many could not, out of how many, naming the first
- * few by their numeric order id (never buyer data). Read across the whole
- * file, not only the chunks this poll wrote, so drops logged by earlier polls
- * are counted too. Pure; the reasons are in the per-order log lines.
+ * The orders of a file that could not be read, counted as the file is read
+ * (only the first few ids are kept), and the import's error once it is done:
+ * null when every order could be read, else how many could not, out of how
+ * many, naming the first few by their numeric order id (never buyer data).
  */
-export function unreadableSummary(nodes: unknown[], shopCurrency: string): string | null {
-  const ids: string[] = [];
-  for (const node of nodes) {
+class Unreadable {
+  private named: string[] = [];
+  private count = 0;
+
+  /** The node's facts, or (counted) why and which order when it can't be read. */
+  read(node: unknown, shopCurrency: string): { facts: OrderFacts } | { error: unknown; id: string | null } {
     try {
-      factsFromOrderNode(node, shopCurrency, "quantities");
-    } catch {
+      return { facts: factsFromOrderNode(node, shopCurrency, "quantities") };
+    } catch (error) {
       const id = asRecord(node)?.id;
-      ids.push(typeof id === "string" ? id.replace(/^gid:\/\/shopify\/Order\//, "") : "(no id)");
+      this.count++;
+      if (this.named.length < NAMED_UNREADABLE) {
+        this.named.push(typeof id === "string" ? id.replace(/^gid:\/\/shopify\/Order\//, "") : "(no id)");
+      }
+      return { error, id: typeof id === "string" ? id : null };
     }
   }
-  if (ids.length === 0) return null;
-  const named = ids.slice(0, NAMED_UNREADABLE).join(", ");
-  const more = ids.length > NAMED_UNREADABLE ? ` and ${countFormat.format(ids.length - NAMED_UNREADABLE)} more` : "";
-  const summary = `${countFormat.format(ids.length)} of ${countFormat.format(nodes.length)} past orders could not be read, so their spend is not counted: ${named}${more}`;
-  return summary.slice(0, 500);
+
+  summary(total: number): string | null {
+    if (this.count === 0) return null;
+    const more = this.count > NAMED_UNREADABLE ? ` and ${countFormat.format(this.count - NAMED_UNREADABLE)} more` : "";
+    const summary = `${countFormat.format(this.count)} of ${countFormat.format(total)} past orders could not be read, so their spend is not counted: ${this.named.join(", ")}${more}`;
+    return summary.slice(0, 500);
+  }
+}
+
+/** The import's error for these order nodes (see Unreadable). Pure; the reasons are in the per-order log lines. */
+export function unreadableSummary(nodes: unknown[], shopCurrency: string): string | null {
+  const unreadable = new Unreadable();
+  for (const node of nodes) unreadable.read(node, shopCurrency);
+  return unreadable.summary(nodes.length);
+}
+
+/** A count Shopify gives as an UnsignedInt64 string; null when it can't be read. */
+function countOf(value: unknown): number | null {
+  const n = typeof value === "string" && /^\d+$/.test(value) ? Number(value) : typeof value === "number" ? value : Number.NaN;
+  return Number.isSafeInteger(n) && n >= 0 ? n : null;
+}
+
+/**
+ * Write the file's orders from `importCursor` on, `chunkSize` at a time,
+ * saving the cursor after each chunk and stopping (`running`) before a chunk
+ * once the deadline has passed. Every order before the cursor is read again
+ * only to count the ones that can't be read; those after it that can't be
+ * are logged by their id and skipped, so one bad order never stops the
+ * import. With the last chunk the cursor reaches the file's order count and
+ * the row keeps the unreadable-orders summary, which is returned.
+ */
+async function writeFile(
+  row: ImportRow,
+  conn: ConnectionContext,
+  body: ReadableStream<Uint8Array>,
+  deadline: number,
+  chunkSize: number,
+): Promise<{ summary: string | null } | "running"> {
+  const current = { id: row.id, importState: "running" as const, importOperationId: row.importOperationId };
+  const unreadable = new Unreadable();
+  let cursor = row.importCursor;
+  let index = 0;
+  let chunk: OrderFacts[] = [];
+  let inChunk = 0;
+  /** Writes the chunk and saves the cursor past it; false when out of time or another poll moved the cursor. */
+  const save = async (data: { importError?: string | null } = {}): Promise<boolean> => {
+    if (Date.now() >= deadline) return false;
+    await ingestImportedOrders(conn, chunk);
+    const next = cursor + inChunk;
+    const { count } = await prisma.connection.updateMany({ where: { ...current, importCursor: cursor }, data: { importCursor: next, ...data } });
+    // Another poll is writing the same file
+    if (count === 0) return false;
+    cursor = next;
+    chunk = [];
+    inChunk = 0;
+    return true;
+  };
+  try {
+    for await (const node of streamBulkOrders(body)) {
+      // A full chunk is written once the next order comes, so the last one is
+      // written below, with the summary
+      if (inChunk >= chunkSize && !(await save())) return "running";
+      // Reading the orders before the cursor takes time too
+      if (index > 0 && index % chunkSize === 0 && Date.now() >= deadline) return "running";
+      const read = unreadable.read(node, conn.currency);
+      if (index >= cursor) {
+        if ("facts" in read) chunk.push(read.facts);
+        else console.error(`[import] Could not read imported order ${read.id ?? "(no id)"} for ${conn.shop}: ${messageOf(read.error)}`);
+        inChunk++;
+      }
+      index++;
+    }
+  } catch (error) {
+    if (error instanceof BulkFileError) throw error;
+    // The read was cut off by the deadline (the fetch's timeout): the next poll carries on
+    if (Date.now() >= deadline) return "running";
+    throw error;
+  }
+  const summary = unreadable.summary(index);
+  if (!(await save({ importError: summary }))) return "running";
+  return { summary };
 }
 
 /**
  * Follow one connection's import until `deadline` (a Date.now() time):
  * - not started: start it (`running`);
  * - Shopify still running the query, or out of time: `running`;
- * - COMPLETED: fetch the file and, from `importCursor`, write its orders
- *   IMPORT_CHUNK at a time, saving the cursor after each chunk and stopping at
- *   the deadline; once all are written, place the buyers in tiers
+ * - COMPLETED: stream the file and, from `importCursor`, write its orders
+ *   `chunkSize` (IMPORT_CHUNK) at a time, saving the cursor after each chunk
+ *   and stopping at the deadline (writeFile). Once all are written (when the
+ *   cursor already equals the file's order count, Shopify's rootObjectCount,
+ *   without downloading it again, A17-F5), place the buyers in tiers
  *   (runTierPass, resolving everyone resolved before now), set `done`,
  *   `importedCount`, and `importError` to how many of the file's orders could
- *   not be read (unreadableSummary; null when none). A tier pass the deadline cuts short is left to the
- *   nightly pass (`tierPassRequestedAt`).
- * - FAILED, CANCELED or EXPIRED (or a file that can't be read): start it
- *   again, up to MAX_IMPORT_RESTARTS times, then `failed` with the error.
+ *   not be read (null when none). A tier pass the deadline cuts short is left
+ *   to the nightly pass (`tierPassRequestedAt`).
+ * - FAILED, CANCELED or EXPIRED (or a file that can't be read, BulkFileError):
+ *   start it again, up to MAX_IMPORT_RESTARTS times, then `failed` with the error.
  * Throws when Shopify or the file can't be reached; the next poll tries again.
  */
-export async function pollImport(admin: GraphqlClient, connectionId: string, deadline: number): Promise<"running" | "done" | "failed"> {
+export async function pollImport(
+  admin: GraphqlClient,
+  connectionId: string,
+  deadline: number,
+  o: { chunkSize?: number } = {},
+): Promise<"running" | "done" | "failed"> {
   const row: ImportRow = await prisma.connection.findUniqueOrThrow({
     where: { id: connectionId },
     select: {
@@ -275,6 +340,7 @@ export async function pollImport(admin: GraphqlClient, connectionId: string, dea
       importCursor: true,
       importAttempts: true,
       importError: true,
+      importFileRefusals: true,
       tierPassRequestedAt: true,
       updatedAt: true,
     },
@@ -304,25 +370,26 @@ export async function pollImport(admin: GraphqlClient, connectionId: string, dea
   // An uninstalled store's import waits for its reinstall
   const conn = await findConnection(row.externalAccountId);
   if (!conn || conn.connectionId !== connectionId) return "running";
-  let nodes: unknown[];
-  try {
-    nodes = typeof operation.url === "string" ? parseBulkLines(await download(operation.url, Math.max(1, deadline - Date.now()))) : [];
-  } catch (error) {
-    if (error instanceof BulkFileError) return restart(admin, row, error.message, timeout());
-    throw error;
-  }
-
   const current = { id: connectionId, importState: "running" as const, importOperationId: row.importOperationId };
-  let cursor = row.importCursor;
-  while (cursor < nodes.length) {
-    if (Date.now() >= deadline) return "running";
-    const chunk = nodes.slice(cursor, cursor + IMPORT_CHUNK);
-    await ingestImportedOrders(conn, chunk.flatMap((node) => readable(node, conn.currency, conn.shop)));
-    const next = cursor + chunk.length;
-    const { count } = await prisma.connection.updateMany({ where: { ...current, importCursor: cursor }, data: { importCursor: next } });
-    // Another poll is writing the same file
-    if (count === 0) return "running";
-    cursor = next;
+  const total = countOf(operation.rootObjectCount);
+  let summary: string | null;
+  if (row.importCursor > 0 && total !== null && row.importCursor >= total) {
+    // Every order is written; its last chunk stored the summary (writeFile)
+    summary = row.importError;
+  } else if (typeof operation.url !== "string") {
+    // The query found no orders
+    summary = null;
+  } else {
+    let written: { summary: string | null } | "running";
+    try {
+      const body = await openFile(row, operation.url, Math.max(1, deadline - Date.now()));
+      written = await writeFile(row, conn, body, deadline, o.chunkSize ?? IMPORT_CHUNK);
+    } catch (error) {
+      if (error instanceof BulkFileError) return restart(admin, row, error.message, timeout());
+      throw error;
+    }
+    if (written === "running") return "running";
+    summary = written.summary;
   }
   if (Date.now() >= deadline) return "running";
 
@@ -335,7 +402,7 @@ export async function pollImport(admin: GraphqlClient, connectionId: string, dea
     data: {
       importState: "done",
       importedCount,
-      importError: unreadableSummary(nodes, conn.currency),
+      importError: summary,
       ...(unfinished
         ? { tierPassRequestedAt: new Date(Math.max(resolvedBefore.getTime(), row.tierPassRequestedAt?.getTime() ?? 0)) }
         : {}),
@@ -348,30 +415,34 @@ export async function pollImport(admin: GraphqlClient, connectionId: string, dea
  * The hourly backstop: poll every active connection whose import is running,
  * through its offline session (unauthenticated.admin, which refreshes an
  * expiring token), until `deadline`. One store failing is logged and never
- * stops the others. Returns how many imports it polled.
+ * stops the others; it is counted in `failed`, with the first error, so the
+ * hourly run is recorded as partial (A17-F3). `polled` counts the polls that
+ * finished.
  */
-export async function pollRunningImports(deadline: number): Promise<number> {
+export async function pollRunningImports(deadline: number): Promise<{ polled: number; failed: number; firstProblem?: unknown }> {
   const running = await prisma.connection.findMany({
     where: { status: "active", importState: "running" },
     orderBy: { id: "asc" },
     select: { id: true, externalAccountId: true },
   });
-  if (running.length === 0) return 0;
+  if (running.length === 0) return { polled: 0, failed: 0 };
   // Loaded here, not at the top: ~/shopify.server imports install.server,
   // which imports this module, and builds the app (checking the Session
   // table) as it loads.
   const { unauthenticated } = await import("../shopify.server");
-  let polled = 0;
+  const result: { polled: number; failed: number; firstProblem?: unknown } = { polled: 0, failed: 0 };
   for (const connection of running) {
     if (Date.now() >= deadline) break;
     const shop = connection.externalAccountId;
     try {
       const { admin } = await unauthenticated.admin(shop);
       await pollImport(admin, connection.id, deadline);
-      polled++;
+      result.polled++;
     } catch (error) {
       console.error(`[import] Could not poll the past-orders import of ${shop}: ${messageOf(error)}`);
+      if (result.failed === 0) result.firstProblem = error instanceof Response ? new Error(`Polling ${shop}'s import: ${messageOf(error)}`) : error;
+      result.failed++;
     }
   }
-  return polled;
+  return result;
 }

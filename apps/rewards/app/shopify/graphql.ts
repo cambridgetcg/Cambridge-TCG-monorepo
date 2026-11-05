@@ -384,16 +384,22 @@ export const RewardsRefundFacts = `#graphql
 `;
 
 /**
- * The paid and partly refunded orders created since a time, newest first, 50
- * to a page, for the hourly sweep of missed orders (rule 13).
+ * The paid, partly refunded and refunded orders updated since a time, most
+ * recently updated first, 50 to a page, for the hourly sweep (rule 13,
+ * Ruling 45): an order no orders/paid recorded (paying updates an order, so
+ * one paid days after it was created is found), and a refund or cancellation
+ * whose webhook never succeeded. Each order's refunds come with their ids and
+ * times, 15 at most: a full list may have more behind it, and the sweep then
+ * reads the order itself.
  * Scopes: read_orders, read_customers. The validator also names read_marketplace_orders and read_quick_sale: those
  * are alternatives to read_orders (returning only orders attributed to the
  * app), not further requirements.
- * Cost: 103 = orders (connection 2, pageInfo 1, 50 × (order 1 + customer 1)).
+ * Cost: 853 = orders (connection 2, pageInfo 1, 50 × (order 1 + customer 1
+ * + refunds 15 × 1)); cancelledAt and the refunds' scalars cost nothing.
  */
-export const RewardsRecentPaidOrders = `#graphql
-  query RewardsRecentPaidOrders($query: String!, $after: String) {
-    orders(first: 50, after: $after, query: $query, sortKey: CREATED_AT, reverse: true) {
+export const RewardsUpdatedOrders = `#graphql
+  query RewardsUpdatedOrders($query: String!, $after: String) {
+    orders(first: 50, after: $after, query: $query, sortKey: UPDATED_AT, reverse: true) {
       pageInfo {
         hasNextPage
         endCursor
@@ -402,8 +408,13 @@ export const RewardsRecentPaidOrders = `#graphql
         id
         test
         createdAt
+        cancelledAt
         customer {
           id
+        }
+        refunds(first: 15) {
+          id
+          createdAt
         }
       }
     }
@@ -476,7 +487,11 @@ export const RewardsAccessScopes = `#graphql
  * bulk refuses a connection inside a list field. The node is therefore read
  * with "quantities" (order-source.server.ts, Ruling 25), and a money-only
  * refund made before the import still counts as spend (a known limit).
- * `search` is Shopify search syntax, embedded as a GraphQL string.
+ * `search` is Shopify search syntax, embedded as a GraphQL string; it is a
+ * created_at range, so the sort key is CREATED_AT (the bulk guide warns a
+ * range search with another sort key can time out; docs check Q4). Shopify
+ * writes each order's line items on the lines right after it, which the
+ * file's reader relies on (bulk-file.ts).
  * Scopes: read_orders, read_customers; read_all_orders for orders older than
  * 60 days. The validator also names read_marketplace_orders and read_quick_sale: those
  * are alternatives to read_orders (returning only orders attributed to the
@@ -487,7 +502,7 @@ export const RewardsAccessScopes = `#graphql
  */
 export function RewardsBulkOrderNodes(search: string): string {
   return `{
-  orders(query: ${JSON.stringify(search)}) {
+  orders(query: ${JSON.stringify(search)}, sortKey: CREATED_AT) {
     edges {
       node {
         id
@@ -571,8 +586,9 @@ export function RewardsBulkOrderNodes(search: string): string {
 /**
  * Starts the past-orders import's bulk query (RewardsBulkOrderNodes's text
  * as `$query`). Shopify runs it in the background; RewardsBulkStatus follows it.
+ * Its `createdAt` is stored as when the import's snapshot began (Ruling 49).
  * Scopes: those of the bulk query itself (see RewardsBulkOrderNodes).
- * Cost: 12 = mutation 10 + bulkOperation 1 + userErrors 1.
+ * Cost: 12 = mutation 10 + bulkOperation 1 + userErrors 1 (createdAt is a scalar).
  */
 export const RewardsBulkOrders = `#graphql
   mutation RewardsBulkOrders($query: String!) {
@@ -580,6 +596,7 @@ export const RewardsBulkOrders = `#graphql
       bulkOperation {
         id
         status
+        createdAt
       }
       userErrors {
         field
@@ -593,7 +610,9 @@ export const RewardsBulkOrders = `#graphql
 /**
  * One bulk operation's progress (Admin API 2026-01 and later), polled by the
  * hourly job and by Home while the import runs. `url` is the signed JSONL
- * file once it is COMPLETED (null when the query found nothing).
+ * file once it is COMPLETED (null when the query found nothing), and
+ * `rootObjectCount` its orders (the line items not counted), so a poll that
+ * finds every order written runs the tier pass without the file (A17-F5).
  * Scopes: none beyond the app's own operation.
  * Cost: 1 (the bulkOperation object; its scalars cost nothing).
  */
@@ -605,6 +624,7 @@ export const RewardsBulkStatus = `#graphql
       errorCode
       url
       objectCount
+      rootObjectCount
     }
   }
 `;

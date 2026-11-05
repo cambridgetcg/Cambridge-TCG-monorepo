@@ -8,9 +8,12 @@
  * (a resumed chunk) or that a webhook or the sweep recorded first is skipped,
  * leaving one row.
  */
+import prisma from "~/db.server";
 import type { ConnectionContext } from "./merchant.server";
 import type { OrderFacts } from "./order-facts";
 import { recordOrder } from "./record-order.server";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The financial statuses of orders the import keeps: paid, in full or with part refunded. */
 const KEPT_STATUSES = new Set(["PAID", "PARTIALLY_REFUNDED"]);
@@ -39,4 +42,22 @@ export async function ingestImportedOrders(conn: ConnectionContext, facts: Order
     else skipped++;
   }
   return { written, skipped };
+}
+
+/**
+ * Whether an order not recorded yet is one the store's import may still
+ * write (Ruling 49, CONCURRENCY-4): it has a buyer, is not a test order, was
+ * created before install and inside the import's horizon, and the import is
+ * not done. A refund of such an order answers 503, so Shopify brings it again
+ * after the chunk with its order is written (and recordRefund then counts it
+ * only if it came after the bulk query began).
+ */
+export async function awaitsImport(conn: ConnectionContext, order: { hasCustomer: boolean; test: boolean; orderedAt: Date }): Promise<boolean> {
+  if (!order.hasCustomer || order.test || order.orderedAt >= conn.installedAt) return false;
+  const connection = await prisma.connection.findUniqueOrThrow({
+    where: { id: conn.connectionId },
+    select: { importState: true, importHorizonDays: true },
+  });
+  const horizon = conn.installedAt.getTime() - connection.importHorizonDays * DAY_MS;
+  return connection.importState !== "done" && order.orderedAt.getTime() >= horizon;
 }

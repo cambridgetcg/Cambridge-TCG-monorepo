@@ -21,10 +21,16 @@
  *   with the error the route passed to cronFailed;
  * - sends a run that finished with problems (cronProblems) to Sentry as a
  *   warning;
- * - tells Sentry once when another job has stopped finishing its runs;
- * - checks in to Sentry Crons for the jobs SENTRY_CRON_MONITORS names
- *   ("true" for all). Sentry includes one cron monitor per plan and bills the
- *   others, so it stays off until the owner turns it on.
+ * - at its start, tells Sentry and the log when this job's own last run
+ *   started but never finished and is past RUN_CEILING_MS (Vercel stopped
+ *   it), so a killed run is noticed within the job's next run (Ruling 47);
+ * - tells Sentry once when another job has stopped finishing its runs, and
+ *   logs it every run while Sentry is off;
+ * - checks in to Sentry Crons for the jobs REWARDS_SENTRY_CRON_MONITORS names
+ *   ("true" for all; unset is off). The rebuild's own setting: the old app's
+ *   SENTRY_CRON_MONITORS, shared in the one Vercel project, names none of
+ *   these jobs and is ignored. Sentry includes one cron monitor per plan and
+ *   bills the others, so it stays off until the owner sets it at the switch.
  */
 import type { PrismaClient } from "@prisma/client";
 import * as crypto from "node:crypto";
@@ -145,6 +151,11 @@ const ERROR_MESSAGE_LENGTH = 500;
 const STALE_MARGIN_MS = 15 * MINUTE;
 // A scheduled run starts within its minute; one starting over 5 minutes after its slot was started by hand
 const ON_SCHEDULE_MS = 5 * MINUTE;
+/**
+ * Every job's budget: no run lives past its route's maxDuration of 300 s, so
+ * a run started longer ago that never recorded an outcome was stopped.
+ */
+export const RUN_CEILING_MS = 300 * 1000;
 
 /** How often a schedule runs: hourly ("M * * * *"), daily ("M H * * *") or weekly ("M H * * D"). */
 export function scheduleInterval(schedule: string): number {
@@ -237,9 +248,9 @@ function monitorConfig(job: CronJob) {
   };
 }
 
-// SENTRY_CRON_MONITORS: "true" for every job, or the jobs to monitor, comma-separated
+// REWARDS_SENTRY_CRON_MONITORS: "true" for every job, or the jobs to monitor, comma-separated
 function sentryMonitors(job: CronJob): boolean {
-  const setting = process.env.SENTRY_CRON_MONITORS?.trim();
+  const setting = process.env.REWARDS_SENTRY_CRON_MONITORS?.trim();
   if (!setting) return false;
   return setting === "true" || setting.split(",").some((name) => name.trim() === job);
 }
@@ -257,14 +268,39 @@ async function reportStoppedCrons(current: CronJob, now: Date) {
       if (job === current || !health.stale) continue;
       const finished = Math.max(Date.parse(health.lastSucceededAt ?? "") || 0, Date.parse(health.lastPartialAt ?? "") || 0);
       if (health.staleReportedAt && Date.parse(health.staleReportedAt) > finished) continue;
-      const sent = monitoring.captureMessage(`Cron ${job} has not finished a run within twice its schedule`, "warning", {
+      const message = `Cron ${job} has not finished a run within twice its schedule`;
+      const sent = monitoring.captureMessage(message, "warning", {
         tags: { "cron.job": job, "cron.stale": "true" },
         extra: { ...health },
       });
       if (sent) await record(job, "stale", now);
+      // Without Sentry the log is the only place it shows, every run until the job runs again
+      else console.warn(`[cron] ${message}`);
     }
   } catch (error) {
     console.error("[cron] Could not check the other jobs:", error instanceof Error ? error.message : String(error));
+  }
+}
+
+/**
+ * Tells Sentry and the log about this job's own last run when it started,
+ * never recorded an outcome, and started over RUN_CEILING_MS before `now`:
+ * Vercel stopped it. Called at a run's start, before it records its own
+ * start, so each such run is reported once, by the job's next run. It never
+ * fails the job.
+ */
+async function reportKilledRun(job: CronJob, now: Date) {
+  try {
+    const rows = await prisma.cronRun.findMany({ where: { job }, select: { outcome: true, startedAt: true } });
+    const started = rows.find((row) => row.outcome === "started")?.startedAt;
+    if (!started || now.getTime() - started.getTime() <= RUN_CEILING_MS) return;
+    const ended = rows.some((row) => ["succeeded", "partial", "failed"].includes(row.outcome) && row.startedAt.getTime() >= started.getTime());
+    if (ended) return;
+    const message = `Cron ${job} did not finish its run started at ${started.toISOString()}`;
+    console.warn(`[cron] ${message}`);
+    monitoring.captureMessage(message, "warning", { tags: { "cron.job": job, "cron.killed": "true" }, extra: { startedAt: started.toISOString() } });
+  } catch (error) {
+    console.error(`[cron] Could not check ${job}'s last run:`, error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -282,6 +318,7 @@ export function monitoredCron<A extends { request: Request }>(
     if (!verifyCronAuth(request) || new URL(request.url).search) return run(args);
 
     const startedAt = new Date();
+    await reportKilledRun(job, startedAt);
     const checkInId =
       monitoring.enabled() && sentryMonitors(job)
         ? monitoring.captureCheckIn({ monitorSlug: monitorSlug(job), status: "in_progress" }, monitorConfig(job))

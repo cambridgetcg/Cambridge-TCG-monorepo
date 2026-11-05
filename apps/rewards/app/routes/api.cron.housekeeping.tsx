@@ -9,8 +9,11 @@
  * 4. every store whose refresh token runs out within 14 days is reached
  *    through unauthenticated.admin, which refreshes its expiring token, and
  *    the token is proven with RewardsTokenPing (plan Decision 12). One that
- *    fails is a problem; the others carry on.
- * Answers 200 with what it did; a run with a failed store is partial.
+ *    fails is a problem; the others carry on. No store is reached once the
+ *    run's 240 s budget has passed (Vercel stops a function at 300 s); the
+ *    stores left wait for the next night, and are counted (A15-F1).
+ * Answers 200 with what it did; a run with a failed store, or stores left, is
+ * partial.
  */
 import type { LoaderFunctionArgs } from "react-router";
 import prisma from "~/db.server";
@@ -22,6 +25,7 @@ import { unauthenticated } from "../shopify.server";
 export const config = { maxDuration: 300 };
 
 const LOCK_TTL_MINUTES = 15;
+const RUN_TIME_BUDGET_MS = 240 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 const ONLINE_SESSION_GRACE_MS = 24 * HOUR_MS;
@@ -38,7 +42,7 @@ async function pingStore(shop: string): Promise<void> {
   if (typeof body?.data?.shop?.id !== "string") throw new Error("RewardsTokenPing answered without the shop's id");
 }
 
-async function housekeeping(now: Date) {
+async function housekeeping(now: Date, deadline: number) {
   const locksCleared = await cleanupExpiredLocks();
 
   const { count: reportsExpired } = await prisma.privacyRequest.updateMany({
@@ -58,7 +62,10 @@ async function housekeeping(now: Date) {
   });
   let problems = 0;
   let firstProblem: unknown;
+  let tokensChecked = 0;
   for (const { shop } of expiring) {
+    if (Date.now() >= deadline) break;
+    tokensChecked++;
     try {
       await pingStore(shop);
     } catch (error) {
@@ -68,17 +75,18 @@ async function housekeeping(now: Date) {
     }
   }
 
-  return { locksCleared, reportsExpired, sessionsDeleted, tokensChecked: expiring.length, problems, firstProblem };
+  return { locksCleared, reportsExpired, sessionsDeleted, tokensChecked, storesLeft: expiring.length - tokensChecked, problems, firstProblem };
 }
 
 export const loader = monitoredCron("housekeeping", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) return new Response("Unauthorized", { status: 401 });
 
   const now = new Date();
-  const result = await withCronLock("housekeeping", LOCK_TTL_MINUTES, () => housekeeping(now));
+  const result = await withCronLock("housekeeping", LOCK_TTL_MINUTES, () => housekeeping(now, now.getTime() + RUN_TIME_BUDGET_MS));
   if (result === "locked") return Response.json({ success: true, skipped: true, reason: "locked" });
 
   const { firstProblem, ...summary } = result;
-  cronProblems(request, summary.problems, firstProblem);
+  const left = summary.storesLeft > 0 ? new Error(`${summary.storesLeft} stores' tokens were not checked before the deadline`) : undefined;
+  cronProblems(request, summary.problems + summary.storesLeft, firstProblem ?? left);
   return Response.json({ success: true, ...summary, durationMs: Date.now() - now.getTime() });
 });

@@ -6,10 +6,13 @@ import { acquireCronLock } from "~/lib/cron.server";
 import { type ConnectionContext, ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
 import type { MoneyPair, OrderFacts } from "~/lib/order-facts";
+import { runPayoutCheck } from "~/lib/payout-check.server";
 import { KEEP_TRYING_MS, sendPayout } from "~/lib/payouts.server";
-import type { PayoutRail } from "~/lib/ports";
+import type { OrderSource, PayoutRail, UpdatedOrder } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
+import { monitoring } from "~/lib/telemetry.server";
 import plain from "../fixtures/orders/plain.json";
+import refundMoneyOnly from "../fixtures/orders/refund-money-only.json";
 import { server } from "../setup";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
 import {
@@ -40,7 +43,14 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-type RecentOrder = { id: string; test: boolean; createdAt: string; customer: { id: string } | null };
+type RecentOrder = {
+  id: string;
+  test: boolean;
+  createdAt: string;
+  cancelledAt: string | null;
+  customer: { id: string } | null;
+  refunds: Array<{ id: string; createdAt: string }>;
+};
 
 function pair(amount: string): MoneyPair {
   return { amount: new Money(amount), shopAmount: new Money(amount) };
@@ -99,13 +109,13 @@ const unclearRail: PayoutRail = {
 };
 
 /**
- * Answer the sweep's RewardsRecentPaidOrders for `shop` with `orders` (one
+ * Answer the sweep's RewardsUpdatedOrders for `shop` with `orders` (one
  * page). Returns the search queries it was asked.
  */
 function mockRecentPaidOrders(shop: string, orders: RecentOrder[] = []): string[] {
   const queries: string[] = [];
   server.use(
-    graphql.link(adminGraphqlUrl(shop)).query("RewardsRecentPaidOrders", ({ variables }) => {
+    graphql.link(adminGraphqlUrl(shop)).query("RewardsUpdatedOrders", ({ variables }) => {
       queries.push(String(variables.query));
       return HttpResponse.json({ data: { orders: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: orders } } });
     }),
@@ -113,20 +123,48 @@ function mockRecentPaidOrders(shop: string, orders: RecentOrder[] = []): string[
   return queries;
 }
 
-/** The plain £50 order (£2.50 at 5%) as Shopify reads it, created an hour ago, numbered `n`. */
-function plainOrder(n: number): FixtureAnswer {
+/**
+ * The plain £50 order (£2.50 at 5%) as Shopify reads it, created an hour ago
+ * (or `createdAgo`), numbered `n`, with the ids of `refunds` on it.
+ */
+function plainOrder(n: number, o: { createdAgo?: number; refunds?: string[] } = {}): FixtureAnswer {
   const answer = structuredClone(plain) as FixtureAnswer;
-  const at = new Date(Date.now() - HOUR).toISOString();
-  Object.assign(answer.data.order as object, { id: `gid://shopify/Order/${n}`, name: `#${n}`, createdAt: at, processedAt: at });
+  const at = new Date(Date.now() - (o.createdAgo ?? HOUR)).toISOString();
+  Object.assign(answer.data.order as object, {
+    id: `gid://shopify/Order/${n}`,
+    name: `#${n}`,
+    createdAt: at,
+    processedAt: at,
+    refunds: (o.refunds ?? []).map((id) => ({ id })),
+  });
   return answer;
 }
 
-const recent = (n: number, o: { test?: boolean; guest?: boolean; buyer?: string } = {}): RecentOrder => ({
+/** A refund of order `n` of £`amount` of money (no items, no shipping), made `madeAgo` ago. */
+function moneyRefund(id: string, n: number, amount: string, madeAgo = 30 * MINUTE): FixtureAnswer {
+  const answer = structuredClone(refundMoneyOnly) as FixtureAnswer;
+  Object.assign(answer.data.refund as object, {
+    id,
+    createdAt: new Date(Date.now() - madeAgo).toISOString(),
+    order: { id: `gid://shopify/Order/${n}` },
+    transactions: { nodes: [{ kind: "REFUND", status: "SUCCESS", amountSet: { shopMoney: { amount }, presentmentMoney: { amount } } }] },
+  });
+  return answer;
+}
+
+const recent = (
+  n: number,
+  o: { test?: boolean; guest?: boolean; buyer?: string; createdAgo?: number; cancelledAt?: Date; refunds?: Array<{ id: string; madeAgo?: number }> } = {},
+): RecentOrder => ({
   id: `gid://shopify/Order/${n}`,
   test: o.test ?? false,
-  createdAt: new Date(Date.now() - HOUR).toISOString(),
+  createdAt: new Date(Date.now() - (o.createdAgo ?? HOUR)).toISOString(),
+  cancelledAt: o.cancelledAt?.toISOString() ?? null,
   customer: o.guest ? null : { id: `gid://shopify/Customer/${o.buyer ?? BUYER}` },
+  refunds: (o.refunds ?? []).map((r) => ({ id: r.id, createdAt: new Date(Date.now() - (r.madeAgo ?? 30 * MINUTE)).toISOString() })),
 });
+
+const cronRow = (outcome: string) => prisma.cronRun.findUnique({ where: { job_outcome: { job: "payouts", outcome } } });
 
 const payout = (id: string) => prisma.payout.findUniqueOrThrow({ where: { id } });
 
@@ -155,6 +193,9 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
     await resetDatabase();
     process.env.CRON_SECRET = CRON_SECRET;
     vi.mocked(console.log).mockClear();
+    // A payout the run leaves not sent is logged by its id (Ruling 46); the tests that read the lines spy again
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(console.error).mockClear();
   });
 
   afterAll(async () => {
@@ -208,7 +249,7 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
     mockRecentPaidOrders(SHOP);
 
     const before = Date.now();
-    await run();
+    await expect(run()).resolves.toMatchObject({ body: { sent: 0, problems: 1 } });
     const waiting = await payout(id);
     expect(waiting).toMatchObject({ state: "pending", attempts: 1, lastError: "THROTTLED" });
     // The first retry waits an hour (plan Decision 3)
@@ -226,6 +267,29 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
 
     expect(calls).toHaveLength(1);
     await expect(payout(id)).resolves.toMatchObject({ state: "needs_look", lookReason: "kept_failing", attempts: 1 });
+  });
+
+  it("counts every credit Shopify turned away as a problem, so the run is partial and monitoring is told (Ruling 46)", async () => {
+    const conn = await runningShop();
+    const first = await pendingCredit(conn, 5001, { minutesAgo: 20 });
+    await pendingCredit(conn, 5002, { minutesAgo: 10, buyer: "7002" });
+    mockStoreCredit(SHOP, { [BUYER]: "0", "7002": "0" }, { throttled: 2 });
+    mockRecentPaidOrders(SHOP);
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warning = vi.spyOn(monitoring, "captureMessage").mockReturnValue(true);
+
+    await expect(run()).resolves.toMatchObject({ status: 200, body: { success: true, sent: 0, problems: 2 } });
+
+    // Recorded as partial, with the first payout's code, and not as succeeded
+    await expect(cronRow("partial")).resolves.toMatchObject({ errorMessage: "2 failed; first: THROTTLED" });
+    await expect(cronRow("succeeded")).resolves.toBeNull();
+    expect(warning).toHaveBeenCalledWith("Cron payouts finished with problems", "warning", expect.objectContaining({ extra: { problems: 2, firstProblem: "THROTTLED" } }));
+    // One line per failed send: the payout id and the code, nothing about the buyer
+    const logged = errors.mock.calls.map((args) => args.join(" "));
+    expect(logged).toEqual([expect.stringContaining(first), expect.any(String)]);
+    expect(logged.every((line) => line.includes("THROTTLED") && !/7001|7002|Customer/.test(line))).toBe(true);
+    errors.mockRestore();
+    warning.mockRestore();
   });
 
   describe("payouts Shopify never confirmed", () => {
@@ -263,7 +327,8 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
       const calls = mockStoreCredit(SHOP, balances, { history });
       mockRecentPaidOrders(SHOP);
 
-      await expect(run()).resolves.toMatchObject({ body: { settled: 1, sent: 1 } });
+      // Sent again after it was found not landed: no problem
+      await expect(run()).resolves.toMatchObject({ body: { settled: 1, sent: 1, problems: 0 } });
       await run();
 
       expect(calls).toEqual([{ operation: "credit", customerId: BUYER, amount: "2.50", currency: "GBP" }]);
@@ -282,8 +347,9 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
       history.credits.push({ ...history.credits[0], id: "gid://shopify/StoreCreditAccountCreditTransaction/999" });
       await backdateClaim(id, 60, history);
 
-      await expect(run()).resolves.toMatchObject({ body: { settled: 1, needsLook: 1 } });
-      await expect(run()).resolves.toMatchObject({ body: { settled: 0, needsLook: 0 } });
+      // Needing a look is a problem of the run
+      await expect(run()).resolves.toMatchObject({ body: { settled: 1, needsLook: 1, problems: 1 } });
+      await expect(run()).resolves.toMatchObject({ body: { settled: 0, needsLook: 0, problems: 0 } });
 
       expect(history.reads).toBe(1);
       expect(calls).toHaveLength(1);
@@ -382,9 +448,10 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
 
       const { status, body } = await run();
 
-      // A finished run with a problem: the monitor records it as partial
+      // A finished run with problems (the store, and its payout not sent): the monitor records it as partial
       expect(status).toBe(200);
-      expect(body).toMatchObject({ sent: 1, problems: 1 });
+      expect(body).toMatchObject({ sent: 1, problems: 2 });
+      await expect(cronRow("partial")).resolves.toMatchObject({ errorMessage: expect.stringMatching(/^2 failed; first: Error: The store of connection/) });
       expect(calls.map((c) => c.amount)).toEqual(["2.50"]);
       await expect(payout(due)).resolves.toMatchObject({ state: "sent" });
       // Counted as a failed try: it waits its backoff, so it can't hold the queue
@@ -411,7 +478,7 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
 
       // Only the missed order with a buyer, not a test, is read
       expect(facts.reads).toEqual(["gid://shopify/Order/5001"]);
-      const since = new Date(/created_at:>='([^']+)'/.exec(queries[0])![1]).getTime();
+      const since = new Date(/updated_at:>='([^']+)'/.exec(queries[0])![1]).getTime();
       expect(since).toBeGreaterThanOrEqual(before - 3 * DAY - MINUTE);
       expect(since).toBeLessThanOrEqual(before - 3 * DAY + MINUTE);
       const order = await prisma.order.findUniqueOrThrow({
@@ -433,7 +500,7 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
       await run();
 
       expect(queries).toEqual([
-        `created_at:>='${connection.installedAt.toISOString()}' AND (financial_status:paid OR financial_status:partially_refunded)`,
+        `updated_at:>='${connection.installedAt.toISOString()}' AND (financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded)`,
       ]);
     });
 
@@ -455,6 +522,167 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
         { externalOrderId: "gid://shopify/Order/5002" },
       ]);
       errors.mockRestore();
+    });
+
+    it("records an order created 5 days ago and paid today", async () => {
+      await runningShop();
+      mockRecentPaidOrders(SHOP, [recent(5001, { createdAgo: 5 * DAY })]);
+      const order = plainOrder(5001, { createdAgo: 5 * DAY });
+      for (const tx of (order.data.order as { transactions: Array<Record<string, unknown>> }).transactions) {
+        tx.processedAt = new Date(Date.now() - HOUR).toISOString();
+      }
+      mockOrderFacts(SHOP, { orders: [order] });
+      const calls = mockStoreCredit(SHOP, { [BUYER]: "0" });
+
+      await expect(run()).resolves.toMatchObject({ body: { swept: 1, sent: 1, problems: 0 } });
+
+      expect(calls.map((c) => c.amount)).toEqual(["2.50"]);
+      await expect(prisma.order.findFirstOrThrow()).resolves.toMatchObject({ noCashbackReason: null });
+    });
+
+    it("records a fully refunded order no webhook recorded, with nothing to send (Ruling 24)", async () => {
+      await runningShop();
+      const queries = mockRecentPaidOrders(SHOP, [recent(5001, { refunds: [{ id: "gid://shopify/Refund/6301" }] })]);
+      mockOrderFacts(SHOP, {
+        orders: [plainOrder(5001, { refunds: ["gid://shopify/Refund/6301"] })],
+        refunds: [moneyRefund("gid://shopify/Refund/6301", 5001, "50.0")],
+      });
+      const calls = mockStoreCredit(SHOP, { [BUYER]: "0" });
+
+      await expect(run()).resolves.toMatchObject({ body: { swept: 1, sent: 0, problems: 0 } });
+
+      expect(queries[0]).toContain("financial_status:refunded");
+      expect(calls).toEqual([]);
+      const credit = await prisma.payout.findFirstOrThrow({ where: { direction: "credit" } });
+      expect(credit).toMatchObject({ state: "nothing_to_send" });
+      await expect(prisma.refund.count()).resolves.toBe(1);
+    });
+  });
+
+  describe("the backstop for refunds and cancellations (Ruling 45)", () => {
+    it("takes back the cashback of a refund whose webhook never came, once", async () => {
+      const conn = await runningShop();
+      const credit = await pendingCredit(conn, 5001, { minutesAgo: 30 });
+      const balances = { [BUYER]: "0" };
+      const calls = mockStoreCredit(SHOP, balances);
+      mockRecentPaidOrders(SHOP);
+      await run();
+      await expect(payout(credit)).resolves.toMatchObject({ state: "sent" });
+
+      // The merchant refunded £20 of it; refunds/create failed all of Shopify's retries
+      const REFUND = "gid://shopify/Refund/6302";
+      mockRecentPaidOrders(SHOP, [recent(5001, { refunds: [{ id: REFUND }] })]);
+      const reads = mockOrderFacts(SHOP, {
+        orders: [plainOrder(5001, { refunds: [REFUND] })],
+        refunds: [moneyRefund(REFUND, 5001, "20.0")],
+      });
+
+      await expect(run()).resolves.toMatchObject({ body: { refundsSwept: 1, problems: 0 } });
+
+      const reversal = await prisma.ledgerEntry.findFirstOrThrow({ where: { kind: "reversal" }, include: { payout: true } });
+      // £20 of £50: 2/5 of the £2.50, waiting for the next run's sends
+      expect(reversal.amount.toFixed(2)).toBe("-1.00");
+      expect(reversal.payout).toMatchObject({ direction: "debit", state: "pending" });
+      expect(reads.reads).toContain(REFUND);
+
+      // A second run finds the refund recorded and changes nothing
+      const readsBefore = reads.reads.length;
+      await expect(run()).resolves.toMatchObject({ body: { refundsSwept: 0, problems: 0 } });
+      expect(reads.reads).toHaveLength(readsBefore);
+      await expect(prisma.ledgerEntry.count({ where: { kind: "reversal" } })).resolves.toBe(1);
+      await expect(prisma.refund.count()).resolves.toBe(1);
+      expect(calls.filter((c) => c.operation === "debit")).toEqual([]);
+    });
+
+    it("marks a recorded order cancelled in Shopify, whose orders/cancelled never came", async () => {
+      const conn = await runningShop();
+      await pendingCredit(conn, 5001, { minutesAgo: 0 });
+      const cancelledAt = new Date(Date.now() - 20 * MINUTE);
+      mockRecentPaidOrders(SHOP, [recent(5001, { cancelledAt })]);
+      mockStoreCredit(SHOP, { [BUYER]: "0" });
+
+      await expect(run()).resolves.toMatchObject({ body: { cancelledSwept: 1, problems: 0 } });
+
+      await expect(prisma.order.findFirstOrThrow()).resolves.toMatchObject({ cancelledAt });
+      await expect(run()).resolves.toMatchObject({ body: { cancelledSwept: 0 } });
+    });
+
+    it("reads the order itself when the listing's refunds may be cut short", async () => {
+      const conn = await runningShop();
+      await pendingCredit(conn, 5001, { minutesAgo: 0 });
+      const REFUND = "gid://shopify/Refund/6303";
+      const listed = recent(5001);
+      listed.refunds = Array.from({ length: 15 }, (_, n) => ({ id: `gid://shopify/Refund/${8000 + n}`, createdAt: new Date().toISOString() }));
+      mockRecentPaidOrders(SHOP, [listed]);
+      const reads = mockOrderFacts(SHOP, { orders: [plainOrder(5001, { refunds: [REFUND] })], refunds: [moneyRefund(REFUND, 5001, "20.0")] });
+      mockStoreCredit(SHOP, { [BUYER]: "0" });
+
+      await expect(run()).resolves.toMatchObject({ body: { refundsSwept: 1, problems: 0 } });
+
+      expect(reads.reads[0]).toBe("gid://shopify/Order/5001");
+      await expect(prisma.refund.findFirstOrThrow()).resolves.toMatchObject({ externalRefundId: REFUND });
+    });
+
+    it("leaves an imported order's refunds from before the import began to the file's quantities", async () => {
+      const conn = await runningShop();
+      const importOrder = { ...orderFacts(5001), orderedAt: new Date(Date.now() - 30 * DAY), paidAt: new Date(Date.now() - 30 * DAY) };
+      await expect(recordOrder(conn, importOrder, "import")).resolves.toMatchObject({ status: "recorded" });
+      const began = new Date(Date.now() - 9 * DAY);
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { importStartedAt: began, importState: "done" } });
+      const BEFORE = "gid://shopify/Refund/6304";
+      const AFTER = "gid://shopify/Refund/6305";
+      mockRecentPaidOrders(SHOP, [recent(5001, { refunds: [{ id: BEFORE, madeAgo: 9.5 * DAY }, { id: AFTER, madeAgo: HOUR }] })]);
+      const order = plainOrder(5001, { createdAgo: 30 * DAY, refunds: [BEFORE, AFTER] });
+      const reads = mockOrderFacts(SHOP, {
+        orders: [order],
+        refunds: [moneyRefund(BEFORE, 5001, "10.0", 9.5 * DAY), moneyRefund(AFTER, 5001, "5.0", HOUR)],
+      });
+      mockStoreCredit(SHOP, { [BUYER]: "0" });
+
+      await expect(run()).resolves.toMatchObject({ body: { refundsSwept: 1, problems: 0 } });
+
+      // Only the refund made after the bulk query began is recorded and counted
+      // (the earlier one is read only to value the later against it)
+      expect(reads.reads[0]).toBe(AFTER);
+      const row = await prisma.order.findFirstOrThrow();
+      expect(row.shopRefundedProductAmount.toFixed(2)).toBe("5.00");
+      await expect(prisma.refund.findMany({ select: { externalRefundId: true } })).resolves.toEqual([{ externalRefundId: AFTER }]);
+    });
+  });
+
+  describe("the sweep's turn (OPERATIONS-6)", () => {
+    const rail = { credit: vi.fn(), debit: vi.fn(), balance: vi.fn(), creditHistory: vi.fn() } as unknown as PayoutRail;
+
+    it("sweeps the store least recently swept first, so two short runs reach two stores, and reports the one it can't reach", async () => {
+      const a = await runningShop(SHOP, { session: false });
+      const b = await runningShop(OTHER_SHOP, { session: false });
+      const swept: string[] = [];
+      let deadline = 0;
+      /** A listing that takes until the run's deadline has passed. */
+      const slowOrders = (shop: string): OrderSource => ({
+        readOrder: async () => null,
+        readRefund: async () => null,
+        recentlyUpdatedOrders: async (): Promise<UpdatedOrder[]> => {
+          swept.push(shop);
+          await new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now()) + 5));
+          return [];
+        },
+      });
+      const railFor = async (connectionId: string) => ({ rail, orders: slowOrders(connectionId === a.connectionId ? SHOP : OTHER_SHOP) });
+
+      deadline = Date.now() + 50;
+      const first = await runPayoutCheck({ now: new Date(), railFor, deadline });
+      deadline = Date.now() + 50;
+      const second = await runPayoutCheck({ now: new Date(), railFor, deadline });
+
+      expect(new Set(swept)).toEqual(new Set([SHOP, OTHER_SHOP]));
+      expect(swept).toHaveLength(2);
+      // The store left for the next run is unfinished, and a problem
+      expect(first).toMatchObject({ unfinished: 1, problems: 1 });
+      expect(second).toMatchObject({ unfinished: 1, problems: 1 });
+      const stamped = await prisma.connection.findMany({ select: { id: true, lastSweptAt: true } });
+      expect(stamped.every((c) => c.lastSweptAt !== null)).toBe(true);
+      expect([a.connectionId, b.connectionId].sort()).toEqual(stamped.map((c) => c.id).sort());
     });
   });
 

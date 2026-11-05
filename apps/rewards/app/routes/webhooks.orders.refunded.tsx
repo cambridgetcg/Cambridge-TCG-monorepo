@@ -8,7 +8,9 @@
  *   again, while orders/paid may still record it: the order has a buyer, is
  *   not a test order, and became paid within Shopify's ~4 h of retries
  *   (mayStillBeRecorded, Ruling 43: from its latest successful sale or
- *   capture, which can be long after it was created). Otherwise 200 (a
+ *   capture, which can be long after it was created). It answers 503 too
+ *   for a past order the store's import has not written yet (awaitsImport,
+ *   Ruling 49), so the refund lands after its order. Otherwise 200 (a
  *   guest's order, or one past the window, which the hourly sweep records
  *   with its refunds).
  * - A credit being sent right now answers 503 (RefundRetryLater).
@@ -20,6 +22,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { findConnection } from "~/lib/merchant.server";
 import { sendPayout } from "~/lib/payouts.server";
+import { awaitsImport } from "~/lib/import.server";
 import { RefundRetryLater, mayStillBeRecorded, recordRefund } from "~/lib/refunds.server";
 import { resolveTier } from "~/lib/tiers.server";
 import { waitUntil } from "~/lib/wait-until.server";
@@ -83,7 +86,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         orders.readOrder(orderGid, { deadline }),
       );
       if (order instanceof Response) return order;
-      if (order !== null && mayStillBeRecorded({ hasCustomer: order.externalCustomerId !== null, test: order.test, paidAt: order.paidAt })) {
+      const facts = order && { hasCustomer: order.externalCustomerId !== null, test: order.test, paidAt: order.paidAt, orderedAt: order.orderedAt };
+      if (facts && (mayStillBeRecorded(facts) || (await awaitsImport(conn, facts)))) {
         console.log(`[refunds/create] Order ${read.orderGid} for ${shop} is not recorded yet; Shopify will deliver refund ${refundGid} again`);
         return new Response(null, { status: 503 });
       }

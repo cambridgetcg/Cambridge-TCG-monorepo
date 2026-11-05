@@ -10,7 +10,6 @@
  * import's start: two more calls.
  */
 import type { AdminApiContext, Session } from "@shopify/shopify-app-react-router/server";
-import prisma from "~/db.server";
 import { ensureMerchant } from "~/lib/merchant.server";
 import { startImport } from "./bulk-import.server";
 import { RewardsShopDetails } from "./graphql";
@@ -39,14 +38,14 @@ function shopDetailsFrom(body: unknown): ShopDetails {
  * with no operation) is started again by a later poll. The library's re-auth
  * redirect passes on.
  */
-async function startPastOrders(admin: AdminApiContext, connectionId: string, shop: string): Promise<void> {
-  const connection = await prisma.connection.findUniqueOrThrow({
-    where: { id: connectionId },
-    select: { importState: true, installedAt: true },
-  });
+async function startPastOrders(
+  admin: AdminApiContext,
+  connection: { connectionId: string; importState: string; installedAt: Date },
+  shop: string,
+): Promise<void> {
   if (connection.importState !== "not_started") return;
   try {
-    await startImport(admin, connectionId, connection.installedAt);
+    await startImport(admin, connection.connectionId, connection.installedAt);
   } catch (error) {
     if (error instanceof Response) throw error;
     console.error(`[install] Could not start the past-orders import for ${shop}:`, error instanceof Error ? error.message : String(error));
@@ -57,13 +56,13 @@ export async function onAppOpened({ session, admin }: { session: Session; admin:
   try {
     const response = await admin.graphql(RewardsShopDetails);
     const shop = shopDetailsFrom(await response.json());
-    const { connectionId } = await ensureMerchant({
+    const connection = await ensureMerchant({
       shop: session.shop,
       name: shop.name,
       currency: shop.currencyCode,
       timezone: shop.ianaTimezone,
     });
-    await startPastOrders(admin, connectionId, session.shop);
+    await startPastOrders(admin, connection, session.shop);
   } catch (error) {
     // The library answers a failed afterAuth with a bare 500 and logs
     // nothing, so the cause is logged here before the open fails. A thrown

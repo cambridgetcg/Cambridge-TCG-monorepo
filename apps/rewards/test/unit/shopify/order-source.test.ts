@@ -5,9 +5,9 @@ import {
   RewardsOrderFacts,
   RewardsOrderTransactions,
   RewardsOrderTransactionsCost,
-  RewardsRecentPaidOrders,
   RewardsRefundFacts,
   RewardsRefundFactsCost,
+  RewardsUpdatedOrders,
   type GraphqlClient,
 } from "~/shopify/graphql";
 import {
@@ -25,8 +25,6 @@ import giftCardLine from "../../fixtures/orders/gift-card-line.json";
 import giftCardTender from "../../fixtures/orders/gift-card-tender.json";
 import jpy from "../../fixtures/orders/jpy.json";
 import plain from "../../fixtures/orders/plain.json";
-import recentPaid1 from "../../fixtures/orders/recent-paid-1.json";
-import recentPaid2 from "../../fixtures/orders/recent-paid-2.json";
 import refundEditedItems from "../../fixtures/orders/refund-edited-items.json";
 import refundInFullUsd from "../../fixtures/orders/refund-in-full-usd.json";
 import refundItems from "../../fixtures/orders/refund-items.json";
@@ -44,6 +42,8 @@ import taxInclusiveGbp from "../../fixtures/orders/tax-inclusive-gbp.json";
 import taxedShippingUsd from "../../fixtures/orders/taxed-shipping-usd.json";
 import testOrder from "../../fixtures/orders/test-order.json";
 import tip from "../../fixtures/orders/tip.json";
+import updatedOrders1 from "../../fixtures/orders/updated-orders-1.json";
+import updatedOrders2 from "../../fixtures/orders/updated-orders-2.json";
 
 type Answer = { data: Record<string, unknown> };
 type Route = (query: string, variables: Record<string, unknown>) => unknown;
@@ -866,42 +866,71 @@ describe("factsFromOrderNode (shared with the import)", () => {
   });
 });
 
-describe("recentPaidOrders (the hourly sweep's candidates)", () => {
+describe("recentlyUpdatedOrders (the hourly sweep's candidates)", () => {
   const since = new Date("2026-11-01T09:00:00.000Z");
+  const query =
+    "updated_at:>='2026-11-01T09:00:00.000Z' AND (financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded)";
 
-  it("pages the paid and partly refunded orders created since then", async () => {
-    const client = shopify((_query, variables) => (variables.after ? recentPaid2 : recentPaid1));
+  it("pages the paid, partly and fully refunded orders updated since then, with their refunds and cancellation", async () => {
+    const client = shopify((_query, variables) => (variables.after ? updatedOrders2 : updatedOrders1));
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const orders = await createShopifyOrderSource(client).recentPaidOrders(since);
+    const orders = await createShopifyOrderSource(client).recentlyUpdatedOrders(since);
 
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
-    const query = "created_at:>='2026-11-01T09:00:00.000Z' AND (financial_status:paid OR financial_status:partially_refunded)";
     expect(client.graphql.mock.calls.map(([document, options]) => [document, options?.variables])).toEqual([
-      [RewardsRecentPaidOrders, { query, after: null }],
-      [RewardsRecentPaidOrders, { query, after: recentPaid1.data.orders.pageInfo.endCursor }],
+      [RewardsUpdatedOrders, { query, after: null }],
+      [RewardsUpdatedOrders, { query, after: updatedOrders1.data.orders.pageInfo.endCursor }],
     ]);
+    const order = { cancelledAt: null, refunds: [] };
     expect(orders).toEqual([
-      { orderGid: "gid://shopify/Order/5001", hasCustomer: true, test: false, orderedAt: new Date("2026-11-02T10:15:00Z") },
-      { orderGid: "gid://shopify/Order/5010", hasCustomer: false, test: true, orderedAt: new Date("2026-11-02T11:00:00Z") },
-      { orderGid: "gid://shopify/Order/5011", hasCustomer: true, test: false, orderedAt: new Date("2026-11-02T12:30:00Z") },
+      { ...order, orderGid: "gid://shopify/Order/5001", hasCustomer: true, test: false, orderedAt: new Date("2026-11-02T10:15:00Z") },
+      { ...order, orderGid: "gid://shopify/Order/5010", hasCustomer: false, test: true, orderedAt: new Date("2026-11-02T11:00:00Z") },
+      {
+        orderGid: "gid://shopify/Order/5011",
+        hasCustomer: true,
+        test: false,
+        orderedAt: new Date("2026-11-02T12:30:00Z"),
+        cancelledAt: null,
+        refunds: [{ refundGid: "gid://shopify/Refund/6151", refundedAt: new Date("2026-11-03T09:00:00Z") }],
+      },
     ]);
   });
 
-  it("reads the newest orders first (CREATED_AT, reversed)", () => {
-    expect(RewardsRecentPaidOrders).toMatch(/orders\(first: 50, after: \$after, query: \$query, sortKey: CREATED_AT, reverse: true\)/);
+  it("reads the most recently updated orders first, under 1,000 points a page", () => {
+    expect(RewardsUpdatedOrders).toMatch(/orders\(first: 50, after: \$after, query: \$query, sortKey: UPDATED_AT, reverse: true\)/);
+    // 50 × (order 1 + customer 1 + 15 refunds) + connection 2 + pageInfo 1
+    expect(RewardsUpdatedOrders).toMatch(/refunds\(first: 15\)/);
+    expect(50 * (1 + 1 + 15) + 3).toBeLessThanOrEqual(1000);
+  });
+
+  it("gives a cancellation, and no refund list when it may be cut short (15, the most a page reads)", async () => {
+    const page = clone(updatedOrders2);
+    const node = page.data.orders.nodes[0] as Record<string, unknown>;
+    node.cancelledAt = "2026-11-04T08:00:00Z";
+    node.refunds = Array.from({ length: 15 }, (_, n) => ({ id: `gid://shopify/Refund/${7000 + n}`, createdAt: "2026-11-03T09:00:00Z" }));
+
+    const [order] = await createShopifyOrderSource(shopify(() => page)).recentlyUpdatedOrders(since);
+
+    expect(order).toMatchObject({ cancelledAt: new Date("2026-11-04T08:00:00Z"), refunds: null });
+  });
+
+  it("ends every page by the caller's deadline", async () => {
+    const client = shopify(() => updatedOrders1);
+    await expect(createShopifyOrderSource(client).recentlyUpdatedOrders(since, { deadline: Date.now() - 1 })).rejects.toThrow(ShopifyTimeoutError);
+    expect(client.graphql).not.toHaveBeenCalled();
   });
 
   it("reads at most 10 pages, and says so (with no buyer data) when there were more", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const client = shopify(() => recentPaid1);
-    const orders = await createShopifyOrderSource(client).recentPaidOrders(since);
+    const client = shopify(() => updatedOrders1);
+    const orders = await createShopifyOrderSource(client).recentlyUpdatedOrders(since);
     expect(client.graphql).toHaveBeenCalledTimes(10);
     expect(orders).toHaveLength(20);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
-      "[order-source] The sweep read 20 paid orders created since 2026-11-01T09:00:00.000Z, the most it reads; older ones were not read",
+      "[order-source] The sweep read 20 orders updated since 2026-11-01T09:00:00.000Z, the most it reads; older ones were not read",
     );
     warn.mockRestore();
   });
@@ -909,8 +938,8 @@ describe("recentPaidOrders (the hourly sweep's candidates)", () => {
   it("says nothing when the tenth page is the last", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     let page = 0;
-    const client = shopify(() => (++page === 10 ? recentPaid2 : recentPaid1));
-    const orders = await createShopifyOrderSource(client).recentPaidOrders(since);
+    const client = shopify(() => (++page === 10 ? updatedOrders2 : updatedOrders1));
+    const orders = await createShopifyOrderSource(client).recentlyUpdatedOrders(since);
     expect(client.graphql).toHaveBeenCalledTimes(10);
     expect(orders).toHaveLength(19);
     expect(warn).not.toHaveBeenCalled();
@@ -919,6 +948,6 @@ describe("recentPaidOrders (the hourly sweep's candidates)", () => {
 
   it("throws when Shopify answers with errors", async () => {
     const client = shopify(() => ({ errors: [{ message: "Throttled" }] }));
-    await expect(createShopifyOrderSource(client).recentPaidOrders(since)).rejects.toThrow("Throttled");
+    await expect(createShopifyOrderSource(client).recentlyUpdatedOrders(since)).rejects.toThrow("Throttled");
   });
 });

@@ -14,7 +14,8 @@ import { failNextCall, hasTestDatabase, resetDatabase, restoreFailedCalls } from
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 const originalSecret = process.env.CRON_SECRET;
-const originalMonitors = process.env.SENTRY_CRON_MONITORS;
+const originalMonitors = process.env.REWARDS_SENTRY_CRON_MONITORS;
+const originalOldMonitors = process.env.SENTRY_CRON_MONITORS;
 
 function cronRequest(job: string, authorization = "Bearer the-cron-secret") {
   return new Request(`https://rewards.test/api/cron/${job}`, { headers: { Authorization: authorization } });
@@ -28,8 +29,10 @@ describe.skipIf(!hasTestDatabase)("cron run records on Postgres", () => {
   beforeEach(async () => {
     await resetDatabase();
     process.env.CRON_SECRET = "the-cron-secret";
+    delete process.env.REWARDS_SENTRY_CRON_MONITORS;
     delete process.env.SENTRY_CRON_MONITORS;
     vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(monitoring, "enabled").mockReturnValue(false);
     vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
@@ -43,8 +46,10 @@ describe.skipIf(!hasTestDatabase)("cron run records on Postgres", () => {
     vi.restoreAllMocks();
     if (originalSecret === undefined) delete process.env.CRON_SECRET;
     else process.env.CRON_SECRET = originalSecret;
-    if (originalMonitors === undefined) delete process.env.SENTRY_CRON_MONITORS;
-    else process.env.SENTRY_CRON_MONITORS = originalMonitors;
+    if (originalMonitors === undefined) delete process.env.REWARDS_SENTRY_CRON_MONITORS;
+    else process.env.REWARDS_SENTRY_CRON_MONITORS = originalMonitors;
+    if (originalOldMonitors === undefined) delete process.env.SENTRY_CRON_MONITORS;
+    else process.env.SENTRY_CRON_MONITORS = originalOldMonitors;
   });
 
   it("keeps one row per job and outcome, and the health check reads them", async () => {
@@ -145,7 +150,7 @@ describe.skipIf(!hasTestDatabase)("cron run records on Postgres", () => {
     expect((await rows()).map((r) => r.outcome)).toEqual(["succeeded"]);
   });
 
-  it("checks in to Sentry Crons only for the jobs SENTRY_CRON_MONITORS names", async () => {
+  it("checks in to Sentry Crons only for the jobs REWARDS_SENTRY_CRON_MONITORS names, never the old app's setting", async () => {
     vi.mocked(monitoring.enabled).mockReturnValue(true);
     const ok = monitoredCron("housekeeping", async () => Response.json({ success: true }));
     const failing = monitoredCron("housekeeping", async () => Response.json({ success: false }, { status: 500 }));
@@ -153,11 +158,16 @@ describe.skipIf(!hasTestDatabase)("cron run records on Postgres", () => {
     await call(ok, cronRequest("housekeeping"));
     expect(monitoring.captureCheckIn).not.toHaveBeenCalled();
 
-    process.env.SENTRY_CRON_MONITORS = "payouts";
+    // The old app's variable, shared in the one Vercel project, is ignored (Ruling 47)
+    process.env.SENTRY_CRON_MONITORS = "true";
     await call(ok, cronRequest("housekeeping"));
     expect(monitoring.captureCheckIn).not.toHaveBeenCalled();
 
-    process.env.SENTRY_CRON_MONITORS = "true";
+    process.env.REWARDS_SENTRY_CRON_MONITORS = "payouts";
+    await call(ok, cronRequest("housekeeping"));
+    expect(monitoring.captureCheckIn).not.toHaveBeenCalled();
+
+    process.env.REWARDS_SENTRY_CRON_MONITORS = "true";
     await call(ok, cronRequest("housekeeping"));
     await call(failing, cronRequest("housekeeping"));
 
@@ -170,5 +180,45 @@ describe.skipIf(!hasTestDatabase)("cron run records on Postgres", () => {
     ]);
     expect(checkIns[1][0]).toMatchObject({ monitorSlug: "rewardspro-housekeeping", status: "ok", checkInId: "check-in-1" });
     expect(checkIns[3][0]).toMatchObject({ status: "error", checkInId: "check-in-1" });
+  });
+
+  it("reports this job's own last run, killed before it finished, at the next run's start (Ruling 47)", async () => {
+    // A payouts run started an hour ago and was stopped (Vercel's 300 s) before it recorded an outcome
+    const killedAt = new Date(Date.now() - HOUR);
+    await prisma.cronRun.createMany({
+      data: [
+        { job: "payouts", outcome: "succeeded", startedAt: new Date(killedAt.getTime() - HOUR) },
+        { job: "payouts", outcome: "started", startedAt: killedAt },
+      ],
+    });
+    const ok = monitoredCron("payouts", async () => Response.json({ success: true }));
+
+    await call(ok, cronRequest("payouts"));
+
+    const message = `Cron payouts did not finish its run started at ${killedAt.toISOString()}`;
+    expect(monitoring.captureMessage).toHaveBeenCalledWith(message, "warning", expect.objectContaining({ tags: { "cron.job": "payouts", "cron.killed": "true" } }));
+    // Logged too, so it is seen without Sentry
+    expect(console.warn).toHaveBeenCalledWith(`[cron] ${message}`);
+
+    // Reported once: this run finished
+    vi.mocked(monitoring.captureMessage).mockClear();
+    await call(ok, cronRequest("payouts"));
+    expect(vi.mocked(monitoring.captureMessage).mock.calls.filter(([m]) => m.includes("did not finish"))).toEqual([]);
+  });
+
+  it("logs a stopped run when Sentry is off, and leaves a run still inside its budget alone", async () => {
+    vi.mocked(monitoring.captureMessage).mockReturnValue(false);
+    const ok = monitoredCron("tiers", async () => Response.json({ success: true }));
+    // Started a minute ago: it may still be running
+    await prisma.cronRun.create({ data: { job: "tiers", outcome: "started", startedAt: new Date(Date.now() - 60_000) } });
+    await call(ok, cronRequest("tiers"));
+    expect(vi.mocked(console.warn).mock.calls.filter(([m]) => String(m).includes("did not finish"))).toEqual([]);
+
+    await prisma.cronRun.update({ where: { job_outcome: { job: "tiers", outcome: "started" } }, data: { startedAt: new Date(Date.now() - 2 * DAY), createdAt: new Date(Date.now() - 30 * DAY) } });
+    await prisma.cronRun.deleteMany({ where: { job: "tiers", outcome: { not: "started" } } });
+    await call(ok, cronRequest("tiers"));
+    expect(vi.mocked(console.warn).mock.calls.filter(([m]) => String(m).includes("did not finish"))).toHaveLength(1);
+    // The other jobs, with no finished run in 30 days of records, are logged as stopped too
+    expect(vi.mocked(console.warn).mock.calls.filter(([m]) => String(m).includes("has not finished a run")).length).toBeGreaterThan(0);
   });
 });

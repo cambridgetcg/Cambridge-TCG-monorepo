@@ -46,11 +46,14 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
   it("creates one merchant and connection, and a second open updates the shop details", async () => {
     const first = await open();
 
+    // With the import's state and boundary, so the open needs no second read (A17-F7)
     expect(first).toEqual({
       merchantId: expect.any(String),
       connectionId: expect.any(String),
       created: true,
       reactivated: false,
+      importState: "not_started",
+      installedAt: OPENED,
     });
     expect(await findConnection(SHOP)).toEqual({
       connectionId: first.connectionId,
@@ -78,6 +81,8 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
       connectionId: first.connectionId,
       created: false,
       reactivated: false,
+      importState: "not_started",
+      installedAt: OPENED,
     });
     expect(await prisma.merchant.count()).toBe(1);
     expect(await prisma.connection.count()).toBe(1);
@@ -128,7 +133,7 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
 
     // It really raced (waitForLockWait saw it blocked on the key), and its
     // insert did nothing rather than fail: no error raised or logged.
-    expect(await racing).toEqual({ ...winner, created: false, reactivated: false });
+    expect(await racing).toEqual({ ...winner, created: false, reactivated: false, importState: "not_started", installedAt: OPENED });
     for (const spy of logs) {
       expect(spy.mock.calls.flat().map(String).join("\n")).not.toMatch(/prisma:error|Unique constraint/);
     }
@@ -161,6 +166,8 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
       connectionId: first.connectionId,
       created: false,
       reactivated: true,
+      importState: "not_started",
+      installedAt: OPENED,
     });
     // A reactivation starts a new install and keeps the last uninstall, so
     // [uninstalledAt, activatedAt) is the gap.

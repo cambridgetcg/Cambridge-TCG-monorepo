@@ -13,6 +13,7 @@
  * app was away (Ruling 13). `lastAuthAt` is the last open (every token
  * exchange): an uninstall from before it, or before `activatedAt`, is stale.
  */
+import type { ImportState } from "@prisma/client";
 import prisma from "~/db.server";
 import { currencyDecimals } from "./money";
 import { isCanonicalShop } from "./shop-domain";
@@ -52,6 +53,8 @@ function connectionKey(shop: string) {
  * its first `installedAt` (the boundary the past-orders import used) and its
  * `uninstalledAt`. Every open records `lastAuthAt = now`, so an
  * app/uninstalled from before it can't switch the store off (markUninstalled).
+ * It returns the connection's import state and `installedAt` too, so the open
+ * can start the past-orders import without reading the row again (A17-F7).
  */
 export async function ensureMerchant(i: {
   shop: string;
@@ -59,7 +62,14 @@ export async function ensureMerchant(i: {
   currency: string;
   timezone: string;
   now?: Date;
-}): Promise<{ merchantId: string; connectionId: string; created: boolean; reactivated: boolean }> {
+}): Promise<{
+  merchantId: string;
+  connectionId: string;
+  created: boolean;
+  reactivated: boolean;
+  importState: ImportState;
+  installedAt: Date;
+}> {
   const shop = canonicalShop(i.shop);
   // A real ISO code from Shopify, never a default (throws UnknownCurrencyError).
   currencyDecimals(i.currency);
@@ -89,7 +99,8 @@ export async function ensureMerchant(i: {
       });
       const connection = await tx.connection.findUniqueOrThrow({ where: connectionKey(shop) });
       if (count === 1) {
-        return { merchantId: merchant.id, connectionId: connection.id, created: true, reactivated: false };
+        const { importState, installedAt } = connection;
+        return { merchantId: merchant.id, connectionId: connection.id, created: true, reactivated: false, importState, installedAt };
       }
       // Lost the race: drop this open's merchant, which nothing points at,
       // and carry on with the winner's rows.
@@ -103,7 +114,8 @@ export async function ensureMerchant(i: {
       data: { status: "active", activatedAt: now },
     });
     await tx.connection.update({ where: { id: existing.id }, data: { lastAuthAt: now } });
-    return { merchantId: existing.merchantId, connectionId: existing.id, created: false, reactivated: count === 1 };
+    const { importState, installedAt } = existing;
+    return { merchantId: existing.merchantId, connectionId: existing.id, created: false, reactivated: count === 1, importState, installedAt };
   });
 }
 

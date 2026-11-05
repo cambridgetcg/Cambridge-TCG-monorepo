@@ -1,15 +1,15 @@
 import type { Decimal } from "decimal.js";
 import { Money, currencyDecimals, floorMoney } from "~/lib/money";
 import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
-import type { OrderSource } from "~/lib/ports";
+import type { OrderSource, UpdatedOrder } from "~/lib/ports";
 import { ShopifyTimeoutError, askShopify } from "./ask.server";
 import {
   RewardsOrderFacts,
   RewardsOrderTransactions,
   RewardsOrderTransactionsCost,
-  RewardsRecentPaidOrders,
   RewardsRefundFacts,
   RewardsRefundFactsCost,
+  RewardsUpdatedOrders,
   type GraphqlClient,
 } from "./graphql";
 
@@ -44,6 +44,8 @@ export const WEBHOOK_READ_DEADLINE_MS = 4000;
 export const MAX_LINE_PAGES = 25;
 /** Pages of 50 orders the sweep reads at most. */
 export const MAX_RECENT_PAGES = 10;
+/** The refunds RewardsUpdatedOrders lists for each order; a list this long may be cut short. */
+const LISTED_REFUNDS = 15;
 /**
  * RewardsOrderFacts reads 20 transactions and 20 refund ids, and
  * RewardsRefundFacts 20 transactions and 20 shipping lines. A full list may
@@ -637,31 +639,38 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
     },
 
     /**
-     * Newest first, at most MAX_RECENT_PAGES pages of 50, so a busy shop's
-     * newest missed orders are found first. When there are more, the older
-     * ones are not read, and a warning (with no buyer data) says so.
+     * Most recently updated first, at most MAX_RECENT_PAGES pages of 50, so a
+     * busy shop's newest changes are found first. When there are more, the
+     * older ones are not read, and a warning (with no buyer data) says so.
+     * Each page ends by the caller's deadline too.
      */
-    async recentPaidOrders(since) {
-      const query = `created_at:>='${since.toISOString()}' AND (financial_status:paid OR financial_status:partially_refunded)`;
-      const found: Array<{ orderGid: string; hasCustomer: boolean; test: boolean; orderedAt: Date }> = [];
+    async recentlyUpdatedOrders(since, o = {}) {
+      const query = `updated_at:>='${since.toISOString()}' AND (financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded)`;
+      const found: UpdatedOrder[] = [];
       let after: string | null = null;
       for (let page = 1; ; page++) {
-        const orders = rec((await askWithin()(RewardsRecentPaidOrders, { query, after })).orders, "orders");
+        const orders = rec((await askWithin(o.deadline)(RewardsUpdatedOrders, { query, after })).orders, "orders");
         for (const item of list(orders.nodes, "orders")) {
           const node = rec(item, "an order");
           if (node.customer !== null) rec(node.customer, "an order's customer");
+          const refunds = list(node.refunds, "an order's refunds").map((r) => {
+            const refund = rec(r, "a refund");
+            return { refundGid: text(refund.id, "a refund id"), refundedAt: dateOf(refund.createdAt, "a refund's createdAt") };
+          });
           found.push({
             orderGid: text(node.id, "an order id"),
             hasCustomer: node.customer !== null,
             test: flag(node.test, "test"),
             orderedAt: dateOf(node.createdAt, "createdAt"),
+            cancelledAt: node.cancelledAt === null ? null : dateOf(node.cancelledAt, "cancelledAt"),
+            refunds: refunds.length >= LISTED_REFUNDS ? null : refunds,
           });
         }
         const pageInfo = rec(orders.pageInfo, "the orders' page info");
         if (pageInfo.hasNextPage === false) break;
         if (page >= MAX_RECENT_PAGES) {
           console.warn(
-            `[order-source] The sweep read ${found.length} paid orders created since ${since.toISOString()}, the most it reads; older ones were not read`,
+            `[order-source] The sweep read ${found.length} orders updated since ${since.toISOString()}, the most it reads; older ones were not read`,
           );
           break;
         }

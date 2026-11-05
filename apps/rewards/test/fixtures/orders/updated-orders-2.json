@@ -10,16 +10,23 @@
           "id": "gid://shopify/Order/5011",
           "test": false,
           "createdAt": "2026-11-02T12:30:00Z",
+          "cancelledAt": null,
           "customer": {
             "id": "gid://shopify/Customer/7002"
-          }
+          },
+          "refunds": [
+            {
+              "id": "gid://shopify/Refund/6151",
+              "createdAt": "2026-11-03T09:00:00Z"
+            }
+          ]
         }
       ]
     }
   },
   "extensions": {
     "cost": {
-      "requestedQueryCost": 103,
+      "requestedQueryCost": 853,
       "actualQueryCost": 5,
       "throttleStatus": {
         "maximumAvailable": 2000.0,
