@@ -9,10 +9,10 @@
  *   not a test order, and became paid within Shopify's ~4 h of retries
  *   (mayStillBeRecorded, Ruling 43: from its latest successful sale or
  *   capture, which can be long after it was created). It answers 503 too
- *   for a past order the store's import has not written yet (awaitsImport,
- *   Ruling 49), so the refund lands after its order. Otherwise 200 (a
- *   guest's order, or one past the window, which the hourly sweep records
- *   with its refunds).
+ *   for a past order the store's import has not written yet and still can
+ *   (awaitsImport, Rulings 49 and 53), so the refund lands after its order.
+ *   Otherwise 200 (a guest's order, or one past the window, which the hourly
+ *   sweep records with its refunds).
  * - A credit being sent right now answers 503 (RefundRetryLater).
  * - A redelivered refund writes nothing (its natural key).
  * Any other failure answers 500 and reaches monitoring. Both reads share one
@@ -26,7 +26,7 @@ import { awaitsImport } from "~/lib/import.server";
 import { RefundRetryLater, mayStillBeRecorded, recordRefund } from "~/lib/refunds.server";
 import { resolveTier } from "~/lib/tiers.server";
 import { waitUntil } from "~/lib/wait-until.server";
-import { readOr500, webhookFailed } from "~/lib/webhook-helpers.server";
+import { NO_USABLE_SESSION, authenticatedWebhook, readOr500, webhookFailed } from "~/lib/webhook-helpers.server";
 import { OrderReadError, WEBHOOK_READ_DEADLINE_MS, createShopifyOrderSource } from "~/shopify/order-source.server";
 import { createStoreCreditRail } from "~/shopify/store-credit-rail.server";
 import { authenticate } from "../shopify.server";
@@ -46,8 +46,9 @@ function refundGidOf(payload: unknown): string | null {
 export const action = async ({ request }: ActionFunctionArgs) => {
   // From receipt, before authentication (which may refresh the token).
   const deadline = Date.now() + WEBHOOK_READ_DEADLINE_MS;
-  // Throws a 401 Response for a delivery Shopify did not sign.
-  const { topic, shop, payload, admin } = await authenticate.webhook(request);
+  // Throws a 401 Response for a delivery Shopify did not sign, and a 500 one
+  // (reported) when it can't renew the store's token.
+  const { topic, shop, payload, admin } = await authenticatedWebhook(TOPIC, () => authenticate.webhook(request));
   if (topic !== "REFUNDS_CREATE") return new Response(null, { status: 400 });
 
   const refundGid = refundGidOf(payload);
@@ -57,10 +58,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log(`[refunds/create] No store connection for ${shop}; nothing to do`);
       return new Response();
     }
-    if (!admin) {
-      console.error(`[refunds/create] No usable session for ${shop}; Shopify will deliver it again`);
-      return new Response(null, { status: 500 });
-    }
+    if (!admin) return webhookFailed(TOPIC, `No usable session for ${shop}`, new Error(NO_USABLE_SESSION));
     if (!refundGid) throw new Error("The delivery names no refund");
 
     const orders = createShopifyOrderSource(admin);

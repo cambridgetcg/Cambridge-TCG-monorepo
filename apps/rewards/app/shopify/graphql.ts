@@ -481,12 +481,16 @@ export const RewardsAccessScopes = `#graphql
  * order fields of RewardsOrderFacts and their line items, one JSONL line per
  * order and one per line item (with `__parentId`). Bulk rules shape it: one
  * top-level field and no `shop`; `edges { node }`; `transactions` with no
- * size argument (bulk reads the whole list); and no `refunds`, because every
- * part of a refund that would tell a refund of money with no items apart
- * (its line items, transactions and shipping lines) is a connection, and
- * bulk refuses a connection inside a list field. The node is therefore read
- * with "quantities" (order-source.server.ts, Ruling 25), and a money-only
- * refund made before the import still counts as spend (a known limit).
+ * size argument (bulk reads the whole list); and `refunds` (a list field,
+ * not a connection, also read whole) with only each refund's id, because
+ * every part of a refund that would tell a refund of money with no items
+ * apart (its line items, transactions and shipping lines) is a connection,
+ * and bulk refuses a connection inside a list field. The node is therefore
+ * read with "quantities" (order-source.server.ts, Ruling 25), and a
+ * money-only refund made before the import still counts as spend (a known
+ * limit). The refund ids stay on the order's own line and are kept on its
+ * row: the quantities count those refunds, so recording one of them later
+ * adds no spend again (Ruling 54).
  * `search` is Shopify search syntax, embedded as a GraphQL string; it is a
  * created_at range, so the sort key is CREATED_AT (the bulk guide warns a
  * range search with another sort key can time out; docs check Q4). Shopify
@@ -516,6 +520,9 @@ export function RewardsBulkOrderNodes(search: string): string {
         presentmentCurrencyCode
         taxesIncluded
         customer {
+          id
+        }
+        refunds {
           id
         }
         totalPriceSet {
@@ -586,9 +593,8 @@ export function RewardsBulkOrderNodes(search: string): string {
 /**
  * Starts the past-orders import's bulk query (RewardsBulkOrderNodes's text
  * as `$query`). Shopify runs it in the background; RewardsBulkStatus follows it.
- * Its `createdAt` is stored as when the import's snapshot began (Ruling 49).
  * Scopes: those of the bulk query itself (see RewardsBulkOrderNodes).
- * Cost: 12 = mutation 10 + bulkOperation 1 + userErrors 1 (createdAt is a scalar).
+ * Cost: 12 = mutation 10 + bulkOperation 1 + userErrors 1.
  */
 export const RewardsBulkOrders = `#graphql
   mutation RewardsBulkOrders($query: String!) {
@@ -596,7 +602,6 @@ export const RewardsBulkOrders = `#graphql
       bulkOperation {
         id
         status
-        createdAt
       }
       userErrors {
         field

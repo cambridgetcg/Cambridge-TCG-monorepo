@@ -21,6 +21,7 @@
  */
 import { Prisma, type PayoutState } from "@prisma/client";
 import prisma, { databaseSchema } from "~/db.server";
+import { importCanStillWrite } from "./import.server";
 import type { ConnectionContext } from "./merchant.server";
 import { CUSTOMER_ERASED, closeWithoutSending, lockPayout } from "./payouts.server";
 import { isCanonicalShop } from "./shop-domain";
@@ -155,11 +156,13 @@ const CLOSED_AT_ERASURE: readonly PayoutState[] = ["pending", "held", "needs_loo
  * adjustment cancelling what is left of its entry, so the ledger stays true
  * and nothing is sent or taken back for it again. The buyer's data requests
  * are deleted with them. `found` is false for a buyer never seen (or already
- * erased); `importDone` then says whether the store's past-orders import has
- * finished. While it hasn't, a later chunk of its file, taken before Shopify
- * erased the buyer, can still bring their orders and their id back
- * (CONCURRENCY-5), so the route answers 503 and Shopify delivers the
- * redaction again.
+ * erased); `awaitsImport` then says whether the store's past-orders import
+ * can still write (importStillWriting: the store is installed and its import
+ * not started or running, Ruling 53). While it can, a later chunk of its
+ * file, taken before Shopify erased the buyer, can still bring their orders
+ * and their id back (CONCURRENCY-5), so the route answers 503 and Shopify
+ * delivers the redaction again. A failed or done import, or an uninstalled
+ * store's, writes nothing more: the app holds nothing about the buyer.
  *
  * The locks follow lockPayout's order, order by order: the order's credit
  * (then the order), then its take-backs. A credit is closed first, which nets
@@ -175,7 +178,7 @@ export async function redactCustomer(
   conn: ConnectionContext,
   externalCustomerId: string,
   now: Date = new Date(),
-): Promise<{ found: true } | { found: false; importDone: boolean }> {
+): Promise<{ found: true } | { found: false; awaitsImport: boolean }> {
   return prisma.$transaction(async (tx) => {
     const { merchantId, connectionId } = conn;
     await tx.privacyRequest.deleteMany({ where: { merchantId, connectionId, externalCustomerId } });
@@ -184,8 +187,7 @@ export async function redactCustomer(
       select: { id: true },
     });
     if (!customer) {
-      const { importState } = await tx.connection.findUniqueOrThrow({ where: { id: connectionId }, select: { importState: true } });
-      return { found: false, importDone: importState === "done" };
+      return { found: false, awaitsImport: await importCanStillWrite(connectionId, tx) };
     }
 
     const open = await tx.payout.findMany({

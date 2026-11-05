@@ -136,6 +136,19 @@ function waitFor(key: string, now: number): number {
   return 0;
 }
 
+/** The rate limit's own parts, for its tests only (M2b-F6). */
+export const rateLimiterForTests = {
+  waitFor,
+  SWEEP_AT,
+  /** How many keys the map holds. */
+  keys: () => recent.size,
+  /** An empty map, never swept. */
+  reset() {
+    recent.clear();
+    lastSweepAt = Number.NEGATIVE_INFINITY;
+  },
+};
+
 /**
  * The shop, buyer and Admin API client of a request Shopify forwarded, or
  * the Response to answer instead: 400 when it isn't signed, is stale, or

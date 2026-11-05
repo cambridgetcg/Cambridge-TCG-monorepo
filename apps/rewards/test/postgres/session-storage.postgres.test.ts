@@ -1,9 +1,9 @@
 import type { PrismaClient } from "@prisma/client";
-import { Session } from "@shopify/shopify-app-react-router/server";
+import { Session, SessionNotFoundError } from "@shopify/shopify-app-react-router/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma, { createPrismaClient } from "~/db.server";
 import { decrypt, encrypt } from "~/shopify/encryption.server";
-import { EncryptedPrismaSessionStorage, RENEWAL_POLL_MS, oneRenewalCall } from "~/shopify/session-storage.server";
+import { EncryptedPrismaSessionStorage, RENEWAL_POLL_MS, RENEWAL_WAIT_MS, oneRenewalCall } from "~/shopify/session-storage.server";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
 
 const SHOP = "session-test.myshopify.com";
@@ -209,6 +209,22 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       new Session({ ...expiringOfflineSession().toObject(), accessToken: token, expires: new Date(Date.now() + minutes * 60_000) });
     const leases = () => prisma.cronLock.findMany({ where: { jobName: `session-renewal:${SHOP}` } });
     const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    /**
+     * Room a loaded CI runner may need past a timing boundary (M2b-F7): an
+     * upper bound is the next poll or wait boundary plus this, and what it
+     * stood for is checked without the clock (no give-up, no poll).
+     */
+    const MARGIN_MS = 1000;
+    /** How many times `run` paused to wait for another renewal (a RENEWAL_POLL_MS timer), whatever the clock says. */
+    const pollsDuring = async (run: () => Promise<unknown>): Promise<number> => {
+      const timers = vi.spyOn(globalThis, "setTimeout");
+      try {
+        await run();
+        return timers.mock.calls.filter(([, ms]) => ms === RENEWAL_POLL_MS).length;
+      } finally {
+        timers.mockRestore();
+      }
+    };
 
     afterEach(async () => {
       await Promise.all(clients.splice(0).map((client) => client.$disconnect()));
@@ -221,6 +237,7 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       await expect(renewing.loadSession(ID)).resolves.toMatchObject({ accessToken: "shpat_about_to_expire" });
       expect(await leases()).toHaveLength(1);
 
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const start = Date.now();
       const waiting = other.loadSession(ID);
       await pause(400);
@@ -229,8 +246,10 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
 
       // Not the token about to be retired, which it would have renewed itself
       expect(loaded?.accessToken).toBe("shpat_renewed");
+      // Answered at its first poll after the renewal, not by giving up
       expect(Date.now() - start).toBeGreaterThanOrEqual(400);
-      expect(Date.now() - start).toBeLessThan(1500);
+      expect(Date.now() - start).toBeLessThan(400 + RENEWAL_POLL_MS + MARGIN_MS);
+      expect(warn).not.toHaveBeenCalled();
       // The renewal released its lease, and the waiter took none
       expect(await leases()).toEqual([]);
     });
@@ -246,8 +265,8 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       const start = Date.now();
       const loaded = await other.loadSession(ID);
 
-      expect(Date.now() - start).toBeGreaterThanOrEqual(1500);
-      expect(Date.now() - start).toBeLessThan(2500);
+      expect(Date.now() - start).toBeGreaterThanOrEqual(RENEWAL_WAIT_MS);
+      expect(Date.now() - start).toBeLessThan(RENEWAL_WAIT_MS + RENEWAL_POLL_MS + MARGIN_MS);
       expect(loaded?.accessToken).toBe("shpat_about_to_expire");
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn.mock.calls[0].join(" ")).toContain(SHOP);
@@ -267,8 +286,9 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       // Even while a renewal of the store holds the lease
       await prisma.cronLock.create({ data: { jobName: `session-renewal:${SHOP}`, expiresAt: new Date(Date.now() + 15_000) } });
       const start = Date.now();
-      await expect(anotherInstance().loadSession(ID)).resolves.toMatchObject({ accessToken: "shpat_fresh" });
-      expect(Date.now() - start).toBeLessThan(RENEWAL_POLL_MS);
+      const polls = await pollsDuring(() => expect(anotherInstance().loadSession(ID)).resolves.toMatchObject({ accessToken: "shpat_fresh" }));
+      expect(polls).toBe(0);
+      expect(Date.now() - start).toBeLessThan(RENEWAL_POLL_MS + MARGIN_MS);
     });
 
     it("a missing session is loaded under the lease too: the first install's exchange", async () => {
@@ -292,9 +312,10 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       await storage.storeSession(expiringIn(4, "shpat_about_to_expire"));
 
       const start = Date.now();
-      await storage.loadSession(ID);
+      const polls = await pollsDuring(() => storage.loadSession(ID));
 
-      expect(Date.now() - start).toBeLessThan(RENEWAL_POLL_MS);
+      expect(polls).toBe(0);
+      expect(Date.now() - start).toBeLessThan(RENEWAL_POLL_MS + MARGIN_MS);
       const [taken] = await leases();
       expect(taken.expiresAt.getTime()).toBeGreaterThan(Date.now());
       await storage.storeSession(expiringIn(60, "shpat_renewed"));
@@ -350,6 +371,25 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       expect(left.expiresAt.getTime()).toBeGreaterThan(Date.now());
     });
 
+    it("a call that ends in SessionNotFoundError gives its lease back: no renewal was attempted (M2b-F5)", async () => {
+      const storage = anotherInstance();
+      // unauthenticated.admin for a store with no session: the load takes the lease, then the library throws
+      const missing = new SessionNotFoundError("Could not find a session for the shop");
+
+      await expect(
+        oneRenewalCall(async () => {
+          await expect(storage.loadSession(ID)).resolves.toBeUndefined();
+          expect(await leases()).toHaveLength(1);
+          throw missing;
+        })(),
+      ).rejects.toBe(missing);
+
+      expect(await leases()).toEqual([]);
+      // So the next load of the store waits for nothing
+      const polls = await pollsDuring(() => anotherInstance().loadSession(ID));
+      expect(polls).toBe(0);
+    });
+
     it("the library's invalidation write (same expiry, no access token) still lands", async () => {
       const storage = anotherInstance();
       const session = expiringIn(60, "shpat_revoked_by_shopify");
@@ -378,6 +418,7 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       expect(loadedFirst?.accessToken).toBeFalsy();
       expect(await leases()).toHaveLength(1);
 
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const start = Date.now();
       const waiting = other.loadSession(ID);
       await pause(400);
@@ -386,8 +427,10 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
 
       // Not the invalidated session, which it would have exchanged itself at the same time
       expect(loaded?.accessToken).toBe("shpat_exchanged");
+      // Answered at its first poll after the exchange, not by giving up
       expect(Date.now() - start).toBeGreaterThanOrEqual(400);
-      expect(Date.now() - start).toBeLessThan(1500);
+      expect(Date.now() - start).toBeLessThan(400 + RENEWAL_POLL_MS + MARGIN_MS);
+      expect(warn).not.toHaveBeenCalled();
       expect(await leases()).toEqual([]);
     });
   });

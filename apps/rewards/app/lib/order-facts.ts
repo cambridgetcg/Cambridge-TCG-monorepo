@@ -68,6 +68,13 @@ export interface OrderFacts {
    */
   refundedProductValue: MoneyPair;
   refunds: RefundFacts[];
+  /**
+   * The import's bulk node only: the ids of the refunds Shopify's file lists
+   * on the order. Its quantities already count them, so a refund of the
+   * imported order with one of these ids adds no spend when it is recorded
+   * later (Ruling 54).
+   */
+  importRefundIds?: string[];
 }
 
 function baseOf(productValue: Decimal, storeCreditUsed: Decimal, giftCardUsed: Decimal): Decimal {

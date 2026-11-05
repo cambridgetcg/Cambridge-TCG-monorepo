@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cashbackBase } from "~/lib/order-facts";
+import { isReadLimit } from "~/lib/ports";
 import { ShopifyTimeoutError } from "~/shopify/ask.server";
 import {
   RewardsOrderFacts,
@@ -13,6 +14,7 @@ import {
 import {
   MAX_COST_IN_FLIGHT,
   ORDER_READ_DEADLINE_MS,
+  OrderReadError,
   createShopifyOrderSource,
   factsFromOrderNode,
 } from "~/shopify/order-source.server";
@@ -489,7 +491,12 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
     await expect(createShopifyOrderSource(shopify(() => manyRefunds)).readOrder("gid://shopify/Order/5001")).rejects.toThrow(
       /20 refunds/,
     );
-
+    // A known limit of the read, which the hourly sweep logs rather than counts as a problem (M2c-F7)
+    const limit = await createShopifyOrderSource(shopify(() => manyRefunds))
+      .readOrder("gid://shopify/Order/5001")
+      .catch((error: unknown) => error);
+    expect(limit).toBeInstanceOf(OrderReadError);
+    expect(isReadLimit(limit)).toBe(true);
   });
 
   it("reads every tender again when the first 20 came back full, and throws only if 200 do too", async () => {
@@ -511,6 +518,11 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
 
     const full = tenders(Array.from({ length: 200 }, () => clone(card)));
     await expect(createShopifyOrderSource(full).readOrder("gid://shopify/Order/5001")).rejects.toThrow(/200 transactions/);
+    // Not the refund limit: a failure
+    const failed = await createShopifyOrderSource(full)
+      .readOrder("gid://shopify/Order/5001")
+      .catch((error: unknown) => error);
+    expect(isReadLimit(failed)).toBe(false);
   });
 
   it("sends no tender follow-up for an order whose 20 refunds already make the read fail", async () => {
@@ -853,6 +865,19 @@ describe("factsFromOrderNode (shared with the import)", () => {
     // The £36.99 no longer on the order was removed: £60.49 − £36.99
     expect(f.productValue.amount.toFixed(2)).toBe("23.50");
     expect(f.refundedProductValue.amount.toFixed(2)).toBe("0.00");
+  });
+
+  it("keeps the refund ids a bulk node lists, which its quantities already count (Ruling 54)", () => {
+    expect(factsFromOrderNode(bulkNode, "GBP", "quantities").importRefundIds).toEqual([
+      "gid://shopify/Refund/5113",
+      "gid://shopify/Refund/5114",
+    ]);
+    // A live read's facts carry their refunds themselves
+    expect(factsFromOrderNode(bulkNode, "GBP", { refunds: [] })).not.toHaveProperty("importRefundIds");
+    // A bulk node without its refund list can't say which refunds its quantities count
+    const unlisted: Record<string, unknown> = clone(bulkNode);
+    delete unlisted.refunds;
+    expect(() => factsFromOrderNode(unlisted, "GBP", "quantities")).toThrow(OrderReadError);
   });
 
   it("takes the tips off a bulk node too", () => {

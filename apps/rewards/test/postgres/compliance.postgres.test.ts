@@ -686,9 +686,9 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
     });
 
     // CONCURRENCY-5: the import may still write that buyer's orders from a file taken before Shopify erased them
-    it("customers/redact for a buyer not seen yet answers 503 while the import is not done", async () => {
+    it("customers/redact for a buyer not seen yet answers 503 while the import can still write", async () => {
       const conn = await runningShop();
-      for (const importState of ["not_started", "running", "failed"] as const) {
+      for (const importState of ["not_started", "running"] as const) {
         await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState } });
         expect((await customerRedact(Number(ALICE))).status, importState).toBe(503);
       }
@@ -700,7 +700,23 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
       await expect(prisma.customer.count({ where: { externalCustomerId: ALICE } })).resolves.toBe(0);
     });
 
-    it("a buyer already erased is still answered 503 while the import is not done: a later chunk could bring them back", async () => {
+    // Ruling 53: only an import that can still write is waited for
+    it("customers/redact for a buyer not seen yet answers 200 once the import failed: it will write nothing more", async () => {
+      const conn = await runningShop();
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "failed" } });
+
+      expect((await customerRedact(Number(ALICE))).status).toBe(200);
+    });
+
+    it("customers/redact for a buyer not seen yet answers 200 for an uninstalled store, even with its import running", async () => {
+      const conn = await runningShop();
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "running" } });
+      await uninstalled();
+
+      expect((await customerRedact(Number(ALICE))).status).toBe(200);
+    });
+
+    it("a buyer already erased is still answered 503 while the import can still write: a later chunk could bring them back", async () => {
       const conn = await runningShop();
       await creditFor(conn, 5001, ALICE);
       expect((await customerRedact(Number(ALICE))).status).toBe(200);

@@ -62,7 +62,12 @@ export class BulkOrderLines {
       this.open = { ...node, lineItems: { nodes: [] as unknown[] } };
       return done;
     }
-    if (this.open === null || parentId !== this.open.id) throw new BulkFileError(`${where} belongs to an order that isn't just above it`);
+    if (this.open === null || parentId !== this.open.id) {
+      // The import's error names the likely cause (M2c-F9)
+      throw new BulkFileError(
+        `${where} belongs to an order that isn't just above it: Shopify's file put a line item away from its order, which the import can't place`,
+      );
+    }
     const field = CHILD_FIELDS[GID_TYPE.exec(record.id)?.[1] ?? ""];
     if (!field) throw new BulkFileError(`${where} is not a line item`);
     (this.open[field] as { nodes: unknown[] }).nodes.push(node);

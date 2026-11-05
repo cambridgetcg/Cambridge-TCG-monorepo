@@ -184,8 +184,6 @@ model Connection {
   importAttempts      Int              @default(0) @map("import_attempts")
   importedCount       Int              @default(0) @map("imported_count")
   importError         String?          @map("import_error")
-  /// When Shopify began the import's bulk query; a refund of an imported order from before it is already in its quantities.
-  importStartedAt     DateTime?        @map("import_started_at")
   /// Polls in a row whose bulk file answered 4xx; the second ends the attempt.
   importFileRefusals  Int              @default(0) @map("import_file_refusals")
   lastTierPassAt      DateTime?        @map("last_tier_pass_at")
@@ -283,6 +281,8 @@ model Order {
   cancelledAt               DateTime?         @map("cancelled_at")
   test                      Boolean
   noCashbackReason          NoCashbackReason? @map("no_cashback_reason")
+  /// An import order's refunds its bulk file listed, which its quantities already count (Ruling 54).
+  importRefundIds           String[]          @default([]) @map("import_refund_ids")
   createdAt                 DateTime          @default(now()) @map("created_at")
   updatedAt                 DateTime          @updatedAt @map("updated_at")
 

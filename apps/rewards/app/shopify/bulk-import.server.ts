@@ -15,11 +15,14 @@
  * at a time (bulk-file.ts, Ruling 48), so it is never held as one string.
  *
  * Bulk limits shape what is read (graphql.ts, RewardsBulkOrderNodes): the
- * node has no refunds, so it is read with "quantities" (Ruling 25), and a
- * refund of money with no items made before the import still counts as spend.
+ * node has no refunds' items, so it is read with "quantities" (Ruling 25),
+ * and a refund of money with no items made before the import still counts as
+ * spend. It does list each order's refund ids, which the order keeps
+ * (`importRefundIds`, Ruling 54): its quantities count those refunds, so
+ * recording one later adds no spend again.
  */
 import prisma from "~/db.server";
-import { ingestImportedOrders } from "~/lib/import.server";
+import { importStillWriting, ingestImportedOrders } from "~/lib/import.server";
 import { type ConnectionContext, findConnection } from "~/lib/merchant.server";
 import type { OrderFacts } from "~/lib/order-facts";
 import { runTierPass } from "~/lib/tiers.server";
@@ -84,24 +87,15 @@ async function launch(admin: GraphqlClient, connectionId: string, installedAt: D
     const horizonDays = (await grantedScopes(admin, timeoutMs)).has("read_all_orders") ? IMPORT_HORIZON_DAYS : SHORT_HORIZON_DAYS;
     const from = new Date(installedAt.getTime() - horizonDays * DAY_MS);
     const search = `created_at:>='${from.toISOString()}' AND created_at:<'${installedAt.toISOString()}'`;
-    const asked = new Date();
     // If this call times out after Shopify started the query, that operation
     // is orphaned: a later poll starts another, using an attempt (A17-F8).
     // Harmless on 2026-10, which runs several bulk queries at once.
     const payload = asRecord((await ask(admin, RewardsBulkOrders, { query: RewardsBulkOrderNodes(search) }, timeoutMs)).bulkOperationRunQuery);
     const refusal = Array.isArray(payload?.userErrors) ? asRecord(payload.userErrors[0]) : null;
     if (refusal) throw new Error(`Shopify refused the bulk query: ${String(refusal.code ?? "no code")}: ${String(refusal.message ?? "")}`);
-    const operation = asRecord(payload?.bulkOperation);
-    const operationId = operation?.id;
+    const operationId = asRecord(payload?.bulkOperation)?.id;
     if (typeof operationId !== "string" || operationId === "") throw new Error("RewardsBulkOrders answered without an operation id");
-    // When Shopify began it: a refund made before then is in the file's
-    // quantities (Ruling 49). Without Shopify's time, the moment it was asked.
-    const createdAt = typeof operation?.createdAt === "string" ? new Date(operation.createdAt) : null;
-    const startedAt = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt : asked;
-    await prisma.connection.updateMany({
-      where: waiting,
-      data: { importOperationId: operationId, importHorizonDays: horizonDays, importStartedAt: startedAt },
-    });
+    await prisma.connection.updateMany({ where: waiting, data: { importOperationId: operationId, importHorizonDays: horizonDays } });
   } catch (error) {
     await prisma.connection.updateMany({ where: waiting, data: { importError: messageOf(error).slice(0, 500) } });
     throw error;
@@ -412,16 +406,18 @@ export async function pollImport(
 }
 
 /**
- * The hourly backstop: poll every active connection whose import is running,
- * through its offline session (unauthenticated.admin, which refreshes an
- * expiring token), until `deadline`. One store failing is logged and never
+ * The hourly backstop: poll every connection whose import can still write
+ * (importStillWriting: active, and not started or running, Ruling 53, so an
+ * import left not started is started within the hour: pollImport starts
+ * it), through its offline session (unauthenticated.admin, which refreshes
+ * an expiring token), until `deadline`. One store failing is logged and never
  * stops the others; it is counted in `failed`, with the first error, so the
  * hourly run is recorded as partial (A17-F3). `polled` counts the polls that
  * finished.
  */
 export async function pollRunningImports(deadline: number): Promise<{ polled: number; failed: number; firstProblem?: unknown }> {
   const running = await prisma.connection.findMany({
-    where: { status: "active", importState: "running" },
+    where: importStillWriting,
     orderBy: { id: "asc" },
     select: { id: true, externalAccountId: true },
   });

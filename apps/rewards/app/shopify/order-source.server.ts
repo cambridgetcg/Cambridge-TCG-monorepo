@@ -1,7 +1,7 @@
 import type { Decimal } from "decimal.js";
 import { Money, currencyDecimals, floorMoney } from "~/lib/money";
 import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
-import type { OrderSource, UpdatedOrder } from "~/lib/ports";
+import type { OrderSource, ReadLimit, UpdatedOrder } from "~/lib/ports";
 import { ShopifyTimeoutError, askShopify } from "./ask.server";
 import {
   RewardsOrderFacts,
@@ -68,6 +68,19 @@ export class OrderReadError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "OrderReadError";
+  }
+}
+
+/**
+ * An order with LIST_LIMIT refunds or more: one read can't be sure it has
+ * them all. A known limit of the read (the port's ReadLimit), not a failure.
+ */
+export class OrderReadLimitError extends OrderReadError implements ReadLimit {
+  readonly readLimit = true as const;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "OrderReadLimitError";
   }
 }
 
@@ -429,11 +442,12 @@ function boughtValue(order: ParsedOrder, refundNodes: Rec[]): MoneyPair {
  *   RewardsRefundFacts's shape (an order with none passes []). The product value
  *   leaves out the units order edits removed, and the refunded product value
  *   is the sum of the refunds.
- * - `"quantities"`: the import's bulk node, which has no refunds. Every unit
- *   no longer on the order (quantity − currentQuantity) is valued as
- *   refunded, rounded down, whether a refund or an edit took it off; the
+ * - `"quantities"`: the import's bulk node, which has no refunds' items.
+ *   Every unit no longer on the order (quantity − currentQuantity) is valued
+ *   as refunded, rounded down, whether a refund or an edit took it off; the
  *   product value counts every unit, less the tips. The node can't see a
- *   refund of money with no items.
+ *   refund of money with no items. It lists the refunds' ids (`refunds`,
+ *   required), which the facts carry as `importRefundIds` (Ruling 54).
  */
 export type RefundedFrom = { refunds: unknown[] } | "quantities";
 
@@ -464,7 +478,11 @@ function factsFrom(order: ParsedOrder, refunded: RefundedFrom): OrderFacts {
  * OrderReadError when the node can't be read.
  */
 export function factsFromOrderNode(node: unknown, shopCurrency: string, refunded: RefundedFrom): OrderFacts {
-  return factsFrom(parseOrderNode(node, shopCurrency), refunded);
+  const facts = factsFrom(parseOrderNode(node, shopCurrency), refunded);
+  if (refunded !== "quantities") return facts;
+  // The bulk file reads the whole list: there is no size limit to check
+  const importRefundIds = list(rec(node, "the order").refunds, "refunds").map((r) => text(rec(r, "a refund").id, "a refund id"));
+  return { ...facts, importRefundIds };
 }
 
 function firstErrorMessage(errors: unknown): string {
@@ -579,10 +597,12 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
     return data.refund === null ? null : rec(data.refund, "the refund");
   }
 
-  /** The order's refund ids (all of them: throws when the list may be cut short). */
+  /** The order's refund ids (all of them: throws OrderReadLimitError when the list may be cut short). */
   function refundIds(node: Rec): string[] {
     const refunds = list(node.refunds, "refunds");
-    ensureWhole(refunds, LIST_LIMIT, "refunds");
+    if (refunds.length >= LIST_LIMIT) {
+      throw new OrderReadLimitError(`Shopify gave ${LIST_LIMIT} refunds, the most one read takes; there may be more`);
+    }
     return refunds.map((r) => text(rec(r, "a refund").id, "a refund id"));
   }
 

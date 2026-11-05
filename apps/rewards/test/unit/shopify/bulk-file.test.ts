@@ -67,6 +67,10 @@ describe("parseBulkLines", () => {
     const partly = factsFromOrderNode(refunded, "GBP", "quantities");
     expect(partly.productValue.shopAmount.toFixed(2)).toBe("30.00");
     expect(partly.refundedProductValue.shopAmount.toFixed(2)).toBe("20.00");
+    // The order's refund list stays on its own line's node (Ruling 54)
+    expect((refunded as { refunds: unknown }).refunds).toEqual([{ id: "gid://shopify/Refund/9021" }]);
+    expect(partly.importRefundIds).toEqual(["gid://shopify/Refund/9021"]);
+    expect(facts.importRefundIds).toEqual([]);
   });
 
   it("refuses a line that isn't a JSON object, naming its line number and not its text", () => {
@@ -90,6 +94,8 @@ describe("parseBulkLines", () => {
     const second = JSON.stringify({ id: "gid://shopify/Order/2" });
     const late = JSON.stringify({ id: "gid://shopify/LineItem/3", __parentId: "gid://shopify/Order/1" });
     expect(() => parseBulkLines([order, second, late])).toThrow(/line 3 belongs to an order that isn't just above it/);
+    // The import's error then names the likely cause (M2c-F9)
+    expect(() => parseBulkLines([order, second, late])).toThrow(/Shopify's file put a line item away from its order/);
   });
 });
 

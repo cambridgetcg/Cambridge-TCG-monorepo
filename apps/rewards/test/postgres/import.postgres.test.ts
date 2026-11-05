@@ -5,7 +5,8 @@ import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import { graphql, http, HttpResponse } from "msw";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
-import { type ConnectionContext, findConnection, setRunning } from "~/lib/merchant.server";
+import { awaitsImport } from "~/lib/import.server";
+import { type ConnectionContext, findConnection, markUninstalled, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
 import { runPayoutCheck } from "~/lib/payout-check.server";
 import type { OrderSource, PayoutRail } from "~/lib/ports";
@@ -44,9 +45,6 @@ const session = new Session({ id: `offline_${SHOP}`, shop: SHOP, state: "state",
 
 type Bulk = { status: string; errorCode: string | null; url: string | null; objectCount: string; rootObjectCount: string };
 
-/** When the fake Shopify says each bulk query began: a minute before the test's install, plus a second per query. */
-const bulkCreatedAt = (n: number) => new Date(Date.now() - 60_000 + n * 1000).toISOString();
-
 /**
  * Shopify as the import sees it: the shop, the app's scopes, bulk operations
  * started (numbered from 1) and the latest one's status, which a test sets.
@@ -55,7 +53,6 @@ function fakeShopify(o: { scopes?: string[] } = {}) {
   const scopes = o.scopes ?? ["read_customers", "read_orders", "read_all_orders", "write_store_credit_account_transactions"];
   const started: string[] = [];
   const bulk: Bulk = { status: "RUNNING", errorCode: null, url: null, objectCount: "0", rootObjectCount: "0" };
-  const createdAt: string[] = [];
   const answer = (query: string, variables: Record<string, unknown> = {}): unknown => {
     const name = /(?:query|mutation)\s+(\w+)/.exec(query)?.[1];
     switch (name) {
@@ -65,11 +62,10 @@ function fakeShopify(o: { scopes?: string[] } = {}) {
         return { data: { currentAppInstallation: { accessScopes: scopes.map((handle) => ({ handle })) } } };
       case "RewardsBulkOrders":
         started.push(String(variables.query));
-        createdAt.push(bulkCreatedAt(started.length));
         return {
           data: {
             bulkOperationRunQuery: {
-              bulkOperation: { id: `gid://shopify/BulkOperation/${started.length}`, status: "CREATED", createdAt: createdAt.at(-1) },
+              bulkOperation: { id: `gid://shopify/BulkOperation/${started.length}`, status: "CREATED" },
               userErrors: [],
             },
           },
@@ -85,7 +81,7 @@ function fakeShopify(o: { scopes?: string[] } = {}) {
     return { json: async () => body };
   });
   const admin: GraphqlClient = { graphql: graphqlCall };
-  return { admin, started, createdAt, bulk, graphqlCall };
+  return { admin, started, bulk, graphqlCall };
 }
 
 /** The bulk file at FILE_URL (or, with `status`, that answer instead); returns how often it was fetched. */
@@ -99,6 +95,18 @@ function serveFile(text = FILE, o: { status?: number } = {}): { fetches: number 
     }),
   );
   return seen;
+}
+
+/** The fixture file with the records named (an order or a line item, by id) changed: each change's fields replace theirs. */
+function fileWith(changes: Record<string, Record<string, unknown>>): string {
+  return FILE.split("\n")
+    .map((line) => {
+      if (!line.trim()) return line;
+      const record = JSON.parse(line) as Record<string, unknown>;
+      const change = changes[String(record.id)];
+      return change ? JSON.stringify({ ...record, ...change }) : line;
+    })
+    .join("\n");
 }
 
 /**
@@ -179,15 +187,15 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
     );
     expect(shopify.started[0]).toMatch(/^\{\s+orders\(/);
     expect(shopify.started[0]).toContain("totalTipReceivedSet");
-    expect(shopify.started[0]).not.toMatch(/\brefunds\b|\bshop\b/);
+    // Each order's refund ids, a list field on the order's own line (Ruling 54)
+    expect(shopify.started[0]).toMatch(/\brefunds\s*\{\s*id\s*\}/);
+    expect(shopify.started[0]).not.toMatch(/\bshop\b/);
     await expect(connectionRow()).resolves.toMatchObject({
       importState: "running",
       importOperationId: "gid://shopify/BulkOperation/1",
       importHorizonDays: 365,
       importAttempts: 1,
       importCursor: 0,
-      // Shopify's own start time of the bulk query (Ruling 49)
-      importStartedAt: new Date(shopify.createdAt[0]),
     });
   });
 
@@ -220,6 +228,8 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
     const orders = await prisma.order.findMany({ orderBy: { externalOrderId: "asc" } });
     expect(orders.map((o) => o.externalOrderId)).toEqual(KEPT);
     for (const order of orders) expect(order).toMatchObject({ source: "import", noCashbackReason: "import" });
+    // The refunds each order's line lists, which its quantities count (Ruling 54)
+    expect(orders.map((o) => o.importRefundIds)).toEqual([[], ["gid://shopify/Refund/9021"], []]);
     await expect(prisma.ledgerEntry.count()).resolves.toBe(0);
     await expect(prisma.payout.count()).resolves.toBe(0);
     // The unreadable order is counted where Home and the operator see it, by its id only
@@ -377,6 +387,21 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
     });
   });
 
+  it("says why a file whose line item is away from its order can't be read (M2c-F9)", async () => {
+    const { conn, shopify } = await firstOpen();
+    complete(shopify);
+    // 9001's second line item comes after order 9002
+    const [order1, item1, item2, order2, ...rest] = FILE.split("\n");
+    serveFile([order1, item1, order2, item2, ...rest].join("\n"));
+
+    await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("running");
+
+    await expect(connectionRow()).resolves.toMatchObject({
+      importAttempts: 2,
+      importError: "The bulk file's line 4 belongs to an order that isn't just above it: Shopify's file put a line item away from its order, which the import can't place",
+    });
+  });
+
   it("restarts a bulk query Shopify failed up to 3 times, then fails with Shopify's error", async () => {
     const { conn, shopify } = await firstOpen();
     Object.assign(shopify.bulk, { status: "FAILED", errorCode: "TIMEOUT" });
@@ -446,7 +471,7 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
     await expect(prisma.order.count({ where: { externalOrderId: "gid://shopify/Order/9001" } })).resolves.toBe(1);
   });
 
-  describe("refunds made while the import runs (Ruling 49)", () => {
+  describe("refunds made while the import runs (Rulings 49 and 54)", () => {
     const REFUND = "gid://shopify/Refund/9901";
 
     /** Fixture order `gid` as RewardsOrderFacts answers it now, with `refunds` on it. */
@@ -497,12 +522,38 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("done");
       await expect(refundOf9001()).resolves.toMatchObject({ shopRefundedProductAmount: new Prisma.Decimal(0) });
 
-      // Shopify's retry, after the import: made after the bulk query began, so it is not in the quantities
+      // Shopify's retry, after the import: the file doesn't list it on its order, so it counts (Ruling 54)
       await expect(deliver()).resolves.toMatchObject({ status: 200 });
       await flushWaitUntil();
       const order = await refundOf9001();
       expect(order.shopRefundedProductAmount.toFixed(2)).toBe("10.00");
       await expect(prisma.refund.count()).resolves.toBe(1);
+    });
+
+    // Ruling 53: only an import that can still write is waited for
+    it("answers 200 for a refund of a past order once the import failed: it will write nothing more", async () => {
+      const { conn, shopify } = await firstOpen();
+      await seedOfflineSession(SHOP);
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "failed" } });
+      mockOrderFacts(SHOP, { orders: [orderAnswer("gid://shopify/Order/9001", [REFUND])], refunds: [moneyRefund(new Date())] });
+      const { action } = await import("~/routes/webhooks.orders.refunded");
+
+      const response = await action({ request: signedWebhook("refunds/create", SHOP, { id: 9901, order_id: 9001 }), params: {}, context: {} } as never);
+
+      expect(response.status).toBe(200);
+      await expect(prisma.refund.count()).resolves.toBe(0);
+      expect(shopify.started).toHaveLength(1);
+    });
+
+    it("waits for no import of an uninstalled store, even one still running", async () => {
+      const { conn } = await firstOpen();
+      const past = { hasCustomer: true, test: false, orderedAt: new Date(conn.installedAt.getTime() - 30 * DAY) };
+      await expect(awaitsImport(conn, past)).resolves.toBe(true);
+
+      await markUninstalled(SHOP, new Date());
+
+      await expect(connectionRow()).resolves.toMatchObject({ status: "uninstalled", importState: "running" });
+      await expect(awaitsImport(conn, past)).resolves.toBe(false);
     });
 
     it("answers 200 for a refund of a past order once the import is done", async () => {
@@ -518,29 +569,79 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       expect(shopify.started).toHaveLength(1);
     });
 
-    it("records a refund made before the bulk query began without counting it again", async () => {
+    /** A refund `id` of £`amount` of items, made just now: after the bulk query began. */
+    const itemRefund = (id: string, amount: string) => ({
+      externalRefundId: id,
+      refundedAt: new Date(),
+      completesOrder: false,
+      productValue: { amount: new Money(amount), shopAmount: new Money(amount) },
+    });
+    const refundOf9002 = async () =>
+      (await prisma.order.findFirstOrThrow({ where: { externalOrderId: "gid://shopify/Order/9002" } })).shopRefundedProductAmount.toFixed(2);
+    const LISTED = "gid://shopify/Refund/9021";
+    const UNLISTED = "gid://shopify/Refund/9022";
+
+    it("adds no spend for a refund the file lists on its order, made after the bulk query began, and counts one it doesn't (Ruling 54)", async () => {
+      const { conn, shopify } = await firstOpen();
+      complete(shopify);
+      // Shopify read order 9002 after its 2 of 3 units came back: its quantities count them, and its line lists the refund
+      serveFile();
+      await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("done");
+      expect(await refundOf9002()).toBe("20.00");
+
+      // Its webhook, delivered after the import (made after the bulk query began, before Shopify read the order)
+      await expect(recordRefund(conn, "gid://shopify/Order/9002", itemRefund(LISTED, "20.00"))).resolves.toMatchObject({ status: "recorded" });
+      expect(await refundOf9002()).toBe("20.00");
+      await expect(prisma.refund.findMany({ select: { externalRefundId: true } })).resolves.toEqual([{ externalRefundId: LISTED }]);
+      await expect(recordRefund(conn, "gid://shopify/Order/9002", itemRefund(LISTED, "20.00"))).resolves.toEqual({ status: "already_recorded" });
+
+      // A refund the file doesn't list came after Shopify read the order: it counts
+      await expect(recordRefund(conn, "gid://shopify/Order/9002", itemRefund(UNLISTED, "5.00"))).resolves.toMatchObject({ status: "recorded" });
+      expect(await refundOf9002()).toBe("25.00");
+      await expect(prisma.refund.count()).resolves.toBe(2);
+    });
+
+    it("writes no order twice on a restart, and an order from the first attempt keeps that attempt's list", async () => {
       const { conn, shopify } = await firstOpen();
       complete(shopify);
       serveFile();
+      const realNow = Date.now.bind(Date);
+      let late = false;
+      const now = vi.spyOn(Date, "now").mockImplementation(() => (late ? realNow() + 60 * 60_000 : realNow()));
+      // The first attempt writes its first chunk (9001 and 9002), then runs out of time
+      const undo = afterCursorSave(() => {
+        late = true;
+      });
+      try {
+        await expect(pollImport(shopify.admin, conn.connectionId, FAR(), { chunkSize: 2 })).resolves.toBe("running");
+      } finally {
+        undo();
+        now.mockRestore();
+      }
+      await expect(connectionRow()).resolves.toMatchObject({ importCursor: 2 });
+
+      // Shopify then fails the bulk query, and the restart's file reads 9002 after a second refund
+      Object.assign(shopify.bulk, { status: "FAILED", errorCode: "TIMEOUT" });
+      await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("running");
+      complete(shopify);
+      serveFile(
+        fileWith({
+          "gid://shopify/Order/9002": { displayFinancialStatus: "PARTIALLY_REFUNDED", refunds: [{ id: LISTED }, { id: UNLISTED }] },
+          "gid://shopify/LineItem/9201": { currentQuantity: 0 },
+        }),
+      );
       await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("done");
-      const { importStartedAt } = await connectionRow();
-      const facts = (at: Date) => ({
-        externalRefundId: REFUND,
-        refundedAt: at,
-        completesOrder: false,
-        productValue: { amount: new Money("10.00"), shopAmount: new Money("10.00") },
-      });
 
-      // Its webhook delivered late: the bulk file's quantities already count it
-      await expect(recordRefund(conn, "gid://shopify/Order/9001", facts(new Date(importStartedAt!.getTime() - 1000)))).resolves.toMatchObject({
-        status: "recorded",
+      expect(shopify.started).toHaveLength(2);
+      const orders = await prisma.order.findMany({ select: { externalOrderId: true }, orderBy: { externalOrderId: "asc" } });
+      expect(orders.map((o) => o.externalOrderId)).toEqual(KEPT);
+      // Written by the first attempt's file, which didn't count the second refund
+      await expect(prisma.order.findFirstOrThrow({ where: { externalOrderId: "gid://shopify/Order/9002" } })).resolves.toMatchObject({
+        importRefundIds: [LISTED],
       });
-
-      expect((await refundOf9001()).shopRefundedProductAmount.toFixed(2)).toBe("0.00");
-      await expect(prisma.refund.findFirstOrThrow()).resolves.toMatchObject({ externalRefundId: REFUND });
-      // A redelivery writes nothing
-      await expect(recordRefund(conn, "gid://shopify/Order/9001", facts(new Date()))).resolves.toEqual({ status: "already_recorded" });
-      expect((await refundOf9001()).shopRefundedProductAmount.toFixed(2)).toBe("0.00");
+      expect(await refundOf9002()).toBe("20.00");
+      await expect(recordRefund(conn, "gid://shopify/Order/9002", itemRefund(UNLISTED, "10.00"))).resolves.toMatchObject({ status: "recorded" });
+      expect(await refundOf9002()).toBe("30.00");
     });
   });
 
@@ -577,6 +678,35 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       await expect(connectionRow()).resolves.toMatchObject({ importState: "done", importedCount: 3 });
       // Nothing left running
       await expect(pollRunningImports(FAR())).resolves.toEqual({ polled: 0, failed: 0 });
+    });
+
+    it("starts an import left not started, so it never waits for the next open (Ruling 53)", async () => {
+      await firstOpen();
+      // As an open that recorded the store but was cut off before it started the import leaves it
+      await prisma.connection.updateMany({ data: { importState: "not_started", importOperationId: null, importAttempts: 0 } });
+      await seedOfflineSession(SHOP);
+      const started: string[] = [];
+      const link = graphql.link(adminGraphqlUrl(SHOP));
+      server.use(
+        link.query("RewardsAccessScopes", () =>
+          HttpResponse.json({ data: { currentAppInstallation: { accessScopes: [{ handle: "read_orders" }, { handle: "read_all_orders" }] } } }),
+        ),
+        link.mutation("RewardsBulkOrders", ({ variables }) => {
+          started.push(String(variables.query));
+          return HttpResponse.json({
+            data: { bulkOperationRunQuery: { bulkOperation: { id: "gid://shopify/BulkOperation/77", status: "CREATED" }, userErrors: [] } },
+          });
+        }),
+      );
+
+      await expect(pollRunningImports(FAR())).resolves.toEqual({ polled: 1, failed: 0 });
+
+      expect(started).toHaveLength(1);
+      await expect(connectionRow()).resolves.toMatchObject({
+        importState: "running",
+        importOperationId: "gid://shopify/BulkOperation/77",
+        importAttempts: 1,
+      });
     });
 
     it("counts a poll that fails as a problem of the hourly run (A17-F3)", async () => {

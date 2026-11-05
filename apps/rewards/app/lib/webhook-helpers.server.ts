@@ -1,9 +1,10 @@
 /**
  * The pieces every webhook route shares (A13-F3): reading the order id from
  * a payload, and answering 500 for a failure Shopify should deliver again,
- * logged and sent to monitoring (OPERATIONS-1). The designed answers (401 for
- * a delivery Shopify didn't sign, 503 for one to try again later) are not
- * failures and never come here.
+ * logged and sent to monitoring (OPERATIONS-1), a 500 authenticate.webhook
+ * throws included (M2b-F4). The designed answers (401 for a delivery Shopify
+ * didn't sign, 503 for one to try again later) are not failures and never
+ * come here.
  */
 import { monitoring } from "./telemetry.server";
 
@@ -28,6 +29,29 @@ export function webhookFailed(topic: string, what: string, error: unknown): Resp
   monitoring.captureException(error, { tags: { "webhook.topic": topic } });
   return new Response(null, { status: 500 });
 }
+
+/**
+ * What `authenticate()` (the route's authenticate.webhook) answers. A
+ * Response of 500 or more it throws, as when Shopify refuses the store's
+ * token refresh, is logged and reported with the `webhook.topic` tag, then
+ * thrown on, so the delivery is still answered with it: React Router never
+ * hands a thrown Response to the server's error handler (M2b-F4). A 4xx (a
+ * delivery Shopify did not sign) is a designed answer, thrown on unreported.
+ */
+export async function authenticatedWebhook<T>(topic: string, authenticate: () => Promise<T>): Promise<T> {
+  try {
+    return await authenticate();
+  } catch (error) {
+    if (error instanceof Response && error.status >= 500) {
+      console.error(`[${topic}] Authenticating the delivery answered HTTP ${error.status}; Shopify will deliver it again`);
+      monitoring.captureException(new Error(`authenticate.webhook answered HTTP ${error.status}`), { tags: { "webhook.topic": topic } });
+    }
+    throw error;
+  }
+}
+
+/** The error a delivery whose store has no usable offline session is reported with. */
+export const NO_USABLE_SESSION = "The store has no usable offline session";
 
 /**
  * `read()`'s result, or the 500 (webhookFailed, as `what`) when it throws a

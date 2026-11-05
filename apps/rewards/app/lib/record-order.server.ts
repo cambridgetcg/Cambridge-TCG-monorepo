@@ -187,6 +187,8 @@ export async function recordOrder(
             cancelledAt: facts.cancelledAt,
             test: facts.test,
             noCashbackReason: noCashback,
+            // The refunds the import's file counted already (Ruling 54)
+            importRefundIds: source === "import" ? (facts.importRefundIds ?? []) : [],
           },
         ],
         skipDuplicates: true,

@@ -17,12 +17,13 @@
  *    failed all of Shopify's retries (rule 13, Ruling 45). An order no
  *    webhook recorded goes through the webhook's own path: read, record,
  *    send, resolve the tier. A recorded order gets each refund it has no row
- *    for (read, then recordRefund; its take-back is sent by a later run's
- *    step 2), except an imported order's refunds from before the import's
- *    bulk query began, which its quantities already count (Ruling 49); and a
- *    cancellation Shopify shows that the row lacks. A store is stamped
- *    (`lastSweptAt`) when its sweep finishes; one the deadline leaves out is
- *    `unfinished`, and a problem.
+ *    for (read, then recordRefund, which leaves the spend of an imported
+ *    order's refund its bulk file listed as it is, Ruling 54; a take-back is
+ *    sent by a later run's step 2), and a cancellation Shopify shows that the
+ *    row lacks. A store is stamped (`lastSweptAt`) when its sweep finishes;
+ *    one the deadline leaves out or cuts short, its listing included, is
+ *    `unfinished`, and a problem. An order past what one read takes (20 or
+ *    more refunds) is logged as a limit, not a problem (M2c-F7).
  *
  * Only active stores are worked on; an uninstalled store's payouts wait for
  * its reinstall (rule 12) or shop/redact. A store the job can't reach (no
@@ -38,7 +39,7 @@
 import prisma from "~/db.server";
 import { type ConnectionContext, findConnection } from "./merchant.server";
 import { CLAIM_FINISHED_MS, type SendOutcome, sendPayout, settleUnconfirmed } from "./payouts.server";
-import type { OrderSource, PayoutRail, RailFor, UpdatedOrder } from "./ports";
+import { type OrderSource, type PayoutRail, type RailFor, type UpdatedOrder, isReadLimit } from "./ports";
 import { recordCancellation, recordOrder } from "./record-order.server";
 import { RefundRetryLater, recordRefund } from "./refunds.server";
 import { resolveTier } from "./tiers.server";
@@ -92,7 +93,7 @@ function unreachableRail(): PayoutRail {
 }
 
 /** A recorded order as the sweep compares it with Shopify. */
-type RecordedOrder = { externalOrderId: string; source: "live" | "import"; cancelledAt: Date | null; refunds: Array<{ externalRefundId: string }> };
+type RecordedOrder = { externalOrderId: string; cancelledAt: Date | null; refunds: Array<{ externalRefundId: string }> };
 
 export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline: number }): Promise<PayoutCheckResult> {
   const { now } = o;
@@ -199,8 +200,9 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
   const connections = await prisma.connection.findMany({
     where: { status: "active" },
     orderBy: [{ lastSweptAt: { sort: "asc", nulls: "first" } }, { id: "asc" }],
-    select: { id: true, externalAccountId: true, installedAt: true, importStartedAt: true, importHorizonDays: true },
+    select: { id: true, externalAccountId: true, installedAt: true, importHorizonDays: true },
   });
+  const sweep: SweepContext = { result, problem, outOfTime, now, deadline: o.deadline, tallySend };
   for (const [index, connection] of connections.entries()) {
     if (outOfTime()) {
       const left = connections.length - index;
@@ -210,7 +212,7 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
     }
     const store = await storeFor(connection.id);
     if (!store) continue;
-    const finished = await sweepStore(connection, store, o.deadline);
+    const finished = await sweepStore(sweep, connection, store);
     if (finished) await prisma.connection.update({ where: { id: connection.id }, data: { lastSweptAt: new Date() } });
     else {
       result.unfinished++;
@@ -219,132 +221,173 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
   }
 
   return result;
+}
 
-  /**
-   * One store's sweep. True when it finished (its listing failing counts as
-   * finished: the failure is a problem, and the store takes its turn again
-   * after the others); false when the deadline cut it short.
-   */
-  async function sweepStore(
-    connection: { id: string; externalAccountId: string; installedAt: Date; importStartedAt: Date | null; importHorizonDays: number },
-    store: Store,
-    deadline: number,
-  ): Promise<boolean> {
-    const shop = connection.externalAccountId;
-    const since = new Date(Math.max(now.getTime() - SWEEP_DAYS * DAY_MS, connection.installedAt.getTime()));
-    // The import reads no order created before this; nor does the sweep, unless a webhook recorded it
-    const horizon = connection.installedAt.getTime() - connection.importHorizonDays * DAY_MS;
-    let candidates: UpdatedOrder[];
-    let recorded: Map<string, RecordedOrder>;
-    try {
-      candidates = (await store.orders.recentlyUpdatedOrders(since, { deadline })).filter((order) => order.hasCustomer && !order.test);
-      const rows = await prisma.order.findMany({
-        where: { connectionId: connection.id, externalOrderId: { in: candidates.map((order) => order.orderGid) } },
-        select: { externalOrderId: true, source: true, cancelledAt: true, refunds: { select: { externalRefundId: true } } },
-      });
-      recorded = new Map(rows.map((row) => [row.externalOrderId, row]));
-    } catch (error) {
-      console.error(`[payout-check] Could not list ${shop}'s recently updated orders: ${messageOf(error)}`);
-      problem(error);
-      return true;
-    }
-    let conn: ConnectionContext | null = null;
-    for (const order of candidates) {
-      const row = recorded.get(order.orderGid);
-      // An order from before the import's horizon, listed because it changed since (a fulfilment, a retag)
-      if (!row && order.orderedAt.getTime() < horizon) continue;
-      // Nothing to do for an order recorded with every refund and its cancellation
-      if (row && !missingRefunds(order, row, connection.importStartedAt) && !(order.cancelledAt && !row.cancelledAt)) continue;
-      if (outOfTime()) return false;
-      conn ??= await findConnection(shop);
-      // Uninstalled since the run began
-      if (!conn) return true;
-      try {
-        if (!row) await sweepMissedOrder(conn, store, order.orderGid, deadline);
-        else if (!(await sweepRecordedOrder(conn, store, order, row, connection.importStartedAt, deadline))) return false;
-      } catch (error) {
-        // One order Shopify's answer can't be read for (OrderReadError) or
-        // that fails to record never stops the sweep. Only its id is logged.
-        console.error(`[payout-check] Could not finish missed order ${order.orderGid} for ${shop}: ${messageOf(error)}`);
-        problem(error);
-      }
-    }
+/** What the sweep's steps share with their run (M2c-F8). */
+interface SweepContext {
+  result: PayoutCheckResult;
+  problem: (error: unknown) => void;
+  outOfTime: () => boolean;
+  /** The run's time, which the listing looks back from. */
+  now: Date;
+  /** The run's deadline, as a Date.now() time, which every read ends by. */
+  deadline: number;
+  tallySend: (payoutId: string, outcome: SendOutcome) => Promise<void>;
+}
+
+/** An order past a known limit of the order source's reads (more refunds than one read takes): logged, never a problem (M2c-F7). */
+function readLimitReached(orderGid: string, shop: string, error: Error): void {
+  console.warn(`[payout-check] Order ${orderGid} for ${shop} is past what one read takes; the sweep leaves it: ${messageOf(error)}`);
+}
+
+/**
+ * One store's sweep. True when it finished (its listing failing counts as
+ * finished: the failure is a problem, and the store takes its turn again
+ * after the others); false when the deadline cut it short, its listing
+ * included (M2c-F3).
+ */
+async function sweepStore(
+  ctx: SweepContext,
+  connection: { id: string; externalAccountId: string; installedAt: Date; importHorizonDays: number },
+  store: Store,
+): Promise<boolean> {
+  const shop = connection.externalAccountId;
+  const since = new Date(Math.max(ctx.now.getTime() - SWEEP_DAYS * DAY_MS, connection.installedAt.getTime()));
+  // The import reads no order created before this; nor does the sweep, unless a webhook recorded it
+  const horizon = connection.installedAt.getTime() - connection.importHorizonDays * DAY_MS;
+  let candidates: UpdatedOrder[];
+  let recorded: Map<string, RecordedOrder>;
+  try {
+    const listed = await store.orders.recentlyUpdatedOrders(since, { deadline: ctx.deadline });
+    candidates = listed.filter((order) => order.hasCustomer && !order.test);
+    const rows = await prisma.order.findMany({
+      where: { connectionId: connection.id, externalOrderId: { in: candidates.map((order) => order.orderGid) } },
+      select: { externalOrderId: true, cancelledAt: true, refunds: { select: { externalRefundId: true } } },
+    });
+    recorded = new Map(rows.map((row) => [row.externalOrderId, row]));
+  } catch (error) {
+    // The run's deadline cut the listing off: the store was not swept, and keeps its turn
+    if (ctx.outOfTime()) return false;
+    console.error(`[payout-check] Could not list ${shop}'s recently updated orders: ${messageOf(error)}`);
+    ctx.problem(error);
     return true;
   }
-
-  /** Whether the order may have refunds with no row (a listing cut short says it may). */
-  function missingRefunds(order: UpdatedOrder, row: RecordedOrder, importStartedAt: Date | null): boolean {
-    if (order.refunds === null) return true;
-    const known = new Set(row.refunds.map((refund) => refund.externalRefundId));
-    return order.refunds.some((refund) => !known.has(refund.refundGid) && !countedByImport(row, refund.refundedAt, importStartedAt));
+  let conn: ConnectionContext | null = null;
+  for (const order of candidates) {
+    const row = recorded.get(order.orderGid);
+    // An order from before the import's horizon, listed because it changed since (a fulfilment, a retag)
+    if (!row && order.orderedAt.getTime() < horizon) continue;
+    // Nothing to do for an order recorded with every refund and its cancellation
+    if (row && !missingRefunds(order, row) && !(order.cancelledAt && !row.cancelledAt)) continue;
+    if (ctx.outOfTime()) return false;
+    conn ??= await findConnection(shop);
+    // Uninstalled since the run began
+    if (!conn) return true;
+    try {
+      if (!row) await sweepMissedOrder(ctx, conn, store, order.orderGid);
+      else if (!(await sweepRecordedOrder(ctx, conn, store, order, row))) return false;
+    } catch (error) {
+      if (isReadLimit(error)) {
+        readLimitReached(order.orderGid, shop, error);
+        continue;
+      }
+      // One order Shopify's answer can't be read for (OrderReadError) or
+      // that fails to record never stops the sweep. Only its id is logged.
+      console.error(`[payout-check] Could not finish missed order ${order.orderGid} for ${shop}: ${messageOf(error)}`);
+      ctx.problem(error);
+    }
   }
+  return true;
+}
 
-  /** An imported order's refund from before the bulk query began is in its quantities (Ruling 49). */
-  function countedByImport(row: RecordedOrder, refundedAt: Date, importStartedAt: Date | null): boolean {
-    return row.source === "import" && importStartedAt !== null && refundedAt < importStartedAt;
-  }
+/** Whether the order may have refunds with no row (a listing cut short says it may). */
+function missingRefunds(order: UpdatedOrder, row: RecordedOrder): boolean {
+  if (order.refunds === null) return true;
+  const known = new Set(row.refunds.map((refund) => refund.externalRefundId));
+  return order.refunds.some((refund) => !known.has(refund.refundGid));
+}
 
-  /** An order no webhook recorded: read, record, send, resolve the tier, as orders/paid does. */
-  async function sweepMissedOrder(conn: ConnectionContext, store: Store, orderGid: string, deadline: number): Promise<void> {
-    const facts = await store.orders.readOrder(orderGid, { deadline });
-    // Gone from Shopify since it was listed
-    if (!facts) return;
-    const recorded = await recordOrder(conn, facts, "live");
-    if (recorded.status !== "recorded") return;
-    result.swept++;
-    if (recorded.payoutId) await tallySend(recorded.payoutId, await sendPayout(recorded.payoutId, store.rail, new Date()));
-    await resolveTier(recorded.customerId);
-  }
+/** An order no webhook recorded: read, record, send, resolve the tier, as orders/paid does. */
+async function sweepMissedOrder(ctx: SweepContext, conn: ConnectionContext, store: Store, orderGid: string): Promise<void> {
+  const facts = await store.orders.readOrder(orderGid, { deadline: ctx.deadline });
+  // Gone from Shopify since it was listed
+  if (!facts) return;
+  const recorded = await recordOrder(conn, facts, "live");
+  if (recorded.status !== "recorded") return;
+  ctx.result.swept++;
+  if (recorded.payoutId) await ctx.tallySend(recorded.payoutId, await sendPayout(recorded.payoutId, store.rail, new Date()));
+  await resolveTier(recorded.customerId);
+}
 
-  /**
-   * A recorded order's refunds with no row, each read and recorded as
-   * refunds/create would (its take-back waits for a later run's step 2), and
-   * a cancellation the row lacks; then the buyer's tier, whose spend moved.
-   * False when the deadline left refunds for the next run.
-   */
-  async function sweepRecordedOrder(
-    conn: ConnectionContext,
-    store: Store,
-    order: UpdatedOrder,
-    row: RecordedOrder,
-    importStartedAt: Date | null,
-    deadline: number,
-  ): Promise<boolean> {
-    let customerId: string | null = null;
-    let cut = false;
-    let refunds = order.refunds;
-    if (refunds === null) {
-      // The listing may have cut them short: the order's own read has them all (or throws)
-      const facts = await store.orders.readOrder(order.orderGid, { deadline });
+/**
+ * A recorded order's refunds with no row, each read and recorded as
+ * refunds/create would (its take-back waits for a later run's step 2;
+ * recordRefund decides what an imported order's refund adds, Ruling 54),
+ * and a cancellation the row lacks; then the buyer's tier, whose spend
+ * moved. Each refund is caught on its own: one that fails is logged by the
+ * order's and its own id and is a problem, and the sweep goes on to the next
+ * and the cancellation (M2c-F6). False when the deadline left refunds for
+ * the next run.
+ */
+async function sweepRecordedOrder(
+  ctx: SweepContext,
+  conn: ConnectionContext,
+  store: Store,
+  order: UpdatedOrder,
+  row: RecordedOrder,
+): Promise<boolean> {
+  const { shop } = conn;
+  let customerId: string | null = null;
+  let cut = false;
+  let refunds = order.refunds;
+  if (refunds === null) {
+    // The listing may have cut them short: the order's own read has them all (or throws)
+    try {
+      const facts = await store.orders.readOrder(order.orderGid, { deadline: ctx.deadline });
       refunds = (facts?.refunds ?? []).map((refund) => ({ refundGid: refund.externalRefundId, refundedAt: refund.refundedAt }));
-    }
-    const known = new Set(row.refunds.map((refund) => refund.externalRefundId));
-    for (const { refundGid, refundedAt } of refunds) {
-      if (known.has(refundGid) || countedByImport(row, refundedAt, importStartedAt)) continue;
-      if (outOfTime()) {
-        cut = true;
-        break;
-      }
-      const read = await store.orders.readRefund(refundGid, { deadline });
-      if (!read || read.orderGid !== order.orderGid) continue;
-      try {
-        const recorded = await recordRefund(conn, order.orderGid, read.refund);
-        if (recorded.status !== "recorded") continue;
-        result.refundsSwept++;
-        customerId = recorded.customerId;
-      } catch (error) {
-        // Its order's credit is being sent right now: the next run takes it
-        if (!(error instanceof RefundRetryLater)) throw error;
+    } catch (error) {
+      // Its refunds can't be had this run; its cancellation still can
+      refunds = [];
+      if (isReadLimit(error)) readLimitReached(order.orderGid, shop, error);
+      else {
+        console.error(`[payout-check] Could not read the refunds of order ${order.orderGid} for ${shop}: ${messageOf(error)}`);
+        ctx.problem(error);
       }
     }
-    if (order.cancelledAt && !row.cancelledAt) {
-      const cancelled = await recordCancellation(conn, order.orderGid, order.cancelledAt);
-      if (cancelled) {
-        result.cancelledSwept++;
-        customerId = cancelled.customerId;
-      }
-    }
-    if (customerId) await resolveTier(customerId);
-    return !cut;
   }
+  const known = new Set(row.refunds.map((refund) => refund.externalRefundId));
+  for (const { refundGid } of refunds) {
+    if (known.has(refundGid)) continue;
+    if (ctx.outOfTime()) {
+      cut = true;
+      break;
+    }
+    try {
+      const read = await store.orders.readRefund(refundGid, { deadline: ctx.deadline });
+      if (!read || read.orderGid !== order.orderGid) continue;
+      const recorded = await recordRefund(conn, order.orderGid, read.refund);
+      if (recorded.status !== "recorded") continue;
+      ctx.result.refundsSwept++;
+      customerId = recorded.customerId;
+    } catch (error) {
+      // Its order's credit is being sent right now: the next run takes it
+      if (error instanceof RefundRetryLater) continue;
+      // The refund's read values it against the order's other refunds, so it meets the same limit
+      if (isReadLimit(error)) {
+        readLimitReached(order.orderGid, shop, error);
+        continue;
+      }
+      console.error(`[payout-check] Could not record refund ${refundGid} of order ${order.orderGid} for ${shop}: ${messageOf(error)}`);
+      ctx.problem(error);
+    }
+  }
+  if (order.cancelledAt && !row.cancelledAt) {
+    const cancelled = await recordCancellation(conn, order.orderGid, order.cancelledAt);
+    if (cancelled) {
+      ctx.result.cancelledSwept++;
+      customerId = cancelled.customerId;
+    }
+  }
+  if (customerId) await resolveTier(customerId);
+  return !cut;
 }

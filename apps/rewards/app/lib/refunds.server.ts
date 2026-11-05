@@ -26,9 +26,11 @@
  * reversal is written for the ledger's trail and its take-back closed at once
  * (MONEY-5), as the redaction closed what was open then.
  *
- * A refund of an imported order made before the import's bulk query began
- * (`importStartedAt`) is already in the bulk file's quantities: its row is
- * recorded, for idempotency, and the spend is left as it is (Ruling 49).
+ * A refund of an imported order that the import's bulk file listed on it
+ * (`importRefundIds`) is already in the file's quantities: its row is
+ * recorded, for idempotency, and the spend is left as it is. Any other
+ * refund of an imported order came after Shopify read it, and counts
+ * (Ruling 54).
  */
 import type { PayoutState, Prisma, PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
@@ -172,7 +174,7 @@ export async function recordRefundInTransaction(
     where: { id: orderId },
     select: {
       source: true,
-      connection: { select: { importStartedAt: true } },
+      importRefundIds: true,
       customerId: true,
       customer: { select: { redactedAt: true } },
       productAmount: true,
@@ -192,8 +194,7 @@ export async function recordRefundInTransaction(
 
   // Counted already by the import's quantities. An imported order earns no
   // cashback, so there is nothing to take back either.
-  const snapshot = order.connection.importStartedAt;
-  if (order.source === "import" && snapshot !== null && refund.refundedAt < snapshot) return nothing;
+  if (order.source === "import" && order.importRefundIds.includes(refund.externalRefundId)) return nothing;
 
   const refunded = fromDb(order.refundedProductAmount).plus(refund.productValue.amount);
   const shopRefunded = fromDb(order.shopRefundedProductAmount).plus(refund.productValue.shopAmount);

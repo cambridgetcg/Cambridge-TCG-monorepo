@@ -72,7 +72,23 @@ export interface UpdatedOrder {
   refunds: Array<{ refundGid: string; refundedAt: Date }> | null;
 }
 
+/**
+ * What an order source's read throws, alongside its own error type, when the
+ * order is past a known limit of the read (an order with more refunds than
+ * one read takes): not a failure that trying again could fix, so the hourly
+ * sweep logs it rather than counting a problem (M2c-F7).
+ */
+export interface ReadLimit {
+  readonly readLimit: true;
+}
+
+/** Whether `error` is an order source's ReadLimit. */
+export function isReadLimit(error: unknown): error is Error & ReadLimit {
+  return error instanceof Error && (error as Partial<ReadLimit>).readLimit === true;
+}
+
 export interface OrderSource {
+  /** Throws a ReadLimit error for an order with more refunds than the read takes. */
   readOrder(orderGid: string, o?: ReadOptions): Promise<OrderFacts | null>;
   readRefund(refundGid: string, o?: ReadOptions): Promise<{ orderGid: string; refund: RefundFacts } | null>;
   /** The orders updated since `since`, most recently updated first (rule 13's backstop for orders, refunds and cancellations). */

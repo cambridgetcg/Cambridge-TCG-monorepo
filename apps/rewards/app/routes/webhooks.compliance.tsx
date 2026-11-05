@@ -15,9 +15,11 @@
  * uninstalled store's rows too, which are kept until shop/redact. A store
  * never seen answers 200, and so does shop/redact for a store that is active
  * again, which erases nothing (Ruling 41). A customers/redact for a buyer not
- * seen yet answers 503 while the store's past-orders import is not done
- * (CONCURRENCY-5), so Shopify brings it again once the import has written
- * that buyer's orders. Any failure answers 500 and reaches monitoring, so the
+ * seen yet answers 503 while the store's past-orders import can still write
+ * (the store is installed and its import not started or running, Ruling 53;
+ * CONCURRENCY-5), so Shopify brings it again once the import has written
+ * that buyer's orders; a failed or done import, or an uninstalled store,
+ * answers 200. Any failure answers 500 and reaches monitoring, so the
  * obligation isn't lost: Shopify delivers it again. Logs carry the shop and
  * counts only, never the buyer's ids or details.
  */
@@ -85,7 +87,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return new Response();
       }
       const redaction = await redactCustomer(conn, externalCustomerId);
-      if (!redaction.found && !redaction.importDone) {
+      if (!redaction.found && redaction.awaitsImport) {
         console.log(`[compliance] customers/redact for ${shop}: no such customer while the past-orders import runs; Shopify will deliver it again`);
         return new Response(null, { status: 503 });
       }

@@ -19,9 +19,10 @@ Exits non-zero (1) if any of:
 A project with "skipsBuilds" (its Ignored Build Step cancels the builds of
 pushes that don't touch it, which Vercel lists as CANCELED deployments)
 takes its state from the newest production deployment that is not
-CANCELED, and its age from the newest READY one, so skipped builds neither
-hide a failed one nor reset the age. The others use the newest deployment
-for both.
+CANCELED, and its age and drift (the deploy's time and sha) from the newest
+READY one, so skipped builds neither hide a failed one, nor reset the age,
+nor hide a wrongly skipped app commit. The others use the newest deployment
+for all three.
 
 Usage: VERCEL_TOKEN=... python3 deploy-health.py
 
@@ -173,10 +174,15 @@ def check_project(p: dict) -> dict:
     # deploy AND is not an ancestor of the deployed SHA. We don't flag drift
     # for apps that simply weren't touched by the latest commit (the deploy
     # there is still current).
+    # A project that skips builds compares with the newest READY deployment:
+    # a skipped (CANCELED) push says nothing about what is live. Its time and
+    # its sha come from that same deployment.
     touch_sha, touch_ts = last_touch(p["appPath"])
     out["head_sha"] = touch_sha[:8] if touch_sha else "?"
-    deploy_ts_ms = d.get("created", 0)
+    drift_from = aged if skips else d
+    deploy_ts_ms = drift_from.get("created", 0) if drift_from else 0
     deploy_ts = deploy_ts_ms / 1000 if deploy_ts_ms else 0
+    drift_sha = (drift_from.get("meta") or {}).get("githubCommitSha", "?")[:8] if drift_from else "?"
     if touch_sha and deploy_ts:
         # Skip drift check if the touching commit is older than the deploy
         # (the deploy already includes it).
@@ -184,7 +190,7 @@ def check_project(p: dict) -> dict:
             age_min = int((time.time() - touch_ts) / 60)
             out["issues"].append(
                 f"app commit {touch_sha[:8]} ({age_min}m old) is newer than "
-                f"deploy {out['deployed_sha']} ({out['deploy_age_h']}h)"
+                f"deploy {drift_sha} ({out['deploy_age_h']}h)"
             )
 
     # 3. Domain probe. A site's `/` may redirect or answer 4xx and still be

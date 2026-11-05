@@ -176,14 +176,18 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
       await expect(prisma.order.count()).resolves.toBe(0);
     });
 
-    it("no session answers 500 so Shopify retries", async () => {
+    it("no session answers 500 so Shopify retries, and reaches monitoring (M2b-F4)", async () => {
       await seedShop({ session: false });
       const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
 
       const res = await deliverPaid();
 
       expect(res.status).toBe(500);
-      expect(logged).toHaveBeenCalledWith(`[orders/paid] No usable session for ${SHOP}; Shopify will deliver it again`);
+      expect(logged).toHaveBeenCalledWith(expect.stringContaining(`[orders/paid] No usable session for ${SHOP}; Shopify will deliver it again`));
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture.mock.calls[0][1]).toEqual({ tags: { "webhook.topic": "orders/paid" } });
       await expect(prisma.order.count()).resolves.toBe(0);
     });
 
@@ -437,14 +441,18 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
       expect(console.log).toHaveBeenCalledWith(`[refunds/create] No store connection for ${SHOP}; nothing to do`);
     });
 
-    it("no session answers 500 so Shopify retries", async () => {
+    it("no session answers 500 so Shopify retries, and reaches monitoring (M2b-F4)", async () => {
       await seedShop({ session: false });
       const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
 
       const res = await deliverRefund();
 
       expect(res.status).toBe(500);
-      expect(logged).toHaveBeenCalledWith(`[refunds/create] No usable session for ${SHOP}; Shopify will deliver it again`);
+      expect(logged).toHaveBeenCalledWith(expect.stringContaining(`[refunds/create] No usable session for ${SHOP}; Shopify will deliver it again`));
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture.mock.calls[0][1]).toEqual({ tags: { "webhook.topic": "refunds/create" } });
     });
 
     it("answers 400 for a delivery of another topic", async () => {
@@ -713,12 +721,41 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
       expect(asked.refreshes).toBe(0);
     });
 
-    it("orders/paid, which needs Shopify, still tries the refresh (and answers 500 when it is refused)", async () => {
+    it("orders/paid, which needs Shopify, still tries the refresh (and answers 500 when it is refused, reaching monitoring)", async () => {
       await seedShop({ session: false });
       const asked = await seedExpiredSessionWhoseRefreshIsRefused(SHOP);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
 
       await expect(deliverPaid()).rejects.toMatchObject({ status: 500 });
       expect(asked.refreshes).toBe(1);
+      // A thrown Response never reaches the server's error handler, so the route reports it (M2b-F4)
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture.mock.calls[0][1]).toEqual({ tags: { "webhook.topic": "orders/paid" } });
+    });
+
+    it("refunds/create reports a refused refresh too, and answers its 500", async () => {
+      await seedShop({ session: false });
+      await seedExpiredSessionWhoseRefreshIsRefused(SHOP);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
+
+      await expect(deliverRefund()).rejects.toMatchObject({ status: 500 });
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture.mock.calls[0][1]).toEqual({ tags: { "webhook.topic": "refunds/create" } });
+    });
+
+    it("a delivery Shopify did not sign is answered 401 and not reported", async () => {
+      await seedShop();
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
+      const unsigned = signedWebhook("orders/paid", SHOP, orderPayload(ORDER));
+      unsigned.headers.set("X-Shopify-Hmac-Sha256", "bm90IHRoZSBzaWduYXR1cmU=");
+
+      await expect(routes.paid.action(args(unsigned))).rejects.toMatchObject({ status: 401 });
+      expect(capture).not.toHaveBeenCalled();
     });
   });
 });

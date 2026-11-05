@@ -11,6 +11,8 @@ import { KEEP_TRYING_MS, sendPayout } from "~/lib/payouts.server";
 import type { OrderSource, PayoutRail, UpdatedOrder } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
 import { monitoring } from "~/lib/telemetry.server";
+import { ShopifyTimeoutError } from "~/shopify/ask.server";
+import { OrderReadLimitError } from "~/shopify/order-source.server";
 import plain from "../fixtures/orders/plain.json";
 import refundMoneyOnly from "../fixtures/orders/refund-money-only.json";
 import { server } from "../setup";
@@ -78,12 +80,17 @@ function orderFacts(n: number, buyer = BUYER): OrderFacts {
   };
 }
 
-/** A running GBP shop installed `installedAgo` ago with one 5% tier, and (by default) its offline session. */
+/**
+ * A running GBP shop installed `installedAgo` ago with one 5% tier, its
+ * past-orders import done (the hourly route would start one not started,
+ * Ruling 53), and (by default) its offline session.
+ */
 async function runningShop(shop = SHOP, o: { installedAgo?: number; session?: boolean } = {}): Promise<ConnectionContext> {
   const now = new Date(Date.now() - (o.installedAgo ?? 10 * DAY));
   await ensureMerchant({ shop, name: "Payout Check", currency: "GBP", timezone: "Europe/London", now });
   const conn = await findConnection(shop);
   if (!conn) throw new Error("no connection");
+  await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "done" } });
   await prisma.tier.create({
     data: { merchantId: conn.merchantId, name: "Everyone", minSpend: new Prisma.Decimal(0), cashbackPercent: new Prisma.Decimal("5.00"), position: 0 },
   });
@@ -653,30 +660,138 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
       await expect(prisma.refund.findFirstOrThrow()).resolves.toMatchObject({ externalRefundId: REFUND });
     });
 
-    it("leaves an imported order's refunds from before the import began to the file's quantities", async () => {
+    it("records an imported order's refund its file listed without a spend change, and counts one it didn't, once (Ruling 54)", async () => {
       const conn = await runningShop();
-      const importOrder = { ...orderFacts(5001), orderedAt: new Date(Date.now() - 30 * DAY), paidAt: new Date(Date.now() - 30 * DAY) };
+      const LISTED = "gid://shopify/Refund/6304";
+      const UNLISTED = "gid://shopify/Refund/6305";
+      const importOrder = {
+        ...orderFacts(5001),
+        orderedAt: new Date(Date.now() - 30 * DAY),
+        paidAt: new Date(Date.now() - 30 * DAY),
+        importRefundIds: [LISTED],
+      };
       await expect(recordOrder(conn, importOrder, "import")).resolves.toMatchObject({ status: "recorded" });
-      const began = new Date(Date.now() - 9 * DAY);
-      await prisma.connection.update({ where: { id: conn.connectionId }, data: { importStartedAt: began, importState: "done" } });
-      const BEFORE = "gid://shopify/Refund/6304";
-      const AFTER = "gid://shopify/Refund/6305";
-      mockRecentPaidOrders(SHOP, [recent(5001, { refunds: [{ id: BEFORE, madeAgo: 9.5 * DAY }, { id: AFTER, madeAgo: HOUR }] })]);
-      const order = plainOrder(5001, { createdAgo: 30 * DAY, refunds: [BEFORE, AFTER] });
+      // Both refunds were made after the bulk query began; Shopify's file read the order between them
+      mockRecentPaidOrders(SHOP, [recent(5001, { refunds: [{ id: LISTED, madeAgo: 2 * DAY }, { id: UNLISTED, madeAgo: HOUR }] })]);
+      const order = plainOrder(5001, { createdAgo: 30 * DAY, refunds: [LISTED, UNLISTED] });
       const reads = mockOrderFacts(SHOP, {
         orders: [order],
-        refunds: [moneyRefund(BEFORE, 5001, "10.0", 9.5 * DAY), moneyRefund(AFTER, 5001, "5.0", HOUR)],
+        refunds: [moneyRefund(LISTED, 5001, "10.0", 2 * DAY), moneyRefund(UNLISTED, 5001, "5.0", HOUR)],
       });
       mockStoreCredit(SHOP, { [BUYER]: "0" });
 
-      await expect(run()).resolves.toMatchObject({ body: { refundsSwept: 1, problems: 0 } });
+      await expect(run()).resolves.toMatchObject({ body: { refundsSwept: 2, problems: 0 } });
 
-      // Only the refund made after the bulk query began is recorded and counted
-      // (the earlier one is read only to value the later against it)
-      expect(reads.reads[0]).toBe(AFTER);
+      // Both get their row; only the one the file didn't list comes off spend
+      expect(reads.reads).toEqual(expect.arrayContaining([LISTED, UNLISTED]));
       const row = await prisma.order.findFirstOrThrow();
       expect(row.shopRefundedProductAmount.toFixed(2)).toBe("5.00");
-      await expect(prisma.refund.findMany({ select: { externalRefundId: true } })).resolves.toEqual([{ externalRefundId: AFTER }]);
+      const rows = await prisma.refund.findMany({ select: { externalRefundId: true }, orderBy: { externalRefundId: "asc" } });
+      expect(rows).toEqual([{ externalRefundId: LISTED }, { externalRefundId: UNLISTED }]);
+
+      // A second run changes nothing
+      const readsBefore = reads.reads.length;
+      await expect(run()).resolves.toMatchObject({ body: { refundsSwept: 0, problems: 0 } });
+      expect(reads.reads).toHaveLength(readsBefore);
+      expect((await prisma.order.findFirstOrThrow()).shopRefundedProductAmount.toFixed(2)).toBe("5.00");
+      await expect(prisma.refund.count()).resolves.toBe(2);
+    });
+  });
+
+  describe("the sweep's own failures and limits", () => {
+    const rail = { credit: vi.fn(), debit: vi.fn(), balance: vi.fn(), creditHistory: vi.fn() } as unknown as PayoutRail;
+    const listed = (n: number, o: { refunds: UpdatedOrder["refunds"]; cancelledAt?: Date }): UpdatedOrder => ({
+      orderGid: `gid://shopify/Order/${n}`,
+      hasCustomer: true,
+      test: false,
+      orderedAt: new Date(Date.now() - HOUR),
+      cancelledAt: o.cancelledAt ?? null,
+      refunds: o.refunds,
+    });
+
+    it("goes on to the order's next refund and its cancellation when one refund can't be read (M2c-F6)", async () => {
+      const conn = await runningShop(SHOP, { session: false });
+      await pendingCredit(conn, 5001, { minutesAgo: 0 });
+      const BROKEN = "gid://shopify/Refund/6401";
+      const FINE = "gid://shopify/Refund/6402";
+      const cancelledAt = new Date(Date.now() - 10 * MINUTE);
+      const broken = new Error("The refund's order could not be read");
+      const orders: OrderSource = {
+        readOrder: async () => null,
+        readRefund: async (refundGid) => {
+          if (refundGid === BROKEN) throw broken;
+          return {
+            orderGid: "gid://shopify/Order/5001",
+            refund: { externalRefundId: FINE, refundedAt: new Date(Date.now() - 20 * MINUTE), completesOrder: false, productValue: pair("20.00") },
+          };
+        },
+        recentlyUpdatedOrders: async () => [
+          listed(5001, {
+            refunds: [
+              { refundGid: BROKEN, refundedAt: new Date(Date.now() - 30 * MINUTE) },
+              { refundGid: FINE, refundedAt: new Date(Date.now() - 20 * MINUTE) },
+            ],
+            cancelledAt,
+          }),
+        ],
+      };
+
+      const result = await runPayoutCheck({ now: new Date(), railFor: async () => ({ rail, orders }), deadline: Date.now() + 60_000 });
+
+      expect(result).toMatchObject({ refundsSwept: 1, cancelledSwept: 1, problems: 1, firstProblem: broken });
+      await expect(prisma.refund.findMany({ select: { externalRefundId: true } })).resolves.toEqual([{ externalRefundId: FINE }]);
+      await expect(prisma.order.findFirstOrThrow()).resolves.toMatchObject({ cancelledAt });
+      // Logged by the order's and the refund's ids only
+      const lines = vi.mocked(console.error).mock.calls.map((call) => call.map(String).join(" "));
+      expect(lines).toEqual([expect.stringMatching(/gid:\/\/shopify\/Refund\/6401.*gid:\/\/shopify\/Order\/5001|gid:\/\/shopify\/Order\/5001.*gid:\/\/shopify\/Refund\/6401/)]);
+    });
+
+    it("logs an order with more refunds than one read takes as a limit, not a problem, and still records its cancellation (M2c-F7)", async () => {
+      const conn = await runningShop(SHOP, { session: false });
+      await pendingCredit(conn, 5001, { minutesAgo: 0 });
+      const cancelledAt = new Date(Date.now() - 10 * MINUTE);
+      const limit = new OrderReadLimitError("Shopify gave 20 refunds, the most one read takes; there may be more");
+      const orders: OrderSource = {
+        readOrder: async () => {
+          throw limit;
+        },
+        readRefund: async () => null,
+        // 15 or more refunds listed: the listing may be cut short. 5002 is a missed order, read in full
+        recentlyUpdatedOrders: async () => [listed(5001, { refunds: null, cancelledAt }), listed(5002, { refunds: null })],
+      };
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const result = await runPayoutCheck({ now: new Date(), railFor: async () => ({ rail, orders }), deadline: Date.now() + 60_000 });
+
+      expect(result).toMatchObject({ cancelledSwept: 1, swept: 0, problems: 0 });
+      expect(result.firstProblem).toBeUndefined();
+      await expect(prisma.order.findFirstOrThrow()).resolves.toMatchObject({ cancelledAt });
+      const lines = warn.mock.calls.map((call) => call.map(String).join(" "));
+      expect(lines).toEqual([expect.stringContaining("gid://shopify/Order/5001"), expect.stringContaining("gid://shopify/Order/5002")]);
+      expect(vi.mocked(console.error)).not.toHaveBeenCalled();
+    });
+
+    it("leaves a store whose listing the deadline cut off unstamped, and unfinished, counted once (M2c-F3)", async () => {
+      const conn = await runningShop(SHOP, { session: false });
+      const sweptBefore = new Date(Date.now() - DAY);
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { lastSweptAt: sweptBefore } });
+      let deadline = 0;
+      const orders: OrderSource = {
+        readOrder: async () => null,
+        readRefund: async () => null,
+        // The listing's page runs into the run's deadline
+        recentlyUpdatedOrders: async () => {
+          await new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now()) + 5));
+          throw new ShopifyTimeoutError(0);
+        },
+      };
+
+      deadline = Date.now() + 50;
+      const result = await runPayoutCheck({ now: new Date(), railFor: async () => ({ rail, orders }), deadline });
+
+      expect(result).toMatchObject({ unfinished: 1, problems: 1 });
+      expect(String(result.firstProblem)).toMatch(/cut short by the deadline/);
+      await expect(prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId } })).resolves.toMatchObject({ lastSweptAt: sweptBefore });
     });
   });
 

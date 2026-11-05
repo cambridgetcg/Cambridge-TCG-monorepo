@@ -37,8 +37,9 @@
  *   and only its own: each lease has a token of its own, kept per call
  *   (oneRenewalCall). A call that ends without storing releases its lease
  *   when it resolves (the library renews only within 5 minutes, so it needed
- *   none); one that throws (its renewal may have failed) leaves its lease to
- *   expire;
+ *   none), and so does one that throws SessionNotFoundError (there was no
+ *   session to renew, so no renewal was attempted); one that throws anything
+ *   else (its renewal may have failed) leaves its lease to expire;
  * - a session outside the window takes no lease and costs nothing extra.
  * A lease that can't be had or released (the database refused) never fails
  * the request: the caller goes on as before this rule.
@@ -47,7 +48,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import crypto from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { Session } from "@shopify/shopify-app-react-router/server";
+import { Session, SessionNotFoundError } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import { databaseSchema } from "~/db.server";
 import { assertEncryptionConfigured, decrypt, encrypt } from "./encryption.server";
@@ -79,17 +80,28 @@ const renewalCalls = new AsyncLocalStorage<RenewalCall>();
  * `fn` with a renewal record of its own, so the storeSession a call makes
  * releases only the lease its own loadSession took. shopify.server.ts wraps
  * every library entry point that can renew a token with it. A lease still
- * held when `fn` resolves is released then: the call needed no renewal. When
- * `fn` throws, its leases run out by themselves. A storage call made outside
- * any such wrapper uses its storage instance's record.
+ * held when `fn` resolves is released then: the call needed no renewal. So
+ * is one when `fn` throws SessionNotFoundError (unauthenticated.admin for a
+ * store with no session: nothing was renewed, M2b-F5). On any other throw
+ * its leases run out by themselves. A storage call made outside any such
+ * wrapper uses its storage instance's record.
  */
 export function oneRenewalCall<F extends (...args: never[]) => Promise<unknown>>(fn: F): F {
   return (async (...args: Parameters<F>) => {
     const call: RenewalCall = { leases: new Map() };
-    const result = await renewalCalls.run(call, () => fn(...args));
-    const left = [...call.leases.values()];
-    call.leases.clear();
-    await Promise.all(left.map((lease) => lease.release()));
+    const releaseLeft = async () => {
+      const left = [...call.leases.values()];
+      call.leases.clear();
+      await Promise.all(left.map((lease) => lease.release()));
+    };
+    let result: unknown;
+    try {
+      result = await renewalCalls.run(call, () => fn(...args));
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) await releaseLeft();
+      throw error;
+    }
+    await releaseLeft();
     return result;
   }) as F;
 }

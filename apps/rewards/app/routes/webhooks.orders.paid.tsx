@@ -17,7 +17,7 @@ import { sendPayout } from "~/lib/payouts.server";
 import { recordOrder } from "~/lib/record-order.server";
 import { resolveTier } from "~/lib/tiers.server";
 import { waitUntil } from "~/lib/wait-until.server";
-import { orderGidOf, readOr500, webhookFailed } from "~/lib/webhook-helpers.server";
+import { NO_USABLE_SESSION, authenticatedWebhook, orderGidOf, readOr500, webhookFailed } from "~/lib/webhook-helpers.server";
 import { OrderReadError, WEBHOOK_READ_DEADLINE_MS, createShopifyOrderSource } from "~/shopify/order-source.server";
 import { createStoreCreditRail } from "~/shopify/store-credit-rail.server";
 import { authenticate } from "../shopify.server";
@@ -30,8 +30,9 @@ export const config = { maxDuration: 300 };
 export const action = async ({ request }: ActionFunctionArgs) => {
   // From receipt, before authentication (which may refresh the token).
   const deadline = Date.now() + WEBHOOK_READ_DEADLINE_MS;
-  // Throws a 401 Response for a delivery Shopify did not sign.
-  const { topic, shop, payload, admin } = await authenticate.webhook(request);
+  // Throws a 401 Response for a delivery Shopify did not sign, and a 500 one
+  // (reported) when it can't renew the store's token.
+  const { topic, shop, payload, admin } = await authenticatedWebhook(TOPIC, () => authenticate.webhook(request));
   if (topic !== "ORDERS_PAID") return new Response(null, { status: 400 });
 
   const orderGid = orderGidOf(payload);
@@ -41,10 +42,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log(`[orders/paid] No store connection for ${shop}; nothing to do`);
       return new Response();
     }
-    if (!admin) {
-      console.error(`[orders/paid] No usable session for ${shop}; Shopify will deliver it again`);
-      return new Response(null, { status: 500 });
-    }
+    if (!admin) return webhookFailed(TOPIC, `No usable session for ${shop}`, new Error(NO_USABLE_SESSION));
     if (!orderGid) throw new Error("The delivery names no order");
 
     const facts = await readOr500(TOPIC, `Could not read order ${orderGid} for ${shop}`, OrderReadError, () =>
