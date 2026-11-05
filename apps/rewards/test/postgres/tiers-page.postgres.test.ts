@@ -1,9 +1,10 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma, { createPrismaClient } from "~/db.server";
+import { acquireCronLock, releaseCronLock } from "~/lib/cron.server";
 import { type ConnectionContext, ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
-import { deleteTier, resolveTier } from "~/lib/tiers.server";
+import { deleteTier, lockTier, requestTierPass, resolveTier, tierPassPending } from "~/lib/tiers.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { hasTestDatabase, resetDatabase, waitForLockWaitOr } from "./helpers/database";
@@ -67,6 +68,18 @@ async function load() {
 }
 
 type Result = { ok: boolean; errors?: Record<string, string> };
+
+/** The version of `tierId` the page shows now: what an edit opened now posts (CONCURRENCY-3). */
+async function versionOf(tierId: string): Promise<string> {
+  const tier = (await load()).tiers.find((t) => t.id === tierId);
+  if (!tier) throw new Error(`no tier ${tierId} on the page`);
+  return tier.version;
+}
+
+/** Save an edit of `tierId` as a form opened now would: with the version the page shows. */
+async function edit(tierId: string, fields: Record<string, string>, admin: GraphqlClient = fakeAdmin()): Promise<Result> {
+  return act({ intent: "save", id: tierId, ...fields, version: await versionOf(tierId) }, admin);
+}
 
 async function act(fields: Record<string, string>, admin: GraphqlClient = fakeAdmin()): Promise<Result> {
   await signIn(admin);
@@ -234,10 +247,11 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
     expect(page.currency).toBe("GBP");
     expect(page.tierWindow).toBe("rolling_12_months");
     expect(page.tiers).toEqual([
-      { id: bronze.id, name: "Bronze", minSpend: "0", percent: "5", members: 1, lowest: true },
-      { id: silver.id, name: "Silver", minSpend: "200", percent: "7", members: 0, lowest: false },
-      { id: gold.id, name: "Gold", minSpend: "500", percent: "10", members: 2, lowest: false },
+      { id: bronze.id, name: "Bronze", minSpend: "0", percent: "5", members: 1, lowest: true, version: expect.any(String) },
+      { id: silver.id, name: "Silver", minSpend: "200", percent: "7", members: 0, lowest: false, version: expect.any(String) },
+      { id: gold.id, name: "Gold", minSpend: "500", percent: "10", members: 2, lowest: false, version: expect.any(String) },
     ]);
+    expect(page.moving).toBe(false);
   });
 
   describe("validation", () => {
@@ -272,7 +286,7 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
       });
       // Moving Silver onto Gold's minimum, or onto the lowest tier's 0
       for (const minSpend of ["500", "0"]) {
-        expect(await act({ intent: "save", id: silver.id, name: "Silver", minSpend, percent: "7" })).toEqual({
+        expect(await edit(silver.id, { name: "Silver", minSpend, percent: "7" })).toEqual({
           ok: false,
           errors: { minSpend: "Another tier has this minimum spend." },
         });
@@ -296,8 +310,8 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
 
     it("fixes the lowest tier's minimum at 0", async () => {
       // An edit of the lowest tier keeps its minimum, whatever the form sends
-      expect(await act({ intent: "save", id: bronze.id, name: "Everyone", minSpend: "100", percent: "4" })).toEqual({ ok: true });
-      expect(await act({ intent: "save", id: bronze.id, name: "Everyone", percent: "4" })).toEqual({ ok: true });
+      expect(await edit(bronze.id, { name: "Everyone", minSpend: "100", percent: "4" })).toEqual({ ok: true });
+      expect(await edit(bronze.id, { name: "Everyone", percent: "4" })).toEqual({ ok: true });
       expect((await tierValues())[0]).toEqual({ name: "Everyone", minSpend: "0", percent: "4" });
 
       // A store's first tier starts at 0
@@ -308,7 +322,7 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
     });
 
     it("needs the minimum spend of any other tier", async () => {
-      expect(await act({ intent: "save", id: silver.id, name: "Silver", percent: "7" })).toEqual({
+      expect(await edit(silver.id, { name: "Silver", percent: "7" })).toEqual({
         ok: false,
         errors: { minSpend: "Enter a whole number of 0 or more." },
       });
@@ -374,6 +388,23 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
       expect(await tierValues()).toHaveLength(3);
     });
 
+    // CONCURRENCY-3: an edit says which version of the tier it was made on
+    it("refuses an edit made on a tier another save changed since, and keeps that save", async () => {
+      const tabA = await versionOf(gold.id);
+
+      expect(await edit(gold.id, { name: "Gold", minSpend: "500", percent: "12" })).toEqual({ ok: true });
+      expect(await act({ intent: "save", id: gold.id, name: "Gold+", minSpend: "500", percent: "10", version: tabA })).toEqual({
+        ok: false,
+        errors: { form: "This tier changed since you opened it. Reload the page." },
+      });
+      // An edit with no version is refused the same way
+      expect(await act({ intent: "save", id: gold.id, name: "Gold+", minSpend: "500", percent: "10" })).toEqual({
+        ok: false,
+        errors: { form: "This tier changed since you opened it. Reload the page." },
+      });
+      expect((await tierValues()).at(-1)).toEqual({ name: "Gold", minSpend: "500", percent: "12" });
+    });
+
     it("answers 400 to an unknown action or window", async () => {
       expect(await act({ intent: "recalculate" })).toMatchObject({ ok: false, status: 400 });
       expect(await act({ intent: "window", tierWindow: "monthly" })).toMatchObject({ ok: false, status: 400 });
@@ -437,7 +468,7 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
       const admin = fakeAdmin();
       const before = new Date();
 
-      expect(await act({ intent: "save", id: silver.id, name: "Silver", minSpend: "400", percent: "7" }, admin)).toEqual({ ok: true });
+      expect(await edit(silver.id, { name: "Silver", minSpend: "400", percent: "7" }, admin)).toEqual({ ok: true });
       await flushWaitUntil();
 
       expect(await buyerRow(buyer.id)).toMatchObject({ tierId: bronze.id });
@@ -456,7 +487,7 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
       expect(platinum.position).toBe(3);
 
       const admin = fakeAdmin();
-      expect(await act({ intent: "save", id: bronze.id, name: "Bronze", percent: "6" }, admin)).toEqual({ ok: true });
+      expect(await edit(bronze.id, { name: "Bronze", percent: "6" }, admin)).toEqual({ ok: true });
       expect(widgetValues(admin)).toEqual([{ running: false, basePercent: 6 }]);
     });
 
@@ -472,7 +503,11 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
       expect(await buyerRow(buyer.id)).toMatchObject({ tierId: gold.id });
       expect(widgetValues(admin)).toHaveLength(1);
 
-      // The next pass takes buyers resolved before it asked; keep that clear of a shared millisecond
+      // A20-F5: the pass takes buyers resolved strictly before it asked (A12's
+      // resolvedBefore is a strict `<`), so a buyer resolved in the same
+      // millisecond as the request waits for the nightly pass. That is A12's
+      // behaviour, kept on purpose: the 1 s backdate keeps this test clear of
+      // that rare collision rather than hiding it.
       await prisma.customer.update({ where: { id: buyer.id }, data: { resolvedAt: new Date(Date.now() - 1000) } });
       expect(await act({ intent: "window", tierWindow: "rolling_12_months" })).toEqual({ ok: true });
       await flushWaitUntil();
@@ -512,6 +547,136 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
       expect(await buyerRow(first.id)).toMatchObject({ tierId: bronze.id, lockedTierId: null });
       expect(await buyerRow(second.id)).toMatchObject({ tierId: bronze.id, lockedTierId: null });
       expect(await tierValues()).toEqual([{ name: "Bronze", minSpend: "0", percent: "5" }]);
+    });
+
+    // Ruling 61 (A20-F1): a resolve that deadlocks with the delete starts over
+    it("an outside resolve of a buyer locked to the tier being deleted starts over instead of failing", async () => {
+      // Locked to Silver, not yet holding it, with no spend
+      const lockedOnly = await addBuyer({ tierId: bronze.id, lockedTierId: silver.id });
+      // Prisma logs the refused statement before the resolve starts over
+      const logged = captureLogs();
+
+      const { deleted, raced } = await deleteRacing(silver.id, () => resolveTier(lockedOnly.id));
+
+      expect(deleted).toEqual({ status: "fulfilled", value: { ok: true, moved: 1 } });
+      expect(raced).toEqual({ status: "fulfilled", value: { changed: false, tierId: bronze.id } });
+      expect(logged.join("\n")).toMatch(/deadlock/i);
+      expect(await buyerRow(lockedOnly.id)).toMatchObject({ tierId: bronze.id, lockedTierId: null });
+      expect(await prisma.tier.count({ where: { id: silver.id } })).toBe(0);
+    });
+
+    // Ruling 61 (A20 concern 2): lockTier waits for the delete, then finds the tier gone
+    it("a lock to the tier being deleted waits for the delete and is refused as gone", async () => {
+      const buyer = await addBuyer({ tierId: bronze.id });
+
+      const { deleted, raced } = await deleteRacing(silver.id, () => lockTier(conn.merchantId, buyer.id, silver.id));
+
+      expect(deleted).toEqual({ status: "fulfilled", value: { ok: true, moved: 0 } });
+      expect(raced).toEqual({ status: "fulfilled", value: { ok: false } });
+      expect(await buyerRow(buyer.id)).toMatchObject({ tierId: bronze.id, lockedTierId: null });
+    });
+
+    // Ruling 61 (CONCURRENCY-4): Return to automatic during a delete resolves against the tiers left
+    it("Return to automatic for a buyer whose spend qualifies for the tier being deleted waits, then resolves", async () => {
+      const buyer = await addBuyer({ tierId: bronze.id, lockedTierId: bronze.id });
+      // Qualifies for Silver
+      await addOrder(buyer.id, "300.00", 30);
+
+      const { deleted, raced } = await deleteRacing(silver.id, () => lockTier(conn.merchantId, buyer.id, null));
+
+      expect(deleted).toEqual({ status: "fulfilled", value: { ok: true, moved: 0 } });
+      expect(raced).toEqual({ status: "fulfilled", value: { ok: true } });
+      expect(await buyerRow(buyer.id)).toMatchObject({ tierId: bronze.id, lockedTierId: null });
+    });
+  });
+
+  // Ruling 77 (OPERATIONS-3): a pass only for a change that can move buyers, one at a time per store
+  describe("tier passes", () => {
+    it("asks for no pass after a rename or a rate change, and for one after a new minimum, a new tier or a new window", async () => {
+      expect(await edit(gold.id, { name: "Gold+", minSpend: "500", percent: "10" })).toEqual({ ok: true });
+      expect(await edit(gold.id, { name: "Gold+", minSpend: "500", percent: "11" })).toEqual({ ok: true });
+      expect(await edit(bronze.id, { name: "Bronze", percent: "6" })).toEqual({ ok: true });
+      // The window it already has
+      expect(await act({ intent: "window", tierWindow: "rolling_12_months" })).toEqual({ ok: true });
+      await flushWaitUntil();
+      expect(await passRequestedAt()).toBeNull();
+
+      const asked = async (change: () => Promise<Result>) => {
+        await prisma.connection.update({ where: { id: conn.connectionId }, data: { tierPassRequestedAt: null } });
+        expect(await change()).toEqual({ ok: true });
+        await flushWaitUntil();
+        return passRequestedAt();
+      };
+      expect(await asked(() => edit(gold.id, { name: "Gold+", minSpend: "600", percent: "11" }))).toBeInstanceOf(Date);
+      expect(await asked(() => act({ intent: "save", name: "Platinum", minSpend: "1000", percent: "15" }))).toBeInstanceOf(Date);
+      expect(await asked(() => act({ intent: "window", tierWindow: "lifetime" }))).toBeInstanceOf(Date);
+      expect(await asked(() => act({ intent: "delete", id: silver.id }))).toBeInstanceOf(Date);
+    });
+
+    it("skips the after-save pass while another holds the store's lease, and says buyers are moving until a pass has run", async () => {
+      const buyers = [await addBuyer(), await addBuyer(), await addBuyer()];
+      const lease = await acquireCronLock(`tier-pass:${conn.connectionId}`, 1);
+      expect(lease.acquired).toBe(true);
+
+      expect(await edit(gold.id, { name: "Gold", minSpend: "450", percent: "10" })).toEqual({ ok: true });
+      await flushWaitUntil();
+
+      // Nothing ran: the request waits for the next pass, and the page says so
+      const resolved = async () => (await prisma.customer.findMany({ where: { id: { in: buyers.map((b) => b.id) } } })).map((b) => b.resolvedAt);
+      expect(await resolved()).toEqual([null, null, null]);
+      expect(await passRequestedAt()).toBeInstanceOf(Date);
+      expect(await tierPassPending(conn.connectionId)).toBe(true);
+      expect((await load()).moving).toBe(true);
+
+      // The next pass finishes the work
+      await releaseCronLock(lease.lockId!);
+      await requestTierPass(conn.connectionId);
+      await flushWaitUntil();
+      expect((await resolved()).every((at) => at instanceof Date)).toBe(true);
+      expect(await tierPassPending(conn.connectionId)).toBe(false);
+      expect((await load()).moving).toBe(false);
+    });
+
+    it("runs one pass for two changes in a row, resolving each buyer once", async () => {
+      for (let i = 0; i < 5; i++) await addBuyer();
+      // Each resolve writes the buyer's row once (resolveTier's conditional
+      // update). Counted on the app's shared client, and put back after.
+      const customers = prisma.customer;
+      const updateMany = customers.updateMany;
+      let resolves = 0;
+      customers.updateMany = ((args: Prisma.CustomerUpdateManyArgs) => {
+        resolves++;
+        return updateMany.call(customers, args);
+      }) as unknown as typeof updateMany;
+      try {
+        await requestTierPass(conn.connectionId);
+        await requestTierPass(conn.connectionId);
+        await flushWaitUntil();
+      } finally {
+        customers.updateMany = updateMany;
+      }
+
+      expect(resolves).toBe(5);
+      expect(await tierPassPending(conn.connectionId)).toBe(false);
+    });
+
+    it("counts a pass pending only for buyers there before it was asked for", async () => {
+      expect(await tierPassPending(conn.connectionId)).toBe(false);
+      const before = await addBuyer();
+      const asked = new Date(Date.now() - 60_000);
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { tierPassRequestedAt: asked } });
+      await prisma.customer.update({ where: { id: before.id }, data: { createdAt: new Date(asked.getTime() - 1000) } });
+      expect(await tierPassPending(conn.connectionId)).toBe(true);
+
+      // Resolved since it was asked for
+      await prisma.customer.update({ where: { id: before.id }, data: { resolvedAt: new Date() } });
+      expect(await tierPassPending(conn.connectionId)).toBe(false);
+      // A buyer first seen after it was asked for was placed with the tiers as they are
+      await addBuyer();
+      expect(await tierPassPending(conn.connectionId)).toBe(false);
+      // One resolved before it was asked for still waits
+      await prisma.customer.update({ where: { id: before.id }, data: { resolvedAt: new Date(asked.getTime() - 1) } });
+      expect(await tierPassPending(conn.connectionId)).toBe(true);
     });
   });
 });

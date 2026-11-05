@@ -137,7 +137,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   switch (form.get("intent")) {
     case "running": {
-      const result = await setRunning(conn.merchantId, form.get("running") === "on");
+      // Only on or off: a malformed post never switches cashback off (BOUNDARY-6)
+      const running = form.get("running");
+      if (running !== "on" && running !== "off") return data({ ok: false, error: "Unknown action." } satisfies ActionResult, { status: 400 });
+      const result = await setRunning(conn.merchantId, running === "on");
       if (!result.ok) return { ok: false, error: "Set your base cashback rate first." } satisfies ActionResult;
       await tellWidget(admin, conn);
       return { ok: true } satisfies ActionResult;
@@ -232,6 +235,8 @@ export default function Home() {
   const switchFetcher = useFetcher<typeof action>();
   const rateFetcher = useFetcher<typeof action>();
   const reviewFetcher = useFetcher<typeof action>();
+  // Its own, so a Dismiss never aborts the review-shown post in flight (A19-F7)
+  const reviewDismissFetcher = useFetcher<typeof action>();
   const importFetcher = useFetcher<typeof action>();
   const widgetOn = useWidgetEmbed();
   useImportPolling(d.setup.importState === "running");
@@ -260,13 +265,17 @@ export default function Home() {
   const importDismissed = d.setup.importDismissed || importFetcher.formData?.get("intent") === "import-dismissed";
   const showImportOutcome = importOutcomeShown(d.setup.importState, importDismissed);
   const showSetup = !setupDone({ hasTiers, running: d.running, widgetOn, importState: d.setup.importState, importDismissed });
-  const reviewDismissed = reviewFetcher.formData?.get("intent") === "review-dismissed";
+  const reviewDismissed = reviewDismissFetcher.state !== "idle" || reviewDismissFetcher.data?.ok === true;
   const money = (amount: string) => formatMoney(amount, d.currency);
   const switchError = switchFetcher.data && !switchFetcher.data.ok ? switchFetcher.data.error : null;
   const rateError = rateFetcher.data && !rateFetcher.data.ok ? rateFetcher.data.error : null;
   const months = d.setup.importHorizonDays === 365 ? "12 months" : `${d.setup.importHorizonDays} days`;
 
-  const switchTo = (on: boolean) => switchFetcher.submit({ intent: "running", running: on ? "on" : "off" }, { method: "post" });
+  // One change at a time, so the last one made is the one kept (CONCURRENCY-2)
+  const switchBusy = switchFetcher.state !== "idle";
+  const switchTo = (on: boolean) => {
+    if (!switchBusy) switchFetcher.submit({ intent: "running", running: on ? "on" : "off" }, { method: "post" });
+  };
 
   return (
     <s-page heading="Home" inlineSize="base">
@@ -321,7 +330,7 @@ export default function Home() {
                   {d.running ? (
                     <s-text>Cashback is on</s-text>
                   ) : (
-                    <s-button disabled={!hasTiers} loading={switchFetcher.state !== "idle"} onClick={() => switchTo(true)}>
+                    <s-button disabled={!hasTiers || switchBusy} loading={switchBusy} onClick={() => switchTo(true)}>
                       Switch cashback on
                     </s-button>
                   )}
@@ -439,7 +448,7 @@ export default function Home() {
                   <s-link href={REVIEW_URL} target="_blank">
                     Leave a review
                   </s-link>
-                  <s-button variant="tertiary" onClick={() => reviewFetcher.submit({ intent: "review-dismissed" }, { method: "post" })}>
+                  <s-button variant="tertiary" onClick={() => reviewDismissFetcher.submit({ intent: "review-dismissed" }, { method: "post" })}>
                     Dismiss
                   </s-button>
                 </s-stack>
@@ -455,7 +464,7 @@ export default function Home() {
           <s-switch
             label="Cashback"
             checked={running}
-            disabled={!hasTiers && !running}
+            disabled={switchBusy || (!hasTiers && !running)}
             details={hasTiers ? undefined : "Set your base cashback rate first."}
             onChange={(event) => switchTo(event.currentTarget.checked)}
           />

@@ -80,7 +80,13 @@ async function load(admin: GraphqlClient = fakeAdmin()) {
 async function act(fields: Record<string, string>, admin: GraphqlClient = fakeAdmin()) {
   await signIn(admin);
   const request = new Request("https://test.example.com/app", { method: "POST", body: new URLSearchParams(fields) });
-  return (await route.action({ request, params: {}, context: {} } as never)) as { ok: boolean; error?: string };
+  const result = await route.action({ request, params: {}, context: {} } as never);
+  // A 400 comes back wrapped by data()
+  if (result && typeof result === "object" && "type" in result && (result as { type: string }).type === "DataWithResponseInit") {
+    const wrapped = result as unknown as { data: { ok: boolean; error?: string }; init: { status?: number } };
+    return { ...wrapped.data, status: wrapped.init.status };
+  }
+  return result as { ok: boolean; error?: string; status?: number };
 }
 
 async function seedShop(): Promise<ConnectionContext> {
@@ -602,6 +608,37 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
         { ownerId: APP_INSTALLATION, namespace: "rewards", key: "config", type: "json", value: { running: true, basePercent: 5.5 } },
         { ownerId: APP_INSTALLATION, namespace: "rewards", key: "config", type: "json", value: { running: false, basePercent: 5.5 } },
       ]);
+    });
+
+    // BOUNDARY-6: only on or off moves the switch
+    it("answers 400 to a switch post that says neither on nor off, and changes nothing", async () => {
+      const conn = await seedShop();
+      await seedTier(conn, "Everyone", "0", "5", 0);
+      await expect(act({ intent: "running", running: "on" })).resolves.toEqual({ ok: true });
+      const admin = fakeAdmin();
+
+      for (const fields of [{ intent: "running", running: "true" }, { intent: "running", running: "" }, { intent: "running" }] as Record<string, string>[]) {
+        await expect(act(fields, admin), JSON.stringify(fields)).resolves.toEqual({ ok: false, error: "Unknown action.", status: 400 });
+      }
+      expect((await merchantOf(conn)).running).toBe(true);
+      expect(widgetConfigs(admin)).toEqual([]);
+    });
+
+    // A19-F5: the widget is told the newest state, read right before the write
+    it("tells the widget the state as it is when the write goes out", async () => {
+      const conn = await seedShop();
+      await seedTier(conn, "Everyone", "0", "5", 0);
+      const admin = fakeAdmin();
+      const ask = admin.graphql.bind(admin);
+      // Another tab switches cashback off while this one is reading the installation
+      admin.graphql = async (query, options) => {
+        if (query.includes("RewardsAppInstallation")) await prisma.merchant.update({ where: { id: conn.merchantId }, data: { running: false } });
+        return ask(query, options);
+      };
+
+      await expect(act({ intent: "running", running: "on" }, admin)).resolves.toEqual({ ok: true });
+
+      expect(widgetConfigs(admin).map((config) => config.value)).toEqual([{ running: false, basePercent: 5 }]);
     });
 
     it("keeps the switch when the widget can't be told, and says why in the log", async () => {

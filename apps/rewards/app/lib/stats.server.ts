@@ -33,6 +33,7 @@ import { daysEnding, reviewDue } from "./home-rules";
 import type { ConnectionContext } from "./merchant.server";
 import { Money, fromDb } from "./money";
 import { type OrderStatus, orderStatus } from "./order-status";
+import { payoutVersion } from "./payouts.server";
 import { monitoring } from "./telemetry.server";
 import { type Progress, type TierRow, progress, qualify, spendCounted, spendOf, tierSpend, tierTable } from "./tiers.server";
 
@@ -661,6 +662,8 @@ export type PanelPayout = NonNullable<HistoryEntry["payout"]> & {
   id: string;
   sentAt: Date | null;
   shortfall: Decimal | null;
+  /** Which send of it the panel shows, for its answers (payoutVersion, Ruling 67) */
+  version: string;
 };
 
 export type OrderEntry = Omit<HistoryEntry, "payout"> & { payout: PanelPayout | null };
@@ -783,6 +786,8 @@ export async function orderPanel(conn: ConnectionContext, orderId: string): Prom
           unconfirmedAt: true,
           lastError: true,
           sentAt: true,
+          claimedAt: true,
+          updatedAt: true,
         },
       },
     },
@@ -829,6 +834,7 @@ export async function orderPanel(conn: ConnectionContext, orderId: string): Prom
             unconfirmedAt: entry.payout.unconfirmedAt,
             lastError: entry.payout.lastError,
             sentAt: entry.payout.sentAt,
+            version: payoutVersion(entry.payout),
           }
         : null,
     })),

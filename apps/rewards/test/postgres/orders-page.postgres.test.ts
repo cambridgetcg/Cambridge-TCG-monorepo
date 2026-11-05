@@ -2,7 +2,9 @@ import { Prisma, type LedgerEntryKind, type LookReason, type PayoutDirection, ty
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
-import { CUSTOMER_MISSING } from "~/lib/payouts.server";
+import { Money } from "~/lib/money";
+import { CLAIM_FINISHED_MS, CUSTOMER_MISSING, sendPayout, settleUnconfirmed } from "~/lib/payouts.server";
+import type { CreditHistoryResult, OrderSource, PayoutRail, RailAnswer } from "~/lib/ports";
 import { customerRows, orderRows } from "~/lib/stats.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import type { GraphqlClient } from "~/shopify/graphql";
@@ -15,10 +17,13 @@ import { hasTestDatabase, resetDatabase } from "./helpers/database";
  * the payout as answerNeedsLook (A11) says, and 404 for another merchant's
  * order. The admin session is the library's job (requireMerchant), so it is
  * replaced here by the store's connection and a stand-in Admin API client
- * that answers RewardsCustomerNames.
+ * that answers RewardsCustomerNames. An answer that sends starts the send at
+ * once through the store's rail (railFor), which is a fake rail here, or
+ * none (no usable session: the hourly job sends it).
  */
 
 vi.mock("~/admin/require-merchant.server", () => ({ requireMerchant: vi.fn() }));
+vi.mock("~/shopify/rail-for.server", () => ({ railFor: vi.fn(async () => null) }));
 
 const SHOP = "orders-page.myshopify.com";
 const OTHER_SHOP = "other-orders-page.myshopify.com";
@@ -42,11 +47,30 @@ function fakeAdmin(people: Record<string, Person> = {}): GraphqlClient {
   };
 }
 
+const applied = (id: string): RailAnswer => ({ outcome: "applied", transactionId: id });
+const unclear = (message: string): RailAnswer => ({ outcome: "unclear", message });
+
+/** A rail that answers every credit and debit the same way, and gives `history` for a settle. */
+function fakeRail(o: { credit?: RailAnswer; debit?: RailAnswer; history?: CreditHistoryResult } = {}) {
+  return {
+    credit: vi.fn<PayoutRail["credit"]>(async () => o.credit ?? applied("gid://shopify/StoreCreditAccountCreditTransaction/1")),
+    debit: vi.fn<PayoutRail["debit"]>(async () => o.debit ?? applied("gid://shopify/StoreCreditAccountDebitTransaction/1")),
+    balance: vi.fn<PayoutRail["balance"]>(async () => new Money("100.00")),
+    creditHistory: vi.fn<PayoutRail["creditHistory"]>(async () => o.history ?? { status: "found", credits: [], complete: true }),
+  } satisfies PayoutRail;
+}
+
+/** The store's rail for answers that send at once. */
+const giveRail = (rail: PayoutRail) => railFor.mockResolvedValue({ rail, orders: {} as OrderSource });
+
+const CHANGED = "This payment has changed since the page loaded. Reload the page.";
+
 type ListRoute = typeof import("~/routes/app.orders._index");
 type PanelRoute = typeof import("~/routes/app.orders.$id");
 let listRoute: ListRoute;
 let panelRoute: PanelRoute;
 let requireMerchant: ReturnType<typeof vi.fn>;
+let railFor: ReturnType<typeof vi.fn>;
 
 async function signIn(admin: GraphqlClient, shop = SHOP) {
   const signedIn = (await findConnection(shop))!;
@@ -78,6 +102,18 @@ async function answer(orderId: string, fields: Record<string, string>) {
     return { ...wrapped.data, status: wrapped.init.status };
   }
   return result as { ok: boolean; error?: string };
+}
+
+/** The version of `payoutId` the order panel shows now: what a tab opened now posts with its answer (Ruling 67). */
+async function versionOf(orderId: string, payoutId: string): Promise<string> {
+  const look = (await loadPanel(orderId)).entries.find((entry) => entry.payoutId === payoutId)?.look;
+  if (!look) throw new Error(`payout ${payoutId} needs no look on order ${orderId}`);
+  return look.version;
+}
+
+/** Answer `payoutId` as a tab opened now would: with the version the panel shows. */
+async function answerNow(orderId: string, intent: string, payoutId: string) {
+  return answer(orderId, { intent, payoutId, version: await versionOf(orderId, payoutId) });
 }
 
 /** What a thrown loader or action Response says, or the error itself. */
@@ -261,12 +297,16 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       listRoute = await import("~/routes/app.orders._index");
       panelRoute = await import("~/routes/app.orders.$id");
       ({ requireMerchant } = (await import("~/admin/require-merchant.server")) as unknown as { requireMerchant: ReturnType<typeof vi.fn> });
+      ({ railFor } = (await import("~/shopify/rail-for.server")) as unknown as { railFor: ReturnType<typeof vi.fn> });
     }
+    // No usable session unless a test gives the store a rail
+    railFor.mockResolvedValue(null);
   });
 
   afterEach(async () => {
     await flushWaitUntil();
     requireMerchant?.mockReset();
+    railFor?.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -521,6 +561,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       }
     });
 
+    // Ruling 68 (DESIGN-3): every answer but Retry asks first, saying what it does in money words
     it("offers the answers each needs-a-look reason takes, with the check for one it couldn't confirm", async () => {
       const refused = await orderWithCredit("needs_look", { lookReason: "refused", lastError: "ACCOUNT_LIMIT" });
       const failing = await orderWithCredit("needs_look", { lookReason: "kept_failing" });
@@ -529,6 +570,12 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       const takeBack = await addPayout(await addEntry(debit.order, { kind: "reversal", amount: "-1.00" }), "needs_look", {
         direction: "debit",
         lookReason: "could_not_confirm",
+      });
+      const refusedDebit = await orderWithCredit("sent");
+      const refusedTakeBack = await addPayout(await addEntry(refusedDebit.order, { kind: "reversal", amount: "-0.40" }), "needs_look", {
+        direction: "debit",
+        lookReason: "refused",
+        lastError: "ACCOUNT_NOT_FOUND",
       });
 
       const looks = async (orderId: string) => (await loadPanel(orderId)).entries.flatMap((e) => (e.look ? [{ id: e.payoutId, ...e.look }] : []));
@@ -539,9 +586,18 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
           heading: "Cashback of £1.00 needs a look",
           text: "Shopify refused it.",
           hint: null,
+          version: expect.any(String),
           answers: [
-            { answer: "retry", label: "Retry" },
-            { answer: "close", label: "Close without sending" },
+            { answer: "retry", label: "Retry", confirm: null },
+            {
+              answer: "close",
+              label: "Close without sending",
+              confirm: {
+                heading: "Close without sending?",
+                text: "RewardsPro won't send this £1.00. You can still add credit by hand in Shopify.",
+                critical: true,
+              },
+            },
           ],
         },
       ]);
@@ -555,9 +611,26 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
           heading: "Cashback of £1.00 needs a look",
           text: "RewardsPro couldn't confirm it arrived.",
           hint: "Check the buyer's store credit in Shopify first. If you already added it by hand, choose It arrived.",
+          version: expect.any(String),
           answers: [
-            { answer: "arrived", label: "It arrived" },
-            { answer: "not_arrived", label: "It didn't arrive, send it" },
+            {
+              answer: "arrived",
+              label: "It arrived",
+              confirm: {
+                heading: "Mark it as arrived?",
+                text: "RewardsPro counts this £1.00 as given and won't send it. If it didn't arrive, the buyer won't get it.",
+                critical: false,
+              },
+            },
+            {
+              answer: "not_arrived",
+              label: "It didn't arrive, send it",
+              confirm: {
+                heading: "Send it again?",
+                text: "This sends £1.00 again. If the first one arrived, the buyer gets it twice.",
+                critical: false,
+              },
+            },
           ],
         },
       ]);
@@ -567,12 +640,45 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
           heading: "Take-back of £1.00 needs a look",
           text: "RewardsPro couldn't confirm it was taken back.",
           hint: "Check the buyer's store credit in Shopify first. If you already took it back by hand, choose It was taken back.",
+          version: expect.any(String),
           answers: [
-            { answer: "arrived", label: "It was taken back" },
-            { answer: "not_arrived", label: "It wasn't taken back, try again" },
+            {
+              answer: "arrived",
+              label: "It was taken back",
+              confirm: {
+                heading: "Mark it as taken back?",
+                text: "RewardsPro counts this £1.00 as taken back and won't try again. If it wasn't taken, the buyer keeps it.",
+                critical: false,
+              },
+            },
+            {
+              answer: "not_arrived",
+              label: "It wasn't taken back, try again",
+              confirm: {
+                heading: "Try the take-back again?",
+                text: "This takes back £1.00 again. If the first one was taken, the buyer loses it twice.",
+                critical: false,
+              },
+            },
           ],
         },
       ]);
+      // Ruling 55: a take-back keeps its own words
+      expect((await looks(refusedDebit.order.id))[0]).toMatchObject({
+        id: refusedTakeBack.id,
+        answers: [
+          { answer: "retry", label: "Retry", confirm: null },
+          {
+            answer: "close",
+            label: "Close without taking back",
+            confirm: {
+              heading: "Close without taking back?",
+              text: "RewardsPro won't take back this £0.40. You can still take it back by hand in Shopify.",
+              critical: true,
+            },
+          },
+        ],
+      });
     });
 
     it("says which refunds the import already counted, and notes a test, cancelled or imported order", async () => {
@@ -615,7 +721,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       const { order, credit } = await orderWithCredit("needs_look", { lookReason: "refused", attempts: 5, firstFailedAt: new Date(Date.now() - 2 * DAY) });
       const before = Date.now();
 
-      expect(await answer(order.id, { intent: "retry", payoutId: credit.id })).toEqual({ ok: true });
+      expect(await answerNow(order.id, "retry", credit.id)).toEqual({ ok: true });
 
       const payout = await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } });
       expect(payout).toMatchObject({ state: "pending", lookReason: null, attempts: 0, firstFailedAt: null });
@@ -627,7 +733,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
     it("Close without sending closes a credit that kept failing, and the ledger cancels it", async () => {
       const { order, credit, entry } = await orderWithCredit("needs_look", { lookReason: "kept_failing" }, "1.50");
 
-      expect(await answer(order.id, { intent: "close", payoutId: credit.id })).toEqual({ ok: true });
+      expect(await answerNow(order.id, "close", credit.id)).toEqual({ ok: true });
 
       expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "closed", settledBy: "merchant" });
       const adjustment = await prisma.ledgerEntry.findFirstOrThrow({ where: { idempotencyKey: `close:${credit.id}` } });
@@ -643,7 +749,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       const { order, credit } = await orderWithCredit("needs_look", { lookReason: "could_not_confirm", claimedAt, unconfirmedAt: new Date("2026-06-01T09:05:00Z") });
       const held = await addPayout(await addEntry(order, { kind: "reversal", amount: "-0.50" }), "held", { direction: "debit" });
 
-      expect(await answer(order.id, { intent: "arrived", payoutId: credit.id })).toEqual({ ok: true });
+      expect(await answerNow(order.id, "arrived", credit.id)).toEqual({ ok: true });
 
       // TRUTH-8: sent when it was claimed, not on the day of the answer
       expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "sent", settledBy: "merchant", sentAt: claimedAt });
@@ -655,7 +761,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       const unconfirmedAt = new Date("2026-06-02T09:05:00Z");
       const { order, credit } = await orderWithCredit("needs_look", { lookReason: "could_not_confirm", unconfirmedAt });
 
-      expect(await answer(order.id, { intent: "arrived", payoutId: credit.id })).toEqual({ ok: true });
+      expect(await answerNow(order.id, "arrived", credit.id)).toEqual({ ok: true });
 
       expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "sent", sentAt: unconfirmedAt });
     });
@@ -663,7 +769,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
     it("It didn't arrive, send it puts a credit back to pending", async () => {
       const { order, credit } = await orderWithCredit("needs_look", { lookReason: "could_not_confirm", unconfirmedAt: new Date(Date.now() - DAY) });
 
-      expect(await answer(order.id, { intent: "not_arrived", payoutId: credit.id })).toEqual({ ok: true });
+      expect(await answerNow(order.id, "not_arrived", credit.id)).toEqual({ ok: true });
 
       expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "pending", lookReason: null, unconfirmedAt: null });
     });
@@ -674,7 +780,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       const claimedAt = new Date("2026-06-03T09:00:00Z");
       const debit = await addPayout(reversal, "needs_look", { direction: "debit", lookReason: "could_not_confirm", debitedAmount: "0.40", shortfall: "0.60", claimedAt });
 
-      expect(await answer(order.id, { intent: "arrived", payoutId: debit.id })).toEqual({ ok: true });
+      expect(await answerNow(order.id, "arrived", debit.id)).toEqual({ ok: true });
 
       expect(await prisma.payout.findUniqueOrThrow({ where: { id: debit.id } })).toMatchObject({ state: "sent", settledBy: "merchant", sentAt: claimedAt });
       const shortfall = await prisma.ledgerEntry.findFirstOrThrow({ where: { idempotencyKey: `shortfall:${debit.id}` } });
@@ -695,7 +801,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
         shortfall: "0",
       });
 
-      expect(await answer(order.id, { intent: "not_arrived", payoutId: debit.id })).toEqual({ ok: true });
+      expect(await answerNow(order.id, "not_arrived", debit.id)).toEqual({ ok: true });
 
       expect(await prisma.payout.findUniqueOrThrow({ where: { id: debit.id } })).toMatchObject({ state: "pending", lookReason: null, debitedAmount: null, shortfall: null });
     });
@@ -704,9 +810,9 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       const { order, credit } = await orderWithCredit("needs_look", { lookReason: "refused" });
       const elsewhere = await orderWithCredit("needs_look", { lookReason: "refused" });
 
-      expect(await answer(order.id, { intent: "arrived", payoutId: credit.id })).toEqual({
+      expect(await answer(order.id, { intent: "arrived", payoutId: credit.id, version: await versionOf(order.id, credit.id) })).toEqual({
         ok: false,
-        error: "This payment has changed since the page loaded. Reload the page.",
+        error: CHANGED,
       });
       // Another of the store's orders' payout, through this order: not found here
       expect(await thrown(answer(order.id, { intent: "retry", payoutId: elsewhere.credit.id }))).toEqual({ status: 404 });
@@ -716,10 +822,179 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       for (const id of [credit.id, elsewhere.credit.id]) {
         expect(await prisma.payout.findUniqueOrThrow({ where: { id } })).toMatchObject({ state: "needs_look", lookReason: "refused" });
       }
-      // Answered once, a second answer changes nothing
-      expect(await answer(order.id, { intent: "close", payoutId: credit.id })).toEqual({ ok: true });
-      expect(await answer(order.id, { intent: "retry", payoutId: credit.id })).toMatchObject({ ok: false });
+      // Answered once, a second answer (a double click, or a second tab) changes nothing
+      const version = await versionOf(order.id, credit.id);
+      expect(await answer(order.id, { intent: "close", payoutId: credit.id, version })).toEqual({ ok: true });
+      expect(await answer(order.id, { intent: "retry", payoutId: credit.id, version })).toEqual({ ok: false, error: CHANGED });
       expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "closed" });
+    });
+
+    it("refuses an answer that says no version, or one the payout never had, and changes nothing", async () => {
+      const { order, credit } = await orderWithCredit("needs_look", { lookReason: "refused" });
+
+      for (const version of [undefined, "", "2020-01-01T00:00:00.000Z"]) {
+        const fields: Record<string, string> = { intent: "close", payoutId: credit.id, ...(version === undefined ? {} : { version }) };
+        expect(await answer(order.id, fields), String(version)).toEqual({ ok: false, error: CHANGED });
+      }
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "needs_look", lookReason: "refused" });
+    });
+  });
+
+  // Ruling 67 (CONCURRENCY-1): an answer says which send it answers
+  describe("a stale tab", () => {
+    it("a stale tab's answer to an earlier send of a credit is refused once the payout needs a look again", async () => {
+      const t1 = new Date(Date.now() - 2 * DAY);
+      const { order, credit } = await orderWithCredit("needs_look", { lookReason: "could_not_confirm", claimedAt: t1, unconfirmedAt: t1 });
+      // Two tabs open on send 1; the look's version is its claim
+      const tabA = await versionOf(order.id, credit.id);
+      const tabB = await versionOf(order.id, credit.id);
+      expect(tabA).toBe(t1.toISOString());
+
+      // Tab A: it didn't arrive. Send 2: Shopify times out but applies it
+      expect(await answer(order.id, { intent: "not_arrived", payoutId: credit.id, version: tabA })).toEqual({ ok: true });
+      await flushWaitUntil();
+      const t2 = new Date();
+      await expect(sendPayout(credit.id, fakeRail({ credit: unclear("Shopify did not answer within 10 s") }), t2)).resolves.toBe("unconfirmed");
+      // Settle sees two credits of the amount from then (send 1 landed late): it can't tell
+      const twoAlike: CreditHistoryResult = {
+        status: "found",
+        complete: true,
+        credits: [
+          { id: "gid://shopify/StoreCreditAccountCreditTransaction/1", amount: new Money("1.00"), currency: "GBP", createdAt: t2 },
+          { id: "gid://shopify/StoreCreditAccountCreditTransaction/2", amount: new Money("1.00"), currency: "GBP", createdAt: t2 },
+        ],
+      };
+      await expect(settleUnconfirmed(credit.id, fakeRail({ history: twoAlike }), new Date(t2.getTime() + CLAIM_FINISHED_MS + 1))).resolves.toBe("needs_look");
+
+      // Tab B still shows send 1, and answers it
+      expect(await answer(order.id, { intent: "not_arrived", payoutId: credit.id, version: tabB })).toEqual({ ok: false, error: CHANGED });
+
+      const payout = await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } });
+      expect(payout).toMatchObject({ state: "needs_look", lookReason: "could_not_confirm", claimedAt: t2 });
+      expect(payout.amount.toFixed(2)).toBe("1.00");
+      // A tab opened now answers send 2
+      expect(await versionOf(order.id, credit.id)).toBe(t2.toISOString());
+    });
+
+    it("a stale tab's answer to an earlier send of a take-back is refused once it needs a look again", async () => {
+      const t1 = new Date(Date.now() - 2 * DAY);
+      const { order } = await orderWithCredit("sent");
+      const debit = await addPayout(await addEntry(order, { kind: "reversal", amount: "-1.00" }), "needs_look", {
+        direction: "debit",
+        lookReason: "could_not_confirm",
+        claimedAt: t1,
+        debitedAmount: "1.00",
+        shortfall: "0",
+      });
+      const tabA = await versionOf(order.id, debit.id);
+      const tabB = await versionOf(order.id, debit.id);
+
+      // Tab A: it wasn't taken back. Send 2 is unclear again, so it needs a look at once
+      expect(await answer(order.id, { intent: "not_arrived", payoutId: debit.id, version: tabA })).toEqual({ ok: true });
+      await flushWaitUntil();
+      const t2 = new Date();
+      await expect(sendPayout(debit.id, fakeRail({ debit: unclear("Shopify did not answer within 10 s") }), t2)).resolves.toBe("needs_look");
+
+      // Tab B's "try again" was about send 1
+      expect(await answer(order.id, { intent: "not_arrived", payoutId: debit.id, version: tabB })).toEqual({ ok: false, error: CHANGED });
+      expect(await answer(order.id, { intent: "arrived", payoutId: debit.id, version: tabB })).toEqual({ ok: false, error: CHANGED });
+
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: debit.id } })).toMatchObject({
+        state: "needs_look",
+        lookReason: "could_not_confirm",
+        claimedAt: t2,
+      });
+      expect(await prisma.ledgerEntry.count({ where: { idempotencyKey: `shortfall:${debit.id}` } })).toBe(0);
+    });
+  });
+
+  // Ruling 69 (TRUTH-7): an answer that sends, sends now, through the store's rail
+  describe("an answer that sends", () => {
+    it("Retry sends the credit at once", async () => {
+      const { order, credit } = await orderWithCredit("needs_look", { lookReason: "refused", attempts: 5, firstFailedAt: new Date(Date.now() - 2 * DAY) });
+      const rail = fakeRail({ credit: applied("gid://shopify/StoreCreditAccountCreditTransaction/71") });
+      giveRail(rail);
+
+      expect(await answerNow(order.id, "retry", credit.id)).toEqual({ ok: true });
+      await flushWaitUntil();
+
+      expect(railFor).toHaveBeenCalledWith(conn.connectionId);
+      expect(rail.credit).toHaveBeenCalledTimes(1);
+      expect(rail.credit.mock.calls[0][0]).toMatchObject({ externalCustomerId: expect.any(String), currency: "GBP" });
+      expect(rail.credit.mock.calls[0][0].amount.toFixed(2)).toBe("1.00");
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({
+        state: "sent",
+        attempts: 1,
+        externalTransactionId: "gid://shopify/StoreCreditAccountCreditTransaction/71",
+      });
+    });
+
+    it("It didn't arrive, send it sends the credit again at once", async () => {
+      const { order, credit } = await orderWithCredit("needs_look", { lookReason: "could_not_confirm", unconfirmedAt: new Date(Date.now() - DAY) });
+      const rail = fakeRail();
+      giveRail(rail);
+
+      expect(await answerNow(order.id, "not_arrived", credit.id)).toEqual({ ok: true });
+      await flushWaitUntil();
+
+      expect(rail.credit).toHaveBeenCalledTimes(1);
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "sent" });
+    });
+
+    it("It wasn't taken back, try again takes it back at once", async () => {
+      const { order } = await orderWithCredit("sent");
+      const debit = await addPayout(await addEntry(order, { kind: "reversal", amount: "-1.00" }), "needs_look", {
+        direction: "debit",
+        lookReason: "could_not_confirm",
+      });
+      const rail = fakeRail({ debit: applied("gid://shopify/StoreCreditAccountDebitTransaction/72") });
+      giveRail(rail);
+
+      expect(await answerNow(order.id, "not_arrived", debit.id)).toEqual({ ok: true });
+      await flushWaitUntil();
+
+      expect(rail.debit).toHaveBeenCalledTimes(1);
+      const payout = await prisma.payout.findUniqueOrThrow({ where: { id: debit.id } });
+      expect(payout).toMatchObject({ state: "sent", externalTransactionId: "gid://shopify/StoreCreditAccountDebitTransaction/72" });
+      expect(payout.debitedAmount?.toFixed(2)).toBe("1.00");
+    });
+
+    it("It arrived takes back the take-back it releases at once, and sends nothing for the credit", async () => {
+      const { order, credit } = await orderWithCredit("needs_look", { lookReason: "could_not_confirm", claimedAt: new Date(Date.now() - DAY) });
+      const held = await addPayout(await addEntry(order, { kind: "reversal", amount: "-0.50" }), "held", { direction: "debit" });
+      const rail = fakeRail();
+      giveRail(rail);
+
+      expect(await answerNow(order.id, "arrived", credit.id)).toEqual({ ok: true });
+      await flushWaitUntil();
+
+      expect(rail.credit).not.toHaveBeenCalled();
+      expect(rail.debit).toHaveBeenCalledTimes(1);
+      expect(rail.debit.mock.calls[0][0].amount.toFixed(2)).toBe("0.50");
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "sent", settledBy: "merchant" });
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: held.id } })).toMatchObject({ state: "sent" });
+    });
+
+    it("Close sends nothing", async () => {
+      const { order, credit } = await orderWithCredit("needs_look", { lookReason: "refused" });
+      const rail = fakeRail();
+      giveRail(rail);
+
+      expect(await answerNow(order.id, "close", credit.id)).toEqual({ ok: true });
+      await flushWaitUntil();
+
+      expect(railFor).not.toHaveBeenCalled();
+      expect(rail.credit).not.toHaveBeenCalled();
+    });
+
+    it("leaves the send to the hourly job when the store has no usable session", async () => {
+      const { order, credit } = await orderWithCredit("needs_look", { lookReason: "refused" });
+
+      expect(await answerNow(order.id, "retry", credit.id)).toEqual({ ok: true });
+      await flushWaitUntil();
+
+      expect(railFor).toHaveBeenCalledWith(conn.connectionId);
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "pending" });
     });
   });
 });

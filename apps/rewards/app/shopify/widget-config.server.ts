@@ -63,15 +63,17 @@ export async function widgetConfig(merchantId: string): Promise<WidgetConfig> {
 
 /**
  * Write the store's current widget settings to its app-data metafield.
- * Reads them fresh from the database, so a caller that just changed the
- * switch or a tier writes the new state. Throws when Shopify can't be asked
- * in time, answers with errors, or refuses the write (its userErrors).
+ * Reads them fresh from the database right before the write, after the
+ * installation read, so a caller that just changed the switch or a tier
+ * writes the new state, and of two writes close together the later one
+ * carries the newest state (A19-F5). Throws when Shopify can't be asked in
+ * time, answers with errors, or refuses the write (its userErrors).
  */
 export async function syncWidgetConfig(admin: GraphqlClient, conn: ConnectionContext): Promise<void> {
-  const config = await widgetConfig(conn.merchantId);
   const installation = asRecord((await ask(admin, RewardsAppInstallation)).currentAppInstallation);
   const ownerId = installation?.id;
   if (typeof ownerId !== "string" || ownerId === "") throw new Error("RewardsAppInstallation answered without the installation's id");
+  const config = await widgetConfig(conn.merchantId);
 
   const payload = asRecord(
     (

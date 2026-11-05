@@ -615,7 +615,7 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
       // The hourly check can't ask about an erased buyer: it needs a look, and the merchant closes it.
       await backdateClaim(credit.payoutId, 60);
       await expect(settleUnconfirmed(credit.payoutId, fakeRail())).resolves.toBe("needs_look");
-      await expect(answerNeedsLook(conn.merchantId, credit.payoutId, "close")).resolves.toEqual({ ok: true });
+      await expect(answerNeedsLook(conn.merchantId, credit.payoutId, "close")).resolves.toMatchObject({ ok: true });
 
       const ledger = await ledgerOf(credit.orderId);
       expect(ledger.entries).toEqual([

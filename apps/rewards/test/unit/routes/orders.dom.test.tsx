@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
 
 // The pages' loaders are replaced by the stub's hydration data; nothing here
-// reaches Shopify or the database. The answers' submits are not clicked
-// here (a fetcher submit builds a Node Request, which refuses jsdom's
-// AbortSignal): what the loaders read and how the answers act are in the
-// Postgres suite (orders-page).
+// reaches Shopify or the database. The panel's answers post to a stand-in
+// action that records them (letFetchersPost); what the loaders read and how
+// the answers act are in the Postgres suite (orders-page).
 vi.mock("~/db.server", () => ({ default: {}, databaseSchema: "rewards" }));
 vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
 
@@ -104,11 +104,24 @@ const PANEL = {
         heading: "Cashback of £4.00 needs a look",
         text: "RewardsPro couldn't confirm it arrived.",
         hint: "Check the buyer's store credit in Shopify first. If you already added it by hand, choose It arrived.",
+        version: "2026-06-01T09:00:00.000Z",
         answers: [
-          { answer: "arrived" as const, label: "It arrived" },
-          { answer: "not_arrived" as const, label: "It didn't arrive, send it" },
+          {
+            answer: "arrived" as const,
+            label: "It arrived",
+            confirm: {
+              heading: "Mark it as arrived?",
+              text: "RewardsPro counts this £4.00 as given and won't send it. If it didn't arrive, the buyer won't get it.",
+              critical: false,
+            },
+          },
+          {
+            answer: "not_arrived" as const,
+            label: "It didn't arrive, send it",
+            confirm: { heading: "Send it again?", text: "This sends £4.00 again. If the first one arrived, the buyer gets it twice.", critical: false },
+          },
         ],
-      } as { heading: string; text: string; hint: string | null; answers: Array<{ answer: "arrived" | "not_arrived" | "retry" | "close"; label: string }> } | null,
+      } as Look | null,
     },
   ],
   refunds: [
@@ -117,11 +130,55 @@ const PANEL = {
   ],
 };
 
-async function renderPanel() {
-  const Stub = createRoutesStub([{ id: "routes/app.orders.$id", path: "/app/orders/:id", Component: Order }]);
-  render(<Stub initialEntries={["/app/orders/o2"]} hydrationData={{ loaderData: { "routes/app.orders.$id": PANEL } }} />);
-  await screen.findByText("It arrived");
+type Look = {
+  heading: string;
+  text: string;
+  hint: string | null;
+  version: string;
+  answers: Array<{ answer: "arrived" | "not_arrived" | "retry" | "close"; label: string; confirm: { heading: string; text: string; critical: boolean } | null }>;
+};
+
+/** A refused credit: Retry, or Close after the modal asks. */
+const REFUSED: Look = {
+  heading: "Cashback of £4.20 needs a look",
+  text: "Shopify refused it.",
+  hint: null,
+  version: "2026-06-02T10:00:00.000Z",
+  answers: [
+    { answer: "retry", label: "Retry", confirm: null },
+    {
+      answer: "close",
+      label: "Close without sending",
+      confirm: {
+        heading: "Close without sending?",
+        text: "RewardsPro won't send this £4.20. You can still add credit by hand in Shopify.",
+        critical: true,
+      },
+    },
+  ],
+};
+
+/** The panel, with the cashback's look replaced by `look` when given; every post goes to `posted`. */
+async function renderPanel(look?: Look, posted: Array<Record<string, string>> = []) {
+  const data = look ? { ...PANEL, entries: PANEL.entries.map((entry) => (entry.look ? { ...entry, look } : entry)) } : PANEL;
+  const Stub = createRoutesStub([
+    {
+      id: "routes/app.orders.$id",
+      path: "/app/orders/:id",
+      Component: Order,
+      // What the revalidation after an answer reads
+      loader: () => data,
+      action: async ({ request }) => {
+        posted.push(await fieldsOf(request));
+        return { ok: true };
+      },
+    },
+  ]);
+  render(<Stub initialEntries={["/app/orders/o2"]} hydrationData={{ loaderData: { "routes/app.orders.$id": data } }} />);
+  await screen.findByText((look ?? PANEL.entries[1].look!).answers[0].label, { selector: "s-banner s-button" });
 }
+
+const bannerButton = (label: string) => screen.getByText(label, { selector: "s-banner s-button" });
 
 const cells = (scope: ParentNode = document) =>
   [...scope.querySelectorAll("s-table-body s-table-row")].map((row) =>
@@ -130,6 +187,7 @@ const cells = (scope: ParentNode = document) =>
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 describe("Orders list", () => {
@@ -180,5 +238,71 @@ describe("Order panel", () => {
       ["June 6, 2026", "£20.00", "£0.40"],
       ["June 5, 2026", "£5.00", "None"],
     ]);
+  });
+});
+
+// Ruling 68 (DESIGN-3): answers ask first, except Retry
+describe("Order panel answers", () => {
+  it("asks before a guarded answer, posting nothing until its confirm, which posts the answer, the payout and its version", async () => {
+    letFetchersPost();
+    const posted: Array<Record<string, string>> = [];
+    await renderPanel(REFUSED, posted);
+
+    const close = bannerButton("Close without sending");
+    const modal = document.querySelector("s-modal")!;
+    expect(close.getAttribute("commandfor")).toBe(modal.id);
+    expect(close.getAttribute("command")).toBe("--show");
+    await act(async () => {
+      fireEvent.click(close);
+    });
+    expect(posted).toEqual([]);
+    expect(modal.getAttribute("heading")).toBe("Close without sending?");
+    expect(modal.textContent).toContain("RewardsPro won't send this £4.20. You can still add credit by hand in Shopify.");
+    const confirm = modal.querySelector('s-button[slot="primary-action"]')!;
+    expect([confirm.textContent, confirm.getAttribute("tone")]).toEqual(["Close without sending", "critical"]);
+    expect(modal.querySelector('s-button[slot="secondary-actions"]')?.textContent).toBe("Cancel");
+
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+    expect(posted).toEqual([{ intent: "close", payoutId: "p1", version: "2026-06-02T10:00:00.000Z" }]);
+  });
+
+  it("posts Retry at once, with the payout and its version", async () => {
+    letFetchersPost();
+    const posted: Array<Record<string, string>> = [];
+    await renderPanel(REFUSED, posted);
+
+    expect(bannerButton("Retry").hasAttribute("commandfor")).toBe(false);
+    await act(async () => {
+      fireEvent.click(bannerButton("Retry"));
+    });
+    expect(posted).toEqual([{ intent: "retry", payoutId: "p1", version: "2026-06-02T10:00:00.000Z" }]);
+  });
+
+  it("asks before It arrived and It didn't arrive, saying what each does", async () => {
+    letFetchersPost();
+    const posted: Array<Record<string, string>> = [];
+    await renderPanel(undefined, posted);
+    const modal = document.querySelector("s-modal")!;
+
+    await act(async () => {
+      fireEvent.click(bannerButton("It didn't arrive, send it"));
+    });
+    expect(posted).toEqual([]);
+    expect(modal.getAttribute("heading")).toBe("Send it again?");
+    expect(modal.textContent).toContain("This sends £4.00 again. If the first one arrived, the buyer gets it twice.");
+
+    await act(async () => {
+      fireEvent.click(bannerButton("It arrived"));
+    });
+    expect(posted).toEqual([]);
+    expect(modal.getAttribute("heading")).toBe("Mark it as arrived?");
+    const confirm = modal.querySelector('s-button[slot="primary-action"]')!;
+    expect([confirm.textContent, confirm.getAttribute("tone")]).toEqual(["It arrived", "auto"]);
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+    expect(posted).toEqual([{ intent: "arrived", payoutId: "p1", version: "2026-06-01T09:00:00.000Z" }]);
   });
 });

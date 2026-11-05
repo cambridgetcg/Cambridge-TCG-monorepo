@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { abortedByPage, fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
 
 // The page's loader and action are replaced by the stub's hydration data;
-// nothing here reaches Shopify or the database.
+// nothing here reaches Shopify or the database. Where a test posts, the post
+// goes to a stand-in action (letFetchersPost).
 vi.mock("~/db.server", () => ({ default: {}, databaseSchema: "rewards" }));
 vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
 
@@ -22,6 +24,7 @@ function homeData(
     importDismissed?: boolean;
     placedBuyers?: number;
     storeCreditReady?: boolean | null;
+    reviewDue?: boolean;
   } = {},
 ): HomeData {
   const hasTiers = overrides.hasTiers ?? true;
@@ -63,14 +66,14 @@ function homeData(
       importHorizonDays: 365,
       placedBuyers: overrides.placedBuyers ?? 14,
     },
-    reviewDue: false,
+    reviewDue: overrides.reviewDue ?? false,
     storeCreditReady: overrides.storeCreditReady === undefined ? true : overrides.storeCreditReady,
     themeEditorUrl: "https://home-dom.myshopify.com/admin/themes/current/editor",
   };
 }
 
 /** App Bridge's `shopify` global, with the widget embed in the given state. */
-function stubAppBridge(embed: "active" | "available") {
+function stubAppBridge(embed: "active" | "available", review: () => Promise<{ code: string }> = vi.fn()) {
   const extensions = vi.fn(async () => [
     {
       handle: "rewardspro-theme-extension",
@@ -78,12 +81,19 @@ function stubAppBridge(embed: "active" | "available") {
       activations: [{ handle: "membership_widget", name: "Rewards widget", target: "body", status: embed, activations: [] }],
     },
   ]);
-  vi.stubGlobal("shopify", { app: { extensions }, reviews: { request: vi.fn() } });
+  vi.stubGlobal("shopify", { app: { extensions }, reviews: { request: review } });
   return extensions;
 }
 
-async function renderHome(data: HomeData) {
-  const Stub = createRoutesStub([{ id: "routes/app._index", path: "/app", Component: Home }]);
+/** Each post Home makes, with its request; the stand-in action never answers, so each stays in flight. */
+type Posted = { fields: Record<string, string>; request: Request };
+
+async function renderHome(data: HomeData, posted?: Posted[]) {
+  const action = async ({ request }: { request: Request }) => {
+    posted?.push({ fields: await fieldsOf(request), request });
+    return new Promise(() => {});
+  };
+  const Stub = createRoutesStub([{ id: "routes/app._index", path: "/app", Component: Home, ...(posted ? { action } : {}) }]);
   render(<Stub initialEntries={["/app"]} hydrationData={{ loaderData: { "routes/app._index": data } }} />);
   await screen.findByText("This month");
   // Let the widget check settle
@@ -217,5 +227,46 @@ describe("Home", () => {
     stubAppBridge("available");
     await renderHome(homeData());
     expect(document.querySelector('[slot="supplemental-start"]')?.textContent).toContain("The rewards widget is off in your theme.");
+  });
+});
+
+// CONCURRENCY-2 and A19-F7: one post per control at a time, each control its own
+describe("Home's controls", () => {
+  it("disables the cashback switch while its change is posted, and posts one change", async () => {
+    letFetchersPost();
+    stubAppBridge("active");
+    const posted: Posted[] = [];
+    await renderHome(homeData({ running: true }), posted);
+    const toggle = document.querySelector("s-switch")!;
+    expect(toggle.hasAttribute("disabled")).toBe(false);
+
+    const flip = async (checked: boolean) => {
+      await act(async () => {
+        Object.defineProperty(toggle, "checked", { value: checked, configurable: true, writable: true });
+        fireEvent.change(toggle);
+      });
+    };
+    await flip(false);
+    await flip(true);
+
+    expect(posted.map((post) => post.fields)).toEqual([{ intent: "running", running: "off" }]);
+    expect(toggle.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("dismisses the review request without aborting the post that recorded it shown", async () => {
+    letFetchersPost();
+    stubAppBridge("active", async () => ({ code: "success" }));
+    const posted: Posted[] = [];
+    await renderHome(homeData({ reviewDue: true, importDismissed: true }), posted);
+    await act(async () => {});
+    expect(posted.map((post) => post.fields)).toEqual([{ intent: "review-shown", code: "success" }]);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Dismiss", { selector: "s-section s-button" }));
+    });
+
+    expect(posted.map((post) => post.fields)).toEqual([{ intent: "review-shown", code: "success" }, { intent: "review-dismissed" }]);
+    expect(abortedByPage(posted[0].request)).toBe(false);
+    expect(screen.queryByText("A review helps other merchants find RewardsPro.")).toBeNull();
   });
 });

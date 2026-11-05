@@ -135,6 +135,15 @@ describe.skipIf(!hasTestDatabase)("Settings and customer data requests", () => {
       await expect(prisma.merchant.findUniqueOrThrow({ where: { id: other.merchantId } })).resolves.toMatchObject({ notifyBuyers: false });
     });
 
+    // A23-F3: only on or off moves the email switch
+    it("answers 400 to an email post that says neither on nor off, and changes nothing", async () => {
+      await expect(actSettings({ intent: "notify", notify: "on" })).resolves.toEqual({ ok: true });
+      for (const fields of [{ intent: "notify", notify: "true" }, { intent: "notify", notify: "" }, { intent: "notify" }] as Record<string, string>[]) {
+        await expect(actSettings(fields), JSON.stringify(fields)).resolves.toEqual({ ok: false, error: "Unknown action.", status: 400 });
+      }
+      await expect(prisma.merchant.findUniqueOrThrow({ where: { id: conn.merchantId } })).resolves.toMatchObject({ notifyBuyers: true });
+    });
+
     it("refuses an unknown action and changes nothing", async () => {
       await expect(actSettings({ intent: "running", running: "on" })).resolves.toEqual({ ok: false, error: "Unknown action.", status: 400 });
       await expect(prisma.merchant.findUniqueOrThrow({ where: { id: conn.merchantId } })).resolves.toMatchObject({ notifyBuyers: false, running: false });

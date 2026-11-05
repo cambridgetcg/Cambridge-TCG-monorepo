@@ -48,7 +48,10 @@ function connectionKey(shop: string) {
 /**
  * Create or refresh the merchant behind a store, on every app open.
  * One transaction, keyed by (platform, external account id). A later open
- * updates the shop's name, currency and time zone; an uninstalled connection
+ * updates the shop's name, currency and time zone, only when one of them
+ * changed: a statement whose row doesn't match takes no lock, so the usual
+ * open never waits on a tier change holding the merchant's row (Ruling 77,
+ * CONCURRENCY-6); an uninstalled connection
  * becomes active again (`reactivated`) with `activatedAt = now`, and keeps
  * its first `installedAt` (the boundary the past-orders import used) and its
  * `uninstalledAt`. Every open records `lastAuthAt = now`, so an
@@ -107,7 +110,10 @@ export async function ensureMerchant(i: {
       await tx.merchant.delete({ where: { id: merchant.id } });
       existing = connection;
     }
-    await tx.merchant.update({ where: { id: existing.merchantId }, data: details });
+    await tx.merchant.updateMany({
+      where: { id: existing.merchantId, OR: [{ name: { not: details.name } }, { currency: { not: details.currency } }, { timezone: { not: details.timezone } }] },
+      data: details,
+    });
     // Conditional, so of two opens racing after a reinstall only one says it reactivated.
     const { count } = await tx.connection.updateMany({
       where: { id: existing.id, status: "uninstalled" },

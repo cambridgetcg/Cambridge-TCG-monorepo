@@ -16,10 +16,15 @@ import { AMOUNT_UNKNOWN, orderNotes } from "./words";
  *
  * The answers are the brief's words for cashback. A take-back takes the
  * same two answers (plan Decision 5) in words that fit it: nothing "arrives"
- * when credit is taken back (Ruling 55).
+ * when credit is taken back (Ruling 55). Every answer but Retry asks first,
+ * saying what it does in money words (Ruling 68): a closed payout can't be
+ * reopened, and a resend can pay twice.
  */
 
-export type AnswerButton = { answer: MerchantAnswer; label: string };
+/** What an answer asks before it is made: a heading, its consequence, and whether it gives up money for good. */
+export type Confirm = { heading: string; text: string; critical: boolean };
+
+export type AnswerButton = { answer: MerchantAnswer; label: string; confirm: Confirm | null };
 
 export type Look = {
   heading: string;
@@ -27,6 +32,8 @@ export type Look = {
   text: string;
   /** What to check first, for one RewardsPro couldn't confirm */
   hint: string | null;
+  /** Which send it is about, posted with the answer (Ruling 67) */
+  version: string;
   answers: AnswerButton[];
 };
 
@@ -86,19 +93,41 @@ function lookOf(entry: OrderEntry, payout: Payout): Look | null {
   const amount = formatMoney(payout.amount, entry.currency);
   const heading = credit ? `Cashback of ${amount} needs a look` : `Take-back of ${amount} needs a look`;
   const text = payoutDetail(entry) ?? "";
+  const { version } = payout;
+  const ask = (question: string, consequence: string, critical = false): Confirm => ({ heading: question, text: consequence, critical });
   if (payout.lookReason === "could_not_confirm") {
     return {
       heading,
       text,
       hint: credit ? CHECK_CREDIT : CHECK_TAKE_BACK,
+      version,
       answers: credit
         ? [
-            { answer: "arrived", label: "It arrived" },
-            { answer: "not_arrived", label: "It didn't arrive, send it" },
+            {
+              answer: "arrived",
+              label: "It arrived",
+              confirm: ask("Mark it as arrived?", `RewardsPro counts this ${amount} as given and won't send it. If it didn't arrive, the buyer won't get it.`),
+            },
+            {
+              answer: "not_arrived",
+              label: "It didn't arrive, send it",
+              confirm: ask("Send it again?", `This sends ${amount} again. If the first one arrived, the buyer gets it twice.`),
+            },
           ]
         : [
-            { answer: "arrived", label: "It was taken back" },
-            { answer: "not_arrived", label: "It wasn't taken back, try again" },
+            {
+              answer: "arrived",
+              label: "It was taken back",
+              confirm: ask(
+                "Mark it as taken back?",
+                `RewardsPro counts this ${amount} as taken back and won't try again. If it wasn't taken, the buyer keeps it.`,
+              ),
+            },
+            {
+              answer: "not_arrived",
+              label: "It wasn't taken back, try again",
+              confirm: ask("Try the take-back again?", `This takes back ${amount} again. If the first one was taken, the buyer loses it twice.`),
+            },
           ],
     };
   }
@@ -106,9 +135,21 @@ function lookOf(entry: OrderEntry, payout: Payout): Look | null {
     heading,
     text,
     hint: null,
+    version,
     answers: [
-      { answer: "retry", label: "Retry" },
-      { answer: "close", label: credit ? "Close without sending" : "Close without taking back" },
+      // Retry sends what Shopify refused or kept failing on: nothing can go out twice, so it doesn't ask
+      { answer: "retry", label: "Retry", confirm: null },
+      credit
+        ? {
+            answer: "close",
+            label: "Close without sending",
+            confirm: ask("Close without sending?", `RewardsPro won't send this ${amount}. You can still add credit by hand in Shopify.`, true),
+          }
+        : {
+            answer: "close",
+            label: "Close without taking back",
+            confirm: ask("Close without taking back?", `RewardsPro won't take back this ${amount}. You can still take it back by hand in Shopify.`, true),
+          },
     ],
   };
 }

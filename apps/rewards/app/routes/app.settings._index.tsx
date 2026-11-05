@@ -26,8 +26,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { conn } = await requireMerchant(request);
   const form = await request.formData();
 
-  if (form.get("intent") === "notify") {
-    await setNotifyBuyers(conn.merchantId, form.get("notify") === "on");
+  const notify = form.get("notify");
+  // Only on or off: a malformed post never turns the emails off (A23-F3)
+  if (form.get("intent") === "notify" && (notify === "on" || notify === "off")) {
+    await setNotifyBuyers(conn.merchantId, notify === "on");
     return { ok: true } satisfies ActionResult;
   }
   return data({ ok: false, error: "Unknown action." } satisfies ActionResult, { status: 400 });
@@ -38,6 +40,8 @@ export default function Settings() {
   const fetcher = useFetcher<typeof action>();
   const pending = fetcher.formData?.get("intent") === "notify" ? fetcher.formData.get("notify") === "on" : null;
   const notify = pending ?? d.notifyBuyers;
+  // One change at a time, so the last one made is the one kept (CONCURRENCY-2)
+  const busy = fetcher.state !== "idle";
 
   return (
     <s-page heading="Settings" inlineSize="base">
@@ -46,7 +50,10 @@ export default function Settings() {
           label="Email buyers when they earn store credit"
           details="Shopify sends this email itself. RewardsPro sends no email."
           checked={notify}
-          onChange={(event) => fetcher.submit({ intent: "notify", notify: event.currentTarget.checked ? "on" : "off" }, { method: "post" })}
+          disabled={busy}
+          onChange={(event) => {
+            if (!busy) fetcher.submit({ intent: "notify", notify: event.currentTarget.checked ? "on" : "off" }, { method: "post" });
+          }}
         />
         {fetcher.data && !fetcher.data.ok ? <s-text tone="critical">{fetcher.data.error}</s-text> : null}
       </s-section>

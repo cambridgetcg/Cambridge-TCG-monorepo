@@ -86,7 +86,11 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   switch (form.get("intent")) {
     case "lock": {
       const tierId = form.get("tierId");
-      const locked = typeof tierId === "string" && tierId !== "" ? await lockTier(conn.merchantId, panel.id, tierId) : { ok: false };
+      // A lock that names no tier is no lock (BOUNDARY-6); one that names a tier the merchant hasn't is gone
+      if (typeof tierId !== "string" || tierId === "") {
+        return data({ ok: false, error: "Unknown action." } satisfies ActionResult, { status: 400 });
+      }
+      const locked = await lockTier(conn.merchantId, panel.id, tierId);
       // The buyer is the store's (panelOf), so a refusal is the tier's
       return locked.ok ? ({ ok: true } satisfies ActionResult) : ({ ok: false, error: TIER_ERRORS.gone } satisfies ActionResult);
     }

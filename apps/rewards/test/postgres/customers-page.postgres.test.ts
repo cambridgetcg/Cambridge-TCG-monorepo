@@ -815,8 +815,12 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       await ensureMerchant({ shop: OTHER_SHOP, name: "Other", currency: "GBP", timezone: "Europe/London" });
       const theirTier = await addTier((await findConnection(OTHER_SHOP))!.merchantId, "Theirs", "0", "3", 0);
 
-      for (const tierId of [theirTier.id, "", "gold"]) {
+      for (const tierId of [theirTier.id, "00000000-0000-4000-8000-000000000000", "gold"]) {
         expect(await actOnPanel(buyer.id, { intent: "lock", tierId })).toEqual({ ok: false, error: "This tier is no longer there. Reload the page." });
+      }
+      // BOUNDARY-6: a lock that names no tier is no lock at all
+      for (const fields of [{ intent: "lock", tierId: "" }, { intent: "lock" }] as Record<string, string>[]) {
+        expect(await actOnPanel(buyer.id, fields), JSON.stringify(fields)).toEqual({ ok: false, error: "Unknown action.", status: 400 });
       }
       expect(await actOnPanel(buyer.id, { intent: "promote" })).toMatchObject({ ok: false, status: 400 });
       expect(await prisma.customer.findUniqueOrThrow({ where: { id: buyer.id } })).toMatchObject({ lockedTierId: null, tierId: bronze.id });

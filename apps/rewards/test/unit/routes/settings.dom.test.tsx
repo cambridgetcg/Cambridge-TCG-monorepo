@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
 
 // The pages' loaders are replaced by the stub's hydration data; nothing here
 // reaches Shopify or the database. What the loaders read and what a download
@@ -25,8 +26,13 @@ afterEach(() => {
   revalidate.mockClear();
 });
 
-async function renderSettings(notifyBuyers: boolean) {
-  const Stub = createRoutesStub([{ id: "routes/app.settings._index", path: "/app/settings", Component: Settings }]);
+/** Settings; each post goes to `posted`, and the stand-in action never answers, so it stays in flight. */
+async function renderSettings(notifyBuyers: boolean, posted?: Array<Record<string, string>>) {
+  const action = async ({ request }: { request: Request }) => {
+    posted?.push(await fieldsOf(request));
+    return new Promise(() => {});
+  };
+  const Stub = createRoutesStub([{ id: "routes/app.settings._index", path: "/app/settings", Component: Settings, ...(posted ? { action } : {}) }]);
   render(<Stub initialEntries={["/app/settings"]} hydrationData={{ loaderData: { "routes/app.settings._index": { notifyBuyers } } }} />);
   await screen.findByText("Customer data requests");
 }
@@ -59,6 +65,25 @@ describe("Settings", () => {
   it("shows the switch on when the merchant turned it on", async () => {
     await renderSettings(true);
     expect(document.querySelector("s-switch")?.hasAttribute("checked")).toBe(true);
+  });
+
+  // CONCURRENCY-2: one change at a time
+  it("disables the email switch while its change is posted, and posts one change", async () => {
+    letFetchersPost();
+    const posted: Array<Record<string, string>> = [];
+    await renderSettings(false, posted);
+    const toggle = document.querySelector("s-switch")!;
+    expect(toggle.hasAttribute("disabled")).toBe(false);
+
+    for (const checked of [true, false]) {
+      await act(async () => {
+        Object.defineProperty(toggle, "checked", { value: checked, configurable: true, writable: true });
+        fireEvent.change(toggle);
+      });
+    }
+
+    expect(posted).toEqual([{ intent: "notify", notify: "on" }]);
+    expect(toggle.hasAttribute("disabled")).toBe(true);
   });
 
   it("links to the data requests and to help", async () => {

@@ -1,16 +1,19 @@
+import { useEffect, useRef, useState } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { data, useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { formatDay } from "~/admin/customer-history.server";
 import { formatMoney } from "~/admin/format";
-import { type Look, entryLines, panelNotes, refundLine } from "~/admin/order-panel.server";
+import { type AnswerButton, type Look, entryLines, panelNotes, refundLine } from "~/admin/order-panel.server";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
 import { BUYER_IN_SHOPIFY, ERASED_BUYER, STATUS_TONE } from "~/admin/words";
-import { type MerchantAnswer, answerNeedsLook } from "~/lib/payouts.server";
+import { type MerchantAnswer, answerNeedsLook, sendPayout } from "~/lib/payouts.server";
 import { orderHasPayout, orderPanel } from "~/lib/stats.server";
+import { waitUntil } from "~/lib/wait-until.server";
 import { customerNames } from "~/shopify/names.server";
+import { railFor } from "~/shopify/rail-for.server";
 
 /**
  * The order panel (spec 4.6): the order, its status, its ledger entries
@@ -21,6 +24,12 @@ import { customerNames } from "~/shopify/names.server";
  * RewardsPro couldn't confirm it, "It arrived" or "It didn't arrive, send
  * it", after the merchant checks the buyer's store credit in Shopify. A
  * take-back that fell short is information only.
+ *
+ * Each answer posts the version of the send it was made about, and one made
+ * about an earlier send is refused (Ruling 67). Every answer but Retry asks
+ * first (Ruling 68). An answer that sends starts the send at once, after the
+ * response, through the store's rail, as the webhooks do (Ruling 69); with no
+ * usable session the hourly job sends it.
  */
 
 const notFound = () => new Response("Not found", { status: 404 });
@@ -59,6 +68,13 @@ const ANSWERS: readonly MerchantAnswer[] = ["retry", "close", "arrived", "not_ar
 
 const CHANGED = "This payment has changed since the page loaded. Reload the page.";
 
+/** Send what an answer left to send, one after another; railFor logs a store with no usable session. */
+async function sendAnswered(connectionId: string, payoutIds: string[]): Promise<void> {
+  const way = await railFor(connectionId);
+  if (!way) return;
+  for (const id of payoutIds) await sendPayout(id, way.rail);
+}
+
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const { conn } = await requireMerchant(request);
   const form = await request.formData();
@@ -70,37 +86,88 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (typeof answer !== "string" || !(ANSWERS as readonly string[]).includes(answer)) {
     return data({ ok: false, error: "Unknown answer." } satisfies ActionResult, { status: 400 });
   }
-  const answered = await answerNeedsLook(conn.merchantId, payoutId, answer as MerchantAnswer);
-  if (answered.ok) return { ok: true } satisfies ActionResult;
+  const version = form.get("version");
+  const answered = await answerNeedsLook(conn.merchantId, payoutId, answer as MerchantAnswer, new Date(), {
+    version: typeof version === "string" ? version : null,
+  });
+  if (answered.ok) {
+    if (answered.sendNow.length > 0) waitUntil(sendAnswered(conn.connectionId, answered.sendNow));
+    return { ok: true } satisfies ActionResult;
+  }
   if (answered.reason === "not_found") throw notFound();
   // Answered already, or no longer waiting for this answer
   return { ok: false, error: CHANGED } satisfies ActionResult;
 };
 
-/** One payout that needs a look, with its two answers. */
+/**
+ * One payout that needs a look, with its two answers. Retry posts at once;
+ * the other answers open the banner's modal, which says what the answer does,
+ * and only its confirm button posts.
+ */
 function LookBanner({ payoutId, look, buyerAdminUrl }: { payoutId: string; look: Look; buyerAdminUrl: string | null }) {
   const fetcher = useFetcher<typeof action>();
+  const modal = useRef<HTMLElementTagNameMap["s-modal"]>(null);
+  const [asking, setAsking] = useState<AnswerButton | null>(null);
+  const modalId = `confirm-${payoutId}`;
+  const busy = fetcher.state !== "idle";
   const error = fetcher.data && !fetcher.data.ok ? fetcher.data.error : null;
+
+  // One answer at a time, about the send this page shows
+  const post = (answer: MerchantAnswer) => {
+    if (busy) return;
+    fetcher.submit({ intent: answer, payoutId, version: look.version }, { method: "post" });
+  };
+
+  // Answered (or refused): the banner says what happened
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data) modal.current?.hideOverlay?.();
+  }, [fetcher.state, fetcher.data]);
+
   return (
-    <s-banner tone="warning" heading={look.heading}>
-      <s-stack gap="small-200">
-        {look.text ? <s-text>{look.text}</s-text> : null}
-        {look.hint ? <s-text>{look.hint}</s-text> : null}
-        {look.hint && buyerAdminUrl ? <s-link href={buyerAdminUrl}>{BUYER_IN_SHOPIFY}</s-link> : null}
-        {error ? <s-text tone="critical">{error}</s-text> : null}
-      </s-stack>
-      {look.answers.map((button) => (
+    <>
+      <s-banner tone="warning" heading={look.heading}>
+        <s-stack gap="small-200">
+          {look.text ? <s-text>{look.text}</s-text> : null}
+          {look.hint ? <s-text>{look.hint}</s-text> : null}
+          {look.hint && buyerAdminUrl ? <s-link href={buyerAdminUrl}>{BUYER_IN_SHOPIFY}</s-link> : null}
+          {error ? <s-text tone="critical">{error}</s-text> : null}
+        </s-stack>
+        {look.answers.map((button) =>
+          button.confirm ? (
+            <s-button
+              key={button.answer}
+              slot="secondary-actions"
+              variant="secondary"
+              disabled={busy}
+              commandFor={modalId}
+              command="--show"
+              onClick={() => setAsking(button)}
+            >
+              {button.label}
+            </s-button>
+          ) : (
+            <s-button key={button.answer} slot="secondary-actions" variant="secondary" disabled={busy} onClick={() => post(button.answer)}>
+              {button.label}
+            </s-button>
+          ),
+        )}
+      </s-banner>
+      <s-modal id={modalId} ref={modal} heading={asking?.confirm?.heading ?? look.heading}>
+        <s-paragraph>{asking?.confirm?.text}</s-paragraph>
         <s-button
-          key={button.answer}
-          slot="secondary-actions"
-          variant="secondary"
-          disabled={fetcher.state !== "idle"}
-          onClick={() => fetcher.submit({ intent: button.answer, payoutId }, { method: "post" })}
+          slot="primary-action"
+          variant="primary"
+          tone={asking?.confirm?.critical ? "critical" : "auto"}
+          loading={busy}
+          onClick={() => asking && post(asking.answer)}
         >
-          {button.label}
+          {asking?.label}
         </s-button>
-      ))}
-    </s-banner>
+        <s-button slot="secondary-actions" commandFor={modalId} command="--hide">
+          Cancel
+        </s-button>
+      </s-modal>
+    </>
   );
 }
 

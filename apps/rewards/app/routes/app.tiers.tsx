@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { data, useFetcher, useLoaderData } from "react-router";
+import { data, useFetcher, useLoaderData, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { formatMoney } from "~/admin/format";
@@ -15,6 +15,7 @@ import {
   requestTierPass,
   saveTier,
   setTierWindow,
+  tierPassPending,
   tierTable,
 } from "~/lib/tiers.server";
 import type { GraphqlClient } from "~/shopify/graphql";
@@ -23,23 +24,33 @@ import { syncWidgetConfig } from "~/shopify/widget-config.server";
 /**
  * Tiers (spec 4.5): the table (name, minimum spend, cashback, members), add,
  * edit and delete, the shop-wide "Spend counted over" choice and the line on
- * what cashback is paid on. Every save, delete or window change asks for a
- * tier pass (tierPassRequestedAt, then 25 s of it after the response; the
- * nightly pass finishes the rest) and rewrites the widget's settings.
+ * what cashback is paid on. A change that can move buyers (a new minimum, a
+ * tier added or deleted, a new window) asks for a tier pass
+ * (tierPassRequestedAt, then 25 s of it after the response; the nightly pass
+ * finishes the rest, Ruling 77); until it has reached every buyer the page
+ * says buyers are moving and reloads its data (Ruling 76). Every change
+ * rewrites the widget's settings. Each control posts one change at a time,
+ * and an edit says which version of the tier it was made on (CONCURRENCY-3).
  */
 
 const DELETE_MODAL = "delete-tier";
+/** How often the page reloads its data while buyers are moving to their new tiers. */
+const MOVING_POLL_MS = 10_000;
 const WINDOWS: Record<TierWindow, string> = { rolling_12_months: "Last 12 months", lifetime: "All time" };
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { conn } = await requireMerchant(request);
-  const tiers = await tierTable(conn.merchantId);
+  const [tiers, moving] = await Promise.all([tierTable(conn.merchantId), tierPassPending(conn.connectionId)]);
   return {
     currency: conn.currency,
     tierWindow: conn.tierWindow,
     nameMax: TIER_NAME_MAX,
+    // A requested tier pass hasn't reached every buyer yet (TRUTH-10)
+    moving,
+    // For a tier being edited that another tab deleted (A20-F4)
+    goneError: TIER_ERRORS.gone,
     tiers: tiers.map((t) => ({
       id: t.id,
       name: t.name,
@@ -47,15 +58,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       percent: t.cashbackPercent.toFixed(),
       members: t.members,
       lowest: t.lowest,
+      version: t.version,
     })),
   };
 };
 
 type ActionResult = { ok: true } | { ok: false; errors: TierErrors };
 
-/** After any change: re-place buyers, then tell the widget (if Shopify can't take it now, the nightly run does). */
-async function afterChange(admin: GraphqlClient, conn: ConnectionContext): Promise<void> {
-  await requestTierPass(conn.connectionId);
+/**
+ * After any change: re-place buyers when it can move them (Ruling 77), then
+ * tell the widget (if Shopify can't take it now, the nightly run does).
+ */
+async function afterChange(admin: GraphqlClient, conn: ConnectionContext, movesBuyers: boolean): Promise<void> {
+  if (movesBuyers) await requestTierPass(conn.connectionId);
   try {
     await syncWidgetConfig(admin, conn);
   } catch (error) {
@@ -81,15 +96,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         name: field(form, "name"),
         minSpend: field(form, "minSpend"),
         percent: field(form, "percent"),
+        // The version the edit was made on; an edit that names none is refused
+        version: field(form, "version"),
       });
       if (!saved.ok) return { ok: false, errors: saved.errors } satisfies ActionResult;
-      await afterChange(admin, conn);
+      await afterChange(admin, conn, saved.movesBuyers);
       return { ok: true } satisfies ActionResult;
     }
     case "delete": {
       const deleted = await deleteTier(conn.merchantId, field(form, "id") ?? "");
       if (!deleted.ok) return { ok: false, errors: { form: TIER_ERRORS[deleted.reason] } } satisfies ActionResult;
-      await afterChange(admin, conn);
+      await afterChange(admin, conn, true);
       return { ok: true } satisfies ActionResult;
     }
     case "window": {
@@ -97,8 +114,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (tierWindow !== "rolling_12_months" && tierWindow !== "lifetime") {
         return data({ ok: false, errors: { form: "Unknown window." } } satisfies ActionResult, { status: 400 });
       }
-      await setTierWindow(conn.merchantId, tierWindow);
-      await afterChange(admin, conn);
+      const changed = await setTierWindow(conn.merchantId, tierWindow);
+      await afterChange(admin, conn, changed);
       return { ok: true } satisfies ActionResult;
     }
     default:
@@ -120,12 +137,27 @@ function deleteSentence(tier: TierView): string {
   return `${count(tier.members, "member moves", "members move")} to the tier their spend qualifies for. ${locks}`;
 }
 
+/** Reload the page's data every MOVING_POLL_MS while buyers are moving to their new tiers. */
+function useMovingPolling(moving: boolean) {
+  const revalidator = useRevalidator();
+  const revalidate = useRef(revalidator.revalidate);
+  revalidate.current = revalidator.revalidate;
+  useEffect(() => {
+    if (!moving) return;
+    const timer = setInterval(() => void revalidate.current(), MOVING_POLL_MS);
+    return () => clearInterval(timer);
+  }, [moving]);
+}
+
 export default function Tiers() {
   const d = useLoaderData<typeof loader>();
   const saveFetcher = useFetcher<typeof action>();
   const deleteFetcher = useFetcher<typeof action>();
   const windowFetcher = useFetcher<typeof action>();
   const modal = useRef<HTMLElementTagNameMap["s-modal"]>(null);
+  // The tier this tab deleted, which the edit form then lets go of quietly
+  const deletedHere = useRef<string | null>(null);
+  useMovingPolling(d.moving);
 
   // The tier being edited, or null while adding one
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -150,9 +182,19 @@ export default function Tiers() {
 
   useEffect(() => {
     if (deleteFetcher.state !== "idle" || !deleteFetcher.data) return;
-    if (deleteFetcher.data.ok) modal.current?.hideOverlay();
+    if (deleteFetcher.data.ok) modal.current?.hideOverlay?.();
+    else deletedHere.current = null;
     setDeleteError(errorsOf(deleteFetcher.data).form ?? null);
   }, [deleteFetcher.state, deleteFetcher.data]);
+
+  // The tier being edited is gone (deleted in another tab): say so and start
+  // over, so Save can't bring it back as a new tier (A20-F4)
+  useEffect(() => {
+    if (editingId === null || editing) return;
+    setEditingId(null);
+    setValues(EMPTY);
+    setErrors(deletedHere.current === editingId ? {} : { form: d.goneError });
+  }, [editingId, editing, d.goneError]);
 
   const startEdit = (tier: TierView) => {
     setEditingId(tier.id);
@@ -166,18 +208,29 @@ export default function Tiers() {
   };
   const save = () =>
     saveFetcher.submit(
-      { intent: "save", id: editing?.id ?? "", name: values.name, percent: values.percent, ...(minFixed ? {} : { minSpend: values.minSpend }) },
+      {
+        intent: "save",
+        id: editing?.id ?? "",
+        name: values.name,
+        percent: values.percent,
+        ...(minFixed ? {} : { minSpend: values.minSpend }),
+        // The version this edit was made on (CONCURRENCY-3)
+        ...(editing ? { version: editing.version } : {}),
+      },
       { method: "post" },
     );
 
   const pendingWindow = windowFetcher.formData?.get("tierWindow");
   const tierWindow = typeof pendingWindow === "string" ? pendingWindow : d.tierWindow;
   const windowError = errorsOf(windowFetcher.data).form;
+  // One window change at a time, so the last one chosen is the one kept (CONCURRENCY-2)
+  const windowBusy = windowFetcher.state !== "idle";
 
   return (
     <s-page heading="Tiers" inlineSize="base">
       <s-section>
         <s-stack gap="base">
+          {d.moving ? <s-banner tone="info">Buyers are moving to their new tiers.</s-banner> : null}
           {d.tiers.length === 0 ? (
             <s-text color="subdued">No tiers yet. Add your first one below; everyone starts there.</s-text>
           ) : (
@@ -299,9 +352,10 @@ export default function Tiers() {
             labelAccessibilityVisibility="exclusive"
             name="tierWindow"
             error={windowError}
+            disabled={windowBusy}
             onChange={(event) => {
               const [chosen] = event.currentTarget.values;
-              if (chosen && chosen !== tierWindow) windowFetcher.submit({ intent: "window", tierWindow: chosen }, { method: "post" });
+              if (!windowBusy && chosen && chosen !== tierWindow) windowFetcher.submit({ intent: "window", tierWindow: chosen }, { method: "post" });
             }}
           >
             {(Object.keys(WINDOWS) as TierWindow[]).map((key) => (
@@ -326,7 +380,11 @@ export default function Tiers() {
           variant="primary"
           tone="critical"
           loading={deleteFetcher.state !== "idle"}
-          onClick={() => deleting && deleteFetcher.submit({ intent: "delete", id: deleting.id }, { method: "post" })}
+          onClick={() => {
+            if (!deleting || deleteFetcher.state !== "idle") return;
+            deletedHere.current = deleting.id;
+            deleteFetcher.submit({ intent: "delete", id: deleting.id }, { method: "post" });
+          }}
         >
           Delete tier
         </s-button>
