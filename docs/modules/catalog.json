@@ -203,6 +203,14 @@
       "evidence": ["apps/rewardspro/extensions/theme-app-extension-rewardspro/README.md", "apps/rewardspro/extensions/theme-app-extension-rewardspro/shopify.extension.toml", "apps/rewardspro/extensions/theme-app-extension-rewardspro/assets", "apps/rewardspro/extensions/theme-app-extension-rewardspro/blocks"]
     },
     {
+      "path": "apps/rewards/extensions/rewards-widget", "group": "extensions", "label": "RewardsPro rebuild widget",
+      "purpose": "Show a storefront buyer their tier, its cashback rate, their Shopify store credit and their progress to the next tier; invite guests to sign in with the base rate.",
+      "scope": "One app embed block for apps/rewards, with the released extension's identity (uid, handle, block file name, body target) so the merchant's embed survives. Not released: the live store runs apps/rewardspro's widget until the trimmed release (spec 8, phase 3), which waits for Yu's yes.",
+      "progress": "2026-11-05: built. Liquid prints no buyer details; a signed-in buyer's widget asks the app proxy once (8 s limit, no retry); a guest's reads the app's rewards.config metafield and asks no server. About 10 KB of JS and CSS, Light and Dark looks with a teal accent kept off text, English strings only.",
+      "next": "Check it on the staging app at laptop and phone widths, then read the deploy output and version diff so the extension shows as updated, never created plus removed.",
+      "evidence": ["apps/rewards/extensions/rewards-widget/shopify.extension.toml", "apps/rewards/extensions/rewards-widget/blocks/membership_widget.liquid", "apps/rewards/extensions/rewards-widget/assets", "apps/rewards/test/unit/extensions"]
+    },
+    {
       "path": "apps/rewardspro/tools", "group": "tooling", "label": "RewardsPro development tools",
       "purpose": "Provide webhook simulation, shop inspection and scenario-running tools for local RewardsPro development.",
       "scope": "Nested support package outside the root workspace. Some commands send requests or inspect databases; command availability is not permission to run them against a service.",

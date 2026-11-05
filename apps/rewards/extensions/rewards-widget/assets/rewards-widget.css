@@ -1,0 +1,129 @@
+/*
+ * RewardsPro widget: a button in the corner that opens a small panel, phone
+ * width first. Text uses only --rw-text and --rw-muted, which meet WCAG AA
+ * on --rw-bg in both looks; the accent (teal by default) only fills the
+ * progress bar and the button's dot, each with an edge, and never carries
+ * text. Sizes are in px because themes set their own root font size.
+ */
+.rw {
+  --rw-bg: #FFFFFF;
+  --rw-text: #1A3E5C;
+  --rw-muted: #45596B;
+  --rw-edge: #1A3E5C;
+  --rw-track: #E8EEF2;
+  position: fixed;
+  z-index: 2147483000;
+  inset-inline-end: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.rw[data-look="dark"] {
+  --rw-bg: #10212F;
+  --rw-text: #F3F6F9;
+  --rw-muted: #B4C3D0;
+  --rw-edge: #8DA3B5;
+  --rw-track: #1F3546;
+}
+.rw[hidden],
+.rw-panel[hidden] {
+  display: none;
+}
+.rw-button,
+.rw-panel {
+  box-sizing: border-box;
+  border: 1px solid var(--rw-edge);
+  background: var(--rw-bg);
+  color: var(--rw-text);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+.rw-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 16px;
+  border-radius: 22px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rw-button:focus-visible,
+.rw-cta:focus-visible {
+  outline: 2px solid var(--rw-text);
+  outline-offset: 2px;
+}
+.rw-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rw-accent, #17BEBB);
+  box-shadow: 0 0 0 1px var(--rw-edge);
+}
+.rw-value {
+  font-variant-numeric: tabular-nums;
+}
+.rw-panel {
+  width: min(320px, calc(100vw - 32px));
+  padding: 16px;
+  border-radius: 12px;
+  text-align: start;
+}
+.rw-panel p {
+  margin: 0 0 8px;
+}
+.rw-panel > :last-child {
+  margin-bottom: 0;
+}
+.rw-label,
+.rw-note {
+  color: var(--rw-muted);
+  font-size: 13px;
+}
+.rw-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+.rw-balance .rw-label {
+  display: block;
+}
+.rw-amount {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rw-track {
+  box-sizing: border-box;
+  height: 10px;
+  margin: 0 0 8px;
+  border: 1px solid var(--rw-edge);
+  border-radius: 5px;
+  background: var(--rw-track);
+  overflow: hidden;
+}
+.rw-fill {
+  height: 100%;
+  background: var(--rw-accent, #17BEBB);
+}
+.rw-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--rw-edge);
+  border-radius: 8px;
+  color: var(--rw-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+.rw-cta:hover {
+  text-decoration: underline;
+}

@@ -35,6 +35,8 @@ This records source and documentation evidence. It does not establish deployment
 - [apps/rewards/vercel.json](../../../apps/rewards/vercel.json)
 - [apps/rewards/scripts/vercel-ignore-build.sh](../../../apps/rewards/scripts/vercel-ignore-build.sh)
 
+**Contained modules:** [RewardsPro rebuild widget](../extensions/rewards-widget.md).
+
 ## Declared package relationships
 
 **Uses:** None declared in the inventoried package manifests.
