@@ -12,11 +12,11 @@ The new RewardsPro: one embedded Shopify app where a paid order earns cashback a
 
 ## Progress
 
-Source review recorded **2026-09-28**. 2026-11-05: Milestones 1 to 3 are merged. The foundation: the data model in Postgres schema rewards, with an append-only ledger and the payout checks enforced by the database, a local Postgres test bed, exact money maths, encrypted Shopify sessions. The engine: recording paid orders, cashback sent as Shopify store credit, refund take-backs, tiers and the past-orders import. The webhooks (orders, customers, products, compliance, uninstall); the payouts, with the hourly payout check and the nightly tier and housekeeping jobs; the admin (Home, Orders, Customers, Tiers, Settings with customer data requests). The storefront widget is built (Milestone 4). The CI job runs typecheck, unit tests, migrations, a drift check, the Postgres tests on Postgres 17 and the build. Not deployed: no store runs it yet.
+Source review recorded **2026-09-28**. 2026-11-05: All four milestones are built. The foundation: the data model in Postgres schema rewards, with an append-only ledger and the payout checks enforced by the database, a local Postgres test bed, exact money maths, encrypted Shopify sessions. The engine: recording paid orders, cashback sent as Shopify store credit, refund take-backs, tiers and the past-orders import. The webhooks (orders, customers, products, compliance, uninstall); the payouts, with the hourly payout check and the nightly tier and housekeeping jobs; the admin (Home, Orders, Customers, Tiers, Settings with customer data requests); the storefront widget. The staging run on a development store is recorded in apps/rewards/docs/staging-run.md, and the final review's fixes are in. The CI job runs typecheck, unit tests, migrations, a drift check, the Postgres tests on Postgres 17 and the build. Not deployed: production still serves apps/rewardspro.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
-**Next review:** The staging run: prove the whole loop and the widget on a staging app and its own database before any switch, which waits for Yu's yes.
+**Next review:** The switch: plan Part B, run from apps/rewards/docs/switch.md, each step on Yu's yes.
 
 ## Evidence and entry points
 
@@ -36,6 +36,8 @@ This records source and documentation evidence. It does not establish deployment
 - [apps/rewards/test/unit](../../../apps/rewards/test/unit)
 - [apps/rewards/vercel.json](../../../apps/rewards/vercel.json)
 - [apps/rewards/scripts/vercel-ignore-build.sh](../../../apps/rewards/scripts/vercel-ignore-build.sh)
+- [apps/rewards/docs/staging-run.md](../../../apps/rewards/docs/staging-run.md)
+- [apps/rewards/docs/switch.md](../../../apps/rewards/docs/switch.md)
 
 **Contained modules:** [RewardsPro rebuild widget](../extensions/rewards-widget.md).
 
