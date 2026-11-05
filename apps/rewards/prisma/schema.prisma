@@ -254,6 +254,8 @@ model Tier {
   lockedMembers Customer[] @relation("CustomerLockedTier")
 
   @@unique([merchantId, id])
+  // Each of a merchant's tiers has its own minimum spend (A20).
+  @@unique([merchantId, minSpend])
   @@map("tier")
 }
 
