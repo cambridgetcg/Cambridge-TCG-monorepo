@@ -566,6 +566,33 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       importState: "done",
       placedBuyers: 1,
       importError: "1 of 3 past orders could not be read, so their spend is not counted: #1",
+      importDismissed: false,
     });
+  });
+
+  it("keeps the import's outcome until the merchant dismisses it, and takes a dismissal only once the import has ended", async () => {
+    const conn = await seedShop();
+    const importDismissedAt = async () =>
+      (await prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId } })).importDismissedAt;
+    await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "running", importOperationId: null } });
+
+    // While it runs there is no outcome to dismiss
+    await expect(act({ intent: "import-dismissed" })).resolves.toEqual({ ok: true });
+    expect(await importDismissedAt()).toBeNull();
+
+    await prisma.connection.update({
+      where: { id: conn.connectionId },
+      data: { importState: "done", importError: "1 of 3 past orders could not be read, so their spend is not counted: #1" },
+    });
+    expect((await load()).setup.importDismissed).toBe(false);
+
+    await expect(act({ intent: "import-dismissed" })).resolves.toEqual({ ok: true });
+    const first = await importDismissedAt();
+    expect(first).toBeInstanceOf(Date);
+    expect((await load()).setup).toMatchObject({ importState: "done", importDismissed: true });
+
+    // A second dismissal keeps the first time
+    await act({ intent: "import-dismissed" });
+    expect(await importDismissedAt()).toEqual(first);
   });
 });

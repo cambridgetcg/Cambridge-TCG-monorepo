@@ -179,6 +179,17 @@ export async function recordReviewPrompt(merchantId: string, what: "dismissed" |
 }
 
 /**
+ * The merchant dismissed the past-orders import's outcome on Home. Only an
+ * import that has ended can be dismissed, and the first time is kept.
+ */
+export async function dismissImportOutcome(connectionId: string, now: Date = new Date()): Promise<void> {
+  await prisma.connection.updateMany({
+    where: { id: connectionId, importState: { in: ["done", "failed"] }, importDismissedAt: null },
+    data: { importDismissedAt: now },
+  });
+}
+
+/**
  * What an app/uninstalled did:
  * - `uninstalled`: the active store is now uninstalled;
  * - `already_uninstalled`: a repeated delivery; the first time is kept;

@@ -91,12 +91,35 @@ export function runningSummary(running: boolean, checks: RunningChecks): string 
 }
 
 /**
- * Setup is finished when there is a tier, cashback is on and the widget is
- * not known to be off, and the past-orders import is no longer running (its
- * progress is a line of the setup card).
+ * Whether the setup card shows how the past-orders import ended ("Done: N
+ * buyers placed in tiers", or the failed-import sentence, and any
+ * importError): from the moment it ends until the merchant dismisses it.
  */
-export function setupDone(i: { hasTiers: boolean; running: boolean; widgetOn: boolean | null; importState: string }): boolean {
-  return i.hasTiers && i.running && i.widgetOn !== false && i.importState !== "running";
+export function importOutcomeShown(importState: string, importDismissed: boolean): boolean {
+  return (importState === "done" || importState === "failed") && !importDismissed;
+}
+
+/**
+ * Setup is finished when there is a tier, cashback is on and the widget is
+ * not known to be off, and the past-orders import has neither its progress
+ * nor an undismissed outcome to show (both are lines of the setup card). The
+ * import starts at install, so it often ends after every other step is done:
+ * its outcome still shows then.
+ */
+export function setupDone(i: {
+  hasTiers: boolean;
+  running: boolean;
+  widgetOn: boolean | null;
+  importState: string;
+  importDismissed: boolean;
+}): boolean {
+  return (
+    i.hasTiers &&
+    i.running &&
+    i.widgetOn !== false &&
+    i.importState !== "running" &&
+    !importOutcomeShown(i.importState, i.importDismissed)
+  );
 }
 
 /**

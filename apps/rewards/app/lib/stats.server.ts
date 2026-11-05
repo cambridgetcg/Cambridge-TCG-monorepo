@@ -161,6 +161,8 @@ export interface HomeState {
   privacyDueAt: Date | null;
   importState: "not_started" | "running" | "done" | "failed";
   importError: string | null;
+  /** The merchant dismissed the import's outcome on Home */
+  importDismissed: boolean;
   /** How far back the import reads: 365, or 60 without read_all_orders */
   importHorizonDays: number;
   /** Buyers the past-orders import brought in who now hold a tier */
@@ -175,7 +177,10 @@ export async function homeState(conn: ConnectionContext, now: Date, cashbackEntr
       where: { id: conn.merchantId },
       select: { createdAt: true, reviewPromptDismissedAt: true, reviewPromptShownAt: true },
     }),
-    prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId }, select: { importState: true, importError: true, importHorizonDays: true } }),
+    prisma.connection.findUniqueOrThrow({
+      where: { id: conn.connectionId },
+      select: { importState: true, importError: true, importHorizonDays: true, importDismissedAt: true },
+    }),
     prisma.privacyRequest.findFirst({
       where: { connectionId: conn.connectionId, status: "open" },
       orderBy: { dueAt: "asc" },
@@ -189,6 +194,7 @@ export async function homeState(conn: ConnectionContext, now: Date, cashbackEntr
     privacyDueAt: privacy?.dueAt ?? null,
     importState: connection.importState,
     importError: connection.importError,
+    importDismissed: connection.importDismissedAt !== null,
     importHorizonDays: connection.importHorizonDays,
     placedBuyers,
     reviewDue: reviewDue({

@@ -9,6 +9,7 @@ import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
 import {
   homeBanners,
+  importOutcomeShown,
   parseBaseRate,
   reviewWasShown,
   runningSentence,
@@ -18,7 +19,7 @@ import {
   widgetEmbedOn,
   type RunningChecks,
 } from "~/lib/home-rules";
-import { type ConnectionContext, recordReviewPrompt, setRunning } from "~/lib/merchant.server";
+import { type ConnectionContext, dismissImportOutcome, recordReviewPrompt, setRunning } from "~/lib/merchant.server";
 import { homeState, homeStats } from "~/lib/stats.server";
 import { requestTierPass, setBaseRate } from "~/lib/tiers.server";
 import { pollImport } from "~/shopify/bulk-import.server";
@@ -117,6 +118,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     setup: {
       importState: state.importState,
       importError: state.importError,
+      importDismissed: state.importDismissed,
       importHorizonDays: state.importHorizonDays,
       placedBuyers: state.placedBuyers,
     },
@@ -148,6 +150,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await tellWidget(admin, conn);
       return { ok: true } satisfies ActionResult;
     }
+    case "import-dismissed":
+      await dismissImportOutcome(conn.connectionId);
+      return { ok: true } satisfies ActionResult;
     case "review-dismissed":
       await recordReviewPrompt(conn.merchantId, "dismissed");
       return { ok: true } satisfies ActionResult;
@@ -234,6 +239,7 @@ export default function Home() {
   const switchFetcher = useFetcher<typeof action>();
   const rateFetcher = useFetcher<typeof action>();
   const reviewFetcher = useFetcher<typeof action>();
+  const importFetcher = useFetcher<typeof action>();
   const widgetOn = useWidgetEmbed();
   useImportPolling(d.setup.importState === "running");
   const [rate, setRate] = useState("");
@@ -257,7 +263,10 @@ export default function Home() {
   const hasTiers = d.stats.tiers.length > 0;
   const checks: RunningChecks = { storeCredit: d.storeCreditReady, widget: widgetOn, tiers: hasTiers };
   const banners = homeBanners(d.bannerFacts, widgetOn);
-  const showSetup = !setupDone({ hasTiers, running: d.running, widgetOn, importState: d.setup.importState });
+  // Hidden at once on Dismiss, before the action answers
+  const importDismissed = d.setup.importDismissed || importFetcher.formData?.get("intent") === "import-dismissed";
+  const showImportOutcome = importOutcomeShown(d.setup.importState, importDismissed);
+  const showSetup = !setupDone({ hasTiers, running: d.running, widgetOn, importState: d.setup.importState, importDismissed });
   const reviewDismissed = reviewFetcher.formData?.get("intent") === "review-dismissed";
   const money = (amount: string, currency = d.currency) => formatMoney(amount, currency);
   const switchError = switchFetcher.data && !switchFetcher.data.ok ? switchFetcher.data.error : null;
@@ -336,14 +345,20 @@ export default function Home() {
                 {d.setup.importState === "running" ? (
                   <s-text color="subdued">Bringing in your last {months} of orders so buyers start in the right tier</s-text>
                 ) : null}
-                {d.setup.importState === "done" ? (
-                  <s-text color="subdued">Done: {count(d.setup.placedBuyers, "buyer", "buyers")} placed in tiers</s-text>
-                ) : null}
-                {d.setup.importState === "failed" ? (
-                  <s-text color="subdued">{"Your past orders couldn't be brought in, so buyers start in the lowest tier."}</s-text>
-                ) : null}
-                {(d.setup.importState === "done" || d.setup.importState === "failed") && d.setup.importError ? (
-                  <s-text color="subdued">{d.setup.importError}</s-text>
+                {showImportOutcome ? (
+                  <s-stack direction="inline" justifyContent="space-between" alignItems="start" gap="small-200" data-import-outcome="">
+                    <s-stack gap="small-200">
+                      {d.setup.importState === "done" ? (
+                        <s-text color="subdued">Done: {count(d.setup.placedBuyers, "buyer", "buyers")} placed in tiers</s-text>
+                      ) : (
+                        <s-text color="subdued">{"Your past orders couldn't be brought in, so buyers start in the lowest tier."}</s-text>
+                      )}
+                      {d.setup.importError ? <s-text color="subdued">{d.setup.importError}</s-text> : null}
+                    </s-stack>
+                    <s-button variant="tertiary" onClick={() => importFetcher.submit({ intent: "import-dismissed" }, { method: "post" })}>
+                      Dismiss
+                    </s-button>
+                  </s-stack>
                 ) : null}
               </s-stack>
             </s-section>

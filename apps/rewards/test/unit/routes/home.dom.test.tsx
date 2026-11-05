@@ -13,7 +13,16 @@ const { default: Home } = await import("~/routes/app._index");
 type HomeData = Record<string, unknown>;
 
 /** Home's loader data for a GBP shop, with `overrides`. */
-function homeData(overrides: { running?: boolean; hasTiers?: boolean; importState?: string; placedBuyers?: number } = {}): HomeData {
+function homeData(
+  overrides: {
+    running?: boolean;
+    hasTiers?: boolean;
+    importState?: string;
+    importError?: string | null;
+    importDismissed?: boolean;
+    placedBuyers?: number;
+  } = {},
+): HomeData {
   const hasTiers = overrides.hasTiers ?? true;
   return {
     shop: "home-dom.myshopify.com",
@@ -37,7 +46,13 @@ function homeData(overrides: { running?: boolean; hasTiers?: boolean; importStat
       cashbackOrders: 3,
     },
     bannerFacts: { privacyDueAt: null, spendProblems: [], needsLook: 0, timezone: "Europe/London", themeEditorUrl: "https://home-dom.myshopify.com/admin/themes/current/editor" },
-    setup: { importState: overrides.importState ?? "done", importError: null, importHorizonDays: 365, placedBuyers: overrides.placedBuyers ?? 14 },
+    setup: {
+      importState: overrides.importState ?? "done",
+      importError: overrides.importError ?? null,
+      importDismissed: overrides.importDismissed ?? false,
+      importHorizonDays: 365,
+      placedBuyers: overrides.placedBuyers ?? 14,
+    },
     reviewDue: false,
     storeCreditReady: true,
     themeEditorUrl: "https://home-dom.myshopify.com/admin/themes/current/editor",
@@ -85,9 +100,46 @@ describe("Home", () => {
     expect(screen.getByText("Turn on the widget in your theme")).toBeTruthy();
     cleanup();
 
+    // Every step done, and the import's outcome already dismissed
     stubAppBridge("active");
-    await renderHome(homeData({ running: true }));
+    await renderHome(homeData({ running: true, importDismissed: true }));
     expect(document.querySelector("[data-setup-card]")).toBeNull();
+  });
+
+  // The Dismiss click itself isn't driven here: a fetcher submission builds a
+  // Node Request, which refuses jsdom's AbortSignal. The Postgres suite runs
+  // the import-dismissed action and the loader that then reports it.
+  it("keeps the setup card for the import's outcome when it ends after every other step, until it is dismissed", async () => {
+    stubAppBridge("active");
+    const error = "1 of 3 past orders could not be read, so their spend is not counted: #1";
+    await renderHome(homeData({ running: true, importState: "done", importError: error, placedBuyers: 14 }));
+
+    const card = document.querySelector("[data-setup-card]");
+    expect(card).not.toBeNull();
+    expect(card?.textContent).toContain("Done: 14 buyers placed in tiers");
+    expect(card?.textContent).toContain(error);
+    // The other steps show as done
+    expect(card?.textContent).toContain("Your base cashback rate: 5%");
+    expect(card?.textContent).toContain("Cashback is on");
+    expect(card?.textContent).toContain("The widget is on in your theme");
+
+    const outcome = card?.querySelector("[data-import-outcome]");
+    expect([...(outcome?.querySelectorAll("s-button") ?? [])].map((button) => button.textContent)).toEqual(["Dismiss"]);
+    cleanup();
+
+    // Dismissed: every step is done, so the card goes
+    await renderHome(homeData({ running: true, importState: "done", importError: error, importDismissed: true }));
+    expect(document.querySelector("[data-setup-card]")).toBeNull();
+  });
+
+  it("keeps the setup card for a failed import's sentence and its error when every other step is done", async () => {
+    stubAppBridge("active");
+    const error = "Shopify could not run the bulk query: THROTTLED";
+    await renderHome(homeData({ running: true, importState: "failed", importError: error }));
+    const card = document.querySelector("[data-setup-card]");
+    expect(card?.textContent).toContain("Your past orders couldn't be brought in, so buyers start in the lowest tier.");
+    expect(card?.textContent).toContain(error);
+    expect(card?.textContent).not.toContain("placed in tiers");
   });
 
   it("keeps the setup card while the import runs, then says how many buyers it placed", async () => {

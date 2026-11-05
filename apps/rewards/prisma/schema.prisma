@@ -186,6 +186,8 @@ model Connection {
   importError         String?          @map("import_error")
   /// Polls in a row whose bulk file answered 4xx; the second ends the attempt.
   importFileRefusals  Int              @default(0) @map("import_file_refusals")
+  /// When the merchant dismissed the import's outcome on Home; the setup card shows it until then.
+  importDismissedAt   DateTime?        @map("import_dismissed_at")
   lastTierPassAt      DateTime?        @map("last_tier_pass_at")
   tierPassRequestedAt DateTime?        @map("tier_pass_requested_at")
   /// When the hourly sweep last finished this store (least recently swept first).

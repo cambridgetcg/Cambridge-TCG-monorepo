@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysEnding, parseBaseRate, rewardStatus, runningSummary, setupDone, widgetEmbedOn } from "~/lib/home-rules";
+import { daysEnding, importOutcomeShown, parseBaseRate, rewardStatus, runningSummary, setupDone, widgetEmbedOn } from "~/lib/home-rules";
 
 describe("Home's rules", () => {
   it("finds the widget embed among the app's extensions", () => {
@@ -37,14 +37,24 @@ describe("Home's rules", () => {
     expect(runningSummary(false, { storeCredit: true, widget: null, tiers: false })).toBe("Cashback is off. 1 check needs you.");
   });
 
-  it("finishes setup with a tier, cashback on, the widget not off and the import not running", () => {
-    const done = { hasTiers: true, running: true, widgetOn: true, importState: "done" };
+  it("finishes setup with a tier, cashback on, the widget not off and the import ended and its outcome dismissed", () => {
+    const done = { hasTiers: true, running: true, widgetOn: true, importState: "done", importDismissed: true };
     expect(setupDone(done)).toBe(true);
+    // An import that ends after every other step still shows how it ended
+    expect(setupDone({ ...done, importDismissed: false })).toBe(false);
+    expect(setupDone({ ...done, importState: "failed", importDismissed: false })).toBe(false);
+    expect(setupDone({ ...done, importState: "failed" })).toBe(true);
+    expect(setupDone({ ...done, importState: "not_started", importDismissed: false })).toBe(true);
     expect(setupDone({ ...done, widgetOn: null })).toBe(true);
     expect(setupDone({ ...done, widgetOn: false })).toBe(false);
     expect(setupDone({ ...done, running: false })).toBe(false);
     expect(setupDone({ ...done, hasTiers: false })).toBe(false);
     expect(setupDone({ ...done, importState: "running" })).toBe(false);
+  });
+
+  it("shows the import's outcome from when it ends until it is dismissed", () => {
+    expect(["not_started", "running", "done", "failed"].map((state) => importOutcomeShown(state, false))).toEqual([false, false, true, true]);
+    expect(["done", "failed"].map((state) => importOutcomeShown(state, true))).toEqual([false, false]);
   });
 
   it("lists calendar days across a month end", () => {
