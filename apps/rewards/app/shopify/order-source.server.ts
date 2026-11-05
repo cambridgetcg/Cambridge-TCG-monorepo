@@ -6,8 +6,10 @@ import { ShopifyTimeoutError, askShopify } from "./ask.server";
 import {
   RewardsOrderFacts,
   RewardsOrderTransactions,
+  RewardsOrderTransactionsCost,
   RewardsRecentPaidOrders,
   RewardsRefundFacts,
+  RewardsRefundFactsCost,
   type GraphqlClient,
 } from "./graphql";
 
@@ -41,6 +43,14 @@ export const MAX_RECENT_PAGES = 10;
 const LIST_LIMIT = 20;
 /** The transactions RewardsOrderTransactions reads when the order's first 20 came back full. */
 const MAX_TRANSACTIONS = 200;
+/**
+ * The most requested query cost one read keeps in flight at once. Shopify
+ * reserves each query's requested cost from the app's bucket (2,000 in the
+ * fixtures) until it answers, and answers THROTTLED when the bucket can't
+ * cover it; so at most two refunds (2 × 429) are read together, and the
+ * 801-point tender follow-up alone.
+ */
+export const MAX_COST_IN_FLIGHT = 1000;
 
 /** Shopify's answer, or the order in it, can't be read as order facts. */
 export class OrderReadError extends Error {
@@ -365,6 +375,51 @@ function firstErrorMessage(errors: unknown): string {
 
 type Ask = (query: string, variables: Record<string, unknown>) => Promise<Rec>;
 
+/** Runs `call` once the calls in flight leave room for `cost`. */
+type InTurn = <T>(cost: number, call: () => Promise<T>) => Promise<T>;
+
+/**
+ * Calls taken in the order they came, each started once the requested cost
+ * of those in flight plus its own is at most MAX_COST_IN_FLIGHT. Once one
+ * call has failed, the read has failed: the calls still waiting are not sent
+ * and reject with the same error.
+ */
+function oneBucket(): InTurn {
+  let inFlight = 0;
+  let failure: { error: unknown } | null = null;
+  const waiting: Array<{ cost: number; start: () => void }> = [];
+  const next = () => {
+    while (waiting.length > 0 && (inFlight === 0 || inFlight + waiting[0].cost <= MAX_COST_IN_FLIGHT)) {
+      const turn = waiting.shift();
+      if (turn) turn.start();
+    }
+  };
+  return (cost, call) =>
+    new Promise((resolve, reject) => {
+      waiting.push({
+        cost,
+        start: () => {
+          if (failure) return reject(failure.error);
+          inFlight += cost;
+          call().then(
+            (value) => {
+              inFlight -= cost;
+              resolve(value);
+              next();
+            },
+            (error: unknown) => {
+              inFlight -= cost;
+              failure ??= { error };
+              reject(error);
+              next();
+            },
+          );
+        },
+      });
+      next();
+    });
+}
+
 export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
   /**
    * A reader whose calls all end by one deadline, ORDER_READ_DEADLINE_MS from
@@ -406,18 +461,19 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
    * are read again, up to MAX_TRANSACTIONS, and it throws only if those are
    * full too.
    */
-  async function transactionsOf(ask: Ask, orderGid: string, node: Rec): Promise<unknown[]> {
+  async function transactionsOf(ask: Ask, inTurn: InTurn, orderGid: string, node: Rec): Promise<unknown[]> {
     const first = list(node.transactions, "transactions");
     if (first.length < LIST_LIMIT) return first;
-    const data = await ask(RewardsOrderTransactions, { id: orderGid });
+    const data = await inTurn(RewardsOrderTransactionsCost, () => ask(RewardsOrderTransactions, { id: orderGid }));
     if (data.order === null) throw new OrderReadError("The order went away while its tenders were read");
     const all = list(rec(data.order, "the order").transactions, "transactions");
     ensureWhole(all, MAX_TRANSACTIONS, "transactions");
     return all;
   }
 
-  async function refundNode(ask: Ask, refundGid: string): Promise<Rec | null> {
-    const data = await ask(RewardsRefundFacts, { id: refundGid });
+  async function refundNode(ask: Ask, refundGid: string, inTurn?: InTurn): Promise<Rec | null> {
+    const call = () => ask(RewardsRefundFacts, { id: refundGid });
+    const data = await (inTurn ? inTurn(RewardsRefundFactsCost, call) : call());
     return data.refund === null ? null : rec(data.refund, "the refund");
   }
 
@@ -428,11 +484,11 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
     return refunds.map((r) => text(rec(r, "a refund").id, "a refund id"));
   }
 
-  /** The refunds, read at the same time. */
-  function refundNodes(ask: Ask, ids: string[]): Promise<Rec[]> {
+  /** The refunds, read as many at a time as MAX_COST_IN_FLIGHT allows. */
+  function refundNodes(ask: Ask, inTurn: InTurn, ids: string[]): Promise<Rec[]> {
     return Promise.all(
       ids.map(async (id) => {
-        const node = await refundNode(ask, id);
+        const node = await refundNode(ask, id, inTurn);
         if (!node) throw new OrderReadError("A refund on the order could not be read");
         return node;
       }),
@@ -440,14 +496,21 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
   }
 
   return {
-    /** The lines (every page), then the refunds and any further tenders together, then the facts; all within one deadline. */
+    /**
+     * The lines (every page), then any further tenders and the refunds, as
+     * many together as MAX_COST_IN_FLIGHT allows, then the facts; all within
+     * one deadline.
+     */
     async readOrder(orderGid) {
       const ask = askWithin();
       const read = await orderNode(ask, orderGid);
       if (!read) return null;
+      // Before any call is sent: a throw here must not leave one unawaited
+      const ids = refundIds(read.node);
+      const inTurn = oneBucket();
       const [transactions, refundNodesRead] = await Promise.all([
-        transactionsOf(ask, orderGid, read.node),
-        refundNodes(ask, refundIds(read.node)),
+        transactionsOf(ask, inTurn, orderGid, read.node),
+        refundNodes(ask, inTurn, ids),
       ]);
       const order = parseOrderNode({ ...read.node, transactions }, read.shopCurrency);
       return factsFrom(order, refundsOf(order, refundNodesRead));
@@ -467,7 +530,7 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
       const read = await orderNode(ask, orderGid);
       if (!read) throw new OrderReadError("The refund's order could not be read");
       const order = parseOrderNode(read.node, read.shopCurrency);
-      const others = await refundNodes(ask, refundIds(read.node).filter((id) => id !== refundGid));
+      const others = await refundNodes(ask, oneBucket(), refundIds(read.node).filter((id) => id !== refundGid));
       const valued = refundsOf(order, [...others, refund]).find((r) => r.externalRefundId === refundGid);
       if (!valued) throw new OrderReadError("The refund could not be valued");
       return { orderGid, refund: valued };

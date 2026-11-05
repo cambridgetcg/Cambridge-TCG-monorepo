@@ -4,11 +4,18 @@ import { ShopifyTimeoutError } from "~/shopify/ask.server";
 import {
   RewardsOrderFacts,
   RewardsOrderTransactions,
+  RewardsOrderTransactionsCost,
   RewardsRecentPaidOrders,
   RewardsRefundFacts,
+  RewardsRefundFactsCost,
   type GraphqlClient,
 } from "~/shopify/graphql";
-import { ORDER_READ_DEADLINE_MS, createShopifyOrderSource, factsFromOrderNode } from "~/shopify/order-source.server";
+import {
+  MAX_COST_IN_FLIGHT,
+  ORDER_READ_DEADLINE_MS,
+  createShopifyOrderSource,
+  factsFromOrderNode,
+} from "~/shopify/order-source.server";
 import bulkNode from "../../fixtures/orders/bulk-node.json";
 import discounts from "../../fixtures/orders/discounts.json";
 import eurOnGbp from "../../fixtures/orders/eur-on-gbp.json";
@@ -405,6 +412,90 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
     const full = tenders(Array.from({ length: 200 }, () => clone(card)));
     await expect(createShopifyOrderSource(full).readOrder("gid://shopify/Order/5001")).rejects.toThrow(/200 transactions/);
   });
+
+  it("sends no tender follow-up for an order whose 20 refunds already make the read fail", async () => {
+    const both = clone(plain) as { data: { order: { refunds: Array<{ id: string }>; transactions: unknown[] } } };
+    both.data.order.refunds = Array.from({ length: 20 }, (_, i) => ({ id: `gid://shopify/Refund/${i + 1}` }));
+    both.data.order.transactions = Array.from({ length: 20 }, () => clone(plain.data.order.transactions[0]));
+    const client = shopify((query) => {
+      if (query === RewardsOrderTransactions) throw new Error("the follow-up was sent");
+      return both;
+    });
+
+    await expect(createShopifyOrderSource(client).readOrder("gid://shopify/Order/5001")).rejects.toThrow(/20 refunds/);
+    expect(asked(client).map((a) => a.document)).toEqual(["order"]);
+  });
+});
+
+describe("the calls in flight (their requested cost within MAX_COST_IN_FLIGHT)", () => {
+  /** The USD order 5012 with 20 tenders (so the follow-up is read) and `n` money-only refunds of $1. */
+  function busyOrder(n: number) {
+    const order = clone(refundedInFullUsd);
+    order.data.order.transactions = Array.from({ length: 20 }, () => clone(refundedInFullUsd.data.order.transactions[0]));
+    const ids = Array.from({ length: n }, (_, i) => `gid://shopify/Refund/${7001 + i}`);
+    order.data.order.refunds = ids.map((id) => ({ id }));
+    const refunds = new Map(ids.map((id, i) => [id, moneyRefund(id, "1.0", `2026-11-03T12:00:0${i}Z`)]));
+    return { order, refunds, ids };
+  }
+
+  /**
+   * A client that answers each call a moment later (or rejects the follow-up,
+   * with `failFollowUp`), recording the requested cost in flight whenever a
+   * call is sent.
+   */
+  function metered(order: Answer, refunds: Map<string, Answer>, failFollowUp = false) {
+    const cost = (query: string) =>
+      query === RewardsRefundFacts ? RewardsRefundFactsCost : query === RewardsOrderTransactions ? RewardsOrderTransactionsCost : 909;
+    let inFlight = 0;
+    const seen: Array<{ document: string; inFlight: number }> = [];
+    const graphql = vi.fn<GraphqlClient["graphql"]>(async (query, options) => {
+      inFlight += cost(query);
+      seen.push({ document: query === RewardsRefundFacts ? "refund" : query === RewardsOrderTransactions ? "transactions" : "order", inFlight });
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= cost(query);
+      if (query === RewardsOrderTransactions) {
+        if (failFollowUp) throw new Error("the follow-up failed");
+        return { json: async () => ({ data: { order: { transactions: (order.data.order as { transactions: unknown[] }).transactions } } }) };
+      }
+      if (query === RewardsRefundFacts) return { json: async () => refunds.get(options?.variables?.id as string) };
+      return { json: async () => order };
+    });
+    return { client: { graphql }, seen };
+  }
+
+  it("reads five refunds and the 801-point tender follow-up without passing 1,000 points in flight", async () => {
+    const { order, refunds, ids } = busyOrder(5);
+    const { client, seen } = metered(order, refunds);
+
+    const f = await createShopifyOrderSource(client).readOrder("gid://shopify/Order/5012");
+
+    expect(f?.refunds.map((r) => r.externalRefundId)).toEqual(ids);
+    expect(f?.refundedProductValue.amount.toFixed(2)).toBe("5.00");
+    expect(seen.map((s) => s.document)).toEqual(["order", "transactions", "refund", "refund", "refund", "refund", "refund"]);
+    expect(Math.max(...seen.map((s) => s.inFlight))).toBeLessThanOrEqual(MAX_COST_IN_FLIGHT);
+    // The follow-up alone, then the refunds two at a time, the next sent as one answers
+    expect(seen.map((s) => s.inFlight)).toEqual([909, 801, 429, 858, 858, 858, 858]);
+  });
+
+  it("holds readRefund's other refunds to two at a time", async () => {
+    const { order, refunds, ids } = busyOrder(5);
+    const { client, seen } = metered(order, refunds);
+
+    const answer = await createShopifyOrderSource(client).readRefund(ids[4]);
+
+    expect(answer?.refund.productValue.amount.toFixed(2)).toBe("1.00");
+    expect(seen.map((s) => s.inFlight)).toEqual([429, 909, 429, 858, 858, 858]);
+  });
+
+  it("rejects once, and sends no waiting refund, when the tender follow-up fails", async () => {
+    const { order, refunds } = busyOrder(3);
+    const { client, seen } = metered(order, refunds, true);
+
+    await expect(createShopifyOrderSource(client).readOrder("gid://shopify/Order/5012")).rejects.toThrow(/the follow-up failed/);
+    // Let anything left over settle: an unhandled rejection would fail this file
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(seen.map((s) => s.document)).toEqual(["order", "transactions"]);
+  });
 });
 
 describe("the read deadline (every call of one read within ORDER_READ_DEADLINE_MS)", () => {
@@ -444,12 +535,14 @@ describe("the read deadline (every call of one read within ORDER_READ_DEADLINE_M
     expect(client.graphql.mock.calls[1][1]?.signal?.aborted).toBe(true);
   });
 
-  it("reads the refunds at the same time, so three of them fit after the order", async () => {
+  it("reads the refunds two at a time, so three of them fit after the order", async () => {
     vi.useFakeTimers();
-    const client = late(2000, fromFixtures([refunded], [refundItems, refundShippingOnly, refundMoneyOnly]));
+    const client = late(1200, fromFixtures([refunded], [refundItems, refundShippingOnly, refundMoneyOnly]));
     const read = watch(createShopifyOrderSource(client).readOrder("gid://shopify/Order/5011"));
 
-    await vi.advanceTimersByTimeAsync(4000);
+    // The order at 0 s, two refunds at 1.2 s, the third at 2.4 s; one after another, the third would end at 4.8 s
+    await vi.advanceTimersByTimeAsync(3600);
+    expect(client.graphql).toHaveBeenCalledTimes(4);
     expect(read.outcome).toBe("answered");
   });
 

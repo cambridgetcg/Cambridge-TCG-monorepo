@@ -259,6 +259,7 @@ export const RewardsOrderFacts = `#graphql
  * read_quick_sale.
  * Cost: 801 = order 1 + transactions 200 × (transaction 1 + amountSet 3).
  */
+export const RewardsOrderTransactionsCost = 801;
 export const RewardsOrderTransactions = `#graphql
   query RewardsOrderTransactions($id: ID!) {
     order(id: $id) {
@@ -289,6 +290,7 @@ export const RewardsOrderTransactions = `#graphql
  * (transaction 1 + amountSet 3)) + refundShippingLines (connection 2, 20 ×
  * (shipping line 1 + subtotalAmountSet 3 + taxAmountSet 3)).
  */
+export const RewardsRefundFactsCost = 429;
 export const RewardsRefundFacts = `#graphql
   query RewardsRefundFacts($id: ID!) {
     refund(id: $id) {
