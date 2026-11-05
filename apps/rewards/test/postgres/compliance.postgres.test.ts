@@ -615,7 +615,7 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
       // The hourly check can't ask about an erased buyer: it needs a look, and the merchant closes it.
       await backdateClaim(credit.payoutId, 60);
       await expect(settleUnconfirmed(credit.payoutId, fakeRail())).resolves.toBe("needs_look");
-      await expect(answerNeedsLook(conn.merchantId, credit.payoutId, "close")).resolves.toEqual({ ok: true });
+      await expect(answerNeedsLook(conn.merchantId, credit.payoutId, "close")).resolves.toMatchObject({ ok: true });
 
       const ledger = await ledgerOf(credit.orderId);
       expect(ledger.entries).toEqual([
@@ -766,7 +766,7 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
       expect((await dataRequest(31, Number(ALICE), [5001])).status).toBe(200);
       await expect(prisma.privacyRequest.count()).resolves.toBe(1);
 
-      const download = await buildPrivacyReport(conn.merchantId, request.id);
+      const download = await buildPrivacyReport(conn, request.id);
       expect(download?.filename).toBe("customer-data-request-31.json");
       const report = JSON.parse(download!.json);
       expect(report.customer).toMatchObject({ id: paid.customerId, externalCustomerId: ALICE });
@@ -796,13 +796,13 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
       await dataRequest(41);
       const request = await prisma.privacyRequest.findFirstOrThrow({ where: { shopifyRequestId: "41" } });
 
-      await expect(buildPrivacyReport(other.merchantId, request.id)).resolves.toBeNull();
-      await expect(buildPrivacyReport(conn.merchantId, "not-a-request-id")).resolves.toBeNull();
-      await expect(buildPrivacyReport(conn.merchantId, crypto.randomUUID())).resolves.toBeNull();
+      await expect(buildPrivacyReport(other, request.id)).resolves.toBeNull();
+      await expect(buildPrivacyReport(conn, "not-a-request-id")).resolves.toBeNull();
+      await expect(buildPrivacyReport(conn, crypto.randomUUID())).resolves.toBeNull();
       await expect(prisma.privacyRequest.findUniqueOrThrow({ where: { id: request.id } })).resolves.toMatchObject({ downloadedAt: null });
 
       await prisma.privacyRequest.update({ where: { id: request.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
-      await expect(buildPrivacyReport(conn.merchantId, request.id)).resolves.toBeNull();
+      await expect(buildPrivacyReport(conn, request.id)).resolves.toBeNull();
     });
 
     it("a request for a buyer never seen opens a report that says so", async () => {
@@ -812,7 +812,7 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
       expect((await dataRequest(51, 9999)).status).toBe(200);
 
       const request = await prisma.privacyRequest.findFirstOrThrow({ where: { shopifyRequestId: "51" } });
-      const report = JSON.parse((await buildPrivacyReport(conn.merchantId, request.id))!.json);
+      const report = JSON.parse((await buildPrivacyReport(conn, request.id))!.json);
       expect(report).toMatchObject({ customerFound: false, customer: null, orders: [], ledgerEntries: [], payouts: [] });
     });
 
@@ -822,10 +822,10 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
       await dataRequest(61);
       const { id } = await prisma.privacyRequest.findFirstOrThrow({ where: { shopifyRequestId: "61" } });
 
-      await buildPrivacyReport(conn.merchantId, id);
+      await buildPrivacyReport(conn, id);
       const first = (await prisma.privacyRequest.findUniqueOrThrow({ where: { id } })).downloadedAt;
       await new Promise((resolve) => setTimeout(resolve, 5));
-      await buildPrivacyReport(conn.merchantId, id);
+      await buildPrivacyReport(conn, id);
 
       await expect(prisma.privacyRequest.findUniqueOrThrow({ where: { id } })).resolves.toMatchObject({ downloadedAt: first });
     });

@@ -7,12 +7,19 @@
  * transaction that creates or refreshes the merchant and its connection,
  * then, only while the connection's past-orders import has not started
  * (the first open, or the first after shop/redact erased it; spec 6.5), the
- * import's start: two more calls.
+ * import's start: two more calls. Last, the widget's settings are written
+ * (syncWidgetConfig, two calls), so a store reinstalled with cashback on
+ * shows guests the earn line at once rather than after the nightly rewrite
+ * (OPERATIONS-7). That write runs after the response (waitUntil), so an open
+ * never waits on it (Ruling 80); a failed write is logged, and the nightly
+ * step and the admin's own writes back it.
  */
 import type { AdminApiContext, Session } from "@shopify/shopify-app-react-router/server";
 import { ensureMerchant } from "~/lib/merchant.server";
+import { waitUntil } from "~/lib/wait-until.server";
 import { startImport } from "./bulk-import.server";
 import { RewardsShopDetails } from "./graphql";
+import { syncWidgetConfig } from "./widget-config.server";
 
 interface ShopDetails {
   name: string;
@@ -52,6 +59,22 @@ async function startPastOrders(
   }
 }
 
+/**
+ * Write the widget's settings, best effort, after the open has answered:
+ * a failure is logged with the store and the reason (never a buyer's
+ * details), a thrown Response (the library's re-auth answer) included, since
+ * nothing is left to pass it to; it never throws. The nightly rewrite visits
+ * the store again.
+ */
+async function tellWidget(admin: AdminApiContext, connection: { merchantId: string; connectionId: string }, shop: string): Promise<void> {
+  try {
+    await syncWidgetConfig(admin, connection);
+  } catch (error) {
+    const reason = error instanceof Response ? `HTTP ${error.status}` : error instanceof Error ? error.message : String(error);
+    console.error(`[install] Could not write the widget's settings for ${shop}: ${reason}`);
+  }
+}
+
 export async function onAppOpened({ session, admin }: { session: Session; admin: AdminApiContext }): Promise<void> {
   try {
     const response = await admin.graphql(RewardsShopDetails);
@@ -63,6 +86,8 @@ export async function onAppOpened({ session, admin }: { session: Session; admin:
       timezone: shop.ianaTimezone,
     });
     await startPastOrders(admin, connection, session.shop);
+    // After the response: an open never waits on the widget (Ruling 80)
+    waitUntil(tellWidget(admin, connection, session.shop));
   } catch (error) {
     // The library answers a failed afterAuth with a bare 500 and logs
     // nothing, so the cause is logged here before the open fails. A thrown

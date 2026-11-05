@@ -5,7 +5,7 @@ import type { ConnectionContext } from "~/lib/merchant.server";
 import { ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
 import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
-import { CLAIM_FINISHED_MS, answerNeedsLook, closeWithoutSending, lockPayout, sendPayout, settleUnconfirmed } from "~/lib/payouts.server";
+import { CLAIM_FINISHED_MS, answerNeedsLook, closeWithoutSending, lockPayout, payoutVersion, sendPayout, settleUnconfirmed } from "~/lib/payouts.server";
 import type { CreditHistoryResult, PayoutRail, RailAnswer } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
 import { recordRefund } from "~/lib/refunds.server";
@@ -480,7 +480,8 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     await prisma.payout.update({ where: { id: payoutId }, data: { firstFailedAt: new Date(Date.now() - HOUR) } });
     const now = new Date();
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "retry", now)).resolves.toEqual({ ok: true });
+    // The caller sends it at once (Ruling 69)
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "retry", now)).resolves.toEqual({ ok: true, sendNow: [payoutId] });
 
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "pending", nextAttemptAt: now, firstFailedAt: null, lookReason: null });
     const rail = fakeRail();
@@ -492,7 +493,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     const { conn, payoutId } = await debitIn("needs_look", { lookReason: "kept_failing", attempts: 6, firstFailedAt: new Date(Date.now() - 25 * HOUR) });
     const now = new Date();
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "retry", now)).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "retry", now)).resolves.toMatchObject({ ok: true });
 
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "pending", attempts: 0, firstFailedAt: null });
     // The next failure waits an hour, as a first one does, not the longest 8 h.
@@ -505,7 +506,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     const { conn, payoutId } = await debitIn("needs_look", { lookReason: "kept_failing", firstFailedAt: new Date(Date.now() - 25 * HOUR), lastError: "INSUFFICIENT_FUNDS" });
     const now = new Date();
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "retry", now)).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "retry", now)).resolves.toMatchObject({ ok: true });
 
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "pending", nextAttemptAt: now, firstFailedAt: null });
   });
@@ -513,7 +514,8 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
   it("close on a refused credit: closed by the merchant, its cashback cancelled in both currencies", async () => {
     const { conn, payoutId, orderId } = await refusedCredit({ currency: "EUR", product: "50.00", shopProduct: "43.00" });
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toEqual({ ok: true });
+    // Nothing to send
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toEqual({ ok: true, sendNow: [] });
 
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "closed", settledBy: "merchant", amount: "2.50" });
     const ledger = await ledgerOf(orderId);
@@ -529,7 +531,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     await recordRefund(conn, ORDER, refundFacts(1, "10.00", "8.60"));
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "needs_look", amount: "2.00" });
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toMatchObject({ ok: true });
 
     const ledger = await ledgerOf(orderId);
     expect(ledger.entries.map((e) => [e.kind, e.amount, e.shopAmount])).toEqual([
@@ -547,7 +549,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
   it("close on a take-back that kept failing cancels the take-back", async () => {
     const { conn, payoutId, orderId } = await debitIn("needs_look", { lookReason: "kept_failing" });
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toMatchObject({ ok: true });
 
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "closed", settledBy: "merchant" });
     const ledger = await ledgerOf(orderId);
@@ -560,9 +562,26 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     expect(ledger.net).toBe("2.50");
   });
 
+  // Ruling 67: an answer made about one send is refused once the payout is at another
+  it("refuses an answer about another send than the payout is at, changing nothing", async () => {
+    const { conn, payoutId } = await unconfirmableCredit();
+    const payout = await prisma.payout.findUniqueOrThrow({ where: { id: payoutId } });
+    const version = payoutVersion(payout);
+    expect(version).toBe(payout.claimedAt!.toISOString());
+
+    for (const stale of [null, "", new Date(payout.claimedAt!.getTime() - 1).toISOString()]) {
+      await expect(answerNeedsLook(conn.merchantId, payoutId, "not_arrived", new Date(), { version: stale })).resolves.toEqual({
+        ok: false,
+        reason: "not_waiting_for_this_answer",
+      });
+    }
+    await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "needs_look", lookReason: "could_not_confirm" });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "not_arrived", new Date(), { version })).resolves.toEqual({ ok: true, sendNow: [payoutId] });
+  });
+
   it("a second close is not waiting for this answer", async () => {
     const { conn, payoutId, orderId } = await refusedCredit();
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toMatchObject({ ok: true });
 
     await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toEqual({ ok: false, reason: "not_waiting_for_this_answer" });
     await expect(answerNeedsLook(conn.merchantId, payoutId, "retry")).resolves.toEqual({ ok: false, reason: "not_waiting_for_this_answer" });
@@ -575,10 +594,14 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     if (refund.status !== "recorded" || !refund.reversalPayoutId) throw new Error("no take-back");
     await expect(payoutOf(refund.reversalPayoutId)).resolves.toMatchObject({ state: "held" });
     const now = new Date();
+    const { claimedAt } = await prisma.payout.findUniqueOrThrow({ where: { id: payoutId } });
+    expect(claimedAt).toBeInstanceOf(Date);
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived", now)).resolves.toEqual({ ok: true });
+    // The released take-back is the one to send at once (Ruling 69)
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived", now)).resolves.toEqual({ ok: true, sendNow: [refund.reversalPayoutId] });
 
-    await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "sent", settledBy: "merchant", sentAt: now, amount: "2.50" });
+    // Dated when it went out, not when the merchant answered (TRUTH-8)
+    await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "sent", settledBy: "merchant", sentAt: claimedAt, amount: "2.50" });
     await expect(payoutOf(refund.reversalPayoutId)).resolves.toMatchObject({ state: "pending", nextAttemptAt: now, amount: "0.50" });
     const rail = fakeRail();
     await expect(sendPayout(refund.reversalPayoutId, rail, now)).resolves.toBe("sent");
@@ -591,7 +614,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     if (refund.status !== "recorded" || !refund.reversalPayoutId) throw new Error("no take-back");
     const now = new Date();
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "not_arrived", now)).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "not_arrived", now)).resolves.toEqual({ ok: true, sendNow: [payoutId] });
 
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "pending", amount: "2.00", nextAttemptAt: now, lookReason: null });
     await expect(prisma.payout.count({ where: { state: "held" } })).resolves.toBe(0);
@@ -605,7 +628,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     const { conn, payoutId } = await unconfirmableCredit();
     await recordRefund(conn, ORDER, refundFacts(1, "50.00"));
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "not_arrived")).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "not_arrived")).resolves.toEqual({ ok: true, sendNow: [] });
 
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "nothing_to_send", amount: "0.00" });
     await expect(prisma.payout.count({ where: { state: { not: "nothing_to_send" } } })).resolves.toBe(0);
@@ -615,8 +638,9 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     const { conn, payoutId } = await debitIn("needs_look", { lookReason: "could_not_confirm", debitedAmount: "0.50", shortfall: "0" });
     const now = new Date();
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived", now)).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived", now)).resolves.toMatchObject({ ok: true });
 
+    // No claim or unconfirmed time on record: the answer's own time
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "sent", settledBy: "merchant", sentAt: now, debitedAmount: "0.50", shortfall: "0.00" });
     await expect(prisma.ledgerEntry.count({ where: { kind: "adjustment" } })).resolves.toBe(0);
   });
@@ -625,7 +649,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     // £0.50 to take back, the buyer held £0.20 of it when it was asked for.
     const { conn, payoutId, orderId } = await debitIn("needs_look", { lookReason: "could_not_confirm", debitedAmount: "0.20", shortfall: "0.30" });
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived")).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived")).resolves.toMatchObject({ ok: true });
 
     const ledger = await ledgerOf(orderId);
     expect(ledger.entries.map((e) => [e.kind, e.amount, e.shopAmount, e.key])).toEqual([
@@ -639,7 +663,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
   it("arrived on a take-back that died mid-send writes no shortfall: what it took is unknown (A11-F4)", async () => {
     const { conn, payoutId, orderId } = await debitIn("needs_look", { lookReason: "could_not_confirm" });
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived")).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived")).resolves.toMatchObject({ ok: true });
 
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "sent", debitedAmount: null, shortfall: null });
     expect((await ledgerOf(orderId)).entries.map((e) => e.kind)).toEqual(["cashback", "reversal"]);
@@ -649,7 +673,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     const { conn, payoutId } = await debitIn("needs_look", { lookReason: "could_not_confirm", debitedAmount: "0.50", shortfall: "0" });
     const now = new Date();
 
-    await expect(answerNeedsLook(conn.merchantId, payoutId, "not_arrived", now)).resolves.toEqual({ ok: true });
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "not_arrived", now)).resolves.toMatchObject({ ok: true });
 
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "pending", nextAttemptAt: now, amount: "0.50", debitedAmount: null, shortfall: null });
     const rail = fakeRail();
@@ -698,7 +722,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     it("then Close: no take-back stays held, the adjustment equals the payout's amount, and the order nets to 0.00", async () => {
       const { conn, payoutId, orderId } = await heldThenRefused();
 
-      await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toEqual({ ok: true });
+      await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toMatchObject({ ok: true });
 
       await expect(prisma.payout.count({ where: { state: "held" } })).resolves.toBe(0);
       await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "closed", settledBy: "merchant", amount: "2.00" });
@@ -715,7 +739,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
       const { conn, payoutId, takeBackId, orderId } = await heldThenRefused();
       const now = new Date();
 
-      await expect(answerNeedsLook(conn.merchantId, payoutId, "retry", now)).resolves.toEqual({ ok: true });
+      await expect(answerNeedsLook(conn.merchantId, payoutId, "retry", now)).resolves.toMatchObject({ ok: true });
 
       await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "pending", amount: "2.00", nextAttemptAt: now });
       const rail = fakeRail();

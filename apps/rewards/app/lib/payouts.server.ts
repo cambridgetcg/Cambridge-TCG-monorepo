@@ -26,6 +26,7 @@ import type { Decimal } from "decimal.js";
 import prisma, { databaseSchema } from "~/db.server";
 import { Money, floorMoney, fromDb, roundMoney } from "./money";
 import type { CreditHistoryResult, CreditRecord, PayoutRail, RailAnswer } from "./ports";
+import { UUID } from "./uuid";
 
 /**
  * How long after its claim a send is surely over: the rail's calls time out
@@ -321,7 +322,8 @@ export const CLOCK_SLACK_MS = 5 * 60 * 1000;
 export const SEND_WINDOW_MS = 15 * 60 * 1000;
 /** How long a history Shopify won't give is asked for again before the merchant is asked. */
 const READ_HISTORY_FOR_MS = 24 * 60 * 60 * 1000;
-const CUSTOMER_MISSING = "The customer no longer exists in Shopify";
+/** Why a credit settled from an unclear send is refused when Shopify no longer has the buyer. */
+export const CUSTOMER_MISSING = "The customer no longer exists in Shopify";
 
 export type Verdict = { outcome: "landed"; credit: CreditRecord } | { outcome: "not_landed" } | { outcome: "unknown"; reason: string };
 
@@ -447,11 +449,13 @@ function heldTakeBacks(tx: Prisma.TransactionClient, credit: LockedPayout) {
       });
 }
 
-/** The credit reached the buyer: its held take-backs are to be debited now. */
-async function releaseHeld(tx: Prisma.TransactionClient, credit: LockedPayout, now: Date): Promise<void> {
+/** The credit reached the buyer: its held take-backs are to be debited now. Returns their ids. */
+async function releaseHeld(tx: Prisma.TransactionClient, credit: LockedPayout, now: Date): Promise<string[]> {
   const held = await heldTakeBacks(tx, credit);
-  if (held.length === 0) return;
-  await tx.payout.updateMany({ where: { id: { in: held.map((h) => h.id) }, state: "held" }, data: { state: "pending", nextAttemptAt: now } });
+  if (held.length === 0) return [];
+  const ids = held.map((h) => h.id);
+  await tx.payout.updateMany({ where: { id: { in: ids }, state: "held" }, data: { state: "pending", nextAttemptAt: now } });
+  return ids;
 }
 
 /**
@@ -472,8 +476,8 @@ async function netHeld(tx: Prisma.TransactionClient, payout: LockedPayout): Prom
   return Money.max(0, amount.minus(taken));
 }
 
-/** The credit never reached the buyer: send it again, less its held take-backs (netHeld). */
-async function sendAgainLessHeld(tx: Prisma.TransactionClient, credit: LockedPayout, now: Date): Promise<void> {
+/** The credit never reached the buyer: send it again, less its held take-backs (netHeld). Returns what is left to send. */
+async function sendAgainLessHeld(tx: Prisma.TransactionClient, credit: LockedPayout, now: Date): Promise<Decimal> {
   const left = await netHeld(tx, credit);
   await tx.payout.update({
     where: { id: credit.id },
@@ -485,6 +489,7 @@ async function sendAgainLessHeld(tx: Prisma.TransactionClient, credit: LockedPay
       lookReason: null,
     },
   });
+  return left;
 }
 
 /**
@@ -665,14 +670,26 @@ const ANSWERS_FOR: Record<MerchantAnswer, readonly LookReason[]> = {
   not_arrived: ["could_not_confirm"],
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Which send of a payout a page showed (Ruling 67): its claim, which every
+ * send sets anew, or, for one never claimed, when it last changed. A payout
+ * that needs a look again after an answer was sent again, so it has a new
+ * claim, and an answer made about the earlier send no longer matches.
+ */
+export function payoutVersion(payout: { claimedAt: Date | null; updatedAt: Date }): string {
+  return (payout.claimedAt ?? payout.updatedAt).toISOString();
+}
+
+/** What an answer did: `sendNow` names the payouts it left to send, its own or the take-backs it released. */
+export type AnswerResult = { ok: true; sendNow: string[] } | { ok: false; reason: "not_found" | "not_waiting_for_this_answer" };
 
 /**
  * The merchant's answer to a payout that needs a look:
  * - retry (refused or kept failing): `pending` now, the failure clock and
  *   the attempt count cleared (Ruling 37);
  * - close (the same): closeWithoutSending, settled by the merchant;
- * - arrived (couldn't confirm): `sent`, settled by the merchant; a credit's
+ * - arrived (couldn't confirm): `sent`, settled by the merchant, dated by
+ *   when it went out (its claim, else when it became unconfirmed); a credit's
  *   held take-backs are released, and a take-back's known shortfall reaches
  *   the ledger (recordShortfall);
  * - not_arrived (the same): a credit is sent again less its held take-backs
@@ -680,24 +697,32 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  *   be debited again from what the buyer holds.
  * `not_found` for a payout that isn't this merchant's;
  * `not_waiting_for_this_answer` when it doesn't need a look of the kind the
- * answer is for (including one already answered).
+ * answer is for (including one already answered), or, when the caller says
+ * which send it answers (`o.version`, from payoutVersion; a page always
+ * does, null when its post named none), when the payout is no longer at that
+ * send (Ruling 67): a stale tab never answers a later send.
+ * The caller starts the sends `sendNow` names (Ruling 69); the hourly job is
+ * the backstop.
  */
 export async function answerNeedsLook(
   merchantId: string,
   payoutId: string,
   answer: MerchantAnswer,
   now: Date = new Date(),
-): Promise<{ ok: true } | { ok: false; reason: "not_found" | "not_waiting_for_this_answer" }> {
+  o: { version?: string | null } = {},
+): Promise<AnswerResult> {
   if (!UUID.test(merchantId) || !UUID.test(payoutId)) return { ok: false, reason: "not_found" };
   const ours = await prisma.payout.findFirst({ where: { id: payoutId, merchantId }, select: { id: true } });
   if (!ours) return { ok: false, reason: "not_found" };
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx): Promise<AnswerResult> => {
     const payout = await lockPayout(tx, payoutId);
-    if (!payout) return { ok: false, reason: "not_found" } as const;
+    if (!payout) return { ok: false, reason: "not_found" };
     if (payout.state !== "needs_look" || payout.lookReason === null || !ANSWERS_FOR[answer].includes(payout.lookReason)) {
-      return { ok: false, reason: "not_waiting_for_this_answer" } as const;
+      return { ok: false, reason: "not_waiting_for_this_answer" };
     }
+    if (o.version !== undefined && o.version !== payoutVersion(payout)) return { ok: false, reason: "not_waiting_for_this_answer" };
+    const sendNow: string[] = [];
     switch (answer) {
       case "retry": {
         // Settle's refusals net held take-backs already; one held any other
@@ -716,14 +741,20 @@ export async function answerNeedsLook(
             lookReason: null,
           },
         });
+        if (!left.isZero()) sendNow.push(payout.id);
         break;
       }
       case "close":
         await closeWithoutSending(tx, payout, { now, settledBy: "merchant" });
         break;
       case "arrived":
-        await tx.payout.update({ where: { id: payout.id }, data: { state: "sent", sentAt: now, settledBy: "merchant" } });
-        if (payout.direction === "credit") await releaseHeld(tx, payout, now);
+        // It went out when it was claimed, not when the merchant answered
+        // (TRUTH-8): the claim, else when it became unconfirmed, else now
+        await tx.payout.update({
+          where: { id: payout.id },
+          data: { state: "sent", sentAt: payout.claimedAt ?? payout.unconfirmedAt ?? now, settledBy: "merchant" },
+        });
+        if (payout.direction === "credit") sendNow.push(...(await releaseHeld(tx, payout, now)));
         // A take-back whose ask is known gives back what it fell short by
         // (Ruling 35). One that died mid-send asked for nothing on record
         // (null), and the amount it took stays unknown (A11-F4).
@@ -733,16 +764,17 @@ export async function answerNeedsLook(
         break;
       case "not_arrived":
         if (payout.direction === "credit") {
-          await sendAgainLessHeld(tx, payout, now);
+          if (!(await sendAgainLessHeld(tx, payout, now)).isZero()) sendNow.push(payout.id);
         } else {
           // Nothing was taken: the next send reads the balance and asks again.
           await tx.payout.update({
             where: { id: payout.id },
             data: { state: "pending", nextAttemptAt: now, lookReason: null, debitedAmount: null, shortfall: null },
           });
+          sendNow.push(payout.id);
         }
         break;
     }
-    return { ok: true } as const;
+    return { ok: true, sendNow };
   });
 }

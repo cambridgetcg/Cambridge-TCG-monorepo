@@ -22,6 +22,7 @@
 import crypto from "node:crypto";
 import type { ActionFunctionArgs } from "react-router";
 import { isCanonicalShop } from "~/lib/shop-domain";
+import { monitoring } from "~/lib/telemetry.server";
 
 export interface VerifiedWebhook {
   /** As the library names it: `app/uninstalled` is `APP_UNINSTALLED`. */
@@ -72,7 +73,8 @@ function boundToBody(topic: string, shop: string, payload: unknown): boolean {
  * and has the topic's shape (BOUND_TOPICS). Null for anything else (not a
  * POST, a header missing, a body that isn't the signed one or isn't JSON, a
  * shop or topic the body doesn't bear out, or no secret set); the route
- * answers 401.
+ * answers 401. A verified delivery's store names every failure it reports
+ * (OPERATIONS-8).
  */
 export async function verifyShopifyWebhook(request: Request): Promise<VerifiedWebhook | null> {
   const secret = process.env.SHOPIFY_API_SECRET;
@@ -94,6 +96,7 @@ export async function verifyShopifyWebhook(request: Request): Promise<VerifiedWe
   }
   const name = topic.toUpperCase().replace(/[/.]/g, "_");
   if (!boundToBody(name, shop, payload)) return null;
+  monitoring.tagShop(shop);
   return { topic: name, shop, webhookId, payload };
 }
 

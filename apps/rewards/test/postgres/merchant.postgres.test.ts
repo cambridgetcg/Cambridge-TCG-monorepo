@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import prisma, { createPrismaClient } from "~/db.server";
+import prisma, { createPrismaClient, databaseSchema } from "~/db.server";
 import { ensureMerchant, findConnection, markUninstalled, setRunning } from "~/lib/merchant.server";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
 
@@ -140,6 +140,34 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
     // No orphan merchant from the open that lost.
     expect(await prisma.merchant.count()).toBe(1);
     expect(await prisma.connection.count()).toBe(1);
+  });
+
+  // Ruling 77 (CONCURRENCY-6): an open whose shop details are unchanged writes no merchant row
+  it("an open with unchanged shop details doesn't wait on the merchant row a tier change holds", async () => {
+    const first = await open();
+    const later = new Date(OPENED.getTime() + 60_000);
+    // A tier change (a long delete, say) holds the merchant's row, on a client of its own
+    const tierChange = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+    let reopened: Awaited<ReturnType<typeof open>> | "waited";
+    try {
+      reopened = await tierChange.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT id FROM ${Prisma.raw(`"${databaseSchema}"."merchant"`)} WHERE id = ${first.merchantId}::uuid FOR NO KEY UPDATE`;
+          const racing = open({ now: later });
+          racing.catch(() => {});
+          return Promise.race([racing, new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 2000))]);
+        },
+        { timeout: 10_000 },
+      );
+    } finally {
+      await tierChange.$disconnect();
+    }
+
+    expect(reopened).toMatchObject({ merchantId: first.merchantId, created: false, reactivated: false });
+    expect(await prisma.connection.findUniqueOrThrow({ where: { id: first.connectionId } })).toMatchObject({ lastAuthAt: later });
+    // A real change of details is still written
+    await open({ name: "Renamed", now: new Date(later.getTime() + 1000) });
+    expect(await prisma.merchant.findUniqueOrThrow({ where: { id: first.merchantId } })).toMatchObject({ name: "Renamed", currency: "GBP" });
   });
 
   it("an uninstalled store has no connection until it is opened again, which reactivates it", async () => {

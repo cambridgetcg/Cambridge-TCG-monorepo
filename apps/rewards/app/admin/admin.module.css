@@ -1,0 +1,127 @@
+/*
+ * The admin's only custom CSS: the tier chip and the chart (spec 4.1).
+ * Everything else is Polaris web components.
+ *
+ * The app's own tokens (Ruling 73). Polaris 2 keeps its tokens internal,
+ * under build-hashed names, so a var(--p-…) here would never resolve, and
+ * Shopify's Polaris 2 guide says to use your own tokens instead. Each --rp-*
+ * is set to the value Polaris 2 gives the matching token today (its base
+ * appearance; the new admin appearance differs only in a slightly lighter
+ * border grey, a darker secondary text and a 500 medium weight, measured
+ * with the review harness in both appearances). They are revisited if the
+ * admin's look changes. Declared on
+ * the two components themselves, since a module's rules stay local.
+ *
+ * Brand colours only here, on tier and money visuals: navy #1A3E5C and teal
+ * #17BEBB. Never teal text, never white text on teal; navy text on teal is
+ * fine (4.8:1), and every teal mark has a navy edge.
+ */
+
+.tierChip,
+.chart,
+.legend {
+  --rp-navy: #1a3e5c;
+  --rp-teal: #17bebb;
+  --rp-color-border: #e3e3e3;
+  --rp-space-025: 0.0625rem;
+  --rp-space-100: 0.25rem;
+  --rp-space-200: 0.5rem;
+  --rp-space-300: 0.75rem;
+  --rp-space-400: 1rem;
+  --rp-border-width-025: 0.0625rem;
+  --rp-border-radius-200: 0.5rem;
+  --rp-font-weight-medium: 550;
+  /* The chart's fixed height, and its strokes in CSS pixels */
+  --rp-chart-height: 4rem;
+  --rp-stroke: 2px;
+  --rp-stroke-edge: 4px;
+  --rp-dash: 6px 4px;
+  /* The edge's dashes 1px longer at each end, so every teal dash keeps its navy edge */
+  --rp-dash-edge: 8px 2px;
+  --rp-dash-edge-offset: 1px;
+}
+
+/* Wraps inside its cell rather than overflowing it: names may be 40 characters (DESIGN-15) */
+.tierChip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--rp-space-100);
+  max-inline-size: 100%;
+  padding: var(--rp-space-025) var(--rp-space-200);
+  border: var(--rp-border-width-025) solid var(--rp-navy);
+  border-radius: var(--rp-border-radius-200);
+  background: var(--rp-teal);
+  color: var(--rp-navy);
+  font-weight: var(--rp-font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+/* Stretched to the width at a fixed height (preserveAspectRatio none) */
+.chart {
+  display: block;
+  inline-size: 100%;
+  block-size: var(--rp-chart-height);
+  overflow: visible;
+}
+
+.gridLine {
+  stroke: var(--rp-color-border);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.line {
+  fill: none;
+  stroke-width: var(--rp-stroke);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.dashed {
+  stroke-dasharray: var(--rp-dash);
+  stroke-linecap: butt;
+}
+
+.navy {
+  stroke: var(--rp-navy);
+}
+
+/* The teal line runs inside a navy edge, drawn first and wider */
+.tealEdge {
+  stroke: var(--rp-navy);
+  stroke-width: var(--rp-stroke-edge);
+}
+
+.dashed.tealEdge {
+  stroke-dasharray: var(--rp-dash-edge);
+  stroke-dashoffset: var(--rp-dash-edge-offset);
+}
+
+.teal {
+  stroke: var(--rp-teal);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rp-space-200) var(--rp-space-400);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendItem {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rp-space-100);
+}
+
+/* The legend's key: a short piece of the series' own line */
+.key {
+  inline-size: calc(var(--rp-space-400) * 1.5);
+  block-size: var(--rp-space-300);
+  overflow: visible;
+}

@@ -37,10 +37,13 @@ export function webhookFailed(topic: string, what: string, error: unknown): Resp
  * thrown on, so the delivery is still answered with it: React Router never
  * hands a thrown Response to the server's error handler (M2b-F4). A 4xx (a
  * delivery Shopify did not sign) is a designed answer, thrown on unreported.
+ * A verified delivery's store names every failure it reports (OPERATIONS-8).
  */
-export async function authenticatedWebhook<T>(topic: string, authenticate: () => Promise<T>): Promise<T> {
+export async function authenticatedWebhook<T extends { shop: string }>(topic: string, authenticate: () => Promise<T>): Promise<T> {
   try {
-    return await authenticate();
+    const delivery = await authenticate();
+    monitoring.tagShop(delivery.shop);
+    return delivery;
   } catch (error) {
     if (error instanceof Response && error.status >= 500) {
       console.error(`[${topic}] Authenticating the delivery answered HTTP ${error.status}; Shopify will deliver it again`);

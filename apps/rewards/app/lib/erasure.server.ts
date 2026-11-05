@@ -12,9 +12,10 @@
  *   what was still to be paid to or taken from them. The ledger's amounts
  *   stay; closing adds adjustment entries, as the merchant's "Close without
  *   sending" does (rule 12).
- * - openPrivacyRequest / buildPrivacyReport (customers/data_request): a
- *   request row the merchant sees, and a report built live from the rows the
- *   app holds about the buyer when they download it. Nothing is stored for it.
+ * - openPrivacyRequest / listPrivacyRequests / buildPrivacyReport
+ *   (customers/data_request): a request row the merchant sees, and a report
+ *   built live from the rows the app holds about the buyer when they
+ *   download it. Nothing is stored for it.
  *
  * Each throws on failure, with nothing half-done (one transaction), so the
  * route answers 500 and Shopify delivers it again.
@@ -25,6 +26,7 @@ import { importCanStillWrite } from "./import.server";
 import type { ConnectionContext } from "./merchant.server";
 import { CUSTOMER_ERASED, closeWithoutSending, lockPayout } from "./payouts.server";
 import { isCanonicalShop } from "./shop-domain";
+import { UUID } from "./uuid";
 
 /** How long a data request's report can be downloaded, from its receipt. */
 export const REPORT_RETENTION_DAYS = 45;
@@ -36,7 +38,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // default 5 s interactive-transaction timeout (carried).
 const ERASURE_TRANSACTION = { timeout: 60_000, maxWait: 10_000 };
 const PLATFORM = "shopify" as const;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type DataModel = (typeof Prisma.dmmf.datamodel.models)[number];
 
@@ -247,21 +248,40 @@ export async function openPrivacyRequest(
   });
 }
 
+/** Whether a request's report can no longer be downloaded: housekeeping marked it, or its expiry has passed. */
+export function reportExpired(request: { status: string; expiresAt: Date }, now: Date): boolean {
+  return request.status === "expired" || request.expiresAt <= now;
+}
+
+/**
+ * The store's data requests, newest first, for the Settings sub-page: the
+ * same rows Home's data-request banner reads (homeState).
+ */
+export async function listPrivacyRequests(conn: ConnectionContext) {
+  return prisma.privacyRequest.findMany({
+    where: { merchantId: conn.merchantId, connectionId: conn.connectionId },
+    orderBy: [{ receivedAt: "desc" }, { id: "asc" }],
+    select: { id: true, externalCustomerId: true, status: true, receivedAt: true, dueAt: true, expiresAt: true, downloadedAt: true },
+  });
+}
+
 /**
  * The report of a data request, built now from what the app holds about the
  * buyer: their customer row, their orders (with refunds), ledger entries and
  * payouts. No names or emails are held, so none are in it. Null for a
- * request that isn't this merchant's, or past its expiry. The first download
- * is recorded (`downloadedAt`, status `downloaded`).
+ * request that isn't this store's (its merchant and connection, BOUNDARY-8,
+ * as listPrivacyRequests lists them), or past its expiry. The first
+ * download is recorded (`downloadedAt`, status `downloaded`).
  */
 export async function buildPrivacyReport(
-  merchantId: string,
+  conn: Pick<ConnectionContext, "merchantId" | "connectionId">,
   privacyRequestId: string,
   now: Date = new Date(),
 ): Promise<{ filename: string; json: string } | null> {
-  if (!UUID.test(merchantId) || !UUID.test(privacyRequestId)) return null;
-  const request = await prisma.privacyRequest.findFirst({ where: { id: privacyRequestId, merchantId } });
-  if (!request || request.status === "expired" || request.expiresAt <= now) return null;
+  const { merchantId, connectionId } = conn;
+  if (!UUID.test(merchantId) || !UUID.test(connectionId) || !UUID.test(privacyRequestId)) return null;
+  const request = await prisma.privacyRequest.findFirst({ where: { id: privacyRequestId, merchantId, connectionId } });
+  if (!request || reportExpired(request, now)) return null;
 
   const customer =
     request.externalCustomerId === null

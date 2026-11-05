@@ -148,6 +148,8 @@ model Merchant {
   notifyBuyers            Boolean    @default(false) @map("notify_buyers")
   reviewPromptDismissedAt DateTime?  @map("review_prompt_dismissed_at")
   reviewPromptShownAt     DateTime?  @map("review_prompt_shown_at")
+  /// When Home first saw every setup step done (Ruling 60); the setup card stays closed after.
+  setupCompletedAt        DateTime?  @map("setup_completed_at")
   createdAt               DateTime   @default(now()) @map("created_at")
   updatedAt               DateTime   @updatedAt @map("updated_at")
 
@@ -164,34 +166,45 @@ model Merchant {
 }
 
 model Connection {
-  id                  String           @id @default(uuid()) @db.Uuid
-  merchantId          String           @map("merchant_id") @db.Uuid
-  platform            Platform
+  id                   String           @id @default(uuid()) @db.Uuid
+  merchantId           String           @map("merchant_id") @db.Uuid
+  platform             Platform
   /// Canonical `*.myshopify.com` domain.
-  externalAccountId   String           @map("external_account_id")
-  status              ConnectionStatus
-  installedAt         DateTime         @map("installed_at")
+  externalAccountId    String           @map("external_account_id")
+  status               ConnectionStatus
+  installedAt          DateTime         @map("installed_at")
   /// When the current install began: installedAt at first, then each reactivation.
-  activatedAt         DateTime         @map("activated_at")
+  activatedAt          DateTime         @map("activated_at")
   /// The last uninstall; kept on reactivation, so [uninstalledAt, activatedAt) is the gap.
-  uninstalledAt       DateTime?        @map("uninstalled_at")
+  uninstalledAt        DateTime?        @map("uninstalled_at")
   /// The last open (every token exchange); an uninstall from before it is stale.
-  lastAuthAt          DateTime?        @map("last_auth_at")
-  importState         ImportState      @default(not_started) @map("import_state")
-  importOperationId   String?          @map("import_operation_id")
-  importCursor        Int              @default(0) @map("import_cursor")
-  importHorizonDays   Int              @default(365) @map("import_horizon_days")
-  importAttempts      Int              @default(0) @map("import_attempts")
-  importedCount       Int              @default(0) @map("imported_count")
-  importError         String?          @map("import_error")
+  lastAuthAt           DateTime?        @map("last_auth_at")
+  importState          ImportState      @default(not_started) @map("import_state")
+  importOperationId    String?          @map("import_operation_id")
+  importCursor         Int              @default(0) @map("import_cursor")
+  importHorizonDays    Int              @default(365) @map("import_horizon_days")
+  importAttempts       Int              @default(0) @map("import_attempts")
+  importedCount        Int              @default(0) @map("imported_count")
+  importError          String?          @map("import_error")
   /// Polls in a row whose bulk file answered 4xx; the second ends the attempt.
-  importFileRefusals  Int              @default(0) @map("import_file_refusals")
-  lastTierPassAt      DateTime?        @map("last_tier_pass_at")
-  tierPassRequestedAt DateTime?        @map("tier_pass_requested_at")
+  importFileRefusals   Int              @default(0) @map("import_file_refusals")
+  /// When the merchant dismissed the import's outcome on Home; the setup card shows it until then.
+  importDismissedAt    DateTime?        @map("import_dismissed_at")
+  lastTierPassAt       DateTime?        @map("last_tier_pass_at")
+  tierPassRequestedAt  DateTime?        @map("tier_pass_requested_at")
   /// When the hourly sweep last finished this store (least recently swept first).
-  lastSweptAt         DateTime?        @map("last_swept_at")
-  createdAt           DateTime         @default(now()) @map("created_at")
-  updatedAt           DateTime         @updatedAt @map("updated_at")
+  lastSweptAt          DateTime?        @map("last_swept_at")
+  /// When the widget's settings were last written to the store (syncWidgetConfig); null until the first write, and after one that failed.
+  /// The nightly step visits the oldest first (OPERATIONS-4).
+  widgetConfigSyncedAt DateTime?        @map("widget_config_synced_at")
+  /// The value that write carried, as sent (JSON text): the nightly step skips a store still holding today's value.
+  widgetConfigValue    String?          @map("widget_config_value")
+  /// When a write last failed: a write that started before it records no value (M3e-F1).
+  widgetConfigFailedAt DateTime?        @map("widget_config_failed_at")
+  /// When a write was last tried, however it ended: the nightly step visits the least recently tried first, never-tried first (M3e-F2).
+  widgetConfigTriedAt  DateTime?        @map("widget_config_tried_at")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
 
   merchant        Merchant         @relation(fields: [merchantId], references: [id])
   customers       Customer[]
@@ -234,6 +247,8 @@ model Customer {
   @@unique([connectionId, externalCustomerId])
   @@unique([merchantId, id])
   @@index([merchantId, tierId])
+  // The Customers list and its export: a store's buyers, newest first (OPERATIONS-2)
+  @@index([connectionId, createdAt])
   @@map("customer")
 }
 
@@ -252,6 +267,8 @@ model Tier {
   lockedMembers Customer[] @relation("CustomerLockedTier")
 
   @@unique([merchantId, id])
+  // Each of a merchant's tiers has its own minimum spend (A20).
+  @@unique([merchantId, minSpend])
   @@map("tier")
 }
 
@@ -295,6 +312,10 @@ model Order {
   @@unique([connectionId, externalOrderId])
   @@unique([merchantId, id])
   @@index([customerId, orderedAt])
+  // Home's month and 30-day reads of paid orders (OPERATIONS-2)
+  @@index([merchantId, paidAt])
+  // The Orders list: a store's orders, newest first (A22-F6)
+  @@index([connectionId, orderedAt])
   @@map("orders")
 }
 
@@ -360,6 +381,8 @@ model LedgerEntry {
   @@index([merchantId, orderId])
   @@index([merchantId, customerId])
   @@index([merchantId, refundId])
+  // Home's month, 30-day and Recent rewards reads (OPERATIONS-2)
+  @@index([merchantId, createdAt])
   @@map("ledger_entry")
 }
 

@@ -422,6 +422,58 @@ export const RewardsUpdatedOrders = `#graphql
 `;
 
 /**
+ * Buyers' names for the admin pages, read live and never stored (spec 4.4,
+ * 6.2): up to 250 customers by GID (the most `nodes` takes). First and last
+ * name only, not displayName, which falls back to the buyer's email or phone
+ * when they have no name.
+ * Scopes: read_customers, and protected customer data access to names
+ * (without it Shopify answers `errors` and the whole batch falls back).
+ * Cost: 250 at most = 250 nodes × 1 (each Customer object; its scalars cost
+ * nothing), an upper bound counted by hand: Shopify doesn't document how
+ * `nodes(ids:)` is costed, and A25 measures it with Shopify-GraphQL-Cost-Debug.
+ * customerNames waits out a THROTTLED answer by Shopify's own cost figures
+ * (Ruling 78).
+ */
+export const RewardsCustomerNames = `#graphql
+  query RewardsCustomerNames($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on Customer {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+/**
+ * The Customers page's search (spec 4.4): the customers Shopify's own search
+ * finds for what the merchant typed (names, email and the other fields
+ * Shopify searches), ids only, 250 at most (the most one page takes). The
+ * page keeps the ones RewardsPro knows and shows their names from
+ * RewardsCustomerNames, so no email ever reaches the app.
+ * Scopes: read_customers (the validator's answer). A search on names or
+ * email may also need protected customer data access to those fields, which
+ * RewardsCustomerNames needs already.
+ * Cost: 253 at most = customers (connection 2, pageInfo 1, 250 × customer
+ * 1); the ids cost nothing. An upper bound counted by hand: Shopify has
+ * costed connections lower since 2024, and A25 measures it with
+ * Shopify-GraphQL-Cost-Debug.
+ */
+export const RewardsCustomerSearch = `#graphql
+  query RewardsCustomerSearch($query: String!) {
+    customers(first: 250, query: $query) {
+      pageInfo {
+        hasNextPage
+      }
+      nodes {
+        id
+      }
+    }
+  }
+`;
+
+/**
  * Which customer accounts the shop uses, and whether its sign-in links show
  * on the storefront and at checkout: store credit can be spent only by a
  * buyer signed in to new customer accounts (or using Shop Pay). Carried from
@@ -631,6 +683,44 @@ export const RewardsBulkStatus = `#graphql
       url
       objectCount
       rootObjectCount
+    }
+  }
+`;
+
+/**
+ * The app's own installation on this store, the owner of its app-data
+ * metafields (shopify.dev, "App-data metafields": run currentAppInstallation,
+ * then metafieldsSet with its id as ownerId).
+ * Scopes: none (any installed app can read its own installation).
+ * Cost: 1 (the installation object; its id costs nothing).
+ */
+export const RewardsAppInstallation = `#graphql
+  query RewardsAppInstallation {
+    currentAppInstallation {
+      id
+    }
+  }
+`;
+
+/**
+ * Writes the widget's settings to the app-data metafield `rewards.config`
+ * (type json) on the app's installation, which the theme block reads in
+ * Liquid as `app.metafields.rewards.config.value` (plan Decision 8). The
+ * installation owner keeps it the app's own, so no `$app` namespace is needed.
+ * Scopes: none (an app writing metafields on its own installation).
+ * Cost: 12 = mutation 10 + one metafield 1 + userErrors 1.
+ */
+export const RewardsWidgetConfig = `#graphql
+  mutation RewardsWidgetConfig($metafields: [MetafieldsSetInput!]!) {
+    metafieldsSet(metafields: $metafields) {
+      metafields {
+        id
+      }
+      userErrors {
+        field
+        message
+        code
+      }
     }
   }
 `;

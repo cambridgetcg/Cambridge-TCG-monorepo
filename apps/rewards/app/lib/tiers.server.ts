@@ -16,11 +16,28 @@
  * spend. The nightly pass (`runTierPass`) resolves every buyer of a store,
  * the never-resolved first, then the longest unresolved, and stops at its
  * deadline for the next run to carry on.
+ *
+ * Every tier writer that runs in a transaction takes the merchant's row
+ * first (lockMerchantTiers): saves, deletes, the base rate and lockTier, so
+ * they apply one after another and a lock never races a delete (Ruling 61).
  */
 import { Prisma, type PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
-import prisma from "~/db.server";
+import prisma, { databaseSchema } from "~/db.server";
+import { acquireCronLock, releaseCronLock } from "./cron.server";
 import { Money, fromDb } from "./money";
+import { UUID } from "./uuid";
+import { waitUntil } from "./wait-until.server";
+
+/** The name of the tier the base rate creates. */
+export const BASE_TIER_NAME = "Everyone";
+
+/** A percent as the merchant types it, the base rate's or a tier's: a whole number from 0 to 100, or null. */
+export function parseBaseRate(value: unknown): number | null {
+  if (typeof value !== "string" || !/^\d{1,3}$/.test(value.trim())) return null;
+  const percent = Number(value.trim());
+  return percent <= 100 ? percent : null;
+}
 
 export type TierWindow = "rolling_12_months" | "lifetime";
 
@@ -41,8 +58,6 @@ type Db = PrismaClient | Prisma.TransactionClient;
 
 /** How many times a resolve starts over when the buyer's row changed under it. */
 const RESOLVE_ATTEMPTS = 3;
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Where the window's spend starts: for the rolling window, the same instant
@@ -67,19 +82,30 @@ export function windowStart(window: TierWindow, now: Date): Date | null {
  * and this holds even if a row says otherwise (Ruling 20).
  */
 export async function tierSpend(customerId: string, window: TierWindow, now: Date, db: Db = prisma): Promise<Decimal> {
-  const start = windowStart(window, now);
   const { _sum } = await db.order.aggregate({
     _sum: { shopProductAmount: true, shopRefundedProductAmount: true },
-    where: {
-      customerId,
-      test: false,
-      cancelledAt: null,
-      orderedAt: start ? { gte: start } : undefined,
-      shopRefundedProductAmount: { lte: db.order.fields.shopProductAmount },
-    },
+    where: { customerId, ...spendCounted(window, now, db) },
   });
-  const spend = fromDb(_sum.shopProductAmount ?? 0).minus(fromDb(_sum.shopRefundedProductAmount ?? 0));
-  return Money.max(0, spend);
+  return spendOf(_sum);
+}
+
+/**
+ * The orders tier spend counts at `now` over `window` (rule 10, Decision 7),
+ * for tierSpend and the Customers page alike, so both say one figure.
+ */
+export function spendCounted(window: TierWindow, now: Date, db: Db = prisma): Prisma.OrderWhereInput {
+  const start = windowStart(window, now);
+  return {
+    test: false,
+    cancelledAt: null,
+    orderedAt: start ? { gte: start } : undefined,
+    shopRefundedProductAmount: { lte: db.order.fields.shopProductAmount },
+  };
+}
+
+/** Spend from the sums of spendCounted's orders, never below 0. */
+export function spendOf(sum: { shopProductAmount: Prisma.Decimal | null; shopRefundedProductAmount: Prisma.Decimal | null }): Decimal {
+  return Money.max(0, fromDb(sum.shopProductAmount ?? 0).minus(fromDb(sum.shopRefundedProductAmount ?? 0)));
 }
 
 /** Lowest first: by minimum spend, then position, then id (as recordOrder picks the lowest). */
@@ -144,9 +170,13 @@ async function readTiers(db: Db, merchantId: string, excludeTierId?: string): Pr
   return rows.map((t) => ({ ...t, minSpend: fromDb(t.minSpend), cashbackPercent: fromDb(t.cashbackPercent) }));
 }
 
-/** A merchant's tiers, read the one way the tier engine reads them (the app proxy shows these). */
-export function tiersOf(merchantId: string): Promise<TierRow[]> {
-  return readTiers(prisma, merchantId);
+/**
+ * A merchant's tiers, lowest first, read the one way the tier engine reads
+ * them, without the member counts only the Tiers page and Home show (the app
+ * proxy, the Customers filter and the buyer panel use these, OPERATIONS-2).
+ */
+export async function tiersOf(merchantId: string): Promise<TierRow[]> {
+  return byMinimum(await readTiers(prisma, merchantId));
 }
 
 /** A write of a customer's tier refused because that tier no longer exists (its foreign key). */
@@ -159,6 +189,15 @@ function isTierForeignKeyViolation(error: unknown): boolean {
 }
 
 /**
+ * A statement Postgres aborted to break a deadlock (40P01). Prisma passes it
+ * through as an unknown request error naming the code, or as P2034.
+ */
+export function isDeadlock(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) return error.code === "P2034" || /\b40P01\b/.test(error.message);
+  return error instanceof Prisma.PrismaClientUnknownRequestError && /\b40P01\b/.test(error.message);
+}
+
+/**
  * Put a buyer in the tier they should hold: the tier they are locked to,
  * else the one their spend qualifies for. With no tiers at all the buyer
  * holds none (`tierId` null). When the tier is unchanged only `resolvedAt`
@@ -168,6 +207,12 @@ function isTierForeignKeyViolation(error: unknown): boolean {
  * written. The write is conditional on the row as it was read (tier, lock,
  * resolvedAt), so a lock or another resolve landing in between makes this
  * one start over on fresh reads instead of overwriting it.
+ *
+ * On its own (no `tx`), a write that a tier delete refused starts over the
+ * same way, at most RESOLVE_ATTEMPTS times in all: the tier it chose was
+ * deleted meanwhile (its foreign key), or the write met the delete clearing
+ * this buyer's lock to that tier and Postgres broke the deadlock by aborting
+ * it (Ruling 61).
  *
  * `tx` runs it inside the caller's transaction; `excludeTierId` resolves as
  * if that tier were gone (a lock to it included), so a tier delete can move
@@ -200,10 +245,11 @@ export async function resolveTier(
         data: changed ? { tierId, tierSince: tierId ? now : null, resolvedAt: now } : { resolvedAt: now },
       }));
     } catch (error) {
-      // The tier it chose was deleted since it read the tiers: start over on
-      // fresh ones (CONCURRENCY-6). Not inside a caller's transaction, which
-      // the failed statement has aborted.
-      if (o.tx || !isTierForeignKeyViolation(error)) throw error;
+      // The tier it chose was deleted since it read the tiers, or the write
+      // deadlocked with that delete: start over on fresh reads (CONCURRENCY-6,
+      // Ruling 61). Not inside a caller's transaction, which the failed
+      // statement has aborted.
+      if (o.tx || !(isTierForeignKeyViolation(error) || isDeadlock(error))) throw error;
       count = 0;
     }
     if (count === 1) return { changed, tierId };
@@ -217,17 +263,25 @@ export async function resolveTier(
  * Lock a buyer to one of the merchant's tiers, or with null return them to
  * automatic, then resolve their tier; both in one transaction, so a failed
  * resolve leaves the lock as it was. Locking a buyer to the tier they hold is
- * allowed. `ok: false` when the buyer or the tier is not the merchant's.
+ * allowed. `ok: false` when the buyer or the tier is not the merchant's,
+ * which includes a tier deleted meanwhile.
+ *
+ * The merchant's row comes first, as in every tier change (Ruling 61): behind
+ * a tier delete this waits for it, then reads the tiers it left, so neither a
+ * lock to the deleted tier nor an automatic resolve that would have chosen it
+ * meets the delete half done. Nothing takes a buyer's row and then waits on
+ * the merchant's, so this adds no cycle.
  */
 export async function lockTier(merchantId: string, customerId: string, tierId: string | null): Promise<{ ok: boolean }> {
   if (!UUID.test(merchantId) || !UUID.test(customerId) || (tierId !== null && !UUID.test(tierId))) return { ok: false };
   return prisma.$transaction(async (tx) => {
+    await lockMerchantTiers(tx, merchantId);
     if (tierId !== null && (await tx.tier.count({ where: { id: tierId, merchantId } })) === 0) return { ok: false };
     const { count } = await tx.customer.updateMany({ where: { id: customerId, merchantId }, data: { lockedTierId: tierId } });
     if (count === 0) return { ok: false };
     await resolveTier(customerId, { tx });
     return { ok: true };
-  });
+  }, TIER_CHANGE_TRANSACTION);
 }
 
 /**
@@ -277,4 +331,286 @@ export async function runTierPass(
   }
   const summary = { processed, remaining: customers.length - processed, changed, errors, complete };
   return errors > 0 ? { ...summary, firstError } : summary;
+}
+
+/**
+ * The base cashback rate from Home's setup card (spec 4.3): with no tiers it
+ * creates the lowest tier, BASE_TIER_NAME with minimum spend 0
+ * (`created: true`, after which the caller places the buyers); otherwise it
+ * sets the lowest tier's rate. The merchant row is locked first, so two
+ * saves at once never make two lowest tiers.
+ */
+export async function setBaseRate(merchantId: string, percent: number): Promise<{ created: boolean; tierId: string }> {
+  if (!Number.isInteger(percent) || percent < 0 || percent > 100) throw new RangeError(`Not a whole percent from 0 to 100: ${percent}`);
+  return prisma.$transaction(async (tx) => {
+    await lockMerchantTiers(tx, merchantId, "FOR UPDATE");
+    const [lowest] = byMinimum(await readTiers(tx, merchantId));
+    if (lowest) {
+      await tx.tier.update({ where: { id: lowest.id }, data: { cashbackPercent: new Prisma.Decimal(percent) } });
+      return { created: false, tierId: lowest.id };
+    }
+    const tier = await tx.tier.create({
+      data: { merchantId, name: BASE_TIER_NAME, minSpend: new Prisma.Decimal(0), cashbackPercent: new Prisma.Decimal(percent), position: 0 },
+      select: { id: true },
+    });
+    return { created: true, tierId: tier.id };
+  });
+}
+
+/** How long the pass run after a tier save may take; the nightly pass finishes the rest. */
+export const AFTER_SAVE_PASS_MS = 25_000;
+/** The after-save pass's lease on its store (cron_lock): past its pass's time, so a crashed holder's runs out soon after. */
+const TIER_PASS_LEASE_MINUTES = 1;
+
+const tierPassLease = (connectionId: string) => `tier-pass:${connectionId}`;
+
+/**
+ * After a change that can move buyers between tiers (a minimum, the set of
+ * tiers or the window): ask for a pass (`tierPassRequestedAt`, which the
+ * nightly pass honours; a later request is never moved back) and run one
+ * after the response, for AFTER_SAVE_PASS_MS, under the store's lease
+ * `tier-pass:<connectionId>` (Ruling 77). While another after-save pass holds
+ * it, this one is skipped: that pass takes the newest request before it
+ * finishes, and the nightly pass the rest.
+ */
+export async function requestTierPass(connectionId: string, now: Date = new Date()): Promise<void> {
+  await prisma.connection.updateMany({
+    where: { id: connectionId, OR: [{ tierPassRequestedAt: null }, { tierPassRequestedAt: { lt: now } }] },
+    data: { tierPassRequestedAt: now },
+  });
+  waitUntil(passWhileRequested(connectionId, now.getTime() + AFTER_SAVE_PASS_MS));
+}
+
+/**
+ * Run the store's requested passes until none is left or `deadline` comes,
+ * holding its lease: each pass resolves the buyers last resolved before the
+ * newest request; a request made meanwhile, its own pass skipped by the
+ * lease, is taken by the next round, after the lease is let go too.
+ */
+async function passWhileRequested(connectionId: string, deadline: number): Promise<void> {
+  const lease = await acquireCronLock(tierPassLease(connectionId), TIER_PASS_LEASE_MINUTES);
+  if (!lease.acquired || !lease.lockId) return;
+  const requested = async () =>
+    (await prisma.connection.findUnique({ where: { id: connectionId }, select: { tierPassRequestedAt: true } }))?.tierPassRequestedAt ?? null;
+  let done = 0;
+  try {
+    for (let asked = await requested(); asked !== null && asked.getTime() > done && Date.now() < deadline; asked = await requested()) {
+      const pass = await runTierPass(connectionId, { deadline, resolvedBefore: asked });
+      if (!pass.complete) return;
+      done = asked.getTime();
+    }
+  } finally {
+    await releaseCronLock(lease.lockId);
+  }
+  // A request whose pass met the lease just before it was let go
+  const asked = await requested();
+  if (asked !== null && asked.getTime() > done && Date.now() < deadline) await passWhileRequested(connectionId, deadline);
+}
+
+/**
+ * Whether a requested tier pass has still to reach some of the store's
+ * buyers (Ruling 76): one resolved before the request, or never resolved,
+ * the buyers runTierPass works through. Both times are the app's own clock
+ * (the request and each resolve stamp new Date()); the database's
+ * createdAt is never compared with them (M3b-F6). A buyer first seen after
+ * the request waits only until their own resolve, which orders/paid runs at
+ * once. Tiers (and Home) say buyers are moving meanwhile.
+ */
+export async function tierPassPending(connectionId: string): Promise<boolean> {
+  const connection = await prisma.connection.findUnique({ where: { id: connectionId }, select: { tierPassRequestedAt: true } });
+  const asked = connection?.tierPassRequestedAt ?? null;
+  if (asked === null) return false;
+  const waiting = await prisma.customer.findFirst({
+    where: { connectionId, OR: [{ resolvedAt: { lt: asked } }, { resolvedAt: null }] },
+    select: { id: true },
+  });
+  return waiting !== null;
+}
+
+/** The longest a tier's name may be, in characters. */
+export const TIER_NAME_MAX = 40;
+
+/** A whole minimum spend in the shop's currency: numeric(19,4) holds 15 digits before the point, the form takes 12. */
+const WHOLE_AMOUNT = /^\d{1,12}$/;
+
+/** A tier change's problems: by field, or `form` for the whole change. */
+export type TierErrors = Partial<Record<"name" | "minSpend" | "percent" | "form", string>>;
+
+export const TIER_ERRORS = {
+  nameMissing: "Enter a name.",
+  nameTooLong: `Use ${TIER_NAME_MAX} characters or fewer.`,
+  minSpend: "Enter a whole number of 0 or more.",
+  minSpendTaken: "Another tier has this minimum spend.",
+  percent: "Enter a whole number from 0 to 100.",
+  gone: "This tier is no longer there. Reload the page.",
+  changed: "This tier changed since you opened it. Reload the page.",
+  lowest: "The lowest tier can't be deleted: every buyer starts there.",
+  busy: "The tier couldn't be deleted just now. Try again.",
+} as const;
+
+/**
+ * A tier change runs under its merchant's row, taken FOR NO KEY UPDATE:
+ * every other tier change waits on it (and setBaseRate's FOR UPDATE, and
+ * setRunning's UPDATE), so they see one another's tiers whole, while the
+ * KEY SHARE checks of rows inserted under the merchant (orders, ledger
+ * entries, payouts) don't wait. A delete can take a while with many
+ * members, hence the timeout.
+ */
+const TIER_CHANGE_TRANSACTION = { timeout: 60_000, maxWait: 10_000 };
+
+async function lockMerchantTiers(
+  tx: Prisma.TransactionClient,
+  merchantId: string,
+  mode: "FOR NO KEY UPDATE" | "FOR UPDATE" = "FOR NO KEY UPDATE",
+): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM ${Prisma.raw(`"${databaseSchema}"."merchant"`)} WHERE id = ${merchantId}::uuid ${Prisma.raw(mode)}`;
+}
+
+/** Which version of a tier a page showed: when it last changed (CONCURRENCY-3). */
+export function tierVersion(tier: { updatedAt: Date }): string {
+  return tier.updatedAt.toISOString();
+}
+
+/**
+ * A merchant's tiers for the Tiers page, lowest first, with their members:
+ * the buyers who hold each, erased ones aside (customers/redact keeps the
+ * row without its Shopify id, and the Customers list leaves it out, TRUTH-9).
+ */
+export async function tierTable(merchantId: string): Promise<Array<TierRow & { members: number; lowest: boolean; version: string }>> {
+  const rows = await prisma.tier.findMany({
+    where: { merchantId },
+    select: {
+      id: true,
+      name: true,
+      minSpend: true,
+      cashbackPercent: true,
+      position: true,
+      updatedAt: true,
+      _count: { select: { members: { where: { externalCustomerId: { not: null } } } } },
+    },
+  });
+  const members = new Map(rows.map((t) => [t.id, t._count.members]));
+  const versions = new Map(rows.map((t) => [t.id, tierVersion(t)]));
+  const tiers = byMinimum(
+    rows.map((t) => ({ id: t.id, name: t.name, minSpend: fromDb(t.minSpend), cashbackPercent: fromDb(t.cashbackPercent), position: t.position })),
+  );
+  return tiers.map((tier, i) => ({ ...tier, members: members.get(tier.id) ?? 0, lowest: i === 0, version: versions.get(tier.id)! }));
+}
+
+/**
+ * Add a tier (`id` null) or edit one, from the Tiers page's fields as typed
+ * (spec 4.5): a name of 1 to TIER_NAME_MAX characters, trimmed; a whole
+ * minimum spend of 0 or more, in the shop's currency, that no other of the
+ * merchant's tiers has (A12-F2; the database holds the same rule); a whole
+ * cashback percent from 0 to 100. The lowest tier's minimum is fixed at 0:
+ * a store's first tier starts at 0 and an edit of the lowest tier keeps its
+ * minimum, whatever `minSpend` says. Every problem is reported at once and
+ * nothing is written. `form: gone` when `id` is not one of the merchant's
+ * tiers; `form: changed` when the caller says which version of the tier its
+ * edit was made on (`version`, from tierVersion; the page always does, null
+ * when its post named none) and the tier has changed since (CONCURRENCY-3):
+ * an edit re-sends every field, so it would undo the other save.
+ * `movesBuyers` says whether the change can move buyers between tiers (a new
+ * tier, or a new minimum); only then does the caller ask for a tier pass
+ * (requestTierPass, Ruling 77). A rename or a rate change moves no one.
+ */
+export async function saveTier(
+  merchantId: string,
+  input: { id: string | null; name: unknown; minSpend: unknown; percent: unknown; version?: string | null },
+  db: PrismaClient = prisma,
+): Promise<{ ok: true; tierId: string; movesBuyers: boolean } | { ok: false; errors: TierErrors }> {
+  const gone = { ok: false as const, errors: { form: TIER_ERRORS.gone } };
+  if (!UUID.test(merchantId) || (input.id !== null && !UUID.test(input.id))) return gone;
+
+  const errors: TierErrors = {};
+  const name = typeof input.name === "string" ? input.name.trim() : "";
+  if (name === "") errors.name = TIER_ERRORS.nameMissing;
+  else if ([...name].length > TIER_NAME_MAX) errors.name = TIER_ERRORS.nameTooLong;
+  const typedMin = typeof input.minSpend === "string" ? input.minSpend.trim() : "";
+  const minSpend = WHOLE_AMOUNT.test(typedMin) ? new Prisma.Decimal(typedMin) : null;
+  const percent = parseBaseRate(input.percent);
+  if (percent === null) errors.percent = TIER_ERRORS.percent;
+
+  return db.$transaction(async (tx) => {
+    await lockMerchantTiers(tx, merchantId);
+    const tiers = byMinimum(await readTiers(tx, merchantId));
+    const editing = input.id === null ? null : (tiers.find((t) => t.id === input.id) ?? null);
+    if (input.id !== null && !editing) return gone;
+    if (editing && input.version !== undefined) {
+      const { updatedAt } = await tx.tier.findUniqueOrThrow({ where: { id: editing.id }, select: { updatedAt: true } });
+      if (input.version !== tierVersion({ updatedAt })) return { ok: false as const, errors: { form: TIER_ERRORS.changed } };
+    }
+    const lowest = tiers.length === 0 || editing?.id === tiers[0].id;
+
+    if (!lowest) {
+      if (minSpend === null) errors.minSpend = TIER_ERRORS.minSpend;
+      else if (tiers.some((t) => t.id !== editing?.id && t.minSpend.eq(minSpend.toString()))) errors.minSpend = TIER_ERRORS.minSpendTaken;
+    }
+    if (Object.keys(errors).length > 0 || percent === null) return { ok: false as const, errors };
+
+    const cashbackPercent = new Prisma.Decimal(percent);
+    if (editing) {
+      await tx.tier.update({
+        where: { id: editing.id },
+        data: lowest ? { name, cashbackPercent } : { name, cashbackPercent, minSpend: minSpend! },
+      });
+      // The lowest tier's minimum stays 0
+      return { ok: true as const, tierId: editing.id, movesBuyers: !lowest && !editing.minSpend.eq(minSpend!.toString()) };
+    }
+    const position = tiers.reduce((highest, t) => Math.max(highest, t.position + 1), 0);
+    const created = await tx.tier.create({
+      data: { merchantId, name, cashbackPercent, minSpend: lowest ? new Prisma.Decimal(0) : minSpend!, position },
+      select: { id: true },
+    });
+    return { ok: true as const, tierId: created.id, movesBuyers: true };
+  }, TIER_CHANGE_TRANSACTION);
+}
+
+/**
+ * Delete one of the merchant's tiers, in one transaction (spec 4.5):
+ * clear the locks of buyers locked to it, move each of its members through
+ * resolveTier as if it were gone, then delete the row. The tier's row is
+ * taken FOR UPDATE before its members are read, so a resolve writing this
+ * tier meanwhile waits on its foreign key and starts over once it is gone
+ * (CONCURRENCY-6). The lowest tier can't be deleted, so neither can a
+ * store's last one: cashback is never left on with no tiers (A4). The
+ * caller then asks for a tier pass for everyone else. The member moves stay
+ * in this one transaction, which holds the merchant's row (and each moved
+ * buyer's) for its length: a known limit, timed on a large tier at B2/B4
+ * (Ruling 77).
+ */
+export async function deleteTier(
+  merchantId: string,
+  tierId: string,
+  db: PrismaClient = prisma,
+): Promise<{ ok: true; moved: number } | { ok: false; reason: "gone" | "lowest" }> {
+  if (!UUID.test(merchantId) || !UUID.test(tierId)) return { ok: false, reason: "gone" };
+  return db.$transaction(async (tx) => {
+    await lockMerchantTiers(tx, merchantId);
+    const held = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM ${Prisma.raw(`"${databaseSchema}"."tier"`)}
+      WHERE id = ${tierId}::uuid AND merchant_id = ${merchantId}::uuid FOR UPDATE`;
+    if (held.length === 0) return { ok: false as const, reason: "gone" as const };
+    const [lowest] = byMinimum(await readTiers(tx, merchantId));
+    if (lowest.id === tierId) return { ok: false as const, reason: "lowest" as const };
+
+    const members = await tx.customer.findMany({
+      where: { merchantId, OR: [{ tierId }, { lockedTierId: tierId }] },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+    await tx.customer.updateMany({ where: { merchantId, lockedTierId: tierId }, data: { lockedTierId: null } });
+    for (const { id } of members) await resolveTier(id, { tx, excludeTierId: tierId });
+    await tx.tier.delete({ where: { id: tierId } });
+    return { ok: true as const, moved: members.length };
+  }, TIER_CHANGE_TRANSACTION);
+}
+
+/**
+ * "Spend counted over" (spec 4.5). True when the window changed, and only
+ * then does the caller ask for a tier pass (Ruling 77).
+ */
+export async function setTierWindow(merchantId: string, tierWindow: TierWindow): Promise<boolean> {
+  const { count } = await prisma.merchant.updateMany({ where: { id: merchantId, tierWindow: { not: tierWindow } }, data: { tierWindow } });
+  return count === 1;
 }

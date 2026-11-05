@@ -7,7 +7,8 @@
  * while Store credit is turned on in Settings > Customer accounts
  * (help.shopify.com/en/manual/customers/store-credit). The proxy tells the
  * widget which accounts the shop uses, so it explains spending only where it
- * holds; Home warns about each problem Shopify confirms.
+ * holds; Home warns about each problem Shopify confirms, and shows a check
+ * it couldn't make as unknown.
  *
  * Carried from apps/rewardspro/app/services/customer-accounts-version.server.ts
  * (getCustomerAccountsVersion) and store-credit-spend.server.ts
@@ -21,6 +22,9 @@ export type CustomerAccountsVersion = "CLASSIC" | "NEW_CUSTOMER_ACCOUNTS";
 
 /** In the order the merchant fixes them in Settings > Customer accounts. */
 export type StoreCreditSpendProblem = "legacy-accounts" | "sign-in-links-hidden" | "store-credit-off";
+
+/** Whether buyers can spend store credit, as far as Shopify said (Ruling 59). */
+export type StoreCreditSpend = { state: "ok" } | { state: "problems"; problems: StoreCreditSpendProblem[] } | { state: "unknown" };
 
 /** How long a shop check waits for Shopify: the widget's balance read's 2.5 s. */
 export const SHOP_CHECK_TIMEOUT_MS = 2500;
@@ -72,19 +76,29 @@ export async function customerAccountsVersion(
 }
 
 /**
- * The problems Shopify confirms, asked fresh on every call so a warning goes
- * as soon as the merchant fixes it. Two requests, so one Shopify can't
- * answer doesn't hide what the other shows; an answer Shopify couldn't give,
- * or one this code doesn't know, reports nothing.
+ * What Shopify says about spending store credit (Ruling 59): ok when every
+ * check was answered and none is a problem; the problems Shopify confirms,
+ * in the order the merchant fixes them; or unknown when no problem was
+ * confirmed but a check got no answer (Shopify couldn't be asked in time, or
+ * answered in a way this code doesn't know), so Home never shows a check as
+ * passing that wasn't made. Asked fresh on every call so a warning goes as
+ * soon as the merchant fixes it, in two requests, so one Shopify can't
+ * answer doesn't hide what the other shows.
  */
-export async function storeCreditSpendProblems(admin: GraphqlClient, shop: string): Promise<StoreCreditSpendProblem[]> {
+export async function storeCreditSpendProblems(admin: GraphqlClient, shop: string): Promise<StoreCreditSpend> {
   const [accounts, storeCredit] = await Promise.all([ask(admin, RewardsCustomerAccounts, shop), ask(admin, RewardsStoreCreditConfig, shop)]);
   const settings = accountSettings(accounts);
   const configuration = storeCredit?.storeCreditConfiguration;
+  const version = settings?.customerAccountsVersion;
+  const signInLinks = settings?.loginLinksVisibleOnStorefrontAndCheckout;
+  const enabled = isRecord(configuration) ? configuration.storeCreditEnabled : undefined;
 
   const problems: StoreCreditSpendProblem[] = [];
-  if (settings?.customerAccountsVersion === "CLASSIC") problems.push("legacy-accounts");
-  if (settings?.loginLinksVisibleOnStorefrontAndCheckout === false) problems.push("sign-in-links-hidden");
-  if (isRecord(configuration) && configuration.storeCreditEnabled === false) problems.push("store-credit-off");
-  return problems;
+  if (version === "CLASSIC") problems.push("legacy-accounts");
+  if (signInLinks === false) problems.push("sign-in-links-hidden");
+  if (enabled === false) problems.push("store-credit-off");
+  if (problems.length > 0) return { state: "problems", problems };
+
+  const answered = version === "NEW_CUSTOMER_ACCOUNTS" && signInLinks === true && enabled === true;
+  return answered ? { state: "ok" } : { state: "unknown" };
 }

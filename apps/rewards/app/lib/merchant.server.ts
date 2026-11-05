@@ -48,7 +48,10 @@ function connectionKey(shop: string) {
 /**
  * Create or refresh the merchant behind a store, on every app open.
  * One transaction, keyed by (platform, external account id). A later open
- * updates the shop's name, currency and time zone; an uninstalled connection
+ * updates the shop's name, currency and time zone, only when one of them
+ * changed: a statement whose row doesn't match takes no lock, so the usual
+ * open never waits on a tier change holding the merchant's row (Ruling 77,
+ * CONCURRENCY-6); an uninstalled connection
  * becomes active again (`reactivated`) with `activatedAt = now`, and keeps
  * its first `installedAt` (the boundary the past-orders import used) and its
  * `uninstalledAt`. Every open records `lastAuthAt = now`, so an
@@ -107,7 +110,10 @@ export async function ensureMerchant(i: {
       await tx.merchant.delete({ where: { id: merchant.id } });
       existing = connection;
     }
-    await tx.merchant.update({ where: { id: existing.merchantId }, data: details });
+    await tx.merchant.updateMany({
+      where: { id: existing.merchantId, OR: [{ name: { not: details.name } }, { currency: { not: details.currency } }, { timezone: { not: details.timezone } }] },
+      data: details,
+    });
     // Conditional, so of two opens racing after a reinstall only one says it reactivated.
     const { count } = await tx.connection.updateMany({
       where: { id: existing.id, status: "uninstalled" },
@@ -163,6 +169,53 @@ export async function setRunning(
     return { ok: false, reason: "no_tiers" };
   }
   throw new Error(`No merchant ${merchantId}`);
+}
+
+/**
+ * The Settings email switch (spec 4.7): whether each store credit RewardsPro
+ * gives asks Shopify to email the buyer (`notify` on the credit, read at
+ * send time). RewardsPro sends no email of its own.
+ */
+export async function setNotifyBuyers(merchantId: string, notify: boolean): Promise<void> {
+  const { count } = await prisma.merchant.updateMany({ where: { id: merchantId }, data: { notifyBuyers: notify } });
+  if (count !== 1) throw new Error(`No merchant ${merchantId}`);
+}
+
+/**
+ * Home's review request (spec 4.3): `dismissed` when the merchant closed it,
+ * `shown` when Shopify showed it or the merchant had already reviewed. The
+ * first time is kept.
+ */
+export async function recordReviewPrompt(merchantId: string, what: "dismissed" | "shown", now: Date = new Date()): Promise<void> {
+  if (what === "dismissed") {
+    await prisma.merchant.updateMany({ where: { id: merchantId, reviewPromptDismissedAt: null }, data: { reviewPromptDismissedAt: now } });
+  } else {
+    await prisma.merchant.updateMany({ where: { id: merchantId, reviewPromptShownAt: null }, data: { reviewPromptShownAt: now } });
+  }
+}
+
+/**
+ * Home saw every setup step done (Ruling 60): record it the first time,
+ * and only while the store has a tier and cashback is on, the two steps the
+ * database can check (the widget embed is checked in the browser). The first
+ * time is kept.
+ */
+export async function markSetupCompleted(merchantId: string, now: Date = new Date()): Promise<void> {
+  await prisma.merchant.updateMany({
+    where: { id: merchantId, setupCompletedAt: null, running: true, tiers: { some: {} } },
+    data: { setupCompletedAt: now },
+  });
+}
+
+/**
+ * The merchant dismissed the past-orders import's outcome on Home. Only an
+ * import that has ended can be dismissed, and the first time is kept.
+ */
+export async function dismissImportOutcome(connectionId: string, now: Date = new Date()): Promise<void> {
+  await prisma.connection.updateMany({
+    where: { id: connectionId, importState: { in: ["done", "failed"] }, importDismissedAt: null },
+    data: { importDismissedAt: now },
+  });
 }
 
 /**
