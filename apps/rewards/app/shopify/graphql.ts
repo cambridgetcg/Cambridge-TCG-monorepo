@@ -34,6 +34,22 @@ export const RewardsShopDetails = `#graphql
 `;
 
 /**
+ * The cheapest call there is, sent by nightly housekeeping through
+ * unauthenticated.admin for a store whose refresh token runs out within 14
+ * days, so the library refreshes its expiring token (plan Decision 12) and
+ * the new one is proven to work.
+ * Scopes: none (any installed app can read `shop`).
+ * Cost: 1 (the shop object; its id costs nothing).
+ */
+export const RewardsTokenPing = `#graphql
+  query RewardsTokenPing {
+    shop {
+      id
+    }
+  }
+`;
+
+/**
  * Adds store credit to the buyer's account in one currency, creating the
  * account if the buyer has none in it. The selection set is the old app's,
  * proven in production.

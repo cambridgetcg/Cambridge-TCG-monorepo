@@ -2,10 +2,10 @@
 """
 Cambridge TCG deploy & domain health probe.
 
-For each of the three Vercel projects:
+For each of the Vercel projects in PROJECTS:
   1. Fetch the latest production deployment via the Vercel REST API
   2. Compare its commit SHA to git main HEAD (drift)
-  3. HTTP-probe its custom domain for a 2xx/3xx response
+  3. HTTP-probe its domain (at its probePath, `/` by default) for a 2xx/3xx response
 
 Exits non-zero (1) if any of:
   - latest production deploy is in ERROR state
@@ -49,6 +49,17 @@ PROJECTS = [
         "id":      "prj_t4pr1FszCa87GWAIgQXTbyXED8qr",
         "domain":  "wholesaletcgdirect.com",
         "appPath": "apps/wholesale",
+    },
+    {
+        # RewardsPro (spec 9.2). Both the old app and the rebuild answer
+        # /api/health: 200 only when the database answered, 503 otherwise.
+        # The project builds apps/rewardspro until the switch moves its root
+        # directory to apps/rewards; appPath follows it then.
+        "name":      "rewardspro-production",
+        "id":        "prj_olcLaLOcmg3jKh28LjW2dgh6mUHi",
+        "domain":    "rewardspro-production.vercel.app",
+        "appPath":   "apps/rewardspro",
+        "probePath": "/api/health",
     },
 ]
 
@@ -149,7 +160,7 @@ def check_project(p: dict) -> dict:
             )
 
     # 3. Domain probe
-    code, msg = probe_url(f"https://{p['domain']}/")
+    code, msg = probe_url(f"https://{p['domain']}{p.get('probePath', '/')}")
     out["probe"] = f"{code} {msg}"
     if code == 0 or code >= 500:
         out["issues"].append(f"domain probe failed: {out['probe']}")
