@@ -161,6 +161,10 @@ export default function Tiers() {
 
   // The tier being edited, or null while adding one
   const [editingId, setEditingId] = useState<string | null>(null);
+  // The version the edit was opened on, taken with its fields: a reload while
+  // editing brings the tier's newest version but keeps these fields, so the
+  // save names this one and a change made elsewhere is caught (M3b-F1)
+  const [editingVersion, setEditingVersion] = useState<string | null>(null);
   const [values, setValues] = useState(EMPTY);
   const [errors, setErrors] = useState<TierErrors>({});
   const [deleting, setDeleting] = useState<TierView | null>(null);
@@ -175,6 +179,7 @@ export default function Tiers() {
     if (saveFetcher.state !== "idle" || !saveFetcher.data) return;
     if (saveFetcher.data.ok) {
       setEditingId(null);
+      setEditingVersion(null);
       setValues(EMPTY);
     }
     setErrors(errorsOf(saveFetcher.data));
@@ -192,17 +197,20 @@ export default function Tiers() {
   useEffect(() => {
     if (editingId === null || editing) return;
     setEditingId(null);
+    setEditingVersion(null);
     setValues(EMPTY);
     setErrors(deletedHere.current === editingId ? {} : { form: d.goneError });
   }, [editingId, editing, d.goneError]);
 
   const startEdit = (tier: TierView) => {
     setEditingId(tier.id);
+    setEditingVersion(tier.version);
     setValues({ name: tier.name, minSpend: tier.minSpend, percent: tier.percent });
     setErrors({});
   };
   const cancelEdit = () => {
     setEditingId(null);
+    setEditingVersion(null);
     setValues(EMPTY);
     setErrors({});
   };
@@ -215,7 +223,7 @@ export default function Tiers() {
         percent: values.percent,
         ...(minFixed ? {} : { minSpend: values.minSpend }),
         // The version this edit was made on (CONCURRENCY-3)
-        ...(editing ? { version: editing.version } : {}),
+        ...(editing && editingVersion !== null ? { version: editingVersion } : {}),
       },
       { method: "post" },
     );

@@ -161,6 +161,39 @@ describe("Tiers page", () => {
     expect(posted).toEqual([{ intent: "save", id: "t1", name: "Gold", percent: "10", minSpend: "500", version: "2026-11-02T10:00:00.000Z" }]);
   });
 
+  // M3b-F1: a reload while editing (after a refused save, a window change or
+  // the moving poll) can bring a newer version of the tier; the edit's fields
+  // were taken from the version it was opened on, so that is the one it posts
+  it("keeps posting the version the edit was opened on after a reload brings a newer one", async () => {
+    letFetchersPost();
+    const posted: Array<Record<string, string>> = [];
+    let data = page();
+    let answers = 0;
+    await renderTiers(data, {
+      posted,
+      next: () => data,
+      answer: async () => (answers++ === 0 ? { ok: false, errors: { percent: "Enter a whole number from 0 to 100." } } : { ok: true }),
+    });
+
+    fireEvent.click(screen.getAllByText("Edit")[1]);
+    await act(async () => {});
+
+    // Another tab saves Gold at 12%; this tab's refused save reloads it
+    data = page({ tiers: [TIERS[0], { ...TIERS[1], percent: "12", version: "2026-11-03T10:00:00.000Z" }] });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Save", { selector: "s-section s-button" }));
+    });
+    expect(document.querySelector('s-number-field[name="percent"]')?.getAttribute("error")).toBe("Enter a whole number from 0 to 100.");
+    // The edit still shows the fields it was opened on
+    expect(document.querySelector('s-number-field[name="percent"]')?.getAttribute("value")).toBe("10");
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Save", { selector: "s-section s-button" }));
+    });
+
+    expect(posted.map((p) => p.version)).toEqual(["2026-11-02T10:00:00.000Z", "2026-11-02T10:00:00.000Z"]);
+  });
+
   // A20-F4: an edit of a tier deleted elsewhere can't come back as a new tier
   it("lets go of an edit whose tier is gone after a reload, saying so", async () => {
     letFetchersPost();
