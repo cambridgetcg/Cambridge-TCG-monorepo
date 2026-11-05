@@ -655,3 +655,41 @@ export const RewardsBulkStatus = `#graphql
     }
   }
 `;
+
+/**
+ * The app's own installation on this store, the owner of its app-data
+ * metafields (shopify.dev, "App-data metafields": run currentAppInstallation,
+ * then metafieldsSet with its id as ownerId).
+ * Scopes: none (any installed app can read its own installation).
+ * Cost: 1 (the installation object; its id costs nothing).
+ */
+export const RewardsAppInstallation = `#graphql
+  query RewardsAppInstallation {
+    currentAppInstallation {
+      id
+    }
+  }
+`;
+
+/**
+ * Writes the widget's settings to the app-data metafield `rewards.config`
+ * (type json) on the app's installation, which the theme block reads in
+ * Liquid as `app.metafields.rewards.config.value` (plan Decision 8). The
+ * installation owner keeps it the app's own, so no `$app` namespace is needed.
+ * Scopes: none (an app writing metafields on its own installation).
+ * Cost: 12 = mutation 10 + one metafield 1 + userErrors 1.
+ */
+export const RewardsWidgetConfig = `#graphql
+  mutation RewardsWidgetConfig($metafields: [MetafieldsSetInput!]!) {
+    metafieldsSet(metafields: $metafields) {
+      metafields {
+        id
+      }
+      userErrors {
+        field
+        message
+        code
+      }
+    }
+  }
+`;

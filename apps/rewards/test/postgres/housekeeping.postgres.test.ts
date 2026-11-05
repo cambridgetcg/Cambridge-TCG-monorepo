@@ -66,6 +66,36 @@ function mockTokenRefresh(shop: string, o: { refuse?: boolean } = {}) {
   return seen;
 }
 
+/**
+ * The two documents the widget's settings are written with for `shop`
+ * (RewardsAppInstallation, then RewardsWidgetConfig). Returns each written
+ * value, parsed; with `refuse`, Shopify answers the write with a userError.
+ */
+function mockWidgetConfig(shop: string, o: { refuse?: boolean } = {}) {
+  const written: unknown[] = [];
+  const link = graphql.link(adminGraphqlUrl(shop));
+  server.use(
+    link.query("RewardsAppInstallation", () => HttpResponse.json({ data: { currentAppInstallation: { id: "gid://shopify/AppInstallation/42" } } })),
+    link.mutation("RewardsWidgetConfig", ({ variables }) => {
+      const [metafield] = variables.metafields as Array<{ namespace: string; key: string; value: string }>;
+      written.push({ namespace: metafield.namespace, key: metafield.key, value: JSON.parse(metafield.value) });
+      const userErrors = o.refuse ? [{ field: ["metafields"], message: "Too many metafields", code: "LIMIT_EXCEEDED" }] : [];
+      return HttpResponse.json({ data: { metafieldsSet: { metafields: o.refuse ? [] : [{ id: "gid://shopify/Metafield/1" }], userErrors } } });
+    }),
+  );
+  return written;
+}
+
+/** A store with an offline session that needs no refresh, `running` as given, and a 5% lowest tier. */
+async function seedStore(shop: string, o: { running?: boolean } = {}) {
+  await ensureMerchant({ shop, name: shop, currency: "GBP", timezone: "Europe/London" });
+  const conn = (await findConnection(shop))!;
+  await prisma.tier.create({ data: { merchantId: conn.merchantId, name: "Everyone", minSpend: "0", cashbackPercent: "5", position: 0 } });
+  if (o.running) await prisma.merchant.update({ where: { id: conn.merchantId }, data: { running: true } });
+  await storeOfflineSession(shop, { expires: new Date(Date.now() + HOUR), refreshTokenExpires: new Date(Date.now() + 60 * DAY) });
+  return conn;
+}
+
 describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
   let loader: typeof import("~/routes/api.cron.housekeeping").loader;
 
@@ -189,9 +219,48 @@ describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
     expect(partial.errorMessage).toBe("2 failed; first: Error: 2 stores' tokens were not checked before the deadline");
   });
 
+  it("rewrites the widget's settings for every active store, and counts one Shopify refuses as a problem", async () => {
+    await seedStore(SHOP, { running: true });
+    await seedStore(QUIET_SHOP);
+    const gone = "housekeeping-gone.myshopify.com";
+    await ensureMerchant({ shop: gone, name: gone, currency: "GBP", timezone: "Europe/London" });
+    await prisma.connection.updateMany({ where: { externalAccountId: gone }, data: { status: "uninstalled" } });
+    const written = mockWidgetConfig(SHOP);
+    const refused = mockWidgetConfig(QUIET_SHOP, { refuse: true });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(run()).resolves.toMatchObject({ status: 200, body: { widgetsChecked: 2, widgetsLeft: 0, problems: 1 } });
+
+    expect(written).toEqual([{ namespace: "rewards", key: "config", value: { running: true, basePercent: 5 } }]);
+    expect(refused).toEqual([{ namespace: "rewards", key: "config", value: { running: false, basePercent: 5 } }]);
+    expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([expect.stringMatching(/housekeeping-quiet\.myshopify\.com.*LIMIT_EXCEEDED/)]);
+    const partial = await prisma.cronRun.findUniqueOrThrow({ where: { job_outcome: { job: "housekeeping", outcome: "partial" } } });
+    expect(partial.errorMessage).toMatch(/^1 failed; first: Error: Shopify refused the widget config: LIMIT_EXCEEDED/);
+    errors.mockRestore();
+  });
+
+  it("stops writing widget settings at its 240 s budget, and counts the stores left", async () => {
+    await seedStore(SHOP);
+    const written = mockWidgetConfig(SHOP);
+    const realNow = Date.now.bind(Date);
+    const now = vi.spyOn(Date, "now").mockImplementation(() => realNow() + 241_000);
+
+    let result;
+    try {
+      result = await run();
+    } finally {
+      now.mockRestore();
+    }
+
+    expect(result).toMatchObject({ status: 200, body: { widgetsChecked: 0, widgetsLeft: 1, problems: 0 } });
+    expect(written).toEqual([]);
+    const partial = await prisma.cronRun.findUniqueOrThrow({ where: { job_outcome: { job: "housekeeping", outcome: "partial" } } });
+    expect(partial.errorMessage).toBe("1 failed; first: Error: 1 stores' widget settings were not written before the deadline");
+  });
+
   it("expires privacy reports past their time, and clears expired locks", async () => {
-    await ensureMerchant({ shop: SHOP, name: "Housekeeping", currency: "GBP", timezone: "Europe/London" });
-    const conn = (await findConnection(SHOP))!;
+    const conn = await seedStore(SHOP);
+    mockWidgetConfig(SHOP);
     const request = (shopifyRequestId: string, status: "open" | "downloaded", expiresAt: Date) => ({
       merchantId: conn.merchantId,
       connectionId: conn.connectionId,

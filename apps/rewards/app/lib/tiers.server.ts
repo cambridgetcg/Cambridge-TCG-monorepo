@@ -19,8 +19,10 @@
  */
 import { Prisma, type PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
-import prisma from "~/db.server";
+import prisma, { databaseSchema } from "~/db.server";
+import { BASE_TIER_NAME } from "./home-rules";
 import { Money, fromDb } from "./money";
+import { waitUntil } from "./wait-until.server";
 
 export type TierWindow = "rolling_12_months" | "lifetime";
 
@@ -277,4 +279,41 @@ export async function runTierPass(
   }
   const summary = { processed, remaining: customers.length - processed, changed, errors, complete };
   return errors > 0 ? { ...summary, firstError } : summary;
+}
+
+/**
+ * The base cashback rate from Home's setup card (spec 4.3): with no tiers it
+ * creates the lowest tier, BASE_TIER_NAME with minimum spend 0
+ * (`created: true`, after which the caller places the buyers); otherwise it
+ * sets the lowest tier's rate. The merchant row is locked first, so two
+ * saves at once never make two lowest tiers.
+ */
+export async function setBaseRate(merchantId: string, percent: number): Promise<{ created: boolean; tierId: string }> {
+  if (!Number.isInteger(percent) || percent < 0 || percent > 100) throw new RangeError(`Not a whole percent from 0 to 100: ${percent}`);
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM ${Prisma.raw(`"${databaseSchema}"."merchant"`)} WHERE id = ${merchantId}::uuid FOR UPDATE`;
+    const [lowest] = byMinimum(await readTiers(tx, merchantId));
+    if (lowest) {
+      await tx.tier.update({ where: { id: lowest.id }, data: { cashbackPercent: new Prisma.Decimal(percent) } });
+      return { created: false, tierId: lowest.id };
+    }
+    const tier = await tx.tier.create({
+      data: { merchantId, name: BASE_TIER_NAME, minSpend: new Prisma.Decimal(0), cashbackPercent: new Prisma.Decimal(percent), position: 0 },
+      select: { id: true },
+    });
+    return { created: true, tierId: tier.id };
+  });
+}
+
+/** How long the pass run after a tier save may take; the nightly pass finishes the rest. */
+export const AFTER_SAVE_PASS_MS = 25_000;
+
+/**
+ * After a save that can move buyers between tiers: ask for a pass
+ * (`tierPassRequestedAt`, which the nightly pass honours) and run one after
+ * the response, for AFTER_SAVE_PASS_MS.
+ */
+export async function requestTierPass(connectionId: string, now: Date = new Date()): Promise<void> {
+  await prisma.connection.update({ where: { id: connectionId }, data: { tierPassRequestedAt: now } });
+  waitUntil(runTierPass(connectionId, { deadline: now.getTime() + AFTER_SAVE_PASS_MS, resolvedBefore: now }));
 }

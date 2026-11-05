@@ -166,6 +166,19 @@ export async function setRunning(
 }
 
 /**
+ * Home's review request (spec 4.3): `dismissed` when the merchant closed it,
+ * `shown` when Shopify showed it or the merchant had already reviewed. The
+ * first time is kept.
+ */
+export async function recordReviewPrompt(merchantId: string, what: "dismissed" | "shown", now: Date = new Date()): Promise<void> {
+  if (what === "dismissed") {
+    await prisma.merchant.updateMany({ where: { id: merchantId, reviewPromptDismissedAt: null }, data: { reviewPromptDismissedAt: now } });
+  } else {
+    await prisma.merchant.updateMany({ where: { id: merchantId, reviewPromptShownAt: null }, data: { reviewPromptShownAt: now } });
+  }
+}
+
+/**
  * What an app/uninstalled did:
  * - `uninstalled`: the active store is now uninstalled;
  * - `already_uninstalled`: a repeated delivery; the first time is kept;

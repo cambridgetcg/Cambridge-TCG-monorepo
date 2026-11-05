@@ -11,14 +11,21 @@
  *    the token is proven with RewardsTokenPing (plan Decision 12). One that
  *    fails is a problem; the others carry on. No store is reached once the
  *    run's 240 s budget has passed (Vercel stops a function at 300 s); the
- *    stores left wait for the next night, and are counted (A15-F1).
+ *    stores left wait for the next night, and are counted (A15-F1);
+ * 5. every active store's widget settings (cashback on or off, the base
+ *    rate) are written again to its app-data metafield (syncWidgetConfig,
+ *    plan Decision 8), so a change whose write failed is put right within a
+ *    day. A store Shopify refuses is a problem; the same budget applies, and
+ *    the stores left are counted.
  * Answers 200 with what it did; a run with a failed store, or stores left, is
  * partial.
  */
 import type { LoaderFunctionArgs } from "react-router";
 import prisma from "~/db.server";
 import { cleanupExpiredLocks, cronProblems, monitoredCron, verifyCronAuth, withCronLock } from "~/lib/cron.server";
+import { findConnection } from "~/lib/merchant.server";
 import { RewardsTokenPing } from "~/shopify/graphql";
+import { syncWidgetConfig } from "~/shopify/widget-config.server";
 import { unauthenticated } from "../shopify.server";
 
 // The function's ceiling, which vercelPreset reads per route (OPERATIONS-5)
@@ -75,7 +82,39 @@ async function housekeeping(now: Date, deadline: number) {
     }
   }
 
-  return { locksCleared, reportsExpired, sessionsDeleted, tokensChecked, storesLeft: expiring.length - tokensChecked, problems, firstProblem };
+  const active = await prisma.connection.findMany({
+    where: { status: "active" },
+    select: { externalAccountId: true },
+    orderBy: { externalAccountId: "asc" },
+  });
+  let widgetsChecked = 0;
+  for (const { externalAccountId: shop } of active) {
+    if (Date.now() >= deadline) break;
+    widgetsChecked++;
+    try {
+      const conn = await findConnection(shop);
+      // Uninstalled since the list was read: nothing to write
+      if (!conn) continue;
+      const { admin } = await unauthenticated.admin(shop);
+      await syncWidgetConfig(admin, conn);
+    } catch (error) {
+      console.error(`[housekeeping] Could not write the widget settings of ${shop}: ${messageOf(error)}`);
+      if (problems === 0) firstProblem = error instanceof Response ? new Error(`Widget settings for ${shop}: ${messageOf(error)}`) : error;
+      problems++;
+    }
+  }
+
+  return {
+    locksCleared,
+    reportsExpired,
+    sessionsDeleted,
+    tokensChecked,
+    storesLeft: expiring.length - tokensChecked,
+    widgetsChecked,
+    widgetsLeft: active.length - widgetsChecked,
+    problems,
+    firstProblem,
+  };
 }
 
 export const loader = monitoredCron("housekeeping", async ({ request }: LoaderFunctionArgs) => {
@@ -86,7 +125,12 @@ export const loader = monitoredCron("housekeeping", async ({ request }: LoaderFu
   if (result === "locked") return Response.json({ success: true, skipped: true, reason: "locked" });
 
   const { firstProblem, ...summary } = result;
-  const left = summary.storesLeft > 0 ? new Error(`${summary.storesLeft} stores' tokens were not checked before the deadline`) : undefined;
-  cronProblems(request, summary.problems + summary.storesLeft, firstProblem ?? left);
+  const left =
+    summary.storesLeft > 0
+      ? new Error(`${summary.storesLeft} stores' tokens were not checked before the deadline`)
+      : summary.widgetsLeft > 0
+        ? new Error(`${summary.widgetsLeft} stores' widget settings were not written before the deadline`)
+        : undefined;
+  cronProblems(request, summary.problems + summary.storesLeft + summary.widgetsLeft, firstProblem ?? left);
   return Response.json({ success: true, ...summary, durationMs: Date.now() - now.getTime() });
 });
