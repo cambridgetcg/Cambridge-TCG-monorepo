@@ -14,6 +14,10 @@ import { runPayoutCheck } from "~/lib/payout-check.server";
 import { pollRunningImports } from "~/shopify/bulk-import.server";
 import { railFor } from "~/shopify/rail-for.server";
 
+// The function's ceiling, which vercelPreset reads per route (OPERATIONS-5);
+// the run's budget below leaves a minute of it.
+export const config = { maxDuration: 300 };
+
 const LOCK_TTL_MINUTES = 15;
 const RUN_TIME_BUDGET_MS = 240 * 1000;
 

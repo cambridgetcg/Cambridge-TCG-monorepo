@@ -6,8 +6,10 @@
  * records is found by its sweep (rule 13).
  *
  * The order's natural key makes a redelivery write nothing and send nothing
- * again. Any failure answers 500, so Shopify delivers it again. Nothing from
- * the payload is logged but the order id.
+ * again. Any failure answers 500 and reaches monitoring, so Shopify delivers
+ * it again and the operator hears of it. Nothing from the payload is logged
+ * but the order id. It keeps authenticate.webhook: it needs the store's
+ * Admin API (Ruling 42).
  */
 import type { ActionFunctionArgs } from "react-router";
 import { findConnection } from "~/lib/merchant.server";
@@ -15,19 +17,15 @@ import { sendPayout } from "~/lib/payouts.server";
 import { recordOrder } from "~/lib/record-order.server";
 import { resolveTier } from "~/lib/tiers.server";
 import { waitUntil } from "~/lib/wait-until.server";
+import { orderGidOf, readOr500, webhookFailed } from "~/lib/webhook-helpers.server";
 import { OrderReadError, WEBHOOK_READ_DEADLINE_MS, createShopifyOrderSource } from "~/shopify/order-source.server";
 import { createStoreCreditRail } from "~/shopify/store-credit-rail.server";
 import { authenticate } from "../shopify.server";
 
-const ORDER_GID = /^gid:\/\/shopify\/Order\/\d+$/;
+const TOPIC = "orders/paid";
 
-/** The order's id from the payload, or null when it names none. */
-function orderGidOf(payload: unknown): string | null {
-  const gid = (payload as { admin_graphql_api_id?: unknown } | null)?.admin_graphql_api_id;
-  return typeof gid === "string" && ORDER_GID.test(gid) ? gid : null;
-}
-
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
+// The function's ceiling, which vercelPreset reads per route (OPERATIONS-5)
+export const config = { maxDuration: 300 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   // From receipt, before authentication (which may refresh the token).
@@ -49,14 +47,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     if (!orderGid) throw new Error("The delivery names no order");
 
-    let facts;
-    try {
-      facts = await createShopifyOrderSource(admin).readOrder(orderGid, { deadline });
-    } catch (error) {
-      if (!(error instanceof OrderReadError)) throw error;
-      console.error(`[orders/paid] Could not read order ${orderGid} for ${shop}; Shopify will deliver it again: ${error.message}`);
-      return new Response(null, { status: 500 });
-    }
+    const facts = await readOr500(TOPIC, `Could not read order ${orderGid} for ${shop}`, OrderReadError, () =>
+      createShopifyOrderSource(admin).readOrder(orderGid, { deadline }),
+    );
+    if (facts instanceof Response) return facts;
     // Shopify has no such order (deleted since)
     if (!facts) return new Response();
 
@@ -73,7 +67,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     return new Response();
   } catch (error) {
-    console.error(`[orders/paid] Order ${orderGid ?? "(none)"} for ${shop} failed; Shopify will deliver it again: ${messageOf(error)}`);
-    return new Response(null, { status: 500 });
+    return webhookFailed(TOPIC, `Order ${orderGid ?? "(none)"} for ${shop} failed`, error);
   }
 };

@@ -9,15 +9,26 @@
  *
  * Checked by the app's own signature check, never a session (plan Decision
  * 11): these come after an uninstall, when the token may be long expired.
- * The privacy topics apply to an uninstalled store's rows too, which are
- * kept until shop/redact. A store never seen answers 200. Any failure answers
- * 500, so the obligation isn't lost: Shopify delivers it again. Logs carry the
- * shop and counts only, never the buyer's ids or details.
+ * The check also holds the delivery to its signed body: the shop header must
+ * be the payload's `shop_domain`, and the payload must have its topic's
+ * shape, or it answers 401 (Ruling 40). The privacy topics apply to an
+ * uninstalled store's rows too, which are kept until shop/redact. A store
+ * never seen answers 200, and so does shop/redact for a store that is active
+ * again, which erases nothing (Ruling 41). A customers/redact for a buyer not
+ * seen yet answers 503 while the store's past-orders import is not done
+ * (CONCURRENCY-5), so Shopify brings it again once the import has written
+ * that buyer's orders. Any failure answers 500 and reaches monitoring, so the
+ * obligation isn't lost: Shopify delivers it again. Logs carry the shop and
+ * counts only, never the buyer's ids or details.
  */
 import type { ActionFunctionArgs } from "react-router";
 import { eraseMerchant, openPrivacyRequest, redactCustomer } from "~/lib/erasure.server";
 import { findConnection } from "~/lib/merchant.server";
+import { webhookFailed } from "~/lib/webhook-helpers.server";
 import { verifyShopifyWebhook } from "~/shopify/webhook-hmac.server";
+
+// The function's ceiling, which vercelPreset reads per route (OPERATIONS-5)
+export const config = { maxDuration: 300 };
 
 /** A Shopify numeric id from a payload (a number or a digit string), or null. */
 function idOf(value: unknown): string | null {
@@ -32,21 +43,30 @@ type PrivacyPayload = {
   data_request?: { id?: unknown } | null;
 };
 
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
-const TOPICS = new Set(["CUSTOMERS_DATA_REQUEST", "CUSTOMERS_REDACT", "SHOP_REDACT"]);
+/** The topics served here, by the library's name, with Shopify's. */
+const TOPICS = new Map([
+  ["CUSTOMERS_DATA_REQUEST", "customers/data_request"],
+  ["CUSTOMERS_REDACT", "customers/redact"],
+  ["SHOP_REDACT", "shop/redact"],
+]);
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const receivedAt = new Date();
   const webhook = await verifyShopifyWebhook(request);
   if (!webhook) return new Response(null, { status: 401 });
   const { topic, shop } = webhook;
-  if (!TOPICS.has(topic)) return new Response(null, { status: 400 });
+  const topicName = TOPICS.get(topic);
+  if (!topicName) return new Response(null, { status: 400 });
   const payload = (webhook.payload ?? {}) as PrivacyPayload;
 
   try {
     if (topic === "SHOP_REDACT") {
-      const deleted = await eraseMerchant(shop);
-      const total = Object.values(deleted).reduce((sum, n) => sum + n, 0);
+      const erasure = await eraseMerchant(shop);
+      if (erasure.status === "skipped_active") {
+        console.log(`[compliance] ${shop}: shop/redact skipped: store is active`);
+        return new Response();
+      }
+      const total = Object.values(erasure.deleted).reduce((sum, n) => sum + n, 0);
       console.log(`[compliance] shop/redact for ${shop}: ${total} row(s) erased`);
       return new Response();
     }
@@ -59,9 +79,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const externalCustomerId = idOf(payload.customer?.id);
 
     if (topic === "CUSTOMERS_REDACT") {
-      if (externalCustomerId === null) throw new Error("The delivery names no customer");
-      const { found } = await redactCustomer(conn, externalCustomerId);
-      console.log(`[compliance] customers/redact for ${shop}: ${found ? "customer erased" : "no such customer"}`);
+      // Nothing can be acted on, and a redelivery would name no one either
+      if (externalCustomerId === null) {
+        console.log(`[compliance] customers/redact for ${shop} names no customer; nothing to erase`);
+        return new Response();
+      }
+      const redaction = await redactCustomer(conn, externalCustomerId);
+      if (!redaction.found && !redaction.importDone) {
+        console.log(`[compliance] customers/redact for ${shop}: no such customer while the past-orders import runs; Shopify will deliver it again`);
+        return new Response(null, { status: 503 });
+      }
+      console.log(`[compliance] customers/redact for ${shop}: ${redaction.found ? "customer erased" : "no such customer"}`);
       return new Response();
     }
 
@@ -78,7 +106,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log(`[compliance] customers/data_request for ${shop}: request open`);
     return new Response();
   } catch (error) {
-    console.error(`[compliance] ${topic} for ${shop} failed; Shopify will deliver it again: ${messageOf(error)}`);
-    return new Response(null, { status: 500 });
+    return webhookFailed(topicName, `${shop} failed`, error);
   }
 };

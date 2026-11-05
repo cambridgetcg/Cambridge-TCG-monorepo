@@ -5,24 +5,33 @@
  * the buyer's tier, under waitUntil.
  *
  * - An order not recorded yet answers 503, so Shopify delivers the refund
- *   again, while orders/paid may still record it: the order has a buyer and
- *   is younger than Shopify's ~4 h of retries. Otherwise 200 (a guest's
- *   order, or one past the window, which the hourly sweep records with its
- *   refunds).
+ *   again, while orders/paid may still record it: the order has a buyer, is
+ *   not a test order, and became paid within Shopify's ~4 h of retries
+ *   (mayStillBeRecorded, Ruling 43: from its latest successful sale or
+ *   capture, which can be long after it was created). Otherwise 200 (a
+ *   guest's order, or one past the window, which the hourly sweep records
+ *   with its refunds).
  * - A credit being sent right now answers 503 (RefundRetryLater).
  * - A redelivered refund writes nothing (its natural key).
- * Any other failure answers 500. Both reads share one deadline from receipt,
- * so the answer stays inside Shopify's 5 s.
+ * Any other failure answers 500 and reaches monitoring. Both reads share one
+ * deadline from receipt, so the answer stays inside Shopify's 5 s. It keeps
+ * authenticate.webhook: it needs the store's Admin API (Ruling 42).
  */
 import type { ActionFunctionArgs } from "react-router";
 import { findConnection } from "~/lib/merchant.server";
 import { sendPayout } from "~/lib/payouts.server";
-import { ORDER_RECORDING_WINDOW_MS, RefundRetryLater, recordRefund } from "~/lib/refunds.server";
+import { RefundRetryLater, mayStillBeRecorded, recordRefund } from "~/lib/refunds.server";
 import { resolveTier } from "~/lib/tiers.server";
 import { waitUntil } from "~/lib/wait-until.server";
+import { readOr500, webhookFailed } from "~/lib/webhook-helpers.server";
 import { OrderReadError, WEBHOOK_READ_DEADLINE_MS, createShopifyOrderSource } from "~/shopify/order-source.server";
 import { createStoreCreditRail } from "~/shopify/store-credit-rail.server";
 import { authenticate } from "../shopify.server";
+
+const TOPIC = "refunds/create";
+
+// The function's ceiling, which vercelPreset reads per route (OPERATIONS-5)
+export const config = { maxDuration: 300 };
 
 /** The refund's id from the payload, or null when it names none. */
 function refundGidOf(payload: unknown): string | null {
@@ -30,8 +39,6 @@ function refundGidOf(payload: unknown): string | null {
   const digits = typeof id === "number" && Number.isSafeInteger(id) && id > 0 ? String(id) : typeof id === "string" ? id : "";
   return /^\d+$/.test(digits) ? `gid://shopify/Refund/${digits}` : null;
 }
-
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   // From receipt, before authentication (which may refresh the token).
@@ -54,14 +61,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (!refundGid) throw new Error("The delivery names no refund");
 
     const orders = createShopifyOrderSource(admin);
-    let read;
-    try {
-      read = await orders.readRefund(refundGid, { deadline });
-    } catch (error) {
-      if (!(error instanceof OrderReadError)) throw error;
-      console.error(`[refunds/create] Could not read refund ${refundGid} for ${shop}; Shopify will deliver it again: ${error.message}`);
-      return new Response(null, { status: 500 });
-    }
+    const read = await readOr500(TOPIC, `Could not read refund ${refundGid} for ${shop}`, OrderReadError, () =>
+      orders.readRefund(refundGid, { deadline }),
+    );
+    if (read instanceof Response) return read;
     // Shopify has no such refund
     if (!read) return new Response();
 
@@ -75,17 +78,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     if (result.status === "order_not_recorded") {
-      let order;
-      try {
-        order = await orders.readOrder(read.orderGid, { deadline });
-      } catch (error) {
-        if (!(error instanceof OrderReadError)) throw error;
-        console.error(`[refunds/create] Could not read order ${read.orderGid} for ${shop}; Shopify will deliver it again: ${error.message}`);
-        return new Response(null, { status: 500 });
-      }
-      const mayStillBeRecorded =
-        order !== null && order.externalCustomerId !== null && Date.now() - order.orderedAt.getTime() < ORDER_RECORDING_WINDOW_MS;
-      if (mayStillBeRecorded) {
+      const { orderGid } = read;
+      const order = await readOr500(TOPIC, `Could not read order ${orderGid} for ${shop}`, OrderReadError, () =>
+        orders.readOrder(orderGid, { deadline }),
+      );
+      if (order instanceof Response) return order;
+      if (order !== null && mayStillBeRecorded({ hasCustomer: order.externalCustomerId !== null, test: order.test, paidAt: order.paidAt })) {
         console.log(`[refunds/create] Order ${read.orderGid} for ${shop} is not recorded yet; Shopify will deliver refund ${refundGid} again`);
         return new Response(null, { status: 503 });
       }
@@ -105,7 +103,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     return new Response();
   } catch (error) {
-    console.error(`[refunds/create] Refund ${refundGid ?? "(none)"} for ${shop} failed; Shopify will deliver it again: ${messageOf(error)}`);
-    return new Response(null, { status: 500 });
+    return webhookFailed(TOPIC, `Refund ${refundGid ?? "(none)"} for ${shop} failed`, error);
   }
 };

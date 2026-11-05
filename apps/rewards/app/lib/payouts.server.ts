@@ -49,7 +49,10 @@ const LONGEST_WAIT_HOURS = 8;
  * - `sent`, `pending` (refused for now, to be tried again), `unconfirmed`,
  *   `needs_look`: the answer it wrote;
  * - `nothing_to_send`: refused for now, and the take-backs held meanwhile
- *   took all of it;
+ *   took all of it (or, for an erased buyer's credit, all of it was held);
+ * - `closed`: the buyer's data was erased (customers/redact), so it was
+ *   closed without sending (closeWithoutSending, settled `auto`): nothing can
+ *   ever be sent to or taken from them (M2a-F2);
  * - `skipped`: it claimed nothing (not pending, not due, or another sender
  *   has it), and the rail was not asked;
  * - `claim_lost`: it claimed the payout and the rail answered, but the claim
@@ -57,7 +60,7 @@ const LONGEST_WAIT_HOURS = 8;
  *   CLAIM_FINISHED_MS had passed). Nothing was written; the hourly check
  *   settles the payout from the buyer's credit history.
  */
-export type SendOutcome = "sent" | "pending" | "unconfirmed" | "needs_look" | "nothing_to_send" | "skipped" | "claim_lost";
+export type SendOutcome = "sent" | "pending" | "unconfirmed" | "needs_look" | "nothing_to_send" | "closed" | "skipped" | "claim_lost";
 
 /**
  * When to try again after the `attempts`-th send failed: min(2^(attempts−1), 8)
@@ -193,7 +196,8 @@ async function writeAnswer(
  * Send one payout if it is `pending` and due at `now` (the claim's time);
  * see SendOutcome for what comes back. A payout claimed KEEP_TRYING_MS or
  * more after its first failure needs a look (`kept_failing`) without the
- * rail being asked (Ruling 36). A credit goes out with the merchant's
+ * rail being asked (Ruling 36). One whose buyer's data was erased is closed
+ * without the rail being asked (closeErased). A credit goes out with the merchant's
  * buyer-email switch. A debit takes what the buyer still holds of it in the
  * payout currency: none held is `sent` with nothing taken; a balance Shopify
  * can't give is a failure to retry. `db` is the client to run on (tests pass
@@ -227,12 +231,12 @@ export async function sendPayout(
   const currency = payout.currency;
   const externalCustomerId = buyer.externalCustomerId;
 
+  // Erased while it waited (customers/redact): there is no one to pay or take from, ever.
+  if (externalCustomerId === null) return closeErased(db, payout, now);
+
   let answer: RailAnswer;
   let take: Take | null = null;
-  if (externalCustomerId === null) {
-    // Erased while it waited (customers/redact): there is no one to pay.
-    answer = { outcome: "refused", permanent: true, code: null, message: CUSTOMER_ERASED };
-  } else if (payout.direction === "credit") {
+  if (payout.direction === "credit") {
     answer = await ask(() => rail.credit({ externalCustomerId, amount, currency, notify: buyer.merchant.notifyBuyers }));
   } else {
     let balance: Decimal | null;
@@ -258,6 +262,33 @@ export async function sendPayout(
   }
 
   return writeAnswer(db, payout, now, { ...afterAnswer(payout, answer, take, now), take, kind: answer.outcome });
+}
+
+/**
+ * Close a payout this call claimed whose buyer's data was erased, as
+ * customers/redact closes theirs (M2a-F2): under lockPayout's locks, if the
+ * claim still holds it, closeWithoutSending (settled `auto`), `lastError`
+ * CUSTOMER_ERASED, and the claim's attempt taken back, since the rail was
+ * never asked. A credit's held take-backs are netted into it, as they are at
+ * the redaction. This also ends the payout of a refund or an order that
+ * committed while the redaction ran (Ruling 52), which the redaction could
+ * not see. `claim_lost` when the payout changed meanwhile.
+ */
+async function closeErased(db: PrismaClient, claimed: Payout, now: Date): Promise<SendOutcome> {
+  return db.$transaction(async (tx) => {
+    const locked = await lockPayout(tx, claimed.id);
+    if (!locked || locked.state !== "sending" || locked.claimedAt?.getTime() !== now.getTime()) {
+      console.warn(`[payouts] payout ${claimed.id} changed while it was being closed for an erased buyer; nothing was written`);
+      return "claim_lost";
+    }
+    await closeWithoutSending(tx, locked, { now, settledBy: "auto" });
+    const { state } = await tx.payout.update({
+      where: { id: locked.id },
+      data: { lastError: CUSTOMER_ERASED, attempts: { decrement: 1 } },
+      select: { state: true },
+    });
+    return state === "nothing_to_send" ? "nothing_to_send" : "closed";
+  });
 }
 
 // ---------------------------------------------------------------------------

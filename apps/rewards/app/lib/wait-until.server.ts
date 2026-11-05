@@ -22,12 +22,15 @@ interface VercelRequestContext {
 
 /** The work still running, for flushWaitUntil. Each piece leaves the set once it settles. */
 const running = new Set<Promise<unknown>>();
+/** The errors of work that failed, oldest first, until flushWaitUntil reports them. */
+const failures: unknown[] = [];
 
 export function waitUntil(promise: Promise<unknown>): void {
   running.add(promise);
   const settled = promise.then(
     () => undefined,
     (error: unknown) => {
+      failures.push(error);
       console.error(`[wait-until] Work after the response failed: ${error instanceof Error ? error.message : String(error)}`);
     },
   );
@@ -40,17 +43,19 @@ export function waitUntil(promise: Promise<unknown>): void {
 
 /**
  * For tests: wait until the work handed to waitUntil, and any work it hands
- * on, has settled. Rejects with the first error of work that failed while it
- * waited (work that failed before is only logged).
+ * on, has settled. Rejects with the first error of work that failed since the
+ * last flush, whether it failed before this call or while it waited, and
+ * forgets them all (A13-F2), so a test's afterEach flush hears of a failure
+ * even when the test never flushed.
  */
 export async function flushWaitUntil(): Promise<void> {
-  let failure: { error: unknown } | null = null;
   while (running.size > 0) {
-    for (const result of await Promise.allSettled([...running])) {
-      if (result.status === "rejected") failure ??= { error: result.reason };
-    }
-    // Let each settled piece leave the set before looking again.
+    await Promise.allSettled([...running]);
+    // Let each settled piece record its failure and leave the set before looking again.
     await new Promise((resolve) => setImmediate(resolve));
   }
-  if (failure) throw failure.error;
+  if (failures.length > 0) {
+    const [first] = failures.splice(0);
+    throw first;
+  }
 }

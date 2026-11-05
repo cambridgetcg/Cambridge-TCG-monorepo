@@ -455,18 +455,58 @@ describe.skipIf(!hasTestDatabase)("sendPayout", () => {
     });
   });
 
-  it("a buyer whose data was erased → needs_look refused, with nothing sent", async () => {
-    const { payoutId, customerId } = await pendingCredit();
-    await prisma.customer.update({ where: { id: customerId }, data: { externalCustomerId: null, redactedAt: new Date() } });
-    const rail = fakeRail();
+  // M2a-F2: nothing can ever be sent to or taken from an erased buyer, so no one is asked to look
+  describe("a buyer whose data was erased: the payout closes itself, with nothing sent", () => {
+    /** The order's ledger: each entry's kind and amount, and what it nets to. */
+    async function ledgerOf(orderId: string) {
+      const entries = await prisma.ledgerEntry.findMany({ where: { orderId }, orderBy: { createdAt: "asc" } });
+      return {
+        entries: entries.map((e) => [e.kind, e.amount.toFixed(2)]),
+        net: entries.reduce((sum, e) => sum.plus(e.amount.toString()), new Money(0)).toFixed(2),
+      };
+    }
+    const erase = (customerId: string) =>
+      prisma.customer.update({ where: { id: customerId }, data: { externalCustomerId: null, redactedAt: new Date() } });
 
-    await expect(sendPayout(payoutId, rail, new Date())).resolves.toBe("needs_look");
+    it("a credit", async () => {
+      const { payoutId, customerId, orderId } = await pendingCredit();
+      await erase(customerId);
+      const rail = fakeRail();
 
-    expect(rail.credit).not.toHaveBeenCalled();
-    await expect(prisma.payout.findUniqueOrThrow({ where: { id: payoutId } })).resolves.toMatchObject({
-      state: "needs_look",
-      lookReason: "refused",
-      lastError: "Customer data erased",
+      await expect(sendPayout(payoutId, rail, new Date())).resolves.toBe("closed");
+
+      expect(rail.credit).not.toHaveBeenCalled();
+      await expect(prisma.payout.findUniqueOrThrow({ where: { id: payoutId } })).resolves.toMatchObject({
+        state: "closed",
+        settledBy: "auto",
+        lookReason: null,
+        lastError: "Customer data erased",
+        attempts: 0,
+      });
+      // Closed as never given: an adjustment cancels the cashback
+      await expect(ledgerOf(orderId)).resolves.toEqual({ entries: [["cashback", "2.50"], ["adjustment", "-2.50"]], net: "0.00" });
+    });
+
+    it("a take-back", async () => {
+      const { payoutId, customerId, orderId } = await pendingDebit("0.50");
+      await erase(customerId);
+      const rail = fakeRail();
+
+      await expect(sendPayout(payoutId, rail, new Date())).resolves.toBe("closed");
+
+      expect(rail.balance).not.toHaveBeenCalled();
+      expect(rail.debit).not.toHaveBeenCalled();
+      await expect(prisma.payout.findUniqueOrThrow({ where: { id: payoutId } })).resolves.toMatchObject({
+        state: "closed",
+        settledBy: "auto",
+        lookReason: null,
+        lastError: "Customer data erased",
+      });
+      // Never taken: the buyer keeps the whole credit in the ledger too
+      await expect(ledgerOf(orderId)).resolves.toEqual({
+        entries: [["cashback", "2.50"], ["reversal", "-0.50"], ["adjustment", "0.50"]],
+        net: "2.50",
+      });
     });
   });
 

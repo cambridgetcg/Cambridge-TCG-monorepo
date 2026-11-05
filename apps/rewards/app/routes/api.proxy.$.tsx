@@ -20,7 +20,10 @@ import { liveBalance } from "~/shopify/live-balance.server";
 import { verifyProxyRequest, type VerifiedProxyRequest } from "~/shopify/proxy.server";
 import { customerAccountsVersion } from "~/shopify/shop-checks.server";
 
-const HEADERS = { "Cache-Control": "private, max-age=30" };
+// Never cached (Ruling 44): the widget's URL holds no buyer (Shopify adds the
+// signed id on its side), so a browser cache would show one buyer's tier and
+// balance to the next on a shared computer.
+const HEADERS = { "Cache-Control": "private, no-store" };
 
 // The released widget's default look (apps/rewardspro's fallbacks). The new
 // widget's look lives in its theme block settings (spec 4.7), not here.

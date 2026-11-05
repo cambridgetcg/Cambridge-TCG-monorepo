@@ -43,6 +43,7 @@ export interface OrderFacts {
   test: boolean;
   cancelledAt: Date | null;
   orderedAt: Date;
+  /** When the order became paid: its latest successful sale or capture, else when it was processed. */
   paidAt: Date;
   financialStatus: string;
   /** The order total, for display only. */

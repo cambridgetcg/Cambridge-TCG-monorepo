@@ -177,18 +177,23 @@ export const RewardsCreditHistory = `#graphql
 /**
  * One order's facts (spec 6.3 rule 1): its lines with their discounts and
  * their quantities before and after edits and refunds (Ruling 25), its tips
- * (Ruling 26), its tenders, its refunds' ids, whether its prices include tax
+ * (Ruling 26), its tenders (with when each was processed: the latest
+ * successful sale or capture is when the order became paid, Ruling 43), its
+ * refunds' ids, whether its prices include tax
  * (for the shipping a money-only refund returned, rule 7) and the shop's
  * currency. Line items come 100 to a page; `$after` reads the next. Kept apart from the refunds so each read
  * stays under the 1,000-point limit (one query with everything is refused
  * with MAX_COST_EXCEEDED).
- * Scopes (as the validator names them): read_orders, read_marketplace_orders,
- * read_quick_sale, read_customers; read_all_orders for orders older than 60 days.
+ * Scopes: read_orders, read_customers; read_all_orders for orders older than
+ * 60 days. The validator also names read_marketplace_orders and read_quick_sale: those
+ * are alternatives to read_orders (returning only orders attributed to the
+ * app), not further requirements.
  * Cost: 912 = shop 1 + order 1 + customer 1 + totalPriceSet 3
  * + totalTipReceivedSet 3 + lineItems
  * (connection 2, pageInfo 1, 100 × (line 1 + originalTotalSet 3 + one
  * discount allocation 4)) + transactions 20 × (transaction 1 + amountSet 3)
- * + refunds 20 × 1 (taxesIncluded and the other scalars cost nothing).
+ * + refunds 20 × 1 (taxesIncluded, processedAt and the other scalars cost
+ * nothing).
  */
 export const RewardsOrderFacts = `#graphql
   query RewardsOrderFacts($id: ID!, $after: String) {
@@ -261,6 +266,7 @@ export const RewardsOrderFacts = `#graphql
         gateway
         status
         kind
+        processedAt
         amountSet {
           shopMoney {
             amount
@@ -281,8 +287,9 @@ export const RewardsOrderFacts = `#graphql
  * Every tender of one order, read when RewardsOrderFacts's 20 came back full
  * (refunds and failed attempts are on the list too). `transactions` is a plain
  * list with no paging, so this is the most one read can see.
- * Scopes (as the validator names them): read_orders, read_marketplace_orders,
- * read_quick_sale.
+ * Scopes: read_orders. The validator also names read_marketplace_orders and read_quick_sale: those
+ * are alternatives to read_orders (returning only orders attributed to the
+ * app), not further requirements.
  * Cost: 801 = order 1 + transactions 200 × (transaction 1 + amountSet 3).
  */
 export const RewardsOrderTransactionsCost = 801;
@@ -293,6 +300,7 @@ export const RewardsOrderTransactions = `#graphql
         gateway
         status
         kind
+        processedAt
         amountSet {
           shopMoney {
             amount
@@ -309,8 +317,9 @@ export const RewardsOrderTransactions = `#graphql
 /**
  * One refund: the lines and quantities it returned, its money and the
  * shipping it refunded, before and after tax (rule 7).
- * Scopes (as the validator names them): read_orders, read_marketplace_orders,
- * read_quick_sale.
+ * Scopes: read_orders. The validator also names read_marketplace_orders and read_quick_sale: those
+ * are alternatives to read_orders (returning only orders attributed to the
+ * app), not further requirements.
  * Cost: 429 = refund 1 + order 1 + refundLineItems (connection 2, pageInfo 1,
  * 100 × (refund line 1 + line 1)) + transactions (connection 2, 20 ×
  * (transaction 1 + amountSet 3)) + refundShippingLines (connection 2, 20 ×
@@ -377,8 +386,9 @@ export const RewardsRefundFacts = `#graphql
 /**
  * The paid and partly refunded orders created since a time, newest first, 50
  * to a page, for the hourly sweep of missed orders (rule 13).
- * Scopes (as the validator names them): read_orders, read_marketplace_orders,
- * read_quick_sale, read_customers.
+ * Scopes: read_orders, read_customers. The validator also names read_marketplace_orders and read_quick_sale: those
+ * are alternatives to read_orders (returning only orders attributed to the
+ * app), not further requirements.
  * Cost: 103 = orders (connection 2, pageInfo 1, 50 × (order 1 + customer 1)).
  */
 export const RewardsRecentPaidOrders = `#graphql
@@ -467,8 +477,10 @@ export const RewardsAccessScopes = `#graphql
  * with "quantities" (order-source.server.ts, Ruling 25), and a money-only
  * refund made before the import still counts as spend (a known limit).
  * `search` is Shopify search syntax, embedded as a GraphQL string.
- * Scopes (as the validator names them): read_orders, read_marketplace_orders,
- * read_quick_sale, read_customers; read_all_orders for orders older than 60 days.
+ * Scopes: read_orders, read_customers; read_all_orders for orders older than
+ * 60 days. The validator also names read_marketplace_orders and read_quick_sale: those
+ * are alternatives to read_orders (returning only orders attributed to the
+ * app), not further requirements.
  * Cost: none charged to the app's bucket (a bulk query runs on Shopify's side,
  * outside the single-query limit). The validator checks only the wrapper, so
  * this text was validated on its own as a plain query; A25 is the real run.

@@ -6,7 +6,8 @@
  *   merchant, derived from the data model as the old app's
  *   shop-data-cleanup.server.ts did (there by a `shop` column, here by
  *   `merchantId`), then the merchant row and the store's sessions, in one
- *   transaction that passes ledger_entry's append-only trigger.
+ *   transaction that passes ledger_entry's append-only trigger; nothing for
+ *   a store that is active again (Ruling 41).
  * - redactCustomer (customers/redact): blanks one customer row and closes
  *   what was still to be paid to or taken from them. The ledger's amounts
  *   stay; closing adds adjustment entries, as the merchant's "Close without
@@ -19,7 +20,7 @@
  * route answers 500 and Shopify delivers it again.
  */
 import { Prisma, type PayoutState } from "@prisma/client";
-import prisma from "~/db.server";
+import prisma, { databaseSchema } from "~/db.server";
 import type { ConnectionContext } from "./merchant.server";
 import { CUSTOMER_ERASED, closeWithoutSending, lockPayout } from "./payouts.server";
 import { isCanonicalShop } from "./shop-domain";
@@ -87,6 +88,8 @@ type DeleteDelegate = { deleteMany: (args: { where: { merchantId: string } }) =>
 const delegateOf = (tx: Prisma.TransactionClient, model: string) =>
   (tx as unknown as Record<string, DeleteDelegate>)[model.charAt(0).toLowerCase() + model.slice(1)];
 
+export type ErasureResult = { status: "erased"; deleted: Record<string, number> } | { status: "skipped_active" };
+
 /**
  * shop/redact: erase the store's merchant: every model with a `merchantId`
  * (merchantErasureOrder), the connection among them, so a later install
@@ -94,25 +97,40 @@ const delegateOf = (tx: Prisma.TransactionClient, model: string) =>
  * the store's sessions. One transaction with SET LOCAL rewards.erasing =
  * 'on', the one exception ledger_entry's trigger allows. Returns the rows
  * deleted per model. A store with no connection loses only its sessions.
+ *
+ * A store that is active again (it reinstalled after the uninstall that
+ * brought this shop/redact) erases nothing, sessions included, and is
+ * `skipped_active` (Ruling 41): Shopify's docs don't say a reinstall within
+ * the 48 hours cancels the request, the merchant is a customer again, and a
+ * later uninstall brings a new shop/redact. The connection row is locked
+ * first (FOR NO KEY UPDATE, which a reactivation's UPDATE of it waits on),
+ * so a reinstall either commits before the status is read or waits for the
+ * erasure and then finds no connection. It is not FOR UPDATE: that would
+ * also block the KEY SHARE every ledger and payout insert's foreign-key check
+ * takes on the connection, so a refund holding its payouts' locks would wait
+ * on the erasure while the erasure waits on those payouts.
  */
-export async function eraseMerchant(shop: string): Promise<Record<string, number>> {
+export async function eraseMerchant(shop: string): Promise<ErasureResult> {
   if (!isCanonicalShop(shop)) throw new Error(`Not a canonical *.myshopify.com shop domain: ${JSON.stringify(shop)}`);
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx): Promise<ErasureResult> => {
+    const [connection] = await tx.$queryRaw<Array<{ merchant_id: string; status: string }>>`
+      SELECT merchant_id::text AS merchant_id, status::text AS status
+      FROM ${Prisma.raw(`"${databaseSchema}"."connection"`)}
+      WHERE platform = ${PLATFORM}::${Prisma.raw(`"${databaseSchema}"."platform"`)} AND external_account_id = ${shop}
+      FOR NO KEY UPDATE`;
+    if (connection?.status === "active") return { status: "skipped_active" };
+
     await tx.$executeRaw`SET LOCAL rewards.erasing = 'on'`;
     const deleted: Record<string, number> = {};
-    const connection = await tx.connection.findUnique({
-      where: { platform_externalAccountId: { platform: PLATFORM, externalAccountId: shop } },
-      select: { merchantId: true },
-    });
     if (connection) {
-      const { merchantId } = connection;
+      const merchantId = connection.merchant_id;
       for (const model of merchantErasureOrder()) {
         deleted[model] = (await delegateOf(tx, model).deleteMany({ where: { merchantId } })).count;
       }
       deleted.Merchant = (await tx.merchant.deleteMany({ where: { id: merchantId } })).count;
     }
     deleted.Session = (await tx.session.deleteMany({ where: { shop } })).count;
-    return deleted;
+    return { status: "erased", deleted };
   }, ERASURE_TRANSACTION);
 }
 
@@ -137,7 +155,11 @@ const CLOSED_AT_ERASURE: readonly PayoutState[] = ["pending", "held", "needs_loo
  * adjustment cancelling what is left of its entry, so the ledger stays true
  * and nothing is sent or taken back for it again. The buyer's data requests
  * are deleted with them. `found` is false for a buyer never seen (or already
- * erased).
+ * erased); `importDone` then says whether the store's past-orders import has
+ * finished. While it hasn't, a later chunk of its file, taken before Shopify
+ * erased the buyer, can still bring their orders and their id back
+ * (CONCURRENCY-5), so the route answers 503 and Shopify delivers the
+ * redaction again.
  *
  * The locks follow lockPayout's order, order by order: the order's credit
  * (then the order), then its take-backs. A credit is closed first, which nets
@@ -153,7 +175,7 @@ export async function redactCustomer(
   conn: ConnectionContext,
   externalCustomerId: string,
   now: Date = new Date(),
-): Promise<{ found: boolean }> {
+): Promise<{ found: true } | { found: false; importDone: boolean }> {
   return prisma.$transaction(async (tx) => {
     const { merchantId, connectionId } = conn;
     await tx.privacyRequest.deleteMany({ where: { merchantId, connectionId, externalCustomerId } });
@@ -161,7 +183,10 @@ export async function redactCustomer(
       where: { connectionId_externalCustomerId: { connectionId, externalCustomerId } },
       select: { id: true },
     });
-    if (!customer) return { found: false };
+    if (!customer) {
+      const { importState } = await tx.connection.findUniqueOrThrow({ where: { id: connectionId }, select: { importState: true } });
+      return { found: false, importDone: importState === "done" };
+    }
 
     const open = await tx.payout.findMany({
       where: { merchantId, customerId: customer.id, state: { in: [...CLOSED_AT_ERASURE] } },
@@ -185,7 +210,7 @@ export async function redactCustomer(
     }
 
     await tx.customer.update({ where: { id: customer.id }, data: { externalCustomerId: null, redactedAt: now, lockedTierId: null } });
-    return { found: true };
+    return { found: true as const };
   }, ERASURE_TRANSACTION);
 }
 

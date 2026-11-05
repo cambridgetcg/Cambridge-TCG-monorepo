@@ -225,9 +225,14 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
 
   let storeCreditUsed = zero();
   let giftCardUsed = zero();
+  // When the order became paid: its latest successful SALE or CAPTURE (Ruling 43)
+  let paidAt: Date | null = null;
   for (const item of list(node.transactions, "transactions")) {
     const tx = rec(item, "a transaction");
     if (tx.status !== "SUCCESS" || (tx.kind !== "SALE" && tx.kind !== "CAPTURE")) continue;
+    // The import's bulk node reads no transaction times
+    const processedAt = tx.processedAt === undefined || tx.processedAt === null ? null : dateOf(tx.processedAt, "a transaction's processedAt");
+    if (processedAt && (paidAt === null || processedAt > paidAt)) paidAt = processedAt;
     const tender = tenderOf(text(tx.gateway, "a transaction's gateway"));
     if (tender === "gift_card") giftCardUsed = plus(giftCardUsed, pairOf(tx.amountSet, "a transaction's amount"));
     if (tender === "store_credit") storeCreditUsed = plus(storeCreditUsed, pairOf(tx.amountSet, "a transaction's amount"));
@@ -256,7 +261,7 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
       test: flag(node.test, "test"),
       cancelledAt: node.cancelledAt === null ? null : dateOf(node.cancelledAt, "cancelledAt"),
       orderedAt: dateOf(node.createdAt, "createdAt"),
-      paidAt: dateOf(node.processedAt, "processedAt"),
+      paidAt: paidAt ?? (node.processedAt === null || node.processedAt === undefined ? dateOf(node.createdAt, "createdAt") : dateOf(node.processedAt, "processedAt")),
       // Display only, and nullable in the Admin schema
       financialStatus: node.displayFinancialStatus === null ? "UNKNOWN" : text(node.displayFinancialStatus, "the financial status"),
       total: pairOf(node.totalPriceSet, "the order's total"),

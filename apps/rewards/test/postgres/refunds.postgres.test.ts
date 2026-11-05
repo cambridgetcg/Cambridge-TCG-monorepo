@@ -456,6 +456,17 @@ describe.skipIf(!hasTestDatabase)("recordRefund", () => {
       expect((await moneyOf(orderId)).credit).toEqual({ state: "nothing_to_send", amount: "0.00" });
     });
 
+    it("an edited line's last units, valued at £6.66 by rounding, still complete the order by units: the take-back is the £0.33 earned (M2a-F3)", async () => {
+      // By value alone, £6.66 of £6.67 takes back £0.32 (rounded down) and leaves £0.01 of credit
+      const { conn, orderId } = await recordedOrder({ productValue: pair("6.67"), total: pair("6.67") });
+
+      const result = await recordRefund(conn, ORDER, refundFacts(1, "6.66", "6.66", true), undefined, NOW);
+
+      if (result.status !== "recorded") throw new Error(result.status);
+      expect(result.takenBack.toFixed(2)).toBe("0.33");
+      expect((await moneyOf(orderId)).credit).toEqual({ state: "nothing_to_send", amount: "0.00" });
+    });
+
     it("a refund that doesn't return the last unit still takes only its share", async () => {
       const { conn, orderId } = await recordedOrder({ productValue: pair("24.97"), total: pair("24.97") });
 

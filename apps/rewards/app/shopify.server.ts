@@ -13,7 +13,7 @@ import { ApiVersion, AppDistribution, shopifyApp } from "@shopify/shopify-app-re
 import prisma from "./db.server";
 import { onAppOpened } from "./shopify/install.server";
 import { POLARIS_URL } from "./shopify/polaris";
-import { EncryptedPrismaSessionStorage } from "./shopify/session-storage.server";
+import { EncryptedPrismaSessionStorage, oneRenewalCall } from "./shopify/session-storage.server";
 
 // An extra shop domain to accept, a regular-expression fragment as before
 // (`customShopDomains` in library 1.1 and earlier; `domainTransformations`
@@ -60,7 +60,17 @@ const shopify = shopifyApp({
 export default shopify;
 export const apiVersion = ApiVersion.October26;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
-export const authenticate = shopify.authenticate;
-export const unauthenticated = shopify.unauthenticated;
+// Each entry point that can renew the offline token runs as one renewal call,
+// so the session it stores releases only the renewal lease it took (Ruling 39).
+export const authenticate: typeof shopify.authenticate = {
+  ...shopify.authenticate,
+  admin: oneRenewalCall(shopify.authenticate.admin),
+  webhook: oneRenewalCall(shopify.authenticate.webhook),
+  public: { ...shopify.authenticate.public, appProxy: oneRenewalCall(shopify.authenticate.public.appProxy) },
+};
+export const unauthenticated: typeof shopify.unauthenticated = {
+  ...shopify.unauthenticated,
+  admin: oneRenewalCall(shopify.unauthenticated.admin),
+};
 export const login = shopify.login;
 export const sessionStorage = shopify.sessionStorage;

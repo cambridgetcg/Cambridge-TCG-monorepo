@@ -38,6 +38,7 @@ describe("waitUntil", () => {
     work.reject(new Error("Shopify did not answer"));
     vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(kept).resolves.toBeUndefined();
+    await expect(flushWaitUntil()).rejects.toThrow("Shopify did not answer");
   });
 
   it("lets the work run on where there is no Vercel request (local dev, tests)", async () => {
@@ -57,7 +58,8 @@ describe("waitUntil", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(logged).toHaveBeenCalledWith("[wait-until] Work after the response failed: Shopify did not answer");
-    await expect(flushWaitUntil()).resolves.toBeUndefined();
+    // Tests still hear of it (A13-F2)
+    await expect(flushWaitUntil()).rejects.toThrow("Shopify did not answer");
   });
 });
 
@@ -91,6 +93,21 @@ describe("flushWaitUntil (tests only)", () => {
     work.reject(new Error("the credit could not be sent"));
 
     await expect(flushed).rejects.toThrow("the credit could not be sent");
+    await expect(flushWaitUntil()).resolves.toBeUndefined();
+  });
+
+  // A13-F2: a test that never flushes in its body still hears of it in its afterEach
+  it("rejects with the first error of work that failed before it was called, then forgets them", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const first = later();
+    const second = later();
+    waitUntil(first.promise);
+    waitUntil(second.promise);
+    first.reject(new Error("the first failure"));
+    second.reject(new Error("the second failure"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await expect(flushWaitUntil()).rejects.toThrow("the first failure");
     await expect(flushWaitUntil()).resolves.toBeUndefined();
   });
 });

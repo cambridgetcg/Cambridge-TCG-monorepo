@@ -7,14 +7,19 @@
  * getProxyCustomerId): a body field, `customer_id` or any other parameter
  * counts for nothing.
  *
- * The released widget appends its own `shop` and `logged_in_customer_id` to
- * the proxy URL (Review Focus 1). Where Shopify forwards both copies, the
- * library refuses the request (shopify-api 15 lets `shop` appear only once),
- * so the app checks Shopify's signature itself, with each repeated key's
- * values joined by commas as Shopify signs them. It accepts the request only
- * when every copy of `shop` is the same, and treats differing buyer ids as a
- * guest: a visitor can add a copy, but Shopify's own copy is always signed
- * with it.
+ * The library refuses some requests Shopify signed, so whenever it refuses
+ * one the app checks Shopify's signature itself (proxyQueryVerified), with
+ * every other check kept (one signature, the timestamp, the shop):
+ * - The released widget appends its own `shop` and `logged_in_customer_id`
+ *   to the proxy URL (Review Focus 1). Where Shopify forwards both copies,
+ *   the library refuses the request (shopify-api 15 lets `shop` appear only
+ *   once); the app's check joins each repeated key's values with commas as
+ *   Shopify signs them. It accepts the request only when every copy of
+ *   `shop` is the same, and treats differing buyer ids as a guest: a visitor
+ *   can add a copy, but Shopify's own copy is always signed with it.
+ * - Shopify sorts the signed pairs in byte order (its Ruby example), and the
+ *   library in localeCompare order, so a query whose keys differ in case or
+ *   punctuation can be Shopify's yet fail the library (A9-F5).
  *
  * After the check, each shop and buyer (or the shop's guests together) may
  * make 30 requests a minute, counted in this instance's memory.
@@ -98,19 +103,25 @@ async function adminFor(shop: string): Promise<GraphqlClient | undefined> {
   }
 }
 
-/** The library refused it; was that for a `shop` or `logged_in_customer_id` sent more than once? */
-function repeatsIdentity(params: URLSearchParams): boolean {
-  return params.getAll("shop").length > 1 || params.getAll("logged_in_customer_id").length > 1;
+/** The query as the library checks it: an empty `index` (one Shopify didn't sign) dropped first (A16-F5). */
+function asSigned(params: URLSearchParams): URLSearchParams {
+  const query = new URLSearchParams(params);
+  if (!query.get("index")) query.delete("index");
+  return query;
 }
 
 // Each key's request times within the last minute, oldest first
 const recent = new Map<string, number[]>();
-// The map is swept of keys with nothing in the window once it holds this many
+// The map is swept of keys with nothing in the window once it holds this
+// many, and at most once a window (A16-F3): with every key still active, a
+// sweep frees nothing and walks the whole map
 const SWEEP_AT = 10_000;
+let lastSweepAt = Number.NEGATIVE_INFINITY;
 
 /** Seconds until `key` may ask again, or 0 when this request is let through (and counted). */
 function waitFor(key: string, now: number): number {
-  if (recent.size >= SWEEP_AT) {
+  if (recent.size >= SWEEP_AT && now - lastSweepAt >= RATE_WINDOW_MS) {
+    lastSweepAt = now;
     for (const [k, times] of recent) {
       if (now - times[times.length - 1] >= RATE_WINDOW_MS) recent.delete(k);
     }
@@ -131,9 +142,10 @@ function waitFor(key: string, now: number): number {
  * names more than one shop; 429 when this shop and buyer have made 30
  * requests in the last minute.
  *
- * authenticate.public.appProxy checks the request first. Only when it
- * answers 400 and `shop` or `logged_in_customer_id` came more than once does
- * the app's own check (proxyQueryVerified) decide instead.
+ * authenticate.public.appProxy checks the request first. When it answers
+ * 400, the app's own check (proxyQueryVerified, on the query without an
+ * empty `index`, as the library drops it) decides once more before the
+ * request is refused.
  */
 export async function verifyProxyRequest(request: Request): Promise<VerifiedProxyRequest | Response> {
   const params = new URL(request.url).searchParams;
@@ -143,9 +155,9 @@ export async function verifyProxyRequest(request: Request): Promise<VerifiedProx
     verified = { shop: params.get("shop") ?? "", customerId: buyerOf(params), admin };
   } catch (error) {
     if (!(error instanceof Response)) throw error;
-    if (error.status !== 400 || !repeatsIdentity(params)) return error;
+    if (error.status !== 400) return error;
     const secret = process.env.SHOPIFY_API_SECRET;
-    if (!secret || !proxyQueryVerified(params, secret)) return badRequest();
+    if (!secret || !proxyQueryVerified(asSigned(params), secret)) return badRequest();
     const shops = params.getAll("shop");
     if (shops.some((shop) => shop !== shops[0])) return badRequest();
     const shop = shops[0] ?? "";

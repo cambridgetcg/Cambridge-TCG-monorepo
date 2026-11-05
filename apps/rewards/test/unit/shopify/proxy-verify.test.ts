@@ -198,6 +198,48 @@ describe("verifyProxyRequest", () => {
     ).resolves.toBe(400);
   });
 
+  // Shopify signs in byte order (its Ruby example); shopify-api 15 checks in localeCompare order
+  it("keys that sort differently by bytes and by locale: Shopify's byte-order signature is accepted", async () => {
+    const buyer = freshBuyer();
+    const params = new URLSearchParams([
+      ["shop", SHOP],
+      ["path_prefix", "/apps/rewardspro"],
+      ["timestamp", String(Math.trunc(Date.now() / 1000))],
+      ["logged_in_customer_id", buyer],
+      // "Zeta" comes before "alpha" by bytes, after it by locale
+      ["Zeta", "1"],
+      ["alpha", "2"],
+    ]);
+    params.append("signature", proxy.proxySignature(params, process.env.SHOPIFY_API_SECRET!));
+    const request = new Request(`https://test.example.com/api/proxy/membership?${params}`);
+    // The library alone refuses it
+    expect(await libraryAnswer(request.clone())).toBe(400);
+
+    await expect(verified(request)).resolves.toEqual({ shop: SHOP, customerId: buyer, admin: undefined });
+
+    // Every other check still holds on that path: the secret, the values, the time
+    const changed = new URL(request.url);
+    changed.searchParams.set("alpha", "3");
+    await expect(refusal(new Request(changed))).resolves.toBe(400);
+    const late = new URLSearchParams(params);
+    late.set("timestamp", String(Math.trunc(Date.now() / 1000) - 91));
+    late.set("signature", proxy.proxySignature(late, process.env.SHOPIFY_API_SECRET!));
+    await expect(refusal(new Request(`https://test.example.com/api/proxy/membership?${late}`))).resolves.toBe(400);
+    const foreign = new URLSearchParams(params);
+    foreign.set("signature", proxy.proxySignature(foreign, "not-the-secret"));
+    await expect(refusal(new Request(`https://test.example.com/api/proxy/membership?${foreign}`))).resolves.toBe(400);
+  });
+
+  // A16-F5: the library drops an empty `index` before it checks; so does the app's own check
+  it("an empty index parameter Shopify didn't sign is dropped on both checks", async () => {
+    const buyer = freshBuyer();
+    for (const extra of [[], [["shop", SHOP], ["logged_in_customer_id", buyer]]] as Array<Array<[string, string]>>) {
+      const url = new URL(signedProxyRequest("membership", SHOP, buyer, extra).url);
+      url.searchParams.append("index", "");
+      await expect(verified(new Request(url))).resolves.toMatchObject({ shop: SHOP, customerId: buyer });
+    }
+  });
+
   it("a bad signature or an old timestamp is refused", async () => {
     const buyer = freshBuyer();
     const now = Math.trunc(Date.now() / 1000);

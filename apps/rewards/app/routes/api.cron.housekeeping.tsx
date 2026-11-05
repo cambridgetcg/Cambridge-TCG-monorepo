@@ -18,6 +18,9 @@ import { cleanupExpiredLocks, cronProblems, monitoredCron, verifyCronAuth, withC
 import { RewardsTokenPing } from "~/shopify/graphql";
 import { unauthenticated } from "../shopify.server";
 
+// The function's ceiling, which vercelPreset reads per route (OPERATIONS-5)
+export const config = { maxDuration: 300 };
+
 const LOCK_TTL_MINUTES = 15;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;

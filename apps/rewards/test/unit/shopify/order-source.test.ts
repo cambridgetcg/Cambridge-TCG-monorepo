@@ -114,6 +114,37 @@ async function readOrder(order: Answer, refunds: Answer[] = []) {
 }
 
 describe("readOrder (the facts of one order, from its line items and tenders)", () => {
+  // Ruling 43: orders/paid comes when the order becomes paid, which can be long after it was created
+  it("dates the payment at the latest successful sale or capture, else at processedAt, else at createdAt", async () => {
+    const tender = (kind: string, status: string, processedAt: string | null) => ({
+      gateway: "shopify_payments",
+      status,
+      kind,
+      processedAt,
+      amountSet: bag("27.5"),
+    });
+    const paidAt = async (transactions: unknown[], change: (order: Record<string, unknown>) => void = () => {}) => {
+      const answer = clone(plain);
+      Object.assign(answer.data.order, { transactions });
+      change(answer.data.order as Record<string, unknown>);
+      return (await readOrder(answer)).facts.paidAt;
+    };
+
+    await expect(
+      paidAt([
+        tender("AUTHORIZATION", "SUCCESS", "2026-11-02T10:15:04Z"),
+        tender("CAPTURE", "SUCCESS", "2026-11-02T15:00:00Z"),
+        tender("CAPTURE", "SUCCESS", "2026-11-02T14:00:00Z"),
+        tender("CAPTURE", "FAILURE", "2026-11-02T18:00:00Z"),
+        tender("REFUND", "SUCCESS", "2026-11-03T09:00:00Z"),
+      ]),
+    ).resolves.toEqual(new Date("2026-11-02T15:00:00Z"));
+    await expect(paidAt([tender("SALE", "SUCCESS", "2026-11-02T12:00:00Z")])).resolves.toEqual(new Date("2026-11-02T12:00:00Z"));
+    // No time on its tenders (the bulk node reads none)
+    await expect(paidAt([tender("SALE", "SUCCESS", null)])).resolves.toEqual(new Date("2026-11-02T10:15:04Z"));
+    await expect(paidAt([], (order) => (order.processedAt = null))).resolves.toEqual(new Date("2026-11-02T10:15:00Z"));
+  });
+
   it("reads a plain order", async () => {
     const { facts: f, client } = await readOrder(plain);
 

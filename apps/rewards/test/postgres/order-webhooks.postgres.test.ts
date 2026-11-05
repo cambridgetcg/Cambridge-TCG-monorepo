@@ -5,14 +5,24 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import prisma from "~/db.server";
 import { ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
 import { tierSpend } from "~/lib/tiers.server";
+import { monitoring } from "~/lib/telemetry.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
-import { WEBHOOK_READ_DEADLINE_MS } from "~/shopify/order-source.server";
+import { recordOrder } from "~/lib/record-order.server";
+import { WEBHOOK_READ_DEADLINE_MS, factsFromOrderNode } from "~/shopify/order-source.server";
 import eurOnGbp from "../fixtures/orders/eur-on-gbp.json";
 import plain from "../fixtures/orders/plain.json";
 import refundMoneyOnly from "../fixtures/orders/refund-money-only.json";
 import { server } from "../setup";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
-import { type FixtureAnswer, adminGraphqlUrl, mockOrderFacts, mockStoreCredit, seedOfflineSession, signedWebhook } from "./helpers/shopify";
+import {
+  type FixtureAnswer,
+  adminGraphqlUrl,
+  mockOrderFacts,
+  mockStoreCredit,
+  seedExpiredSessionWhoseRefreshIsRefused,
+  seedOfflineSession,
+  signedWebhook,
+} from "./helpers/shopify";
 
 /**
  * The order webhooks on Postgres, adapted from apps/rewardspro's
@@ -48,6 +58,15 @@ function plainOrder(change: (order: Record<string, unknown>) => void = () => {})
   change(answer.data.order as Record<string, unknown>);
   return answer;
 }
+
+/** The plain order created `createdHoursAgo` hours ago and paid (its SALE processed) `paidHoursAgo` hours ago. */
+const paidOrder = (createdHoursAgo: number, paidHoursAgo: number, change: (order: Record<string, unknown>) => void = () => {}) =>
+  plainOrder((order) => {
+    order.createdAt = new Date(Date.now() - createdHoursAgo * HOUR).toISOString();
+    order.processedAt = order.createdAt;
+    for (const tx of order.transactions as Array<Record<string, unknown>>) tx.processedAt = new Date(Date.now() - paidHoursAgo * HOUR).toISOString();
+    change(order);
+  });
 
 /** A refund of the plain order of £`amount` of money, no items and no shipping. */
 function moneyRefund(amount: string): FixtureAnswer {
@@ -317,29 +336,148 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
 
       expect(res.status).toBe(400);
     });
+
+    it("a failure answers 500 and reaches monitoring once, tagged with its topic", async () => {
+      await seedShop();
+      mockOrderFacts(SHOP, { orders: [plainOrder()] });
+      mockStoreCredit(SHOP, {});
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      // recordOrder's transaction fails, as a dropped pooled connection would.
+      // Patched by hand: a vi.spyOn restore leaves the client's method undefined.
+      const failure = new Error("connection reset");
+      const client = prisma as unknown as { $transaction: unknown };
+      const transaction = client.$transaction;
+      client.$transaction = () => Promise.reject(failure);
+
+      let res: Response;
+      try {
+        res = await deliverPaid();
+      } finally {
+        client.$transaction = transaction;
+      }
+
+      expect(res.status).toBe(500);
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture).toHaveBeenCalledWith(failure, { tags: { "webhook.topic": "orders/paid" } });
+      await expect(prisma.order.count()).resolves.toBe(0);
+    });
+
+    it("the designed answers reach no monitoring", async () => {
+      await seedShop();
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
+      mockOrderFacts(SHOP, { orders: [paidOrder(1, 1)], refunds: [moneyRefund("10.0")] });
+
+      // 503: the refund's order is not recorded yet
+      expect((await deliverRefund()).status).toBe(503);
+      const unsigned = signedWebhook("orders/cancelled", SHOP, orderPayload());
+      unsigned.headers.set("X-Shopify-Hmac-Sha256", "not-a-signature");
+      expect((await routes.cancelled.action(args(unsigned))).status).toBe(401);
+
+      expect(capture).not.toHaveBeenCalled();
+    });
   });
 
   describe("refunds/create", () => {
-    it("refund for an unrecorded order: 503 within 4 h, 200 after", async () => {
+    it("refund for an unrecorded order: 503 within 4 h of its payment, 200 after", async () => {
       await seedShop();
-      const orders = [plainOrder((order) => (order.createdAt = new Date(Date.now() - HOUR).toISOString()))];
+      const orders = [paidOrder(1, 1)];
       mockOrderFacts(SHOP, { orders, refunds: [moneyRefund("10.0")] });
       mockStoreCredit(SHOP, {});
 
       // orders/paid may still record it: Shopify delivers the refund again
       expect((await deliverRefund()).status).toBe(503);
 
-      // A guest's order is never recorded
-      orders[0] = plainOrder((order) => {
-        order.createdAt = new Date(Date.now() - HOUR).toISOString();
-        order.customer = null;
-      });
+      // A guest's order is never recorded, nor is a test order
+      orders[0] = paidOrder(1, 1, (order) => (order.customer = null));
+      expect((await deliverRefund()).status).toBe(200);
+      orders[0] = paidOrder(1, 1, (order) => (order.test = true));
       expect((await deliverRefund()).status).toBe(200);
 
       // Past Shopify's 4 h of retries
-      orders[0] = plainOrder((order) => (order.createdAt = new Date(Date.now() - 5 * HOUR).toISOString()));
+      orders[0] = paidOrder(5, 5);
       expect((await deliverRefund()).status).toBe(200);
 
+      await expect(prisma.refund.count()).resolves.toBe(0);
+    });
+
+    // Ruling 43: orders/paid comes when the order is paid, which can be long after it was created
+    it("the 503 window counts from payment: a 6-hour-old order paid 1 hour ago gets 503, one paid 5 hours ago 200", async () => {
+      await seedShop();
+      const orders = [paidOrder(6, 1)];
+      mockOrderFacts(SHOP, { orders, refunds: [moneyRefund("10.0")] });
+
+      expect((await deliverRefund()).status).toBe(503);
+
+      orders[0] = paidOrder(6, 5);
+      expect((await deliverRefund()).status).toBe(200);
+      await expect(prisma.refund.count()).resolves.toBe(0);
+    });
+
+    it("an order with no SALE or CAPTURE time is judged from its processedAt", async () => {
+      await seedShop();
+      const orders = [
+        plainOrder((order) => {
+          order.createdAt = new Date(Date.now() - 6 * HOUR).toISOString();
+          order.processedAt = new Date(Date.now() - HOUR).toISOString();
+        }),
+      ];
+      mockOrderFacts(SHOP, { orders, refunds: [moneyRefund("10.0")] });
+
+      expect((await deliverRefund()).status).toBe(503);
+    });
+
+    it("an unknown shop answers 200 and reads nothing", async () => {
+      // No MSW answers: a call to Shopify would fail the test
+      const res = await deliverRefund();
+
+      expect(res.status).toBe(200);
+      expect(console.log).toHaveBeenCalledWith(`[refunds/create] No store connection for ${SHOP}; nothing to do`);
+    });
+
+    it("no session answers 500 so Shopify retries", async () => {
+      await seedShop({ session: false });
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const res = await deliverRefund();
+
+      expect(res.status).toBe(500);
+      expect(logged).toHaveBeenCalledWith(`[refunds/create] No usable session for ${SHOP}; Shopify will deliver it again`);
+    });
+
+    it("answers 400 for a delivery of another topic", async () => {
+      await seedShop();
+
+      const res = await routes.refunded.action(args(signedWebhook("orders/paid", SHOP, refundPayload())));
+
+      expect(res.status).toBe(400);
+    });
+
+    it("answers 500 when the unrecorded order's own read can't be read, logging only its id", async () => {
+      await seedShop();
+      const order = paidOrder(1, 1);
+      mockOrderFacts(SHOP, { orders: [order], refunds: [moneyRefund("10.0")] });
+      // The refund's read gets the order; the not-recorded check's read gets an unreadable answer
+      let orderReads = 0;
+      server.use(
+        graphql.link(adminGraphqlUrl(SHOP)).query("RewardsOrderFacts", () =>
+          HttpResponse.json(++orderReads === 1 ? order : { data: { shop: { currencyCode: "GBP" }, order: { id: ORDER } } }),
+        ),
+      );
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
+
+      const res = await deliverRefund();
+
+      expect(res.status).toBe(500);
+      expect(orderReads).toBe(2);
+      expect(logged).toHaveBeenCalledWith(
+        `[refunds/create] Could not read order ${ORDER} for ${SHOP}; Shopify will deliver it again: Expected the order's line items in Shopify's answer`,
+      );
+      expect(capture).toHaveBeenCalledWith(expect.any(Error), { tags: { "webhook.topic": "refunds/create" } });
       await expect(prisma.refund.count()).resolves.toBe(0);
     });
 
@@ -452,6 +590,69 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
 
       await expect(prisma.order.findMany()).resolves.toMatchObject([{ externalOrderId: ORDER, cancelledAt: new Date("2026-11-03T09:00:00Z") }]);
     });
+
+    // Ruling 43: orders/paid may still be on its way, so Shopify is to deliver the cancellation again
+    it("an unrecorded order paid within 4 h answers 503, judged from the signed payload", async () => {
+      await seedShop();
+      const cancelledPayload = (o: Record<string, unknown>) =>
+        orderPayload("gid://shopify/Order/9999", {
+          cancelled_at: new Date().toISOString(),
+          customer: { id: 7001 },
+          test: false,
+          financial_status: "paid",
+          created_at: new Date(Date.now() - 6 * HOUR).toISOString(),
+          processed_at: new Date(Date.now() - HOUR).toISOString(),
+          ...o,
+        });
+
+      expect((await deliverCancelled(cancelledPayload({}))).status).toBe(503);
+      expect((await deliverCancelled(cancelledPayload({ financial_status: "partially_refunded" }))).status).toBe(503);
+      // With no processed_at, from its creation
+      expect((await deliverCancelled(cancelledPayload({ processed_at: null, created_at: new Date(Date.now() - HOUR).toISOString() }))).status).toBe(503);
+
+      // Paid 5 hours ago, a guest's, a test order, or never paid: nothing will record it
+      expect((await deliverCancelled(cancelledPayload({ processed_at: new Date(Date.now() - 5 * HOUR).toISOString() }))).status).toBe(200);
+      expect((await deliverCancelled(cancelledPayload({ customer: null }))).status).toBe(200);
+      expect((await deliverCancelled(cancelledPayload({ test: true }))).status).toBe(200);
+      expect((await deliverCancelled(cancelledPayload({ financial_status: "pending" }))).status).toBe(200);
+      expect((await deliverCancelled(cancelledPayload({ financial_status: "voided" }))).status).toBe(200);
+      await expect(prisma.order.count()).resolves.toBe(0);
+    });
+
+    it("is redelivered after orders/paid commits, and then lands", async () => {
+      await seedShop();
+      mockOrderFacts(SHOP, { orders: [paidOrder(6, 1)] });
+      mockStoreCredit(SHOP, {});
+      const cancellation = orderPayload(ORDER, {
+        cancelled_at: "2026-11-05T09:00:00Z",
+        customer: { id: 7001 },
+        test: false,
+        financial_status: "paid",
+        processed_at: new Date(Date.now() - HOUR).toISOString(),
+      });
+
+      expect((await deliverCancelled(cancellation)).status).toBe(503);
+      expect((await deliverPaid()).status).toBe(200);
+      expect((await deliverCancelled(cancellation)).status).toBe(200);
+
+      await expect(prisma.order.findFirstOrThrow()).resolves.toMatchObject({ cancelledAt: new Date("2026-11-05T09:00:00Z") });
+    });
+
+    it("answers 400 for a delivery of another topic", async () => {
+      await seedShop();
+
+      const res = await routes.cancelled.action(args(signedWebhook("orders/paid", SHOP, orderPayload(ORDER, { cancelled_at: "2026-11-03T09:00:00Z" }))));
+
+      expect(res.status).toBe(400);
+    });
+
+    it("an unknown shop answers 200 and writes nothing", async () => {
+      const res = await deliverCancelled(orderPayload(ORDER, { cancelled_at: "2026-11-03T09:00:00Z" }));
+
+      expect(res.status).toBe(200);
+      expect(console.log).toHaveBeenCalledWith(`[orders/cancelled] No store connection for ${SHOP}; nothing to do`);
+      await expect(prisma.order.count()).resolves.toBe(0);
+    });
   });
 
   describe("the other subscribed topics", () => {
@@ -474,9 +675,50 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
         await expect(route.action(args(signedWebhook(topic, SHOP, { id: 1 }))), topic).resolves.toMatchObject({ status: 200 });
         const unsigned = signedWebhook(topic, SHOP, { id: 1 });
         unsigned.headers.set("X-Shopify-Hmac-Sha256", "not-a-signature");
-        await expect(route.action(args(unsigned)), topic).rejects.toMatchObject({ status: 401 });
+        await expect(route.action(args(unsigned)), topic).resolves.toMatchObject({ status: 401 });
       }
       await expect(prisma.order.count()).resolves.toBe(0);
+    });
+  });
+
+  // Ruling 42: a route that never calls Shopify loads no session, so a refresh Shopify refuses can't fail it
+  describe("routes that never call Shopify, while the store's refresh would be refused", () => {
+    it("an ignored topic and orders/cancelled answer 200 and start no refresh", async () => {
+      const conn = await seedShop({ session: false });
+      const asked = await seedExpiredSessionWhoseRefreshIsRefused(SHOP);
+      // Recorded before the token expired
+      await recordOrder(conn, factsFromOrderNode(plainOrder().data.order, "GBP", { refunds: [] }), "live");
+
+      for (const [topic, route] of routes.ignored) {
+        await expect(route.action(args(signedWebhook(topic, SHOP, { id: 1 }))), topic).resolves.toMatchObject({ status: 200 });
+      }
+      expect((await deliverCancelled(orderPayload(ORDER, { cancelled_at: "2026-11-03T09:00:00Z" }))).status).toBe(200);
+
+      await expect(prisma.order.findFirstOrThrow()).resolves.toMatchObject({ cancelledAt: new Date("2026-11-03T09:00:00Z") });
+      expect(asked.refreshes).toBe(0);
+    });
+
+    it("app/scopes_update stores the scopes on the shop's offline session without refreshing it", async () => {
+      await seedShop({ session: false });
+      const asked = await seedExpiredSessionWhoseRefreshIsRefused(SHOP);
+
+      const res = await routes.scopesUpdate.action(
+        args(signedWebhook("app/scopes_update", SHOP, { previous: ["read_orders"], current: ["read_orders", "read_customers"] })),
+      );
+
+      expect(res.status).toBe(200);
+      await expect(prisma.session.findUniqueOrThrow({ where: { id: `offline_${SHOP}` } })).resolves.toMatchObject({
+        scope: "read_orders,read_customers",
+      });
+      expect(asked.refreshes).toBe(0);
+    });
+
+    it("orders/paid, which needs Shopify, still tries the refresh (and answers 500 when it is refused)", async () => {
+      await seedShop({ session: false });
+      const asked = await seedExpiredSessionWhoseRefreshIsRefused(SHOP);
+
+      await expect(deliverPaid()).rejects.toMatchObject({ status: 500 });
+      expect(asked.refreshes).toBe(1);
     });
   });
 });

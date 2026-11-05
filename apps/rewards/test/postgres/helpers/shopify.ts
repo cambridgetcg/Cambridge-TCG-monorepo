@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { ApiVersion, Session } from "@shopify/shopify-app-react-router/server";
-import { graphql, HttpResponse } from "msw";
+import { graphql, http, HttpResponse } from "msw";
 import prisma from "~/db.server";
 import { Money, currencyDecimals } from "~/lib/money";
 import { server } from "../../setup";
@@ -85,6 +85,39 @@ export async function seedOfflineSession(shop: string): Promise<void> {
       accessToken: "shpat_integration",
     }),
   );
+}
+
+/**
+ * The expiring offline session production has (expiringOfflineAccessTokens),
+ * in the state of a store whose refresh token has died: the access token
+ * expired a minute ago, and Shopify refuses to refresh it, as its token
+ * endpoint answers a refresh token it no longer accepts. Returns how many
+ * refreshes were asked for, so a test can show a route started none.
+ */
+export async function seedExpiredSessionWhoseRefreshIsRefused(shop: string): Promise<{ refreshes: number }> {
+  const { sessionStorage } = await import("~/shopify.server");
+  const now = Date.now();
+  await sessionStorage.storeSession(
+    new Session({
+      id: `offline_${shop}`,
+      shop,
+      state: "state",
+      isOnline: false,
+      scope: "read_orders,read_customers",
+      accessToken: "shpat_expired",
+      expires: new Date(now - 60_000),
+      refreshToken: "refresh-token-shopify-no-longer-accepts",
+      refreshTokenExpires: new Date(now + 30 * 24 * 60 * 60 * 1000),
+    }),
+  );
+  const asked = { refreshes: 0 };
+  server.use(
+    http.post(`https://${shop}/admin/oauth/access_token`, () => {
+      asked.refreshes++;
+      return HttpResponse.json({ error: "invalid_request", error_description: "The refresh token is no longer valid" }, { status: 400 });
+    }),
+  );
+  return asked;
 }
 
 export type StoreCreditCall = { operation: "credit" | "debit"; customerId: string; amount: string; currency: string };

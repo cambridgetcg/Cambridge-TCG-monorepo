@@ -24,6 +24,8 @@ import { adminGraphqlUrl, seedOfflineSession } from "./helpers/shopify";
 type Route = typeof import("~/routes/api.proxy.$");
 
 const SHOP = "proxy-test.myshopify.com";
+/** The 2.5 s test's own shop: after an unanswered read, the live balance gives way at that shop for 10 s (A16-F4). */
+const SLOW_SHOP = "proxy-slow.myshopify.com";
 const VICTIM = "9876543210";
 const NOW = new Date();
 const DAY = 24 * 60 * 60 * 1000;
@@ -33,7 +35,7 @@ let conn: ConnectionContext;
 let tiers: { bronze: { id: string }; silver: { id: string }; gold: { id: string } };
 
 const get = (request: Request, path = "membership") => route.loader({ request, params: { "*": path }, context: {} } as never);
-const membership = (buyer: string, extra: Array<[string, string]> = []) => get(signedProxyRequest("membership", SHOP, buyer, extra));
+const membership = (buyer: string, extra: Array<[string, string]> = [], shop = SHOP) => get(signedProxyRequest("membership", shop, buyer, extra));
 
 const addTier = (name: string, minSpend: string, percent: string, position: number) =>
   prisma.tier.create({
@@ -42,9 +44,10 @@ const addTier = (name: string, minSpend: string, percent: string, position: numb
   });
 
 /** A running GBP shop with three tiers and its offline session. */
-async function seedShop(o: { tiers?: boolean; running?: boolean } = {}) {
-  await ensureMerchant({ shop: SHOP, name: "Proxy", currency: "GBP", timezone: "Europe/London", now: new Date(NOW.getTime() - 400 * DAY) });
-  const found = await findConnection(SHOP);
+async function seedShop(o: { tiers?: boolean; running?: boolean; shop?: string } = {}) {
+  const shop = o.shop ?? SHOP;
+  await ensureMerchant({ shop, name: "Proxy", currency: "GBP", timezone: "Europe/London", now: new Date(NOW.getTime() - 400 * DAY) });
+  const found = await findConnection(shop);
   if (!found) throw new Error("no connection");
   conn = found;
   if (o.tiers !== false) {
@@ -55,7 +58,7 @@ async function seedShop(o: { tiers?: boolean; running?: boolean } = {}) {
     };
     if (o.running !== false) expect(await setRunning(conn.merchantId, true)).toEqual({ ok: true });
   }
-  await seedOfflineSession(SHOP);
+  await seedOfflineSession(shop);
 }
 
 const addBuyer = (externalCustomerId: string) =>
@@ -101,9 +104,9 @@ type Balance = { amount: string; currencyCode: string };
  * (customer id → accounts). `balanceDelay` holds back the balance answer
  * ("infinite": never). Returns how many balance reads Shopify got.
  */
-function answerShopify(accounts: Record<string, Balance[]>, o: { version?: string; balanceDelay?: number | "infinite" } = {}) {
+function answerShopify(accounts: Record<string, Balance[]>, o: { version?: string; balanceDelay?: number | "infinite"; shop?: string } = {}) {
   const reads = { balance: 0, accounts: 0 };
-  const link = graphql.link(adminGraphqlUrl(SHOP));
+  const link = graphql.link(adminGraphqlUrl(o.shop ?? SHOP));
   server.use(
     link.query("RewardsCustomerAccounts", () => {
       reads.accounts++;
@@ -186,7 +189,8 @@ describe.skipIf(!hasTestDatabase)("app proxy on Postgres", () => {
     const response = await membership(buyer);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toBe("private, max-age=30");
+    // Never cached (Ruling 44): the widget's URL is the same for every buyer on a browser
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     expect(await response.json()).toEqual({
       success: true,
       membership: { tier: { id: tiers.silver.id, name: "Silver", cashbackPercent: 7.5 }, tierSource: "SPENDING_BASED", configured: true },
@@ -364,6 +368,23 @@ describe.skipIf(!hasTestDatabase)("app proxy on Postgres", () => {
     expect(odd.balance).toEqual({ storeCredit: 4, currency: "GBP" });
   });
 
+  // Ruling 44: on a shared computer, a cached answer would show one buyer's balance to the next
+  it("no membership answer is ever cached: a buyer's, a guest's or a not-set-up one", async () => {
+    await seedShop();
+    const buyer = freshBuyer();
+    answerShopify({});
+
+    const answers = [await membership(buyer), await membership("")];
+    await prisma.tier.deleteMany();
+    answers.push(await membership(freshBuyer()));
+
+    expect(answers.map((response) => [response.status, response.headers.get("Cache-Control")])).toEqual([
+      [200, "private, no-store"],
+      [200, "private, no-store"],
+      [200, "private, no-store"],
+    ]);
+  });
+
   it("a shop with no connection or no tiers gets 'Rewards are not set up yet'", async () => {
     const notSetUp = { success: false, message: "Rewards are not set up yet" };
     // Never installed
@@ -421,16 +442,16 @@ describe.skipIf(!hasTestDatabase)("app proxy on Postgres", () => {
     expect((await membership(freshBuyer())).status).toBe(200);
   });
 
-  // Last: after an unanswered read the balance gives way at this shop for 10 s
+  // At a shop of its own: after an unanswered read the balance gives way at that shop for 10 s
   it("balance is null when Shopify takes longer than 2.5 s", async () => {
-    await seedShop();
+    await seedShop({ shop: SLOW_SHOP });
     const buyer = freshBuyer();
     await addBuyer(buyer);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const reads = answerShopify({ [buyer]: [{ amount: "9.00", currencyCode: "GBP" }] }, { balanceDelay: "infinite" });
+    const reads = answerShopify({ [buyer]: [{ amount: "9.00", currencyCode: "GBP" }] }, { balanceDelay: "infinite", shop: SLOW_SHOP });
 
-    const pending = membership(buyer);
+    const pending = membership(buyer, [], SLOW_SHOP);
     await vi.waitFor(() => expect(reads.balance).toBe(1), { interval: 5 });
     await vi.advanceTimersByTimeAsync(2499);
     let settled = false;
@@ -447,6 +468,6 @@ describe.skipIf(!hasTestDatabase)("app proxy on Postgres", () => {
     expect(body.success).toBe(true);
     expect(body.balance).toEqual({ storeCredit: null, currency: "GBP" });
     // Logged by shop, with no buyer id or query string
-    expect(warn).toHaveBeenCalledWith(`[live-balance] Could not read a buyer's store credit balance for ${SHOP}:`, "Shopify did not answer within 2.5 s");
+    expect(warn).toHaveBeenCalledWith(`[live-balance] Could not read a buyer's store credit balance for ${SLOW_SHOP}:`, "Shopify did not answer within 2.5 s");
   });
 });

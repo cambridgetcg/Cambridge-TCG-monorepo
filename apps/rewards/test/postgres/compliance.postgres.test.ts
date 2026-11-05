@@ -4,13 +4,14 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import prisma, { databaseSchema } from "~/db.server";
 import { REPORT_RETENTION_DAYS, buildPrivacyReport, merchantErasureOrder } from "~/lib/erasure.server";
 import type { ConnectionContext } from "~/lib/merchant.server";
-import { ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
+import { ensureMerchant, findConnection, markUninstalled, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
 import type { OrderFacts, RefundFacts } from "~/lib/order-facts";
 import { answerNeedsLook, sendPayout, settleUnconfirmed } from "~/lib/payouts.server";
 import type { CreditHistoryResult, PayoutRail, RailAnswer } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
 import { recordRefund } from "~/lib/refunds.server";
+import { monitoring } from "~/lib/telemetry.server";
 import { action as compliance } from "~/routes/webhooks.compliance";
 import { action as appUninstalled } from "~/routes/webhooks.app.uninstalled";
 import { failNextCall, hasTestDatabase, resetDatabase, restoreFailedCalls } from "./helpers/database";
@@ -82,11 +83,12 @@ function fakeRail(credit: RailAnswer = applied, history: CreditHistoryResult = {
   } satisfies PayoutRail;
 }
 
-/** A running GBP shop installed on INSTALLED with one 5% tier. */
+/** A running GBP shop installed on INSTALLED with one 5% tier, its past orders imported. */
 async function runningShop(shop = SHOP): Promise<ConnectionContext & { tierId: string }> {
   await ensureMerchant({ shop, name: "Compliance Test", currency: "GBP", timezone: "Europe/London", now: INSTALLED });
   const conn = await findConnection(shop);
   if (!conn) throw new Error("no connection");
+  await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "done" } });
   const tier = await prisma.tier.create({
     data: { merchantId: conn.merchantId, name: "Everyone", minSpend: new Prisma.Decimal(0), cashbackPercent: new Prisma.Decimal("5.00"), position: 0 },
   });
@@ -200,6 +202,8 @@ const dataRequest = (requestId: number, customerId: number | null = Number(ALICE
 const customerRedact = (customerId: number, shop = SHOP) =>
   deliver("customers/redact", { shop_id: 1, shop_domain: shop, customer: { id: customerId, email: ALICE_EMAIL, phone: "+447700900000" }, orders_to_redact: [] }, { shop });
 const shopRedact = (shop = SHOP) => deliver("shop/redact", { shop_id: 1, shop_domain: shop }, { shop });
+/** The store switched off by its uninstall, its session kept (as a retried uninstall can leave it): shop/redact's real state. */
+const uninstalled = (shop = SHOP) => markUninstalled(shop, new Date("2026-11-03T10:00:00Z"));
 
 describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
   let logs: string[];
@@ -406,16 +410,57 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
 
     it("another topic at the compliance URI answers 400", async () => {
       await runningShop();
-      expect((await compliance(args(signedWebhook("app/uninstalled", SHOP, {})))).status).toBe(400);
+      expect((await compliance(args(signedWebhook("app/uninstalled", SHOP, { id: 1, myshopify_domain: SHOP })))).status).toBe(400);
       await expect(findConnection(SHOP)).resolves.not.toBeNull();
     });
 
-    it("an error answers 500, so Shopify delivers it again", async () => {
+    // Ruling 40: the headers are not signed; the body is
+    it("a delivery whose shop header isn't its signed body's store answers 401 and changes nothing", async () => {
+      const conn = await fullShop(SHOP);
+      await uninstalled();
+      const other = await fullShop(OTHER_SHOP);
+      const before = await rowsOf(conn.merchantId, SHOP);
+      const otherBefore = await rowsOf(other.merchantId, OTHER_SHOP);
+
+      // The store's own signed deliveries, replayed under the other store's header
+      expect((await deliver("shop/redact", { shop_id: 1, shop_domain: SHOP }, { shop: OTHER_SHOP })).status).toBe(401);
+      expect(
+        (await deliver("customers/redact", { shop_id: 1, shop_domain: SHOP, customer: { id: Number(ALICE) }, orders_to_redact: [] }, { shop: OTHER_SHOP })).status,
+      ).toBe(401);
+      expect((await deliver("app/uninstalled", { id: 1, myshopify_domain: SHOP }, { shop: OTHER_SHOP })).status).toBe(401);
+
+      await expect(rowsOf(conn.merchantId, SHOP)).resolves.toEqual(before);
+      await expect(rowsOf(other.merchantId, OTHER_SHOP)).resolves.toEqual(otherBefore);
+      await expect(findConnection(OTHER_SHOP)).resolves.not.toBeNull();
+    });
+
+    it("a compliance body delivered as another topic answers 401 and changes nothing", async () => {
+      const conn = await fullShop(SHOP);
+      await uninstalled();
+      const before = await rowsOf(conn.merchantId, SHOP);
+      const request = { shop_id: 1, shop_domain: SHOP, customer: { id: Number(ALICE) }, orders_requested: [], data_request: { id: 41 } };
+      const redaction = { shop_id: 1, shop_domain: SHOP, customer: { id: Number(ALICE) }, orders_to_redact: [] };
+
+      // A data request or a buyer's redaction relabelled as shop/redact would erase the store
+      expect((await deliver("shop/redact", request)).status).toBe(401);
+      expect((await deliver("shop/redact", redaction)).status).toBe(401);
+      // and a data request relabelled as customers/redact, the buyer
+      expect((await deliver("customers/redact", request)).status).toBe(401);
+      expect((await deliver("customers/data_request", redaction)).status).toBe(401);
+
+      await expect(rowsOf(conn.merchantId, SHOP)).resolves.toEqual(before);
+    });
+
+    it("an error answers 500 and reaches monitoring, so Shopify delivers it again", async () => {
       const conn = await runningShop();
       await creditFor(conn, 5001, ALICE);
-      failNextCall("connection", "findFirst", new Error("connection reset"));
+      const failure = new Error("connection reset");
+      failNextCall("connection", "findFirst", failure);
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
 
       expect((await customerRedact(Number(ALICE))).status).toBe(500);
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture).toHaveBeenCalledWith(failure, { tags: { "webhook.topic": "customers/redact" } });
 
       await expect(prisma.customer.count({ where: { externalCustomerId: ALICE } })).resolves.toBe(1);
       expect(logs.join("\n")).toMatch(/connection reset/);
@@ -428,6 +473,7 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
   describe("shop/redact", () => {
     it("shop/redact erases every merchant table and passes the ledger trigger", async () => {
       const conn = await fullShop(SHOP);
+      await uninstalled();
       const other = await fullShop(OTHER_SHOP);
       await prisma.cronLock.create({ data: { jobName: "payouts", expiresAt: new Date(Date.now() + 60_000) } });
       const mine = await rowsOf(conn.merchantId, SHOP);
@@ -450,6 +496,7 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
 
     it("a repeated shop/redact answers 200 with nothing left to erase", async () => {
       await fullShop(SHOP);
+      await uninstalled();
       expect((await shopRedact()).status).toBe(200);
       expect((await shopRedact()).status).toBe(200);
       await expect(prisma.merchant.count()).resolves.toBe(0);
@@ -472,6 +519,30 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
         uninstalledAt: null,
         importState: "not_started",
       });
+    });
+
+    // Ruling 41: Shopify's docs don't say a reinstall within the 48 h cancels it
+    it("shop/redact for a store that is active again erases nothing, sessions included, and answers 200", async () => {
+      const conn = await fullShop(SHOP);
+      await uninstall({ triggeredAt: "2026-11-03T10:00:00Z" });
+      await ensureMerchant({ shop: SHOP, name: "Compliance Test", currency: "GBP", timezone: "Europe/London", now: new Date("2026-11-04T09:00:00Z") });
+      await seedSession(SHOP);
+      const before = await rowsOf(conn.merchantId, SHOP);
+      logs.length = 0;
+
+      expect((await shopRedact()).status).toBe(200);
+
+      await expect(rowsOf(conn.merchantId, SHOP)).resolves.toEqual(before);
+      await expect(findConnection(SHOP)).resolves.toMatchObject({ connectionId: conn.connectionId });
+      expect(logs).toEqual([`[compliance] ${SHOP}: shop/redact skipped: store is active`]);
+    });
+
+    it("shop/redact for a store never seen erases its sessions only", async () => {
+      await seedSession(OTHER_SHOP);
+
+      expect((await shopRedact(OTHER_SHOP)).status).toBe(200);
+
+      await expect(prisma.session.count()).resolves.toBe(0);
     });
 
     it("every model with merchantId is covered by the erasure order", () => {
@@ -598,6 +669,44 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
       expect((await customerRedact(9999)).status).toBe(200);
 
       await expect(rowsOf(conn.merchantId, SHOP)).resolves.toEqual(before);
+    });
+
+    it("customers/redact with no customer id answers 200 and logs the shop and topic only", async () => {
+      const conn = await fullShop(SHOP);
+      const before = await rowsOf(conn.merchantId, SHOP);
+      logs.length = 0;
+
+      for (const customer of [{}, null, { id: "not-an-id" }]) {
+        const response = await deliver("customers/redact", { shop_id: 1, shop_domain: SHOP, customer, orders_to_redact: [] });
+        expect(response.status).toBe(200);
+      }
+
+      await expect(rowsOf(conn.merchantId, SHOP)).resolves.toEqual(before);
+      expect(logs).toEqual(Array(3).fill(`[compliance] customers/redact for ${SHOP} names no customer; nothing to erase`));
+    });
+
+    // CONCURRENCY-5: the import may still write that buyer's orders from a file taken before Shopify erased them
+    it("customers/redact for a buyer not seen yet answers 503 while the import is not done", async () => {
+      const conn = await runningShop();
+      for (const importState of ["not_started", "running", "failed"] as const) {
+        await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState } });
+        expect((await customerRedact(Number(ALICE))).status, importState).toBe(503);
+      }
+
+      // The import writes the buyer's past order; Shopify's redelivery then erases them
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "done" } });
+      await recordOrder(conn, orderFacts(4001, ALICE), "import");
+      expect((await customerRedact(Number(ALICE))).status).toBe(200);
+      await expect(prisma.customer.count({ where: { externalCustomerId: ALICE } })).resolves.toBe(0);
+    });
+
+    it("a buyer already erased is still answered 503 while the import is not done: a later chunk could bring them back", async () => {
+      const conn = await runningShop();
+      await creditFor(conn, 5001, ALICE);
+      expect((await customerRedact(Number(ALICE))).status).toBe(200);
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "running" } });
+
+      expect((await customerRedact(Number(ALICE))).status).toBe(503);
     });
 
     it("a repeated customers/redact answers 200 and adds nothing", async () => {

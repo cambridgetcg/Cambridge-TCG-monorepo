@@ -48,6 +48,18 @@ export class RefundRetryLater extends Error {
  */
 export const ORDER_RECORDING_WINDOW_MS = 4 * 60 * 60 * 1000;
 
+/**
+ * Whether an order not recorded yet may still be (Ruling 43): it has a buyer,
+ * is not a test order, and became paid (`paidAt`) within
+ * ORDER_RECORDING_WINDOW_MS of `now`. orders/paid comes when an order becomes
+ * paid, which can be long after it was created, and Shopify retries it for
+ * about that long; a delivery about such an order answers 503 meanwhile, so
+ * Shopify brings it again once orders/paid has recorded the order.
+ */
+export function mayStillBeRecorded(order: { hasCustomer: boolean; test: boolean; paidAt: Date }, now: number = Date.now()): boolean {
+  return order.hasCustomer && !order.test && now - order.paidAt.getTime() < ORDER_RECORDING_WINDOW_MS;
+}
+
 export type RecordRefundResult =
   | { status: "order_not_recorded" }
   | { status: "already_recorded" }
