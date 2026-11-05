@@ -4,6 +4,12 @@
  * on --rw-bg in both looks; the accent (teal by default) only fills the
  * progress bar and the button's dot, each with an edge, and never carries
  * text. Sizes are in px because themes set their own root font size.
+ *
+ * On a real theme (WIDGET-1, WIDGET-2, Ruling 84): the root sits at z-index
+ * 999, under a theme's drawers and dialogs (Dawn's are at 1000), so a cart
+ * drawer's Check out is never covered. Every text element sets its own
+ * colour and type at a specificity a theme's element rules (`p`, `span`,
+ * `button`) can't beat, because an inherited value loses to any of them.
  */
 .rw {
   --rw-bg: #FFFFFF;
@@ -12,7 +18,7 @@
   --rw-edge: #1A3E5C;
   --rw-track: #E8EEF2;
   position: fixed;
-  z-index: 2147483000;
+  z-index: 999;
   inset-inline-end: 16px;
   bottom: max(16px, env(safe-area-inset-bottom));
   display: flex;
@@ -52,13 +58,19 @@
   padding: 0 16px;
   border-radius: 22px;
   font: inherit;
+  font-size: 15px;
   font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
   cursor: pointer;
 }
+/* Two tones beside the widget's edge, so the ring shows on any page (WIDGET-5) */
 .rw-button:focus-visible,
-.rw-cta:focus-visible {
+.rw-panel .rw-cta:focus-visible {
   outline: 2px solid var(--rw-text);
-  outline-offset: 2px;
+  outline-offset: 0;
+  box-shadow: 0 0 0 4px var(--rw-bg), 0 4px 16px rgba(0, 0, 0, 0.18);
 }
 .rw-dot {
   width: 10px;
@@ -72,29 +84,49 @@
 }
 .rw-panel {
   width: min(320px, calc(100vw - 32px));
+  max-height: calc(100vh - 92px);
+  max-height: calc(100dvh - 92px);
+  overflow-y: auto;
   padding: 16px;
   border-radius: 12px;
   text-align: start;
 }
 .rw-panel p {
   margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.rw-panel p,
+.rw-panel span,
+.rw-button span {
+  color: var(--rw-text);
+}
+.rw-panel span,
+.rw-panel a,
+.rw-button span {
+  font-size: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
 }
 .rw-panel > :last-child {
   margin-bottom: 0;
 }
-.rw-label,
-.rw-note {
+.rw-panel .rw-label,
+.rw-panel .rw-note {
   color: var(--rw-muted);
   font-size: 13px;
 }
-.rw-title {
+.rw-panel .rw-title {
   font-size: 18px;
   font-weight: 700;
 }
 .rw-balance .rw-label {
   display: block;
 }
-.rw-amount {
+.rw-panel .rw-amount {
   display: block;
   font-size: 22px;
   font-weight: 700;
@@ -113,7 +145,7 @@
   height: 100%;
   background: var(--rw-accent, #17BEBB);
 }
-.rw-cta {
+.rw-panel .rw-cta {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -124,6 +156,6 @@
   font-weight: 600;
   text-decoration: none;
 }
-.rw-cta:hover {
+.rw-panel .rw-cta:hover {
   text-decoration: underline;
 }

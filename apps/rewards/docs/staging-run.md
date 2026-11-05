@@ -21,7 +21,7 @@ The rebuilt app ran end to end on a development store before any real merchant s
 | Proxy (Step 4, Review Focus 1) | Pass. The widget sends only `?currency=`. Answers are `private, no-store` and carry no email or name. An appended `shop`, an appended or forged `logged_in_customer_id`, or a foreign shop all still answer for the signed-in shopper: identity comes from Shopify's signed value. |
 | A. New shopper | Pass. Lowest tier at 5%, £0.00, £50 to Gold. |
 | B. First paid order | Pass. Order: £600 product, −£60 discount, £10 shipping. Recorded within 2 s. Base £540, so shipping earned nothing. Cashback £27.00 at 5%, sent within a second, and Shopify's live balance was £27. Home and Orders showed it. |
-| C. Widget | Pass (laptop). Signed in, the panel showed tier, rate, live credit, progress and the spend line. As a guest it showed "Sign in to see your rewards" and "Earn 5% back as store credit", read from the app metafield, with no proxy call. Phone width was checked as part of K. |
+| C. Widget | Pass (laptop, signed in and guest). Phone width and Dark not run; moved to gate C on rewardsprotesting (switch.md). Signed in, the panel showed tier, rate, live credit, progress and the spend line. As a guest it showed "Sign in to see your rewards" and "Earn 5% back as store credit", read from the app metafield, with no proxy call. |
 | D. Spend with store credit | Pass. The checkout total of £30.94 was covered fully by credit ("Total due £0.00", no card). The order was recorded with £30.94 store credit used and earned nothing. Home's "Store credit spent at checkout" showed £30.94. |
 | E. Partial refund | Pass. Refunding 1 of 2 items took back exactly half of the £20.00 (£10.00), with no shortfall. |
 | F. Refund after the credit was spent | Pass (Decision 19 / spec 4.6). The take-back asked for £27.00 and took the £16.06 left, recording a £10.94 shortfall adjustment. The order panel says "Took back £16.06 of £27.00; the buyer had spent the rest", as information with no banner and no action. |
@@ -76,6 +76,8 @@ All are far under 1,000, and the hand counts are safe upper bounds (Ruling 78). 
 - **Compliance with real data:** a real customers/data_request and customers/redact → banner, download, erasure, on the production deployment.
 - **Tax-exclusive order:** the shape check and base check.
 - **Vercel-specific checks (OPERATIONS-10):** waitUntil on the real deployment, cron registration, the 300 s ceiling, the timing checks (an export at a few thousand buyers, a large tier delete, the nightly widget step), and a Sentry event carrying the right `shop` tag.
+- **The widget at phone width:** not run here; the storefront window didn't narrow, and K covered only the admin in the Shopify app. Gate C on rewardsprotesting checks it at 390 px, signed in and as a guest, with the cart drawer open and on a product page (switch.md).
+- **The widget's Dark look:** not run here. Gate C checks it on rewardsprotesting's live theme (switch.md).
 - **Lighthouse with the embed off and on:** the storefront is password-protected. The widget is 10.8 KB of JS and CSS against the 30 KB budget.
 - **The extension version diff:** checked when the production app's version is created (`rewardspro-theme-extension` updated, not created plus removed).
 - **Not exercised here:** a tipped order, orders edited before or after payment, uninstall and reinstall (J), and table paging with more than one page of buyers.

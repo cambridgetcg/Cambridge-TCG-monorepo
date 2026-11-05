@@ -13,6 +13,7 @@ import type { WidgetConfig } from "~/shopify/widget-config.server";
 
 const EXTENSION = resolve(__dirname, "../../../extensions/rewards-widget");
 const script = readFileSync(resolve(EXTENSION, "assets/rewards-widget.js"), "utf8");
+const stylesheet = readFileSync(resolve(EXTENSION, "assets/rewards-widget.css"), "utf8");
 const copy = (JSON.parse(readFileSync(resolve(EXTENSION, "locales/en.default.json"), "utf8")) as { rewards_widget: Record<string, string> })
   .rewards_widget;
 
@@ -30,7 +31,8 @@ function mount(attributes: Record<string, string>): HTMLElement {
   return root;
 }
 
-const signedIn = () => mount({ "data-state": "customer", "data-endpoint": "/apps/rewardspro/membership", "data-currency": "GBP" });
+const signedIn = (look?: "light" | "dark") =>
+  mount({ "data-state": "customer", "data-endpoint": "/apps/rewardspro/membership", "data-currency": "GBP", ...(look ? { "data-look": look } : {}) });
 
 /** What Liquid prints from `app.metafields.rewards.config.value`; nil prints as nothing. */
 const printed = (value: boolean | number | null | undefined) => (value === null || value === undefined ? "" : String(value));
@@ -49,9 +51,9 @@ function guest(config: WidgetConfig | undefined, settings: { message?: string; c
 type Accounts = MembershipAnswer["settings"]["customerAccountsVersion"];
 
 /** The proxy's answer for a signed-in buyer, typed against the route's own (app/routes/api.proxy.$.tsx). */
-function membership(change: { storeCredit?: number | null; running?: boolean; accounts?: Accounts; top?: boolean } = {}) {
+function membership(change: { storeCredit?: number | null; running?: boolean; accounts?: Accounts; top?: boolean; noProgress?: boolean } = {}) {
   const top = change.top ?? false;
-  return {
+  const answer = {
     success: true,
     membership: { tier: { id: "t1", name: "Silver", cashbackPercent: 5 }, tierSource: "SPENDING_BASED", configured: true },
     balance: { storeCredit: change.storeCredit === undefined ? 4.2 : change.storeCredit, currency: "GBP" },
@@ -69,6 +71,11 @@ function membership(change: { storeCredit?: number | null; running?: boolean; ac
     theme: {} as MembershipAnswer["theme"],
     running: change.running ?? true,
   } satisfies MembershipAnswer;
+  // MONEY-1: a buyer locked to a tier, or one the tier pass hasn't reached, gets no next tier
+  if (change.noProgress) {
+    Object.assign(answer.tierProgress, { nextTierName: null, nextTierTarget: null, nextTierCashbackPercent: null, amountRemaining: 0 });
+  }
+  return answer;
 }
 
 function responding(make: () => Response) {
@@ -78,10 +85,21 @@ function responding(make: () => Response) {
 }
 const answering = (body: unknown) => responding(() => Response.json(body));
 
-/** Lets the one request, and whatever the widget does with its answer, finish. */
-async function settled(fetch: ReturnType<typeof responding>) {
-  await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-  await new Promise((r) => setTimeout(r, 0));
+/**
+ * Waits for the widget's request chain to end: its last step clears the 8 s
+ * timer it set (WIDGET-9), so a "stays hidden" check runs after whatever the
+ * widget does with the answer, however many ticks that takes. Call it before
+ * mounting, then await what it returns.
+ */
+function chainEnd(): () => Promise<void> {
+  const set = vi.spyOn(globalThis, "setTimeout");
+  const cleared = vi.spyOn(globalThis, "clearTimeout");
+  return () =>
+    vi.waitFor(() => {
+      const index = set.mock.calls.findIndex(([, ms]) => ms === 8000);
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(cleared).toHaveBeenCalledWith(set.mock.results[index].value);
+    });
 }
 
 /** The words a reader meets, one text node after another. */
@@ -96,6 +114,7 @@ const shown = async (root: HTMLElement) => vi.waitFor(() => expect(root.hidden).
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   document.body.replaceChildren();
 });
 
@@ -169,10 +188,23 @@ describe("a signed-in buyer's widget", () => {
     expect(root.querySelector('[role="progressbar"]')).toBeNull();
   });
 
-  it("stays hidden when the proxy has no membership to show", async () => {
-    const fetch = answering({ success: false, message: "Rewards are not set up yet" } satisfies ProxyAnswer);
+  // MONEY-1: the proxy names no next tier for a buyer whose spend can't move them (locked, or not placed yet)
+  it("draws no progress when the proxy names no next tier", async () => {
+    answering(membership({ noProgress: true }));
     const root = signedIn();
-    await settled(fetch);
+    await shown(root);
+
+    expect(text(root)).toContain("Silver");
+    expect(text(root)).not.toContain("more to reach");
+    expect(text(root)).not.toContain("top tier");
+    expect(root.querySelector('[role="progressbar"]')).toBeNull();
+  });
+
+  it("stays hidden when the proxy has no membership to show", async () => {
+    answering({ success: false, message: "Rewards are not set up yet" } satisfies ProxyAnswer);
+    const ended = chainEnd();
+    const root = signedIn();
+    await ended();
 
     expect(root.hidden).toBe(true);
     expect(text(root)).toBe("");
@@ -180,8 +212,9 @@ describe("a signed-in buyer's widget", () => {
 
   it("stays hidden when the proxy answers with an error status, even with a membership in the body", async () => {
     const fetch = responding(() => Response.json(membership(), { status: 502 }));
+    const ended = chainEnd();
     const root = signedIn();
-    await settled(fetch);
+    await ended();
 
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(root.hidden).toBe(true);
@@ -190,8 +223,9 @@ describe("a signed-in buyer's widget", () => {
 
   it("stays hidden when the answer is not JSON", async () => {
     const fetch = responding(() => new Response("<html><body>Bad gateway</body></html>", { status: 200, headers: { "Content-Type": "text/html" } }));
+    const ended = chainEnd();
     const root = signedIn();
-    await settled(fetch);
+    await ended();
 
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(root.hidden).toBe(true);
@@ -201,8 +235,9 @@ describe("a signed-in buyer's widget", () => {
   // Decision 10: a signed-in page whose buyer the proxy could only verify as a guest
   it("stays hidden, with no sign-in invitation, when the proxy verified the signed-in page as a guest", async () => {
     const fetch = answering({ success: false, requiresLogin: true, message: "Sign in to see your rewards", running: true } satisfies ProxyAnswer);
+    const ended = chainEnd();
     const root = signedIn();
-    await settled(fetch);
+    await ended();
 
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(root.hidden).toBe(true);
@@ -237,8 +272,9 @@ describe("a signed-in buyer's widget", () => {
       throw new TypeError("Failed to fetch");
     });
     vi.stubGlobal("fetch", fetch);
+    const ended = chainEnd();
     const root = signedIn();
-    await new Promise((r) => setTimeout(r, 10));
+    await ended();
 
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(root.hidden).toBe(true);
@@ -260,6 +296,66 @@ describe("a signed-in buyer's widget", () => {
     expect(panel.hidden).toBe(true);
     expect(document.activeElement).toBe(button);
   });
+});
+
+/**
+ * WIDGET-2: a theme's own rule on an element beats a colour the element only
+ * inherits. With a hostile theme rule on the page, each text element's colour
+ * is still the widget's token, read through to its value in the look's
+ * custom properties. jsdom applies the later of two matching rules whatever
+ * their specificity, so the theme's rule is loaded first: this proves every
+ * text element takes its colour from a rule of the widget's own, not by
+ * inheritance; widget-bundle.test.ts proves those rules outrank a theme's
+ * element rules in a browser.
+ */
+describe("the widget on a theme that colours its elements", () => {
+  /** An element's computed colour, its var() resolved against the custom properties of the element or its ancestors. */
+  function colourOf(element: Element): string {
+    const value = getComputedStyle(element).color;
+    const name = /^var\((--[a-z-]+)\)$/.exec(value)?.[1];
+    if (!name) return value;
+    for (let node: Element | null = element; node; node = node.parentElement) {
+      const token = getComputedStyle(node).getPropertyValue(name).trim();
+      if (token) return token;
+    }
+    return value;
+  }
+  const styled = (theme: string) => {
+    for (const text of [theme, stylesheet]) {
+      const style = document.createElement("style");
+      style.textContent = text;
+      document.head.append(style);
+    }
+  };
+
+  afterEach(() => {
+    document.head.replaceChildren();
+  });
+
+  for (const [theme, hostile] of [
+    ["p, span, a, button { color: #121212 }", "rgb(18, 18, 18)"],
+    ["p, span, a, button { color: #fff }", "rgb(255, 255, 255)"],
+  ] as const) {
+    for (const look of ["light", "dark"] as const) {
+      it(`keeps the widget's text colours in ${look} under \`${theme}\``, async () => {
+        styled(theme);
+        answering(membership());
+        const root = signedIn(look);
+        await shown(root);
+        (root.querySelector("button") as HTMLButtonElement).click();
+
+        const token = (name: string) => getComputedStyle(root).getPropertyValue(name).trim();
+        expect(token("--rw-text")).toMatch(/^#[0-9A-F]{6}$/i);
+        const lines = [...root.querySelectorAll("p, span, a")].filter((el) => el.childElementCount === 0 && el.textContent);
+        expect(lines.length).toBeGreaterThan(5);
+        for (const line of lines) {
+          const muted = line.matches(".rw-label, .rw-note");
+          expect(colourOf(line), line.textContent ?? "").toBe(token(muted ? "--rw-muted" : "--rw-text"));
+          expect(colourOf(line)).not.toBe(hostile);
+        }
+      });
+    }
+  }
 });
 
 describe("a guest's widget", () => {

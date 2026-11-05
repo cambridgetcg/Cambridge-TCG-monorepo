@@ -48,6 +48,29 @@ function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
 }
+/** The stylesheet's rules, each with its selectors and its declarations (comments taken out). */
+const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({
+  selectors: m[1].split(",").map((s) => s.trim()),
+  declarations: [...m[2].matchAll(/([a-z-]+)\s*:\s*([^;]+)/g)].map((d) => ({ property: d[1], value: d[2].trim() })),
+}));
+/** Every value `property` is given in the rules naming `selector`, in order. */
+const declared = (selector: string, property: string) =>
+  rules.filter((r) => r.selectors.includes(selector)).flatMap((r) => r.declarations.filter((d) => d.property === property).map((d) => d.value));
+
+/** [classes and attributes, elements] of a simple selector such as `.rw-panel p` or `.rw-panel .rw-label`. */
+function specificity(selector: string): [number, number] {
+  const parts = selector.split(/\s+/);
+  return [parts.filter((p) => p.startsWith(".")).length, parts.filter((p) => /^[a-z]+$/.test(p)).length];
+}
+/** Whether `selector` (descendant parts only) picks an element `tag.classes` inside `container`. */
+function picks(selector: string, element: { tag: string; classes: string[]; container: string }): boolean {
+  const parts = selector.split(/\s+/);
+  if (parts.some((p) => !/^(\.[a-z-]+|[a-z]+)$/.test(p))) return false;
+  const last = parts[parts.length - 1];
+  const self = last === element.tag || element.classes.includes(last.slice(1));
+  return self && parts.slice(0, -1).every((p) => p === `.${element.container}` || p === ".rw");
+}
+
 /** The colour tokens one CSS rule sets, by name. */
 function tokens(selector: string): Record<string, string> {
   const escaped = selector.replace(/[.[\]"=]/g, (c) => `\\${c}`);
@@ -163,6 +186,68 @@ describe("the assets", () => {
       expect(contrast(look.muted, look.bg)).toBeGreaterThanOrEqual(4.5);
       // Borders and the progress track's edge, as UI parts
       expect(contrast(look.edge, look.bg)).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  // Ruling 84 (WIDGET-1): on a phone the launcher covered the cart drawer's Check out and caught its taps
+  it("sit under a theme's drawers and dialogs (Dawn's are at 1000)", () => {
+    const [zIndex] = declared(".rw", "z-index");
+    expect(Number(zIndex)).toBeGreaterThan(0);
+    expect(Number(zIndex)).toBeLessThan(1000);
+  });
+
+  // Ruling 84 (WIDGET-7): a fixed panel taller than a landscape phone can't be scrolled to its top
+  it("keep the panel inside the screen, scrolling within itself", () => {
+    // The vh line first, for browsers without dvh
+    expect(declared(".rw-panel", "max-height")).toEqual(["calc(100vh - 92px)", "calc(100dvh - 92px)"]);
+    expect(declared(".rw-panel", "overflow-y")).toEqual(["auto"]);
+  });
+
+  // WIDGET-2: a theme's `p { color }` beats an inherited colour, so every text element sets its own
+  it("give every text element its colour at a specificity a theme's element rules can't beat", () => {
+    const inButton = [...js.matchAll(/button\.appendChild\(el\("(\w+)",\s*(null|"[^"]*"),/g)].map((m) => `${m[1]} ${m[2]}`);
+    const texts = [...js.matchAll(/el\("(p|span|a)",\s*(null|"([^"]*)"),/g)].map((m) => ({
+      tag: m[1],
+      classes: m[3]?.split(" ") ?? [],
+      container: inButton.includes(`${m[1]} ${m[2]}`) ? "rw-button" : "rw-panel",
+    }));
+    expect(texts.length).toBeGreaterThan(5);
+
+    for (const element of texts) {
+      // The rule a browser applies: the highest specificity, the later one on a tie
+      let winner: { value: string; specificity: [number, number] } | null = null;
+      for (const rule of rules) {
+        const value = rule.declarations.filter((d) => d.property === "color").pop()?.value;
+        if (!value) continue;
+        for (const selector of rule.selectors.filter((s) => picks(s, element))) {
+          const s = specificity(selector);
+          if (!winner || s[0] > winner.specificity[0] || (s[0] === winner.specificity[0] && s[1] >= winner.specificity[1])) {
+            winner = { value, specificity: s };
+          }
+        }
+      }
+      const muted = element.classes.some((c) => c === "rw-label" || c === "rw-note");
+      expect(winner?.value, `${element.tag}.${element.classes.join(".")}`).toBe(muted ? "var(--rw-muted)" : "var(--rw-text)");
+      // At least (0,1,1): above any theme rule on the element alone
+      const [classes, tags] = winner!.specificity;
+      expect(classes * 10 + tags, `${element.tag}.${element.classes.join(".")}`).toBeGreaterThanOrEqual(11);
+    }
+  });
+
+  it("pin the panel's and the button's type, so a theme's p and button rules can't distort it", () => {
+    for (const selector of [".rw-panel p", ".rw-button"]) {
+      for (const property of ["font-size", "line-height", "letter-spacing", "text-transform"]) {
+        expect(declared(selector, property), `${selector} ${property}`).toHaveLength(1);
+      }
+    }
+  });
+
+  // WIDGET-5: a ring drawn beside the widget's edge, in its own two colours, shows on any page
+  it("draw a two-tone focus ring at offset 0", () => {
+    for (const selector of [".rw-button:focus-visible", ".rw-panel .rw-cta:focus-visible"]) {
+      expect(declared(selector, "outline")).toEqual(["2px solid var(--rw-text)"]);
+      expect(declared(selector, "outline-offset")).toEqual(["0"]);
+      expect(declared(selector, "box-shadow").join(" ")).toMatch(/^0 0 0 4px var\(--rw-bg\)/);
     }
   });
 
