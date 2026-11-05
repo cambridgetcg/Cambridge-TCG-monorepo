@@ -321,7 +321,8 @@ export const CLOCK_SLACK_MS = 5 * 60 * 1000;
 export const SEND_WINDOW_MS = 15 * 60 * 1000;
 /** How long a history Shopify won't give is asked for again before the merchant is asked. */
 const READ_HISTORY_FOR_MS = 24 * 60 * 60 * 1000;
-const CUSTOMER_MISSING = "The customer no longer exists in Shopify";
+/** Why a credit settled from an unclear send is refused when Shopify no longer has the buyer. */
+export const CUSTOMER_MISSING = "The customer no longer exists in Shopify";
 
 export type Verdict = { outcome: "landed"; credit: CreditRecord } | { outcome: "not_landed" } | { outcome: "unknown"; reason: string };
 

@@ -443,6 +443,31 @@ export const RewardsCustomerNames = `#graphql
 `;
 
 /**
+ * The Customers page's search (spec 4.4): the customers Shopify's own search
+ * finds for what the merchant typed (names, email and the other fields
+ * Shopify searches), ids only, 250 at most (the most one page takes). The
+ * page keeps the ones RewardsPro knows and shows their names from
+ * RewardsCustomerNames, so no email ever reaches the app.
+ * Scopes: read_customers (the validator's answer). A search on names or
+ * email may also need protected customer data access to those fields, which
+ * RewardsCustomerNames needs already.
+ * Cost: 253 = customers (connection 2, pageInfo 1, 250 × customer 1); the
+ * ids cost nothing.
+ */
+export const RewardsCustomerSearch = `#graphql
+  query RewardsCustomerSearch($query: String!) {
+    customers(first: 250, query: $query) {
+      pageInfo {
+        hasNextPage
+      }
+      nodes {
+        id
+      }
+    }
+  }
+`;
+
+/**
  * Which customer accounts the shop uses, and whether its sign-in links show
  * on the storefront and at checkout: store credit can be spent only by a
  * buyer signed in to new customer accounts (or using Shop Pay). Carried from

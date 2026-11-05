@@ -1,5 +1,5 @@
 import { askShopify } from "./ask.server";
-import { RewardsCustomerNames, type GraphqlClient } from "./graphql";
+import { RewardsCustomerNames, RewardsCustomerSearch, type GraphqlClient } from "./graphql";
 
 /**
  * Buyers' names for the admin pages. RewardsPro stores no name (spec 6.2):
@@ -76,4 +76,32 @@ export async function customerNames(admin: GraphqlClient, externalIds: string[])
   }
 
   return new Map(unique.map((id) => [id, names.get(id) ?? nameFallback(id)]));
+}
+
+/** The longest search the Customers page sends, in characters. */
+export const SEARCH_MAX = 200;
+
+/**
+ * The numeric ids of the customers Shopify's search finds for `text`
+ * (RewardsCustomerSearch, within 2.5 s), and whether it found more than one
+ * search reads (`more`). Null when Shopify can't say: the page then says so
+ * rather than showing everyone. What was searched for is never logged.
+ */
+export async function searchCustomers(admin: GraphqlClient, text: string): Promise<{ ids: string[]; more: boolean } | null> {
+  try {
+    const body = (await askShopify(admin, RewardsCustomerSearch, { query: text }, TIMEOUT_MS)) as {
+      data?: { customers?: { nodes?: Array<{ id?: unknown } | null> | null; pageInfo?: { hasNextPage?: unknown } | null } | null } | null;
+    } | null;
+    const customers = body?.data?.customers;
+    if (!Array.isArray(customers?.nodes)) throw new Error("RewardsCustomerSearch answered without a nodes list");
+    const ids = customers.nodes.flatMap((node) => {
+      const match = typeof node?.id === "string" ? /^gid:\/\/shopify\/Customer\/(\d+)$/.exec(node.id) : null;
+      return match ? [match[1]] : [];
+    });
+    return { ids, more: customers.pageInfo?.hasNextPage === true };
+  } catch (error) {
+    if (error instanceof Response) throw error;
+    console.warn("[names] Could not search buyers in Shopify:", error instanceof Error ? error.message : String(error));
+    return null;
+  }
 }

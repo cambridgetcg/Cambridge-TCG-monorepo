@@ -69,19 +69,30 @@ export function windowStart(window: TierWindow, now: Date): Date | null {
  * and this holds even if a row says otherwise (Ruling 20).
  */
 export async function tierSpend(customerId: string, window: TierWindow, now: Date, db: Db = prisma): Promise<Decimal> {
-  const start = windowStart(window, now);
   const { _sum } = await db.order.aggregate({
     _sum: { shopProductAmount: true, shopRefundedProductAmount: true },
-    where: {
-      customerId,
-      test: false,
-      cancelledAt: null,
-      orderedAt: start ? { gte: start } : undefined,
-      shopRefundedProductAmount: { lte: db.order.fields.shopProductAmount },
-    },
+    where: { customerId, ...spendCounted(window, now, db) },
   });
-  const spend = fromDb(_sum.shopProductAmount ?? 0).minus(fromDb(_sum.shopRefundedProductAmount ?? 0));
-  return Money.max(0, spend);
+  return spendOf(_sum);
+}
+
+/**
+ * The orders tier spend counts at `now` over `window` (rule 10, Decision 7),
+ * for tierSpend and the Customers page alike, so both say one figure.
+ */
+export function spendCounted(window: TierWindow, now: Date, db: Db = prisma): Prisma.OrderWhereInput {
+  const start = windowStart(window, now);
+  return {
+    test: false,
+    cancelledAt: null,
+    orderedAt: start ? { gte: start } : undefined,
+    shopRefundedProductAmount: { lte: db.order.fields.shopProductAmount },
+  };
+}
+
+/** Spend from the sums of spendCounted's orders, never below 0. */
+export function spendOf(sum: { shopProductAmount: Prisma.Decimal | null; shopRefundedProductAmount: Prisma.Decimal | null }): Decimal {
+  return Money.max(0, fromDb(sum.shopProductAmount ?? 0).minus(fromDb(sum.shopRefundedProductAmount ?? 0)));
 }
 
 /** Lowest first: by minimum spend, then position, then id (as recordOrder picks the lowest). */

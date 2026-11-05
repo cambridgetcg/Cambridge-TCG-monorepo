@@ -14,13 +14,18 @@
  *   order (by created date) that earned cashback.
  * Postgres does the time-zone arithmetic (`AT TIME ZONE` with the shop's
  * IANA zone), so a month or day starts at the shop's local midnight.
+ *
+ * Customers (spec 4.4): each buyer's spend is the tier engine's own
+ * (spendCounted, the figure that decides the tier) and their cashback given
+ * is the same ledger net as Home's, per buyer.
  */
-import { Prisma } from "@prisma/client";
+import { Prisma, type LedgerEntryKind, type LookReason, type NoCashbackReason, type PayoutDirection, type PayoutState } from "@prisma/client";
 import type { Decimal } from "decimal.js";
 import prisma, { databaseSchema } from "~/db.server";
 import { daysEnding, reviewDue, rewardStatus } from "./home-rules";
 import type { ConnectionContext } from "./merchant.server";
 import { Money, fromDb } from "./money";
+import { type Progress, type TierRow, progress, spendCounted, spendOf, tierSpend, tierTable } from "./tiers.server";
 
 export type RecentReward = {
   orderId: string;
@@ -203,6 +208,255 @@ export async function homeState(conn: ConnectionContext, now: Date, cashbackEntr
       dismissedAt: merchant.reviewPromptDismissedAt,
       shownAt: merchant.reviewPromptShownAt,
       now,
+    }),
+  };
+}
+
+/** Buyers a Customers page shows. */
+export const CUSTOMER_PAGE_SIZE = 50;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type CustomerRow = {
+  id: string;
+  /** The buyer's Shopify customer id, for their live name */
+  externalCustomerId: string;
+  tierId: string | null;
+  tierName: string | null;
+  /** Their orders RewardsPro recorded, test orders aside (they count nowhere, Decision 7) */
+  orders: number;
+  /** Tier spend over the merchant's window, in the shop's currency: tierSpend's figure */
+  spend: Decimal;
+  /** Every ledger entry's shop-currency amount: cashback net of take-backs and adjustments, as on Home */
+  cashbackGiven: Decimal;
+};
+
+/**
+ * One page of the Customers list (spec 4.4): the store's buyers, newest
+ * first (by when RewardsPro first saw them, then id), CUSTOMER_PAGE_SIZE to a
+ * page counted from 1. Erased buyers (customers/redact) are not listed: there
+ * is no one left to show. `tierId` keeps the buyers who hold that tier (one
+ * that is not the merchant's keeps no one); `externalIds` keeps the buyers
+ * with those Shopify ids (a search's matches; an empty list keeps no one).
+ * The page's buyers are read first and their numbers for them alone, so a
+ * page costs the same however large the store. `now` is for the spend window.
+ */
+export async function customerRows(
+  conn: ConnectionContext,
+  o: { tierId?: string; externalIds?: string[]; page: number; now?: Date },
+): Promise<{ rows: CustomerRow[]; hasNext: boolean }> {
+  const none = { rows: [], hasNext: false };
+  if (o.tierId !== undefined && !UUID.test(o.tierId)) return none;
+  if (o.externalIds !== undefined && o.externalIds.length === 0) return none;
+  const page = Number.isSafeInteger(o.page) && o.page >= 1 ? o.page : 1;
+
+  const buyers = await prisma.customer.findMany({
+    where: {
+      merchantId: conn.merchantId,
+      connectionId: conn.connectionId,
+      externalCustomerId: o.externalIds ? { in: o.externalIds } : { not: null },
+      ...(o.tierId ? { tierId: o.tierId } : {}),
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * CUSTOMER_PAGE_SIZE,
+    take: CUSTOMER_PAGE_SIZE + 1,
+    select: { id: true, externalCustomerId: true, tierId: true, tier: { select: { name: true } } },
+  });
+  const shown = buyers.slice(0, CUSTOMER_PAGE_SIZE);
+  const ids = shown.map((buyer) => buyer.id);
+  if (ids.length === 0) return none;
+
+  const [orders, spends, given] = await Promise.all([
+    prisma.order.groupBy({ by: ["customerId"], where: { merchantId: conn.merchantId, customerId: { in: ids }, test: false }, _count: { _all: true } }),
+    prisma.order.groupBy({
+      by: ["customerId"],
+      where: { merchantId: conn.merchantId, customerId: { in: ids }, ...spendCounted(conn.tierWindow, o.now ?? new Date()) },
+      _sum: { shopProductAmount: true, shopRefundedProductAmount: true },
+    }),
+    prisma.ledgerEntry.groupBy({ by: ["customerId"], where: { merchantId: conn.merchantId, customerId: { in: ids } }, _sum: { shopAmount: true } }),
+  ]);
+  const ordersOf = new Map(orders.map((row) => [row.customerId, row._count._all]));
+  const spendOfBuyer = new Map(spends.map((row) => [row.customerId, spendOf(row._sum)]));
+  const givenOf = new Map(given.map((row) => [row.customerId, fromDb(row._sum.shopAmount ?? 0)]));
+
+  return {
+    rows: shown.map((buyer) => ({
+      id: buyer.id,
+      externalCustomerId: buyer.externalCustomerId!,
+      tierId: buyer.tierId,
+      tierName: buyer.tier?.name ?? null,
+      orders: ordersOf.get(buyer.id) ?? 0,
+      spend: spendOfBuyer.get(buyer.id) ?? new Money(0),
+      cashbackGiven: givenOf.get(buyer.id) ?? new Money(0),
+    })),
+    hasNext: buyers.length > CUSTOMER_PAGE_SIZE,
+  };
+}
+
+/** How many ledger entries and orders the buyer panel lists, newest first. */
+export const PANEL_LIMIT = 50;
+
+/** One ledger entry of a buyer, with its payout (a cashback or take-back has one; an adjustment none). */
+export type HistoryEntry = {
+  kind: LedgerEntryKind;
+  /** Signed, in `currency` (the buyer's) */
+  amount: Decimal;
+  currency: string;
+  /** The tier and rate it earned at */
+  tierName: string | null;
+  ratePercent: Decimal | null;
+  /** `cashback:…`, `reversal:…`, `shortfall:<payout id>`, `close:<payout id>` */
+  idempotencyKey: string;
+  createdAt: Date;
+  orderId: string | null;
+  orderName: string | null;
+  payout: {
+    direction: PayoutDirection;
+    state: PayoutState;
+    lookReason: LookReason | null;
+    /** Positive, what it is to move */
+    amount: Decimal;
+    /** A take-back's actual take, when Shopify said (null: unknown, A11-F4) */
+    debitedAmount: Decimal | null;
+    unconfirmedAt: Date | null;
+    lastError: string | null;
+  } | null;
+};
+
+export type BuyerOrder = {
+  id: string;
+  name: string;
+  source: "live" | "import";
+  test: boolean;
+  cancelledAt: Date | null;
+  noCashbackReason: NoCashbackReason | null;
+  currency: string;
+  totalAmount: Decimal;
+  /** The order's processedAt (Ruling 27) */
+  paidAt: Date;
+  /** Its cashback entry, in the buyer's currency */
+  cashback: { amount: Decimal; currency: string } | null;
+};
+
+export interface BuyerPanel {
+  id: string;
+  externalCustomerId: string;
+  tierId: string | null;
+  tierSince: Date | null;
+  lockedTierId: string | null;
+  /** The merchant's tiers, lowest first */
+  tiers: TierRow[];
+  /** Tier spend over the merchant's window, the figure that decides the tier */
+  spend: Decimal;
+  progress: Progress;
+  history: HistoryEntry[];
+  /** The buyer has older entries than `history` holds */
+  moreHistory: boolean;
+  orders: BuyerOrder[];
+  moreOrders: boolean;
+}
+
+/**
+ * The buyer panel's facts (spec 4.4) for one of the store's buyers: tier and
+ * since when, progress from the same spend that decides the tier, the newest
+ * PANEL_LIMIT ledger entries (each with the tier and rate it earned at) and
+ * orders. Null when the buyer is not the store's, was erased, or `customerId`
+ * is no id at all.
+ */
+export async function buyerPanel(conn: ConnectionContext, customerId: string, now: Date): Promise<BuyerPanel | null> {
+  if (!UUID.test(customerId)) return null;
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, merchantId: conn.merchantId, connectionId: conn.connectionId, externalCustomerId: { not: null } },
+    select: { id: true, externalCustomerId: true, tierId: true, tierSince: true, lockedTierId: true },
+  });
+  if (!customer) return null;
+
+  const [tiers, spend, entries, orders] = await Promise.all([
+    tierTable(conn.merchantId),
+    tierSpend(customer.id, conn.tierWindow, now),
+    prisma.ledgerEntry.findMany({
+      where: { merchantId: conn.merchantId, customerId: customer.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: PANEL_LIMIT + 1,
+      select: {
+        kind: true,
+        amount: true,
+        currency: true,
+        tierName: true,
+        ratePercent: true,
+        idempotencyKey: true,
+        createdAt: true,
+        order: { select: { id: true, name: true } },
+        payout: { select: { direction: true, state: true, lookReason: true, amount: true, debitedAmount: true, unconfirmedAt: true, lastError: true } },
+      },
+    }),
+    prisma.order.findMany({
+      where: { merchantId: conn.merchantId, customerId: customer.id },
+      orderBy: [{ orderedAt: "desc" }, { id: "desc" }],
+      take: PANEL_LIMIT + 1,
+      select: {
+        id: true,
+        name: true,
+        source: true,
+        test: true,
+        cancelledAt: true,
+        noCashbackReason: true,
+        currency: true,
+        totalAmount: true,
+        paidAt: true,
+        ledgerEntries: { where: { kind: "cashback" }, select: { amount: true, currency: true }, take: 1 },
+      },
+    }),
+  ]);
+  const tierRows: TierRow[] = tiers.map(({ id, name, minSpend, cashbackPercent, position }) => ({ id, name, minSpend, cashbackPercent, position }));
+
+  return {
+    id: customer.id,
+    externalCustomerId: customer.externalCustomerId!,
+    tierId: customer.tierId,
+    tierSince: customer.tierSince,
+    lockedTierId: customer.lockedTierId,
+    tiers: tierRows,
+    spend,
+    progress: progress(spend, customer.tierId ?? "", tierRows),
+    moreHistory: entries.length > PANEL_LIMIT,
+    moreOrders: orders.length > PANEL_LIMIT,
+    history: entries.slice(0, PANEL_LIMIT).map((entry) => ({
+      kind: entry.kind,
+      amount: fromDb(entry.amount),
+      currency: entry.currency,
+      tierName: entry.tierName,
+      ratePercent: entry.ratePercent === null ? null : fromDb(entry.ratePercent),
+      idempotencyKey: entry.idempotencyKey,
+      createdAt: entry.createdAt,
+      orderId: entry.order?.id ?? null,
+      orderName: entry.order?.name ?? null,
+      payout: entry.payout
+        ? {
+            direction: entry.payout.direction,
+            state: entry.payout.state,
+            lookReason: entry.payout.lookReason,
+            amount: fromDb(entry.payout.amount),
+            debitedAmount: entry.payout.debitedAmount === null ? null : fromDb(entry.payout.debitedAmount),
+            unconfirmedAt: entry.payout.unconfirmedAt,
+            lastError: entry.payout.lastError,
+          }
+        : null,
+    })),
+    orders: orders.slice(0, PANEL_LIMIT).map((order) => {
+      const [cashback] = order.ledgerEntries;
+      return {
+        id: order.id,
+        name: order.name,
+        source: order.source,
+        test: order.test,
+        cancelledAt: order.cancelledAt,
+        noCashbackReason: order.noCashbackReason,
+        currency: order.currency,
+        totalAmount: fromDb(order.totalAmount),
+        paidAt: order.paidAt,
+        cashback: cashback ? { amount: fromDb(cashback.amount), currency: cashback.currency } : null,
+      };
     }),
   };
 }
