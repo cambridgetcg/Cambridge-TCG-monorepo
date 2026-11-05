@@ -504,6 +504,36 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
       ]);
     });
 
+    it("leaves an order from before the import's horizon alone when no webhook recorded it (M2c-F2)", async () => {
+      const conn = await runningShop();
+      // A webhook recorded this old order (paid after install); the sweep still looks after it
+      const old = { ...orderFacts(5003), orderedAt: new Date(Date.now() - 400 * DAY) };
+      await expect(recordOrder(conn, old, "live")).resolves.toMatchObject({ status: "recorded" });
+      const cancelledAt = new Date(Date.now() - 20 * MINUTE);
+      mockRecentPaidOrders(SHOP, [
+        // Created before install − 365 days, updated since (a fulfilment, a retag)
+        recent(5001, { createdAgo: 400 * DAY }),
+        // Before install but inside the horizon
+        recent(5002, { createdAgo: 300 * DAY }),
+        recent(5003, { createdAgo: 400 * DAY, cancelledAt }),
+      ]);
+      const facts = mockOrderFacts(SHOP, { orders: [plainOrder(5002, { createdAgo: 300 * DAY })] });
+      const calls = mockStoreCredit(SHOP, { [BUYER]: "0" });
+
+      await expect(run()).resolves.toMatchObject({ status: 200, body: { swept: 1, sent: 0, cancelledSwept: 1, problems: 0 } });
+
+      expect(facts.reads).toEqual(["gid://shopify/Order/5002"]);
+      expect(calls).toEqual([]);
+      const rows = await prisma.order.findMany({
+        select: { externalOrderId: true, noCashbackReason: true, cancelledAt: true },
+        orderBy: { externalOrderId: "asc" },
+      });
+      expect(rows).toEqual([
+        { externalOrderId: "gid://shopify/Order/5002", noCashbackReason: "before_install", cancelledAt: null },
+        { externalOrderId: "gid://shopify/Order/5003", noCashbackReason: "before_install", cancelledAt },
+      ]);
+    });
+
     it("logs an order it cannot read by its id, and records the next", async () => {
       await runningShop();
       mockRecentPaidOrders(SHOP, [recent(5001), recent(5002)]);

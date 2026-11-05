@@ -199,7 +199,7 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
   const connections = await prisma.connection.findMany({
     where: { status: "active" },
     orderBy: [{ lastSweptAt: { sort: "asc", nulls: "first" } }, { id: "asc" }],
-    select: { id: true, externalAccountId: true, installedAt: true, importStartedAt: true },
+    select: { id: true, externalAccountId: true, installedAt: true, importStartedAt: true, importHorizonDays: true },
   });
   for (const [index, connection] of connections.entries()) {
     if (outOfTime()) {
@@ -226,12 +226,14 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
    * after the others); false when the deadline cut it short.
    */
   async function sweepStore(
-    connection: { id: string; externalAccountId: string; installedAt: Date; importStartedAt: Date | null },
+    connection: { id: string; externalAccountId: string; installedAt: Date; importStartedAt: Date | null; importHorizonDays: number },
     store: Store,
     deadline: number,
   ): Promise<boolean> {
     const shop = connection.externalAccountId;
     const since = new Date(Math.max(now.getTime() - SWEEP_DAYS * DAY_MS, connection.installedAt.getTime()));
+    // The import reads no order created before this; nor does the sweep, unless a webhook recorded it
+    const horizon = connection.installedAt.getTime() - connection.importHorizonDays * DAY_MS;
     let candidates: UpdatedOrder[];
     let recorded: Map<string, RecordedOrder>;
     try {
@@ -249,6 +251,8 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
     let conn: ConnectionContext | null = null;
     for (const order of candidates) {
       const row = recorded.get(order.orderGid);
+      // An order from before the import's horizon, listed because it changed since (a fulfilment, a retag)
+      if (!row && order.orderedAt.getTime() < horizon) continue;
       // Nothing to do for an order recorded with every refund and its cancellation
       if (row && !missingRefunds(order, row, connection.importStartedAt) && !(order.cancelledAt && !row.cancelledAt)) continue;
       if (outOfTime()) return false;
