@@ -4,6 +4,7 @@ import { useLoaderData, useNavigate } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { listBuyers, filterTiers, readFilters } from "~/admin/customer-list.server";
+import { saveResponseAsFile } from "~/admin/download";
 import { formatMoney } from "~/admin/format";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
@@ -73,15 +74,7 @@ export default function Customers() {
       if (d.tierId) params.set("tier", d.tierId);
       const response = await fetch(`/app/customers/export?${params}`);
       if (!response.ok) throw new Error(String(response.status));
-      const filename = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "")?.[1] ?? "customers.csv";
-      const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      await saveResponseAsFile(response, "customers.csv");
     } catch {
       setExportError(DOWNLOAD_FAILED);
     } finally {

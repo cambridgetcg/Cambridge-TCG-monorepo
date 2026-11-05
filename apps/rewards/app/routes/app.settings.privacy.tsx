@@ -4,6 +4,7 @@ import { useLoaderData, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { formatDay } from "~/admin/customer-history.server";
+import { saveResponseAsFile } from "~/admin/download";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { REPORT_DUE_DAYS, REPORT_RETENTION_DAYS, listPrivacyRequests, reportExpired } from "~/lib/erasure.server";
 
@@ -63,15 +64,7 @@ export default function PrivacyRequests() {
         return;
       }
       if (!response.ok) throw new Error(String(response.status));
-      const filename = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "")?.[1] ?? "customer-data-request.json";
-      const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      await saveResponseAsFile(response, "customer-data-request.json");
     } catch {
       setError({ id, text: DOWNLOAD_FAILED });
     } finally {
