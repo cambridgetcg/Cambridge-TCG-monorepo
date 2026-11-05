@@ -133,18 +133,32 @@ describe("liveBalance", () => {
     }
   });
 
-  it("drops stale answers as new ones are kept", async () => {
+  // A buyer's answer is kept for 30 seconds, and only that long, whoever
+  // else is asked for in between
+  it("keeps an answer for under 30 seconds, then asks Shopify again", async () => {
     vi.useFakeTimers();
     try {
-      const { admin: client } = admin({ accounts: { [SHOPPER]: [gbp("5.00")], "gid://shopify/Customer/2": [gbp("9.00")] } });
-      await liveBalance("pruned.myshopify.com", "1", "GBP", client);
-      vi.advanceTimersByTime(30 * 1000);
-      const deleted = vi.spyOn(Map.prototype, "delete");
-      await liveBalance("pruned.myshopify.com", "2", "GBP", client);
-      expect(deleted).toHaveBeenCalledWith("pruned.myshopify.com:1:GBP");
+      const { admin: client, graphql } = admin({ accounts: { [SHOPPER]: [gbp("5.00")], "gid://shopify/Customer/2": [gbp("9.00")] } });
+      await liveBalance("kept.myshopify.com", "1", "GBP", client);
+      vi.advanceTimersByTime(30 * 1000 - 1);
+      await expect(shown(liveBalance("kept.myshopify.com", "1", "GBP", client))).resolves.toBe("5");
+      expect(graphql).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(1);
+      await liveBalance("kept.myshopify.com", "2", "GBP", client);
+      await expect(shown(liveBalance("kept.myshopify.com", "1", "GBP", client))).resolves.toBe("5");
+      expect(graphql).toHaveBeenCalledTimes(3);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("returns null for a currency that isn't one, without asking Shopify or caching", async () => {
+    const { admin: client, graphql } = admin({ accounts: { [SHOPPER]: [gbp("5.00")] } });
+    await expect(liveBalance("lowercase.myshopify.com", "1", "gbp", client)).resolves.toBeNull();
+    await expect(liveBalance("lowercase.myshopify.com", "1", "ZZZ", client)).resolves.toBeNull();
+    await expect(liveBalance("lowercase.myshopify.com", "1", "gbp", client)).resolves.toBeNull();
+    expect(graphql).not.toHaveBeenCalled();
   });
 
   it("returns null without an Admin API client (no offline session)", async () => {

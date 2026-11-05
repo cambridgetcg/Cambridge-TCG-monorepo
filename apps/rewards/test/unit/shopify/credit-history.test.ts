@@ -57,6 +57,28 @@ describe("creditHistory (the buyer's credits in Shopify, for the hourly check)",
     expect(moreAccounts).toMatchObject({ status: "found", complete: false });
   });
 
+  // "Found, complete, no credits" lets the hourly check send a credit again:
+  // it must come from Shopify's own answer, never from a field that wasn't there
+  it("is complete with no credits only when Shopify says so", async () => {
+    await expect(read(answer(customer([account([])])))).resolves.toEqual({ status: "found", credits: [], complete: true });
+    await expect(read(answer(customer([])))).resolves.toEqual({ status: "found", credits: [], complete: true });
+
+    // No pageInfo, for the accounts or for an account's credits: there may be more
+    const noAccountsPageInfo = { data: { customer: { storeCreditAccounts: { nodes: [account([])] } } } };
+    await expect(read(answer(noAccountsPageInfo))).resolves.toMatchObject({ status: "found", complete: false });
+    const noCreditsPageInfo = customer([{ transactions: { nodes: [node("2026-11-04T08:00:00Z")] } }]);
+    await expect(read(answer(noCreditsPageInfo))).resolves.toMatchObject({ status: "found", complete: false });
+    const nullPageInfo = customer([{ transactions: { pageInfo: null, nodes: [] } }]);
+    await expect(read(answer(nullPageInfo))).resolves.toMatchObject({ status: "found", complete: false });
+
+    // No list of credits, or of accounts: a failed read
+    for (const broken of [{}, { transactions: null }, { transactions: { pageInfo: { hasNextPage: false } } }, { transactions: { pageInfo: { hasNextPage: false }, nodes: {} } }]) {
+      await expect(read(answer(customer([broken])))).resolves.toMatchObject({ status: "failed" });
+    }
+    await expect(read(answer({ data: { customer: { storeCreditAccounts: { pageInfo: { hasNextPage: false } } } } }))).resolves.toMatchObject({ status: "failed" });
+    await expect(read(answer({ data: { customer: {} } }))).resolves.toMatchObject({ status: "failed" });
+  });
+
   it("tells a deleted customer from a failed read", async () => {
     await expect(read(answer({ data: { customer: null } }))).resolves.toEqual({ status: "customer_missing" });
     await expect(read(answer({ errors: [{ message: "Throttled" }] }))).resolves.toEqual({ status: "failed", error: "Throttled" });

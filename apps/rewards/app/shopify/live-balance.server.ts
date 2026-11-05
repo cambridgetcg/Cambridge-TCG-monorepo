@@ -1,5 +1,5 @@
 import type { Decimal } from "decimal.js";
-import { Money } from "~/lib/money";
+import { Money, currencyDecimals } from "~/lib/money";
 import type { GraphqlClient } from "./graphql";
 import { readBalance } from "./store-credit-rail.server";
 
@@ -35,8 +35,8 @@ function remember(key: string, balance: Decimal) {
  * The buyer's balance in `currency` (0 with no credit at all), or null when
  * it can't be told: no Admin API client (no offline session), Shopify can't
  * be reached within 2.5 s or is being given way to, the buyer's only credit
- * is in another currency or may be on a later page, or an answer this code
- * can't read. Only answers Shopify gave are cached.
+ * is in another currency or may be on a later page, a currency that isn't
+ * one, or an answer this code can't read. Only answers Shopify gave are cached.
  */
 export async function liveBalance(
   shop: string,
@@ -44,6 +44,13 @@ export async function liveBalance(
   currency: string,
   admin: GraphqlClient | undefined,
 ): Promise<Decimal | null> {
+  // Not a currency code ("gbp"): no account could match it, so it is not 0
+  try {
+    currencyDecimals(currency);
+  } catch {
+    return null;
+  }
+
   const key = `${shop}:${externalCustomerId}:${currency}`;
   const cached = cache.get(key);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) return cached.balance;

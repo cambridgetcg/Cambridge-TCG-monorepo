@@ -112,6 +112,17 @@ describe("store credit: did Shopify apply a credit or debit that failed?", () =>
     expect(graphql).not.toHaveBeenCalled();
   });
 
+  // Rounding 2.305 to 2.31 would send an amount the ledger doesn't hold
+  it("did not: the amount is not in the currency's minor unit, so nothing was sent", async () => {
+    const { graphql, rail } = railAnswering({});
+    for (const [amount, currency] of [["2.305", "GBP"], ["0.011", "EUR"], ["62.5", "JPY"], ["0.1234", "KWD"]] as const) {
+      const off = { ...GBP5, amount: new Decimal(amount), currency };
+      await expect(rail.credit({ ...off, notify: false })).resolves.toMatchObject({ outcome: "refused", permanent: true, code: null });
+      await expect(rail.debit(off)).resolves.toMatchObject({ outcome: "refused", permanent: true, code: null });
+    }
+    expect(graphql).not.toHaveBeenCalled();
+  });
+
   it("did not: userErrors with a code Shopify documents for the mutation", async () => {
     const { rail } = railAnswering({
       data: { storeCreditAccountDebit: { storeCreditAccountTransaction: null, userErrors: [{ field: null, message: "Insufficient funds", code: "INSUFFICIENT_FUNDS" }] } },

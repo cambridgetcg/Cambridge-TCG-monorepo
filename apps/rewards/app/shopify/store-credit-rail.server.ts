@@ -258,19 +258,22 @@ function creditOf(node: Record<string, unknown>): CreditRecord | null {
 }
 
 /**
- * The credits in a RewardsCreditHistory customer. complete=false when there
- * are more accounts than one page, or when an account has another page and
- * its oldest credit read is not older than `since`. Null when any part of
- * the answer can't be read.
+ * The credits in a RewardsCreditHistory customer. complete only when Shopify
+ * said there is no further page of accounts, and for each account either no
+ * further page of credits or one holding only credits older than `since`; a
+ * missing pageInfo is not such an answer. Null when any part of the answer
+ * can't be read, including accounts or transactions without a list of nodes:
+ * "no credits" must come from Shopify, never from a field that wasn't there.
  */
 function historyOf(customer: Record<string, unknown> | null, since: Date): { credits: CreditRecord[]; complete: boolean } | null {
   const accounts = asRecord(customer?.storeCreditAccounts);
   if (!Array.isArray(accounts?.nodes)) return null;
-  let complete = asRecord(accounts.pageInfo)?.hasNextPage !== true;
+  let complete = asRecord(accounts.pageInfo)?.hasNextPage === false;
   const credits: CreditRecord[] = [];
   for (const account of accounts.nodes) {
     const transactions = asRecord(asRecord(account)?.transactions);
-    const nodes: unknown[] = Array.isArray(transactions?.nodes) ? transactions.nodes : [];
+    if (!Array.isArray(transactions?.nodes)) return null;
+    const nodes: unknown[] = transactions.nodes;
     for (const node of nodes) {
       const record = asRecord(node);
       if (record?.__typename !== "StoreCreditAccountCreditTransaction") continue;
@@ -278,10 +281,12 @@ function historyOf(customer: Record<string, unknown> | null, since: Date): { cre
       if (!credit) return null;
       credits.push(credit);
     }
+    const hasNextPage = asRecord(transactions.pageInfo)?.hasNextPage;
+    if (hasNextPage === false) continue;
     // Newest first: another page holds only older credits
     const oldest = asRecord(nodes.at(-1))?.createdAt;
     const oldestAt = typeof oldest === "string" ? new Date(oldest) : null;
-    if (asRecord(transactions?.pageInfo)?.hasNextPage === true && !(oldestAt && oldestAt < since)) complete = false;
+    if (!(hasNextPage === true && oldestAt && oldestAt < since)) complete = false;
   }
   return { credits, complete };
 }
@@ -311,6 +316,9 @@ export function createStoreCreditRail(admin: GraphqlClient): PayoutRail {
       // answer keeps its own message (an unknown currency throws here)
       const value = roundMoney(i.amount, i.currency);
       if (!(value.isFinite() && value.gt(0))) return refused(true, null, `Invalid store credit amount (${i.amount.toString()} ${i.currency})`);
+      // Off the minor unit (2.305 GBP): rounding it would send an amount the
+      // ledger doesn't hold, and the history check would compare different ones
+      if (!value.eq(i.amount)) return refused(true, null, `Store credit amount not in ${i.currency}'s minor unit (${i.amount.toString()})`);
       const amount = toShopifyAmount(i.amount, i.currency);
       const money = { amount, currencyCode: i.currency };
       const id = `gid://shopify/Customer/${i.externalCustomerId}`;
