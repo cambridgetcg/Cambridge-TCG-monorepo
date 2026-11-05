@@ -1,9 +1,9 @@
 import type { PayoutState } from "@prisma/client";
-import type { MerchantAnswer } from "~/lib/payouts.server";
+import { CUSTOMER_ERASED, CUSTOMER_MISSING, type MerchantAnswer } from "~/lib/payouts.server";
 import type { OrderEntry, OrderPanel, OrderRefund } from "~/lib/stats.server";
 import { type HistoryLine, formatDay, historyLine, payoutDetail } from "./customer-history.server";
 import { formatMoney } from "./format";
-import { AMOUNT_UNKNOWN, orderNotes } from "./words";
+import { AMOUNT_UNKNOWN, STATUS_LABEL, orderNotes } from "./words";
 
 /**
  * The order panel's words (spec 4.6), as plain strings for the page. The
@@ -43,8 +43,8 @@ export type EntryLine = HistoryLine & {
   /**
    * Where its payout stands, with the day it went out, in the shop's time
    * zone; "Not confirmed" while it may have arrived (sending, unconfirmed,
-   * or RewardsPro couldn't confirm it), never "Not sent". Null for an
-   * adjustment.
+   * RewardsPro couldn't confirm it, or Shopify refused it after a send that
+   * wasn't clear), never "Not sent". Null for an adjustment.
    */
   payout: string | null;
   look: Look | null;
@@ -155,6 +155,22 @@ function lookOf(entry: OrderEntry, payout: Payout): Look | null {
 }
 
 /**
+ * Whether a payout that needs a look may have reached the buyer: RewardsPro
+ * couldn't confirm it, or Shopify refused a credit after a send that wasn't
+ * clear (settled from unconfirmed), unless the buyer is gone (M3a-F5).
+ */
+function mayHaveArrived(payout: Payout): boolean {
+  if (payout.lookReason === "could_not_confirm") return true;
+  return (
+    payout.direction === "credit" &&
+    payout.lookReason === "refused" &&
+    payout.unconfirmedAt !== null &&
+    payout.lastError !== CUSTOMER_MISSING &&
+    payout.lastError !== CUSTOMER_ERASED
+  );
+}
+
+/**
  * Where a payout stands. One that may have arrived never reads "Not sent":
  * beside "It didn't arrive, send it" that would push the merchant to the
  * answer that pays the buyer twice if the first send landed. A sent
@@ -162,7 +178,7 @@ function lookOf(entry: OrderEntry, payout: Payout): Look | null {
  * taken back.
  */
 function payoutCell(payout: Payout, timezone: string): string {
-  if (payout.state === "needs_look" && payout.lookReason === "could_not_confirm") return "Not confirmed";
+  if (payout.state === "needs_look" && mayHaveArrived(payout)) return "Not confirmed";
   if (payout.state !== "sent") return STATE_WORDS[payout.direction][payout.state];
   const words = payout.direction === "debit" && payout.debitedAmount?.isZero() ? "Settled" : STATE_WORDS[payout.direction].sent;
   return payout.sentAt ? `${words} ${formatDay(payout.sentAt, timezone)}` : words;
@@ -197,22 +213,22 @@ function refundNote(refund: OrderRefund): string | null {
  * What a refund's take-back took off the buyer's store credit, as the
  * entries say it: what Shopify took when it was sent (AMOUNT_UNKNOWN when
  * Shopify never told, A11-F4), the ledger's amount when it reduced a credit
- * not yet sent, nothing when it was closed, and where it stands while it is
- * on its way or needs a look.
+ * not yet sent, Not taken back when it was closed (as its entry says,
+ * M3a-F8), and where it stands while it is on its way or needs a look.
  */
 function takenBackCell(takeBack: NonNullable<OrderRefund["takeBack"]>): string {
   switch (takeBack.state) {
     case "sent":
       return takeBack.debitedAmount === null ? AMOUNT_UNKNOWN : formatMoney(takeBack.debitedAmount, takeBack.currency);
     case "closed":
-      return "None (closed)";
+      return STATUS_LABEL.not_taken_back;
     case "needs_look":
-      return "Needs a look";
+      return STATUS_LABEL.needs_look;
     case "pending":
     case "held":
     case "sending":
     case "unconfirmed":
-      return "Waiting";
+      return STATUS_LABEL.waiting;
     // nothing_to_send: the credit was sent less, by the ledger's amount.
     // Every reversal is written with its payout, so null does not occur.
     default:

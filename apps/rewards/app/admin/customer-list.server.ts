@@ -46,8 +46,9 @@ export type Listing = {
 /**
  * The buyers `filters` select, with their names: one page, or every page
  * (`allPages`, for the export), read by keyset (CONCURRENCY-5). A search
- * Shopify cut short gives the export no rows at all: a file of part of the
- * matches would pass for all of them (Ruling 63). `namesBudgetMs` is how long
+ * Shopify cut short, or couldn't read, gives the export no rows at all and
+ * reads no names: a file of part of the matches would pass for all of them
+ * (Rulings 63, 79). `namesBudgetMs` is how long
  * the names may take in all (customerNames; a page's default otherwise).
  */
 export async function listBuyers(
@@ -65,7 +66,7 @@ export async function listBuyers(
     externalIds = found.ids;
     searchCut = found.more;
     searchUnread = found.unread;
-    if (o.allPages && searchCut) return { rows: [], hasNext: false, searchFailed: false, searchCut, searchUnread };
+    if (o.allPages && (searchCut || searchUnread)) return { rows: [], hasNext: false, searchFailed: false, searchCut, searchUnread };
   }
 
   const select = { tierId: filters.tierId || undefined, externalIds };

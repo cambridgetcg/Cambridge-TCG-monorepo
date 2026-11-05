@@ -14,7 +14,7 @@ import styles from "./admin.module.css";
  *   SVG's label says the same to a screen reader;
  * - the first series navy and solid, drawn last so nothing hides it; the
  *   second teal inside a navy edge and dashed, so the two differ by more
- *   than colour;
+ *   than colour (a series of one point is a dot, the teal one solid);
  * - one plain sentence (`empty`) instead, when every value is 0.
  */
 
@@ -70,7 +70,9 @@ export function Chart({ label, empty, series, formatValue = (value) => value.toS
   // Pixel positions only: the amounts themselves are never rounded here
   const x = (date: string) => (dates.length === 1 ? WIDTH / 2 : (dates.indexOf(date) / (dates.length - 1)) * WIDTH);
   const y = (value: Decimal) => BOTTOM - value.minus(low).div(high.minus(low)).times(BOTTOM - TOP).toNumber();
-  // One point is a zero-length line, which its round caps draw as a dot
+  // One point is a zero-length line, which its round caps draw as a dot; a
+  // dash pattern (butt caps) would draw nothing there, so a teal series of
+  // one point is solid, a teal dot in its navy edge (M3d-F4)
   const polyline = (points: { x: number; y: number }[]) =>
     (points.length === 1 ? [points[0], points[0]] : points).map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
 
@@ -79,6 +81,7 @@ export function Chart({ label, empty, series, formatValue = (value) => value.toS
     label: s.label,
     colour: COLOURS[i],
     total: formatValue(Money.sum(0, ...s.points.map((p) => new Money(p.value)))),
+    dashed: s.points.length === 1 ? "" : ` ${styles.dashed}`,
     points: polyline(
       [...s.points].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).map((p) => ({ x: x(p.date), y: y(new Money(p.value)) })),
     ),
@@ -98,8 +101,8 @@ export function Chart({ label, empty, series, formatValue = (value) => value.toS
         {[...lines].reverse().map((line) =>
           line.colour === "teal" ? (
             <g key={line.key}>
-              <polyline className={`${styles.line} ${styles.dashed} ${styles.tealEdge}`} points={line.points} />
-              <polyline className={`${styles.line} ${styles.dashed} ${styles.teal}`} points={line.points} />
+              <polyline className={`${styles.line}${line.dashed} ${styles.tealEdge}`} points={line.points} />
+              <polyline className={`${styles.line}${line.dashed} ${styles.teal}`} points={line.points} />
             </g>
           ) : (
             <polyline key={line.key} className={`${styles.line} ${styles.navy}`} points={line.points} />

@@ -14,11 +14,15 @@
  *
  * Each write that Shopify took is recorded on the connection: the value as
  * sent and when (widgetConfigSyncedAt). The nightly step reads that record
- * to visit the stores written longest ago first and to skip a store still
- * holding today's value (OPERATIONS-4). The record only ever errs towards a
- * rewrite: a failed write clears the time (Shopify may hold either value),
- * and so does a write that finished while another write of the same store
- * was in flight, since the two may have reached Shopify in either order.
+ * to skip a store still holding today's value (OPERATIONS-4), and visits the
+ * stores tried longest ago first (widgetConfigTriedAt, stamped as each write
+ * starts; never-tried first), so a store that keeps failing goes to the back
+ * each night instead of using up the budget (M3e-F2). The record only ever
+ * errs towards a rewrite: a failed write clears the time and stamps
+ * widgetConfigFailedAt (Shopify may hold either value), and a write records
+ * its value only when no other write of the store finished and none failed
+ * since it started, since writes in flight together may reach Shopify in
+ * either order (M3e-F1). Its log lines name the store's connection (M3e-F3).
  */
 import prisma from "~/db.server";
 import type { ConnectionContext } from "~/lib/merchant.server";
@@ -94,31 +98,48 @@ export async function widgetConfigCurrent(merchantId: string, record: WidgetConf
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+/** Stamp when a write of the store was tried, before it is sent (M3e-F2); logged, never thrown. */
+async function recordWidgetTry(connectionId: string, startedAt: Date): Promise<void> {
+  try {
+    await prisma.connection.updateMany({ where: { id: connectionId }, data: { widgetConfigTriedAt: startedAt } });
+  } catch (error) {
+    console.error(`[widget] Could not record a widget write's start for connection ${connectionId}: ${messageOf(error)}`);
+  }
+}
+
 /**
- * Record a write Shopify took: only over a record older than the write's
- * start. A newer one means another write finished while this one was in
- * flight, and either may have landed last, so the time is cleared instead.
- * A failure here is logged, never thrown: the write itself was made, and the
- * record left behind is the older one, which can only cause a rewrite.
+ * Record a write Shopify took: only when the record and the last failure
+ * are both older than the write's start. A newer record means another write
+ * finished while this one was in flight, and a newer failure that one
+ * failed meanwhile; either may have landed last, so the time is cleared
+ * instead (M3e-F1). A failure here is logged, never thrown: the write itself
+ * was made, and the record left behind is the older one, which can only
+ * cause a rewrite.
  */
 async function recordWidgetWrite(connectionId: string, value: string, startedAt: Date): Promise<void> {
   try {
     const { count } = await prisma.connection.updateMany({
-      where: { id: connectionId, OR: [{ widgetConfigSyncedAt: null }, { widgetConfigSyncedAt: { lt: startedAt } }] },
+      where: {
+        id: connectionId,
+        AND: [
+          { OR: [{ widgetConfigSyncedAt: null }, { widgetConfigSyncedAt: { lt: startedAt } }] },
+          { OR: [{ widgetConfigFailedAt: null }, { widgetConfigFailedAt: { lt: startedAt } }] },
+        ],
+      },
       data: { widgetConfigSyncedAt: new Date(), widgetConfigValue: value },
     });
     if (count === 0) await prisma.connection.updateMany({ where: { id: connectionId }, data: { widgetConfigSyncedAt: null } });
   } catch (error) {
-    console.error(`[widget] Could not record a widget write: ${messageOf(error)}`);
+    console.error(`[widget] Could not record a widget write for connection ${connectionId}: ${messageOf(error)}`);
   }
 }
 
-/** Forget when the store was last written, so the next night visits it first; logged, never thrown. */
+/** Forget when the store was last written and say when a write failed, so a write in flight records nothing; logged, never thrown. */
 async function forgetWidgetWrite(connectionId: string): Promise<void> {
   try {
-    await prisma.connection.updateMany({ where: { id: connectionId }, data: { widgetConfigSyncedAt: null } });
+    await prisma.connection.updateMany({ where: { id: connectionId }, data: { widgetConfigSyncedAt: null, widgetConfigFailedAt: new Date() } });
   } catch (error) {
-    console.error(`[widget] Could not clear the record of a failed widget write: ${messageOf(error)}`);
+    console.error(`[widget] Could not clear the record of a failed widget write for connection ${connectionId}: ${messageOf(error)}`);
   }
 }
 
@@ -133,6 +154,7 @@ async function forgetWidgetWrite(connectionId: string): Promise<void> {
  */
 export async function syncWidgetConfig(admin: GraphqlClient, conn: Pick<ConnectionContext, "merchantId" | "connectionId">): Promise<void> {
   const startedAt = new Date();
+  await recordWidgetTry(conn.connectionId, startedAt);
   let value: string;
   try {
     const installation = asRecord((await ask(admin, RewardsAppInstallation)).currentAppInstallation);

@@ -1,13 +1,17 @@
 import type { NoCashbackReason, PayoutDirection, PayoutState } from "@prisma/client";
 import type { Decimal } from "decimal.js";
+import { AMOUNT_UNKNOWN, ON_ITS_WAY, STATUS_LABEL, type StatusKey, takeBackShort } from "~/lib/status";
 import { formatMoney } from "./format";
 
 /**
  * One word for each thing, on every page (TRUTH-5, DESIGN-11). Not a .server
  * module: the pages use it too. A status is keyed by the payout's direction
  * and state (StatusKey), never by the words shown, so a copy edit can't drop
- * a tone (A21-F7).
+ * a tone (A21-F7). The status keys, labels and take-back sentences are the
+ * engine's (lib/status.ts, M3a-F6), re-exported here.
  */
+
+export { AMOUNT_UNKNOWN, STATUS_LABEL, type StatusKey, takeBackShort };
 
 /** A buyer erased by customers/redact: there is no one left to name. */
 export const ERASED_BUYER = "Erased buyer";
@@ -15,30 +19,18 @@ export const ERASED_BUYER = "Erased buyer";
 export const NO_TIER = "No tier";
 /** The link to the buyer's own page in Shopify admin. */
 export const BUYER_IN_SHOPIFY = "Open the buyer in Shopify";
-/** A take-back Shopify confirmed without saying how much it took (A11-F4). */
-export const AMOUNT_UNKNOWN = "Amount unknown";
 /** The buyer panel's lock button; its select is "Lock to a tier". */
 export const LOCK = "Lock";
 /** The export's answer, shown on Customers, when Shopify found more buyers than one search reads (Ruling 63). */
 export const SEARCH_TOO_BROAD = "Too many buyers match this search for one file. Narrow the search, or export without one.";
 /** Customers, when Shopify warned it couldn't read the search (BOUNDARY-5). */
 export const SEARCH_UNREAD = "Shopify couldn't read all of this search, so some buyers may be missing. Try other words.";
+/** The export's answer, shown on Customers, when Shopify warned it couldn't read the search (Ruling 79). */
+export const EXPORT_SEARCH_UNREAD = "Shopify couldn't read all of this search, so the file could miss buyers. Try other words, or export without a search.";
 /** Any page, for an error that isn't one of the app's own answers (BOUNDARY-3). */
 export const SOMETHING_WRONG = "Something went wrong. Reload the page.";
 
-export type StatusKey = "issued" | "waiting" | "needs_look" | "taken_back" | "not_taken_back" | "no_cashback" | "unknown";
-
 export type BadgeTone = "success" | "warning" | "neutral" | "info";
-
-export const STATUS_LABEL: Record<StatusKey, string> = {
-  issued: "Issued",
-  waiting: "Waiting",
-  needs_look: "Needs a look",
-  taken_back: "Taken back",
-  not_taken_back: "Not taken back",
-  no_cashback: "No cashback",
-  unknown: "Unknown",
-};
 
 /** The badge tone of each status (spec 4.6). */
 export const STATUS_TONE: Record<StatusKey, BadgeTone> = {
@@ -50,8 +42,6 @@ export const STATUS_TONE: Record<StatusKey, BadgeTone> = {
   no_cashback: "neutral",
   unknown: "neutral",
 };
-
-const ON_ITS_WAY: ReadonlySet<PayoutState> = new Set(["pending", "sending", "unconfirmed", "held"]);
 
 /**
  * A cashback's or take-back's status, from its own payout. A credit a refund
@@ -78,16 +68,6 @@ export function payoutStatus(payout: { direction: PayoutDirection; state: Payout
     default:
       throw new RangeError(`Unknown payout state ${JSON.stringify(state)}`);
   }
-}
-
-/**
- * The spec's sentence for a take-back that took less than it asked (spec
- * 4.6, Ruling 65), in the cashback's currency; null when it took all of it.
- */
-export function takeBackShort(taken: Decimal, asked: Decimal, currency: string): string | null {
-  if (!taken.lt(asked)) return null;
-  if (taken.isZero()) return `Couldn't take back ${formatMoney(asked, currency)}; the buyer had spent it`;
-  return `Took back ${formatMoney(taken, currency)} of ${formatMoney(asked, currency)}; the buyer had spent the rest`;
 }
 
 /**

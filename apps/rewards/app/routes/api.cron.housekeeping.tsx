@@ -15,11 +15,11 @@
  * 5. every active store's widget settings (cashback on or off, the base
  *    rate) are written again to its app-data metafield (syncWidgetConfig,
  *    plan Decision 8), so a change whose write failed is put right within a
- *    day. The stores written longest ago come first (never-written and
- *    failed ones first of all), so a run the budget cuts short leaves
- *    different stores each night, and a store whose last write carried
- *    today's value and is under a week old is skipped as unchanged
- *    (OPERATIONS-4). A store that can't be reached or that Shopify refuses
+ *    day. The stores tried longest ago come first (never-tried ones first
+ *    of all), so a run the budget cuts short leaves different stores each
+ *    night and a store that keeps failing goes to the back (M3e-F2), and a
+ *    store whose last write carried today's value and is under a week old is
+ *    skipped as unchanged (OPERATIONS-4). A store that can't be reached or that Shopify refuses
  *    is a problem; the same budget applies, and the stores left are counted.
  * Answers 200 with what it did; a run with a failed store, or stores left, is
  * partial, and its message names every kind of store left (A19-F8).
@@ -86,11 +86,11 @@ async function housekeeping(now: Date, deadline: number) {
     }
   }
 
-  // Written longest ago first, never-written and failed ones first of all (OPERATIONS-4)
+  // Tried longest ago first, never-tried ones first of all (OPERATIONS-4, M3e-F2)
   const active = await prisma.connection.findMany({
     where: { status: "active" },
     select: { externalAccountId: true, widgetConfigSyncedAt: true, widgetConfigValue: true },
-    orderBy: [{ widgetConfigSyncedAt: { sort: "asc", nulls: "first" } }, { externalAccountId: "asc" }],
+    orderBy: [{ widgetConfigTriedAt: { sort: "asc", nulls: "first" } }, { externalAccountId: "asc" }],
   });
   let widgetsChecked = 0;
   let widgetsUnchanged = 0;

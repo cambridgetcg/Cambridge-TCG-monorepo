@@ -27,6 +27,14 @@ describe("orderStatus", () => {
     expect(orderStatus(live, cashback, { state: "sent" })).toEqual({ key: "issued", label: "Issued", detail: null });
   });
 
+  // M3a-F4: every cashback entry is written with its payout; one without is a broken invariant, the same word as Home's
+  it("is Unknown for a cashback entry with no credit payout", () => {
+    const unknown = { key: "unknown", label: "Unknown", detail: null };
+    expect(orderStatus(live, cashback, null, [])).toEqual(unknown);
+    expect(orderStatus(live, cashback)).toEqual(unknown);
+    expect(orderStatus(live, cashback, null, [takeBack("-1.00", "sent")])).toEqual(unknown);
+  });
+
   it("is Waiting while the credit is pending, sending, unconfirmed or held", () => {
     const waiting = { key: "waiting", label: "Waiting", detail: null };
     expect(orderStatus(live, cashback, { state: "pending" }, [])).toEqual(waiting);

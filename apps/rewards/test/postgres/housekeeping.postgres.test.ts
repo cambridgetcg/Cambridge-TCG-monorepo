@@ -316,8 +316,8 @@ describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
   it("skips a store uninstalled since the list was read, as no problem", async () => {
     await seedStore(SHOP);
     await seedStore(QUIET_SHOP);
-    // QUIET_SHOP was written before, so SHOP (never written) comes first
-    await prisma.connection.updateMany({ where: { externalAccountId: QUIET_SHOP }, data: { widgetConfigSyncedAt: new Date(Date.now() - 30 * DAY) } });
+    // QUIET_SHOP was tried before, so SHOP (never tried) comes first
+    await prisma.connection.updateMany({ where: { externalAccountId: QUIET_SHOP }, data: { widgetConfigTriedAt: new Date(Date.now() - 30 * DAY) } });
     // QUIET_SHOP is uninstalled while SHOP's settings are written; no answer is mocked for it, so any call to it fails the run
     const written = mockWidgetConfig(SHOP, {
       onWrite: () => prisma.connection.updateMany({ where: { externalAccountId: QUIET_SHOP }, data: { status: "uninstalled" } }),
@@ -355,6 +355,11 @@ describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
       widgetConfigSyncedAt: null,
       widgetConfigValue: JSON.stringify({ running: false, basePercent: 5 }),
     });
+    // M3e-F1, F2: when it failed and when it was tried
+    await expect(prisma.connection.findFirstOrThrow({ where: { externalAccountId: QUIET_SHOP } })).resolves.toMatchObject({
+      widgetConfigFailedAt: expect.any(Date),
+      widgetConfigTriedAt: expect.any(Date),
+    });
     // SHOP was written within the week and still holds today's value: left alone
     await expect(widgetRecord(SHOP)).resolves.toEqual(written);
   });
@@ -380,6 +385,36 @@ describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
     expect(written[fresh]).toEqual([]);
     expect(written[stale]).toEqual([{ namespace: "rewards", key: "config", value: { running: false, basePercent: 5 } }]);
     expect(written[changed]).toEqual([{ namespace: "rewards", key: "config", value: { running: true, basePercent: 5 } }]);
+  });
+
+  // M3e-F2: a store that keeps failing can't use up the deadline night after night
+  it("visits a store whose write failed last night after a store never written", async () => {
+    const failing = "housekeeping-failing.myshopify.com";
+    const fresh = "housekeeping-new.myshopify.com";
+    await seedStore(failing);
+    mockWidgetConfig(failing, { refuse: true });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    await run();
+    errors.mockRestore();
+    await expect(prisma.connection.findFirstOrThrow({ where: { externalAccountId: failing } })).resolves.toMatchObject({
+      widgetConfigSyncedAt: null,
+      widgetConfigFailedAt: expect.any(Date),
+      widgetConfigTriedAt: expect.any(Date),
+    });
+
+    // A store installed since, never written; the run is cut short by its first write
+    await seedStore(fresh);
+    server.resetHandlers();
+    const written = { [failing]: [] as unknown[], [fresh]: [] as unknown[] };
+    const result = await withDeadline((cut) => {
+      written[failing] = mockWidgetConfig(failing, { onWrite: cut });
+      written[fresh] = mockWidgetConfig(fresh, { onWrite: cut });
+      return run();
+    });
+
+    expect(result).toMatchObject({ status: 200, body: { widgetsChecked: 1, widgetsLeft: 1 } });
+    expect(written[fresh]).toHaveLength(1);
+    expect(written[failing]).toEqual([]);
   });
 
   // OPERATIONS-4: a run cut short never leaves the same stores behind every night

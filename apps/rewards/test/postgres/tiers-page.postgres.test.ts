@@ -18,6 +18,11 @@ import { hasTestDatabase, resetDatabase, waitForLockWaitOr } from "./helpers/dat
  */
 
 vi.mock("~/admin/require-merchant.server", () => ({ requireMerchant: vi.fn() }));
+// The real deleteTier, which a test can make lose a deadlock (M3b-F5)
+vi.mock("~/lib/tiers.server", async (original) => {
+  const actual = await original<typeof import("~/lib/tiers.server")>();
+  return { ...actual, deleteTier: vi.fn(actual.deleteTier) };
+});
 
 const SHOP = "tiers-page.myshopify.com";
 const DAY = 24 * 60 * 60 * 1000;
@@ -228,6 +233,7 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
   afterEach(async () => {
     await flushWaitUntil();
     requireMerchant?.mockReset();
+    vi.mocked(deleteTier).mockClear();
     vi.restoreAllMocks();
   });
 
@@ -462,6 +468,48 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
       expect(widgetValues(admin)).toEqual([{ running: false, basePercent: 5 }]);
     });
 
+    // M3b-F5: Postgres picks the delete to abort when it deadlocks with a resolve (Ruling 61)
+    describe("a delete Postgres aborts to break a deadlock", () => {
+      const deadlock = () =>
+        new Prisma.PrismaClientUnknownRequestError("Error occurred during query execution: ConnectorError(... code: \"40P01\", message: \"deadlock detected\" ...)", {
+          clientVersion: Prisma.prismaVersion.client,
+        });
+
+      it("is tried once more, and then deletes the tier", async () => {
+        const member = await addBuyer({ tierId: silver.id });
+        vi.mocked(deleteTier).mockRejectedValueOnce(deadlock());
+
+        expect(await act({ intent: "delete", id: silver.id })).toEqual({ ok: true });
+        await flushWaitUntil();
+
+        expect(vi.mocked(deleteTier)).toHaveBeenCalledTimes(2);
+        expect(await buyerRow(member.id)).toMatchObject({ tierId: bronze.id });
+        expect((await tierValues()).map((t) => t.name)).toEqual(["Bronze", "Gold"]);
+      });
+
+      it("says so in the form's plain words when it loses twice, with nothing changed", async () => {
+        const member = await addBuyer({ tierId: silver.id });
+        vi.mocked(deleteTier).mockRejectedValueOnce(deadlock()).mockRejectedValueOnce(deadlock());
+        const admin = fakeAdmin();
+        const logged = captureLogs();
+
+        expect(await act({ intent: "delete", id: silver.id }, admin)).toEqual({ ok: false, errors: { form: "The tier couldn't be deleted just now. Try again." } });
+
+        expect(vi.mocked(deleteTier)).toHaveBeenCalledTimes(2);
+        expect(await buyerRow(member.id)).toMatchObject({ tierId: silver.id });
+        expect((await tierValues()).map((t) => t.name)).toEqual(["Bronze", "Silver", "Gold"]);
+        expect(await passRequestedAt()).toBeNull();
+        expect(widgetValues(admin)).toEqual([]);
+        expect(logged).toEqual([expect.stringMatching(/deadlocked twice/)]);
+      });
+
+      it("isn't tried again for any other failure", async () => {
+        vi.mocked(deleteTier).mockRejectedValueOnce(new Error("Connection reset"));
+        await expect(act({ intent: "delete", id: silver.id })).rejects.toThrow("Connection reset");
+        expect(vi.mocked(deleteTier)).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it("raising a minimum re-places buyers", async () => {
       const buyer = await addBuyer({ tierId: silver.id });
       await addOrder(buyer.id, "300.00", 30);
@@ -660,19 +708,22 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
       expect(await tierPassPending(conn.connectionId)).toBe(false);
     });
 
-    it("counts a pass pending only for buyers there before it was asked for", async () => {
+    // M3b-F6: on one clock, the app's, which stamps both the request and each resolve
+    it("counts a pass pending for each buyer it hasn't reached: resolved before it was asked for, or never", async () => {
       expect(await tierPassPending(conn.connectionId)).toBe(false);
       const before = await addBuyer();
       const asked = new Date(Date.now() - 60_000);
       await prisma.connection.update({ where: { id: conn.connectionId }, data: { tierPassRequestedAt: asked } });
-      await prisma.customer.update({ where: { id: before.id }, data: { createdAt: new Date(asked.getTime() - 1000) } });
       expect(await tierPassPending(conn.connectionId)).toBe(true);
 
       // Resolved since it was asked for
       await prisma.customer.update({ where: { id: before.id }, data: { resolvedAt: new Date() } });
       expect(await tierPassPending(conn.connectionId)).toBe(false);
-      // A buyer first seen after it was asked for was placed with the tiers as they are
-      await addBuyer();
+      // A buyer never resolved waits for the pass, whenever the database says it was first seen
+      const unresolved = await addBuyer();
+      await prisma.customer.update({ where: { id: unresolved.id }, data: { createdAt: new Date(asked.getTime() + 30_000) } });
+      expect(await tierPassPending(conn.connectionId)).toBe(true);
+      await prisma.customer.update({ where: { id: unresolved.id }, data: { resolvedAt: new Date() } });
       expect(await tierPassPending(conn.connectionId)).toBe(false);
       // One resolved before it was asked for still waits
       await prisma.customer.update({ where: { id: before.id }, data: { resolvedAt: new Date(asked.getTime() - 1) } });

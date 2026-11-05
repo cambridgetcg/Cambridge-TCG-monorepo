@@ -3,6 +3,7 @@ import {
   type SetupFacts,
   homeBanners,
   importOutcomeLines,
+  importPlacing,
   importOutcomeShown,
   runningSummary,
   setupCardShown,
@@ -127,6 +128,16 @@ describe("Home's rules", () => {
 
     it("says the buyers are being placed while the requested pass runs", () => {
       expect(importOutcomeLines({ ...done, placing: true })).toEqual(["Brought in 120 buyers' past orders. They're being placed in tiers."]);
+    });
+
+    // Ruling 82: what Home follows, exactly when the outcome says it
+    it("says it is placing buyers only when its outcome says so", () => {
+      expect(importPlacing({ ...done, placing: true })).toBe(true);
+      expect(importPlacing({ ...done, placing: true, unreadable: true })).toBe(true);
+      expect(importPlacing(done)).toBe(false);
+      expect(importPlacing({ ...done, placing: true, hasTiers: false })).toBe(false);
+      expect(importPlacing({ ...done, placing: true, importedOrders: 0, importedBuyers: 0 })).toBe(false);
+      expect(importPlacing({ ...done, placing: true, state: "failed" })).toBe(false);
     });
 
     it("says when some orders couldn't be read, with the count it brought in", () => {

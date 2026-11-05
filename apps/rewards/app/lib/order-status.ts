@@ -1,17 +1,20 @@
 import type { LookReason, NoCashbackReason, PayoutState } from "@prisma/client";
 import type { Decimal } from "decimal.js";
-import { AMOUNT_UNKNOWN, STATUS_LABEL, type StatusKey, takeBackShort } from "~/admin/words";
 import { Money } from "./money";
+import { AMOUNT_UNKNOWN, ON_ITS_WAY, STATUS_LABEL, type StatusKey, takeBackShort } from "./status";
 
 /**
  * An order's status on the Orders page (spec 4.6), from its cashback entry,
  * that entry's credit payout and its take-backs (reversal payouts). No
  * database here, so it is tested on its own; stats.server re-exports it. The
- * words are the pages' shared ones (admin/words.ts).
+ * words are the pages' shared ones (lib/status.ts, which admin/words.ts
+ * re-exports).
  *
  * - No cashback entry: No cashback, saying why (the order's
  *   noCashbackReason; a positive base at a rate that gave nothing says so,
  *   TRUTH-6).
+ * - A cashback entry with no credit payout: Unknown, as on Home and in the
+ *   history (a broken invariant, which stats.server reports; M3a-F4).
  * - A credit or a take-back that needs a look: Needs a look, whatever else
  *   is true (it wins over Issued and Taken back).
  * - A credit closed without sending: No cashback.
@@ -43,8 +46,6 @@ const NO_CASHBACK: Record<NoCashbackReason, string> = {
 };
 
 const RATE_GAVE_NOTHING = "The rate gave nothing on this order";
-
-const ON_ITS_WAY: ReadonlySet<PayoutState> = new Set(["pending", "sending", "unconfirmed", "held"]);
 
 const CREDIT_LOOK: Record<LookReason, string> = {
   refused: "Shopify refused it.",
@@ -80,10 +81,11 @@ export function orderStatus(
     const detail = o.noCashbackReason ? NO_CASHBACK[o.noCashbackReason] : o.test ? "Test order" : o.source === "import" ? "From before install" : null;
     return status("no_cashback", detail);
   }
-  // Every cashback entry is written with its payout (recordOrder): none yet reads as not sent
-  const state = credit?.state ?? "pending";
+  // Every cashback entry is written with its payout (recordOrder): none is a broken invariant
+  if (!credit) return status("unknown");
+  const { state } = credit;
 
-  if (state === "needs_look") return status("needs_look", credit?.lookReason ? CREDIT_LOOK[credit.lookReason] : null);
+  if (state === "needs_look") return status("needs_look", credit.lookReason ? CREDIT_LOOK[credit.lookReason] : null);
   const lookingBack = reversals.find((r) => r.state === "needs_look");
   if (lookingBack) return status("needs_look", lookingBack.lookReason ? TAKE_BACK_LOOK[lookingBack.lookReason] : "A take-back needs a look.");
   if (state === "closed") return status("no_cashback", "Closed without sending");

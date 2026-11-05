@@ -228,6 +228,13 @@ describe("Orders list", () => {
   it("says when no order needs a look", async () => {
     await renderList({ ...LIST, needsLookOnly: true, needsLook: 0, rows: [] }, "No orders need a look.");
     expect(document.querySelector("s-banner")).toBeNull();
+    // M3d-F5: no count of none
+    expect([...document.querySelectorAll("s-select s-option")].map((o) => o.textContent)).toEqual(["All orders", "Needs a look"]);
+  });
+
+  // M3d-F7: the pages' one empty-state pattern
+  it("says when there are no orders yet", async () => {
+    await renderList({ ...LIST, needsLook: 0, rows: [] }, "No orders yet. They appear here after a buyer's first paid order.");
   });
 });
 
@@ -301,6 +308,67 @@ describe("Order panel answers", () => {
       fireEvent.click(bannerButton("Retry"));
     });
     expect(posted).toEqual([{ intent: "retry", payoutId: "p1", version: "2026-06-02T10:00:00.000Z" }]);
+  });
+
+  // M3b-F2: another answer on the order reloads the page while the modal is open
+  it("posts the version the modal was opened on, after a reload brings a newer one", async () => {
+    letFetchersPost();
+    const posted: Array<Record<string, string>> = [];
+    const takeBack: Look = {
+      heading: "Take-back of £1.00 needs a look",
+      text: "Shopify refused to take it back.",
+      hint: null,
+      version: "2026-06-06T10:00:00.000Z",
+      answers: [
+        { answer: "retry", label: "Retry", confirm: null },
+        { answer: "close", label: "Close without taking back", confirm: { heading: "Close without taking back?", text: "RewardsPro won't take back this £1.00.", critical: true } },
+      ],
+    };
+    const withLooks = (credit: Look) => ({
+      ...PANEL,
+      entries: [{ ...PANEL.entries[0], payout: "Not taken back", look: takeBack as Look | null }, { ...PANEL.entries[1], look: credit as Look | null }],
+    });
+    let data = withLooks(REFUSED);
+    const Stub = createRoutesStub([
+      {
+        id: "routes/app.orders.$id",
+        path: "/app/orders/:id",
+        Component: Order,
+        loader: () => data,
+        action: async ({ request }) => {
+          posted.push(await fieldsOf(request));
+          return { ok: true };
+        },
+      },
+    ]);
+    render(<Stub initialEntries={["/app/orders/o2"]} hydrationData={{ loaderData: { "routes/app.orders.$id": data } }} />);
+    await screen.findByText("Close without sending", { selector: "s-banner s-button" });
+    const banner = (heading: string) => document.querySelector(`s-banner[heading="${heading}"]`)!;
+
+    await act(async () => {
+      fireEvent.click(bannerButton("Close without sending"));
+    });
+    // The credit was sent again meanwhile: the reload brings its newer version
+    data = withLooks({ ...REFUSED, version: "2026-06-07T10:00:00.000Z" });
+    await act(async () => {
+      fireEvent.click(banner(takeBack.heading).querySelector("s-button")!);
+    });
+    expect(posted).toEqual([{ intent: "retry", payoutId: "p2", version: "2026-06-06T10:00:00.000Z" }]);
+
+    const modal = document.querySelector('s-modal[id="confirm-p1"]')!;
+    await act(async () => {
+      fireEvent.click(modal.querySelector('s-button[slot="primary-action"]')!);
+    });
+    expect(posted[1]).toEqual({ intent: "close", payoutId: "p1", version: "2026-06-02T10:00:00.000Z" });
+  });
+
+  // M3d-F6: two banners at once stand apart, as on Home
+  it("stacks the banners in the page's supplemental-start slot", async () => {
+    await renderPanel(REFUSED);
+    const stack = document.querySelector('s-stack[slot="supplemental-start"]');
+    expect(stack?.getAttribute("gap")).toBe("base");
+    expect(stack?.querySelectorAll("s-banner")).toHaveLength(1);
+    expect(document.querySelectorAll("s-banner[slot]")).toHaveLength(0);
   });
 
   it("asks before It arrived and It didn't arrive, saying what each does", async () => {

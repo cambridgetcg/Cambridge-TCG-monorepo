@@ -138,12 +138,15 @@ describe("Customers list", () => {
 
     await renderList(listData({ rows: [], hasNext: false, query: "smith", searchFailed: true }));
     expect(document.querySelector("s-banner")?.textContent).toBe("Shopify didn't answer the search. Try again.");
+    // M3d-F6: the page's banners stand in one stack, as on Home
+    expect(document.querySelector('s-stack[slot="supplemental-start"][gap="base"] s-banner')).not.toBeNull();
+    expect(document.querySelectorAll("s-banner[slot]")).toHaveLength(0);
   });
 
   // A21-F4: "No buyers yet" only where it is true
   it("says no buyers yet only on page 1 with no filter, and offers page 1 from a page past the last", async () => {
     await renderList(listData({ rows: [], hasNext: false }));
-    expect(document.body.textContent).toContain("No buyers yet. They appear here after their first paid order.");
+    expect(document.body.textContent).toContain("No buyers yet. They appear here after a buyer's first paid order.");
     cleanup();
 
     await renderList(listData({ rows: [], hasNext: false, page: 4, hasPrevious: true }));
@@ -207,6 +210,13 @@ describe("Customers list", () => {
         headers: { "Content-Type": "text/plain; charset=utf-8" },
       }),
       new Response("<html>Sign in</html>", { headers: { "Content-Type": "text/html" } }),
+      // Ruling 79: its own words for a search Shopify couldn't read
+      new Response("Shopify couldn't read all of this search, so the file could miss buyers. Try other words, or export without a search.", {
+        status: 422,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      }),
+      // A 422 in words the page doesn't know is still a file that couldn't be made
+      new Response("<b>nope</b>", { status: 422, headers: { "Content-Type": "text/html" } }),
     ];
     const fetch = vi.fn(async () => answers.shift()!);
     vi.stubGlobal("fetch", fetch);
@@ -222,6 +232,17 @@ describe("Customers list", () => {
       fireEvent.click(screen.getByText("Export CSV"));
     });
     expect(await screen.findByText("The file couldn't be made. Try again.")).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Export CSV"));
+    });
+    expect(await screen.findByText("Shopify couldn't read all of this search, so the file could miss buyers. Try other words, or export without a search.")).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Export CSV"));
+    });
+    expect(await screen.findByText("The file couldn't be made. Try again.")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("nope");
   });
 });
 

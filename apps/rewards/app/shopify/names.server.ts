@@ -19,6 +19,8 @@ const BATCH_SIZE = 250;
 const TIMEOUT_MS = 2_500;
 // Shopify's recommended least wait after a throttle (docs Q6)
 const THROTTLE_MIN_WAIT_MS = 1_000;
+// A retry after a throttle needs time to ask in, or it only times out (M3c-F2)
+const MIN_ASK_MS = 500;
 
 /** What the admin shows for a buyer whose name it can't read: the id's last four digits, or plain "Customer" (A18-F3). */
 export function nameFallback(externalId: string): string {
@@ -85,7 +87,8 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
  * a time, one batch after another, each ask within 2.5 s, all of them within
  * the caller's `budgetMs` (a page's 2.5 s by default; the export passes its
  * own). A batch Shopify throttles is asked once more after the wait Shopify
- * says (throttleWaitMs), when that wait still fits in the budget (Ruling 78).
+ * says (throttleWaitMs), when that wait and half a second to ask in still
+ * fit in the budget (Ruling 78, M3c-F2).
  * On any other failure, a second throttle, or once the budget is spent, that
  * batch's buyers and every later one fall back without asking again, so a
  * Shopify that isn't answering costs a page one wait, not one per batch.
@@ -120,7 +123,7 @@ export async function customerNames(
       } catch (error) {
         if (error instanceof Response) throw error;
         const wait = throttleWaitMs(error);
-        if (wait !== null && ask === 1 && Date.now() + wait < deadline) {
+        if (wait !== null && ask === 1 && Date.now() + wait + MIN_ASK_MS <= deadline) {
           await sleep(wait);
           continue;
         }

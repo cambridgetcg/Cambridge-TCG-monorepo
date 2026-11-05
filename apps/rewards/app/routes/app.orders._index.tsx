@@ -72,7 +72,7 @@ export default function Orders() {
     ? "No orders need a look."
     : d.page > 1
       ? "No orders on this page."
-      : "No orders yet. They appear here once a buyer pays.";
+      : "No orders yet. They appear here after a buyer's first paid order.";
 
   return (
     <s-page heading="Orders" inlineSize="base">
@@ -93,7 +93,8 @@ export default function Orders() {
               onChange={(event) => navigate(hrefFor(event.currentTarget.value === "look", 1))}
             >
               <s-option value="">All orders</s-option>
-              <s-option value="look">{`Needs a look (${d.needsLook})`}</s-option>
+              {/* A count only when there is one (M3d-F5) */}
+              <s-option value="look">{d.needsLook > 0 ? `Needs a look (${d.needsLook})` : "Needs a look"}</s-option>
             </s-select>
           </s-grid>
           <s-table-header-row>

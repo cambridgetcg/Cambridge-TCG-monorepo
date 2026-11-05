@@ -42,9 +42,9 @@ export default function App() {
 
 // Shopify needs React Router to catch some thrown responses, so that their
 // headers are included in the response. Any other error is one plain
-// sentence, never the stack (BOUNDARY-3).
+// sentence in Polaris, never the stack (BOUNDARY-3, M3c-F1).
 export function ErrorBoundary() {
-  return adminError(useRouteError());
+  return adminError(useRouteError(), { polaris: true });
 }
 
 export const headers: HeadersFunction = (headersArgs) => {

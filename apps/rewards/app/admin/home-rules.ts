@@ -143,10 +143,18 @@ export function importOutcomeLines(o: ImportOutcome): string[] {
   const buyers = `${counted(o.importedBuyers)} ${o.importedBuyers === 1 ? "buyer's" : "buyers'"} past orders`;
   const placed = !o.hasTiers
     ? `Brought in ${buyers}. They're placed in tiers when you save your base rate.`
-    : o.placing
+    : importPlacing(o)
       ? `Brought in ${buyers}. They're being placed in tiers.`
       : `Done: ${counted(o.importedBuyers)} ${o.importedBuyers === 1 ? "buyer" : "buyers"} placed in tiers`;
   return o.unreadable ? [PART(o.importedOrders), placed] : [placed];
+}
+
+/**
+ * Whether the import's outcome says its buyers are being placed: the one
+ * pending pass Home follows (Ruling 82), and only while that line is shown.
+ */
+export function importPlacing(o: ImportOutcome): boolean {
+  return o.state === "done" && o.importedOrders > 0 && o.hasTiers && o.placing;
 }
 
 export type BannerKind = "privacy" | "store-credit" | "needs-look" | "widget";

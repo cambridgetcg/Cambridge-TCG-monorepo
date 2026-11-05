@@ -69,11 +69,21 @@ const ANSWERS: readonly MerchantAnswer[] = ["retry", "close", "arrived", "not_ar
 
 const CHANGED = "This payment has changed since the page loaded. Reload the page.";
 
-/** Send what an answer left to send, one after another; railFor logs a store with no usable session. */
+/**
+ * Send what an answer left to send, one after another; railFor logs a store
+ * with no usable session. One send that fails is logged by its payout's id
+ * and the rest still go (M3b-F4); the hourly job sends it later.
+ */
 async function sendAnswered(connectionId: string, payoutIds: string[]): Promise<void> {
   const way = await railFor(connectionId);
   if (!way) return;
-  for (const id of payoutIds) await sendPayout(id, way.rail);
+  for (const id of payoutIds) {
+    try {
+      await sendPayout(id, way.rail);
+    } catch (error) {
+      console.error(`[orders] Could not send payout ${id} after an answer; the hourly job sends it: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
@@ -108,15 +118,16 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 function LookBanner({ payoutId, look, buyerAdminUrl }: { payoutId: string; look: Look; buyerAdminUrl: string | null }) {
   const fetcher = useFetcher<typeof action>();
   const modal = useRef<HTMLElementTagNameMap["s-modal"]>(null);
-  const [asking, setAsking] = useState<AnswerButton | null>(null);
+  // The answer the modal asks about, with the version showing when it opened (M3b-F2)
+  const [asking, setAsking] = useState<{ button: AnswerButton; version: string } | null>(null);
   const modalId = `confirm-${payoutId}`;
   const busy = fetcher.state !== "idle";
   const error = fetcher.data && !fetcher.data.ok ? fetcher.data.error : null;
 
-  // One answer at a time, about the send this page shows
-  const post = (answer: MerchantAnswer) => {
+  // One answer at a time, about the send it was made about
+  const post = (answer: MerchantAnswer, version: string) => {
     if (busy) return;
-    fetcher.submit({ intent: answer, payoutId, version: look.version }, { method: "post" });
+    fetcher.submit({ intent: answer, payoutId, version }, { method: "post" });
   };
 
   // Answered (or refused): the banner says what happened
@@ -126,13 +137,15 @@ function LookBanner({ payoutId, look, buyerAdminUrl }: { payoutId: string; look:
 
   return (
     <>
-      <s-banner slot="supplemental-start" tone="warning" heading={look.heading}>
+      <s-banner tone="warning" heading={look.heading}>
         <s-stack gap="small-200">
           {look.text ? <s-text>{look.text}</s-text> : null}
           {look.hint ? <s-text>{look.hint}</s-text> : null}
-          {look.hint && buyerAdminUrl ? <s-link href={buyerAdminUrl} target="_top">
+          {look.hint && buyerAdminUrl ? (
+            <s-link href={buyerAdminUrl} target="_top">
               {BUYER_IN_SHOPIFY}
-            </s-link> : null}
+            </s-link>
+          ) : null}
           {error ? <s-text tone="critical">{error}</s-text> : null}
         </s-stack>
         {look.answers.map((button) =>
@@ -144,27 +157,27 @@ function LookBanner({ payoutId, look, buyerAdminUrl }: { payoutId: string; look:
               disabled={busy}
               commandFor={modalId}
               command="--show"
-              onClick={() => setAsking(button)}
+              onClick={() => setAsking({ button, version: look.version })}
             >
               {button.label}
             </s-button>
           ) : (
-            <s-button key={button.answer} slot="secondary-actions" variant="secondary" disabled={busy} onClick={() => post(button.answer)}>
+            <s-button key={button.answer} slot="secondary-actions" variant="secondary" disabled={busy} onClick={() => post(button.answer, look.version)}>
               {button.label}
             </s-button>
           ),
         )}
       </s-banner>
-      <s-modal id={modalId} ref={modal} heading={asking?.confirm?.heading ?? look.heading}>
-        <s-paragraph>{asking?.confirm?.text}</s-paragraph>
+      <s-modal id={modalId} ref={modal} heading={asking?.button.confirm?.heading ?? look.heading}>
+        <s-paragraph>{asking?.button.confirm?.text}</s-paragraph>
         <s-button
           slot="primary-action"
           variant="primary"
-          tone={asking?.confirm?.critical ? "critical" : "auto"}
+          tone={asking?.button.confirm?.critical ? "critical" : "auto"}
           loading={busy}
-          onClick={() => asking && post(asking.answer)}
+          onClick={() => asking && post(asking.button.answer, asking.version)}
         >
-          {asking?.label}
+          {asking?.button.label}
         </s-button>
         <s-button slot="secondary-actions" commandFor={modalId} command="--hide">
           Cancel
@@ -184,9 +197,14 @@ export default function Order() {
         Orders
       </s-link>
 
-      {looks.map(({ id, look }) => (
-        <LookBanner key={id} payoutId={id} look={look} buyerAdminUrl={d.buyerAdminUrl} />
-      ))}
+      {/* One stack, so two banners at once stand apart (M3d-F6); a closed modal takes no room */}
+      {looks.length > 0 ? (
+        <s-stack slot="supplemental-start" gap="base">
+          {looks.map(({ id, look }) => (
+            <LookBanner key={id} payoutId={id} look={look} buyerAdminUrl={d.buyerAdminUrl} />
+          ))}
+        </s-stack>
+      ) : null}
 
       <s-section heading="Order">
         <s-stack gap="small-200">

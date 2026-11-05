@@ -13,35 +13,49 @@ const NOT_HERE = "This page isn't here.";
  * library throws (a sign-in bounce) renders as its own boundary renders it;
  * one React Router makes itself (`internal`: a URL no route matches) gets
  * the app's words, never the router's message.
+ * Inside the admin the sentence is Polaris, as the pages are (M3c-F1); at
+ * the root, where Polaris may not be loaded, it is a plain paragraph.
  * A page whose thing isn't there (a buyer, an order) says so inside the
  * admin, menu and all, with the way back to its list. No boundary here
  * rethrows: on the server a throw from a boundary would fail the whole page.
  */
 
-/** The one sentence for an error the app didn't answer. */
-export function PlainError() {
-  return <p>{SOMETHING_WRONG}</p>;
+/** One sentence: in an s-page inside the admin, plain HTML at the root. */
+function Sentence({ text, polaris }: { text: string; polaris: boolean }) {
+  if (!polaris) return <p>{text}</p>;
+  return (
+    <s-page inlineSize="base">
+      <s-section>
+        <s-paragraph>{text}</s-paragraph>
+      </s-section>
+    </s-page>
+  );
 }
 
-/** A thrown response as Shopify's boundary renders it; a URL no route matches, and anything else, in plain words. */
-export function adminError(error: unknown) {
+/**
+ * A thrown response as Shopify's boundary renders it; a URL no route
+ * matches, and anything else, in plain words: Polaris inside the admin
+ * (`polaris`), plain HTML at the root.
+ */
+export function adminError(error: unknown, o: { polaris?: boolean } = {}) {
+  const polaris = o.polaris ?? false;
   if (isRouteErrorResponse(error)) {
     // isRouteErrorResponse checks `internal` too; React Router's public type leaves it out
     if (!(error as { internal?: boolean }).internal) return boundary.error(error);
-    if (error.status === 404) return <p>{NOT_HERE}</p>;
+    if (error.status === 404) return <Sentence text={NOT_HERE} polaris={polaris} />;
   }
-  return <PlainError />;
+  return <Sentence text={SOMETHING_WRONG} polaris={polaris} />;
 }
 
 /**
  * The ErrorBoundary of a page that shows one thing: a 404 says `sentence`
  * in an s-page inside the admin, with links back to `list`; any other error
- * as adminError.
+ * as adminError, in Polaris.
  */
 export function notFoundBoundary(sentence: string, list: { href: string; label: string }) {
   return function ErrorBoundary() {
     const error = useRouteError();
-    if (!isRouteErrorResponse(error) || error.status !== 404) return adminError(error);
+    if (!isRouteErrorResponse(error) || error.status !== 404) return adminError(error, { polaris: true });
     return (
       <s-page heading="Not found" inlineSize="base">
         <s-link slot="breadcrumb-actions" href={list.href}>

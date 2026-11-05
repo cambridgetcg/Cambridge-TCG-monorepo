@@ -62,6 +62,9 @@ describe("an error the app didn't answer", () => {
     expect(document.body.textContent).not.toContain("secretFunction");
     expect(document.body.textContent).not.toContain("Cannot read properties");
     expect(document.querySelector("pre")).toBeNull();
+    // M3c-F1: inside the admin, in Polaris
+    expect(document.querySelector("s-page s-section s-paragraph")?.textContent).toBe("Something went wrong. Reload the page.");
+    expect(document.querySelector("p")).toBeNull();
   });
 
   it("shows one plain sentence at the root, never the stack", async () => {
@@ -71,6 +74,9 @@ describe("an error the app didn't answer", () => {
     expect(await screen.findByText("Something went wrong. Reload the page.")).toBeTruthy();
     expect(document.body.textContent).not.toContain("secretFunction");
     expect(document.querySelector("pre")).toBeNull();
+    // Polaris may not be loaded at the root: plain HTML
+    expect(document.querySelector("p")?.textContent).toBe("Something went wrong. Reload the page.");
+    expect(document.querySelector("s-page")).toBeNull();
   });
 
   it("says a page isn't here at the root when no route matches", async () => {
@@ -113,5 +119,17 @@ describe("a page that isn't there", () => {
     expect(await screen.findByText("Something went wrong. Reload the page.")).toBeTruthy();
     expect(document.querySelector("s-app-nav")).not.toBeNull();
     expect(document.body.textContent).not.toContain("secretFunction");
+    // M3c-F1: in Polaris, as the page's own 404
+    expect(document.querySelector("s-page s-section s-paragraph")?.textContent).toBe("Something went wrong. Reload the page.");
+    expect(document.querySelector("p")).toBeNull();
+  });
+
+  it("says a page isn't here, in Polaris, when the admin gets React Router's own 404", async () => {
+    const noMatch = new ErrorResponse(404, "Not Found", new Error('No route matches URL "/app/nowhere"'), true);
+    renderInShell({ id: "routes/app._index", path: "", Component: () => <p>Home</p> }, "/app", noMatch, "routes/app");
+
+    expect(await screen.findByText("This page isn't here.")).toBeTruthy();
+    expect(document.querySelector("s-page s-section s-paragraph")?.textContent).toBe("This page isn't here.");
+    expect(document.body.textContent).not.toContain("No route matches");
   });
 });

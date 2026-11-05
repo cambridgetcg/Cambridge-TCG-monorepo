@@ -192,7 +192,7 @@ function isTierForeignKeyViolation(error: unknown): boolean {
  * A statement Postgres aborted to break a deadlock (40P01). Prisma passes it
  * through as an unknown request error naming the code, or as P2034.
  */
-function isDeadlock(error: unknown): boolean {
+export function isDeadlock(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientKnownRequestError) return error.code === "P2034" || /\b40P01\b/.test(error.message);
   return error instanceof Prisma.PrismaClientUnknownRequestError && /\b40P01\b/.test(error.message);
 }
@@ -409,16 +409,19 @@ async function passWhileRequested(connectionId: string, deadline: number): Promi
 
 /**
  * Whether a requested tier pass has still to reach some of the store's
- * buyers (Ruling 76): one resolved before the request, or never resolved and
- * there before it. A buyer first seen after the request was placed with the
- * tiers as they are. Tiers (and Home) say buyers are moving meanwhile.
+ * buyers (Ruling 76): one resolved before the request, or never resolved,
+ * the buyers runTierPass works through. Both times are the app's own clock
+ * (the request and each resolve stamp new Date()); the database's
+ * createdAt is never compared with them (M3b-F6). A buyer first seen after
+ * the request waits only until their own resolve, which orders/paid runs at
+ * once. Tiers (and Home) say buyers are moving meanwhile.
  */
 export async function tierPassPending(connectionId: string): Promise<boolean> {
   const connection = await prisma.connection.findUnique({ where: { id: connectionId }, select: { tierPassRequestedAt: true } });
   const asked = connection?.tierPassRequestedAt ?? null;
   if (asked === null) return false;
   const waiting = await prisma.customer.findFirst({
-    where: { connectionId, OR: [{ resolvedAt: { lt: asked } }, { resolvedAt: null, createdAt: { lt: asked } }] },
+    where: { connectionId, OR: [{ resolvedAt: { lt: asked } }, { resolvedAt: null }] },
     select: { id: true },
   });
   return waiting !== null;
@@ -442,6 +445,7 @@ export const TIER_ERRORS = {
   gone: "This tier is no longer there. Reload the page.",
   changed: "This tier changed since you opened it. Reload the page.",
   lowest: "The lowest tier can't be deleted: every buyer starts there.",
+  busy: "The tier couldn't be deleted just now. Try again.",
 } as const;
 
 /**

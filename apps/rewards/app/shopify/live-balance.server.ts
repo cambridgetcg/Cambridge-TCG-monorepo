@@ -98,24 +98,41 @@ export async function widgetBalance(
   return balance;
 }
 
+/** Whether the admin can show an amount in `code`: formatMoney throws otherwise. */
+function showable(code: string): boolean {
+  try {
+    currencyDecimals(code);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The buyer panel's balance (Ruling 66): one line for each of `currencies`
  * (the shop's and those RewardsPro issued the buyer, in that order, each
  * once), then any other account that holds credit, so nothing the buyer
  * holds is left out. A currency with no account reads 0 when every account
- * was read, and is left out when more may be on a later page. Null only for
- * a read that failed or holds an amount that can't be read.
+ * was read, and is left out when more may be on a later page. An account the
+ * admin can't show (a code that isn't a currency, or an unreadable amount in
+ * a currency nobody asked for) is left out (M3a-F1, F2). Null for a read that
+ * failed, an unreadable amount in a currency asked for, or a read with none
+ * of those currencies on its page, so the panel never shows a section with
+ * no figure (M3a-F3).
  */
 export function balanceLines(read: BalanceAccounts | null, currencies: readonly string[]): Array<{ currency: string; amount: Decimal }> | null {
-  if (!read || read.accounts.some((account) => account.amount === null)) return null;
+  if (!read) return null;
+  const asked = [...new Set(currencies)].filter(showable);
   const lines: Array<{ currency: string; amount: Decimal }> = [];
-  for (const currency of new Set(currencies)) {
+  for (const currency of asked) {
     const account = read.accounts.find((a) => a.currency === currency);
-    if (account) lines.push({ currency, amount: account.amount! });
+    if (account?.amount === null) return null;
+    if (account) lines.push({ currency, amount: account.amount });
     else if (read.complete) lines.push({ currency, amount: new Money(0) });
   }
-  for (const account of read.accounts) {
-    if (!currencies.includes(account.currency) && account.amount!.gt(0)) lines.push({ currency: account.currency, amount: account.amount! });
+  if (lines.length === 0) return null;
+  for (const { currency, amount } of read.accounts) {
+    if (!asked.includes(currency) && amount?.gt(0) && showable(currency)) lines.push({ currency, amount });
   }
   return lines;
 }

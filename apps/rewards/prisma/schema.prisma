@@ -199,6 +199,10 @@ model Connection {
   widgetConfigSyncedAt DateTime?        @map("widget_config_synced_at")
   /// The value that write carried, as sent (JSON text): the nightly step skips a store still holding today's value.
   widgetConfigValue    String?          @map("widget_config_value")
+  /// When a write last failed: a write that started before it records no value (M3e-F1).
+  widgetConfigFailedAt DateTime?        @map("widget_config_failed_at")
+  /// When a write was last tried, however it ended: the nightly step visits the least recently tried first, never-tried first (M3e-F2).
+  widgetConfigTriedAt  DateTime?        @map("widget_config_tried_at")
   createdAt            DateTime         @default(now()) @map("created_at")
   updatedAt            DateTime         @updatedAt @map("updated_at")
 

@@ -6,6 +6,7 @@ import { Money } from "~/lib/money";
 import { CLAIM_FINISHED_MS, CUSTOMER_MISSING, sendPayout, settleUnconfirmed } from "~/lib/payouts.server";
 import type { CreditHistoryResult, OrderSource, PayoutRail, RailAnswer } from "~/lib/ports";
 import { customerRows, orderRows } from "~/lib/stats.server";
+import { monitoring } from "~/lib/telemetry.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
@@ -24,6 +25,11 @@ import { hasTestDatabase, resetDatabase } from "./helpers/database";
 
 vi.mock("~/admin/require-merchant.server", () => ({ requireMerchant: vi.fn() }));
 vi.mock("~/shopify/rail-for.server", () => ({ railFor: vi.fn(async () => null) }));
+// The real sendPayout, which a test can make fail once (M3b-F4)
+vi.mock("~/lib/payouts.server", async (original) => {
+  const actual = await original<typeof import("~/lib/payouts.server")>();
+  return { ...actual, sendPayout: vi.fn(actual.sendPayout) };
+});
 
 const SHOP = "orders-page.myshopify.com";
 const OTHER_SHOP = "other-orders-page.myshopify.com";
@@ -388,6 +394,25 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       expect(page.rows.map((row) => row.status)).toEqual(["Needs a look", "Needs a look"]);
     });
 
+    // M3a-F4: the same word as Home and the history, reported as stats reports it (A19-F8)
+    it("shows a cashback entry with no payout as Unknown, and reports it by the entry's id alone", async () => {
+      const buyer = await addBuyer();
+      const order = await addOrder(buyer.id, "20.00", 1);
+      const orphan = await addEntry(order, { kind: "cashback", amount: "1.00" });
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const capture = vi.spyOn(monitoring, "captureMessage").mockImplementation(() => true);
+
+      const page = await loadList("");
+
+      expect(page.rows.map(({ status, tone, detail }) => ({ status, tone, detail }))).toEqual([{ status: "Unknown", tone: "neutral", detail: null }]);
+      expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([expect.stringContaining(orphan.id)]);
+      expect(capture).toHaveBeenCalledWith(expect.stringContaining("no payout"), "error", { tags: { "ledger.invariant": "entry-without-payout" }, extra: { ledgerEntryId: orphan.id } });
+      // No buyer detail goes with it
+      const reported = JSON.stringify([errors.mock.calls, capture.mock.calls]);
+      expect(reported).not.toContain(buyer.externalCustomerId!);
+      expect(reported).not.toContain(buyer.id);
+    });
+
     // Ruling 65 (TRUTH-1): a sent take-back counts at what it took, as the ledger nets it
     it("says Issued with the spec's sentence for a take-back that fell short, and agrees with Customers", async () => {
       /** A £1.00 credit sent, then fully refunded: the debit took `taken` (null: Shopify never said) */
@@ -517,7 +542,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
 
       const page = await loadPanel(order.id);
 
-      expect(page.refunds.map((refund) => refund.takenBack)).toEqual([null, "£0.40", "Needs a look", "Waiting", "Waiting", "Waiting", "Waiting", "None (closed)", "£1.00"]);
+      expect(page.refunds.map((refund) => refund.takenBack)).toEqual([null, "£0.40", "Needs a look", "Waiting", "Waiting", "Waiting", "Waiting", "Not taken back", "£1.00"]);
     });
 
     it("says where each payout stands, and never Not sent for one that may have arrived", async () => {
@@ -530,6 +555,10 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
         ["unconfirmed", { unconfirmedAt: new Date() }, "Not confirmed"],
         ["needs_look", { lookReason: "could_not_confirm" }, "Not confirmed"],
         ["needs_look", { lookReason: "refused" }, "Not sent"],
+        // M3a-F5: refused after a send that wasn't clear, so it may have arrived
+        ["needs_look", { lookReason: "refused", unconfirmedAt: new Date(), lastError: "ACCOUNT_LIMIT" }, "Not confirmed"],
+        // The buyer is gone: nothing reached them
+        ["needs_look", { lookReason: "refused", unconfirmedAt: new Date(), lastError: CUSTOMER_MISSING }, "Not sent"],
         ["needs_look", { lookReason: "kept_failing" }, "Not sent"],
         ["pending", {}, "Waiting to send"],
         ["held", {}, "Held until its cashback is confirmed"],
@@ -977,6 +1006,32 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       expect(rail.debit.mock.calls[0][0].amount.toFixed(2)).toBe("0.50");
       expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "sent", settledBy: "merchant" });
       expect(await prisma.payout.findUniqueOrThrow({ where: { id: held.id } })).toMatchObject({ state: "sent" });
+    });
+
+    // M3b-F4: one send that fails doesn't hold back the others
+    it("sends each take-back an answer releases, though one of them fails", async () => {
+      const { buyer, order, credit } = await orderWithCredit("needs_look", { lookReason: "could_not_confirm", claimedAt: new Date(Date.now() - DAY) });
+      const first = await addPayout(await addEntry(order, { kind: "reversal", amount: "-0.30" }), "held", { direction: "debit" });
+      const second = await addPayout(await addEntry(order, { kind: "reversal", amount: "-0.20" }), "held", { direction: "debit" });
+      const rail = fakeRail();
+      giveRail(rail);
+      vi.mocked(sendPayout).mockRejectedValueOnce(new Error("Connection reset"));
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      expect(await answerNow(order.id, "arrived", credit.id)).toEqual({ ok: true });
+      await flushWaitUntil();
+
+      expect(vi.mocked(sendPayout)).toHaveBeenCalledTimes(2);
+      const [failed] = vi.mocked(sendPayout).mock.calls[0];
+      const sent = failed === first.id ? second : first;
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: sent.id } })).toMatchObject({ state: "sent" });
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: failed } })).toMatchObject({ state: "pending" });
+      expect(rail.debit).toHaveBeenCalledTimes(1);
+      // Logged by the payout's id alone
+      const logged = errors.mock.calls.map((args) => args.join(" "));
+      expect(logged).toEqual([expect.stringContaining(failed)]);
+      expect(logged[0]).toContain("Connection reset");
+      expect(logged[0]).not.toContain(buyer.externalCustomerId!);
     });
 
     it("Close sends nothing", async () => {

@@ -8,7 +8,7 @@ import { formatMoney } from "~/admin/format";
 import { privatePageHeaders } from "~/admin/headers";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
-import { NO_TIER, SEARCH_TOO_BROAD, SEARCH_UNREAD } from "~/admin/words";
+import { EXPORT_SEARCH_UNREAD, NO_TIER, SEARCH_TOO_BROAD, SEARCH_UNREAD } from "~/admin/words";
 
 /**
  * Customers (spec 4.4): search, a tier filter, and a table of buyers (buyer,
@@ -78,9 +78,13 @@ export default function Customers() {
       if (d.query) params.set("q", d.query);
       if (d.tierId) params.set("tier", d.tierId);
       const response = await fetch(`/app/customers/export?${params}`);
-      // A search too broad for one file: the export says so in words of its own (Ruling 63)
+      // A search too broad for one file, or one Shopify couldn't read: the
+      // export says which in words of its own (Rulings 63, 79), shown only
+      // when they are the app's own
       if (response.status === 422) {
-        setExportError(SEARCH_TOO_BROAD);
+        const said = await response.text();
+        if (said !== SEARCH_TOO_BROAD && said !== EXPORT_SEARCH_UNREAD) throw new Error("422");
+        setExportError(said);
         return;
       }
       if (!response.ok) throw new Error(String(response.status));
@@ -101,15 +105,12 @@ export default function Customers() {
       <s-button slot="secondary-actions" loading={exporting} onClick={() => void download()}>
         Export CSV
       </s-button>
-      {exportError ? (
-        <s-banner slot="supplemental-start" tone="critical">
-          {exportError}
-        </s-banner>
-      ) : null}
-      {d.searchFailed ? (
-        <s-banner slot="supplemental-start" tone="warning">
-          {"Shopify didn't answer the search. Try again."}
-        </s-banner>
+      {/* One stack, so two banners at once stand apart, as on Home (M3d-F6) */}
+      {exportError || d.searchFailed ? (
+        <s-stack slot="supplemental-start" gap="base">
+          {exportError ? <s-banner tone="critical">{exportError}</s-banner> : null}
+          {d.searchFailed ? <s-banner tone="warning">{"Shopify didn't answer the search. Try again."}</s-banner> : null}
+        </s-stack>
       ) : null}
       {d.searchUnread || d.searchCut ? (
         <s-section>
@@ -184,7 +185,7 @@ export default function Customers() {
         </s-section>
       ) : d.rows.length === 0 ? (
         <s-section>
-          <s-text color="subdued">{filtered ? "No buyers match." : "No buyers yet. They appear here after their first paid order."}</s-text>
+          <s-text color="subdued">{filtered ? "No buyers match." : "No buyers yet. They appear here after a buyer's first paid order."}</s-text>
         </s-section>
       ) : null}
     </s-page>

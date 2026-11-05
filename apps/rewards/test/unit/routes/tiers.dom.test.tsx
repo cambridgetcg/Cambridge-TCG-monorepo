@@ -11,6 +11,19 @@ import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
 vi.mock("~/db.server", () => ({ default: {}, databaseSchema: "rewards" }));
 vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
 
+// The real polling, with what the page asks of it recorded (Ruling 82)
+const pollingCalls: unknown[][] = [];
+vi.mock("~/admin/polling", async (original) => {
+  const actual = await original<typeof import("~/admin/polling")>();
+  return {
+    ...actual,
+    usePolling: (...args: Parameters<typeof actual.usePolling>) => {
+      pollingCalls.push(args);
+      actual.usePolling(...args);
+    },
+  };
+});
+
 const { default: Tiers } = await import("~/routes/app.tiers");
 
 // jsdom lays nothing out, so it has no scrollIntoView; Edit calls it
@@ -142,6 +155,9 @@ describe("Tiers page", () => {
     expect(scrolled).toHaveBeenCalledTimes(1);
     expect(scrolled.mock.contexts[0]).toBe(document.querySelector('s-section[heading="Edit Gold"]'));
     expect(focus).toHaveBeenCalledTimes(1);
+    // M3d-F9: a focus that scrolled would cancel a smooth scroll, so the scroll is instant and the focus doesn't scroll
+    expect(scrolled.mock.calls[0]).toEqual([{ block: "start" }]);
+    expect(focus.mock.calls[0]).toEqual([{ preventScroll: true }]);
   });
 
   it("moves focus to the form's Name once a delete is done and the modal has closed", async () => {
@@ -287,6 +303,31 @@ describe("Tiers page", () => {
     expect(posted.map((p) => p.version)).toEqual(["2026-11-02T10:00:00.000Z", "2026-11-02T10:00:00.000Z"]);
   });
 
+  // Ruling 82: follows a pending pass for 2 minutes from the page load and from each change made here
+  it("follows the pass for two minutes, counted again from each change it makes", async () => {
+    letFetchersPost();
+    pollingCalls.length = 0;
+    await renderTiers(page({ moving: true }), { next: () => page({ moving: true }) });
+    expect(pollingCalls.at(-1)).toEqual([true, 10_000, { forMs: 120_000, restartKey: 0 }]);
+
+    // A save
+    await type(document.querySelector('s-text-field[name="name"]')!, "Silver");
+    await type(document.querySelector('s-money-field[name="minSpend"]')!, "200");
+    await type(document.querySelector('s-number-field[name="percent"]')!, "7");
+    await act(async () => {
+      fireEvent.click(screen.getByText("Add tier", { selector: "s-section s-button" }));
+    });
+    expect(pollingCalls.at(-1)).toEqual([true, 10_000, { forMs: 120_000, restartKey: 1 }]);
+
+    // A window change
+    const list = document.querySelector("s-choice-list")!;
+    Object.defineProperty(list, "values", { value: ["lifetime"], configurable: true });
+    await act(async () => {
+      fireEvent.change(list);
+    });
+    expect(pollingCalls.at(-1)).toEqual([true, 10_000, { forMs: 120_000, restartKey: 2 }]);
+  });
+
   // A20-F4: an edit of a tier deleted elsewhere can't come back as a new tier
   it("lets go of an edit whose tier is gone after a reload, saying so", async () => {
     letFetchersPost();
@@ -313,6 +354,9 @@ describe("Tiers page", () => {
   it("says buyers are moving while a requested pass hasn't reached them", async () => {
     await renderTiers(page({ moving: true }));
     expect(document.querySelector('s-banner[tone="info"]')?.textContent).toBe("Buyers are moving to their new tiers.");
+    // M3d-F6: in the page's one stack of banners, as on Home
+    expect(document.querySelector('s-stack[slot="supplemental-start"][gap="base"] s-banner[tone="info"]')).not.toBeNull();
+    expect(document.querySelectorAll("s-banner[slot]")).toHaveLength(0);
     cleanup();
 
     await renderTiers(page({ moving: false }));

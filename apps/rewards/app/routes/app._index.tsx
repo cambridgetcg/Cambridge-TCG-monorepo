@@ -10,6 +10,7 @@ import {
   homeBanners,
   importOutcomeLines,
   importOutcomeShown,
+  importPlacing,
   reviewWasShown,
   runningSentence,
   runningSummary,
@@ -18,7 +19,7 @@ import {
   themeEditorUrl,
   widgetEmbedOn,
 } from "~/admin/home-rules";
-import { usePolling } from "~/admin/polling";
+import { PASS_FOLLOW_MS, usePolling } from "~/admin/polling";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
 import { ERASED_BUYER, rewardLine } from "~/admin/words";
@@ -259,8 +260,6 @@ export default function Home() {
   const importFetcher = useFetcher<typeof action>();
   const setupFetcher = useFetcher<typeof action>();
   const widgetOn = useWidgetEmbed();
-  // The import, and the tier pass a base rate asked for, until each has run (Ruling 76)
-  usePolling(d.setup.importState === "running" || d.setup.placing, FOLLOW_MS);
   const [rate, setRate] = useState("");
 
   // The review request: asked once per visit by an effect, as Shopify advises (not from a click)
@@ -303,17 +302,25 @@ export default function Home() {
   const switchError = switchFetcher.data && !switchFetcher.data.ok ? switchFetcher.data.error : null;
   const rateError = rateFetcher.data && !rateFetcher.data.ok ? rateFetcher.data.error : null;
   const months = d.setup.importHorizonDays === 365 ? "12 months" : `${d.setup.importHorizonDays} days`;
-  const outcome =
+  const outcomeFacts =
     d.setup.importState === "done" || d.setup.importState === "failed"
-      ? importOutcomeLines({
+      ? {
           state: d.setup.importState,
           importedOrders: d.setup.importedOrders,
           importedBuyers: d.setup.importedBuyers,
           unreadable: d.setup.unreadable,
           hasTiers,
           placing: d.setup.placing,
-        })
-      : [];
+        }
+      : null;
+  const outcome = outcomeFacts ? importOutcomeLines(outcomeFacts) : [];
+  // The import for as long as it runs (Decision 13); the tier pass only
+  // while the shown outcome says buyers are being placed, for two minutes
+  // from the load, from when it began saying so, or from the import's end
+  // (Ruling 76, Ruling 82)
+  const importRunning = d.setup.importState === "running";
+  const placingShown = showImportOutcome && outcomeFacts !== null && importPlacing(outcomeFacts);
+  usePolling(importRunning || placingShown, FOLLOW_MS, { forMs: importRunning ? undefined : PASS_FOLLOW_MS, restartKey: d.setup.importState });
 
   // One change at a time, so the last one made is the one kept (CONCURRENCY-2)
   const switchBusy = switchFetcher.state !== "idle";
@@ -465,7 +472,7 @@ export default function Home() {
               </s-button>
               <s-stack gap="base">
                 {d.stats.recent.length === 0 ? (
-                  <s-text color="subdued">No rewards yet. They appear here once a paid order earns cashback.</s-text>
+                  <s-text color="subdued">No rewards yet. They appear here after a paid order earns cashback.</s-text>
                 ) : (
                   d.stats.recent.map((reward, i) => (
                     // Phones show the newest two, amount only
@@ -541,7 +548,7 @@ export default function Home() {
           </s-button>
           <s-stack gap="base">
             {d.stats.tiers.length === 0 ? (
-              <s-text color="subdued">No tiers yet.</s-text>
+              <s-text color="subdued">No tiers yet. Set your base cashback rate to add your first one; everyone starts there.</s-text>
             ) : (
               d.stats.tiers.map((tier) => (
                 <s-stack key={tier.id} direction="inline" justifyContent="space-between" alignItems="center" gap="small-200">

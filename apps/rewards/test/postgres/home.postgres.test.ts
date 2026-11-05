@@ -214,7 +214,10 @@ const merchantOf = (conn: ConnectionContext) => prisma.merchant.findUniqueOrThro
 
 /** What the connection records of the widget's last write. */
 const widgetRecord = (conn: ConnectionContext) =>
-  prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId }, select: { widgetConfigSyncedAt: true, widgetConfigValue: true } });
+  prisma.connection.findUniqueOrThrow({
+    where: { id: conn.connectionId },
+    select: { widgetConfigSyncedAt: true, widgetConfigValue: true, widgetConfigFailedAt: true, widgetConfigTriedAt: true },
+  });
 
 /** The widget config each RewardsWidgetConfig call wrote, parsed. */
 function widgetConfigs(admin: { calls: Call[] }) {
@@ -714,7 +717,7 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
         { ownerId: APP_INSTALLATION, namespace: "rewards", key: "config", type: "json", value: { running: false, basePercent: 5.5 } },
       ]);
       // What the nightly step reads: the last value written, and when (OPERATIONS-4)
-      await expect(widgetRecord(conn)).resolves.toEqual({
+      await expect(widgetRecord(conn)).resolves.toMatchObject({
         widgetConfigSyncedAt: expect.any(Date),
         widgetConfigValue: JSON.stringify({ running: false, basePercent: 5.5 }),
       });
@@ -739,10 +742,58 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       release();
       await first;
 
-      await expect(widgetRecord(conn)).resolves.toEqual({ widgetConfigSyncedAt: null, widgetConfigValue: JSON.stringify({ running: false, basePercent: 5 }) });
+      await expect(widgetRecord(conn)).resolves.toMatchObject({ widgetConfigSyncedAt: null, widgetConfigValue: JSON.stringify({ running: false, basePercent: 5 }) });
       // A write on its own is recorded again
       await syncWidgetConfig(fakeAdmin(), conn);
       await expect(widgetRecord(conn)).resolves.toMatchObject({ widgetConfigSyncedAt: expect.any(Date) });
+    });
+
+    // M3e-F1: a write that started before a failure can't say Shopify holds its value
+    it("records no value for a write a failure of the store came after the start of", async () => {
+      const conn = await seedShop();
+      await seedTier(conn, "Everyone", "0", "5", 0);
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const slow = fakeAdmin();
+      const ask = slow.graphql.bind(slow);
+      slow.graphql = async (query, options) => {
+        if (query.includes("mutation RewardsWidgetConfig")) await held;
+        return ask(query, options);
+      };
+      const refused = { data: { metafieldsSet: { metafields: [], userErrors: [{ field: ["metafields"], message: "Try again", code: "INTERNAL_ERROR" }] } } };
+
+      const first = syncWidgetConfig(slow, conn);
+      // Started after the held write, and failed while it was still in flight
+      await expect(syncWidgetConfig(fakeAdmin({ RewardsWidgetConfig: refused }), conn)).rejects.toThrow(/refused/);
+      const failed = await widgetRecord(conn);
+      expect(failed).toMatchObject({ widgetConfigSyncedAt: null, widgetConfigFailedAt: expect.any(Date), widgetConfigTriedAt: expect.any(Date) });
+      release();
+      await first;
+
+      // Shopify may hold either value: nothing is recorded as current
+      await expect(widgetRecord(conn)).resolves.toMatchObject({ widgetConfigSyncedAt: null, widgetConfigFailedAt: failed.widgetConfigFailedAt });
+      // A write started after the failure is recorded
+      await syncWidgetConfig(fakeAdmin(), conn);
+      await expect(widgetRecord(conn)).resolves.toMatchObject({ widgetConfigSyncedAt: expect.any(Date), widgetConfigValue: JSON.stringify({ running: false, basePercent: 5 }) });
+    });
+
+    // M3e-F3: a record that can't be written is traced to its store
+    it("names the store's connection when the record of a write can't be kept", async () => {
+      const conn = await seedShop();
+      await seedTier(conn, "Everyone", "0", "5", 0);
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      // vi.spyOn's restore would leave the model method undefined, so it is patched by hand
+      const delegate = prisma.connection as unknown as Record<string, (args: { data: object }) => Promise<unknown>>;
+      const updateMany = delegate.updateMany;
+      delegate.updateMany = async (args) => ("widgetConfigValue" in args.data ? Promise.reject(new Error("Connection reset")) : updateMany(args));
+      try {
+        await syncWidgetConfig(fakeAdmin(), conn);
+      } finally {
+        delegate.updateMany = updateMany;
+      }
+
+      expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([`[widget] Could not record a widget write for connection ${conn.connectionId}: Connection reset`]);
+      errors.mockRestore();
     });
 
     // BOUNDARY-6: only on or off moves the switch

@@ -4,7 +4,7 @@ import { data, useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { formatMoney } from "~/admin/format";
-import { usePolling } from "~/admin/polling";
+import { PASS_FOLLOW_MS, usePolling } from "~/admin/polling";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import type { ConnectionContext } from "~/lib/merchant.server";
 import {
@@ -13,6 +13,7 @@ import {
   type TierErrors,
   type TierWindow,
   deleteTier,
+  isDeadlock,
   requestTierPass,
   saveTier,
   setTierWindow,
@@ -30,8 +31,11 @@ import { syncWidgetConfig } from "~/shopify/widget-config.server";
  * (tierPassRequestedAt, then 25 s of it after the response; the nightly pass
  * finishes the rest, Ruling 77); until it has reached every buyer the page
  * says buyers are moving and reloads its data (Ruling 76). Every change
- * rewrites the widget's settings. Each control posts one change at a time,
- * and an edit says which version of the tier it was made on (CONCURRENCY-3).
+ * rewrites the widget's settings. The page follows a pending pass for two
+ * minutes from its load and from each change made here, then keeps the
+ * banner without reloading until the next load (Ruling 82). Each control
+ * posts one change at a time, and an edit says which version of the tier it
+ * was made on (CONCURRENCY-3).
  * Edit brings the form into view with Name focused, and after a delete focus
  * goes to the form's Name, since the row it came from is gone (DESIGN-14).
  */
@@ -82,6 +86,26 @@ async function afterChange(admin: GraphqlClient, conn: ConnectionContext, movesB
   }
 }
 
+/**
+ * Delete a tier, once more when Postgres aborted it to break a deadlock (a
+ * resolve of one of its members, Ruling 61): the transaction changed
+ * nothing, so trying again is safe. A second deadlock is the form's plain
+ * error, with nothing changed (M3b-F5).
+ */
+async function deleteRetried(merchantId: string, tierId: string): Promise<Awaited<ReturnType<typeof deleteTier>> | { ok: false; reason: "busy" }> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await deleteTier(merchantId, tierId);
+    } catch (error) {
+      if (!isDeadlock(error)) throw error;
+      if (attempt === 2) {
+        console.warn(`[tiers] Deleting tier ${tierId} deadlocked twice; the merchant can try again: ${messageOf(error)}`);
+        return { ok: false, reason: "busy" };
+      }
+    }
+  }
+}
+
 const field = (form: FormData, name: string) => {
   const value = form.get(name);
   return typeof value === "string" ? value : null;
@@ -107,7 +131,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return { ok: true } satisfies ActionResult;
     }
     case "delete": {
-      const deleted = await deleteTier(conn.merchantId, field(form, "id") ?? "");
+      const deleted = await deleteRetried(conn.merchantId, field(form, "id") ?? "");
       if (!deleted.ok) return { ok: false, errors: { form: TIER_ERRORS[deleted.reason] } } satisfies ActionResult;
       await afterChange(admin, conn, true);
       return { ok: true } satisfies ActionResult;
@@ -152,8 +176,10 @@ export default function Tiers() {
   const deletedHere = useRef<string | null>(null);
   // A delete is done: once the modal has closed, focus goes to the form
   const focusAfterDelete = useRef(false);
-  // While buyers are moving to their new tiers (Ruling 76)
-  usePolling(d.moving, MOVING_POLL_MS);
+  // Each change made here, which asks for a new pass to follow
+  const [changes, setChanges] = useState(0);
+  // While buyers are moving to their new tiers (Ruling 76), for two minutes from the load or the last change (Ruling 82)
+  usePolling(d.moving, MOVING_POLL_MS, { forMs: PASS_FOLLOW_MS, restartKey: changes });
 
   // The tier being edited, or null while adding one
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -177,6 +203,7 @@ export default function Tiers() {
       setEditingId(null);
       setEditingVersion(null);
       setValues(EMPTY);
+      setChanges((n) => n + 1);
     }
     setErrors(errorsOf(saveFetcher.data));
   }, [saveFetcher.state, saveFetcher.data]);
@@ -186,9 +213,14 @@ export default function Tiers() {
     if (deleteFetcher.data.ok) {
       focusAfterDelete.current = true;
       modal.current?.hideOverlay?.();
+      setChanges((n) => n + 1);
     } else deletedHere.current = null;
     setDeleteError(errorsOf(deleteFetcher.data).form ?? null);
   }, [deleteFetcher.state, deleteFetcher.data]);
+
+  useEffect(() => {
+    if (windowFetcher.state === "idle" && windowFetcher.data?.ok) setChanges((n) => n + 1);
+  }, [windowFetcher.state, windowFetcher.data]);
 
   // Listened for directly: React 19 would listen for "AfterHide", not the element's "afterhide"
   useEffect(() => {
@@ -218,9 +250,11 @@ export default function Tiers() {
     setEditingVersion(tier.version);
     setValues({ name: tier.name, minSpend: tier.minSpend, percent: tier.percent });
     setErrors({});
-    // The form is below the table: bring it into view, ready to type in
-    form.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    nameField.current?.focus();
+    // The form is below the table: bring it into view, ready to type in. A
+    // focus that scrolled would cancel a smooth scroll, so the scroll is
+    // instant and the focus doesn't scroll (M3d-F9)
+    form.current?.scrollIntoView({ block: "start" });
+    nameField.current?.focus({ preventScroll: true });
   };
   const cancelEdit = () => {
     setEditingId(null);
@@ -250,10 +284,11 @@ export default function Tiers() {
 
   return (
     <s-page heading="Tiers" inlineSize="base">
+      {/* The page's banners in one stack, as on Home (M3d-F6) */}
       {d.moving ? (
-        <s-banner slot="supplemental-start" tone="info">
-          Buyers are moving to their new tiers.
-        </s-banner>
+        <s-stack slot="supplemental-start" gap="base">
+          <s-banner tone="info">Buyers are moving to their new tiers.</s-banner>
+        </s-stack>
       ) : null}
       <s-section>
         <s-stack gap="base">

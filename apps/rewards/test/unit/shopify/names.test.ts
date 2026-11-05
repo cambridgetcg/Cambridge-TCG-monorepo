@@ -210,6 +210,25 @@ describe("customerNames", () => {
     expect(names.get("101")).toBe("Customer ····101");
   });
 
+  // M3c-F2: a retry that starts with almost no time left would only time out
+  it("asks again only when the wait leaves half a second to ask in", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    // (250 − 50) ÷ 100 = 2 s to wait: 0.4 s would be left after it
+    const short = admin({ throttled: 1, customers: { "101": { firstName: "Ada", lastName: null } } });
+    const fallback = await customerNames(short.admin, ["101"], { budgetMs: 2_400 });
+    expect(short.graphql).toHaveBeenCalledTimes(1);
+    expect(fallback.get("101")).toBe("Customer ····101");
+
+    // 0.6 s left after the wait: room to ask
+    vi.setSystemTime(0);
+    const room = admin({ throttled: 1, customers: { "101": { firstName: "Ada", lastName: null } } });
+    const pending = customerNames(room.admin, ["101"], { budgetMs: 2_600 });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(Object.fromEntries(await pending)).toEqual({ "101": "Ada" });
+    expect(room.graphql).toHaveBeenCalledTimes(2);
+  });
+
   it("asks no more batches once the caller's deadline has passed", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);

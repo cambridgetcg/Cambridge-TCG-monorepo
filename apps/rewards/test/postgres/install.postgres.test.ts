@@ -2,6 +2,7 @@ import { Session } from "@shopify/shopify-app-react-router/server";
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
+import { flushWaitUntil } from "~/lib/wait-until.server";
 import { onAppOpened } from "~/shopify/install.server";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
 
@@ -58,7 +59,8 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
     await resetDatabase();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await flushWaitUntil();
     vi.restoreAllMocks();
   });
 
@@ -66,6 +68,7 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
     const { admin, graphql } = adminAnswering(shopAnswer("Install Test"));
 
     await onAppOpened({ session, admin });
+    await flushWaitUntil();
 
     // The shop read, the past-orders import's start (first open only), then the widget's settings
     expect(graphql.mock.calls.map(([query]) => /(?:query|mutation) (\w+)/.exec(query)?.[1])).toEqual([
@@ -87,6 +90,7 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
     await onAppOpened({ session, admin: adminAnswering(shopAnswer("Install Test")).admin });
     const later = adminAnswering(shopAnswer("Install Test Renamed"));
     await onAppOpened({ session, admin: later.admin });
+    await flushWaitUntil();
 
     // A later open costs the shop read and the widget's write: the import has started
     expect(later.graphql).toHaveBeenCalledTimes(3);
@@ -140,6 +144,7 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
   it("writes the widget's settings on every open, as the database holds them, and records the write", async () => {
     const first = adminAnswering(shopAnswer("Install Test"));
     await onAppOpened({ session, admin: first.admin });
+    await flushWaitUntil();
     expect(first.written).toEqual([{ namespace: "rewards", key: "config", value: { running: false, basePercent: null } }]);
 
     // Cashback on with a 5% base rate, then an uninstall and a reinstall
@@ -150,6 +155,7 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
 
     const reopened = adminAnswering(shopAnswer("Install Test"));
     await onAppOpened({ session, admin: reopened.admin });
+    await flushWaitUntil();
 
     expect(reopened.written).toEqual([{ namespace: "rewards", key: "config", value: { running: true, basePercent: 5 } }]);
     await expect(prisma.connection.findFirstOrThrow()).resolves.toMatchObject({
@@ -165,11 +171,48 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
     const { admin } = adminAnswering(shopAnswer("Install Test"), { widget: refused });
 
     await onAppOpened({ session, admin });
+    await flushWaitUntil();
 
     await expect(prisma.connection.findFirstOrThrow()).resolves.toMatchObject({ status: "active", importState: "running", widgetConfigSyncedAt: null });
     expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([
       `[install] Could not write the widget's settings for ${SHOP}: Shopify refused the widget config: LIMIT_EXCEEDED: Too many metafields`,
     ]);
+  });
+
+  // Ruling 80: an open never waits on the widget
+  it("answers the open without waiting for the widget's write, which still lands after it", async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const { admin, graphql, written } = adminAnswering(shopAnswer("Install Test"));
+    const answer = graphql.getMockImplementation()!;
+    graphql.mockImplementation(async (query, options) => {
+      if (/query RewardsAppInstallation\b/.test(query)) await held;
+      return answer(query, options);
+    });
+
+    await onAppOpened({ session, admin });
+
+    expect(written).toEqual([]);
+    await expect(prisma.connection.findFirstOrThrow()).resolves.toMatchObject({ status: "active", widgetConfigSyncedAt: null });
+    release();
+    await flushWaitUntil();
+    expect(written).toEqual([{ namespace: "rewards", key: "config", value: { running: false, basePercent: null } }]);
+    await expect(prisma.connection.findFirstOrThrow()).resolves.toMatchObject({ widgetConfigSyncedAt: expect.any(Date) });
+  });
+
+  it("logs a re-auth answer to the widget's write after the open, and never throws it", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { admin, graphql } = adminAnswering(shopAnswer("Install Test"));
+    const answer = graphql.getMockImplementation()!;
+    graphql.mockImplementation(async (query, options) => {
+      if (/query RewardsAppInstallation\b/.test(query)) throw new Response(null, { status: 401 });
+      return answer(query, options);
+    });
+
+    await onAppOpened({ session, admin });
+    await flushWaitUntil();
+
+    expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([`[install] Could not write the widget's settings for ${SHOP}: HTTP 401`]);
   });
 
   it("writes nothing and fails the open when Shopify's answer has no shop", async () => {

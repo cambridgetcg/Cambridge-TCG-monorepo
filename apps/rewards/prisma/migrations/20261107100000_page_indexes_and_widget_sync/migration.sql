@@ -10,7 +10,14 @@
 -- was written within a week. Null until the first write, and after a write
 -- that failed.
 ALTER TABLE "connection" ADD COLUMN     "widget_config_synced_at" TIMESTAMP(3),
-ADD COLUMN     "widget_config_value" TEXT;
+ADD COLUMN     "widget_config_value" TEXT,
+-- M3e-F1, F2 (part f, this migration still unmerged): when a write last
+-- failed, so a write that started before the failure records no value, and
+-- when one was last tried, so the nightly step visits the least recently
+-- tried stores first and a store that keeps failing can't use up its budget
+-- night after night.
+ADD COLUMN     "widget_config_failed_at" TIMESTAMP(3),
+ADD COLUMN     "widget_config_tried_at" TIMESTAMP(3);
 
 -- OPERATIONS-2 and A22 concern 1: the Customers list and its export, a
 -- store's buyers newest first.

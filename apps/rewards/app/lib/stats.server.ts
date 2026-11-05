@@ -610,6 +610,7 @@ export const ORDER_PAGE_SIZE = 50;
 
 /** What orderStatus reads of an order's cashback entry and take-backs. */
 const STATUS_ENTRY_SELECT = {
+  id: true,
   kind: true,
   amount: true,
   currency: true,
@@ -619,6 +620,7 @@ const STATUS_ENTRY_SELECT = {
 } as const;
 
 type StatusEntry = {
+  id: string;
   kind: LedgerEntryKind;
   amount: Prisma.Decimal;
   currency: string;
@@ -632,6 +634,10 @@ type StatusOrder = { source: "live" | "import"; test: boolean; noCashbackReason:
 /** The order's cashback (amount, tier and rate) and status, from its ledger entries. */
 function cashbackAndStatus(order: StatusOrder, entries: StatusEntry[]) {
   const cashback = entries.find((entry) => entry.kind === "cashback") ?? null;
+  // Every cashback and take-back is written with its payout: one without reads Unknown, and is reported (M3a-F4)
+  for (const entry of entries) {
+    if ((entry.kind === "cashback" || entry.kind === "reversal") && !entry.payout) reportMissingPayout(entry.id);
+  }
   const reversals = entries.flatMap((entry) =>
     entry.kind === "reversal" && entry.payout
       ? [
@@ -838,6 +844,7 @@ export async function orderPanel(conn: ConnectionContext, orderId: string): Prom
     where: { merchantId: conn.merchantId, orderId: order.id },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
+      id: true,
       kind: true,
       amount: true,
       currency: true,

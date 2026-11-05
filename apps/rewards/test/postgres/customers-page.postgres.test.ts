@@ -68,7 +68,8 @@ function fakeAdmin(
               response: {},
               body: {
                 errors: { networkStatusCode: 200, message: "GraphQL Client", graphQLErrors: [{ message: "Throttled", extensions: { code: "THROTTLED" } }] },
-                extensions: { cost: { requestedQueryCost: 300, throttleStatus: { maximumAvailable: 2000, currentlyAvailable: 0, restoreRate: 100 } } },
+                // (100 − 50) ÷ 100 is under the 1 s floor, so the retry waits 1 s (M3c-F5)
+                extensions: { cost: { requestedQueryCost: 100, throttleStatus: { maximumAvailable: 2000, currentlyAvailable: 50, restoreRate: 100 } } },
               },
             });
           }
@@ -592,6 +593,20 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       expect(await response.text()).toBe("Too many buyers match this search for one file. Narrow the search, or export without one.");
     });
 
+    // Ruling 79: a file that may not be what the merchant asked for is never made
+    it("answers an error the page shows, with no names read, when Shopify couldn't read the search", async () => {
+      const ann = await addBuyer({ tierId: gold.id });
+      const admin = fakeAdmin({ people: { [ann.externalCustomerId!]: { firstName: "Ann" } }, search: [ann.externalCustomerId!], searchWarnings: ["Invalid search field for this query."] });
+
+      const response = await exportCsv(`?q=${encodeURIComponent("Name: Ann")}`, admin);
+
+      expect(response.status).toBe(422);
+      expect(response.headers.get("Content-Disposition")).toBeNull();
+      expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+      expect(await response.text()).toBe("Shopify couldn't read all of this search, so the file could miss buyers. Try other words, or export without a search.");
+      expect(admin.calls.map((call) => call.operation)).toEqual(["RewardsCustomerSearch"]);
+    });
+
     // CONCURRENCY-5: a buyer leaving the tier mid-export moves no one else off the pages it reads
     it("names every buyer who stayed in the tier when a tier pass moves one out while the pages are read", async () => {
       const golds = [];
@@ -803,7 +818,8 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       const buyer = await addBuyer();
       for (let i = 0; i < 51; i++) {
         const order = await addOrder(buyer.id, "10.00", 60 - i);
-        await addEntry(buyer.id, { orderId: order.id, kind: "cashback", amount: "0.50", createdAt: new Date(Date.now() - (60 - i) * DAY) });
+        // Every cashback is written with its payout
+        await addPayout(await addEntry(buyer.id, { orderId: order.id, kind: "cashback", amount: "0.50", createdAt: new Date(Date.now() - (60 - i) * DAY) }), "sent");
       }
 
       const page = await loadPanel(buyer.id);
@@ -834,7 +850,7 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       const buyer = await addBuyer();
       const order = await addOrder(buyer.id, "100.00", 5);
       await prisma.order.update({ where: { id: order.id }, data: { currency: "EUR" } });
-      await addEntry(buyer.id, { orderId: order.id, kind: "cashback", amount: "5.00", currency: "EUR", shopAmount: "4.30" });
+      await addPayout(await addEntry(buyer.id, { orderId: order.id, kind: "cashback", amount: "5.00", currency: "EUR", shopAmount: "4.30" }), "sent");
 
       const eurOnly = await loadPanel(buyer.id, fakeAdmin({ accounts: [{ amount: "5.00", currencyCode: "EUR" }] }));
       expect(eurOnly.balances).toEqual([

@@ -68,6 +68,22 @@ describe("Chart", () => {
     expect(container.querySelectorAll("li")).toHaveLength(2);
   });
 
+  // M3d-F4: a dash pattern draws nothing on a zero-length line, so one day's teal mark is a round dot in its navy edge
+  it("draws a visible mark for each series of one day", () => {
+    const day = (label: string, value: string) => ({ label, points: [{ date: "2026-11-01", value }] });
+    const { container } = render(<Chart label="Last 30 days" empty={EMPTY} series={[day("Cashback given", "4.00"), day("Store credit spent", "2.00")]} formatValue={money} />);
+    const lines = [...container.querySelectorAll("svg[role=img] polyline")].map((line) => ({ cls: line.getAttribute("class") ?? "", points: line.getAttribute("points") }));
+    expect(lines.map((line) => line.points)).toEqual(["50.00,20.00 50.00,20.00", "50.00,20.00 50.00,20.00", "50.00,2.00 50.00,2.00"]);
+    expect(lines.map((line) => /dashed/.test(line.cls))).toEqual([false, false, false]);
+    expect(lines[0].cls).toMatch(/tealEdge/);
+    cleanup();
+
+    // One teal point beside a navy series of two days
+    const { container: beside } = render(<Chart label="Last 30 days" empty={EMPTY} series={[given, day("Store credit spent", "2.00")]} formatValue={money} />);
+    const teal = [...beside.querySelectorAll("svg[role=img] polyline")].slice(0, 2).map((line) => line.getAttribute("class") ?? "");
+    expect(teal.map((cls) => /dashed/.test(cls))).toEqual([false, false]);
+  });
+
   it("says one plain sentence, and draws no scale, when every value is 0", () => {
     const zeros = (label: string) => ({ label, points: ["2026-11-01", "2026-11-02"].map((date) => ({ date, value: "0" })) });
     const { container } = render(<Chart label="Last 30 days" empty={EMPTY} series={[zeros("Cashback given"), zeros("Store credit spent")]} formatValue={money} />);

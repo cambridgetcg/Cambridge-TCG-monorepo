@@ -11,7 +11,10 @@ vi.mock("~/db.server", () => ({ default: {}, databaseSchema: "rewards" }));
 vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
 // The reload schedule is its own unit (polling.dom.test); here, only when Home asks for it
 const usePolling = vi.fn();
-vi.mock("~/admin/polling", () => ({ usePolling: (...args: unknown[]) => usePolling(...args) }));
+vi.mock("~/admin/polling", async (original) => ({
+  ...(await original<typeof import("~/admin/polling")>()),
+  usePolling: (...args: unknown[]) => usePolling(...args),
+}));
 
 const { default: Home } = await import("~/routes/app._index");
 
@@ -222,15 +225,27 @@ describe("Home", () => {
       expect(card()?.textContent).not.toContain("0 buyers");
     });
 
+    // Ruling 82: followed for two minutes, and only while the outcome says so
     it("says they are being placed while the pass runs, and follows it until it has", async () => {
       stubAppBridge("active");
       await renderHome(homeData({ importState: "done", placing: true }));
       expect(card()?.textContent).toContain("Brought in 14 buyers' past orders. They're being placed in tiers.");
-      expect(usePolling).toHaveBeenLastCalledWith(true, expect.any(Number));
+      // Counted again from the import's end, which changes the key
+      expect(usePolling).toHaveBeenLastCalledWith(true, expect.any(Number), { forMs: 120_000, restartKey: "done" });
       cleanup();
 
       await renderHome(homeData({ importState: "done" }));
-      expect(usePolling).toHaveBeenLastCalledWith(false, expect.any(Number));
+      expect(usePolling).toHaveBeenLastCalledWith(false, expect.any(Number), { forMs: 120_000, restartKey: "done" });
+      cleanup();
+
+      // A pass asked for on Tiers, the outcome long dismissed: nothing on Home says it, so nothing follows it
+      await renderHome(homeData({ importState: "done", importDismissed: true, placing: true }));
+      expect(usePolling).toHaveBeenLastCalledWith(false, expect.any(Number), { forMs: 120_000, restartKey: "done" });
+      cleanup();
+
+      // No tiers yet: the outcome says they are placed when the base rate is saved, which nothing follows yet
+      await renderHome(homeData({ hasTiers: false, running: false, importState: "done", placing: true }));
+      expect(usePolling).toHaveBeenLastCalledWith(false, expect.any(Number), { forMs: 120_000, restartKey: "done" });
     });
 
     it("gives a failed import one plain sentence, counting what it brought in", async () => {
@@ -249,7 +264,8 @@ describe("Home", () => {
       stubAppBridge("active");
       await renderHome(homeData({ importState: "running" }));
       expect(card()?.textContent).toContain("Bringing in your last 12 months of orders so buyers start in the right tier");
-      expect(usePolling).toHaveBeenLastCalledWith(true, expect.any(Number));
+      // For as long as it runs (plan Decision 13)
+      expect(usePolling).toHaveBeenLastCalledWith(true, expect.any(Number), { forMs: undefined, restartKey: "running" });
     });
   });
 
@@ -431,6 +447,19 @@ describe("Home's controls", () => {
 
     expect(posted.map((post) => post.fields)).toEqual([{ intent: "running", running: "off" }]);
     expect([line, aside].map((toggle) => toggle.hasAttribute("disabled"))).toEqual([true, true]);
+  });
+
+  // M3d-F7: the pages' one empty-state pattern, and the next step as Tiers gives it
+  it("says what comes next where there is nothing yet", async () => {
+    stubAppBridge("active");
+    const data = homeData({ running: false, hasTiers: false });
+    await renderHome({ ...data, stats: { ...(data.stats as Record<string, unknown>), recent: [] } });
+    expect(document.querySelector('s-section[heading="Recent rewards"]')?.textContent).toContain(
+      "No rewards yet. They appear here after a paid order earns cashback.",
+    );
+    expect(document.querySelector('s-section[heading="Tiers"]')?.textContent).toContain(
+      "No tiers yet. Set your base cashback rate to add your first one; everyone starts there.",
+    );
   });
 
   // OPERATIONS-9: the base rate as typed, under the field name the action reads

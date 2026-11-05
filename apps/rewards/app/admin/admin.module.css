@@ -7,8 +7,9 @@
  * Shopify's Polaris 2 guide says to use your own tokens instead. Each --rp-*
  * is set to the value Polaris 2 gives the matching token today (its base
  * appearance; the new admin appearance differs only in a slightly lighter
- * border grey, a darker secondary text and a 500 medium weight, checked by
- * eye in both). They are revisited if the admin's look changes. Declared on
+ * border grey, a darker secondary text and a 500 medium weight, measured
+ * with the review harness in both appearances). They are revisited if the
+ * admin's look changes. Declared on
  * the two components themselves, since a module's rules stay local.
  *
  * Brand colours only here, on tier and money visuals: navy #1A3E5C and teal

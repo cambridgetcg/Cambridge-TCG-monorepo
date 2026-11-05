@@ -2,7 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 
 import { filterTiers, listBuyers, readFilters } from "~/admin/customer-list.server";
 import { requireMerchant } from "~/admin/require-merchant.server";
-import { SEARCH_TOO_BROAD } from "~/admin/words";
+import { EXPORT_SEARCH_UNREAD, SEARCH_TOO_BROAD } from "~/admin/words";
 import { currencyDecimals, roundMoney } from "~/lib/money";
 
 /**
@@ -15,12 +15,15 @@ import { currencyDecimals, roundMoney } from "~/lib/money";
  * session token, never stored.
  *
  * Only a complete file is made. A search Shopify couldn't answer is 503, a
- * search Shopify cut short is 422 with words the page shows (Ruling 63), and
- * a tier that isn't the merchant's (deleted in another tab) is 404, never
- * every buyer (BOUNDARY-7).
+ * search Shopify cut short or couldn't read is 422 with words the page shows
+ * (Rulings 63, 79), and a tier that isn't the merchant's (deleted in another
+ * tab) is 404, never every buyer (BOUNDARY-7).
  */
 
-/** How long the names of a whole export may take (Ruling 78): a page waits 2.5 s, a file can wait for a throttle. */
+// Vercel stops the function at 300 s, as the webhook and cron routes set it (M3c-F3)
+export const config = { maxDuration: 300 };
+
+/** How long the names of a whole export may take (Ruling 78): a page waits 2.5 s, a file can wait for a throttle, well inside the 300 s. */
 const EXPORT_NAMES_BUDGET_MS = 60_000;
 
 /** The byte order mark that tells spreadsheets the file is UTF-8. */
@@ -54,11 +57,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (askedTier !== "" && !tiers.some((tier) => tier.id === askedTier)) return plainText("This tier is no longer there.", 404);
 
   const filters = readFilters(url, tiers.map((tier) => tier.id));
-  const { rows, searchFailed, searchCut } = await listBuyers(admin, conn, filters, { allPages: true, namesBudgetMs: EXPORT_NAMES_BUDGET_MS });
+  const { rows, searchFailed, searchCut, searchUnread } = await listBuyers(admin, conn, filters, { allPages: true, namesBudgetMs: EXPORT_NAMES_BUDGET_MS });
   // A failed search is not "no buyers match": answer an error, so the page
   // says the file couldn't be made instead of saving an empty one
   if (searchFailed) return plainText("Shopify didn't answer the search. Try again.", 503);
   if (searchCut) return plainText(SEARCH_TOO_BROAD, 422);
+  if (searchUnread) return plainText(EXPORT_SEARCH_UNREAD, 422);
 
   const decimals = currencyDecimals(conn.currency);
   const amount = (value: Parameters<typeof roundMoney>[0]) => csvCell(roundMoney(value, conn.currency).toFixed(decimals), { number: true });

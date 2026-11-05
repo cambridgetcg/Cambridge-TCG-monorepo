@@ -12,9 +12,29 @@ vi.mock("react-router", async (original) => ({
 
 const { usePolling } = await import("~/admin/polling");
 
-function Page({ active }: { active: boolean }) {
-  usePolling(active, 1000);
+function Page({ active, forMs, restartKey }: { active: boolean; forMs?: number; restartKey?: number }) {
+  usePolling(active, 1000, { forMs, restartKey });
   return null;
+}
+
+type Props = Parameters<typeof Page>[0];
+
+/** A reload React Router has finished: loading, then idle again. */
+async function finishReload(rerender: (ui: React.ReactElement) => void, props: Props) {
+  revalidator.state = "loading";
+  rerender(<Page {...props} />);
+  revalidator.state = "idle";
+  await act(async () => rerender(<Page {...props} />));
+}
+
+/** Let `ms` pass with each reload finishing at once; how many reloads there were. */
+async function follow(rerender: (ui: React.ReactElement) => void, props: Props, ms: number) {
+  for (let t = 0; t < ms; t += 500) {
+    const before = revalidator.revalidate.mock.calls.length;
+    await act(async () => vi.advanceTimersByTime(500));
+    if (revalidator.revalidate.mock.calls.length > before) await finishReload(rerender, props);
+  }
+  return revalidator.revalidate.mock.calls.length;
 }
 
 const setHidden = (hidden: boolean) => {
@@ -72,6 +92,38 @@ describe("usePolling", () => {
 
     await act(async () => setHidden(false));
     expect(revalidator.revalidate).toHaveBeenCalledTimes(1);
+  });
+
+  // Ruling 82: a pass that can't finish waits for the nightly run, not an open tab
+  it("follows for `forMs` from the page load, then stops", async () => {
+    const props = { active: true, forMs: 3000 };
+    const { rerender } = render(<Page {...props} />);
+    expect(await follow(rerender, props, 3000)).toBe(3);
+    expect(await follow(rerender, props, 60_000)).toBe(3);
+  });
+
+  it("follows for `forMs` again after a change (restartKey) or when it turns active again", async () => {
+    let props: Props = { active: true, forMs: 2000, restartKey: 0 };
+    const { rerender } = render(<Page {...props} />);
+    expect(await follow(rerender, props, 10_000)).toBe(2);
+
+    // A change made on the page
+    props = { ...props, restartKey: 1 };
+    await act(async () => rerender(<Page {...props} />));
+    expect(await follow(rerender, props, 10_000)).toBe(4);
+
+    // Nothing to follow, then a pass to follow again
+    await act(async () => rerender(<Page {...props} active={false} />));
+    await act(async () => rerender(<Page {...props} />));
+    expect(await follow(rerender, props, 10_000)).toBe(6);
+  });
+
+  it("doesn't reload a tab shown again after its time is up", async () => {
+    render(<Page active forMs={3000} />);
+    setHidden(true);
+    await act(async () => vi.advanceTimersByTime(10_000));
+    await act(async () => setHidden(false));
+    expect(revalidator.revalidate).not.toHaveBeenCalled();
   });
 
   it("does nothing while there is nothing to follow", async () => {

@@ -340,10 +340,46 @@ describe("balanceLines (the buyer panel, Ruling 66)", () => {
     expect(lines(read([["EUR", "5.00"]], false), ["GBP", "EUR"])).toEqual([["EUR", "5.00"]]);
   });
 
-  it("is null only when the read failed or holds an amount that can't be read", () => {
+  it("is null when the read failed or an account in a currency asked for can't be read", () => {
     expect(live.balanceLines(null, ["GBP"])).toBeNull();
     expect(live.balanceLines(read([["GBP", null]]), ["GBP"])).toBeNull();
-    expect(live.balanceLines(read([["USD", null]]), ["GBP"])).toBeNull();
+    expect(live.balanceLines(read([["GBP", "3.00"], ["EUR", null]]), ["GBP", "EUR"])).toBeNull();
+  });
+
+  // M3a-F2: the shop's and the issued currencies were read, so they show
+  it("leaves out an unreadable account in a currency nobody asked for", () => {
+    expect(
+      lines(
+        read([
+          ["GBP", "3.00"],
+          ["USD", null],
+        ]),
+        ["GBP"],
+      ),
+    ).toEqual([["GBP", "3.00"]]);
+    expect(lines(read([["USD", null]]), ["GBP"])).toEqual([["GBP", "0.00"]]);
+  });
+
+  // M3a-F1: formatMoney throws for these, which made the panel answer 500
+  it("leaves out an account whose currency code isn't one this runtime can show", () => {
+    expect(
+      lines(
+        read([
+          ["GBP", "3.00"],
+          ["", "4.00"],
+          ["XXY", "2.00"],
+          ["gbp", "1.00"],
+        ]),
+        ["GBP"],
+      ),
+    ).toEqual([["GBP", "3.00"]]);
+    expect(lines(read([["", null]]), ["GBP"])).toEqual([["GBP", "0.00"]]);
+  });
+
+  // M3a-F3: never a section with no figure in it
+  it("is null for an incomplete read with no account asked for on its page", () => {
+    expect(lines(read([["USD", "4.00"]], false), ["GBP", "EUR"])).toBeNull();
+    expect(lines(read([], false), ["GBP"])).toBeNull();
   });
 });
 
