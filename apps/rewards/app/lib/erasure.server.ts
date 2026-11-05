@@ -12,9 +12,10 @@
  *   what was still to be paid to or taken from them. The ledger's amounts
  *   stay; closing adds adjustment entries, as the merchant's "Close without
  *   sending" does (rule 12).
- * - openPrivacyRequest / buildPrivacyReport (customers/data_request): a
- *   request row the merchant sees, and a report built live from the rows the
- *   app holds about the buyer when they download it. Nothing is stored for it.
+ * - openPrivacyRequest / listPrivacyRequests / buildPrivacyReport
+ *   (customers/data_request): a request row the merchant sees, and a report
+ *   built live from the rows the app holds about the buyer when they
+ *   download it. Nothing is stored for it.
  *
  * Each throws on failure, with nothing half-done (one transaction), so the
  * route answers 500 and Shopify delivers it again.
@@ -247,6 +248,23 @@ export async function openPrivacyRequest(
   });
 }
 
+/** Whether a request's report can no longer be downloaded: housekeeping marked it, or its expiry has passed. */
+export function reportExpired(request: { status: string; expiresAt: Date }, now: Date): boolean {
+  return request.status === "expired" || request.expiresAt <= now;
+}
+
+/**
+ * The store's data requests, newest first, for the Settings sub-page: the
+ * same rows Home's data-request banner reads (homeState).
+ */
+export async function listPrivacyRequests(conn: ConnectionContext) {
+  return prisma.privacyRequest.findMany({
+    where: { merchantId: conn.merchantId, connectionId: conn.connectionId },
+    orderBy: [{ receivedAt: "desc" }, { id: "asc" }],
+    select: { id: true, status: true, receivedAt: true, dueAt: true, expiresAt: true, downloadedAt: true },
+  });
+}
+
 /**
  * The report of a data request, built now from what the app holds about the
  * buyer: their customer row, their orders (with refunds), ledger entries and
@@ -261,7 +279,7 @@ export async function buildPrivacyReport(
 ): Promise<{ filename: string; json: string } | null> {
   if (!UUID.test(merchantId) || !UUID.test(privacyRequestId)) return null;
   const request = await prisma.privacyRequest.findFirst({ where: { id: privacyRequestId, merchantId } });
-  if (!request || request.status === "expired" || request.expiresAt <= now) return null;
+  if (!request || reportExpired(request, now)) return null;
 
   const customer =
     request.externalCustomerId === null

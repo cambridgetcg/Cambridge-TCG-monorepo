@@ -166,6 +166,16 @@ export async function setRunning(
 }
 
 /**
+ * The Settings email switch (spec 4.7): whether each store credit RewardsPro
+ * gives asks Shopify to email the buyer (`notify` on the credit, read at
+ * send time). RewardsPro sends no email of its own.
+ */
+export async function setNotifyBuyers(merchantId: string, notify: boolean): Promise<void> {
+  const { count } = await prisma.merchant.updateMany({ where: { id: merchantId }, data: { notifyBuyers: notify } });
+  if (count !== 1) throw new Error(`No merchant ${merchantId}`);
+}
+
+/**
  * Home's review request (spec 4.3): `dismissed` when the merchant closed it,
  * `shown` when Shopify showed it or the merchant had already reviewed. The
  * first time is kept.
