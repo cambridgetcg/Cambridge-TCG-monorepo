@@ -5,7 +5,7 @@ import type { ConnectionContext } from "~/lib/merchant.server";
 import { ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
 import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
-import { CLAIM_FINISHED_MS, answerNeedsLook, sendPayout, settleUnconfirmed } from "~/lib/payouts.server";
+import { CLAIM_FINISHED_MS, answerNeedsLook, closeWithoutSending, lockPayout, sendPayout, settleUnconfirmed } from "~/lib/payouts.server";
 import type { CreditHistoryResult, PayoutRail, RailAnswer } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
 import { recordRefund } from "~/lib/refunds.server";
@@ -599,6 +599,119 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
       await expect(answerNeedsLook(pending.conn.merchantId, pending.payoutId, answer)).resolves.toEqual({ ok: false, reason: "not_waiting_for_this_answer" });
     }
     await expect(payoutOf(pending.payoutId)).resolves.toMatchObject({ state: "pending" });
+  });
+
+  describe("a take-back held while the credit was unconfirmed, then the credit is refused", () => {
+    /** An unconfirmed £2.50 credit, a £10 refund holding its £0.50 take-back, then settle finds the customer gone. */
+    async function heldThenRefused() {
+      const credit = await unconfirmedCredit();
+      const refund = await recordRefund(credit.conn, ORDER, refundFacts(1, "10.00", "10.00"));
+      if (refund.status !== "recorded" || !refund.reversalPayoutId) throw new Error("no take-back");
+      await expect(payoutOf(refund.reversalPayoutId)).resolves.toMatchObject({ state: "held", amount: "0.50" });
+      await expect(settleUnconfirmed(credit.payoutId, fakeRail({ history: { status: "customer_missing" } }))).resolves.toBe("needs_look");
+      return { ...credit, takeBackId: refund.reversalPayoutId };
+    }
+
+    it("settle nets the held take-back into the refused credit", async () => {
+      const { payoutId, takeBackId, orderId } = await heldThenRefused();
+
+      await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "needs_look", lookReason: "refused", amount: "2.00", lastError: "The customer no longer exists in Shopify" });
+      await expect(payoutOf(takeBackId)).resolves.toMatchObject({ state: "nothing_to_send", amount: "0.50" });
+      await expect(ledgerOf(orderId)).resolves.toMatchObject({ net: "2.00" });
+    });
+
+    it("then Close: no take-back stays held, the adjustment equals the payout's amount, and the order nets to 0.00", async () => {
+      const { conn, payoutId, orderId } = await heldThenRefused();
+
+      await expect(answerNeedsLook(conn.merchantId, payoutId, "close")).resolves.toEqual({ ok: true });
+
+      await expect(prisma.payout.count({ where: { state: "held" } })).resolves.toBe(0);
+      await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "closed", settledBy: "merchant", amount: "2.00" });
+      const ledger = await ledgerOf(orderId);
+      expect(ledger.entries.map((e) => [e.kind, e.amount, e.payout?.state ?? null])).toEqual([
+        ["cashback", "2.50", "closed"],
+        ["reversal", "-0.50", "nothing_to_send"],
+        ["adjustment", "-2.00", null],
+      ]);
+      expect(ledger).toMatchObject({ net: "0.00", shopNet: "0.00" });
+    });
+
+    it("then Retry: the credit less the take-back is sent, and nothing is taken back", async () => {
+      const { conn, payoutId, takeBackId, orderId } = await heldThenRefused();
+      const now = new Date();
+
+      await expect(answerNeedsLook(conn.merchantId, payoutId, "retry", now)).resolves.toEqual({ ok: true });
+
+      await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "pending", amount: "2.00", nextAttemptAt: now });
+      const rail = fakeRail();
+      await expect(sendPayout(payoutId, rail, now)).resolves.toBe("sent");
+      await expect(sendPayout(takeBackId, rail, now)).resolves.toBe("skipped");
+      expect(rail.credit.mock.calls.map(([c]) => c.amount.toFixed(2))).toEqual(["2.00"]);
+      expect(rail.debit).not.toHaveBeenCalled();
+      await expect(ledgerOf(orderId)).resolves.toMatchObject({ net: "2.00" });
+    });
+
+    it("a buyer erased meanwhile: the held take-back is netted the same way", async () => {
+      const credit = await unconfirmedCredit();
+      const refund = await recordRefund(credit.conn, ORDER, refundFacts(1, "10.00"));
+      if (refund.status !== "recorded" || !refund.reversalPayoutId) throw new Error("no take-back");
+      await prisma.customer.update({ where: { id: credit.customerId }, data: { externalCustomerId: null, redactedAt: new Date() } });
+
+      await expect(settleUnconfirmed(credit.payoutId, fakeRail())).resolves.toBe("needs_look");
+
+      await expect(payoutOf(credit.payoutId)).resolves.toMatchObject({ state: "needs_look", lookReason: "refused", amount: "2.00", lastError: "Customer data erased" });
+      await expect(payoutOf(refund.reversalPayoutId)).resolves.toMatchObject({ state: "nothing_to_send" });
+    });
+
+    it("a refund of everything held: the refused credit has nothing to send", async () => {
+      const credit = await unconfirmedCredit();
+      await recordRefund(credit.conn, ORDER, refundFacts(1, "50.00"));
+
+      await expect(settleUnconfirmed(credit.payoutId, fakeRail({ history: { status: "customer_missing" } }))).resolves.toBe("returned");
+
+      await expect(payoutOf(credit.payoutId)).resolves.toMatchObject({ state: "nothing_to_send", amount: "0.00", lookReason: null });
+      const ledger = await ledgerOf(credit.orderId);
+      expect(ledger.net).toBe("0.00");
+      expect(ledger.entries.map((e) => e.payout?.state)).toEqual(["nothing_to_send", "nothing_to_send"]);
+    });
+
+    it("closeWithoutSending (A14's redaction) on an unconfirmed credit nets its held take-back too", async () => {
+      const credit = await unconfirmedCredit();
+      const refund = await recordRefund(credit.conn, ORDER, refundFacts(1, "10.00"));
+      if (refund.status !== "recorded" || !refund.reversalPayoutId) throw new Error("no take-back");
+
+      await prisma.$transaction(async (tx) => {
+        const locked = await lockPayout(tx, credit.payoutId);
+        if (!locked) throw new Error("no payout");
+        await closeWithoutSending(tx, locked, { now: new Date(), settledBy: "auto" });
+      });
+
+      await expect(prisma.payout.count({ where: { state: "held" } })).resolves.toBe(0);
+      await expect(payoutOf(credit.payoutId)).resolves.toMatchObject({ state: "closed", amount: "2.00" });
+      const ledger = await ledgerOf(credit.orderId);
+      expect(ledger.entries.map((e) => [e.kind, e.amount])).toEqual([
+        ["cashback", "2.50"],
+        ["reversal", "-0.50"],
+        ["adjustment", "-2.00"],
+      ]);
+      expect(ledger).toMatchObject({ net: "0.00", shopNet: "0.00" });
+    });
+
+    it("Close after a refund of everything held: nothing to send, and nothing is adjusted", async () => {
+      const credit = await unconfirmedCredit();
+      await recordRefund(credit.conn, ORDER, refundFacts(1, "50.00"));
+
+      await prisma.$transaction(async (tx) => {
+        const locked = await lockPayout(tx, credit.payoutId);
+        if (!locked) throw new Error("no payout");
+        await closeWithoutSending(tx, locked, { now: new Date(), settledBy: "auto" });
+      });
+
+      await expect(payoutOf(credit.payoutId)).resolves.toMatchObject({ state: "nothing_to_send", amount: "0.00", settledBy: "auto" });
+      const ledger = await ledgerOf(credit.orderId);
+      expect(ledger.entries.map((e) => e.kind)).toEqual(["cashback", "reversal"]);
+      expect(ledger.net).toBe("0.00");
+    });
   });
 
   it("another merchant's payout id is not found", async () => {
