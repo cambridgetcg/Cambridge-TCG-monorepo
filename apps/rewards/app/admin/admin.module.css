@@ -1,0 +1,103 @@
+/*
+ * The admin's only custom CSS: the tier chip and the chart (spec 4.1).
+ * Everything else is Polaris web components.
+ *
+ * Sizes and greys are Polaris tokens. Polaris 2 defines its tokens inside its
+ * components under internal names, not on the page, so each var() names the
+ * token and carries its Polaris 2 value as the fallback.
+ *
+ * Brand colours only here, on tier and money visuals: navy #1A3E5C and teal
+ * #17BEBB. Never teal text, never white text on teal; navy text on teal is
+ * fine (4.8:1), and every teal mark has a navy edge.
+ */
+
+.tierChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--p-space-100, 0.25rem);
+  padding: var(--p-space-025, 0.0625rem) var(--p-space-200, 0.5rem);
+  border: var(--p-border-width-025, 0.0625rem) solid #1a3e5c;
+  border-radius: var(--p-border-radius-full, 624.9375rem);
+  background: #17bebb;
+  color: #1a3e5c;
+  font-weight: var(--p-font-weight-medium, 550);
+  white-space: nowrap;
+}
+
+.chart {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+.gridLine {
+  stroke: var(--p-color-border, #e3e3e3);
+  stroke-width: 1;
+}
+
+.axisLabel {
+  fill: var(--p-color-text-secondary, #616161);
+  font-size: var(--p-font-size-body-small, 0.75rem);
+}
+
+.line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.navy {
+  stroke: #1a3e5c;
+}
+
+/* The teal line runs inside a navy edge, drawn first and wider */
+.tealEdge {
+  stroke: #1a3e5c;
+  stroke-width: 4;
+}
+
+.teal {
+  stroke: #17bebb;
+}
+
+.dot.navy {
+  fill: #1a3e5c;
+}
+
+.dot.teal {
+  fill: #17bebb;
+  stroke: #1a3e5c;
+  stroke-width: 1;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--p-space-200, 0.5rem) var(--p-space-400, 1rem);
+  margin: var(--p-space-200, 0.5rem) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--p-space-100, 0.25rem);
+}
+
+.swatch {
+  display: inline-block;
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  border: var(--p-border-width-025, 0.0625rem) solid #1a3e5c;
+  border-radius: var(--p-border-radius-100, 0.25rem);
+}
+
+.swatchNavy {
+  background: #1a3e5c;
+}
+
+.swatchTeal {
+  background: #17bebb;
+}

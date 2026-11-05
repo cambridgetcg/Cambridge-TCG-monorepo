@@ -422,6 +422,27 @@ export const RewardsUpdatedOrders = `#graphql
 `;
 
 /**
+ * Buyers' names for the admin pages, read live and never stored (spec 4.4,
+ * 6.2): up to 250 customers by GID (the most `nodes` takes). First and last
+ * name only, not displayName, which falls back to the buyer's email or phone
+ * when they have no name.
+ * Scopes: read_customers, and protected customer data access to names.
+ * Cost: 250 at most = 250 nodes × 1 (each Customer object; its scalars cost
+ * nothing).
+ */
+export const RewardsCustomerNames = `#graphql
+  query RewardsCustomerNames($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on Customer {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+/**
  * Which customer accounts the shop uses, and whether its sign-in links show
  * on the storefront and at checkout: store credit can be spent only by a
  * buyer signed in to new customer accounts (or using Shop Pay). Carried from
