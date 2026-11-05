@@ -38,6 +38,14 @@
               "presentmentMoney": {
                 "amount": "5.0"
               }
+            },
+            "taxAmountSet": {
+              "shopMoney": {
+                "amount": "0.83"
+              },
+              "presentmentMoney": {
+                "amount": "0.83"
+              }
             }
           }
         ]
@@ -46,7 +54,7 @@
   },
   "extensions": {
     "cost": {
-      "requestedQueryCost": 369,
+      "requestedQueryCost": 429,
       "actualQueryCost": 6,
       "throttleStatus": {
         "maximumAvailable": 2000.0,

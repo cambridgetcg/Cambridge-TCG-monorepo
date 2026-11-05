@@ -2,8 +2,14 @@ import type { Decimal } from "decimal.js";
 import { Money, currencyDecimals, floorMoney } from "~/lib/money";
 import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
 import type { OrderSource } from "~/lib/ports";
-import { RewardsOrderFacts, RewardsRecentPaidOrders, RewardsRefundFacts, type GraphqlClient } from "./graphql";
-import { askShopify } from "./store-credit-rail.server";
+import { ShopifyTimeoutError, askShopify } from "./ask.server";
+import {
+  RewardsOrderFacts,
+  RewardsOrderTransactions,
+  RewardsRecentPaidOrders,
+  RewardsRefundFacts,
+  type GraphqlClient,
+} from "./graphql";
 
 /**
  * The order source on Shopify (spec 6.1): what the engine needs to know about
@@ -17,8 +23,12 @@ import { askShopify } from "./store-credit-rail.server";
  * null only when Shopify says there is no such order or refund.
  */
 
-/** How long one read waits for Shopify: one call fits inside a webhook's 5 s. */
-export const ORDER_READ_TIMEOUT_MS = 4000;
+/**
+ * How long one whole readOrder or readRefund waits for Shopify, every call in
+ * it together (each call gets the time left), so a webhook that makes the read
+ * still answers inside its 5 s. Each page of the sweep gets the same.
+ */
+export const ORDER_READ_DEADLINE_MS = 4500;
 /** Pages of 100 line items read for one order before giving up. */
 export const MAX_LINE_PAGES = 25;
 /** Pages of 50 orders the sweep reads at most. */
@@ -29,6 +39,8 @@ export const MAX_RECENT_PAGES = 10;
  * have more behind it, and money read from part of a list would be wrong.
  */
 const LIST_LIMIT = 20;
+/** The transactions RewardsOrderTransactions reads when the order's first 20 came back full. */
+const MAX_TRANSACTIONS = 200;
 
 /** Shopify's answer, or the order in it, can't be read as order facts. */
 export class OrderReadError extends Error {
@@ -140,6 +152,8 @@ interface Line {
 interface ParsedOrder extends Currencies {
   facts: Omit<OrderFacts, "refundedProductValue" | "refunds">;
   lines: Map<string, Line>;
+  /** Whether the order's prices include tax; null when the node doesn't say (the import's bulk node). */
+  taxesIncluded: boolean | null;
 }
 
 const CUSTOMER_GID = /^gid:\/\/shopify\/Customer\/(\d+)$/;
@@ -171,6 +185,7 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
   for (const item of list(rec(node.lineItems, "the order's line items").nodes, "line items")) {
     const line = rec(item, "a line item");
     const id = text(line.id, "a line item id");
+    if (lines.has(id)) throw new OrderReadError(`The line ${id} appears twice in the order's lines`);
     const quantity = count(line.quantity, "a line's quantity");
     const currentQuantity = count(line.currentQuantity, "a line's current quantity");
     const totalSet = rec(line.originalTotalSet, "a line's original total");
@@ -209,6 +224,7 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
     currency,
     shopCurrency,
     lines,
+    taxesIncluded: node.taxesIncluded === undefined ? null : flag(node.taxesIncluded, "taxesIncluded"),
     facts: {
       externalOrderId: text(node.id, "the order id"),
       name: text(node.name, "the order's name"),
@@ -219,7 +235,8 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
       cancelledAt: node.cancelledAt === null ? null : dateOf(node.cancelledAt, "cancelledAt"),
       orderedAt: dateOf(node.createdAt, "createdAt"),
       paidAt: dateOf(node.processedAt, "processedAt"),
-      financialStatus: text(node.displayFinancialStatus, "the financial status"),
+      // Display only, and nullable in the Admin schema
+      financialStatus: node.displayFinancialStatus === null ? "UNKNOWN" : text(node.displayFinancialStatus, "the financial status"),
       total: pairOf(node.totalPriceSet, "the order's total"),
       productValue: sum([...lines.values()].map((line) => line.value)),
       storeCreditUsed,
@@ -228,16 +245,29 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
   };
 }
 
-/** Throws when a list Shopify gave is as long as the most it was asked for: there may be more. */
-function ensureWhole(items: unknown[], what: string): void {
-  if (items.length >= LIST_LIMIT) throw new OrderReadError(`Shopify gave ${LIST_LIMIT} ${what}, the most one read takes; there may be more`);
+/** Throws when a list Shopify gave is as long as the most it was asked for (`limit`): there may be more. */
+function ensureWhole(items: unknown[], limit: number, what: string): void {
+  if (items.length >= limit) throw new OrderReadError(`Shopify gave ${limit} ${what}, the most one read takes; there may be more`);
+}
+
+/**
+ * What one refunded shipping line returned in money: its subtotal, plus its
+ * tax when the order's prices exclude tax (Ruling 11). The refund's money
+ * includes that tax on such a shop, so a shipping-only refund takes nothing
+ * back.
+ */
+function shippingRefunded(item: unknown, order: ParsedOrder): MoneyPair {
+  const line = rec(item, "a refund shipping line");
+  const subtotal = pairOf(line.subtotalAmountSet, "a refunded shipping line");
+  if (order.taxesIncluded === null) throw new OrderReadError("Expected whether the order's prices include tax");
+  return order.taxesIncluded ? subtotal : plus(subtotal, pairOf(line.taxAmountSet, "a refunded shipping line's tax"));
 }
 
 /**
  * The product value one refund returned (rule 7), rounded down to the minor
  * unit: its items at their discounted price, or, with no items, its
- * successful money less the shipping it refunded, capped at the product
- * value not yet refunded (`left`) and never below 0.
+ * successful money less the shipping it refunded. Either is capped at the
+ * product value not yet refunded (`left`, Ruling 20) and never below 0.
  */
 function refundValue(refund: Rec, order: ParsedOrder, left: MoneyPair): RefundFacts {
   const lineItems = rec(refund.refundLineItems, "a refund's line items");
@@ -247,7 +277,7 @@ function refundValue(refund: Rec, order: ParsedOrder, left: MoneyPair): RefundFa
   const items = list(lineItems.nodes, "refund line items");
   let value: MoneyPair;
   if (items.length > 0) {
-    value = sum(
+    const returned = sum(
       items.map((item) => {
         const refundLine = rec(item, "a refund line");
         const id = text(rec(refundLine.lineItem, "a refund line's line item").id, "a refund line's line item id");
@@ -256,18 +286,19 @@ function refundValue(refund: Rec, order: ParsedOrder, left: MoneyPair): RefundFa
         return shareOf(line.value, count(refundLine.quantity, "a refund line's quantity"), line.quantity);
       }),
     );
+    value = clamp(returned, left);
   } else {
     const transactions = list(rec(refund.transactions, "a refund's transactions").nodes, "refund transactions");
     const shippingLines = list(rec(refund.refundShippingLines, "a refund's shipping lines").nodes, "refund shipping lines");
-    ensureWhole(transactions, "refund transactions");
-    ensureWhole(shippingLines, "refund shipping lines");
+    ensureWhole(transactions, LIST_LIMIT, "refund transactions");
+    ensureWhole(shippingLines, LIST_LIMIT, "refund shipping lines");
     const money = sum(
       transactions
         .map((item) => rec(item, "a refund transaction"))
         .filter((tx) => tx.kind === "REFUND" && tx.status === "SUCCESS")
         .map((tx) => pairOf(tx.amountSet, "a refund transaction's amount")),
     );
-    const shipping = sum(shippingLines.map((item) => pairOf(rec(item, "a refund shipping line").subtotalAmountSet, "a refunded shipping line")));
+    const shipping = sum(shippingLines.map((item) => shippingRefunded(item, order)));
     value = clamp(minus(money, shipping), left);
   }
   return {
@@ -277,10 +308,23 @@ function refundValue(refund: Rec, order: ParsedOrder, left: MoneyPair): RefundFa
   };
 }
 
-/** Every refund of the order, oldest first, each capped by the ones before it. */
+/** Refund GIDs in numeric order (a shorter number is a smaller one), so the order never depends on how they were read. */
+function byId(a: string, b: string): number {
+  return a.length - b.length || (a < b ? -1 : a > b ? 1 : 0);
+}
+
+/**
+ * Every refund of the order, oldest first and by id within the same moment,
+ * each capped by the ones before it. readOrder and readRefund get the refunds
+ * in different orders, and must give each the same value.
+ */
 function refundsOf(order: ParsedOrder, refundNodes: Rec[]): RefundFacts[] {
-  const dated = refundNodes.map((node) => ({ node, at: dateOf(node.createdAt, "the refund's createdAt").getTime() }));
-  dated.sort((a, b) => a.at - b.at);
+  const dated = refundNodes.map((node) => ({
+    node,
+    id: text(node.id, "the refund id"),
+    at: dateOf(node.createdAt, "the refund's createdAt").getTime(),
+  }));
+  dated.sort((a, b) => a.at - b.at || byId(a.id, b.id));
   let refunded = zero();
   return dated.map(({ node }) => {
     const refund = refundValue(node, order, minus(order.facts.productValue, refunded));
@@ -319,16 +363,27 @@ function firstErrorMessage(errors: unknown): string {
   return typeof message === "string" ? message : "unknown error";
 }
 
+type Ask = (query: string, variables: Record<string, unknown>) => Promise<Rec>;
+
 export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
-  /** The `data` of one answer; throws on GraphQL errors or an answer that can't be read. */
-  async function ask(query: string, variables: Record<string, unknown>): Promise<Rec> {
-    const body = asRecord(await askShopify(admin, query, variables, ORDER_READ_TIMEOUT_MS));
-    if (body?.errors) throw new OrderReadError(`Shopify answered with errors: ${firstErrorMessage(body.errors)}`);
-    return rec(body?.data, "data");
+  /**
+   * A reader whose calls all end by one deadline, ORDER_READ_DEADLINE_MS from
+   * now: each call waits only the time left. Each answer's `data`; throws on
+   * GraphQL errors, an answer that can't be read, or no time left.
+   */
+  function askWithin(): Ask {
+    const deadline = Date.now() + ORDER_READ_DEADLINE_MS;
+    return async (query, variables) => {
+      const left = deadline - Date.now();
+      if (left <= 0) throw new ShopifyTimeoutError(ORDER_READ_DEADLINE_MS);
+      const body = asRecord(await askShopify(admin, query, variables, left));
+      if (body?.errors) throw new OrderReadError(`Shopify answered with errors: ${firstErrorMessage(body.errors)}`);
+      return rec(body?.data, "data");
+    };
   }
 
   /** The order with every page of its lines, and the shop's currency; null when Shopify has no such order. */
-  async function orderNode(orderGid: string): Promise<{ node: Rec; shopCurrency: string } | null> {
+  async function orderNode(ask: Ask, orderGid: string): Promise<{ node: Rec; shopCurrency: string } | null> {
     let data = await ask(RewardsOrderFacts, { id: orderGid, after: null });
     if (data.order === null) return null;
     const first = rec(data.order, "the order");
@@ -346,7 +401,22 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
     return { node: { ...first, lineItems: { nodes } }, shopCurrency };
   }
 
-  async function refundNode(refundGid: string): Promise<Rec | null> {
+  /**
+   * The order's tenders, all of them: when its first 20 came back full they
+   * are read again, up to MAX_TRANSACTIONS, and it throws only if those are
+   * full too.
+   */
+  async function transactionsOf(ask: Ask, orderGid: string, node: Rec): Promise<unknown[]> {
+    const first = list(node.transactions, "transactions");
+    if (first.length < LIST_LIMIT) return first;
+    const data = await ask(RewardsOrderTransactions, { id: orderGid });
+    if (data.order === null) throw new OrderReadError("The order went away while its tenders were read");
+    const all = list(rec(data.order, "the order").transactions, "transactions");
+    ensureWhole(all, MAX_TRANSACTIONS, "transactions");
+    return all;
+  }
+
+  async function refundNode(ask: Ask, refundGid: string): Promise<Rec | null> {
     const data = await ask(RewardsRefundFacts, { id: refundGid });
     return data.refund === null ? null : rec(data.refund, "the refund");
   }
@@ -354,46 +424,50 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
   /** The order's refund ids (all of them: throws when the list may be cut short). */
   function refundIds(node: Rec): string[] {
     const refunds = list(node.refunds, "refunds");
-    ensureWhole(refunds, "refunds");
+    ensureWhole(refunds, LIST_LIMIT, "refunds");
     return refunds.map((r) => text(rec(r, "a refund").id, "a refund id"));
   }
 
-  async function refundNodes(ids: string[]): Promise<Rec[]> {
-    const nodes: Rec[] = [];
-    for (const id of ids) {
-      const node = await refundNode(id);
-      if (!node) throw new OrderReadError("A refund on the order could not be read");
-      nodes.push(node);
-    }
-    return nodes;
+  /** The refunds, read at the same time. */
+  function refundNodes(ask: Ask, ids: string[]): Promise<Rec[]> {
+    return Promise.all(
+      ids.map(async (id) => {
+        const node = await refundNode(ask, id);
+        if (!node) throw new OrderReadError("A refund on the order could not be read");
+        return node;
+      }),
+    );
   }
 
   return {
-    /** The lines (every page), then each refund, then the facts. */
+    /** The lines (every page), then the refunds and any further tenders together, then the facts; all within one deadline. */
     async readOrder(orderGid) {
-      const read = await orderNode(orderGid);
+      const ask = askWithin();
+      const read = await orderNode(ask, orderGid);
       if (!read) return null;
-      ensureWhole(list(read.node.transactions, "transactions"), "transactions");
-      const order = parseOrderNode(read.node, read.shopCurrency);
-      const refunds = refundsOf(order, await refundNodes(refundIds(read.node)));
-      return factsFrom(order, refunds);
+      const [transactions, refundNodesRead] = await Promise.all([
+        transactionsOf(ask, orderGid, read.node),
+        refundNodes(ask, refundIds(read.node)),
+      ]);
+      const order = parseOrderNode({ ...read.node, transactions }, read.shopCurrency);
+      return factsFrom(order, refundsOf(order, refundNodesRead));
     },
 
     /**
-     * The refund, then its order's lines so its items can be valued. A refund
-     * with no items is capped by the product value not yet refunded, so the
-     * order's other refunds are read for it too, and it is valued exactly as
-     * readOrder values it.
+     * The refund, then its order's lines so its items can be valued, then the
+     * order's other refunds: every refund is capped by the product value not
+     * yet refunded, so it is valued exactly as readOrder values it. All
+     * within one deadline.
      */
     async readRefund(refundGid) {
-      const refund = await refundNode(refundGid);
+      const ask = askWithin();
+      const refund = await refundNode(ask, refundGid);
       if (!refund) return null;
       const orderGid = text(rec(refund.order, "the refund's order").id, "the refund's order id");
-      const read = await orderNode(orderGid);
+      const read = await orderNode(ask, orderGid);
       if (!read) throw new OrderReadError("The refund's order could not be read");
       const order = parseOrderNode(read.node, read.shopCurrency);
-      const items = list(rec(refund.refundLineItems, "a refund's line items").nodes, "refund line items");
-      const others = items.length > 0 ? [] : await refundNodes(refundIds(read.node).filter((id) => id !== refundGid));
+      const others = await refundNodes(ask, refundIds(read.node).filter((id) => id !== refundGid));
       const valued = refundsOf(order, [...others, refund]).find((r) => r.externalRefundId === refundGid);
       if (!valued) throw new OrderReadError("The refund could not be valued");
       return { orderGid, refund: valued };
@@ -405,12 +479,13 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
       const found: Array<{ orderGid: string; hasCustomer: boolean; test: boolean; orderedAt: Date }> = [];
       let after: string | null = null;
       for (let page = 0; page < MAX_RECENT_PAGES; page++) {
-        const orders = rec((await ask(RewardsRecentPaidOrders, { query, after })).orders, "orders");
+        const orders = rec((await askWithin()(RewardsRecentPaidOrders, { query, after })).orders, "orders");
         for (const item of list(orders.nodes, "orders")) {
           const node = rec(item, "an order");
+          if (node.customer !== null) rec(node.customer, "an order's customer");
           found.push({
             orderGid: text(node.id, "an order id"),
-            hasCustomer: node.customer !== null && rec(node.customer, "an order's customer") !== null,
+            hasCustomer: node.customer !== null,
             test: flag(node.test, "test"),
             orderedAt: dateOf(node.createdAt, "createdAt"),
           });

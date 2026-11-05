@@ -1,7 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cashbackBase } from "~/lib/order-facts";
-import { RewardsOrderFacts, RewardsRecentPaidOrders, RewardsRefundFacts, type GraphqlClient } from "~/shopify/graphql";
-import { createShopifyOrderSource, factsFromOrderNode } from "~/shopify/order-source.server";
+import { ShopifyTimeoutError } from "~/shopify/ask.server";
+import {
+  RewardsOrderFacts,
+  RewardsOrderTransactions,
+  RewardsRecentPaidOrders,
+  RewardsRefundFacts,
+  type GraphqlClient,
+} from "~/shopify/graphql";
+import { ORDER_READ_DEADLINE_MS, createShopifyOrderSource, factsFromOrderNode } from "~/shopify/order-source.server";
 import bulkNode from "../../fixtures/orders/bulk-node.json";
 import discounts from "../../fixtures/orders/discounts.json";
 import eurOnGbp from "../../fixtures/orders/eur-on-gbp.json";
@@ -14,13 +21,17 @@ import recentPaid2 from "../../fixtures/orders/recent-paid-2.json";
 import refundInFullUsd from "../../fixtures/orders/refund-in-full-usd.json";
 import refundItems from "../../fixtures/orders/refund-items.json";
 import refundJpyItems from "../../fixtures/orders/refund-jpy-items.json";
+import refundMoneyAndShippingGbp from "../../fixtures/orders/refund-money-and-shipping-gbp.json";
+import refundMoneyAndTaxedShipping from "../../fixtures/orders/refund-money-and-taxed-shipping.json";
 import refundMoneyOnly from "../../fixtures/orders/refund-money-only.json";
 import refundShippingOnly from "../../fixtures/orders/refund-shipping-only.json";
+import refundTaxedShippingOnly from "../../fixtures/orders/refund-taxed-shipping-only.json";
 import refundedInFullUsd from "../../fixtures/orders/refunded-in-full-usd.json";
 import refunded from "../../fixtures/orders/refunded.json";
 import storeCreditTender from "../../fixtures/orders/store-credit-tender.json";
 import taxExclusiveUsd from "../../fixtures/orders/tax-exclusive-usd.json";
 import taxInclusiveGbp from "../../fixtures/orders/tax-inclusive-gbp.json";
+import taxedShippingUsd from "../../fixtures/orders/taxed-shipping-usd.json";
 import testOrder from "../../fixtures/orders/test-order.json";
 
 type Answer = { data: Record<string, unknown> };
@@ -52,9 +63,37 @@ function fromFixtures(orders: Answer[], refunds: Answer[] = []) {
 
 const asked = (client: ReturnType<typeof shopify>) =>
   client.graphql.mock.calls.map(([query, options]) => ({
-    document: query === RewardsOrderFacts ? "order" : query === RewardsRefundFacts ? "refund" : "orders",
+    document:
+      query === RewardsOrderFacts
+        ? "order"
+        : query === RewardsRefundFacts
+          ? "refund"
+          : query === RewardsOrderTransactions
+            ? "transactions"
+            : "orders",
     variables: options?.variables,
   }));
+
+const bag = (amount: string) => ({ shopMoney: { amount }, presentmentMoney: { amount } });
+
+/** A refund of the USD order 5012 with no items: `amount` of money and no shipping. */
+function moneyRefund(id: string, amount: string, createdAt = "2026-11-03T12:00:00Z"): Answer {
+  const answer = clone(refundInFullUsd);
+  Object.assign(answer.data.refund, {
+    id,
+    createdAt,
+    transactions: { nodes: [{ kind: "REFUND", status: "SUCCESS", amountSet: bag(amount) }] },
+    refundShippingLines: { nodes: [] },
+  });
+  return answer;
+}
+
+/** A refund of the USD order 5012 that returned one of `lineId`'s items, and $20. */
+function itemRefund(id: string, createdAt: string, lineId: string): Answer {
+  const answer = moneyRefund(id, "20.0", createdAt);
+  Object.assign(answer.data.refund as object, { refundLineItems: { pageInfo: { hasNextPage: false }, nodes: [{ quantity: 1, lineItem: { id: lineId } }] } });
+  return answer;
+}
 
 async function readOrder(order: Answer, refunds: Answer[] = []) {
   const client = fromFixtures([order], refunds);
@@ -190,6 +229,75 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
     expect(f.refundedProductValue.amount.toFixed(2)).toBe("40.00");
   });
 
+  it("caps an item refund at the product value not yet refunded (Ruling 20)", async () => {
+    const order = clone(refundedInFullUsd);
+    order.data.order.refunds = [{ id: "gid://shopify/Refund/6251" }, { id: "gid://shopify/Refund/6253" }];
+    const items = itemRefund("gid://shopify/Refund/6253", "2026-11-04T12:00:00Z", "gid://shopify/LineItem/6201");
+
+    const { facts: f } = await readOrder(order, [refundInFullUsd, items]);
+
+    // The money-only refund took the whole $40 back first; one of two $20 items is then worth nothing more
+    expect(f.refunds.map((r) => r.productValue.amount.toFixed(2))).toEqual(["40.00", "0.00"]);
+    expect(f.refundedProductValue.amount.toFixed(2)).toBe("40.00");
+    expect(f.refundedProductValue.shopAmount.toFixed(2)).toBe("40.00");
+
+    const one = await createShopifyOrderSource(fromFixtures([order], [refundInFullUsd, items])).readRefund("gid://shopify/Refund/6253");
+    expect(one?.refund.productValue.amount.toFixed(2)).toBe("0.00");
+  });
+
+  it("orders refunds made in the same second by id, so readOrder and readRefund cap them alike", async () => {
+    const order = clone(refundedInFullUsd);
+    // Shopify's order is not the id order
+    order.data.order.refunds = [{ id: "gid://shopify/Refund/6262" }, { id: "gid://shopify/Refund/6261" }];
+    const refunds = [moneyRefund("gid://shopify/Refund/6261", "30.0"), moneyRefund("gid://shopify/Refund/6262", "30.0")];
+
+    const { facts: f } = await readOrder(order, refunds);
+    expect(f.refunds.map((r) => [r.externalRefundId, r.productValue.amount.toFixed(2)])).toEqual([
+      ["gid://shopify/Refund/6261", "30.00"],
+      ["gid://shopify/Refund/6262", "10.00"],
+    ]);
+
+    for (const [id, value] of [
+      ["gid://shopify/Refund/6261", "30.00"],
+      ["gid://shopify/Refund/6262", "10.00"],
+    ]) {
+      const one = await createShopifyOrderSource(fromFixtures([order], refunds)).readRefund(id);
+      expect(one?.refund.productValue.amount.toFixed(2)).toBe(value);
+    }
+  });
+
+  it("takes taxed shipping off a money-only refund on a tax-exclusive shop (Ruling 11)", async () => {
+    // $6 shipping and its $0.48 tax refunded: nothing taken back
+    const { facts: shippingOnly } = await readOrder(taxedShippingUsd, [refundTaxedShippingOnly]);
+    expect(shippingOnly.refunds[0].productValue.amount.toFixed(2)).toBe("0.00");
+    expect(shippingOnly.refunds[0].productValue.shopAmount.toFixed(2)).toBe("0.00");
+
+    // $16.48 is $10 of product money plus the $6.48 of shipping
+    const order = clone(taxedShippingUsd);
+    order.data.order.refunds = [{ id: "gid://shopify/Refund/6352" }];
+    const { facts: money } = await readOrder(order, [refundMoneyAndTaxedShipping]);
+    expect(money.refunds[0].productValue.amount.toFixed(2)).toBe("10.00");
+    expect(money.refunds[0].productValue.shopAmount.toFixed(2)).toBe("10.00");
+  });
+
+  it("takes shipping off at its subtotal alone on a tax-inclusive shop, whose subtotal holds the tax", async () => {
+    // £5 shipping with £0.83 VAT inside it: the shipping-only refund takes nothing back
+    const { facts: shippingOnly } = await readOrder(refunded, [refundItems, refundShippingOnly, refundMoneyOnly]);
+    expect(shippingOnly.refunds[1].productValue.amount.toFixed(2)).toBe("0.00");
+
+    // £13 is £8 of product money plus the £5 shipping; adding the VAT again would give £7.17
+    const order = clone(refunded);
+    order.data.order.refunds = [{ id: "gid://shopify/Refund/6154" }];
+    const { facts: money } = await readOrder(order, [refundMoneyAndShippingGbp]);
+    expect(money.refunds[0].productValue.amount.toFixed(2)).toBe("8.00");
+  });
+
+  it("throws rather than guess whether shipping was taxed when the order doesn't say", async () => {
+    const order = clone(refunded) as { data: { order: Record<string, unknown> } };
+    delete order.data.order.taxesIncluded;
+    await expect(readOrder(order as Answer, [refundItems, refundShippingOnly, refundMoneyOnly])).rejects.toThrow(/include tax/);
+  });
+
   it("reads a test order from a guest", async () => {
     const { facts: f } = await readOrder(testOrder);
     expect(f.test).toBe(true);
@@ -223,6 +331,40 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
     expect(client.graphql).toHaveBeenCalledTimes(25);
   });
 
+  it("throws on a line id that appears on two pages", async () => {
+    const page1 = clone(plain);
+    page1.data.order.lineItems.pageInfo = { hasNextPage: true, endCursor: "cursor-1" };
+    const client = shopify((_query, variables) => (variables.after === "cursor-1" ? plain : page1));
+    await expect(createShopifyOrderSource(client).readOrder("gid://shopify/Order/5001")).rejects.toThrow(/appears twice/);
+  });
+
+  it("throws on a line whose currencies are not the order's", async () => {
+    const mixed = clone(plain);
+    mixed.data.order.lineItems.nodes[0].originalTotalSet.presentmentMoney.currencyCode = "EUR";
+    await expect(createShopifyOrderSource(shopify(() => mixed)).readOrder("gid://shopify/Order/5001")).rejects.toThrow(
+      /currencies are not the order's/,
+    );
+  });
+
+  it("throws on a refund line the order doesn't have", async () => {
+    const stray = clone(refundItems);
+    stray.data.refund.refundLineItems.nodes[0].lineItem.id = "gid://shopify/LineItem/9999";
+    await expect(readOrder(refunded, [stray, refundShippingOnly, refundMoneyOnly])).rejects.toThrow(/doesn't have/);
+  });
+
+  it("throws on a refund with more than 100 lines", async () => {
+    const long = clone(refundItems);
+    long.data.refund.refundLineItems.pageInfo.hasNextPage = true;
+    await expect(readOrder(refunded, [long, refundShippingOnly, refundMoneyOnly])).rejects.toThrow(/more than 100 lines/);
+  });
+
+  it("reads a financial status Shopify leaves null as UNKNOWN", async () => {
+    const unknown = clone(plain) as { data: { order: Record<string, unknown> } };
+    unknown.data.order.displayFinancialStatus = null;
+    const { facts: f } = await readOrder(unknown as Answer);
+    expect(f.financialStatus).toBe("UNKNOWN");
+  });
+
   it("answers null for an order Shopify doesn't have, and throws when it can't tell", async () => {
     await expect(createShopifyOrderSource(fromFixtures([])).readOrder("gid://shopify/Order/404")).resolves.toBeNull();
 
@@ -241,11 +383,84 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
       /20 refunds/,
     );
 
+  });
+
+  it("reads every tender again when the first 20 came back full, and throws only if 200 do too", async () => {
+    const card = plain.data.order.transactions[0];
+    const storeCredit = { ...clone(card), gateway: "shopify_store_credit", amountSet: bag("6.0") };
     const manyTenders = clone(plain);
-    manyTenders.data.order.transactions = Array.from({ length: 20 }, () => clone(plain.data.order.transactions[0]));
-    await expect(createShopifyOrderSource(shopify(() => manyTenders)).readOrder("gid://shopify/Order/5001")).rejects.toThrow(
-      /20 transactions/,
+    manyTenders.data.order.transactions = Array.from({ length: 20 }, () => clone(card));
+    const tenders = (transactions: unknown[]) =>
+      shopify((query) => (query === RewardsOrderTransactions ? { data: { order: { transactions } } } : manyTenders));
+
+    // 20 failed or card attempts, then the store credit that paid
+    const whole = tenders([...Array.from({ length: 20 }, () => clone(card)), storeCredit]);
+    const f = await createShopifyOrderSource(whole).readOrder("gid://shopify/Order/5001");
+    expect(asked(whole)).toEqual([
+      { document: "order", variables: { id: "gid://shopify/Order/5001", after: null } },
+      { document: "transactions", variables: { id: "gid://shopify/Order/5001" } },
+    ]);
+    expect(f?.storeCreditUsed.amount.toFixed(2)).toBe("6.00");
+
+    const full = tenders(Array.from({ length: 200 }, () => clone(card)));
+    await expect(createShopifyOrderSource(full).readOrder("gid://shopify/Order/5001")).rejects.toThrow(/200 transactions/);
+  });
+});
+
+describe("the read deadline (every call of one read within ORDER_READ_DEADLINE_MS)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** The fixtures' answers, each `ms` late. */
+  function late(ms: number, answers: ReturnType<typeof fromFixtures>) {
+    const graphql = vi.fn<GraphqlClient["graphql"]>(
+      (query, options) => new Promise((resolve) => setTimeout(() => resolve(answers.graphql(query, options)), ms)),
     );
+    return { graphql };
+  }
+
+  /** The read's outcome so far: "pending", "answered" or what it threw. */
+  function watch(read: Promise<unknown>) {
+    const state: { outcome: unknown } = { outcome: "pending" };
+    read.then(
+      () => (state.outcome = "answered"),
+      (error: unknown) => (state.outcome = error),
+    );
+    return state;
+  }
+
+  it("fails the whole read when a second call runs past the deadline, though no one call takes 4.5 s", async () => {
+    vi.useFakeTimers();
+    const client = late(3000, fromFixtures([refundedInFullUsd], [refundInFullUsd]));
+    const read = watch(createShopifyOrderSource(client).readOrder("gid://shopify/Order/5012"));
+
+    await vi.advanceTimersByTimeAsync(ORDER_READ_DEADLINE_MS - 1);
+    expect(client.graphql).toHaveBeenCalledTimes(2); // the order at 0 s, its refund at 3 s
+    expect(read.outcome).toBe("pending");
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(read.outcome).toBeInstanceOf(ShopifyTimeoutError);
+    expect(client.graphql.mock.calls[1][1]?.signal?.aborted).toBe(true);
+  });
+
+  it("reads the refunds at the same time, so three of them fit after the order", async () => {
+    vi.useFakeTimers();
+    const client = late(2000, fromFixtures([refunded], [refundItems, refundShippingOnly, refundMoneyOnly]));
+    const read = watch(createShopifyOrderSource(client).readOrder("gid://shopify/Order/5011"));
+
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(read.outcome).toBe("answered");
+  });
+
+  it("holds readRefund to the same deadline", async () => {
+    vi.useFakeTimers();
+    const client = late(2000, fromFixtures([refunded], [refundItems, refundShippingOnly, refundMoneyOnly]));
+    const read = watch(createShopifyOrderSource(client).readRefund("gid://shopify/Refund/6153"));
+
+    await vi.advanceTimersByTimeAsync(ORDER_READ_DEADLINE_MS);
+    // The refund at 0 s and the order at 2 s answered; the other refunds, sent at 4 s, had 0.5 s left
+    expect(read.outcome).toBeInstanceOf(ShopifyTimeoutError);
   });
 });
 
@@ -255,9 +470,12 @@ describe("readRefund (one refund, valued against its order's lines)", () => {
 
     const answer = await createShopifyOrderSource(client).readRefund("gid://shopify/Refund/6151");
 
+    // The order's other refunds too: an item refund is capped by them as well (Ruling 20)
     expect(asked(client)).toEqual([
       { document: "refund", variables: { id: "gid://shopify/Refund/6151" } },
       { document: "order", variables: { id: "gid://shopify/Order/5011", after: null } },
+      { document: "refund", variables: { id: "gid://shopify/Refund/6152" } },
+      { document: "refund", variables: { id: "gid://shopify/Refund/6153" } },
     ]);
     expect(answer?.orderGid).toBe("gid://shopify/Order/5011");
     expect(answer?.refund.externalRefundId).toBe("gid://shopify/Refund/6151");

@@ -160,7 +160,8 @@ export const RewardsCreditHistory = `#graphql
 
 /**
  * One order's facts (spec 6.3 rule 1): its lines with their discounts, its
- * tenders, its refunds' ids and the shop's currency. Line items come 100 to a
+ * tenders, its refunds' ids, whether its prices include tax (for the shipping
+ * a money-only refund returned, rule 7) and the shop's currency. Line items come 100 to a
  * page; `$after` reads the next. Kept apart from the refunds so each read
  * stays under the 1,000-point limit (one query with everything is refused
  * with MAX_COST_EXCEEDED).
@@ -169,7 +170,7 @@ export const RewardsCreditHistory = `#graphql
  * Cost: 909 = shop 1 + order 1 + customer 1 + totalPriceSet 3 + lineItems
  * (connection 2, pageInfo 1, 100 × (line 1 + originalTotalSet 3 + one
  * discount allocation 4)) + transactions 20 × (transaction 1 + amountSet 3)
- * + refunds 20 × 1.
+ * + refunds 20 × 1 (taxesIncluded and the other scalars cost nothing).
  */
 export const RewardsOrderFacts = `#graphql
   query RewardsOrderFacts($id: ID!, $after: String) {
@@ -186,6 +187,7 @@ export const RewardsOrderFacts = `#graphql
       displayFinancialStatus
       currencyCode
       presentmentCurrencyCode
+      taxesIncluded
       customer {
         id
       }
@@ -250,14 +252,42 @@ export const RewardsOrderFacts = `#graphql
 `;
 
 /**
- * One refund: the lines and quantities it returned, its money and the
- * shipping it refunded (rule 7).
+ * Every tender of one order, read when RewardsOrderFacts's 20 came back full
+ * (refunds and failed attempts are on the list too). `transactions` is a plain
+ * list with no paging, so this is the most one read can see.
  * Scopes (as the validator names them): read_orders, read_marketplace_orders,
  * read_quick_sale.
- * Cost: 369 = refund 1 + order 1 + refundLineItems (connection 2, pageInfo 1,
+ * Cost: 801 = order 1 + transactions 200 × (transaction 1 + amountSet 3).
+ */
+export const RewardsOrderTransactions = `#graphql
+  query RewardsOrderTransactions($id: ID!) {
+    order(id: $id) {
+      transactions(first: 200) {
+        gateway
+        status
+        kind
+        amountSet {
+          shopMoney {
+            amount
+          }
+          presentmentMoney {
+            amount
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * One refund: the lines and quantities it returned, its money and the
+ * shipping it refunded, before and after tax (rule 7).
+ * Scopes (as the validator names them): read_orders, read_marketplace_orders,
+ * read_quick_sale.
+ * Cost: 429 = refund 1 + order 1 + refundLineItems (connection 2, pageInfo 1,
  * 100 × (refund line 1 + line 1)) + transactions (connection 2, 20 ×
  * (transaction 1 + amountSet 3)) + refundShippingLines (connection 2, 20 ×
- * (shipping line 1 + subtotalAmountSet 3)).
+ * (shipping line 1 + subtotalAmountSet 3 + taxAmountSet 3)).
  */
 export const RewardsRefundFacts = `#graphql
   query RewardsRefundFacts($id: ID!) {
@@ -295,6 +325,14 @@ export const RewardsRefundFacts = `#graphql
       refundShippingLines(first: 20) {
         nodes {
           subtotalAmountSet {
+            shopMoney {
+              amount
+            }
+            presentmentMoney {
+              amount
+            }
+          }
+          taxAmountSet {
             shopMoney {
               amount
             }

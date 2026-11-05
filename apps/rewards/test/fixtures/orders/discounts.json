@@ -13,6 +13,7 @@
       "displayFinancialStatus": "PAID",
       "currencyCode": "GBP",
       "presentmentCurrencyCode": "GBP",
+      "taxesIncluded": true,
       "customer": {
         "id": "gid://shopify/Customer/7001"
       },

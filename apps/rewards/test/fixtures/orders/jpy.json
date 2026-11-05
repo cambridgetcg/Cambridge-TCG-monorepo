@@ -13,6 +13,7 @@
       "displayFinancialStatus": "PARTIALLY_REFUNDED",
       "currencyCode": "JPY",
       "presentmentCurrencyCode": "JPY",
+      "taxesIncluded": true,
       "customer": {
         "id": "gid://shopify/Customer/7001"
       },

@@ -13,6 +13,7 @@
       "displayFinancialStatus": "REFUNDED",
       "currencyCode": "USD",
       "presentmentCurrencyCode": "USD",
+      "taxesIncluded": false,
       "customer": {
         "id": "gid://shopify/Customer/7001"
       },
