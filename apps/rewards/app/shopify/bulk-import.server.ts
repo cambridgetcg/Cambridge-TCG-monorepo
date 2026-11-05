@@ -31,6 +31,7 @@ import { askShopify } from "./ask.server";
 import { BulkFileError, streamBulkOrders } from "./bulk-file";
 import { type GraphqlClient, RewardsAccessScopes, RewardsBulkOrderNodes, RewardsBulkOrders, RewardsBulkStatus } from "./graphql";
 import { factsFromOrderNode } from "./order-source.server";
+import { RenewalBusyError } from "./renewal-busy";
 
 /** How far back the import reads with read_all_orders: the 12 months before install. */
 export const IMPORT_HORIZON_DAYS = 365;
@@ -414,7 +415,8 @@ export async function pollImport(
  * an expiring token), until `deadline`. One store failing is logged and never
  * stops the others; it is counted in `failed`, with the first error, so the
  * hourly run is recorded as partial (A17-F3). `polled` counts the polls that
- * finished.
+ * finished. A store whose token another call is renewing right now is left
+ * for the next run, as no failure (Ruling 85).
  */
 export async function pollRunningImports(deadline: number): Promise<{ polled: number; failed: number; firstProblem?: unknown }> {
   const running = await prisma.connection.findMany({
@@ -436,6 +438,10 @@ export async function pollRunningImports(deadline: number): Promise<{ polled: nu
       await pollImport(admin, connection.id, deadline);
       result.polled++;
     } catch (error) {
+      if (error instanceof RenewalBusyError) {
+        console.warn(`[import] Another renewal of ${shop}'s token is running; its past-orders import is polled next run`);
+        continue;
+      }
       console.error(`[import] Could not poll the past-orders import of ${shop}: ${messageOf(error)}`);
       if (result.failed === 0) result.firstProblem = error instanceof Response ? new Error(`Polling ${shop}'s import: ${messageOf(error)}`) : error;
       result.failed++;

@@ -13,6 +13,7 @@ import { ApiVersion, AppDistribution, shopifyApp } from "@shopify/shopify-app-re
 import prisma from "./db.server";
 import { onAppOpened } from "./shopify/install.server";
 import { POLARIS_URL } from "./shopify/polaris";
+import { RenewalBusyError } from "./shopify/renewal-busy";
 import { EncryptedPrismaSessionStorage, oneRenewalCall } from "./shopify/session-storage.server";
 
 // An extra shop domain to accept, a regular-expression fragment as before
@@ -60,17 +61,37 @@ const shopify = shopifyApp({
 export default shopify;
 export const apiVersion = ApiVersion.October26;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
+
+/**
+ * `fn`, answering 503 while another renewal of the delivery's store token
+ * runs (RenewalBusyError, Ruling 85): Shopify delivers the webhook again.
+ */
+function tryLaterWhileRenewing<F extends (...args: never[]) => Promise<unknown>>(fn: F): F {
+  return (async (...args: Parameters<F>) => {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      if (error instanceof RenewalBusyError) throw new Response(null, { status: 503 });
+      throw error;
+    }
+  }) as F;
+}
+
 // Each entry point that can renew the offline token runs as one renewal call,
-// so the session it stores releases only the renewal lease it took (Ruling 39).
+// so the session it stores releases only the renewal lease it took (Ruling
+// 39). Only the admin renews an expired token beside a running renewal; the
+// webhook, the proxy and the jobs' unauthenticated.admin answer try-later
+// (Ruling 85): unauthenticated.admin and the proxy throw RenewalBusyError for
+// their callers to handle.
 export const authenticate: typeof shopify.authenticate = {
   ...shopify.authenticate,
-  admin: oneRenewalCall(shopify.authenticate.admin),
-  webhook: oneRenewalCall(shopify.authenticate.webhook),
-  public: { ...shopify.authenticate.public, appProxy: oneRenewalCall(shopify.authenticate.public.appProxy) },
+  admin: oneRenewalCall(shopify.authenticate.admin, "admin"),
+  webhook: tryLaterWhileRenewing(oneRenewalCall(shopify.authenticate.webhook, "background")),
+  public: { ...shopify.authenticate.public, appProxy: oneRenewalCall(shopify.authenticate.public.appProxy, "background") },
 };
 export const unauthenticated: typeof shopify.unauthenticated = {
   ...shopify.unauthenticated,
-  admin: oneRenewalCall(shopify.unauthenticated.admin),
+  admin: oneRenewalCall(shopify.unauthenticated.admin, "background"),
 };
 export const login = shopify.login;
 export const sessionStorage = shopify.sessionStorage;
