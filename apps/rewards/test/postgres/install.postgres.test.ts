@@ -15,9 +15,23 @@ const session = new Session({
   accessToken: "shpat_install_test_token",
 });
 
-/** An Admin API client that answers the shop read with `body`, and records each query. */
+/**
+ * An Admin API client that answers the shop read with `body` and the
+ * past-orders import's start (its scopes read and bulk query, A17) as
+ * Shopify would, and records each query.
+ */
 function adminAnswering(body: unknown) {
-  const graphql = vi.fn<(query: string) => Promise<Response>>(async () => Response.json(body));
+  const graphql = vi.fn<(query: string) => Promise<Response>>(async (query) => {
+    if (/query RewardsAccessScopes\b/.test(query)) {
+      return Response.json({ data: { currentAppInstallation: { accessScopes: [{ handle: "read_orders" }, { handle: "read_all_orders" }] } } });
+    }
+    if (/mutation RewardsBulkOrders\b/.test(query)) {
+      return Response.json({
+        data: { bulkOperationRunQuery: { bulkOperation: { id: "gid://shopify/BulkOperation/1", status: "CREATED" }, userErrors: [] } },
+      });
+    }
+    return Response.json(body);
+  });
   return { admin: { graphql } as unknown as AdminApiContext, graphql };
 }
 
@@ -39,8 +53,12 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
 
     await onAppOpened({ session, admin });
 
-    expect(graphql).toHaveBeenCalledTimes(1);
-    expect(graphql.mock.calls[0][0]).toMatch(/query RewardsShopDetails\b/);
+    // The shop read, then the past-orders import's start (first open only)
+    expect(graphql.mock.calls.map(([query]) => /(?:query|mutation) (\w+)/.exec(query)?.[1])).toEqual([
+      "RewardsShopDetails",
+      "RewardsAccessScopes",
+      "RewardsBulkOrders",
+    ]);
     const connection = await prisma.connection.findUniqueOrThrow({
       where: { platform_externalAccountId: { platform: "shopify", externalAccountId: SHOP } },
       include: { merchant: true },
@@ -51,7 +69,11 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
 
   it("is idempotent: every later token exchange keeps one merchant and refreshes its details", async () => {
     await onAppOpened({ session, admin: adminAnswering(shopAnswer("Install Test")).admin });
-    await onAppOpened({ session, admin: adminAnswering(shopAnswer("Install Test Renamed")).admin });
+    const later = adminAnswering(shopAnswer("Install Test Renamed"));
+    await onAppOpened({ session, admin: later.admin });
+
+    // A later open costs the one shop read: the import has started
+    expect(later.graphql).toHaveBeenCalledTimes(1);
 
     await expect(prisma.connection.count()).resolves.toBe(1);
     const merchants = await prisma.merchant.findMany();
@@ -71,6 +93,31 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
     const second = await prisma.connection.findFirstOrThrow();
     expect(second.lastAuthAt!.getTime()).toBeGreaterThan(first.lastAuthAt!.getTime());
     expect(second.activatedAt).toEqual(first.activatedAt);
+  });
+
+  it("opens the app when Shopify refuses to start the past-orders import, keeping the error for the next poll", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const graphql = vi.fn<(query: string) => Promise<Response>>(async (query) => {
+      if (/query RewardsAccessScopes\b/.test(query)) {
+        return Response.json({ data: { currentAppInstallation: { accessScopes: [{ handle: "read_orders" }] } } });
+      }
+      if (/mutation RewardsBulkOrders\b/.test(query)) {
+        return Response.json({
+          data: { bulkOperationRunQuery: { bulkOperation: null, userErrors: [{ field: ["query"], message: "Invalid bulk query", code: "INVALID" }] } },
+        });
+      }
+      return Response.json(shopAnswer("Install Test"));
+    });
+
+    await onAppOpened({ session, admin: { graphql } as unknown as AdminApiContext });
+
+    await expect(prisma.connection.findFirstOrThrow()).resolves.toMatchObject({
+      status: "active",
+      importState: "running",
+      importOperationId: null,
+      importError: expect.stringContaining("INVALID"),
+    });
+    expect(errors).toHaveBeenCalledWith(expect.stringContaining(SHOP), expect.stringContaining("Invalid bulk query"));
   });
 
   it("writes nothing and fails the open when Shopify's answer has no shop", async () => {

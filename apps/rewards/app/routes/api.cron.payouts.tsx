@@ -3,12 +3,15 @@
  * unclear payouts, send due ones and record missed paid orders
  * (runPayoutCheck), under the job's lock, within 240 s of the start (Vercel
  * stops a function at 300 s; what is left waits for the next hour).
+ * Then, in the time left, it polls every running past-orders import
+ * (pollRunningImports, plan Decision 13: the import's backstop).
  * Answers 200 with a summary; a run with failed stores, payouts or orders is
  * recorded as partial.
  */
 import type { LoaderFunctionArgs } from "react-router";
 import { cronProblems, monitoredCron, verifyCronAuth, withCronLock } from "~/lib/cron.server";
 import { runPayoutCheck } from "~/lib/payout-check.server";
+import { pollRunningImports } from "~/shopify/bulk-import.server";
 import { railFor } from "~/shopify/rail-for.server";
 
 const LOCK_TTL_MINUTES = 15;
@@ -18,9 +21,11 @@ export const loader = monitoredCron("payouts", async ({ request }: LoaderFunctio
   if (!verifyCronAuth(request)) return new Response("Unauthorized", { status: 401 });
 
   const now = new Date();
-  const result = await withCronLock("payouts", LOCK_TTL_MINUTES, () =>
-    runPayoutCheck({ now, railFor, deadline: now.getTime() + RUN_TIME_BUDGET_MS }),
-  );
+  const deadline = now.getTime() + RUN_TIME_BUDGET_MS;
+  const result = await withCronLock("payouts", LOCK_TTL_MINUTES, async () => {
+    const check = await runPayoutCheck({ now, railFor, deadline });
+    return { ...check, importsPolled: await pollRunningImports(deadline) };
+  });
   if (result === "locked") return Response.json({ success: true, skipped: true, reason: "locked" });
 
   const { firstProblem, ...summary } = result;

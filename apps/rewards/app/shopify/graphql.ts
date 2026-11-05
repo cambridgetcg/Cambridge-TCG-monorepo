@@ -434,3 +434,165 @@ export const RewardsStoreCreditConfig = `#graphql
     }
   }
 `;
+
+/**
+ * The access scopes Shopify has granted the app on this store, read before
+ * the past-orders import: orders older than 60 days need read_all_orders
+ * (spec 6.5), and without it the import covers 60 days.
+ * Scopes: none (any installed app can read its own installation).
+ * Cost: about 1 + one point per granted scope (the installation object and
+ * each AccessScope object in the list; their handles cost nothing): under 50
+ * for the app's scopes. A25 logs the requested cost.
+ */
+export const RewardsAccessScopes = `#graphql
+  query RewardsAccessScopes {
+    currentAppInstallation {
+      accessScopes {
+        handle
+      }
+    }
+  }
+`;
+
+/**
+ * The bulk query of the past-orders import (spec 6.5), sent as
+ * RewardsBulkOrders's `$query`: the orders created in [from, to) with the
+ * order fields of RewardsOrderFacts and their line items, one JSONL line per
+ * order and one per line item (with `__parentId`). Bulk rules shape it: one
+ * top-level field and no `shop`; `edges { node }`; `transactions` with no
+ * size argument (bulk reads the whole list); and no `refunds`, because every
+ * part of a refund that would tell a refund of money with no items apart
+ * (its line items, transactions and shipping lines) is a connection, and
+ * bulk refuses a connection inside a list field. The node is therefore read
+ * with "quantities" (order-source.server.ts, Ruling 25), and a money-only
+ * refund made before the import still counts as spend (a known limit).
+ * `search` is Shopify search syntax, embedded as a GraphQL string.
+ * Scopes (as the validator names them): read_orders, read_marketplace_orders,
+ * read_quick_sale, read_customers; read_all_orders for orders older than 60 days.
+ * Cost: none charged to the app's bucket (a bulk query runs on Shopify's side,
+ * outside the single-query limit). The validator checks only the wrapper, so
+ * this text was validated on its own as a plain query; A25 is the real run.
+ */
+export function RewardsBulkOrderNodes(search: string): string {
+  return `{
+  orders(query: ${JSON.stringify(search)}) {
+    edges {
+      node {
+        id
+        name
+        test
+        createdAt
+        processedAt
+        cancelledAt
+        displayFinancialStatus
+        currencyCode
+        presentmentCurrencyCode
+        taxesIncluded
+        customer {
+          id
+        }
+        totalPriceSet {
+          shopMoney {
+            amount
+          }
+          presentmentMoney {
+            amount
+          }
+        }
+        totalTipReceivedSet {
+          shopMoney {
+            amount
+          }
+          presentmentMoney {
+            amount
+          }
+        }
+        transactions {
+          gateway
+          status
+          kind
+          amountSet {
+            shopMoney {
+              amount
+            }
+            presentmentMoney {
+              amount
+            }
+          }
+        }
+        lineItems {
+          edges {
+            node {
+              id
+              quantity
+              currentQuantity
+              isGiftCard
+              originalTotalSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+                presentmentMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              discountAllocations {
+                allocatedAmountSet {
+                  shopMoney {
+                    amount
+                  }
+                  presentmentMoney {
+                    amount
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+}
+
+/**
+ * Starts the past-orders import's bulk query (RewardsBulkOrderNodes's text
+ * as `$query`). Shopify runs it in the background; RewardsBulkStatus follows it.
+ * Scopes: those of the bulk query itself (see RewardsBulkOrderNodes).
+ * Cost: 12 = mutation 10 + bulkOperation 1 + userErrors 1.
+ */
+export const RewardsBulkOrders = `#graphql
+  mutation RewardsBulkOrders($query: String!) {
+    bulkOperationRunQuery(query: $query) {
+      bulkOperation {
+        id
+        status
+      }
+      userErrors {
+        field
+        message
+        code
+      }
+    }
+  }
+`;
+
+/**
+ * One bulk operation's progress (Admin API 2026-01 and later), polled by the
+ * hourly job and by Home while the import runs. `url` is the signed JSONL
+ * file once it is COMPLETED (null when the query found nothing).
+ * Scopes: none beyond the app's own operation.
+ * Cost: 1 (the bulkOperation object; its scalars cost nothing).
+ */
+export const RewardsBulkStatus = `#graphql
+  query RewardsBulkStatus($id: ID!) {
+    bulkOperation(id: $id) {
+      id
+      status
+      errorCode
+      url
+      objectCount
+    }
+  }
+`;
