@@ -1,6 +1,6 @@
 import type { ConnectionContext } from "~/lib/merchant.server";
 import { type CustomerCursor, type CustomerRow, customerRows } from "~/lib/stats.server";
-import { tierTable } from "~/lib/tiers.server";
+import { tiersOf } from "~/lib/tiers.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { SEARCH_MAX, customerNames, searchCustomers } from "~/shopify/names.server";
 
@@ -17,7 +17,7 @@ export type ListedBuyer = CustomerRow & { buyer: string };
 
 /** The merchant's tiers, lowest first, for the filter and the rows' tier chips. */
 export async function filterTiers(merchantId: string): Promise<Array<{ id: string; name: string; percent: string }>> {
-  return (await tierTable(merchantId)).map((tier) => ({ id: tier.id, name: tier.name, percent: tier.cashbackPercent.toFixed() }));
+  return (await tiersOf(merchantId)).map((tier) => ({ id: tier.id, name: tier.name, percent: tier.cashbackPercent.toFixed() }));
 }
 
 /**

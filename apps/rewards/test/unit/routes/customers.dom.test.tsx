@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
 
 // The pages' loaders are replaced by the stub's hydration data; nothing here
 // reaches Shopify or the database. What the loaders read and how the lock
@@ -86,8 +87,19 @@ const PANEL = {
   ],
 };
 
-async function renderPanel(data = PANEL) {
-  const Stub = createRoutesStub([{ id: "routes/app.customers.$id", path: "/app/customers/:id", Component: Buyer }]);
+/**
+ * The buyer panel with `data`. With `posted`, each post goes to a stand-in
+ * action that records it and gives back `answer` (by default a promise that
+ * never settles, so the post stays in flight).
+ */
+async function renderPanel(data = PANEL, o: { posted?: Array<Record<string, string>>; answer?: unknown } = {}) {
+  const action = async ({ request }: { request: Request }) => {
+    o.posted?.push(await fieldsOf(request));
+    return o.answer ?? new Promise(() => {});
+  };
+  const Stub = createRoutesStub([
+    { id: "routes/app.customers.$id", path: "/app/customers/:id", Component: Buyer, ...(o.posted ? { action, loader: () => data } : {}) },
+  ]);
   render(<Stub initialEntries={["/app/customers/c1"]} hydrationData={{ loaderData: { "routes/app.customers.$id": data } }} />);
   await screen.findByText("Open the buyer in Shopify");
 }
@@ -261,6 +273,40 @@ describe("Buyer panel", () => {
     expect([...document.querySelectorAll('s-section[heading="Store credit"] s-number')].map((n) => n.textContent)).toEqual(["£12.50", "€5.00"]);
     expect(document.querySelector('s-section[heading="Store credit"] s-heading')).toBeNull();
     expect(text).not.toContain("Shows at checkout");
+  });
+
+  // OPERATIONS-9: the lock posts the tier chosen, under the names the action reads
+  it("locks the buyer to the tier chosen, and says the action's refusal", async () => {
+    letFetchersPost();
+    const posted: Array<Record<string, string>> = [];
+    const tiers = [...PANEL.tiers, { id: "t2", name: "Platinum", percent: "15" }];
+    await renderPanel({ ...PANEL, tiers }, { posted, answer: { ok: false, error: "This tier is no longer there. Reload the page." } });
+    const select = document.querySelector('s-select[label="Lock to a tier"]')!;
+
+    await act(async () => {
+      Object.defineProperty(select, "value", { value: "t2", configurable: true, writable: true });
+      fireEvent.change(select);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Lock", { selector: "s-button" }));
+    });
+
+    expect(posted).toEqual([{ intent: "lock", tierId: "t2" }]);
+    expect(await screen.findByText("This tier is no longer there. Reload the page.")).toBeTruthy();
+  });
+
+  it("returns a locked buyer to automatic, showing the post as loading", async () => {
+    letFetchersPost();
+    const posted: Array<Record<string, string>> = [];
+    await renderPanel({ ...PANEL, lockedTierId: "t1" }, { posted });
+    const button = screen.getByText("Return to automatic", { selector: "s-button" });
+
+    await act(async () => {
+      fireEvent.click(button);
+    });
+
+    expect(posted).toEqual([{ intent: "automatic" }]);
+    expect(button.hasAttribute("loading")).toBe(true);
   });
 
   // TRUTH-11: a buyer the tier pass hasn't reached yet

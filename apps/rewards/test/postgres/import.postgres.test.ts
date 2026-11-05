@@ -47,7 +47,8 @@ type Bulk = { status: string; errorCode: string | null; url: string | null; obje
 
 /**
  * Shopify as the import sees it: the shop, the app's scopes, bulk operations
- * started (numbered from 1) and the latest one's status, which a test sets.
+ * started (numbered from 1) and the latest one's status, which a test sets,
+ * and the widget's settings write that each open makes.
  */
 function fakeShopify(o: { scopes?: string[] } = {}) {
   const scopes = o.scopes ?? ["read_customers", "read_orders", "read_all_orders", "write_store_credit_account_transactions"];
@@ -72,6 +73,11 @@ function fakeShopify(o: { scopes?: string[] } = {}) {
         };
       case "RewardsBulkStatus":
         return { data: { bulkOperation: { id: variables.id, ...bulk } } };
+      // The widget's settings, which every open writes (OPERATIONS-7)
+      case "RewardsAppInstallation":
+        return { data: { currentAppInstallation: { id: "gid://shopify/AppInstallation/1" } } };
+      case "RewardsWidgetConfig":
+        return { data: { metafieldsSet: { metafields: [{ id: "gid://shopify/Metafield/1" }], userErrors: [] } } };
       default:
         throw new Error(`Unexpected query ${name}`);
     }

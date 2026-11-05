@@ -35,7 +35,7 @@ import { Money, fromDb } from "./money";
 import { type OrderStatus, orderStatus } from "./order-status";
 import { payoutVersion } from "./payouts.server";
 import { monitoring } from "./telemetry.server";
-import { type Progress, type TierRow, progress, qualify, spendCounted, spendOf, tierPassPending, tierSpend, tierTable } from "./tiers.server";
+import { type Progress, type TierRow, progress, qualify, spendCounted, spendOf, tierPassPending, tierSpend, tiersOf } from "./tiers.server";
 import { UUID } from "./uuid";
 
 export type RecentReward = {
@@ -70,8 +70,6 @@ export interface HomeStats {
   needsLook: number;
   /** The order that needs a look when there is exactly one, so Home's banner goes straight to it (DESIGN-12) */
   needsLookOrderId: string | null;
-  /** Cashback entries ever written (the review request counts them) */
-  cashbackOrders: number;
 }
 
 /** How many ledger events Recent rewards shows. */
@@ -126,7 +124,7 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
   const inMonth = { gte: monthStart, lte: now };
   const countedOrder = { merchantId, test: false, cancelledAt: null };
 
-  const [given, spent, cameBack, dailyGiven, dailySpent, recent, tiers, needsLook, needsLookOrderId, cashbackOrders] = await Promise.all([
+  const [given, spent, cameBack, dailyGiven, dailySpent, recent, tiers, needsLook, needsLookOrderId] = await Promise.all([
     prisma.ledgerEntry.aggregate({ _sum: { shopAmount: true }, where: { merchantId, createdAt: inMonth } }),
     prisma.order.aggregate({ _sum: { shopStoreCreditUsed: true }, where: { ...countedOrder, paidAt: inMonth } }),
     prisma.$queryRaw<Array<{ n: number }>>`
@@ -178,7 +176,6 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
     }),
     needsLookOrders(conn),
     onlyNeedsLookOrder(conn),
-    prisma.ledgerEntry.count({ where: { merchantId, kind: "cashback" } }),
   ]);
 
   const byDay = (rows: Array<{ day: string; total: string }>) => new Map(rows.map((row) => [row.day, new Money(row.total)]));
@@ -221,7 +218,6 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
     tiers: tiers.map((tier) => ({ id: tier.id, name: tier.name, percent: fromDb(tier.cashbackPercent), members: tier._count.members })),
     needsLook,
     needsLookOrderId,
-    cashbackOrders,
   };
 }
 
@@ -232,14 +228,20 @@ export const REVIEW_MIN_AGE_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+type ReviewFacts = { createdAt: Date; reviewPromptDismissedAt: Date | null; reviewPromptShownAt: Date | null };
+
 /**
  * The review request is due once, after REVIEW_MIN_CASHBACK cashback
  * entries and REVIEW_MIN_AGE_DAYS days, unless the merchant dismissed it or
- * Shopify has shown it (spec 4.3).
+ * Shopify has shown it (spec 4.3). The entries are read only while it can
+ * still be due, and only as many as the rule needs: an append-only ledger
+ * is never counted whole on a page load (OPERATIONS-2).
  */
-function reviewDue(i: { cashbackEntries: number; merchantCreatedAt: Date; dismissedAt: Date | null; shownAt: Date | null; now: Date }): boolean {
-  if (i.dismissedAt || i.shownAt) return false;
-  return i.cashbackEntries >= REVIEW_MIN_CASHBACK && i.now.getTime() - i.merchantCreatedAt.getTime() >= REVIEW_MIN_AGE_DAYS * DAY_MS;
+async function reviewDue(merchantId: string, merchant: ReviewFacts, now: Date): Promise<boolean> {
+  if (merchant.reviewPromptDismissedAt || merchant.reviewPromptShownAt) return false;
+  if (now.getTime() - merchant.createdAt.getTime() < REVIEW_MIN_AGE_DAYS * DAY_MS) return false;
+  const entries = await prisma.ledgerEntry.findMany({ where: { merchantId, kind: "cashback" }, take: REVIEW_MIN_CASHBACK, select: { id: true } });
+  return entries.length >= REVIEW_MIN_CASHBACK;
 }
 
 /** Home's setup and request facts for one store at `now`. */
@@ -264,13 +266,15 @@ export interface HomeState {
   reviewDue: boolean;
 }
 
-/** `cashbackEntries` is HomeStats.cashbackOrders, read once for both. */
-export async function homeState(conn: ConnectionContext, now: Date, cashbackEntries: number): Promise<HomeState> {
-  const [merchant, connection, privacy, importedOrders, importedBuyers, placing] = await Promise.all([
-    prisma.merchant.findUniqueOrThrow({
-      where: { id: conn.merchantId },
-      select: { createdAt: true, reviewPromptDismissedAt: true, reviewPromptShownAt: true, setupCompletedAt: true },
-    }),
+export async function homeState(conn: ConnectionContext, now: Date): Promise<HomeState> {
+  const [{ merchant, review }, connection, privacy, importedOrders, importedBuyers, placing] = await Promise.all([
+    // The review rule's ledger read waits on the merchant's facts, beside the other reads
+    prisma.merchant
+      .findUniqueOrThrow({
+        where: { id: conn.merchantId },
+        select: { createdAt: true, reviewPromptDismissedAt: true, reviewPromptShownAt: true, setupCompletedAt: true },
+      })
+      .then(async (merchant) => ({ merchant, review: await reviewDue(conn.merchantId, merchant, now) })),
     prisma.connection.findUniqueOrThrow({
       where: { id: conn.connectionId },
       select: { importState: true, importError: true, importHorizonDays: true, importDismissedAt: true },
@@ -295,13 +299,7 @@ export async function homeState(conn: ConnectionContext, now: Date, cashbackEntr
     importedOrders,
     importedBuyers,
     placing,
-    reviewDue: reviewDue({
-      cashbackEntries,
-      merchantCreatedAt: merchant.createdAt,
-      dismissedAt: merchant.reviewPromptDismissedAt,
-      shownAt: merchant.reviewPromptShownAt,
-      now,
-    }),
+    reviewDue: review,
   };
 }
 
@@ -501,8 +499,8 @@ export async function buyerPanel(conn: ConnectionContext, customerId: string, no
   });
   if (!customer) return null;
 
-  const [tiers, spend, entries, orders, currencies] = await Promise.all([
-    tierTable(conn.merchantId),
+  const [tierRows, spend, entries, orders, currencies] = await Promise.all([
+    tiersOf(conn.merchantId),
     tierSpend(customer.id, conn.tierWindow, now),
     prisma.ledgerEntry.findMany({
       where: { merchantId: conn.merchantId, customerId: customer.id },
@@ -541,7 +539,6 @@ export async function buyerPanel(conn: ConnectionContext, customerId: string, no
     // GROUP BY in Postgres: one row per currency, however many entries
     prisma.ledgerEntry.groupBy({ by: ["currency"], where: { merchantId: conn.merchantId, customerId: customer.id } }),
   ]);
-  const tierRows: TierRow[] = tiers.map(({ id, name, minSpend, cashbackPercent, position }) => ({ id, name, minSpend, cashbackPercent, position }));
   // The held tier, or the lowest for a buyer with none (rule 2), against the one their spend qualifies for
   const held = tierRows.find((t) => t.id === customer.tierId) ?? tierRows[0] ?? null;
   const qualified = held && customer.lockedTierId === null ? qualify(spend, tierRows) : null;

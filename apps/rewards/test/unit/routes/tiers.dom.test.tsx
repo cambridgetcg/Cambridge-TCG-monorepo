@@ -59,6 +59,13 @@ async function renderTiers(
   await screen.findByText("Cashback is paid on", { exact: false });
 }
 
+/** Type `value` into a Polaris field, as its input event reports it. */
+const type = (field: Element, value: string) =>
+  act(async () => {
+    Object.defineProperty(field, "value", { value, configurable: true, writable: true });
+    fireEvent.input(field);
+  });
+
 const rows = () =>
   [...document.querySelectorAll("s-table-body s-table-row")].map((row) =>
     [...row.querySelectorAll("s-table-cell")].map((cell) => cell.textContent?.trim()),
@@ -198,6 +205,38 @@ describe("Tiers page", () => {
 
     expect(posted).toEqual([{ intent: "window", tierWindow: "lifetime" }]);
     expect(list.hasAttribute("disabled")).toBe(true);
+  });
+
+  // OPERATIONS-9: the fields as typed, under the names the action reads
+  it("posts a new tier's name, minimum spend and cashback as typed", async () => {
+    letFetchersPost();
+    const posted: Array<Record<string, string>> = [];
+    await renderTiers(page(), { posted });
+
+    await type(document.querySelector('s-text-field[name="name"]')!, "Silver");
+    await type(document.querySelector('s-money-field[name="minSpend"]')!, "250");
+    await type(document.querySelector('s-number-field[name="percent"]')!, "7");
+    await act(async () => {
+      fireEvent.click(screen.getByText("Add tier", { selector: "s-section s-button" }));
+    });
+
+    expect(posted).toEqual([{ intent: "save", id: "", name: "Silver", percent: "7", minSpend: "250" }]);
+  });
+
+  // OPERATIONS-9: the lowest tier's minimum stays 0, so its save posts none
+  it("posts no minimum spend with the lowest tier's save", async () => {
+    letFetchersPost();
+    const posted: Array<Record<string, string>> = [];
+    await renderTiers(page(), { posted });
+
+    fireEvent.click(screen.getAllByText("Edit")[0]);
+    await act(async () => {});
+    await type(document.querySelector('s-number-field[name="percent"]')!, "6");
+    await act(async () => {
+      fireEvent.click(screen.getByText("Save", { selector: "s-section s-button" }));
+    });
+
+    expect(posted).toEqual([{ intent: "save", id: "t0", name: "Bronze", percent: "6", version: "2026-11-01T10:00:00.000Z" }]);
   });
 
   // CONCURRENCY-3: an edit says which version of the tier it was made on

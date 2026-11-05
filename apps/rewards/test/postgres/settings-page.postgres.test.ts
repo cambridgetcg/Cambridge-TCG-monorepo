@@ -206,7 +206,7 @@ describe.skipIf(!hasTestDatabase)("Settings and customer data requests", () => {
 
     it("downloads the report as a JSON attachment, marks it downloaded and clears Home's banner", async () => {
       const request = await received(conn, "301", 3);
-      const before = await homeState(conn, new Date(), 0);
+      const before = await homeState(conn, new Date());
       expect(before.privacyDueAt).not.toBeNull();
       expect(homeBanners({ privacyDueAt: before.privacyDueAt, spendProblems: [], needsLook: 0, needsLookOrderId: null, timezone: TIMEZONE, themeEditorUrl: "" }, true).map((b) => b.kind)).toEqual([
         "privacy",
@@ -223,7 +223,7 @@ describe.skipIf(!hasTestDatabase)("Settings and customer data requests", () => {
       expect(report.customerFound).toBe(false);
 
       await expect(requestRow(request.id)).resolves.toMatchObject({ status: "downloaded", downloadedAt: expect.any(Date) });
-      const after = await homeState(conn, new Date(), 0);
+      const after = await homeState(conn, new Date());
       expect(after.privacyDueAt).toBeNull();
       expect(homeBanners({ privacyDueAt: after.privacyDueAt, spendProblems: [], needsLook: 0, needsLookOrderId: null, timezone: TIMEZONE, themeEditorUrl: "" }, true)).toEqual([]);
       await expect(loadPrivacy()).resolves.toMatchObject({ requests: [{ id: request.id, state: "downloaded" }] });
@@ -245,7 +245,7 @@ describe.skipIf(!hasTestDatabase)("Settings and customer data requests", () => {
       }
       await expect(requestRow(theirs.id)).resolves.toEqual({ status: "open", downloadedAt: null });
       // The other store's banner stays
-      await expect(homeState(other, new Date(), 0)).resolves.toMatchObject({ privacyDueAt: expect.any(Date) });
+      await expect(homeState(other, new Date())).resolves.toMatchObject({ privacyDueAt: expect.any(Date) });
     });
 
     // BOUNDARY-8: a merchant with two stores downloads each store's reports from that store only

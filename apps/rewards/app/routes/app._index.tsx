@@ -96,10 +96,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const now = new Date();
 
   const [stats, spend] = await Promise.all([homeStats(conn, now), storeCreditSpendProblems(admin, conn.shop)]);
-  let state = await homeState(conn, now, stats.cashbackOrders);
+  let state = await homeState(conn, now);
   if (state.importState === "running") {
     await followImport(admin, conn);
-    state = await homeState(conn, new Date(), stats.cashbackOrders);
+    state = await homeState(conn, new Date());
   }
   const names = await customerNames(
     admin,

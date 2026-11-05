@@ -70,15 +70,17 @@ function mockTokenRefresh(shop: string, o: { refuse?: boolean } = {}) {
  * The two documents the widget's settings are written with for `shop`
  * (RewardsAppInstallation, then RewardsWidgetConfig). Returns each written
  * value, parsed; with `refuse`, Shopify answers the write with a userError.
+ * `onWrite` runs as each write arrives, before Shopify answers it.
  */
-function mockWidgetConfig(shop: string, o: { refuse?: boolean } = {}) {
+function mockWidgetConfig(shop: string, o: { refuse?: boolean; onWrite?: () => unknown } = {}) {
   const written: unknown[] = [];
   const link = graphql.link(adminGraphqlUrl(shop));
   server.use(
     link.query("RewardsAppInstallation", () => HttpResponse.json({ data: { currentAppInstallation: { id: "gid://shopify/AppInstallation/42" } } })),
-    link.mutation("RewardsWidgetConfig", ({ variables }) => {
+    link.mutation("RewardsWidgetConfig", async ({ variables }) => {
       const [metafield] = variables.metafields as Array<{ namespace: string; key: string; value: string }>;
       written.push({ namespace: metafield.namespace, key: metafield.key, value: JSON.parse(metafield.value) });
+      await o.onWrite?.();
       const userErrors = o.refuse ? [{ field: ["metafields"], message: "Too many metafields", code: "LIMIT_EXCEEDED" }] : [];
       return HttpResponse.json({ data: { metafieldsSet: { metafields: o.refuse ? [] : [{ id: "gid://shopify/Metafield/1" }], userErrors } } });
     }),
@@ -94,6 +96,25 @@ async function seedStore(shop: string, o: { running?: boolean } = {}) {
   if (o.running) await prisma.merchant.update({ where: { id: conn.merchantId }, data: { running: true } });
   await storeOfflineSession(shop, { expires: new Date(Date.now() + HOUR), refreshTokenExpires: new Date(Date.now() + 60 * DAY) });
   return conn;
+}
+
+/** What the connection records of the widget's last write (OPERATIONS-4). */
+const widgetRecord = (shop: string) =>
+  prisma.connection.findFirstOrThrow({ where: { externalAccountId: shop }, select: { widgetConfigSyncedAt: true, widgetConfigValue: true } });
+
+/**
+ * While `run` runs, the clock the budget reads passes 240 s once `cut()` is
+ * called (the rest of the job keeps the real time).
+ */
+async function withDeadline<T>(run: (cut: () => void) => Promise<T>): Promise<T> {
+  const realNow = Date.now.bind(Date);
+  let passed = false;
+  const now = vi.spyOn(Date, "now").mockImplementation(() => realNow() + (passed ? 241_000 : 0));
+  try {
+    return await run(() => (passed = true));
+  } finally {
+    now.mockRestore();
+  }
 }
 
 describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
@@ -256,6 +277,137 @@ describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
     expect(written).toEqual([]);
     const partial = await prisma.cronRun.findUniqueOrThrow({ where: { job_outcome: { job: "housekeeping", outcome: "partial" } } });
     expect(partial.errorMessage).toBe("1 failed; first: Error: 1 stores' widget settings were not written before the deadline");
+  });
+
+  // A19-F8: both kinds of store left, both named
+  it("names both the token stores and the widget stores the deadline left", async () => {
+    await seedStore(SHOP);
+    await storeOfflineSession(QUIET_SHOP, { expires: new Date(Date.now() - HOUR), refreshTokenExpires: new Date(Date.now() + 2 * DAY) });
+
+    const result = await withDeadline((cut) => {
+      cut();
+      return run();
+    });
+
+    expect(result).toMatchObject({ status: 200, body: { tokensChecked: 0, storesLeft: 1, widgetsChecked: 0, widgetsLeft: 1, problems: 0 } });
+    const partial = await prisma.cronRun.findUniqueOrThrow({ where: { job_outcome: { job: "housekeeping", outcome: "partial" } } });
+    expect(partial.errorMessage).toBe(
+      "2 failed; first: Error: 1 stores' tokens were not checked and 1 stores' widget settings were not written before the deadline",
+    );
+  });
+
+  // A19-F8: a store whose session can't be loaded is a problem, and the others carry on
+  it("counts a store it can't reach through unauthenticated.admin as a problem, and writes the next", async () => {
+    await seedStore(SHOP);
+    await seedStore(QUIET_SHOP);
+    // SHOP has no session left to load
+    await prisma.session.delete({ where: { id: `offline_${SHOP}` } });
+    const written = mockWidgetConfig(QUIET_SHOP);
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(run()).resolves.toMatchObject({ status: 200, body: { widgetsChecked: 2, widgetsLeft: 0, problems: 1 } });
+
+    expect(written).toHaveLength(1);
+    expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([expect.stringContaining(`Could not write the widget settings of ${SHOP}`)]);
+    errors.mockRestore();
+  });
+
+  // A19-F8: uninstalled after the list was read, so there is nothing to write
+  it("skips a store uninstalled since the list was read, as no problem", async () => {
+    await seedStore(SHOP);
+    await seedStore(QUIET_SHOP);
+    // QUIET_SHOP was written before, so SHOP (never written) comes first
+    await prisma.connection.updateMany({ where: { externalAccountId: QUIET_SHOP }, data: { widgetConfigSyncedAt: new Date(Date.now() - 30 * DAY) } });
+    // QUIET_SHOP is uninstalled while SHOP's settings are written; no answer is mocked for it, so any call to it fails the run
+    const written = mockWidgetConfig(SHOP, {
+      onWrite: () => prisma.connection.updateMany({ where: { externalAccountId: QUIET_SHOP }, data: { status: "uninstalled" } }),
+    });
+
+    await expect(run()).resolves.toMatchObject({ status: 200, body: { widgetsChecked: 2, widgetsLeft: 0, problems: 0 } });
+
+    expect(written).toHaveLength(1);
+    await expect(prisma.cronRun.count({ where: { job: "housekeeping", outcome: "succeeded" } })).resolves.toBe(1);
+  });
+
+  // OPERATIONS-4: what was written, and when, is what the next night reads
+  it("records each write's value and time on the connection, and clears the time when a write fails", async () => {
+    await seedStore(SHOP, { running: true });
+    await seedStore(QUIET_SHOP);
+    mockWidgetConfig(SHOP);
+    mockWidgetConfig(QUIET_SHOP);
+    const before = Date.now();
+
+    await run();
+
+    const written = await widgetRecord(SHOP);
+    expect(written.widgetConfigValue).toBe(JSON.stringify({ running: true, basePercent: 5 }));
+    expect(written.widgetConfigSyncedAt!.getTime()).toBeGreaterThanOrEqual(before);
+
+    // The next write of QUIET_SHOP fails: Shopify may hold either value, so the time is cleared and the value kept
+    await prisma.connection.updateMany({ where: { externalAccountId: QUIET_SHOP }, data: { widgetConfigSyncedAt: new Date(Date.now() - 8 * DAY) } });
+    server.resetHandlers();
+    mockWidgetConfig(QUIET_SHOP, { refuse: true });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    await run();
+    errors.mockRestore();
+
+    await expect(widgetRecord(QUIET_SHOP)).resolves.toEqual({
+      widgetConfigSyncedAt: null,
+      widgetConfigValue: JSON.stringify({ running: false, basePercent: 5 }),
+    });
+    // SHOP was written within the week and still holds today's value: left alone
+    await expect(widgetRecord(SHOP)).resolves.toEqual(written);
+  });
+
+  // OPERATIONS-4: unchanged within a week is skipped; older or changed is written
+  it("skips a store still holding today's settings written within a week, and rewrites one written longer ago or changed since", async () => {
+    const fresh = "housekeeping-fresh.myshopify.com";
+    const stale = "housekeeping-stale.myshopify.com";
+    const changed = "housekeeping-changed.myshopify.com";
+    for (const shop of [fresh, stale, changed]) {
+      await seedStore(shop);
+      mockWidgetConfig(shop);
+    }
+    await run();
+    await prisma.connection.updateMany({ where: { externalAccountId: stale }, data: { widgetConfigSyncedAt: new Date(Date.now() - 8 * DAY) } });
+    const changedConn = (await findConnection(changed))!;
+    await prisma.merchant.update({ where: { id: changedConn.merchantId }, data: { running: true } });
+
+    server.resetHandlers();
+    const written = Object.fromEntries([fresh, stale, changed].map((shop) => [shop, mockWidgetConfig(shop)]));
+    await expect(run()).resolves.toMatchObject({ status: 200, body: { widgetsChecked: 3, widgetsUnchanged: 1, widgetsLeft: 0, problems: 0 } });
+
+    expect(written[fresh]).toEqual([]);
+    expect(written[stale]).toEqual([{ namespace: "rewards", key: "config", value: { running: false, basePercent: 5 } }]);
+    expect(written[changed]).toEqual([{ namespace: "rewards", key: "config", value: { running: true, basePercent: 5 } }]);
+  });
+
+  // OPERATIONS-4: a run cut short never leaves the same stores behind every night
+  it("visits the stores written longest ago first, so the next run writes a store the last one left", async () => {
+    const shops = ["housekeeping-a.myshopify.com", "housekeeping-b.myshopify.com", "housekeeping-c.myshopify.com"];
+    for (const shop of shops) await seedStore(shop);
+    // Each run is cut short by its first write
+    const nightly = async () => {
+      server.resetHandlers();
+      const written = new Map<string, unknown[]>();
+      const result = await withDeadline((cut) => {
+        for (const shop of shops) written.set(shop, mockWidgetConfig(shop, { onWrite: cut }));
+        return run();
+      });
+      expect(result).toMatchObject({ status: 200, body: { widgetsChecked: 1 } });
+      return shops.filter((shop) => written.get(shop)!.length > 0);
+    };
+
+    const [first] = await nightly();
+    // The first store's settings change, so it can't be skipped as unchanged
+    const firstConn = (await findConnection(first))!;
+    await prisma.merchant.update({ where: { id: firstConn.merchantId }, data: { running: true } });
+
+    const [second] = await nightly();
+    const [third] = await nightly();
+    expect(new Set([first, second, third])).toEqual(new Set(shops));
+    // Then the changed one, now the longest ago
+    await expect(nightly()).resolves.toEqual([first]);
   });
 
   it("expires privacy reports past their time, and clears expired locks", async () => {

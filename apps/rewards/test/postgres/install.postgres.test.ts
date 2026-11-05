@@ -15,13 +15,27 @@ const session = new Session({
   accessToken: "shpat_install_test_token",
 });
 
+/** Each widget settings value an Admin API client below wrote, parsed. */
+type Written = Array<{ namespace: string; key: string; value: unknown }>;
+
 /**
- * An Admin API client that answers the shop read with `body` and the
- * past-orders import's start (its scopes read and bulk query, A17) as
- * Shopify would, and records each query.
+ * An Admin API client that answers the shop read with `body`, the
+ * past-orders import's start (its scopes read and bulk query, A17) and the
+ * widget's settings write (OPERATIONS-7) as Shopify would, and records each
+ * query and each widget value written. `widget` replaces the answer to the
+ * write.
  */
-function adminAnswering(body: unknown) {
-  const graphql = vi.fn<(query: string) => Promise<Response>>(async (query) => {
+function adminAnswering(body: unknown, o: { widget?: unknown } = {}) {
+  const written: Written = [];
+  const graphql = vi.fn<(query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>>(async (query, options) => {
+    if (/query RewardsAppInstallation\b/.test(query)) {
+      return Response.json({ data: { currentAppInstallation: { id: "gid://shopify/AppInstallation/42" } } });
+    }
+    if (/mutation RewardsWidgetConfig\b/.test(query)) {
+      const [metafield] = options!.variables!.metafields as Array<{ namespace: string; key: string; value: string }>;
+      written.push({ namespace: metafield.namespace, key: metafield.key, value: JSON.parse(metafield.value) });
+      return Response.json(o.widget ?? { data: { metafieldsSet: { metafields: [{ id: "gid://shopify/Metafield/1" }], userErrors: [] } } });
+    }
     if (/query RewardsAccessScopes\b/.test(query)) {
       return Response.json({ data: { currentAppInstallation: { accessScopes: [{ handle: "read_orders" }, { handle: "read_all_orders" }] } } });
     }
@@ -32,7 +46,7 @@ function adminAnswering(body: unknown) {
     }
     return Response.json(body);
   });
-  return { admin: { graphql } as unknown as AdminApiContext, graphql };
+  return { admin: { graphql } as unknown as AdminApiContext, graphql, written };
 }
 
 function shopAnswer(name: string) {
@@ -53,11 +67,13 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
 
     await onAppOpened({ session, admin });
 
-    // The shop read, then the past-orders import's start (first open only)
+    // The shop read, the past-orders import's start (first open only), then the widget's settings
     expect(graphql.mock.calls.map(([query]) => /(?:query|mutation) (\w+)/.exec(query)?.[1])).toEqual([
       "RewardsShopDetails",
       "RewardsAccessScopes",
       "RewardsBulkOrders",
+      "RewardsAppInstallation",
+      "RewardsWidgetConfig",
     ]);
     const connection = await prisma.connection.findUniqueOrThrow({
       where: { platform_externalAccountId: { platform: "shopify", externalAccountId: SHOP } },
@@ -72,8 +88,8 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
     const later = adminAnswering(shopAnswer("Install Test Renamed"));
     await onAppOpened({ session, admin: later.admin });
 
-    // A later open costs the one shop read: the import has started
-    expect(later.graphql).toHaveBeenCalledTimes(1);
+    // A later open costs the shop read and the widget's write: the import has started
+    expect(later.graphql).toHaveBeenCalledTimes(3);
 
     await expect(prisma.connection.count()).resolves.toBe(1);
     const merchants = await prisma.merchant.findMany();
@@ -118,6 +134,42 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
       importError: expect.stringContaining("INVALID"),
     });
     expect(errors).toHaveBeenCalledWith(expect.stringContaining(SHOP), expect.stringContaining("Invalid bulk query"));
+  });
+
+  // OPERATIONS-7: a reinstall keeps the merchant's switch and tiers, but its guests need the widget's settings now, not at 03:00
+  it("writes the widget's settings on every open, as the database holds them, and records the write", async () => {
+    const first = adminAnswering(shopAnswer("Install Test"));
+    await onAppOpened({ session, admin: first.admin });
+    expect(first.written).toEqual([{ namespace: "rewards", key: "config", value: { running: false, basePercent: null } }]);
+
+    // Cashback on with a 5% base rate, then an uninstall and a reinstall
+    const connection = await prisma.connection.findFirstOrThrow();
+    await prisma.tier.create({ data: { merchantId: connection.merchantId, name: "Everyone", minSpend: "0", cashbackPercent: "5", position: 0 } });
+    await prisma.merchant.update({ where: { id: connection.merchantId }, data: { running: true } });
+    await prisma.connection.update({ where: { id: connection.id }, data: { status: "uninstalled", uninstalledAt: new Date() } });
+
+    const reopened = adminAnswering(shopAnswer("Install Test"));
+    await onAppOpened({ session, admin: reopened.admin });
+
+    expect(reopened.written).toEqual([{ namespace: "rewards", key: "config", value: { running: true, basePercent: 5 } }]);
+    await expect(prisma.connection.findFirstOrThrow()).resolves.toMatchObject({
+      status: "active",
+      widgetConfigSyncedAt: expect.any(Date),
+      widgetConfigValue: JSON.stringify({ running: true, basePercent: 5 }),
+    });
+  });
+
+  it("opens the app when the widget's settings can't be written, logging the store and the reason", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const refused = { data: { metafieldsSet: { metafields: [], userErrors: [{ field: ["metafields"], message: "Too many metafields", code: "LIMIT_EXCEEDED" }] } } };
+    const { admin } = adminAnswering(shopAnswer("Install Test"), { widget: refused });
+
+    await onAppOpened({ session, admin });
+
+    await expect(prisma.connection.findFirstOrThrow()).resolves.toMatchObject({ status: "active", importState: "running", widgetConfigSyncedAt: null });
+    expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([
+      `[install] Could not write the widget's settings for ${SHOP}: Shopify refused the widget config: LIMIT_EXCEEDED: Too many metafields`,
+    ]);
   });
 
   it("writes nothing and fails the open when Shopify's answer has no shop", async () => {

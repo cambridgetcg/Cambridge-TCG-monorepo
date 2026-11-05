@@ -15,17 +15,21 @@
  * 5. every active store's widget settings (cashback on or off, the base
  *    rate) are written again to its app-data metafield (syncWidgetConfig,
  *    plan Decision 8), so a change whose write failed is put right within a
- *    day. A store Shopify refuses is a problem; the same budget applies, and
- *    the stores left are counted.
+ *    day. The stores written longest ago come first (never-written and
+ *    failed ones first of all), so a run the budget cuts short leaves
+ *    different stores each night, and a store whose last write carried
+ *    today's value and is under a week old is skipped as unchanged
+ *    (OPERATIONS-4). A store that can't be reached or that Shopify refuses
+ *    is a problem; the same budget applies, and the stores left are counted.
  * Answers 200 with what it did; a run with a failed store, or stores left, is
- * partial.
+ * partial, and its message names every kind of store left (A19-F8).
  */
 import type { LoaderFunctionArgs } from "react-router";
 import prisma from "~/db.server";
 import { cleanupExpiredLocks, cronProblems, monitoredCron, verifyCronAuth, withCronLock } from "~/lib/cron.server";
 import { findConnection } from "~/lib/merchant.server";
 import { RewardsTokenPing } from "~/shopify/graphql";
-import { syncWidgetConfig } from "~/shopify/widget-config.server";
+import { syncWidgetConfig, widgetConfigCurrent } from "~/shopify/widget-config.server";
 import { unauthenticated } from "../shopify.server";
 
 // The function's ceiling, which vercelPreset reads per route (OPERATIONS-5)
@@ -82,19 +86,25 @@ async function housekeeping(now: Date, deadline: number) {
     }
   }
 
+  // Written longest ago first, never-written and failed ones first of all (OPERATIONS-4)
   const active = await prisma.connection.findMany({
     where: { status: "active" },
-    select: { externalAccountId: true },
-    orderBy: { externalAccountId: "asc" },
+    select: { externalAccountId: true, widgetConfigSyncedAt: true, widgetConfigValue: true },
+    orderBy: [{ widgetConfigSyncedAt: { sort: "asc", nulls: "first" } }, { externalAccountId: "asc" }],
   });
   let widgetsChecked = 0;
-  for (const { externalAccountId: shop } of active) {
+  let widgetsUnchanged = 0;
+  for (const { externalAccountId: shop, ...record } of active) {
     if (Date.now() >= deadline) break;
     widgetsChecked++;
     try {
       const conn = await findConnection(shop);
       // Uninstalled since the list was read: nothing to write
       if (!conn) continue;
+      if (await widgetConfigCurrent(conn.merchantId, record, new Date())) {
+        widgetsUnchanged++;
+        continue;
+      }
       const { admin } = await unauthenticated.admin(shop);
       await syncWidgetConfig(admin, conn);
     } catch (error) {
@@ -111,6 +121,7 @@ async function housekeeping(now: Date, deadline: number) {
     tokensChecked,
     storesLeft: expiring.length - tokensChecked,
     widgetsChecked,
+    widgetsUnchanged,
     widgetsLeft: active.length - widgetsChecked,
     problems,
     firstProblem,
@@ -125,12 +136,12 @@ export const loader = monitoredCron("housekeeping", async ({ request }: LoaderFu
   if (result === "locked") return Response.json({ success: true, skipped: true, reason: "locked" });
 
   const { firstProblem, ...summary } = result;
-  const left =
-    summary.storesLeft > 0
-      ? new Error(`${summary.storesLeft} stores' tokens were not checked before the deadline`)
-      : summary.widgetsLeft > 0
-        ? new Error(`${summary.widgetsLeft} stores' widget settings were not written before the deadline`)
-        : undefined;
+  // Every kind of store the deadline left, by name (A19-F8)
+  const kindsLeft = [
+    summary.storesLeft > 0 ? `${summary.storesLeft} stores' tokens were not checked` : null,
+    summary.widgetsLeft > 0 ? `${summary.widgetsLeft} stores' widget settings were not written` : null,
+  ].filter((kind) => kind !== null);
+  const left = kindsLeft.length > 0 ? new Error(`${kindsLeft.join(" and ")} before the deadline`) : undefined;
   cronProblems(request, summary.problems + summary.storesLeft + summary.widgetsLeft, firstProblem ?? left);
   return Response.json({ success: true, ...summary, durationMs: Date.now() - now.getTime() });
 });

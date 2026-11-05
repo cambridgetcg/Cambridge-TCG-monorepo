@@ -433,6 +433,24 @@ describe("Home's controls", () => {
     expect([line, aside].map((toggle) => toggle.hasAttribute("disabled"))).toEqual([true, true]);
   });
 
+  // OPERATIONS-9: the base rate as typed, under the field name the action reads
+  it("posts the base rate as typed in the setup card", async () => {
+    stubAppBridge("active");
+    const posted: Posted[] = [];
+    await renderHome(homeData({ running: false, hasTiers: false }), posted);
+    const field = document.querySelector('s-number-field[name="percent"]')!;
+
+    await act(async () => {
+      Object.defineProperty(field, "value", { value: "6", configurable: true, writable: true });
+      fireEvent.input(field);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Save", { selector: "[data-setup-card] s-button" }));
+    });
+
+    expect(posted.map((post) => post.fields)).toEqual([{ intent: "base-rate", percent: "6" }]);
+  });
+
   it("dismisses the review request without aborting the post that recorded it shown", async () => {
     stubAppBridge("active", async () => ({ code: "success" }));
     const posted: Posted[] = [];

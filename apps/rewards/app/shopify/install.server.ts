@@ -7,12 +7,16 @@
  * transaction that creates or refreshes the merchant and its connection,
  * then, only while the connection's past-orders import has not started
  * (the first open, or the first after shop/redact erased it; spec 6.5), the
- * import's start: two more calls.
+ * import's start: two more calls. Last, the widget's settings are written
+ * (syncWidgetConfig, two calls), so a store reinstalled with cashback on
+ * shows guests the earn line at once rather than after the nightly rewrite
+ * (OPERATIONS-7); a failed write is logged and the open goes on.
  */
 import type { AdminApiContext, Session } from "@shopify/shopify-app-react-router/server";
 import { ensureMerchant } from "~/lib/merchant.server";
 import { startImport } from "./bulk-import.server";
 import { RewardsShopDetails } from "./graphql";
+import { syncWidgetConfig } from "./widget-config.server";
 
 interface ShopDetails {
   name: string;
@@ -52,6 +56,21 @@ async function startPastOrders(
   }
 }
 
+/**
+ * Write the widget's settings, best effort: a failure is logged with the
+ * store and the reason (never a buyer's details) and the open goes on; the
+ * nightly rewrite visits a failed store first. The library's re-auth
+ * redirect passes on.
+ */
+async function tellWidget(admin: AdminApiContext, connection: { merchantId: string; connectionId: string }, shop: string): Promise<void> {
+  try {
+    await syncWidgetConfig(admin, connection);
+  } catch (error) {
+    if (error instanceof Response) throw error;
+    console.error(`[install] Could not write the widget's settings for ${shop}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 export async function onAppOpened({ session, admin }: { session: Session; admin: AdminApiContext }): Promise<void> {
   try {
     const response = await admin.graphql(RewardsShopDetails);
@@ -63,6 +82,7 @@ export async function onAppOpened({ session, admin }: { session: Session; admin:
       timezone: shop.ianaTimezone,
     });
     await startPastOrders(admin, connection, session.shop);
+    await tellWidget(admin, connection, session.shop);
   } catch (error) {
     // The library answers a failed afterAuth with a bare 500 and logs
     // nothing, so the cause is logged here before the open fails. A thrown

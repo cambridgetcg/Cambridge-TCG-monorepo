@@ -3,11 +3,12 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import prisma from "~/db.server";
 import { homeBanners, importOutcomeLines } from "~/admin/home-rules";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
-import { customerRows, homeState, homeStats } from "~/lib/stats.server";
+import { customerRows, homeState, homeStats, orderRows } from "~/lib/stats.server";
 import { monitoring } from "~/lib/telemetry.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import type { GraphqlClient } from "~/shopify/graphql";
-import { hasTestDatabase, resetDatabase } from "./helpers/database";
+import { syncWidgetConfig } from "~/shopify/widget-config.server";
+import { failNextCall, hasTestDatabase, resetDatabase, restoreFailedCalls } from "./helpers/database";
 
 /**
  * Home (spec 4.3): its numbers from the ledger and the orders, in the shop's
@@ -89,9 +90,9 @@ async function act(fields: Record<string, string>, admin: GraphqlClient = fakeAd
   return result as { ok: boolean; error?: string; status?: number };
 }
 
-async function seedShop(): Promise<ConnectionContext> {
-  await ensureMerchant({ shop: SHOP, name: "Home Test", currency: "GBP", timezone: TZ, now: INSTALLED });
-  return (await findConnection(SHOP))!;
+async function seedShop(shop = SHOP): Promise<ConnectionContext> {
+  await ensureMerchant({ shop, name: "Home Test", currency: "GBP", timezone: TZ, now: INSTALLED });
+  return (await findConnection(shop))!;
 }
 
 async function seedTier(conn: ConnectionContext, name: string, minSpend: string, percent: string, position: number) {
@@ -211,6 +212,10 @@ async function seedCashbackEntries(conn: ConnectionContext, n: number) {
 
 const merchantOf = (conn: ConnectionContext) => prisma.merchant.findUniqueOrThrow({ where: { id: conn.merchantId } });
 
+/** What the connection records of the widget's last write. */
+const widgetRecord = (conn: ConnectionContext) =>
+  prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId }, select: { widgetConfigSyncedAt: true, widgetConfigValue: true } });
+
 /** The widget config each RewardsWidgetConfig call wrote, parsed. */
 function widgetConfigs(admin: { calls: Call[] }) {
   return admin.calls
@@ -239,6 +244,65 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
   afterAll(async () => {
     delete process.env.SHOPIFY_API_KEY;
     await prisma.$disconnect();
+  });
+
+  // OPERATIONS-10: one merchant never reads another's numbers
+  it("gives a store the same numbers, state and lists whatever a second store holds", async () => {
+    /**
+     * Something of everything Home, Customers and Orders read, this month:
+     * tier members, a buyer who earned in October and came back with store
+     * credit, a take-back, a credit that needs a look, an imported order and
+     * an open data request. Both stores' buyers share Shopify ids.
+     */
+    const seedBusyStore = async (conn: ConnectionContext) => {
+      const everyone = await seedTier(conn, "Everyone", "0", "5", 0);
+      const gold = await seedTier(conn, "Gold", "500", "10", 1);
+      const ann = await seedBuyer(conn, "7001", everyone.id);
+      const bo = await seedBuyer(conn, "7002", gold.id);
+      const october = await seedOrder(conn, ann.id, { orderedAt: new Date("2026-10-05T09:00:00Z") });
+      await seedPayout(conn, await seedEntry(conn, { customerId: ann.id, orderId: october.id, kind: "cashback", amount: "2.00", createdAt: new Date("2026-10-05T09:00:00Z") }), "sent");
+      await seedOrder(conn, ann.id, { orderedAt: new Date("2026-11-03T09:00:00Z"), creditUsed: "4.00" });
+      const back = await seedEntry(conn, { customerId: ann.id, orderId: october.id, kind: "reversal", amount: "-0.50", createdAt: new Date("2026-11-04T09:00:00Z") });
+      await seedPayout(conn, back, "sent", { direction: "debit", debitedAmount: "0.50" });
+      const stuck = await seedOrder(conn, bo.id, { orderedAt: new Date("2026-11-06T09:00:00Z") });
+      await seedPayout(conn, await seedEntry(conn, { customerId: bo.id, orderId: stuck.id, kind: "cashback", amount: "3.00", createdAt: new Date("2026-11-06T09:00:00Z") }), "needs_look");
+      await seedOrder(conn, bo.id, { orderedAt: new Date("2026-09-01T09:00:00Z"), source: "import" });
+      await prisma.privacyRequest.create({
+        data: {
+          merchantId: conn.merchantId,
+          connectionId: conn.connectionId,
+          externalCustomerId: "7001",
+          shopifyRequestId: "1",
+          ordersRequested: [],
+          status: "open",
+          receivedAt: new Date("2026-11-10T10:00:00Z"),
+          dueAt: new Date("2026-12-10T10:00:00Z"),
+          expiresAt: new Date("2026-12-25T10:00:00Z"),
+        },
+      });
+    };
+    // Everything the pages read for a store, as plain data
+    const pagesOf = async (conn: ConnectionContext) =>
+      JSON.parse(
+        JSON.stringify({
+          stats: await homeStats(conn, NOW),
+          state: await homeState(conn, NOW),
+          customers: await customerRows(conn, { page: 1, now: NOW }),
+          orders: await orderRows(conn, { page: 1 }),
+          needsALook: await orderRows(conn, { page: 1, needsLook: true }),
+        }),
+      ) as Record<string, unknown>;
+
+    const conn = await seedShop();
+    await seedBusyStore(conn);
+    const alone = await pagesOf(conn);
+    const other = await seedShop("home-test-other.myshopify.com");
+    await seedBusyStore(other);
+
+    expect(await pagesOf(conn)).toEqual(alone);
+    // The second store's rows are there, in the same windows, to be miscounted
+    const otherStats = await homeStats(other, NOW);
+    expect([otherStats.cashbackGiven.toFixed(2), otherStats.creditSpent.toFixed(2), otherStats.cameBack, otherStats.needsLook]).toEqual(["2.50", "4.00", 1, 1]);
   });
 
   describe("this month's numbers", () => {
@@ -276,7 +340,6 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
         "2026-11-11": "-1.00",
         "2026-11-12": "-2.00",
       });
-      expect(stats.cashbackOrders).toBe(4);
     });
 
     it("counts store credit spent at checkout from the orders paid this month, in the shop's currency", async () => {
@@ -542,6 +605,29 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       expect((await load()).reviewDue).toBe(false);
     });
 
+    // OPERATIONS-2: the cashback entries are read only while the request can still be due
+    it("reads the cashback entries only until the request was shown or dismissed", async () => {
+      const conn = await seedShop();
+      await sevenDaysOld(conn);
+      await seedCashbackEntries(conn, 3);
+      const read = new Error("homeState read the ledger");
+      const withLedgerRefused = async () => {
+        failNextCall("ledgerEntry", "findMany", read);
+        try {
+          return await homeState(conn, new Date()).catch((error: unknown) => error);
+        } finally {
+          restoreFailedCalls();
+        }
+      };
+
+      await expect(withLedgerRefused()).resolves.toBe(read);
+
+      for (const field of ["reviewPromptShownAt", "reviewPromptDismissedAt"] as const) {
+        await prisma.merchant.update({ where: { id: conn.merchantId }, data: { reviewPromptShownAt: null, reviewPromptDismissedAt: null, [field]: new Date() } });
+        await expect(withLedgerRefused(), field).resolves.toMatchObject({ reviewDue: false });
+      }
+    });
+
     it("is not due when it was shown before, whatever the counts", async () => {
       const conn = await seedShop();
       await sevenDaysOld(conn, 30);
@@ -627,6 +713,36 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
         { ownerId: APP_INSTALLATION, namespace: "rewards", key: "config", type: "json", value: { running: true, basePercent: 5.5 } },
         { ownerId: APP_INSTALLATION, namespace: "rewards", key: "config", type: "json", value: { running: false, basePercent: 5.5 } },
       ]);
+      // What the nightly step reads: the last value written, and when (OPERATIONS-4)
+      await expect(widgetRecord(conn)).resolves.toEqual({
+        widgetConfigSyncedAt: expect.any(Date),
+        widgetConfigValue: JSON.stringify({ running: false, basePercent: 5.5 }),
+      });
+    });
+
+    // OPERATIONS-4: two writes in flight together may reach Shopify in either order
+    it("records no time for a write another write of the store finished during, so the nightly step rewrites it", async () => {
+      const conn = await seedShop();
+      await seedTier(conn, "Everyone", "0", "5", 0);
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const slow = fakeAdmin();
+      const ask = slow.graphql.bind(slow);
+      slow.graphql = async (query, options) => {
+        if (query.includes("mutation RewardsWidgetConfig")) await held;
+        return ask(query, options);
+      };
+
+      const first = syncWidgetConfig(slow, conn);
+      await syncWidgetConfig(fakeAdmin(), conn);
+      await expect(widgetRecord(conn)).resolves.toMatchObject({ widgetConfigSyncedAt: expect.any(Date) });
+      release();
+      await first;
+
+      await expect(widgetRecord(conn)).resolves.toEqual({ widgetConfigSyncedAt: null, widgetConfigValue: JSON.stringify({ running: false, basePercent: 5 }) });
+      // A write on its own is recorded again
+      await syncWidgetConfig(fakeAdmin(), conn);
+      await expect(widgetRecord(conn)).resolves.toMatchObject({ widgetConfigSyncedAt: expect.any(Date) });
     });
 
     // BOUNDARY-6: only on or off moves the switch
@@ -668,10 +784,14 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       });
       const errors = vi.spyOn(console, "error").mockImplementation(() => {});
 
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { widgetConfigSyncedAt: new Date(), widgetConfigValue: "{}" } });
+
       await expect(act({ intent: "running", running: "on" }, admin)).resolves.toEqual({ ok: true });
 
       expect((await merchantOf(conn)).running).toBe(true);
       expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([expect.stringContaining("INVALID_VALUE")]);
+      // Shopify may hold either value now: the nightly step visits it first (OPERATIONS-4)
+      expect((await widgetRecord(conn)).widgetConfigSyncedAt).toBeNull();
       errors.mockRestore();
     });
   });
@@ -862,7 +982,7 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       },
     });
 
-    const at = (now: Date) => homeState(conn, now, 0);
+    const at = (now: Date) => homeState(conn, now);
     expect((await at(new Date(expiresAt.getTime() - 1))).privacyDueAt).toEqual(new Date("2026-12-05T10:00:00Z"));
     // Not yet marked expired by housekeeping, but past its expiry
     expect((await at(expiresAt)).privacyDueAt).toBeNull();

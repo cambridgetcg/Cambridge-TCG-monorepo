@@ -170,9 +170,13 @@ async function readTiers(db: Db, merchantId: string, excludeTierId?: string): Pr
   return rows.map((t) => ({ ...t, minSpend: fromDb(t.minSpend), cashbackPercent: fromDb(t.cashbackPercent) }));
 }
 
-/** A merchant's tiers, read the one way the tier engine reads them (the app proxy shows these). */
-export function tiersOf(merchantId: string): Promise<TierRow[]> {
-  return readTiers(prisma, merchantId);
+/**
+ * A merchant's tiers, lowest first, read the one way the tier engine reads
+ * them, without the member counts only the Tiers page and Home show (the app
+ * proxy, the Customers filter and the buyer panel use these, OPERATIONS-2).
+ */
+export async function tiersOf(merchantId: string): Promise<TierRow[]> {
+  return byMinimum(await readTiers(prisma, merchantId));
 }
 
 /** A write of a customer's tier refused because that tier no longer exists (its foreign key). */
