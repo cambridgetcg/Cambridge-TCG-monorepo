@@ -10,10 +10,13 @@
  * `activatedAt` is when the current install began (the first install, then
  * each reactivation) and `uninstalledAt` the last uninstall, kept on
  * reactivation: orders created in [uninstalledAt, activatedAt) fell while the
- * app was away (Ruling 13).
+ * app was away (Ruling 13). `lastAuthAt` is the last open (every token
+ * exchange): an uninstall from before it, or before `activatedAt`, is stale.
  */
+import type { ImportState } from "@prisma/client";
 import prisma from "~/db.server";
 import { currencyDecimals } from "./money";
+import { isCanonicalShop } from "./shop-domain";
 
 export interface ConnectionContext {
   connectionId: string;
@@ -30,10 +33,9 @@ export interface ConnectionContext {
 }
 
 const PLATFORM = "shopify" as const;
-const SHOP_DOMAIN = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/;
 
 function canonicalShop(shop: string): string {
-  if (!SHOP_DOMAIN.test(shop)) {
+  if (!isCanonicalShop(shop)) {
     throw new Error(`Not a canonical *.myshopify.com shop domain: ${JSON.stringify(shop)}`);
   }
   return shop;
@@ -49,7 +51,10 @@ function connectionKey(shop: string) {
  * updates the shop's name, currency and time zone; an uninstalled connection
  * becomes active again (`reactivated`) with `activatedAt = now`, and keeps
  * its first `installedAt` (the boundary the past-orders import used) and its
- * `uninstalledAt`.
+ * `uninstalledAt`. Every open records `lastAuthAt = now`, so an
+ * app/uninstalled from before it can't switch the store off (markUninstalled).
+ * It returns the connection's import state and `installedAt` too, so the open
+ * can start the past-orders import without reading the row again (A17-F7).
  */
 export async function ensureMerchant(i: {
   shop: string;
@@ -57,7 +62,14 @@ export async function ensureMerchant(i: {
   currency: string;
   timezone: string;
   now?: Date;
-}): Promise<{ merchantId: string; connectionId: string; created: boolean; reactivated: boolean }> {
+}): Promise<{
+  merchantId: string;
+  connectionId: string;
+  created: boolean;
+  reactivated: boolean;
+  importState: ImportState;
+  installedAt: Date;
+}> {
   const shop = canonicalShop(i.shop);
   // A real ISO code from Shopify, never a default (throws UnknownCurrencyError).
   currencyDecimals(i.currency);
@@ -80,13 +92,15 @@ export async function ensureMerchant(i: {
             status: "active",
             installedAt: now,
             activatedAt: now,
+            lastAuthAt: now,
           },
         ],
         skipDuplicates: true,
       });
       const connection = await tx.connection.findUniqueOrThrow({ where: connectionKey(shop) });
       if (count === 1) {
-        return { merchantId: merchant.id, connectionId: connection.id, created: true, reactivated: false };
+        const { importState, installedAt } = connection;
+        return { merchantId: merchant.id, connectionId: connection.id, created: true, reactivated: false, importState, installedAt };
       }
       // Lost the race: drop this open's merchant, which nothing points at,
       // and carry on with the winner's rows.
@@ -99,14 +113,20 @@ export async function ensureMerchant(i: {
       where: { id: existing.id, status: "uninstalled" },
       data: { status: "active", activatedAt: now },
     });
-    return { merchantId: existing.merchantId, connectionId: existing.id, created: false, reactivated: count === 1 };
+    await tx.connection.update({ where: { id: existing.id }, data: { lastAuthAt: now } });
+    const { importState, installedAt } = existing;
+    return { merchantId: existing.merchantId, connectionId: existing.id, created: false, reactivated: count === 1, importState, installedAt };
   });
 }
 
-/** The active connection for a store, or null (unknown or uninstalled). */
-export async function findConnection(shop: string): Promise<ConnectionContext | null> {
+/**
+ * The active connection for a store, or null (unknown or uninstalled).
+ * With `evenUninstalled`, an uninstalled one too: its rows are kept until
+ * shop/redact, and the privacy topics still apply to them.
+ */
+export async function findConnection(shop: string, o: { evenUninstalled?: boolean } = {}): Promise<ConnectionContext | null> {
   const connection = await prisma.connection.findFirst({
-    where: { platform: PLATFORM, externalAccountId: shop, status: "active" },
+    where: { platform: PLATFORM, externalAccountId: shop, ...(o.evenUninstalled ? {} : { status: "active" as const }) },
     include: { merchant: true },
   });
   if (!connection) return null;
@@ -146,19 +166,46 @@ export async function setRunning(
 }
 
 /**
- * Mark a store's connection uninstalled (app/uninstalled). Every row stays.
- * `now` is when the uninstall happened (A14 passes the webhook's
- * X-Shopify-Triggered-At). It applies only to an active connection activated
- * before `now`: a repeated delivery keeps the first `uninstalledAt`, and a
- * late retry of an uninstall that a reinstall has since overtaken leaves the
- * live store active (Ruling 13). True whenever the store has a connection,
- * changed or not; false for a store never seen.
+ * What an app/uninstalled did:
+ * - `uninstalled`: the active store is now uninstalled;
+ * - `already_uninstalled`: a repeated delivery; the first time is kept;
+ * - `stale`: it happened before the store's last open (`lastAuthAt`) or
+ *   reactivation (`activatedAt`), so a reinstall has overtaken it and the
+ *   live store stays active (Ruling 13);
+ * - `unknown`: a store never seen.
  */
-export async function markUninstalled(shop: string, now: Date = new Date()): Promise<boolean> {
+export type UninstallOutcome = "uninstalled" | "already_uninstalled" | "stale" | "unknown";
+
+/**
+ * Mark a store's connection uninstalled (app/uninstalled). Every row stays.
+ * `now` is when the uninstall happened (the route passes the webhook's
+ * X-Shopify-Triggered-At). It applies only to an active connection whose
+ * activation and last open both came before `now`: a repeated delivery keeps
+ * the first `uninstalledAt`, and a late retry of an uninstall that a
+ * reinstall has since overtaken leaves the live store active, whether the
+ * first delivery was recorded (the reinstall then reactivated the store) or
+ * failed before it committed (the reinstall's open then only moved
+ * `lastAuthAt`). The server's clock against Shopify's is accepted.
+ */
+export async function markUninstalled(shop: string, now: Date = new Date()): Promise<UninstallOutcome> {
   const { count } = await prisma.connection.updateMany({
-    where: { platform: PLATFORM, externalAccountId: shop, status: "active", activatedAt: { lt: now } },
+    where: {
+      platform: PLATFORM,
+      externalAccountId: shop,
+      status: "active",
+      activatedAt: { lt: now },
+      OR: [{ lastAuthAt: null }, { lastAuthAt: { lt: now } }],
+    },
     data: { status: "uninstalled", uninstalledAt: now },
   });
-  if (count === 1) return true;
-  return (await prisma.connection.count({ where: { platform: PLATFORM, externalAccountId: shop } })) === 1;
+  if (count === 1) return "uninstalled";
+  const connection = await prisma.connection.findUnique({
+    where: connectionKey(shop),
+    select: { status: true, activatedAt: true, lastAuthAt: true },
+  });
+  if (!connection) return "unknown";
+  const lastOpen = Math.max(connection.activatedAt.getTime(), connection.lastAuthAt?.getTime() ?? 0);
+  // Not stale yet not marked: an active store can only be one an open has
+  // just overtaken, so it is left as it is.
+  return connection.status === "uninstalled" && now.getTime() > lastOpen ? "already_uninstalled" : "stale";
 }

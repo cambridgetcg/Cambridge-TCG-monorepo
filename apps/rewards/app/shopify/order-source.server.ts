@@ -1,15 +1,15 @@
 import type { Decimal } from "decimal.js";
 import { Money, currencyDecimals, floorMoney } from "~/lib/money";
 import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
-import type { OrderSource } from "~/lib/ports";
+import type { OrderSource, ReadLimit, UpdatedOrder } from "~/lib/ports";
 import { ShopifyTimeoutError, askShopify } from "./ask.server";
 import {
   RewardsOrderFacts,
   RewardsOrderTransactions,
   RewardsOrderTransactionsCost,
-  RewardsRecentPaidOrders,
   RewardsRefundFacts,
   RewardsRefundFactsCost,
+  RewardsUpdatedOrders,
   type GraphqlClient,
 } from "./graphql";
 
@@ -28,13 +28,24 @@ import {
 /**
  * How long one whole readOrder or readRefund waits for Shopify, every call in
  * it together (each call gets the time left), so a webhook that makes the read
- * still answers inside its 5 s. Each page of the sweep gets the same.
+ * still answers inside its 5 s. Each page of the sweep gets the same. A caller
+ * can end a read sooner with its own deadline (OrderSource's `deadline`).
  */
 export const ORDER_READ_DEADLINE_MS = 4500;
+/**
+ * The deadline a webhook gives every read it makes, from the moment it is
+ * received (before its authentication, which may refresh the token): Shopify
+ * waits 5 s for the answer, and the last second is for the database and the
+ * answer itself. refunds/create reads the refund and may then read its order,
+ * both within this one deadline.
+ */
+export const WEBHOOK_READ_DEADLINE_MS = 4000;
 /** Pages of 100 line items read for one order before giving up. */
 export const MAX_LINE_PAGES = 25;
 /** Pages of 50 orders the sweep reads at most. */
 export const MAX_RECENT_PAGES = 10;
+/** The refunds RewardsUpdatedOrders lists for each order; a list this long may be cut short. */
+const LISTED_REFUNDS = 15;
 /**
  * RewardsOrderFacts reads 20 transactions and 20 refund ids, and
  * RewardsRefundFacts 20 transactions and 20 shipping lines. A full list may
@@ -57,6 +68,19 @@ export class OrderReadError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "OrderReadError";
+  }
+}
+
+/**
+ * An order with LIST_LIMIT refunds or more: one read can't be sure it has
+ * them all. A known limit of the read (the port's ReadLimit), not a failure.
+ */
+export class OrderReadLimitError extends OrderReadError implements ReadLimit {
+  readonly readLimit = true as const;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "OrderReadLimitError";
   }
 }
 
@@ -216,9 +240,14 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
 
   let storeCreditUsed = zero();
   let giftCardUsed = zero();
+  // When the order became paid: its latest successful SALE or CAPTURE (Ruling 43)
+  let paidAt: Date | null = null;
   for (const item of list(node.transactions, "transactions")) {
     const tx = rec(item, "a transaction");
     if (tx.status !== "SUCCESS" || (tx.kind !== "SALE" && tx.kind !== "CAPTURE")) continue;
+    // The import's bulk node reads no transaction times
+    const processedAt = tx.processedAt === undefined || tx.processedAt === null ? null : dateOf(tx.processedAt, "a transaction's processedAt");
+    if (processedAt && (paidAt === null || processedAt > paidAt)) paidAt = processedAt;
     const tender = tenderOf(text(tx.gateway, "a transaction's gateway"));
     if (tender === "gift_card") giftCardUsed = plus(giftCardUsed, pairOf(tx.amountSet, "a transaction's amount"));
     if (tender === "store_credit") storeCreditUsed = plus(storeCreditUsed, pairOf(tx.amountSet, "a transaction's amount"));
@@ -247,7 +276,7 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
       test: flag(node.test, "test"),
       cancelledAt: node.cancelledAt === null ? null : dateOf(node.cancelledAt, "cancelledAt"),
       orderedAt: dateOf(node.createdAt, "createdAt"),
-      paidAt: dateOf(node.processedAt, "processedAt"),
+      paidAt: paidAt ?? (node.processedAt === null || node.processedAt === undefined ? dateOf(node.createdAt, "createdAt") : dateOf(node.processedAt, "processedAt")),
       // Display only, and nullable in the Admin schema
       financialStatus: node.displayFinancialStatus === null ? "UNKNOWN" : text(node.displayFinancialStatus, "the financial status"),
       total: pairOf(node.totalPriceSet, "the order's total"),
@@ -294,10 +323,20 @@ function refundLinesOf(refund: Rec, order: ParsedOrder): Array<{ line: Line; qua
  * The product value one refund returned (rule 7), rounded down to the minor
  * unit: its items at their discounted price, or, with no items, its
  * successful money less the shipping it refunded. Either is capped at the
- * product value not yet refunded (`left`, Ruling 20) and never below 0.
+ * product value not yet refunded (`left`, Ruling 20) and never below 0. The
+ * refund that completes the order (refundsOf decides it by units) is valued
+ * at exactly `left`, so the order's refunds add up to its product value
+ * (Ruling 34).
  */
-function refundValue(refund: Rec, order: ParsedOrder, left: MoneyPair): RefundFacts {
-  const items = refundLinesOf(refund, order);
+function refundValue(
+  refund: Rec,
+  order: ParsedOrder,
+  items: Array<{ line: Line; quantity: number }>,
+  left: MoneyPair,
+  completesOrder: boolean,
+): RefundFacts {
+  const facts = { externalRefundId: text(refund.id, "the refund id"), refundedAt: dateOf(refund.createdAt, "the refund's createdAt"), completesOrder };
+  if (completesOrder) return { ...facts, productValue: clamp(left, left) };
   let value: MoneyPair;
   if (items.length > 0) {
     value = clamp(sum(items.map(({ line, quantity }) => shareOf(line.value, quantity, line.quantity))), left);
@@ -315,11 +354,23 @@ function refundValue(refund: Rec, order: ParsedOrder, left: MoneyPair): RefundFa
     const shipping = sum(shippingLines.map((item) => shippingRefunded(item, order)));
     value = clamp(minus(money, shipping), left);
   }
-  return {
-    externalRefundId: text(refund.id, "the refund id"),
-    productValue: floorPair(value, order),
-    refundedAt: dateOf(refund.createdAt, "the refund's createdAt"),
-  };
+  return { ...facts, productValue: floorPair(value, order) };
+}
+
+/**
+ * The units order edits removed from each line: quantity − currentQuantity −
+ * its units in the refunds' line items, never below 0. Shopify's quantity
+ * (and the discounts on it) still counts refunded and removed units, and
+ * currentQuantity counts neither.
+ */
+function removedUnits(order: ParsedOrder, refundNodes: Rec[]): Map<Line, number> {
+  const refundedUnits = new Map<Line, number>();
+  for (const node of refundNodes) {
+    for (const { line, quantity } of refundLinesOf(node, order)) refundedUnits.set(line, (refundedUnits.get(line) ?? 0) + quantity);
+  }
+  return new Map(
+    [...order.lines.values()].map((line) => [line, Math.max(0, line.quantity - line.currentQuantity - (refundedUnits.get(line) ?? 0))]),
+  );
 }
 
 /** Refund GIDs in numeric order (a shorter number is a smaller one), so the order never depends on how they were read. */
@@ -332,6 +383,12 @@ function byId(a: string, b: string): number {
  * each capped by the product value (`productValue`) less the ones before it.
  * readOrder and readRefund get the refunds in different orders, and must give
  * each the same value.
+ *
+ * A refund of items completes the order when, after it, every line with a
+ * value has had all its units refunded or removed by an edit (Ruling 34);
+ * lines worth nothing (gift cards) don't count. That refund is valued at what
+ * is left, so the refunds sum to the product value however their shares were
+ * rounded down.
  */
 function refundsOf(order: ParsedOrder, productValue: MoneyPair, refundNodes: Rec[]): RefundFacts[] {
   const dated = refundNodes.map((node) => ({
@@ -340,9 +397,18 @@ function refundsOf(order: ParsedOrder, productValue: MoneyPair, refundNodes: Rec
     at: dateOf(node.createdAt, "the refund's createdAt").getTime(),
   }));
   dated.sort((a, b) => a.at - b.at || byId(a.id, b.id));
+  const removed = removedUnits(order, refundNodes);
+  const valued = [...order.lines.values()].filter((line) => line.value.amount.gt(0) || line.value.shopAmount.gt(0));
+  const returned = new Map<Line, number>();
   let refunded = zero();
   return dated.map(({ node }) => {
-    const refund = refundValue(node, order, minus(productValue, refunded));
+    const items = refundLinesOf(node, order);
+    for (const { line, quantity } of items) returned.set(line, (returned.get(line) ?? 0) + quantity);
+    const completesOrder =
+      items.length > 0 &&
+      valued.length > 0 &&
+      valued.every((line) => (removed.get(line) ?? 0) + (returned.get(line) ?? 0) >= line.quantity);
+    const refund = refundValue(node, order, items, minus(productValue, refunded), completesOrder);
     refunded = plus(refunded, refund.productValue);
     return refund;
   });
@@ -360,22 +426,12 @@ function withoutTip(value: MoneyPair, tip: MoneyPair): MoneyPair {
  * What the buyer bought (rule 1, Ruling 25), on a read that has the order's
  * refunds: every line's value, less the units order edits removed from it, at
  * the line's discounted unit value and rounded down as a refund's share is,
- * then less the tips, never below 0. A line's removed units are quantity −
- * currentQuantity − its units in the refunds' line items, never below 0:
- * Shopify's quantity (and the discounts on it) still counts refunded and
- * removed units, and currentQuantity counts neither.
+ * then less the tips, never below 0 (removedUnits).
  */
 function boughtValue(order: ParsedOrder, refundNodes: Rec[]): MoneyPair {
-  const refundedUnits = new Map<Line, number>();
-  for (const node of refundNodes) {
-    for (const { line, quantity } of refundLinesOf(node, order)) refundedUnits.set(line, (refundedUnits.get(line) ?? 0) + quantity);
-  }
+  const units = removedUnits(order, refundNodes);
   const lines = [...order.lines.values()];
-  const removed = sum(
-    lines.map((line) =>
-      shareOf(line.value, Math.max(0, line.quantity - line.currentQuantity - (refundedUnits.get(line) ?? 0)), line.quantity),
-    ),
-  );
+  const removed = sum(lines.map((line) => shareOf(line.value, units.get(line) ?? 0, line.quantity)));
   return withoutTip(minus(sum(lines.map((line) => line.value)), floorPair(removed, order)), order.tip);
 }
 
@@ -386,11 +442,12 @@ function boughtValue(order: ParsedOrder, refundNodes: Rec[]): MoneyPair {
  *   RewardsRefundFacts's shape (an order with none passes []). The product value
  *   leaves out the units order edits removed, and the refunded product value
  *   is the sum of the refunds.
- * - `"quantities"`: the import's bulk node, which has no refunds. Every unit
- *   no longer on the order (quantity − currentQuantity) is valued as
- *   refunded, rounded down, whether a refund or an edit took it off; the
+ * - `"quantities"`: the import's bulk node, which has no refunds' items.
+ *   Every unit no longer on the order (quantity − currentQuantity) is valued
+ *   as refunded, rounded down, whether a refund or an edit took it off; the
  *   product value counts every unit, less the tips. The node can't see a
- *   refund of money with no items.
+ *   refund of money with no items. It lists the refunds' ids (`refunds`,
+ *   required), which the facts carry as `importRefundIds` (Ruling 54).
  */
 export type RefundedFrom = { refunds: unknown[] } | "quantities";
 
@@ -421,7 +478,11 @@ function factsFrom(order: ParsedOrder, refunded: RefundedFrom): OrderFacts {
  * OrderReadError when the node can't be read.
  */
 export function factsFromOrderNode(node: unknown, shopCurrency: string, refunded: RefundedFrom): OrderFacts {
-  return factsFrom(parseOrderNode(node, shopCurrency), refunded);
+  const facts = factsFrom(parseOrderNode(node, shopCurrency), refunded);
+  if (refunded !== "quantities") return facts;
+  // The bulk file reads the whole list: there is no size limit to check
+  const importRefundIds = list(rec(node, "the order").refunds, "refunds").map((r) => text(rec(r, "a refund").id, "a refund id"));
+  return { ...facts, importRefundIds };
 }
 
 function firstErrorMessage(errors: unknown): string {
@@ -480,14 +541,16 @@ function oneBucket(): InTurn {
 export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
   /**
    * A reader whose calls all end by one deadline, ORDER_READ_DEADLINE_MS from
-   * now: each call waits only the time left. Each answer's `data`; throws on
-   * GraphQL errors, an answer that can't be read, or no time left.
+   * now or the caller's `given` deadline (a Date.now() time) if that comes
+   * sooner: each call waits only the time left. Each answer's `data`; throws
+   * on GraphQL errors, an answer that can't be read, or no time left.
    */
-  function askWithin(): Ask {
-    const deadline = Date.now() + ORDER_READ_DEADLINE_MS;
+  function askWithin(given?: number): Ask {
+    const start = Date.now();
+    const deadline = Math.min(start + ORDER_READ_DEADLINE_MS, given ?? Number.POSITIVE_INFINITY);
     return async (query, variables) => {
       const left = deadline - Date.now();
-      if (left <= 0) throw new ShopifyTimeoutError(ORDER_READ_DEADLINE_MS);
+      if (left <= 0) throw new ShopifyTimeoutError(Math.max(0, deadline - start));
       const body = asRecord(await askShopify(admin, query, variables, left));
       if (body?.errors) throw new OrderReadError(`Shopify answered with errors: ${firstErrorMessage(body.errors)}`);
       return rec(body?.data, "data");
@@ -534,10 +597,12 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
     return data.refund === null ? null : rec(data.refund, "the refund");
   }
 
-  /** The order's refund ids (all of them: throws when the list may be cut short). */
+  /** The order's refund ids (all of them: throws OrderReadLimitError when the list may be cut short). */
   function refundIds(node: Rec): string[] {
     const refunds = list(node.refunds, "refunds");
-    ensureWhole(refunds, LIST_LIMIT, "refunds");
+    if (refunds.length >= LIST_LIMIT) {
+      throw new OrderReadLimitError(`Shopify gave ${LIST_LIMIT} refunds, the most one read takes; there may be more`);
+    }
     return refunds.map((r) => text(rec(r, "a refund").id, "a refund id"));
   }
 
@@ -558,8 +623,8 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
      * many together as MAX_COST_IN_FLIGHT allows, then the facts; all within
      * one deadline.
      */
-    async readOrder(orderGid) {
-      const ask = askWithin();
+    async readOrder(orderGid, o = {}) {
+      const ask = askWithin(o.deadline);
       const read = await orderNode(ask, orderGid);
       if (!read) return null;
       // Before any call is sent: a throw here must not leave one unawaited
@@ -578,8 +643,8 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
      * yet refunded, so it is valued exactly as readOrder values it. All
      * within one deadline.
      */
-    async readRefund(refundGid) {
-      const ask = askWithin();
+    async readRefund(refundGid, o = {}) {
+      const ask = askWithin(o.deadline);
       const refund = await refundNode(ask, refundGid);
       if (!refund) return null;
       const orderGid = text(rec(refund.order, "the refund's order").id, "the refund's order id");
@@ -594,31 +659,38 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
     },
 
     /**
-     * Newest first, at most MAX_RECENT_PAGES pages of 50, so a busy shop's
-     * newest missed orders are found first. When there are more, the older
-     * ones are not read, and a warning (with no buyer data) says so.
+     * Most recently updated first, at most MAX_RECENT_PAGES pages of 50, so a
+     * busy shop's newest changes are found first. When there are more, the
+     * older ones are not read, and a warning (with no buyer data) says so.
+     * Each page ends by the caller's deadline too.
      */
-    async recentPaidOrders(since) {
-      const query = `created_at:>='${since.toISOString()}' AND (financial_status:paid OR financial_status:partially_refunded)`;
-      const found: Array<{ orderGid: string; hasCustomer: boolean; test: boolean; orderedAt: Date }> = [];
+    async recentlyUpdatedOrders(since, o = {}) {
+      const query = `updated_at:>='${since.toISOString()}' AND (financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded)`;
+      const found: UpdatedOrder[] = [];
       let after: string | null = null;
       for (let page = 1; ; page++) {
-        const orders = rec((await askWithin()(RewardsRecentPaidOrders, { query, after })).orders, "orders");
+        const orders = rec((await askWithin(o.deadline)(RewardsUpdatedOrders, { query, after })).orders, "orders");
         for (const item of list(orders.nodes, "orders")) {
           const node = rec(item, "an order");
           if (node.customer !== null) rec(node.customer, "an order's customer");
+          const refunds = list(node.refunds, "an order's refunds").map((r) => {
+            const refund = rec(r, "a refund");
+            return { refundGid: text(refund.id, "a refund id"), refundedAt: dateOf(refund.createdAt, "a refund's createdAt") };
+          });
           found.push({
             orderGid: text(node.id, "an order id"),
             hasCustomer: node.customer !== null,
             test: flag(node.test, "test"),
             orderedAt: dateOf(node.createdAt, "createdAt"),
+            cancelledAt: node.cancelledAt === null ? null : dateOf(node.cancelledAt, "cancelledAt"),
+            refunds: refunds.length >= LISTED_REFUNDS ? null : refunds,
           });
         }
         const pageInfo = rec(orders.pageInfo, "the orders' page info");
         if (pageInfo.hasNextPage === false) break;
         if (page >= MAX_RECENT_PAGES) {
           console.warn(
-            `[order-source] The sweep read ${found.length} paid orders created since ${since.toISOString()}, the most it reads; older ones were not read`,
+            `[order-source] The sweep read ${found.length} orders updated since ${since.toISOString()}, the most it reads; older ones were not read`,
           );
           break;
         }

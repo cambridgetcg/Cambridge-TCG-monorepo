@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { Prisma } from "@prisma/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma, { databaseSchema } from "~/db.server";
@@ -82,15 +84,21 @@ describe.skipIf(!hasTestDatabase)("database baseline", () => {
     await prisma.$disconnect();
   });
 
-  it("applied the init migration and nothing is rolled back", async () => {
+  it("applied every migration, the init first, and nothing is rolled back", async () => {
     const migrations = await prisma.$queryRawUnsafe<
       Array<{ migration_name: string; finished_at: Date | null; rolled_back_at: Date | null }>
-    >(`SELECT migration_name, finished_at, rolled_back_at FROM "${databaseSchema}"._prisma_migrations`);
+    >(`SELECT migration_name, finished_at, rolled_back_at FROM "${databaseSchema}"._prisma_migrations ORDER BY migration_name`);
+    const onDisk = readdirSync(fileURLToPath(new URL("../../prisma/migrations/", import.meta.url)), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
 
-    expect(migrations).toHaveLength(1);
-    expect(migrations[0].migration_name).toBe("20261105000000_init");
-    expect(migrations[0].finished_at).not.toBeNull();
-    expect(migrations[0].rolled_back_at).toBeNull();
+    expect(migrations.map((m) => m.migration_name)).toEqual(onDisk);
+    expect(onDisk[0]).toBe("20261105000000_init");
+    for (const migration of migrations) {
+      expect(migration.finished_at, migration.migration_name).not.toBeNull();
+      expect(migration.rolled_back_at, migration.migration_name).toBeNull();
+    }
   });
 
   it("has a table in schema rewards for every Prisma model", async () => {

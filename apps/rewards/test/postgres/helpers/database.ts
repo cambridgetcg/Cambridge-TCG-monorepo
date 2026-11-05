@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import prisma, { databaseSchema } from "~/db.server";
 
 const testDatabaseUrl = process.env.REWARDS_TEST_DATABASE_URL?.trim();
@@ -70,4 +70,29 @@ export function failNextCall(
 
 export function restoreFailedCalls(): void {
   for (const restore of failedCallRestores.splice(0)) restore();
+}
+
+/** How long a race test waits to see the racing call blocked: well inside Prisma's 5 s interactive-transaction timeout of the held call. */
+const LOCK_WAIT_CAP_MS = 3000;
+
+/**
+ * Resolves once another session of the test database is waiting on a lock,
+ * or once `settled` (the racing call, when given) has settled; throws after
+ * LOCK_WAIT_CAP_MS. `client` is a client of its own, so the check never waits
+ * behind the held transaction or the racing call.
+ */
+export async function waitForLockWaitOr(client: PrismaClient, settled?: Promise<unknown>): Promise<void> {
+  let done = false;
+  settled?.then(
+    () => (done = true),
+    () => (done = true),
+  );
+  for (const start = Date.now(); Date.now() - start < LOCK_WAIT_CAP_MS; ) {
+    const [{ waiting }] = await client.$queryRaw<Array<{ waiting: number }>>`
+      SELECT count(*)::int AS waiting FROM pg_stat_activity
+      WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+    if (waiting > 0 || done) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`The racing call neither waited on a lock nor finished within ${LOCK_WAIT_CAP_MS} ms`);
 }

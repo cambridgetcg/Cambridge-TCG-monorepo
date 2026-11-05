@@ -175,6 +175,8 @@ model Connection {
   activatedAt         DateTime         @map("activated_at")
   /// The last uninstall; kept on reactivation, so [uninstalledAt, activatedAt) is the gap.
   uninstalledAt       DateTime?        @map("uninstalled_at")
+  /// The last open (every token exchange); an uninstall from before it is stale.
+  lastAuthAt          DateTime?        @map("last_auth_at")
   importState         ImportState      @default(not_started) @map("import_state")
   importOperationId   String?          @map("import_operation_id")
   importCursor        Int              @default(0) @map("import_cursor")
@@ -182,8 +184,12 @@ model Connection {
   importAttempts      Int              @default(0) @map("import_attempts")
   importedCount       Int              @default(0) @map("imported_count")
   importError         String?          @map("import_error")
+  /// Polls in a row whose bulk file answered 4xx; the second ends the attempt.
+  importFileRefusals  Int              @default(0) @map("import_file_refusals")
   lastTierPassAt      DateTime?        @map("last_tier_pass_at")
   tierPassRequestedAt DateTime?        @map("tier_pass_requested_at")
+  /// When the hourly sweep last finished this store (least recently swept first).
+  lastSweptAt         DateTime?        @map("last_swept_at")
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 
@@ -275,6 +281,8 @@ model Order {
   cancelledAt               DateTime?         @map("cancelled_at")
   test                      Boolean
   noCashbackReason          NoCashbackReason? @map("no_cashback_reason")
+  /// An import order's refunds its bulk file listed, which its quantities already count (Ruling 54).
+  importRefundIds           String[]          @default([]) @map("import_refund_ids")
   createdAt                 DateTime          @default(now()) @map("created_at")
   updatedAt                 DateTime          @updatedAt @map("updated_at")
 
@@ -379,6 +387,8 @@ model Payout {
   shortfall             Decimal?        @db.Decimal(19, 4)
   lastError             String?         @map("last_error")
   settledBy             SettledBy?      @map("settled_by")
+  /// When the hourly check last looked at it while unclear (least recently checked first).
+  lastCheckedAt         DateTime?       @map("last_checked_at")
   createdAt             DateTime        @default(now()) @map("created_at")
   updatedAt             DateTime        @updatedAt @map("updated_at")
 

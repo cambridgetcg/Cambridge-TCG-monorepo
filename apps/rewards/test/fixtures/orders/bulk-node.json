@@ -27,6 +27,14 @@
       "amount": "0.0"
     }
   },
+  "refunds": [
+    {
+      "id": "gid://shopify/Refund/5113"
+    },
+    {
+      "id": "gid://shopify/Refund/5114"
+    }
+  ],
   "lineItems": {
     "nodes": [
       {

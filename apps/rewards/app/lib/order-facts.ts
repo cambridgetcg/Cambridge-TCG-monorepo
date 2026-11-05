@@ -10,9 +10,18 @@ export interface MoneyPair {
 export interface RefundFacts {
   /** Shopify GID, e.g. gid://shopify/Refund/1. */
   externalRefundId: string;
-  /** Refunded items at their discounted price; for money refunded with no items, that money minus any shipping it refunds (rule 7). */
+  /**
+   * Refunded items at their discounted price; for money refunded with no items, that money minus any shipping it refunds (rule 7).
+   * The refund that completes the order is valued at exactly the product value its earlier refunds left (Ruling 34).
+   */
   productValue: MoneyPair;
   refundedAt: Date;
+  /**
+   * Whether, after this refund, no line with a value has a unit left to refund: every unit bought, net
+   * of what order edits removed, has been refunded (Ruling 34). Decided by units, never by rounded
+   * values; a refund of money with no items never completes the order this way.
+   */
+  completesOrder: boolean;
 }
 
 /** What the engine needs to know about one order, whatever platform it came from. */
@@ -34,6 +43,7 @@ export interface OrderFacts {
   test: boolean;
   cancelledAt: Date | null;
   orderedAt: Date;
+  /** When the order became paid: its latest successful sale or capture, else when it was processed. */
   paidAt: Date;
   financialStatus: string;
   /** The order total, for display only. */
@@ -58,6 +68,13 @@ export interface OrderFacts {
    */
   refundedProductValue: MoneyPair;
   refunds: RefundFacts[];
+  /**
+   * The import's bulk node only: the ids of the refunds Shopify's file lists
+   * on the order. Its quantities already count them, so a refund of the
+   * imported order with one of these ids adds no spend when it is recorded
+   * later (Ruling 54).
+   */
+  importRefundIds?: string[];
 }
 
 function baseOf(productValue: Decimal, storeCreditUsed: Decimal, giftCardUsed: Decimal): Decimal {
@@ -81,7 +98,8 @@ export function cashbackBase(f: Pick<OrderFacts, "productValue" | "storeCreditUs
 
 /**
  * Rules 3 and 7: how much cashback one refund takes back. The refund that
- * completes the order takes whatever is left. Any other refund takes its
+ * completes the order (by its units, or by its value reaching the order's)
+ * takes whatever is left. Any other refund takes its
  * share of the product value, rounded down to the minor unit, capped at
  * what is left and never below zero; a shipping-only refund takes nothing.
  */

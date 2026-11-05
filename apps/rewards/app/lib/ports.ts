@@ -48,10 +48,51 @@ export interface PayoutRail {
   creditHistory(externalCustomerId: string, since: Date): Promise<CreditHistoryResult>;
 }
 
+/**
+ * When a read must be over by, as a Date.now() time. A read keeps its own
+ * limit too and ends at whichever comes first; a webhook that makes two
+ * reads passes both one deadline from when it was received.
+ */
+export interface ReadOptions {
+  deadline?: number;
+}
+
+/**
+ * One order the hourly sweep looks at: paid, partly or fully refunded, and
+ * updated since the sweep's start. `refunds` are Shopify's refunds of it (id
+ * and when each was made), or null when the list may be cut short, so the
+ * sweep reads the order itself for them.
+ */
+export interface UpdatedOrder {
+  orderGid: string;
+  hasCustomer: boolean;
+  test: boolean;
+  orderedAt: Date;
+  cancelledAt: Date | null;
+  refunds: Array<{ refundGid: string; refundedAt: Date }> | null;
+}
+
+/**
+ * What an order source's read throws, alongside its own error type, when the
+ * order is past a known limit of the read (an order with more refunds than
+ * one read takes): not a failure that trying again could fix, so the hourly
+ * sweep logs it rather than counting a problem (M2c-F7).
+ */
+export interface ReadLimit {
+  readonly readLimit: true;
+}
+
+/** Whether `error` is an order source's ReadLimit. */
+export function isReadLimit(error: unknown): error is Error & ReadLimit {
+  return error instanceof Error && (error as Partial<ReadLimit>).readLimit === true;
+}
+
 export interface OrderSource {
-  readOrder(orderGid: string): Promise<OrderFacts | null>;
-  readRefund(refundGid: string): Promise<{ orderGid: string; refund: RefundFacts } | null>;
-  recentPaidOrders(since: Date): Promise<Array<{ orderGid: string; hasCustomer: boolean; test: boolean; orderedAt: Date }>>;
+  /** Throws a ReadLimit error for an order with more refunds than the read takes. */
+  readOrder(orderGid: string, o?: ReadOptions): Promise<OrderFacts | null>;
+  readRefund(refundGid: string, o?: ReadOptions): Promise<{ orderGid: string; refund: RefundFacts } | null>;
+  /** The orders updated since `since`, most recently updated first (rule 13's backstop for orders, refunds and cancellations). */
+  recentlyUpdatedOrders(since: Date, o?: ReadOptions): Promise<UpdatedOrder[]>;
 }
 
 /** The rail and order source for one store connection, or null when the store can't be reached (no usable session). */

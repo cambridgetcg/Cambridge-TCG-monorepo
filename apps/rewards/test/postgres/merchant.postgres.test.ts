@@ -46,11 +46,14 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
   it("creates one merchant and connection, and a second open updates the shop details", async () => {
     const first = await open();
 
+    // With the import's state and boundary, so the open needs no second read (A17-F7)
     expect(first).toEqual({
       merchantId: expect.any(String),
       connectionId: expect.any(String),
       created: true,
       reactivated: false,
+      importState: "not_started",
+      installedAt: OPENED,
     });
     expect(await findConnection(SHOP)).toEqual({
       connectionId: first.connectionId,
@@ -78,6 +81,8 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
       connectionId: first.connectionId,
       created: false,
       reactivated: false,
+      importState: "not_started",
+      installedAt: OPENED,
     });
     expect(await prisma.merchant.count()).toBe(1);
     expect(await prisma.connection.count()).toBe(1);
@@ -128,7 +133,7 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
 
     // It really raced (waitForLockWait saw it blocked on the key), and its
     // insert did nothing rather than fail: no error raised or logged.
-    expect(await racing).toEqual({ ...winner, created: false, reactivated: false });
+    expect(await racing).toEqual({ ...winner, created: false, reactivated: false, importState: "not_started", installedAt: OPENED });
     for (const spy of logs) {
       expect(spy.mock.calls.flat().map(String).join("\n")).not.toMatch(/prisma:error|Unique constraint/);
     }
@@ -141,14 +146,14 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
     const first = await open();
     const uninstalledAt = new Date("2026-11-07T10:00:00Z");
 
-    expect(await markUninstalled(SHOP, uninstalledAt)).toBe(true);
+    expect(await markUninstalled(SHOP, uninstalledAt)).toBe("uninstalled");
     expect(await findConnection(SHOP)).toBeNull();
     expect(await prisma.connection.findUniqueOrThrow({ where: { id: first.connectionId } })).toMatchObject({
       status: "uninstalled",
       uninstalledAt,
     });
     // A second delivery of app/uninstalled keeps the first time.
-    expect(await markUninstalled(SHOP, new Date("2026-11-07T11:00:00Z"))).toBe(true);
+    expect(await markUninstalled(SHOP, new Date("2026-11-07T11:00:00Z"))).toBe("already_uninstalled");
     expect(
       (await prisma.connection.findUniqueOrThrow({ where: { id: first.connectionId } })).uninstalledAt,
     ).toEqual(uninstalledAt);
@@ -161,6 +166,8 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
       connectionId: first.connectionId,
       created: false,
       reactivated: true,
+      importState: "not_started",
+      installedAt: OPENED,
     });
     // A reactivation starts a new install and keeps the last uninstall, so
     // [uninstalledAt, activatedAt) is the gap.
@@ -187,10 +194,10 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
     await open({ now: reopened });
 
     // A late retry of that app/uninstalled, or any uninstall the reinstall overtook.
-    expect(await markUninstalled(SHOP, uninstalledAt)).toBe(true);
-    expect(await markUninstalled(SHOP, new Date("2026-11-08T08:59:59Z"))).toBe(true);
+    expect(await markUninstalled(SHOP, uninstalledAt)).toBe("stale");
+    expect(await markUninstalled(SHOP, new Date("2026-11-08T08:59:59Z"))).toBe("stale");
     // At the very instant of reactivation counts as before it, too.
-    expect(await markUninstalled(SHOP, reopened)).toBe(true);
+    expect(await markUninstalled(SHOP, reopened)).toBe("stale");
 
     expect(await findConnection(SHOP)).toMatchObject({
       connectionId: first.connectionId,
@@ -209,7 +216,7 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
     await open({ now: new Date("2026-11-08T09:00:00Z") });
     const uninstalledAgain = new Date("2026-11-08T09:00:01Z");
 
-    expect(await markUninstalled(SHOP, uninstalledAgain)).toBe(true);
+    expect(await markUninstalled(SHOP, uninstalledAgain)).toBe("uninstalled");
 
     expect(await findConnection(SHOP)).toBeNull();
     expect(await prisma.connection.findUniqueOrThrow({ where: { id: first.connectionId } })).toMatchObject({
@@ -218,10 +225,44 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
     });
   });
 
+  it("records each open's time, apart from activatedAt", async () => {
+    const first = await open();
+    expect(await prisma.connection.findUniqueOrThrow({ where: { id: first.connectionId } })).toMatchObject({
+      activatedAt: OPENED,
+      lastAuthAt: OPENED,
+    });
+
+    const later = new Date("2026-11-06T09:00:00Z");
+    await open({ now: later });
+
+    // An open of an active store is not a new install: the gap rule's bound stays.
+    expect(await prisma.connection.findUniqueOrThrow({ where: { id: first.connectionId } })).toMatchObject({
+      activatedAt: OPENED,
+      lastAuthAt: later,
+    });
+  });
+
+  it("an uninstall that failed before it committed and is retried after a reinstall leaves the live store active (Ruling 13)", async () => {
+    const first = await open();
+    // The first app/uninstalled never committed, so the connection is still
+    // active and the reinstall's open does not reactivate it.
+    const uninstalledAt = new Date("2026-11-07T10:00:00Z");
+    const reopened = new Date("2026-11-07T11:00:00Z");
+    expect((await open({ now: reopened })).reactivated).toBe(false);
+
+    expect(await markUninstalled(SHOP, uninstalledAt)).toBe("stale");
+    expect(await markUninstalled(SHOP, reopened)).toBe("stale");
+
+    expect(await findConnection(SHOP)).toMatchObject({ connectionId: first.connectionId, activatedAt: OPENED, uninstalledAt: null });
+    // An uninstall after that open is a real one.
+    expect(await markUninstalled(SHOP, new Date("2026-11-07T11:00:01Z"))).toBe("uninstalled");
+    expect(await findConnection(SHOP)).toBeNull();
+  });
+
   it("markUninstalled on a shop it has never seen changes nothing", async () => {
     await open();
 
-    expect(await markUninstalled("unknown-shop.myshopify.com")).toBe(false);
+    expect(await markUninstalled("unknown-shop.myshopify.com")).toBe("unknown");
     expect(await findConnection("unknown-shop.myshopify.com")).toBeNull();
     expect(await findConnection(SHOP)).not.toBeNull();
   });
