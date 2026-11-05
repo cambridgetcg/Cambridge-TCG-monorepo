@@ -11,8 +11,12 @@
  *   (`could_not_confirm`, plan Decision 5). Neither is ever sent again blind;
  * - refused for good (plan Decision 4, Ruling 14): needs a look (`refused`)
  *   at once;
- * - refused for now: back to `pending` with backoff (plan Decision 3), until
- *   24 h after the first failure, when it needs a look (`kept_failing`).
+ * - refused for now: back to `pending` with backoff (plan Decision 3). Once
+ *   24 h have passed since the first failure, the next claim makes it need a
+ *   look (`kept_failing`) without asking Shopify again (Ruling 36).
+ * The answer is written under the payout's locks (lockPayout) while this
+ * call's claim still holds it, and only inside CLAIM_FINISHED_MS of the
+ * claim; after that the hourly check settles it (CONCURRENCY-2).
  *
  * The hourly check settles what was left unclear (settleUnconfirmed), and
  * the merchant answers what needs a look (answerNeedsLook, rule 12).
@@ -20,18 +24,40 @@
 import { Prisma, type LedgerEntry, type LookReason, type Payout, type PrismaClient, type SettledBy } from "@prisma/client";
 import type { Decimal } from "decimal.js";
 import prisma, { databaseSchema } from "~/db.server";
-import { Money, floorMoney, fromDb } from "./money";
+import { Money, floorMoney, fromDb, roundMoney } from "./money";
 import type { CreditHistoryResult, CreditRecord, PayoutRail, RailAnswer } from "./ports";
 
-/** How long after its claim a send is surely over: the rail's calls time out long before. */
+/**
+ * How long after its claim a send is surely over: the rail's calls time out
+ * long before. A refund holds its take-back against a credit still `sending`
+ * only after this, and sendPayout writes no answer after it, so the two never
+ * overlap. It must stay above the maxDuration of every route that sends a
+ * payout (part c sets them to 300 s); a route allowed to run this long could
+ * still be sending when a refund holds a take-back.
+ */
 export const CLAIM_FINISHED_MS = 30 * 60 * 1000;
 /** How long a payout keeps being retried after its first failure before it needs a look (rule 9). */
 export const KEEP_TRYING_MS = 24 * 60 * 60 * 1000;
+/** Why a payout to or from a buyer whose data was erased (customers/redact) is not sent. */
+export const CUSTOMER_ERASED = "Customer data erased";
 
 const HOUR_MS = 60 * 60 * 1000;
 const LONGEST_WAIT_HOURS = 8;
 
-export type SendOutcome = "sent" | "pending" | "unconfirmed" | "needs_look" | "skipped";
+/**
+ * What one sendPayout call did:
+ * - `sent`, `pending` (refused for now, to be tried again), `unconfirmed`,
+ *   `needs_look`: the answer it wrote;
+ * - `nothing_to_send`: refused for now, and the take-backs held meanwhile
+ *   took all of it;
+ * - `skipped`: it claimed nothing (not pending, not due, or another sender
+ *   has it), and the rail was not asked;
+ * - `claim_lost`: it claimed the payout and the rail answered, but the claim
+ *   no longer held when the answer came (the payout changed meanwhile, or
+ *   CLAIM_FINISHED_MS had passed). Nothing was written; the hourly check
+ *   settles the payout from the buyer's credit history.
+ */
+export type SendOutcome = "sent" | "pending" | "unconfirmed" | "needs_look" | "nothing_to_send" | "skipped" | "claim_lost";
 
 /**
  * When to try again after the `attempts`-th send failed: min(2^(attempts−1), 8)
@@ -56,13 +82,16 @@ async function ask(call: () => Promise<RailAnswer>): Promise<RailAnswer> {
 /** What the rail was asked to take on a debit: never more than the buyer holds. */
 type Take = { debitedAmount: Decimal; shortfall: Decimal };
 
+/** An outcome sendPayout writes. */
+type Written = Exclude<SendOutcome, "skipped" | "claim_lost" | "nothing_to_send">;
+
 /** The payout's next columns for a rail answer, and the outcome they mean. */
 function afterAnswer(
   payout: Payout,
   answer: RailAnswer,
   take: Take | null,
   now: Date,
-): { outcome: Exclude<SendOutcome, "skipped">; data: Prisma.PayoutUpdateManyMutationInput } {
+): { outcome: Written; data: Prisma.PayoutUpdateManyMutationInput } {
   const taken = take ? { debitedAmount: take.debitedAmount.toFixed(), shortfall: take.shortfall.toFixed() } : {};
   switch (answer.outcome) {
     case "applied":
@@ -78,23 +107,97 @@ function afterAnswer(
       // Nothing was taken, whatever an earlier unclear attempt asked for.
       const refusal = { lastError: answer.code ?? answer.message, debitedAmount: null, shortfall: null };
       if (answer.permanent) return { outcome: "needs_look", data: { state: "needs_look", lookReason: "refused", ...refusal } };
+      // A refusal from a claim made 24 h after the first failure never gets
+      // here: that claim needs a look before the rail is asked (Ruling 36).
       const firstFailedAt = payout.firstFailedAt ?? now;
-      if (now.getTime() - firstFailedAt.getTime() >= KEEP_TRYING_MS) {
-        return { outcome: "needs_look", data: { state: "needs_look", lookReason: "kept_failing", firstFailedAt, ...refusal } };
-      }
       return { outcome: "pending", data: { state: "pending", nextAttemptAt: nextAttemptAt(payout.attempts, now), firstFailedAt, ...refusal } };
     }
   }
 }
 
 /**
- * Send one payout if it is `pending` and due at `now`; `skipped` when this
- * call did not claim it (not pending, not due, or another sender has it).
- * A credit goes out with the merchant's buyer-email switch. A debit takes
- * what the buyer still holds of it in the payout currency: none held is
- * `sent` with nothing taken; a balance Shopify can't give is a failure to
- * retry. `db` is the client to run on (tests pass a second one to race two
- * senders).
+ * A take-back that took less than it asked for (Ruling 35): the reversal
+ * stays the buyer's entitlement, and an adjustment (key `shortfall:<payout
+ * id>`) gives back what the buyer had already spent, so the ledger says what
+ * truly left their balance. `shortfall` is in the payout's (issue) currency;
+ * its shop-currency share is the reversal's, in proportion, rounded half up
+ * to the shop currency's minor unit (a take of 0 gives back the reversal's
+ * whole shop amount). refundTakeBack sums reversals only, so a later refund
+ * never tries to take the shortfall again. The caller holds the payout's
+ * locks and writes the debit's `sent` in the same transaction.
+ */
+async function recordShortfall(tx: Prisma.TransactionClient, debit: LockedPayout, shortfall: Decimal): Promise<void> {
+  if (!shortfall.gt(0)) return;
+  const reversal = debit.ledgerEntry;
+  const { currency: shopCurrency } = await tx.merchant.findUniqueOrThrow({ where: { id: debit.merchantId }, select: { currency: true } });
+  const asked = fromDb(reversal.amount).abs();
+  const shopShortfall = asked.isZero() ? new Money(0) : roundMoney(fromDb(reversal.shopAmount).abs().times(shortfall).div(asked), shopCurrency);
+  await tx.ledgerEntry.create({
+    data: {
+      merchantId: reversal.merchantId,
+      connectionId: reversal.connectionId,
+      customerId: reversal.customerId,
+      orderId: reversal.orderId,
+      kind: "adjustment",
+      amount: shortfall.toFixed(),
+      currency: reversal.currency,
+      shopAmount: shopShortfall.toFixed(),
+      tierName: reversal.tierName,
+      ratePercent: reversal.ratePercent,
+      idempotencyKey: `shortfall:${debit.id}`,
+    },
+  });
+}
+
+/**
+ * Write a claimed payout's answer, or nothing (`claim_lost`) when the claim
+ * no longer holds it: CLAIM_FINISHED_MS have passed since the claim (`now`),
+ * so a refund may hold a take-back against it and the hourly check is to
+ * settle it; or, under the payout's locks, it is no longer `sending` with this
+ * claim. Under the same locks a credit that went out releases the take-backs
+ * held meanwhile, one refused for now nets them (netHeld), and a debit that
+ * fell short records the shortfall (recordShortfall). `kind` names the answer
+ * in the log line, which carries no buyer data.
+ */
+async function writeAnswer(
+  db: PrismaClient,
+  claimed: Payout,
+  now: Date,
+  answer: { outcome: Written; data: Prisma.PayoutUpdateManyMutationInput; take: Take | null; kind: string },
+): Promise<SendOutcome> {
+  const lost = (why: string): SendOutcome => {
+    console.warn(`[payouts] payout ${claimed.id} ${why}; its ${answer.kind} answer was not written`);
+    return "claim_lost";
+  };
+  if (Date.now() - now.getTime() >= CLAIM_FINISHED_MS) return lost("was answered after its claim was over, so the hourly check settles it");
+  return db.$transaction(async (tx) => {
+    const locked = await lockPayout(tx, claimed.id);
+    if (!locked || locked.state !== "sending" || locked.claimedAt?.getTime() !== now.getTime()) {
+      return lost("changed while it was being sent");
+    }
+    let { data } = answer;
+    let outcome: SendOutcome = answer.outcome;
+    if (locked.direction === "credit" && answer.outcome === "sent") await releaseHeld(tx, locked, now);
+    if (locked.direction === "credit" && answer.outcome === "pending") {
+      const left = await netHeld(tx, locked);
+      data = { ...data, amount: left.toFixed(), ...(left.isZero() ? { state: "nothing_to_send" as const } : {}) };
+      if (left.isZero()) outcome = "nothing_to_send";
+    }
+    if (locked.direction === "debit" && answer.outcome === "sent" && answer.take) await recordShortfall(tx, locked, answer.take.shortfall);
+    await tx.payout.updateMany({ where: { id: locked.id }, data });
+    return outcome;
+  });
+}
+
+/**
+ * Send one payout if it is `pending` and due at `now` (the claim's time);
+ * see SendOutcome for what comes back. A payout claimed KEEP_TRYING_MS or
+ * more after its first failure needs a look (`kept_failing`) without the
+ * rail being asked (Ruling 36). A credit goes out with the merchant's
+ * buyer-email switch. A debit takes what the buyer still holds of it in the
+ * payout currency: none held is `sent` with nothing taken; a balance Shopify
+ * can't give is a failure to retry. `db` is the client to run on (tests pass
+ * a second one to race two senders).
  */
 export async function sendPayout(
   payoutId: string,
@@ -110,6 +213,12 @@ export async function sendPayout(
   });
   if (!payout) return "skipped";
 
+  if (payout.firstFailedAt !== null && now.getTime() - payout.firstFailedAt.getTime() >= KEEP_TRYING_MS) {
+    // Nothing was attempted: the count stays the number of times the rail was asked.
+    const data = { state: "needs_look" as const, lookReason: "kept_failing" as const, attempts: { decrement: 1 } };
+    return writeAnswer(db, payout, now, { outcome: "needs_look", data, take: null, kind: "kept failing" });
+  }
+
   const buyer = await db.customer.findUniqueOrThrow({
     where: { id: payout.customerId },
     select: { externalCustomerId: true, merchant: { select: { notifyBuyers: true } } },
@@ -122,18 +231,21 @@ export async function sendPayout(
   let take: Take | null = null;
   if (externalCustomerId === null) {
     // Erased while it waited (customers/redact): there is no one to pay.
-    answer = { outcome: "refused", permanent: true, code: null, message: "Customer data erased" };
+    answer = { outcome: "refused", permanent: true, code: null, message: CUSTOMER_ERASED };
   } else if (payout.direction === "credit") {
     answer = await ask(() => rail.credit({ externalCustomerId, amount, currency, notify: buyer.merchant.notifyBuyers }));
   } else {
     let balance: Decimal | null;
+    let readError: string | null = null;
     try {
       balance = await rail.balance(externalCustomerId, currency);
-    } catch {
+    } catch (error) {
       balance = null;
+      readError = error instanceof Error ? error.message : String(error);
     }
     if (balance === null) {
-      answer = { outcome: "refused", permanent: false, code: null, message: "The buyer's store credit balance could not be read" };
+      const message = "The buyer's store credit balance could not be read";
+      answer = { outcome: "refused", permanent: false, code: null, message: readError === null ? message : `${message}: ${readError}` };
     } else {
       // Down to the minor unit, so the take is never more than the balance.
       const held = Money.max(floorMoney(balance, currency), 0);
@@ -145,14 +257,7 @@ export async function sendPayout(
     }
   }
 
-  const { outcome, data } = afterAnswer(payout, answer, take, now);
-  // Only while this call's claim still holds it.
-  const written = await db.payout.updateMany({ where: { id: payout.id, state: "sending", claimedAt: now }, data });
-  if (written.count === 0) {
-    console.warn(`[payouts] payout ${payout.id} changed while it was being sent; its ${outcome} answer was not written`);
-    return "skipped";
-  }
-  return outcome;
+  return writeAnswer(db, payout, now, { ...afterAnswer(payout, answer, take, now), take, kind: answer.outcome });
 }
 
 // ---------------------------------------------------------------------------
@@ -260,16 +365,40 @@ function claimStart(claimedAt: Date, unconfirmedAt: Date | null): Date {
 /** A payout with its ledger entry, read under its row lock. */
 export type LockedPayout = Payout & { ledgerEntry: LedgerEntry };
 
-async function lockRow(tx: Prisma.TransactionClient, table: "payout" | "orders", id: string): Promise<void> {
+/** SELECT … FOR UPDATE on one payout or order row; lockPayout says in what order they are taken. */
+export async function lockRow(tx: Prisma.TransactionClient, table: "payout" | "orders", id: string): Promise<void> {
   await tx.$executeRaw`SELECT id FROM ${Prisma.raw(`"${databaseSchema}"."${table}"`)} WHERE id = ${id}::uuid FOR UPDATE`;
 }
 
 /**
- * Lock a payout's row, then its order's: the order recordRefund locks them
- * in, so a refund and a change to the payout apply one after the other.
+ * Lock a payout's row, then its order's, in the one order every writer of an
+ * order's payouts uses: the order's credit first (for a take-back, its
+ * order's credit is locked before the take-back itself), then the payout,
+ * then the order. recordRefund, settleUnconfirmed, sendPayout's answer, the
+ * merchant's answers and redactCustomer all lock this way, so they apply one
+ * after the other and never wait on each other in a circle.
+ *
+ * Postgres takes another lock no code here names: every ledger_entry or
+ * payout insert checks its customer foreign key with FOR KEY SHARE on the
+ * buyer's customer row. That conflicts with the FOR UPDATE an update of
+ * `external_customer_id` (a column of a unique index) takes, which is why
+ * redactCustomer blanks the customer row last.
+ *
  * Returns the payout as it is under the lock, or null when there is none.
  */
 export async function lockPayout(tx: Prisma.TransactionClient, payoutId: string): Promise<LockedPayout | null> {
+  const which = await tx.payout.findUnique({
+    where: { id: payoutId },
+    select: { merchantId: true, direction: true, ledgerEntry: { select: { orderId: true } } },
+  });
+  const orderId = which?.ledgerEntry.orderId ?? null;
+  if (which?.direction === "debit" && orderId !== null) {
+    const credit = await tx.payout.findFirst({
+      where: { merchantId: which.merchantId, direction: "credit", ledgerEntry: { orderId, kind: "cashback" } },
+      select: { id: true },
+    });
+    if (credit) await lockRow(tx, "payout", credit.id);
+  }
   await lockRow(tx, "payout", payoutId);
   const payout = await tx.payout.findUnique({ where: { id: payoutId }, include: { ledgerEntry: true } });
   if (payout?.ledgerEntry.orderId) await lockRow(tx, "orders", payout.ledgerEntry.orderId);
@@ -437,7 +566,7 @@ export async function settleUnconfirmed(payoutId: string, rail: PayoutRail, now:
     return needsLook("could_not_confirm", "The take-back was being sent and Shopify never said whether it was taken");
   }
   const externalCustomerId = payout.customer.externalCustomerId;
-  if (externalCustomerId === null) return refuse("Customer data erased");
+  if (externalCustomerId === null) return refuse(CUSTOMER_ERASED);
 
   let read: CreditHistoryResult;
   try {
@@ -509,10 +638,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The merchant's answer to a payout that needs a look:
- * - retry (refused or kept failing): `pending` now, the failure clock cleared;
+ * - retry (refused or kept failing): `pending` now, the failure clock and
+ *   the attempt count cleared (Ruling 37);
  * - close (the same): closeWithoutSending, settled by the merchant;
- * - arrived (couldn't confirm): `sent`, settled by the merchant, and a
- *   credit's held take-backs are released;
+ * - arrived (couldn't confirm): `sent`, settled by the merchant; a credit's
+ *   held take-backs are released, and a take-back's known shortfall reaches
+ *   the ledger (recordShortfall);
  * - not_arrived (the same): a credit is sent again less its held take-backs
  *   (as settleUnconfirmed's "not landed"); a take-back is `pending` now, to
  *   be debited again from what the buyer holds.
@@ -542,9 +673,17 @@ export async function answerNeedsLook(
         // way (a refusal written after its claim finished, when a refund
         // held its take-back) is netted here, so only what is left is sent.
         const left = await netHeld(tx, payout);
+        // The failure clock and the backoff start afresh: the full ladder again (Ruling 37).
         await tx.payout.update({
           where: { id: payout.id },
-          data: { amount: left.toFixed(), state: left.isZero() ? "nothing_to_send" : "pending", nextAttemptAt: now, firstFailedAt: null, lookReason: null },
+          data: {
+            amount: left.toFixed(),
+            state: left.isZero() ? "nothing_to_send" : "pending",
+            nextAttemptAt: now,
+            firstFailedAt: null,
+            attempts: 0,
+            lookReason: null,
+          },
         });
         break;
       }
@@ -554,6 +693,12 @@ export async function answerNeedsLook(
       case "arrived":
         await tx.payout.update({ where: { id: payout.id }, data: { state: "sent", sentAt: now, settledBy: "merchant" } });
         if (payout.direction === "credit") await releaseHeld(tx, payout, now);
+        // A take-back whose ask is known gives back what it fell short by
+        // (Ruling 35). One that died mid-send asked for nothing on record
+        // (null), and the amount it took stays unknown (A11-F4).
+        if (payout.direction === "debit" && payout.debitedAmount !== null && payout.shortfall !== null) {
+          await recordShortfall(tx, payout, fromDb(payout.shortfall));
+        }
         break;
       case "not_arrived":
         if (payout.direction === "credit") {

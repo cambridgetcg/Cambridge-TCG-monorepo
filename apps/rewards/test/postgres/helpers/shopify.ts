@@ -25,6 +25,8 @@ import { server } from "../../setup";
   const library = createRequire(import.meta.url).resolve("@shopify/shopify-app-react-router/server");
   const runtime = createRequire(library).resolve("@shopify/shopify-api/runtime");
   const esmRuntime = runtime.replace(/dist[\\/]cjs[\\/]runtime[\\/]index\.js$/, "dist/esm/runtime/index.mjs");
+  // Patching the CJS copy would leave the app's Admin calls on the real network.
+  if (esmRuntime === runtime) throw new Error(`Can't find the ES module copy of the Shopify runtime next to ${runtime}`);
   const { setAbstractFetchFunc } = (await import(pathToFileURL(esmRuntime).href)) as {
     setAbstractFetchFunc: (fetch: typeof globalThis.fetch) => void;
   };

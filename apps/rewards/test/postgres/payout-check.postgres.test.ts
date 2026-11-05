@@ -216,15 +216,16 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
     await run();
     expect(calls).toHaveLength(1);
 
-    // A day later, due again and still turned away
+    // A day after the first failure, due again: it needs a look as soon as
+    // it is claimed, without asking Shopify again (Ruling 36)
     await prisma.payout.update({
       where: { id },
       data: { nextAttemptAt: new Date(Date.now() - MINUTE), firstFailedAt: new Date(Date.now() - KEEP_TRYING_MS - MINUTE) },
     });
     await expect(run()).resolves.toMatchObject({ body: { sent: 0, needsLook: 1 } });
 
-    expect(calls).toHaveLength(2);
-    await expect(payout(id)).resolves.toMatchObject({ state: "needs_look", lookReason: "kept_failing", attempts: 2 });
+    expect(calls).toHaveLength(1);
+    await expect(payout(id)).resolves.toMatchObject({ state: "needs_look", lookReason: "kept_failing", attempts: 1 });
   });
 
   describe("payouts Shopify never confirmed", () => {

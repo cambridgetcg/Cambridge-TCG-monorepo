@@ -303,10 +303,20 @@ function refundLinesOf(refund: Rec, order: ParsedOrder): Array<{ line: Line; qua
  * The product value one refund returned (rule 7), rounded down to the minor
  * unit: its items at their discounted price, or, with no items, its
  * successful money less the shipping it refunded. Either is capped at the
- * product value not yet refunded (`left`, Ruling 20) and never below 0.
+ * product value not yet refunded (`left`, Ruling 20) and never below 0. The
+ * refund that completes the order (refundsOf decides it by units) is valued
+ * at exactly `left`, so the order's refunds add up to its product value
+ * (Ruling 34).
  */
-function refundValue(refund: Rec, order: ParsedOrder, left: MoneyPair): RefundFacts {
-  const items = refundLinesOf(refund, order);
+function refundValue(
+  refund: Rec,
+  order: ParsedOrder,
+  items: Array<{ line: Line; quantity: number }>,
+  left: MoneyPair,
+  completesOrder: boolean,
+): RefundFacts {
+  const facts = { externalRefundId: text(refund.id, "the refund id"), refundedAt: dateOf(refund.createdAt, "the refund's createdAt"), completesOrder };
+  if (completesOrder) return { ...facts, productValue: clamp(left, left) };
   let value: MoneyPair;
   if (items.length > 0) {
     value = clamp(sum(items.map(({ line, quantity }) => shareOf(line.value, quantity, line.quantity))), left);
@@ -324,11 +334,23 @@ function refundValue(refund: Rec, order: ParsedOrder, left: MoneyPair): RefundFa
     const shipping = sum(shippingLines.map((item) => shippingRefunded(item, order)));
     value = clamp(minus(money, shipping), left);
   }
-  return {
-    externalRefundId: text(refund.id, "the refund id"),
-    productValue: floorPair(value, order),
-    refundedAt: dateOf(refund.createdAt, "the refund's createdAt"),
-  };
+  return { ...facts, productValue: floorPair(value, order) };
+}
+
+/**
+ * The units order edits removed from each line: quantity − currentQuantity −
+ * its units in the refunds' line items, never below 0. Shopify's quantity
+ * (and the discounts on it) still counts refunded and removed units, and
+ * currentQuantity counts neither.
+ */
+function removedUnits(order: ParsedOrder, refundNodes: Rec[]): Map<Line, number> {
+  const refundedUnits = new Map<Line, number>();
+  for (const node of refundNodes) {
+    for (const { line, quantity } of refundLinesOf(node, order)) refundedUnits.set(line, (refundedUnits.get(line) ?? 0) + quantity);
+  }
+  return new Map(
+    [...order.lines.values()].map((line) => [line, Math.max(0, line.quantity - line.currentQuantity - (refundedUnits.get(line) ?? 0))]),
+  );
 }
 
 /** Refund GIDs in numeric order (a shorter number is a smaller one), so the order never depends on how they were read. */
@@ -341,6 +363,12 @@ function byId(a: string, b: string): number {
  * each capped by the product value (`productValue`) less the ones before it.
  * readOrder and readRefund get the refunds in different orders, and must give
  * each the same value.
+ *
+ * A refund of items completes the order when, after it, every line with a
+ * value has had all its units refunded or removed by an edit (Ruling 34);
+ * lines worth nothing (gift cards) don't count. That refund is valued at what
+ * is left, so the refunds sum to the product value however their shares were
+ * rounded down.
  */
 function refundsOf(order: ParsedOrder, productValue: MoneyPair, refundNodes: Rec[]): RefundFacts[] {
   const dated = refundNodes.map((node) => ({
@@ -349,9 +377,18 @@ function refundsOf(order: ParsedOrder, productValue: MoneyPair, refundNodes: Rec
     at: dateOf(node.createdAt, "the refund's createdAt").getTime(),
   }));
   dated.sort((a, b) => a.at - b.at || byId(a.id, b.id));
+  const removed = removedUnits(order, refundNodes);
+  const valued = [...order.lines.values()].filter((line) => line.value.amount.gt(0) || line.value.shopAmount.gt(0));
+  const returned = new Map<Line, number>();
   let refunded = zero();
   return dated.map(({ node }) => {
-    const refund = refundValue(node, order, minus(productValue, refunded));
+    const items = refundLinesOf(node, order);
+    for (const { line, quantity } of items) returned.set(line, (returned.get(line) ?? 0) + quantity);
+    const completesOrder =
+      items.length > 0 &&
+      valued.length > 0 &&
+      valued.every((line) => (removed.get(line) ?? 0) + (returned.get(line) ?? 0) >= line.quantity);
+    const refund = refundValue(node, order, items, minus(productValue, refunded), completesOrder);
     refunded = plus(refunded, refund.productValue);
     return refund;
   });
@@ -369,22 +406,12 @@ function withoutTip(value: MoneyPair, tip: MoneyPair): MoneyPair {
  * What the buyer bought (rule 1, Ruling 25), on a read that has the order's
  * refunds: every line's value, less the units order edits removed from it, at
  * the line's discounted unit value and rounded down as a refund's share is,
- * then less the tips, never below 0. A line's removed units are quantity −
- * currentQuantity − its units in the refunds' line items, never below 0:
- * Shopify's quantity (and the discounts on it) still counts refunded and
- * removed units, and currentQuantity counts neither.
+ * then less the tips, never below 0 (removedUnits).
  */
 function boughtValue(order: ParsedOrder, refundNodes: Rec[]): MoneyPair {
-  const refundedUnits = new Map<Line, number>();
-  for (const node of refundNodes) {
-    for (const { line, quantity } of refundLinesOf(node, order)) refundedUnits.set(line, (refundedUnits.get(line) ?? 0) + quantity);
-  }
+  const units = removedUnits(order, refundNodes);
   const lines = [...order.lines.values()];
-  const removed = sum(
-    lines.map((line) =>
-      shareOf(line.value, Math.max(0, line.quantity - line.currentQuantity - (refundedUnits.get(line) ?? 0)), line.quantity),
-    ),
-  );
+  const removed = sum(lines.map((line) => shareOf(line.value, units.get(line) ?? 0, line.quantity)));
   return withoutTip(minus(sum(lines.map((line) => line.value)), floorPair(removed, order)), order.tip);
 }
 

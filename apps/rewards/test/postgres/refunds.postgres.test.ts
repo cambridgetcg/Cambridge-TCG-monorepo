@@ -1,14 +1,16 @@
 import { Prisma, type PayoutState, type PrismaClient } from "@prisma/client";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma, { createPrismaClient } from "~/db.server";
+import { redactCustomer } from "~/lib/erasure.server";
 import type { ConnectionContext } from "~/lib/merchant.server";
 import { ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
 import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
-import { CLAIM_FINISHED_MS } from "~/lib/payouts.server";
+import { CLAIM_FINISHED_MS, sendPayout } from "~/lib/payouts.server";
+import type { PayoutRail } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
 import { ORDER_RECORDING_WINDOW_MS, RefundRetryLater, recordRefund } from "~/lib/refunds.server";
-import { hasTestDatabase, resetDatabase } from "./helpers/database";
+import { hasTestDatabase, resetDatabase, waitForLockWaitOr } from "./helpers/database";
 
 const SHOP = "refunds-test.myshopify.com";
 const INSTALLED = new Date("2026-11-01T09:00:00Z");
@@ -44,12 +46,16 @@ function orderFacts(overrides: Partial<OrderFacts> = {}): OrderFacts {
   };
 }
 
-/** Refund `n` of `product` worth of products, made `n` minutes after 13:00. */
-function refundFacts(n: number, product: string, shopProduct = product): RefundFacts {
+/**
+ * Refund `n` of `product` worth of products, made `n` minutes after 13:00;
+ * `completesOrder` when it returns the order's last unit (Ruling 34).
+ */
+function refundFacts(n: number, product: string, shopProduct = product, completesOrder = false): RefundFacts {
   return {
     externalRefundId: `gid://shopify/Refund/${n}`,
     productValue: pair(product, shopProduct),
     refundedAt: new Date(Date.UTC(2026, 10, 4, 13, n)),
+    completesOrder,
   };
 }
 
@@ -111,21 +117,46 @@ async function moneyOf(orderId: string) {
   };
 }
 
-/** Resolves once another session is waiting on a lock, or once `settled` has settled (up to 5 s). */
-async function waitForLockWaitOr(client: PrismaClient, settled: Promise<unknown>): Promise<void> {
-  let done = false;
-  settled.then(
-    () => (done = true),
-    () => (done = true),
+type Settled<T> = { status: "fulfilled"; value: T } | { status: "rejected"; reason: unknown };
+const settle = <T,>(promise: Promise<T>): Promise<Settled<T>> =>
+  promise.then(
+    (value) => ({ status: "fulfilled", value }) as const,
+    (reason: unknown) => ({ status: "rejected", reason }) as const,
   );
-  for (let i = 0; i < 100; i++) {
-    const [{ waiting }] = await client.$queryRaw<Array<{ waiting: number }>>`
-      SELECT count(*)::int AS waiting FROM pg_stat_activity
-      WHERE datname = current_database() AND wait_event_type = 'Lock'`;
-    if (waiting > 0 || done) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+
+/**
+ * Record `refund` on a client of its own (the test pool has one connection),
+ * held once it holds the credit's and the order's locks and has worked out
+ * its take-back (at its reversal's insert), while `race()` starts on the
+ * app's client, until that is waiting on a lock or has finished. Both
+ * results, settled.
+ */
+async function refundRacing<T>(conn: ConnectionContext, refund: RefundFacts, race: () => Promise<T>) {
+  const refundClient = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+  const watcher = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+  let raced: Promise<T> | null = null;
+  const held = refundClient.$extends({
+    query: {
+      ledgerEntry: {
+        async create({ args, query }) {
+          if (!raced) {
+            raced = race();
+            raced.catch(() => {});
+            await waitForLockWaitOr(watcher, raced);
+          }
+          return query(args);
+        },
+      },
+    },
+  }) as unknown as PrismaClient;
+  try {
+    const refunded = await settle(recordRefund(conn, ORDER, refund, held, NOW));
+    if (!raced) throw new Error("the refund never reached its reversal");
+    return { refunded, raced: await settle<T>(raced) };
+  } finally {
+    await refundClient.$disconnect();
+    await watcher.$disconnect();
   }
-  throw new Error("The racing refund neither waited on the first one nor finished");
 }
 
 describe.skipIf(!hasTestDatabase)("recordRefund", () => {
@@ -311,6 +342,131 @@ describe.skipIf(!hasTestDatabase)("recordRefund", () => {
     expect(after.reversals.map((r) => r.amount)).toEqual(["-0.50", "-0.50", "-1.50"]);
   });
 
+  it("a credit held (which only a take-back can be) throws, and nothing is written (A10-F5)", async () => {
+    const { conn, orderId, payoutId } = await recordedOrder();
+    await setCredit(payoutId, { state: "held" });
+    const before = await moneyOf(orderId);
+
+    await expect(recordRefund(conn, ORDER, refundFacts(1, "20.00"), undefined, NOW)).rejects.toThrow(/held, which only a debit can be/);
+
+    expect(await moneyOf(orderId)).toEqual(before);
+    expect(await prisma.refund.count()).toBe(0);
+  });
+
+  it("a credit sending with no claim time holds the take-back, as one whose claim is over (A10-F5)", async () => {
+    const { conn, orderId, payoutId } = await recordedOrder();
+    await setCredit(payoutId, { state: "sending", claimedAt: null });
+
+    await recordRefund(conn, ORDER, refundFacts(1, "20.00"), undefined, NOW);
+
+    expect((await moneyOf(orderId)).reversals.map((r) => r.payout)).toEqual([{ direction: "debit", state: "held", amount: "1.00" }]);
+  });
+
+  describe("a refund for a buyer whose data was erased (MONEY-5)", () => {
+    // An unconfirmed credit may have landed: the redaction leaves it to the
+    // hourly check, and its take-back is closed as redactCustomer closes a
+    // held one. Either way the buyer keeps the £2.50 in the ledger for now.
+    it.each<[string, Prisma.PayoutUpdateInput]>([
+      ["sent", { state: "sent", sentAt: NOW }],
+      ["unconfirmed", { state: "unconfirmed", claimedAt: NOW, unconfirmedAt: NOW }],
+    ])("%s: spend falls, and the take-back is closed at once, never sent and never a needs-a-look", async (_, data) => {
+      const { conn, orderId, customerId, payoutId } = await recordedOrder();
+      await setCredit(payoutId, data);
+      await redactCustomer(conn, "7001", NOW);
+
+      const result = await recordRefund(conn, ORDER, refundFacts(1, "20.00"), undefined, NOW);
+
+      expect(result).toMatchObject({ status: "recorded", customerId });
+      if (result.status !== "recorded" || !result.reversalPayoutId) throw new Error("no take-back");
+      const after = await moneyOf(orderId);
+      expect(after.refunded).toBe("20.00");
+      expect(after.reversals).toEqual([
+        { refund: "gid://shopify/Refund/1", amount: "-1.00", shopAmount: "-1.00", payout: { direction: "debit", state: "closed", amount: "1.00" } },
+      ]);
+      await expect(prisma.payout.findUniqueOrThrow({ where: { id: result.reversalPayoutId } })).resolves.toMatchObject({
+        settledBy: "auto",
+        lastError: "Customer data erased",
+      });
+      // The reversal stays as the ledger's trail, and an adjustment cancels it.
+      const entries = await prisma.ledgerEntry.findMany({ where: { orderId }, orderBy: { createdAt: "asc" } });
+      expect(entries.filter((e) => e.kind === "adjustment").map((e) => [e.amount.toFixed(2), e.idempotencyKey])).toContainEqual([
+        "1.00",
+        `close:${result.reversalPayoutId}`,
+      ]);
+      const sum = entries.reduce((total, e) => total.plus(e.amount.toString()), new Money(0));
+      expect(sum.toFixed(2)).toBe("2.50");
+      // Nothing is left for the hourly job to send or the merchant to answer.
+      expect(await prisma.payout.count({ where: { direction: "debit", state: { in: ["pending", "held", "needs_look"] } } })).toBe(0);
+    });
+  });
+
+  describe("the refund that returns the order's last unit takes the rest (Ruling 34)", () => {
+    /** Three one-unit refunds of a £24.97 order at 5% (£1.25): the order source values the last at the £8.33 left. */
+    async function threeUnitRefunds(o: { sent: boolean; last: string }) {
+      const { conn, orderId, payoutId } = await recordedOrder({ productValue: pair("24.97"), total: pair("24.97") });
+      if (o.sent) await setCredit(payoutId, { state: "sent", sentAt: NOW });
+      const taken: string[] = [];
+      for (const [n, product, last] of [
+        [1, "8.32", false],
+        [2, "8.32", false],
+        [3, o.last, true],
+      ] as const) {
+        const result = await recordRefund(conn, ORDER, refundFacts(n, product, product, last), undefined, NOW);
+        if (result.status !== "recorded") throw new Error(result.status);
+        taken.push(result.takenBack.toFixed(2));
+      }
+      return { orderId, taken, after: await moneyOf(orderId) };
+    }
+
+    it("before payout: the take-backs total the £1.25 earned, and the credit has nothing to send", async () => {
+      const { taken, after } = await threeUnitRefunds({ sent: false, last: "8.33" });
+
+      expect(after.cashback).toBe("1.25");
+      expect(taken).toEqual(["0.41", "0.41", "0.43"]);
+      expect(after.credit).toEqual({ state: "nothing_to_send", amount: "0.00" });
+      expect(after.refunded).toBe("24.97");
+    });
+
+    it("after payout: the debits total the £1.25 earned", async () => {
+      const { after } = await threeUnitRefunds({ sent: true, last: "8.33" });
+
+      expect(after.credit).toEqual({ state: "sent", amount: "1.25" });
+      expect(after.reversals.map((r) => r.payout)).toEqual([
+        { direction: "debit", state: "pending", amount: "0.41" },
+        { direction: "debit", state: "pending", amount: "0.41" },
+        { direction: "debit", state: "pending", amount: "0.43" },
+      ]);
+    });
+
+    it("completes the order by units even when the refunds' values fall short of its product value", async () => {
+      // Valued as before Ruling 34 (each floored to £8.32, £24.96 in all): only the units say it is complete.
+      const { taken, after } = await threeUnitRefunds({ sent: false, last: "8.32" });
+
+      expect(taken).toEqual(["0.41", "0.41", "0.43"]);
+      expect(after.credit).toEqual({ state: "nothing_to_send", amount: "0.00" });
+    });
+
+    it("an edited £10.00 line of 3 units, one removed: one refund of the other two takes the £0.33 earned", async () => {
+      const { conn, orderId } = await recordedOrder({ productValue: pair("6.67"), total: pair("6.67") });
+
+      const result = await recordRefund(conn, ORDER, refundFacts(1, "6.67", "6.67", true), undefined, NOW);
+
+      if (result.status !== "recorded") throw new Error(result.status);
+      expect(result.takenBack.toFixed(2)).toBe("0.33");
+      expect((await moneyOf(orderId)).credit).toEqual({ state: "nothing_to_send", amount: "0.00" });
+    });
+
+    it("a refund that doesn't return the last unit still takes only its share", async () => {
+      const { conn, orderId } = await recordedOrder({ productValue: pair("24.97"), total: pair("24.97") });
+
+      const result = await recordRefund(conn, ORDER, refundFacts(1, "8.32"), undefined, NOW);
+
+      if (result.status !== "recorded") throw new Error(result.status);
+      expect(result.takenBack.toFixed(2)).toBe("0.41");
+      expect((await moneyOf(orderId)).credit).toEqual({ state: "pending", amount: "0.84" });
+    });
+  });
+
   it("after a refund before payout, a refund after payout takes its share of the cashback as earned", async () => {
     // £20 before payout takes £1.00 of £2.50 and £1.50 is sent; £10 after
     // payout is a fifth of the products, so £0.50 of the £2.50 earned.
@@ -359,47 +515,58 @@ describe.skipIf(!hasTestDatabase)("recordRefund", () => {
   });
 
   it("two different refunds at once on two clients never take back more than the cashback", async () => {
-    // Review Focus 5. Two £30 refunds of a £50 order (each read before the
-    // other landed). The first runs on its own client and is held, after it
-    // has worked out its take-back but before writing it, until the second
-    // (on the app's client) is waiting on the first's locks. Without the
-    // locks the second reads the order as the first found it: it writes £30
-    // refunded over the first's £30, never sees the order complete, and its
-    // credit write races the first's.
+    // Review Focus 5. £30 then £20 of a £50 order (each read before the
+    // other landed). The first is held, after it has worked out its
+    // take-back but before writing it, until the second is waiting on the
+    // first's locks. Without the locks the second reads the order as the
+    // first found it: it writes £20 refunded over the first's £30, never sees
+    // the order complete, and its credit write races the first's.
     const { conn, orderId } = await recordedOrder();
-    const firstClient = createPrismaClient(process.env.REWARDS_DATABASE_URL);
-    const watcher = createPrismaClient(process.env.REWARDS_DATABASE_URL);
-    let second!: ReturnType<typeof recordRefund>;
-    const held = firstClient.$extends({
-      query: {
-        ledgerEntry: {
-          async create({ args, query }) {
-            second = recordRefund(conn, ORDER, refundFacts(2, "30.00"), undefined, NOW);
-            second.catch(() => {});
-            await waitForLockWaitOr(watcher, second);
-            return query(args);
-          },
-        },
-      },
-    }) as unknown as PrismaClient;
 
-    let first: Awaited<ReturnType<typeof recordRefund>>;
-    let raced: Awaited<ReturnType<typeof recordRefund>>;
-    try {
-      first = await recordRefund(conn, ORDER, refundFacts(1, "30.00"), held, NOW);
-      raced = await second;
-    } finally {
-      await firstClient.$disconnect();
-      await watcher.$disconnect();
-    }
+    const { refunded: first, raced } = await refundRacing(conn, refundFacts(1, "30.00"), () =>
+      recordRefund(conn, ORDER, refundFacts(2, "20.00"), undefined, NOW),
+    );
 
-    if (first.status !== "recorded" || raced.status !== "recorded") throw new Error("not recorded");
-    expect([first.takenBack.toFixed(2), raced.takenBack.toFixed(2)]).toEqual(["1.50", "1.00"]);
+    if (first.status !== "fulfilled" || raced.status !== "fulfilled") throw new Error("a refund failed");
+    if (first.value.status !== "recorded" || raced.value.status !== "recorded") throw new Error("not recorded");
+    expect([first.value.takenBack.toFixed(2), raced.value.takenBack.toFixed(2)]).toEqual(["1.50", "1.00"]);
     const after = await moneyOf(orderId);
-    expect(after.refunded).toBe("60.00");
+    expect(after.refunded).toBe("50.00");
     expect(after.credit).toEqual({ state: "nothing_to_send", amount: "0.00" });
     const takenBack = after.reversals.reduce((sum, r) => sum.minus(r.amount ?? 0), new Money(0));
     expect(takenBack.toFixed(2)).toBe("2.50");
+  });
+
+  it("a send claimed while a refund holds the credit waits, then asks Shopify for the reduced amount (A10-F3)", async () => {
+    const { conn, orderId, payoutId } = await recordedOrder();
+    if (!payoutId) throw new Error("no credit payout");
+    const rail = {
+      credit: vi.fn<PayoutRail["credit"]>(async () => ({ outcome: "applied", transactionId: "gid://shopify/StoreCreditAccountCreditTransaction/1" })),
+      debit: vi.fn<PayoutRail["debit"]>(async () => ({ outcome: "applied", transactionId: null })),
+      balance: vi.fn<PayoutRail["balance"]>(async () => new Money("100.00")),
+      creditHistory: vi.fn<PayoutRail["creditHistory"]>(async () => ({ status: "failed", error: "not read here" })),
+    } satisfies PayoutRail;
+
+    const { refunded, raced } = await refundRacing(conn, refundFacts(1, "20.00"), () => sendPayout(payoutId, rail, new Date()));
+
+    expect([refunded.status, raced]).toEqual(["fulfilled", { status: "fulfilled", value: "sent" }]);
+    expect(rail.credit.mock.calls.map(([c]) => c.amount.toFixed(2))).toEqual(["1.50"]);
+    expect((await moneyOf(orderId)).credit).toEqual({ state: "sent", amount: "1.50" });
+  });
+
+  it("a refund and customers/redact for the same buyer at once both finish, and the credit ends closed (CONCURRENCY-3)", async () => {
+    // The redaction takes the credit's lock first, as the refund does, so it
+    // waits for the refund instead of holding the buyer's row against the
+    // reversal's foreign-key check (a deadlock, 40P01).
+    const { conn, orderId, customerId } = await recordedOrder();
+
+    const { refunded, raced } = await refundRacing(conn, refundFacts(1, "20.00"), () => redactCustomer(conn, "7001", NOW));
+
+    expect([refunded.status, raced.status]).toEqual(["fulfilled", "fulfilled"]);
+    expect(await moneyOf(orderId)).toMatchObject({ refunded: "20.00", credit: { state: "closed", amount: "1.50" } });
+    await expect(prisma.customer.findUniqueOrThrow({ where: { id: customerId } })).resolves.toMatchObject({ externalCustomerId: null });
+    const net = (await prisma.ledgerEntry.findMany({ where: { orderId } })).reduce((sum, e) => sum.plus(e.amount.toString()), new Money(0));
+    expect(net.toFixed(2)).toBe("0.00");
   });
 
   it("a refund of an imported order lowers spend and writes no ledger entry", async () => {
@@ -534,6 +701,35 @@ describe.skipIf(!hasTestDatabase)("recordRefund", () => {
       expect(await moneyOf(late.orderId)).toEqual(before);
       expect(before.refunded).toBe("20.00");
       expect(await prisma.refund.count()).toBe(1);
+    });
+
+    it("a refund listed twice on a late order is applied once (A10-F1)", async () => {
+      const conn = await runningShop();
+      const late = await recordOrder(
+        conn,
+        orderFacts({ refundedProductValue: pair("40.00"), refunds: [refundFacts(1, "20.00"), refundFacts(1, "20.00")] }),
+        "live",
+      );
+      if (late.status !== "recorded") throw new Error(late.status);
+
+      expect(await prisma.refund.count()).toBe(1);
+      expect(await moneyOf(late.orderId)).toMatchObject({ refunded: "20.00", credit: { state: "pending", amount: "1.50" } });
+    });
+
+    it("a late order whose refund is already recorded elsewhere on the store is not recorded at all (A10-F1)", async () => {
+      // The same Shopify refund id on another order: a source bug, whose spend would otherwise vanish unseen.
+      const { conn } = await recordedOrder();
+      await recordRefund(conn, ORDER, refundFacts(1, "20.00"), undefined, NOW);
+
+      await expect(
+        recordOrder(
+          conn,
+          orderFacts({ externalOrderId: LATE, name: "#3002", refundedProductValue: pair("20.00"), refunds: [refundFacts(1, "20.00")] }),
+          "live",
+        ),
+      ).rejects.toThrow(/gid:\/\/shopify\/Refund\/1/);
+
+      expect(await prisma.order.count()).toBe(1);
     });
 
     it("an imported order whose refunds come only as quantities keeps that refunded value", async () => {

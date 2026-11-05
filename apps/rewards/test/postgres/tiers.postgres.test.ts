@@ -273,6 +273,32 @@ describe.skipIf(!hasTestDatabase)("tiers on Postgres", () => {
     expect(await buyerRow(buyer.id)).toMatchObject({ tierId: bronze.id, resolvedAt: NOW });
   });
 
+  it("starts over on fresh tiers when the tier it chose is deleted before its write (CONCURRENCY-6)", async () => {
+    const buyer = await addBuyer();
+    await addOrder(buyer.id, "700.00", new Date(NOW.getTime() - 30 * DAY));
+    let deleted = false;
+    wrapSpendReads(async (read) => {
+      const spend = await read();
+      if (!deleted) {
+        deleted = true;
+        // The merchant deletes Gold, which no one holds yet.
+        await prisma.tier.delete({ where: { id: gold.id } });
+      }
+      return spend;
+    });
+
+    // Prisma logs the refused write.
+    const logged: string[] = [];
+    for (const level of ["log", "info", "warn", "error"] as const) {
+      vi.spyOn(console, level).mockImplementation((...parts: unknown[]) => void logged.push(parts.map(String).join(" ")));
+    }
+
+    // Its first read chose Gold; writing it fails on the foreign key, so it reads the tiers again
+    expect(await resolveTier(buyer.id, { now: NOW })).toEqual({ changed: false, tierId: bronze.id });
+    expect(await buyerRow(buyer.id)).toMatchObject({ tierId: bronze.id, resolvedAt: NOW });
+    expect(logged.join("\n")).toMatch(/customer_merchant_id_tier_id_fkey/);
+  });
+
   it("starts over when a lock lands between its spend read and its write", async () => {
     const buyer = await addBuyer();
     await addOrder(buyer.id, "700.00", new Date(NOW.getTime() - 30 * DAY));

@@ -22,14 +22,17 @@
  *   couldn't be confirmed): the debit is held until the credit is settled;
  * - sent: the debit is pending, to be taken from what the buyer still holds;
  * - closed or nothing to send: nothing was given, so nothing is taken back.
+ * A buyer whose data was erased (customers/redact) can't be debited: the
+ * reversal is written for the ledger's trail and its take-back closed at once
+ * (MONEY-5), as the redaction closed what was open then.
  */
-import { Prisma, type PayoutState, type PrismaClient } from "@prisma/client";
+import type { PayoutState, Prisma, PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
-import prisma, { databaseSchema } from "~/db.server";
+import prisma from "~/db.server";
 import type { ConnectionContext } from "./merchant.server";
 import { ISSUE_IN, Money, fromDb } from "./money";
 import { type RefundFacts, refundTakeBack } from "./order-facts";
-import { CLAIM_FINISHED_MS } from "./payouts.server";
+import { CLAIM_FINISHED_MS, CUSTOMER_ERASED, closeWithoutSending, lockPayout, lockRow } from "./payouts.server";
 
 /** The credit is being sent right now: Shopify should deliver the refund again later. */
 export class RefundRetryLater extends Error {
@@ -60,8 +63,16 @@ function effectOf(credit: CreditState, now: Date): Effect {
     case "pending":
       return "reduce_credit";
     case "needs_look":
-      // Refused or kept failing: nothing reached the buyer.
-      return credit.lookReason === "could_not_confirm" ? "hold" : "reduce_credit";
+      switch (credit.lookReason) {
+        case "refused":
+        case "kept_failing":
+          // Nothing reached the buyer.
+          return "reduce_credit";
+        case "could_not_confirm":
+          return "hold";
+        default:
+          throw new Error(`Credit payout ${credit.id} needs a look for a reason a refund can't judge: ${String(credit.lookReason)}`);
+      }
     case "sending":
       if (credit.claimedAt !== null && now.getTime() - credit.claimedAt.getTime() < CLAIM_FINISHED_MS) {
         throw new RefundRetryLater(`Credit payout ${credit.id} is being sent; retry the refund later`);
@@ -84,10 +95,6 @@ const REVERSAL_STATE: Record<Exclude<Effect, "none">, PayoutState> = {
   hold: "held",
   debit: "pending",
 };
-
-async function lockRow(tx: Prisma.TransactionClient, table: "payout" | "orders", id: string): Promise<void> {
-  await tx.$executeRaw`SELECT id FROM ${Prisma.raw(`"${databaseSchema}"."${table}"`)} WHERE id = ${id}::uuid FOR UPDATE`;
-}
 
 const sum = (values: Decimal[]) => values.reduce((total, v) => total.plus(v), new Money(0));
 
@@ -120,8 +127,9 @@ export async function recordRefundInTransaction(
     where: { merchantId_idempotencyKey: { merchantId, idempotencyKey: cashbackKey } },
     select: { payout: { select: { id: true } } },
   });
-  if (cashbackRef?.payout) await lockRow(tx, "payout", cashbackRef.payout.id);
-  await lockRow(tx, "orders", orderId);
+  // The credit, then the order (lockPayout's order).
+  if (cashbackRef?.payout) await lockPayout(tx, cashbackRef.payout.id);
+  else await lockRow(tx, "orders", orderId);
 
   // ON CONFLICT (connection_id, external_refund_id) DO NOTHING.
   const inserted = await tx.refund.createManyAndReturn({
@@ -148,6 +156,7 @@ export async function recordRefundInTransaction(
     where: { id: orderId },
     select: {
       customerId: true,
+      customer: { select: { redactedAt: true } },
       productAmount: true,
       shopProductAmount: true,
       refundedProductAmount: true,
@@ -178,7 +187,10 @@ export async function recordRefundInTransaction(
   const issued = ISSUE_IN === "presentment";
   const product = fromDb(issued ? order.productAmount : order.shopProductAmount);
   const refundedAfter = issued ? refunded : shopRefunded;
-  const completesOrder = product.gt(0) && refundedAfter.gte(product);
+  // By units first (Ruling 34): rounded-down refund values can fall short of
+  // the product value even once every unit is back. A refund of money alone
+  // completes the order only by value.
+  const completesOrder = refund.completesOrder || (product.gt(0) && refundedAfter.gte(product));
   const earlier = await tx.ledgerEntry.findMany({
     where: { merchantId, orderId, kind: "reversal" },
     select: { amount: true, shopAmount: true },
@@ -239,6 +251,13 @@ export async function recordRefundInTransaction(
       where: { id: credit.id },
       data: { amount: left.toFixed(), ...(left.isZero() ? { state: "nothing_to_send" as const } : {}) },
     });
+  } else if (order.customer.redactedAt !== null) {
+    // Nothing more is taken from an erased buyer: close it now, settled
+    // automatically, with the adjustment that cancels the reversal.
+    const takeBack = await lockPayout(tx, debit.id);
+    if (!takeBack) throw new Error(`Take-back payout ${debit.id} went away while it was written`);
+    await closeWithoutSending(tx, takeBack, { now: o.now, settledBy: "auto" });
+    await tx.payout.update({ where: { id: debit.id }, data: { lastError: CUSTOMER_ERASED } });
   }
   return { status: "recorded", takenBack, reversalPayoutId: debit.id, customerId: order.customerId };
 }

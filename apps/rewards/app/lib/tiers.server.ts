@@ -17,7 +17,7 @@
  * the never-resolved first, then the longest unresolved, and stops at its
  * deadline for the next run to carry on.
  */
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
 import prisma from "~/db.server";
 import { Money, fromDb } from "./money";
@@ -109,22 +109,23 @@ export function qualify(spend: Decimal, tiers: TierRow[]): TierRow {
  * decides the tier (rule 10). Carried from calculateProgress
  * (customer-tier-state-update.server.ts) in exact decimals, floored instead
  * of rounded so it never shows 100 before the tier is reached. A tier id not
- * among `tiers` counts as the lowest tier (rule 2).
+ * among `tiers` counts as the lowest tier (rule 2). The next tier is the
+ * first with a higher minimum: one that shares the current minimum can't be
+ * reached by spending (qualify keeps the first of them), so with only such
+ * tiers above, the buyer is at the top (A12-F2).
  */
 export function progress(spend: Decimal, currentTierId: string, tiers: TierRow[]): Progress {
   const sorted = byMinimum(tiers);
   const none = { nextTierName: null, nextTierPercent: null, nextTierMin: null, amountRemaining: new Money(0) };
   if (sorted.length === 0) return { percent: 0, ...none, isTop: false };
   const index = Math.max(0, sorted.findIndex((t) => t.id === currentTierId));
-  if (index === sorted.length - 1) return { percent: 100, ...none, isTop: true };
-
   const current = sorted[index];
-  const next = sorted[index + 1];
+  const next = sorted.slice(index + 1).find((t) => t.minSpend.gt(current.minSpend));
+  if (!next) return { percent: 100, ...none, isTop: true };
+
   const range = next.minSpend.minus(current.minSpend);
   // (spend − current) × 100 ÷ range, as an exact integer division
-  const percent = range.lte(0)
-    ? 99
-    : Math.min(99, Math.max(0, new Money(spend).minus(current.minSpend).times(100).divToInt(range).toNumber()));
+  const percent = Math.min(99, Math.max(0, new Money(spend).minus(current.minSpend).times(100).divToInt(range).toNumber()));
   return {
     percent,
     nextTierName: next.name,
@@ -146,6 +147,15 @@ async function readTiers(db: Db, merchantId: string, excludeTierId?: string): Pr
 /** A merchant's tiers, read the one way the tier engine reads them (the app proxy shows these). */
 export function tiersOf(merchantId: string): Promise<TierRow[]> {
   return readTiers(prisma, merchantId);
+}
+
+/** A write of a customer's tier refused because that tier no longer exists (its foreign key). */
+function isTierForeignKeyViolation(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2003" &&
+    /tier_id/.test(`${JSON.stringify(error.meta ?? {})} ${error.message}`)
+  );
 }
 
 /**
@@ -183,10 +193,19 @@ export async function resolveTier(
 
     const tierId = target?.id ?? null;
     const changed = tierId !== customer.tierId;
-    const { count } = await db.customer.updateMany({
-      where: { id: customerId, tierId: customer.tierId, lockedTierId: customer.lockedTierId, resolvedAt: customer.resolvedAt },
-      data: changed ? { tierId, tierSince: tierId ? now : null, resolvedAt: now } : { resolvedAt: now },
-    });
+    let count: number;
+    try {
+      ({ count } = await db.customer.updateMany({
+        where: { id: customerId, tierId: customer.tierId, lockedTierId: customer.lockedTierId, resolvedAt: customer.resolvedAt },
+        data: changed ? { tierId, tierSince: tierId ? now : null, resolvedAt: now } : { resolvedAt: now },
+      }));
+    } catch (error) {
+      // The tier it chose was deleted since it read the tiers: start over on
+      // fresh ones (CONCURRENCY-6). Not inside a caller's transaction, which
+      // the failed statement has aborted.
+      if (o.tx || !isTierForeignKeyViolation(error)) throw error;
+      count = 0;
+    }
     if (count === 1) return { changed, tierId };
     if (attempt >= RESOLVE_ATTEMPTS) {
       throw new Error(`The tier of customer ${customerId} kept changing while it was resolved`);

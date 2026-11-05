@@ -1,39 +1,43 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma, { createPrismaClient } from "~/db.server";
+import { redactCustomer } from "~/lib/erasure.server";
 import { ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
-import type { MoneyPair, OrderFacts } from "~/lib/order-facts";
-import { CLAIM_FINISHED_MS, KEEP_TRYING_MS, sendPayout } from "~/lib/payouts.server";
+import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
+import { CLAIM_FINISHED_MS, KEEP_TRYING_MS, sendPayout, settleUnconfirmed } from "~/lib/payouts.server";
 import type { PayoutRail, RailAnswer } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
-import { hasTestDatabase, resetDatabase } from "./helpers/database";
+import { recordRefund } from "~/lib/refunds.server";
+import { hasTestDatabase, resetDatabase, waitForLockWaitOr } from "./helpers/database";
 
 const SHOP = "send-payout-test.myshopify.com";
 const BUYER = "7001";
+const ORDER = "gid://shopify/Order/2001";
 const INSTALLED = new Date("2026-11-01T09:00:00Z");
+const MINUTE = 60_000;
 const HOUR = 3_600_000;
 
-function pair(amount: string): MoneyPair {
-  return { amount: new Money(amount), shopAmount: new Money(amount) };
+function pair(amount: string, shopAmount = amount): MoneyPair {
+  return { amount: new Money(amount), shopAmount: new Money(shopAmount) };
 }
 
-/** A paid GBP order worth `product` of products, by BUYER. */
-function orderFacts(product: string): OrderFacts {
+/** A paid order worth `product` of products (`shopProduct` in the shop's GBP), by BUYER, in GBP unless said. */
+function orderFacts(product: string, o: { currency?: string; shopProduct?: string } = {}): OrderFacts {
   return {
-    externalOrderId: "gid://shopify/Order/2001",
+    externalOrderId: ORDER,
     name: "#2001",
     externalCustomerId: BUYER,
-    currency: "GBP",
+    currency: o.currency ?? "GBP",
     shopCurrency: "GBP",
     test: false,
     cancelledAt: null,
     orderedAt: new Date("2026-11-04T12:00:00Z"),
     paidAt: new Date("2026-11-04T12:00:05Z"),
     financialStatus: "PAID",
-    total: pair(product),
-    productValue: pair(product),
+    total: pair(product, o.shopProduct),
+    productValue: pair(product, o.shopProduct),
     storeCreditUsed: pair("0"),
     giftCardUsed: pair("0"),
     refundedProductValue: pair("0"),
@@ -41,11 +45,22 @@ function orderFacts(product: string): OrderFacts {
   };
 }
 
+/** Refund `n` of `product` worth of the order's products (`shopProduct` in GBP). */
+function refundFacts(n: number, product: string, o: { shopProduct?: string; completesOrder?: boolean } = {}): RefundFacts {
+  return {
+    externalRefundId: `gid://shopify/Refund/${n}`,
+    productValue: pair(product, o.shopProduct),
+    refundedAt: new Date(),
+    completesOrder: o.completesOrder ?? false,
+  };
+}
+
 /**
- * A running GBP shop with one 5% tier and one recorded £50 order: a pending
- * £2.50 credit payout, due now.
+ * A running GBP shop with one 5% tier and one recorded £50 order (or
+ * `product` in `currency`, `shopProduct` in GBP): a pending £2.50 credit
+ * payout, due now.
  */
-async function pendingCredit(o: { notifyBuyers?: boolean } = {}) {
+async function pendingCredit(o: { notifyBuyers?: boolean; currency?: string; product?: string; shopProduct?: string } = {}) {
   await ensureMerchant({ shop: SHOP, name: "Send Payout Test", currency: "GBP", timezone: "Europe/London", now: INSTALLED });
   const conn = await findConnection(SHOP);
   if (!conn) throw new Error("no connection");
@@ -54,9 +69,35 @@ async function pendingCredit(o: { notifyBuyers?: boolean } = {}) {
   });
   expect(await setRunning(conn.merchantId, true)).toEqual({ ok: true });
   if (o.notifyBuyers) await prisma.merchant.update({ where: { id: conn.merchantId }, data: { notifyBuyers: true } });
-  const recorded = await recordOrder({ ...conn, running: true }, orderFacts("50.00"), "live");
+  const recorded = await recordOrder(
+    { ...conn, running: true },
+    orderFacts(o.product ?? "50.00", { currency: o.currency, shopProduct: o.shopProduct }),
+    "live",
+  );
   if (recorded.status !== "recorded" || !recorded.payoutId) throw new Error("no payout");
   return { conn, payoutId: recorded.payoutId, orderId: recorded.orderId, customerId: recorded.customerId };
+}
+
+/** A sent credit, then refund 1 (`product`, and `shopProduct` in GBP): its take-back is the debit `payoutId`. */
+async function sentThenRefunded(o: { currency?: string; product?: string; shopProduct?: string; refund: string; refundShop?: string; completesOrder?: boolean }) {
+  const credit = await pendingCredit(o);
+  await expect(sendPayout(credit.payoutId, fakeRail())).resolves.toBe("sent");
+  const refund = await recordRefund(credit.conn, ORDER, refundFacts(1, o.refund, { shopProduct: o.refundShop, completesOrder: o.completesOrder }));
+  if (refund.status !== "recorded" || !refund.reversalPayoutId) throw new Error("no take-back");
+  return { ...credit, creditPayoutId: credit.payoutId, payoutId: refund.reversalPayoutId };
+}
+
+/** What the buyer's ledger adds up to, in the issue and the shop currency, and its shortfall entries. */
+async function ledgerOf(customerId: string) {
+  const entries = await prisma.ledgerEntry.findMany({ where: { customerId } });
+  const total = (pick: (e: (typeof entries)[number]) => Prisma.Decimal) => entries.reduce((sum, e) => sum.plus(pick(e).toString()), new Money(0)).toFixed(2);
+  return {
+    net: total((e) => e.amount),
+    shopNet: total((e) => e.shopAmount),
+    shortfalls: entries
+      .filter((e) => e.idempotencyKey.startsWith("shortfall:"))
+      .map((e) => ({ kind: e.kind, key: e.idempotencyKey, amount: e.amount.toFixed(2), currency: e.currency, shopAmount: e.shopAmount.toFixed(2) })),
+  };
 }
 
 /** A sent credit and a pending take-back of `amount` from it (as A10 writes one after a refund). */
@@ -258,11 +299,35 @@ describe.skipIf(!hasTestDatabase)("sendPayout", () => {
     await prisma.payout.update({ where: { id: payoutId }, data: { nextAttemptAt: t2 } });
     await expect(sendPayout(payoutId, rail, t2)).resolves.toBe("pending");
 
+    // 24 h after the first failure it needs a look as soon as it is claimed,
+    // without asking Shopify again (Ruling 36).
     const t3 = new Date(t0.getTime() + KEEP_TRYING_MS);
     await prisma.payout.update({ where: { id: payoutId }, data: { nextAttemptAt: t3 } });
     await expect(sendPayout(payoutId, rail, t3)).resolves.toBe("needs_look");
-    await expect(read()).resolves.toMatchObject({ state: "needs_look", lookReason: "kept_failing", attempts: 4, firstFailedAt: t0, lastError: "THROTTLED" });
-    expect(rail.credit).toHaveBeenCalledTimes(4);
+    await expect(read()).resolves.toMatchObject({ state: "needs_look", lookReason: "kept_failing", attempts: 3, firstFailedAt: t0, lastError: "THROTTLED" });
+    expect(rail.credit).toHaveBeenCalledTimes(3);
+  });
+
+  it("the retry due 23 h after the first failure asks Shopify; one claimed at 24 h needs a look without asking (Ruling 36)", async () => {
+    const { payoutId } = await pendingCredit();
+    // The first failure 23 h ago: the claims below are made now and in an hour.
+    const t0 = new Date(Date.now() - 23 * HOUR);
+    const read = () => prisma.payout.findUniqueOrThrow({ where: { id: payoutId } });
+    const rail = fakeRail({ credit: refused(false, "THROTTLED", "Throttled") });
+
+    // The fifth retry, about 23 h after the first failure
+    const at23 = new Date(t0.getTime() + 23 * HOUR);
+    await prisma.payout.update({ where: { id: payoutId }, data: { firstFailedAt: t0, attempts: 5, nextAttemptAt: at23, lastError: "THROTTLED" } });
+    await expect(sendPayout(payoutId, rail, at23)).resolves.toBe("pending");
+    expect(rail.credit).toHaveBeenCalledTimes(1);
+    await expect(read()).resolves.toMatchObject({ state: "pending", attempts: 6, nextAttemptAt: new Date(at23.getTime() + 8 * HOUR) });
+
+    // Claimed again at exactly 24 h
+    const at24 = new Date(t0.getTime() + KEEP_TRYING_MS);
+    await prisma.payout.update({ where: { id: payoutId }, data: { nextAttemptAt: at24 } });
+    await expect(sendPayout(payoutId, rail, at24)).resolves.toBe("needs_look");
+    expect(rail.credit).toHaveBeenCalledTimes(1);
+    await expect(read()).resolves.toMatchObject({ state: "needs_look", lookReason: "kept_failing", attempts: 6, firstFailedAt: t0, lastError: "THROTTLED" });
   });
 
   it("a later success after failures is sent", async () => {
@@ -408,11 +473,220 @@ describe.skipIf(!hasTestDatabase)("sendPayout", () => {
   it("only a pending payout is claimed", async () => {
     const { payoutId } = await pendingCredit();
     const rail = fakeRail();
-    for (const state of ["held", "sending", "unconfirmed", "closed"] as const) {
-      await prisma.payout.update({ where: { id: payoutId }, data: { state } });
+    for (const state of ["held", "sending", "unconfirmed", "closed", "sent", "needs_look", "nothing_to_send"] as const) {
+      await prisma.payout.update({ where: { id: payoutId }, data: { state, lookReason: state === "needs_look" ? "refused" : null } });
       await expect(sendPayout(payoutId, rail, new Date())).resolves.toBe("skipped");
     }
     expect(rail.credit).not.toHaveBeenCalled();
     await expect(prisma.payout.findUniqueOrThrow({ where: { id: payoutId } })).resolves.toMatchObject({ attempts: 0, claimedAt: null });
+  });
+
+  it("a balance read that throws keeps its error in lastError (A9-F2)", async () => {
+    const { payoutId } = await pendingDebit("5.00");
+    const rail = fakeRail();
+    rail.balance.mockRejectedValue(new Error("Shopify did not answer within 2.5 s"));
+
+    await expect(sendPayout(payoutId, rail, new Date())).resolves.toBe("pending");
+
+    expect(rail.debit).not.toHaveBeenCalled();
+    await expect(prisma.payout.findUniqueOrThrow({ where: { id: payoutId } })).resolves.toMatchObject({
+      state: "pending",
+      lastError: "The buyer's store credit balance could not be read: Shopify did not answer within 2.5 s",
+    });
+  });
+
+  it("an answer for a payout that changed while it was sent is not written, and says so (claim_lost, A9-F3)", async () => {
+    const { payoutId } = await pendingCredit();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const rail = fakeRail();
+    rail.credit.mockImplementation(async () => {
+      // Moved on meanwhile, as a stale claim taken over would be.
+      await prisma.payout.update({ where: { id: payoutId }, data: { state: "needs_look", lookReason: "could_not_confirm" } });
+      return applied("gid://shopify/StoreCreditAccountCreditTransaction/44");
+    });
+
+    try {
+      await expect(sendPayout(payoutId, rail, new Date())).resolves.toBe("claim_lost");
+      await expect(prisma.payout.findUniqueOrThrow({ where: { id: payoutId } })).resolves.toMatchObject({ state: "needs_look", externalTransactionId: null });
+      expect(warn).toHaveBeenCalledTimes(1);
+      const [line] = warn.mock.calls[0] as [string];
+      expect(line).toContain(payoutId);
+      expect(line).toContain("applied");
+      expect(line).not.toContain(BUYER);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  describe("a take-back that falls short reaches the ledger (Ruling 35)", () => {
+    it("a EUR buyer on a GBP shop who spent most of it: the shortfall is an adjustment in both currencies", async () => {
+      // €2.50 (£2.15) sent, the order refunded in full, and the buyer holds €0.40 of it.
+      const { payoutId, customerId } = await sentThenRefunded({ currency: "EUR", product: "50.00", shopProduct: "43.00", refund: "50.00", refundShop: "43.00", completesOrder: true });
+      const rail = fakeRail({ balance: new Money("0.40") });
+
+      await expect(sendPayout(payoutId, rail, new Date())).resolves.toBe("sent");
+
+      expect(rail.debit.mock.calls.map(([d]) => [d.amount.toFixed(2), d.currency])).toEqual([["0.40", "EUR"]]);
+      const payout = await prisma.payout.findUniqueOrThrow({ where: { id: payoutId } });
+      expect({ state: payout.state, debited: money(payout.debitedAmount), shortfall: money(payout.shortfall) }).toEqual({ state: "sent", debited: "0.40", shortfall: "2.10" });
+      // €2.10 kept: its shop share is £2.15 × 2.10 / 2.50 = £1.806, half up to £1.81.
+      await expect(ledgerOf(customerId)).resolves.toEqual({
+        net: "2.10",
+        shopNet: "1.81",
+        shortfalls: [{ kind: "adjustment", key: `shortfall:${payoutId}`, amount: "2.10", currency: "EUR", shopAmount: "1.81" }],
+      });
+    });
+
+    it("a buyer who holds nothing: the whole take-back is the shortfall", async () => {
+      const { payoutId, customerId } = await sentThenRefunded({ refund: "50.00", completesOrder: true });
+
+      await expect(sendPayout(payoutId, fakeRail({ balance: new Money("0") }), new Date())).resolves.toBe("sent");
+
+      await expect(ledgerOf(customerId)).resolves.toEqual({
+        net: "2.50",
+        shopNet: "2.50",
+        shortfalls: [{ kind: "adjustment", key: `shortfall:${payoutId}`, amount: "2.50", currency: "GBP", shopAmount: "2.50" }],
+      });
+    });
+
+    it("a take-back the balance covers writes no adjustment", async () => {
+      const { payoutId, customerId } = await sentThenRefunded({ refund: "20.00" });
+
+      await expect(sendPayout(payoutId, fakeRail(), new Date())).resolves.toBe("sent");
+
+      await expect(ledgerOf(customerId)).resolves.toEqual({ net: "1.50", shopNet: "1.50", shortfalls: [] });
+    });
+
+    it("a later refund takes back its share of the cashback, not the shortfall again", async () => {
+      // £1.00 asked for, £0.40 held: £0.60 short. The refund completing the order then takes the £1.50 left.
+      const { conn, payoutId, customerId } = await sentThenRefunded({ refund: "20.00" });
+      await expect(sendPayout(payoutId, fakeRail({ balance: new Money("0.40") }), new Date())).resolves.toBe("sent");
+
+      const later = await recordRefund(conn, ORDER, refundFacts(2, "30.00", { completesOrder: true }));
+
+      if (later.status !== "recorded") throw new Error(later.status);
+      expect(later.takenBack.toFixed(2)).toBe("1.50");
+      await expect(ledgerOf(customerId)).resolves.toMatchObject({ net: "0.60", shortfalls: [{ amount: "0.60" }] });
+    });
+  });
+
+  it("a take-back's answer and customers/redact on the same order at once both finish: both lock the credit first", async () => {
+    // The take-back's answer is written on a client of its own, held once it
+    // holds its locks, while the redaction (which must close a second
+    // take-back of the order) starts. Were the answer to lock the take-back
+    // before the order's credit, the redaction would hold the credit and the
+    // order, wait on the take-back, and the answer would then wait on the
+    // order: a deadlock (40P01).
+    const { conn, payoutId, customerId } = await sentThenRefunded({ refund: "10.00" });
+    const second = await recordRefund(conn, ORDER, refundFacts(2, "10.00"));
+    if (second.status !== "recorded" || !second.reversalPayoutId) throw new Error("no second take-back");
+    const answerClient = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+    const watcher = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+    let redaction: Promise<unknown> | null = null;
+    const held = answerClient.$extends({
+      query: {
+        payout: {
+          async findUnique({ args, query }) {
+            // lockPayout's read of the payout under its own row lock
+            if (!redaction && args.include) {
+              redaction = redactCustomer(conn, BUYER);
+              redaction.catch(() => {});
+              await waitForLockWaitOr(watcher, redaction);
+            }
+            return query(args);
+          },
+        },
+      },
+    }) as unknown as PrismaClient;
+
+    let outcome: string;
+    try {
+      outcome = await sendPayout(payoutId, fakeRail(), new Date(), held);
+      await expect(redaction).resolves.toEqual({ found: true });
+    } finally {
+      await answerClient.$disconnect();
+      await watcher.$disconnect();
+    }
+
+    expect(outcome).toBe("sent");
+    await expect(prisma.payout.findUniqueOrThrow({ where: { id: payoutId } })).resolves.toMatchObject({ state: "sent" });
+    await expect(prisma.payout.findUniqueOrThrow({ where: { id: second.reversalPayoutId } })).resolves.toMatchObject({ state: "closed" });
+    await expect(prisma.customer.findUniqueOrThrow({ where: { id: customerId } })).resolves.toMatchObject({ externalCustomerId: null });
+  });
+
+  describe("an answer that comes after the claim is over (CONCURRENCY-2)", () => {
+    it("writes nothing once CLAIM_FINISHED_MS has passed, and settle later resolves the held take-back", async () => {
+      const { conn, payoutId } = await pendingCredit();
+      const claimedAt = new Date(Date.now() - CLAIM_FINISHED_MS - MINUTE);
+      await prisma.payout.update({ where: { id: payoutId }, data: { nextAttemptAt: claimedAt } });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      let takeBackId: string | null = null;
+      const rail = fakeRail();
+      rail.credit.mockImplementation(async () => {
+        // The claim is over by the clock, so a refund now holds its take-back.
+        const refund = await recordRefund(conn, ORDER, refundFacts(1, "20.00"));
+        if (refund.status !== "recorded") throw new Error(refund.status);
+        takeBackId = refund.reversalPayoutId;
+        return applied("gid://shopify/StoreCreditAccountCreditTransaction/45");
+      });
+
+      try {
+        await expect(sendPayout(payoutId, rail, claimedAt)).resolves.toBe("claim_lost");
+      } finally {
+        warn.mockRestore();
+      }
+
+      await expect(prisma.payout.findUniqueOrThrow({ where: { id: payoutId } })).resolves.toMatchObject({
+        state: "sending",
+        claimedAt,
+        sentAt: null,
+        externalTransactionId: null,
+      });
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: takeBackId! } })).toMatchObject({ state: "held" });
+
+      // Settle finds the credit in the buyer's history: sent, and the take-back released.
+      rail.creditHistory.mockResolvedValue({
+        status: "found",
+        complete: true,
+        credits: [{ id: "gid://shopify/StoreCreditAccountCreditTransaction/45", amount: new Money("2.50"), currency: "GBP", createdAt: new Date(claimedAt.getTime() + 2000) }],
+      });
+      await expect(settleUnconfirmed(payoutId, rail)).resolves.toBe("sent");
+      await expect(prisma.payout.findUniqueOrThrow({ where: { id: takeBackId! } })).resolves.toMatchObject({ state: "pending" });
+      await expect(prisma.payout.count({ where: { state: "held" } })).resolves.toBe(0);
+    });
+
+    /** A pending £2.50 credit whose send, while the rail is asked, sees a £20 refund hold its £1.00 take-back. */
+    async function heldDuringTheSend(answer: RailAnswer) {
+      const { conn, payoutId } = await pendingCredit();
+      let takeBackId: string | null = null;
+      const rail = fakeRail();
+      rail.credit.mockImplementation(async () => {
+        // Recorded as if the claim were over, the only way a take-back is held against a credit being sent.
+        const refund = await recordRefund(conn, ORDER, refundFacts(1, "20.00"), undefined, new Date(Date.now() + CLAIM_FINISHED_MS + MINUTE));
+        if (refund.status !== "recorded" || !refund.reversalPayoutId) throw new Error("no take-back");
+        takeBackId = refund.reversalPayoutId;
+        await expect(prisma.payout.findUniqueOrThrow({ where: { id: takeBackId } })).resolves.toMatchObject({ state: "held" });
+        return answer;
+      });
+      const outcome = await sendPayout(payoutId, rail, new Date());
+      return { payoutId, outcome, takeBackId: takeBackId! };
+    }
+
+    it("a refusal for now inside the claim: pending at what the held take-back left, which has nothing to send", async () => {
+      const { payoutId, outcome, takeBackId } = await heldDuringTheSend(refused(false, "THROTTLED", "Throttled"));
+
+      expect(outcome).toBe("pending");
+      const credit = await prisma.payout.findUniqueOrThrow({ where: { id: payoutId } });
+      expect({ state: credit.state, amount: money(credit.amount) }).toEqual({ state: "pending", amount: "1.50" });
+      await expect(prisma.payout.findUniqueOrThrow({ where: { id: takeBackId } })).resolves.toMatchObject({ state: "nothing_to_send" });
+    });
+
+    it("applied inside the claim: sent, and the held take-back is released to be debited", async () => {
+      const { payoutId, outcome, takeBackId } = await heldDuringTheSend(applied("gid://shopify/StoreCreditAccountCreditTransaction/46"));
+
+      expect(outcome).toBe("sent");
+      await expect(prisma.payout.findUniqueOrThrow({ where: { id: payoutId } })).resolves.toMatchObject({ state: "sent" });
+      await expect(prisma.payout.findUniqueOrThrow({ where: { id: takeBackId } })).resolves.toMatchObject({ state: "pending" });
+    });
   });
 });

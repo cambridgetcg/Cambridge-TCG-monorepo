@@ -6,7 +6,7 @@ import { ensureMerchant, findConnection, markUninstalled, setRunning } from "~/l
 import { Money } from "~/lib/money";
 import type { MoneyPair, OrderFacts } from "~/lib/order-facts";
 import { recordOrder } from "~/lib/record-order.server";
-import { hasTestDatabase, resetDatabase } from "./helpers/database";
+import { hasTestDatabase, resetDatabase, waitForLockWaitOr } from "./helpers/database";
 
 const SHOP = "record-order-test.myshopify.com";
 const INSTALLED = new Date("2026-11-01T09:00:00Z");
@@ -75,16 +75,37 @@ async function runningShop(o: { currency?: string } = {}) {
 
 const money = (v: Prisma.Decimal | null | undefined) => (v == null ? null : v.toFixed(4));
 
-/** Resolves once another session is waiting on a lock (up to 5 s). */
-async function waitForLockWait(client: PrismaClient): Promise<void> {
-  for (let i = 0; i < 100; i++) {
-    const [{ waiting }] = await client.$queryRaw<Array<{ waiting: number }>>`
-      SELECT count(*)::int AS waiting FROM pg_stat_activity
-      WHERE datname = current_database() AND wait_event_type = 'Lock'`;
-    if (waiting > 0) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+/**
+ * Two deliveries of one order at once. The test pool has one connection
+ * (connection_limit=1), so the first delivery runs on its own client and is
+ * held, uncommitted, just after writing its ledger entry, until the second
+ * delivery (on the app's client) is blocked on the first one's rows.
+ */
+async function raceTwoDeliveries(conn: ConnectionContext) {
+  const firstClient = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+  const watcher = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+  let second!: ReturnType<typeof recordOrder>;
+  const held = firstClient.$extends({
+    query: {
+      ledgerEntry: {
+        async create({ args, query }) {
+          const created = await query(args);
+          second = recordOrder(conn, orderFacts(), "live");
+          second.catch(() => {});
+          await waitForLockWaitOr(watcher);
+          return created;
+        },
+      },
+    },
+  }) as unknown as PrismaClient;
+
+  try {
+    const first = await recordOrder(conn, orderFacts(), "live", held);
+    return { first, raced: await second };
+  } finally {
+    await firstClient.$disconnect();
+    await watcher.$disconnect();
   }
-  throw new Error("The racing delivery never waited on the first one");
 }
 
 describe.skipIf(!hasTestDatabase)("recordOrder", () => {
@@ -207,43 +228,38 @@ describe.skipIf(!hasTestDatabase)("recordOrder", () => {
   });
 
   it("two deliveries at once write one order and one ledger entry", async () => {
-    // Review Focus 5. The test pool has one connection (connection_limit=1),
-    // so the first delivery runs on its own client and is held, uncommitted,
-    // just after writing its ledger entry, until the second delivery (on the
-    // app's client) is blocked on the first one's rows.
+    // Review Focus 5: a new buyer, so the second blocks on the customer insert.
     const { conn } = await runningShop();
-    const firstClient = createPrismaClient(process.env.REWARDS_DATABASE_URL);
-    const watcher = createPrismaClient(process.env.REWARDS_DATABASE_URL);
-    let second!: ReturnType<typeof recordOrder>;
-    const held = firstClient.$extends({
-      query: {
-        ledgerEntry: {
-          async create({ args, query }) {
-            const created = await query(args);
-            second = recordOrder(conn, orderFacts(), "live");
-            second.catch(() => {});
-            await waitForLockWait(watcher);
-            return created;
-          },
-        },
-      },
-    }) as unknown as PrismaClient;
 
-    try {
-      const first = await recordOrder(conn, orderFacts(), "live", held);
-      const raced = await second;
+    const { first, raced } = await raceTwoDeliveries(conn);
 
-      expect(first).toMatchObject({ status: "recorded", noCashback: null });
-      if (first.status !== "recorded") throw new Error("unreachable");
-      expect(raced).toEqual({ status: "already_recorded", orderId: first.orderId, customerId: first.customerId });
-    } finally {
-      await firstClient.$disconnect();
-      await watcher.$disconnect();
-    }
+    expect(first).toMatchObject({ status: "recorded", noCashback: null });
+    if (first.status !== "recorded") throw new Error("unreachable");
+    expect(raced).toEqual({ status: "already_recorded", orderId: first.orderId, customerId: first.customerId });
     expect(await prisma.order.count()).toBe(1);
     expect(await prisma.customer.count()).toBe(1);
     expect(await prisma.ledgerEntry.count()).toBe(1);
     expect(await prisma.payout.count()).toBe(1);
+  });
+
+  it("two deliveries at once for a returning buyer write one order, one ledger entry and one payout", async () => {
+    // The buyer and their tier exist, so the second delivery blocks on the
+    // order's unique key, not on the customer insert (A8-F2).
+    const { conn, tier } = await runningShop();
+    const buyer = await prisma.customer.create({
+      data: { merchantId: conn.merchantId, connectionId: conn.connectionId, externalCustomerId: "7001", tierId: tier.id, tierSince: INSTALLED },
+    });
+
+    const { first, raced } = await raceTwoDeliveries(conn);
+
+    expect(first).toMatchObject({ status: "recorded", customerId: buyer.id, noCashback: null });
+    if (first.status !== "recorded") throw new Error("unreachable");
+    expect(raced).toEqual({ status: "already_recorded", orderId: first.orderId, customerId: buyer.id });
+    expect(await prisma.order.count()).toBe(1);
+    expect(await prisma.customer.count()).toBe(1);
+    expect(await prisma.ledgerEntry.count()).toBe(1);
+    expect(await prisma.payout.count()).toBe(1);
+    await expect(prisma.customer.findUniqueOrThrow({ where: { id: buyer.id } })).resolves.toMatchObject({ tierId: tier.id, tierSince: INSTALLED });
   });
 
   it("off: the order counts for spend but earns nothing", async () => {
@@ -490,6 +506,7 @@ describe.skipIf(!hasTestDatabase)("recordOrder", () => {
           externalRefundId: "gid://shopify/Refund/1",
           productValue: pair("20.00"),
           refundedAt: new Date("2026-11-04T14:00:00Z"),
+          completesOrder: false,
         },
       ],
     });

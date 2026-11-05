@@ -118,6 +118,26 @@ describe("progress", () => {
     expect(progress(spend("100"), "deleted", TIERS)).toMatchObject({ percent: 50, nextTierName: "Silver" });
   });
 
+  it("measures toward the next distinct minimum when the next tier shares the current one's (A12-F2)", () => {
+    // Bronze and Copper both start at 0: the way from Bronze leads to Silver at 200.
+    const tiers = [...TIERS, tier("copper", "0", "6", 1)];
+    expect(progress(spend("100"), "bronze", tiers)).toMatchObject({ percent: 50, nextTierName: "Silver", isTop: false });
+    expect(progress(spend("100"), "bronze", tiers).amountRemaining.toFixed()).toBe("100");
+    expect(progress(spend("100"), "copper", tiers)).toMatchObject({ percent: 50, nextTierName: "Silver" });
+  });
+
+  it("is at the top when every tier above shares the current minimum: no spend reaches further (A12-F2)", () => {
+    const tiers = [bronze, silver, tier("platinum", "200", "9", 3)];
+    expect(progress(spend("300"), "silver", tiers)).toEqual({
+      percent: 100,
+      nextTierName: null,
+      nextTierPercent: null,
+      nextTierMin: null,
+      amountRemaining: new Money(0),
+      isTop: true,
+    });
+  });
+
   it("is a single tier's top", () => {
     expect(progress(spend("0"), "bronze", [bronze])).toMatchObject({ percent: 100, isTop: true, nextTierName: null });
   });

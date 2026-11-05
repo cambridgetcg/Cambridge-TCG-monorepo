@@ -238,8 +238,18 @@ export async function recordOrder(
       }
 
       // Refunds Shopify already shows on a late-recorded order (Ruling 24).
+      // Each must be recorded here: anything else means its id already has a
+      // row on this store, and `unlisted` has taken its value off, so its
+      // spend would vanish unseen. Throwing rolls the whole order back. The
+      // same id twice in the list is applied once.
+      const seen = new Set<string>();
       for (const refund of refunds) {
-        await recordRefundInTransaction(tx, conn, facts.externalOrderId, refund, { now, appliedBeforeCashback: true });
+        if (seen.has(refund.externalRefundId)) continue;
+        seen.add(refund.externalRefundId);
+        const recorded = await recordRefundInTransaction(tx, conn, facts.externalOrderId, refund, { now, appliedBeforeCashback: true });
+        if (recorded.status !== "recorded") {
+          throw new Error(`Refund ${refund.externalRefundId} of order ${facts.externalOrderId} could not be recorded with it: ${recorded.status}`);
+        }
       }
       return { status: "recorded", orderId, customerId: customer.id, payoutId, noCashback };
     });

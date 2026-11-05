@@ -21,7 +21,7 @@
 import { Prisma, type PayoutState } from "@prisma/client";
 import prisma from "~/db.server";
 import type { ConnectionContext } from "./merchant.server";
-import { closeWithoutSending, lockPayout } from "./payouts.server";
+import { CUSTOMER_ERASED, closeWithoutSending, lockPayout } from "./payouts.server";
 import { isCanonicalShop } from "./shop-domain";
 
 /** How long a data request's report can be downloaded, from its receipt. */
@@ -116,22 +116,38 @@ export async function eraseMerchant(shop: string): Promise<Record<string, number
   }, ERASURE_TRANSACTION);
 }
 
-/** The payouts an erased buyer's are closed from: nothing in them reached Shopify, or can now. */
+/**
+ * The payouts an erased buyer's are closed from: nothing in them reached
+ * Shopify, or can now.
+ *
+ * `needs_look` includes `could_not_confirm` (Ruling 38): such a credit may
+ * have landed, but with the buyer's id erased nothing can read their credit
+ * history, so nothing could ever settle it. It is closed as never given, and
+ * the ledger may then understate cashback that did land. An `unconfirmed`
+ * credit is still left to the hourly check, which refuses it for the same
+ * reason and leaves the merchant to close it.
+ */
 const CLOSED_AT_ERASURE: readonly PayoutState[] = ["pending", "held", "needs_look"];
-const ERASED = "Customer data erased";
 
 /**
- * customers/redact: blank the buyer's row (`externalCustomerId` null,
- * `redactedAt` now, the manual tier lock removed) and close their
- * `pending`, `held` and `needs_look` payouts with closeWithoutSending
- * (settled `auto`, `lastError` "Customer data erased"): each gets an
+ * customers/redact: close the buyer's `pending`, `held` and `needs_look`
+ * payouts with closeWithoutSending (settled `auto`, `lastError` "Customer
+ * data erased"), then blank their row (`externalCustomerId` null,
+ * `redactedAt` now, the manual tier lock removed). Each closed payout gets an
  * adjustment cancelling what is left of its entry, so the ledger stays true
- * and nothing is sent or taken back for it again. Credits are closed first,
- * which nets their held take-backs; a take-back still held for a credit
- * whose send was unclear is closed then too, and that credit is left to the
- * hourly check. A payout being sent is left to its sender. The buyer's data
- * requests are deleted with them. `found` is false for a buyer never seen
- * (or already erased).
+ * and nothing is sent or taken back for it again. The buyer's data requests
+ * are deleted with them. `found` is false for a buyer never seen (or already
+ * erased).
+ *
+ * The locks follow lockPayout's order, order by order: the order's credit
+ * (then the order), then its take-backs. A credit is closed first, which nets
+ * its held take-backs; a take-back still held for a credit whose send was
+ * unclear is closed then too, and that credit is left to the hourly check. A
+ * payout being sent is left to its sender. The customer row is blanked last:
+ * changing `external_customer_id` takes the row FOR UPDATE, which the FOR
+ * KEY SHARE of every ledger and payout insert's foreign-key check waits on,
+ * so taken first it would deadlock with a refund or an answer holding this
+ * buyer's credit (CONCURRENCY-3).
  */
 export async function redactCustomer(
   conn: ConnectionContext,
@@ -146,21 +162,29 @@ export async function redactCustomer(
       select: { id: true },
     });
     if (!customer) return { found: false };
-    await tx.customer.update({ where: { id: customer.id }, data: { externalCustomerId: null, redactedAt: now, lockedTierId: null } });
 
     const open = await tx.payout.findMany({
       where: { merchantId, customerId: customer.id, state: { in: [...CLOSED_AT_ERASURE] } },
-      select: { id: true, direction: true },
+      select: { ledgerEntry: { select: { orderId: true } } },
     });
-    const credits = open.filter((p) => p.direction === "credit").map((p) => p.id).sort();
-    const debits = open.filter((p) => p.direction === "debit").map((p) => p.id).sort();
-    for (const id of [...credits, ...debits]) {
-      const payout = await lockPayout(tx, id);
-      // A take-back its credit's close has netted has nothing to send already.
-      if (!payout || !CLOSED_AT_ERASURE.includes(payout.state)) continue;
-      await closeWithoutSending(tx, payout, { now, settledBy: "auto" });
-      await tx.payout.update({ where: { id }, data: { lastError: ERASED } });
+    const orderIds = [...new Set(open.map((p) => p.ledgerEntry.orderId).filter((id): id is string => id !== null))].sort();
+    for (const orderId of orderIds) {
+      const payouts = await tx.payout.findMany({
+        where: { merchantId, customerId: customer.id, ledgerEntry: { orderId } },
+        select: { id: true, direction: true },
+      });
+      const ids = (direction: "credit" | "debit") => payouts.filter((p) => p.direction === direction).map((p) => p.id).sort();
+      // The credit is locked whatever its state, so the take-backs always come after it.
+      for (const id of [...ids("credit"), ...ids("debit")]) {
+        const payout = await lockPayout(tx, id);
+        // A take-back its credit's close has netted has nothing to send already.
+        if (!payout || !CLOSED_AT_ERASURE.includes(payout.state)) continue;
+        await closeWithoutSending(tx, payout, { now, settledBy: "auto" });
+        await tx.payout.update({ where: { id }, data: { lastError: CUSTOMER_ERASED } });
+      }
     }
+
+    await tx.customer.update({ where: { id: customer.id }, data: { externalCustomerId: null, redactedAt: now, lockedTierId: null } });
     return { found: true };
   }, ERASURE_TRANSACTION);
 }

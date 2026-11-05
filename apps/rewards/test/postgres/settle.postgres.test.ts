@@ -1,6 +1,6 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import prisma from "~/db.server";
+import prisma, { createPrismaClient } from "~/db.server";
 import type { ConnectionContext } from "~/lib/merchant.server";
 import { ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
@@ -10,7 +10,7 @@ import type { CreditHistoryResult, PayoutRail, RailAnswer } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
 import { recordRefund } from "~/lib/refunds.server";
 import { createStoreCreditRail } from "~/shopify/store-credit-rail.server";
-import { hasTestDatabase, resetDatabase } from "./helpers/database";
+import { hasTestDatabase, resetDatabase, waitForLockWaitOr } from "./helpers/database";
 import { backdateClaim, creditHistory, mockStoreCredit, seedOfflineSession } from "./helpers/shopify";
 
 /**
@@ -57,7 +57,7 @@ function orderFacts(o: { currency?: string; product?: string; shopProduct?: stri
 
 /** Refund `n` of `product` worth of products (`shopProduct` in GBP). */
 function refundFacts(n: number, product: string, shopProduct = product): RefundFacts {
-  return { externalRefundId: `gid://shopify/Refund/${n}`, productValue: pair(product, shopProduct), refundedAt: new Date() };
+  return { externalRefundId: `gid://shopify/Refund/${n}`, productValue: pair(product, shopProduct), refundedAt: new Date(), completesOrder: false };
 }
 
 /** A running GBP shop with one 5% tier. */
@@ -270,6 +270,43 @@ describe.skipIf(!hasTestDatabase)("settleUnconfirmed", () => {
     expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 2.00"]);
   });
 
+  it("not landed while a refund holds the credit: settle waits, then nets the take-back the refund held (A11-F3)", async () => {
+    // The refund runs on a client of its own (the test pool has one
+    // connection) and is held once it holds the credit's and the order's
+    // locks, until settle is waiting on them. Without settle's lock it would
+    // send the credit again in full, and the take-back would stay held.
+    const { conn, payoutId, orderId } = await unconfirmedCredit();
+    const refundClient = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+    const watcher = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+    let settling: Promise<unknown> | null = null;
+    const held = refundClient.$extends({
+      query: {
+        ledgerEntry: {
+          async create({ args, query }) {
+            settling ??= settleUnconfirmed(payoutId, fakeRail());
+            settling.catch(() => {});
+            await waitForLockWaitOr(watcher, settling);
+            return query(args);
+          },
+        },
+      },
+    }) as unknown as PrismaClient;
+
+    let refund: Awaited<ReturnType<typeof recordRefund>>;
+    try {
+      refund = await recordRefund(conn, ORDER, refundFacts(1, "10.00"), held);
+      await expect(settling).resolves.toBe("returned");
+    } finally {
+      await refundClient.$disconnect();
+      await watcher.$disconnect();
+    }
+
+    if (refund.status !== "recorded" || !refund.reversalPayoutId) throw new Error("no take-back");
+    await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "pending", amount: "2.00" });
+    await expect(payoutOf(refund.reversalPayoutId)).resolves.toMatchObject({ state: "nothing_to_send", amount: "0.50" });
+    await expect(ledgerOf(orderId)).resolves.toMatchObject({ net: "2.00" });
+  });
+
   it("not landed after a refund of everything: nothing to send", async () => {
     const { conn, payoutId, orderId } = await unconfirmedCredit();
     await recordRefund(conn, ORDER, refundFacts(1, "50.00"));
@@ -451,6 +488,19 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     expect(rail.credit).toHaveBeenCalledTimes(1);
   });
 
+  it("retry gives the full backoff ladder again: attempts start from 0 (Ruling 37)", async () => {
+    const { conn, payoutId } = await debitIn("needs_look", { lookReason: "kept_failing", attempts: 6, firstFailedAt: new Date(Date.now() - 25 * HOUR) });
+    const now = new Date();
+
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "retry", now)).resolves.toEqual({ ok: true });
+
+    await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "pending", attempts: 0, firstFailedAt: null });
+    // The next failure waits an hour, as a first one does, not the longest 8 h.
+    const throttled = fakeRail({ debit: { outcome: "refused", permanent: false, code: "THROTTLED", message: "Throttled" } });
+    await expect(sendPayout(payoutId, throttled, now)).resolves.toBe("pending");
+    await expect(payoutOf(payoutId)).resolves.toMatchObject({ attempts: 1, nextAttemptAt: new Date(now.getTime() + HOUR), firstFailedAt: now });
+  });
+
   it("retry on a take-back that kept failing", async () => {
     const { conn, payoutId } = await debitIn("needs_look", { lookReason: "kept_failing", firstFailedAt: new Date(Date.now() - 25 * HOUR), lastError: "INSUFFICIENT_FUNDS" });
     const now = new Date();
@@ -568,6 +618,31 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived", now)).resolves.toEqual({ ok: true });
 
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "sent", settledBy: "merchant", sentAt: now, debitedAmount: "0.50", shortfall: "0.00" });
+    await expect(prisma.ledgerEntry.count({ where: { kind: "adjustment" } })).resolves.toBe(0);
+  });
+
+  it("arrived on a take-back that asked for less than it was: the shortfall reaches the ledger (Ruling 35)", async () => {
+    // £0.50 to take back, the buyer held £0.20 of it when it was asked for.
+    const { conn, payoutId, orderId } = await debitIn("needs_look", { lookReason: "could_not_confirm", debitedAmount: "0.20", shortfall: "0.30" });
+
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived")).resolves.toEqual({ ok: true });
+
+    const ledger = await ledgerOf(orderId);
+    expect(ledger.entries.map((e) => [e.kind, e.amount, e.shopAmount, e.key])).toEqual([
+      ["cashback", "2.50", "2.50", `cashback:${orderId}`],
+      ["reversal", "-0.50", "-0.50", `reversal:${conn.connectionId}:gid://shopify/Refund/1`],
+      ["adjustment", "0.30", "0.30", `shortfall:${payoutId}`],
+    ]);
+    expect(ledger).toMatchObject({ net: "2.30", shopNet: "2.30" });
+  });
+
+  it("arrived on a take-back that died mid-send writes no shortfall: what it took is unknown (A11-F4)", async () => {
+    const { conn, payoutId, orderId } = await debitIn("needs_look", { lookReason: "could_not_confirm" });
+
+    await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived")).resolves.toEqual({ ok: true });
+
+    await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "sent", debitedAmount: null, shortfall: null });
+    expect((await ledgerOf(orderId)).entries.map((e) => e.kind)).toEqual(["cashback", "reversal"]);
   });
 
   it("It didn't arrive on a take-back: pending now, to be debited again", async () => {

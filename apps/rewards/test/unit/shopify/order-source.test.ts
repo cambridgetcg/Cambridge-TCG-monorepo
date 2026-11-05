@@ -701,6 +701,110 @@ describe("readRefund (one refund, valued against its order's lines)", () => {
   });
 });
 
+describe("the refund that completes the order (Ruling 34: decided by units)", () => {
+  const ORDER_ID = "gid://shopify/Order/5091";
+  const LINE_ID = "gid://shopify/LineItem/5991";
+  const gbp = (amount: string, code?: string) => ({ amount, ...(code ? { currencyCode: code } : {}) });
+  const gbpSet = (amount: string, withCode = false) => ({
+    shopMoney: gbp(amount, withCode ? "GBP" : undefined),
+    presentmentMoney: gbp(amount, withCode ? "GBP" : undefined),
+  });
+
+  /** A GBP order of one line of 3 units at `total` less `discount`, `current` of them still on it, with these refund ids. */
+  function threeUnits(o: { total: string; discount: string; current: number; refundIds: string[] }): Answer {
+    const answer = clone(jpy) as unknown as { data: { shop: Record<string, unknown>; order: Record<string, unknown> } };
+    answer.data.shop.currencyCode = "GBP";
+    Object.assign(answer.data.order, {
+      id: ORDER_ID,
+      currencyCode: "GBP",
+      presentmentCurrencyCode: "GBP",
+      totalPriceSet: gbpSet(o.total),
+      totalTipReceivedSet: gbpSet("0.0"),
+      lineItems: {
+        pageInfo: { hasNextPage: false, endCursor: null },
+        nodes: [
+          {
+            id: LINE_ID,
+            quantity: 3,
+            currentQuantity: o.current,
+            isGiftCard: false,
+            originalTotalSet: gbpSet(o.total, true),
+            discountAllocations: [{ allocatedAmountSet: gbpSet(o.discount) }],
+          },
+        ],
+      },
+      transactions: [],
+      refunds: o.refundIds.map((id) => ({ id })),
+    });
+    return answer as unknown as Answer;
+  }
+
+  /** A refund of `units` of the line, made `minute` minutes after 09:00. */
+  function unitsRefund(id: string, units: number, minute: number): Answer {
+    const answer = clone(refundJpyItems) as unknown as { data: { refund: Record<string, unknown> } };
+    Object.assign(answer.data.refund, {
+      id,
+      createdAt: `2026-11-03T09:${String(minute).padStart(2, "0")}:00Z`,
+      order: { id: ORDER_ID },
+      refundLineItems: { pageInfo: { hasNextPage: false }, nodes: [{ quantity: units, lineItem: { id: LINE_ID } }] },
+      transactions: { nodes: [] },
+    });
+    return answer as unknown as Answer;
+  }
+
+  const ids = ["gid://shopify/Refund/5961", "gid://shopify/Refund/5962", "gid://shopify/Refund/5963"];
+
+  it("values the last of three one-unit refunds of £24.97 at the £8.33 left, and it completes the order", async () => {
+    // £29.97 less £5.00: each unit's floored share is £8.32, which would leave £0.01 never refunded
+    const order = threeUnits({ total: "29.97", discount: "5.00", current: 0, refundIds: ids });
+    const refunds = ids.map((id, n) => unitsRefund(id, 1, n + 1));
+
+    const { facts: f } = await readOrder(order, refunds);
+
+    expect(f.productValue.amount.toFixed(2)).toBe("24.97");
+    expect(f.refunds.map((r) => [r.productValue.amount.toFixed(2), r.productValue.shopAmount.toFixed(2), r.completesOrder])).toEqual([
+      ["8.32", "8.32", false],
+      ["8.32", "8.32", false],
+      ["8.33", "8.33", true],
+    ]);
+    expect(f.refundedProductValue.amount.toFixed(2)).toBe("24.97");
+
+    // readRefund values each the same way
+    const source = createShopifyOrderSource(fromFixtures([order], refunds));
+    const third = await source.readRefund(ids[2]);
+    expect([third?.refund.productValue.amount.toFixed(2), third?.refund.completesOrder]).toEqual(["8.33", true]);
+    const first = await source.readRefund(ids[0]);
+    expect([first?.refund.productValue.amount.toFixed(2), first?.refund.completesOrder]).toEqual(["8.32", false]);
+  });
+
+  it("does not complete the order while a unit is left to refund", async () => {
+    const order = threeUnits({ total: "29.97", discount: "5.00", current: 1, refundIds: ids.slice(0, 2) });
+
+    const { facts: f } = await readOrder(order, ids.slice(0, 2).map((id, n) => unitsRefund(id, 1, n + 1)));
+
+    expect(f.refunds.map((r) => [r.productValue.amount.toFixed(2), r.completesOrder])).toEqual([
+      ["8.32", false],
+      ["8.32", false],
+    ]);
+  });
+
+  it("completes an edited order with one refund of the units the edit left, valued at what was bought", async () => {
+    // A £10.00 line of 3 units, one removed before payment (£10.00 − £3.33 = £6.67 bought), then both
+    // remaining units refunded: their floored share would be £6.66
+    const order = threeUnits({ total: "10.00", discount: "0.0", current: 0, refundIds: [ids[0]] });
+
+    const { facts: f } = await readOrder(order, [unitsRefund(ids[0], 2, 1)]);
+
+    expect(f.productValue.amount.toFixed(2)).toBe("6.67");
+    expect(f.refunds.map((r) => [r.productValue.amount.toFixed(2), r.completesOrder])).toEqual([["6.67", true]]);
+  });
+
+  it("never completes the order by units with a refund of money and no items", async () => {
+    const { facts: f } = await readOrder(refundedInFullUsd, [refundInFullUsd]);
+    expect(f.refunds.map((r) => [r.productValue.amount.toFixed(2), r.completesOrder])).toEqual([["40.00", false]]);
+  });
+});
+
 describe("factsFromOrderNode (shared with the import)", () => {
   it("values a bulk-shaped node's missing quantities as refunded when told to (\"quantities\")", () => {
     const f = factsFromOrderNode(bulkNode, "GBP", "quantities");
