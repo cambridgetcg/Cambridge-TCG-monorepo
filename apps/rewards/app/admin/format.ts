@@ -6,6 +6,11 @@ import { Money, currencyDecimals, roundMoney } from "~/lib/money";
  * use it too.
  */
 
+/** A day as the admin shows it, on every page and Home's banner: "June 5, 2026", in `timezone`. */
+export function formatDay(date: Date | string, timezone: string): string {
+  return new Intl.DateTimeFormat("en", { day: "numeric", month: "long", year: "numeric", timeZone: timezone }).format(new Date(date));
+}
+
 /**
  * An amount as the merchant reads it: `formatMoney(62, "JPY")` is "¥62",
  * `formatMoney("1.5000", "GBP")` is "£1.50", and KWD shows three decimals.

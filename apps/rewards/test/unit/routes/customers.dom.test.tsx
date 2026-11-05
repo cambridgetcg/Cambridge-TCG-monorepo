@@ -8,6 +8,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // acts are in the Postgres suite (customers-page).
 vi.mock("~/db.server", () => ({ default: {}, databaseSchema: "rewards" }));
 vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
+// Whether a page navigation is loading, set by a test (DESIGN-16)
+const navigation = { state: "idle" as "idle" | "loading" };
+vi.mock("react-router", async (original) => ({
+  ...(await original<typeof import("react-router")>()),
+  useNavigation: () => navigation,
+}));
 
 const { default: Customers } = await import("~/routes/app.customers._index");
 const { default: Buyer } = await import("~/routes/app.customers.$id");
@@ -94,7 +100,11 @@ const cells = (scope: ParentNode = document) =>
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  navigation.state = "idle";
 });
+
+/** Whether `a` comes before `b` in the page. */
+const before = (a: Element | null, b: Element | null) => Boolean(a && b && a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
 describe("Customers list", () => {
   it("shows each buyer's name, tier chip, orders and cashback given, with paging", async () => {
@@ -133,6 +143,42 @@ describe("Customers list", () => {
     await renderList(listData({ rows: [], hasNext: false, page: 3, hasPrevious: true, query: "ann", tierId: "t1" }));
     expect(document.body.textContent).toContain("No buyers on this page.");
     expect(document.querySelector('s-link[href="/app/customers?q=ann&tier=t1"]')?.textContent).toBe("Go to page 1");
+  });
+
+  // DESIGN-16 and docs Q3: the box shows the URL's search, Back and Forward included, and the table says it is loading
+  it("shows the search the URL holds, and that the table is loading while the next page loads", async () => {
+    await renderList(listData({ query: "ann" }));
+    const search = document.querySelector("s-search-field")!;
+    expect(search.getAttribute("value")).toBe("ann");
+    expect(search.hasAttribute("defaultValue")).toBe(false);
+    expect(document.querySelector("s-table")?.hasAttribute("loading")).toBe(false);
+    cleanup();
+
+    navigation.state = "loading";
+    await renderList(listData({ query: "ann" }));
+    expect(document.querySelector("s-table")?.hasAttribute("loading")).toBe(true);
+  });
+
+  // DESIGN-9: what went wrong is said above the table, not under its last row
+  it("says the search's problems above the table", async () => {
+    for (const flags of [{ searchFailed: true }, { searchUnread: true }, { searchCut: true }]) {
+      await renderList(listData({ query: "ann", ...flags }));
+      const said = flags.searchFailed ? document.querySelector("s-banner") : screen.getByText(/Shopify (couldn't read|found more)/).closest("s-section");
+      expect(said, JSON.stringify(flags)).not.toBeNull();
+      expect(before(said, document.querySelector("s-table")), JSON.stringify(flags)).toBe(true);
+      cleanup();
+    }
+  });
+
+  it("shows a failed export at the top of the page, as a critical banner", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 500 })));
+    await renderList(listData());
+    await act(async () => {
+      fireEvent.click(screen.getByText("Export CSV"));
+    });
+    const banner = (await screen.findByText("The file couldn't be made. Try again.")).closest("s-banner");
+    expect(banner?.getAttribute("tone")).toBe("critical");
+    expect(before(banner, document.querySelector("s-table"))).toBe(true);
   });
 
   // BOUNDARY-5
@@ -211,7 +257,9 @@ describe("Buyer panel", () => {
     expect(document.querySelector("s-progress")).toBeNull();
     expect(text).not.toContain("more to reach");
     expect(screen.getByText("Return to automatic", { selector: "s-button" })).toBeTruthy();
-    expect([...document.querySelectorAll('s-section[heading="Store credit"] s-heading')].map((h) => h.textContent)).toEqual(["£12.50", "€5.00"]);
+    // DESIGN-10: figures, not headings
+    expect([...document.querySelectorAll('s-section[heading="Store credit"] s-number')].map((n) => n.textContent)).toEqual(["£12.50", "€5.00"]);
+    expect(document.querySelector('s-section[heading="Store credit"] s-heading')).toBeNull();
     expect(text).not.toContain("Shows at checkout");
   });
 

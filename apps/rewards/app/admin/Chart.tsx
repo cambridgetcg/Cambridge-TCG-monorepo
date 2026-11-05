@@ -4,9 +4,18 @@ import styles from "./admin.module.css";
 
 /**
  * The small line chart (spec 4.3: cashback given against store credit spent,
- * by day). Polaris has no chart, so it is a plain SVG: the first series in
- * navy, the second in teal inside a navy edge, Polaris greys for the grid
- * and labels, and a legend under it.
+ * by day). Polaris has no chart, so it is a plain SVG (Ruling 71):
+ * - labelled with its range ("Last 30 days"), so it isn't read as the month's;
+ * - a small fixed height, stretched to the width (preserveAspectRatio none)
+ *   with strokes that keep their pixel width, and no text inside the SVG:
+ *   the range, the first and last day and the legend are Polaris text, so
+ *   nothing renders below Polaris's own sizes;
+ * - no scale: the legend gives each series' total over the range, and the
+ *   SVG's label says the same to a screen reader;
+ * - the first series navy and solid, drawn last so nothing hides it; the
+ *   second teal inside a navy edge and dashed, so the two differ by more
+ *   than colour;
+ * - one plain sentence (`empty`) instead, when every value is 0.
  */
 
 export interface ChartPoint {
@@ -21,16 +30,22 @@ export interface ChartSeries {
 }
 
 interface ChartProps {
+  /** The range the chart covers, said above it and to a screen reader */
+  label: string;
+  /** The sentence shown instead of the chart when every value is 0 */
+  empty: string;
   /** One or two series: there are two brand colours */
   series: [ChartSeries] | [ChartSeries, ChartSeries];
-  /** How the top and bottom of the scale are labelled (an amount, say) */
+  /** How a series' total is written (an amount, say) */
   formatValue?: (value: Decimal) => string;
 }
 
-const WIDTH = 640;
-const HEIGHT = 200;
-const TOP = 24;
-const BOTTOM = HEIGHT - 28;
+/** The plot's own units; the SVG is stretched to the chart's CSS size. */
+const WIDTH = 100;
+const HEIGHT = 40;
+/** Room above and below the lines, so a 2 px stroke at the top or bottom isn't cut */
+const TOP = 2;
+const BOTTOM = HEIGHT - 2;
 
 const COLOURS = ["navy", "teal"] as const;
 
@@ -41,81 +56,73 @@ function dayLabel(date: string): string {
   return Number.isNaN(day.getTime()) ? date : dayFormat.format(day);
 }
 
-export function Chart({ series, formatValue = (value) => value.toString() }: ChartProps) {
+export function Chart({ label, empty, series, formatValue = (value) => value.toString() }: ChartProps) {
   const dates = [...new Set(series.flatMap((s) => s.points.map((p) => p.date)))].sort();
-  if (dates.length === 0) {
-    return <s-text color="subdued">Nothing to show yet.</s-text>;
+  const values = series.flatMap((s) => s.points.map((p) => new Money(p.value)));
+  // Nothing happened: no lines at zero and no scale to make up
+  if (dates.length === 0 || values.every((value) => value.isZero())) {
+    return <s-text color="subdued">{empty}</s-text>;
   }
 
-  const values = series.flatMap((s) => s.points.map((p) => new Money(p.value)));
   const low = Money.min(0, ...values);
-  let high = Money.max(0, ...values);
-  if (high.eq(low)) high = low.plus(1);
+  const high = Money.max(0, ...values);
 
   // Pixel positions only: the amounts themselves are never rounded here
   const x = (date: string) => (dates.length === 1 ? WIDTH / 2 : (dates.indexOf(date) / (dates.length - 1)) * WIDTH);
   const y = (value: Decimal) => BOTTOM - value.minus(low).div(high.minus(low)).times(BOTTOM - TOP).toNumber();
+  // One point is a zero-length line, which its round caps draw as a dot
+  const polyline = (points: { x: number; y: number }[]) =>
+    (points.length === 1 ? [points[0], points[0]] : points).map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
 
-  const polyline = (points: { x: number; y: number }[]) => points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  const lines = series.map((s, i) => {
-    const colour = COLOURS[i];
-    const points = [...s.points]
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
-      .map((p) => ({ x: x(p.date), y: y(new Money(p.value)) }));
-    return { label: s.label, colour, points };
-  });
-
+  const lines = series.map((s, i) => ({
+    key: i,
+    label: s.label,
+    colour: COLOURS[i],
+    total: formatValue(Money.sum(0, ...s.points.map((p) => new Money(p.value)))),
+    points: polyline(
+      [...s.points].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).map((p) => ({ x: x(p.date), y: y(new Money(p.value)) })),
+    ),
+  }));
+  const first = dayLabel(dates[0]);
+  const last = dayLabel(dates[dates.length - 1]);
+  const range = dates.length === 1 ? first : `${first} to ${last}`;
+  const totals = lines.map((line) => `${line.label} ${line.total}`).join(", ");
   const zeroY = y(new Money(0));
-  const labels = series.map((s) => s.label).join(" and ");
-  const range = dates.length === 1 ? dayLabel(dates[0]) : `${dayLabel(dates[0])} to ${dayLabel(dates[dates.length - 1])}`;
 
   return (
-    <div>
-      <svg className={styles.chart} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={`${labels}, ${range}`}>
-        <line className={styles.gridLine} x1={0} x2={WIDTH} y1={TOP} y2={TOP} />
+    <s-stack gap="small-200">
+      <s-text color="subdued">{label}</s-text>
+      <svg className={styles.chart} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`${label}, ${range}: ${totals}`}>
         <line className={styles.gridLine} x1={0} x2={WIDTH} y1={zeroY} y2={zeroY} />
-        {low.lt(0) ? <line className={styles.gridLine} x1={0} x2={WIDTH} y1={BOTTOM} y2={BOTTOM} /> : null}
-        <text className={styles.axisLabel} x={0} y={TOP - 8}>
-          {formatValue(high)}
-        </text>
-        {low.lt(0) ? (
-          <text className={styles.axisLabel} x={0} y={BOTTOM - 6}>
-            {formatValue(low)}
-          </text>
-        ) : null}
-        <text className={styles.axisLabel} x={0} y={HEIGHT - 6}>
-          {dayLabel(dates[0])}
-        </text>
-        {dates.length > 1 ? (
-          <text className={styles.axisLabel} x={WIDTH} y={HEIGHT - 6} textAnchor="end">
-            {dayLabel(dates[dates.length - 1])}
-          </text>
-        ) : null}
-        {lines.map(({ label, colour, points }) =>
-          points.length === 1 ? (
-            <circle
-              key={label}
-              className={`${styles.dot} ${styles[colour]}`}
-              cx={points[0].x}
-              cy={points[0].y}
-              r={4}
-            />
-          ) : (
-            <g key={label}>
-              {colour === "teal" ? <polyline className={`${styles.line} ${styles.tealEdge}`} points={polyline(points)} /> : null}
-              <polyline className={`${styles.line} ${styles[colour]}`} points={polyline(points)} />
+        {/* The navy series last, on top */}
+        {[...lines].reverse().map((line) =>
+          line.colour === "teal" ? (
+            <g key={line.key}>
+              <polyline className={`${styles.line} ${styles.dashed} ${styles.tealEdge}`} points={line.points} />
+              <polyline className={`${styles.line} ${styles.dashed} ${styles.teal}`} points={line.points} />
             </g>
+          ) : (
+            <polyline key={line.key} className={`${styles.line} ${styles.navy}`} points={line.points} />
           ),
         )}
       </svg>
+      {dates.length > 1 ? (
+        <s-stack direction="inline" justifyContent="space-between">
+          <s-text color="subdued">{first}</s-text>
+          <s-text color="subdued">{last}</s-text>
+        </s-stack>
+      ) : null}
       <ul className={styles.legend}>
-        {lines.map(({ label, colour }) => (
-          <li key={label} className={styles.legendItem}>
-            <span className={`${styles.swatch} ${colour === "navy" ? styles.swatchNavy : styles.swatchTeal}`} aria-hidden="true" />
-            <s-text>{label}</s-text>
+        {lines.map((line) => (
+          <li key={line.key} className={styles.legendItem}>
+            <svg className={styles.key} viewBox="0 0 16 8" aria-hidden="true">
+              {line.colour === "teal" ? <line className={`${styles.line} ${styles.dashed} ${styles.tealEdge}`} x1={1} x2={15} y1={4} y2={4} /> : null}
+              <line className={`${styles.line} ${line.colour === "teal" ? `${styles.dashed} ${styles.teal}` : styles.navy}`} x1={1} x2={15} y1={4} y2={4} />
+            </svg>
+            <s-text>{line.label}</s-text> <s-text>{line.total}</s-text>
           </li>
         ))}
       </ul>
-    </div>
+    </s-stack>
   );
 }

@@ -1,6 +1,6 @@
 import { CUSTOMER_ERASED, CUSTOMER_MISSING } from "~/lib/payouts.server";
 import type { BuyerOrder, HistoryEntry } from "~/lib/stats.server";
-import { formatMoney } from "./format";
+import { formatDay, formatMoney } from "./format";
 import { AMOUNT_UNKNOWN, type BadgeTone, STATUS_LABEL, STATUS_TONE, orderNotes, payoutStatus, takeBackShort } from "./words";
 
 /**
@@ -47,10 +47,8 @@ export type OrderLine = {
   notes: string[];
 };
 
-/** A day as the admin shows it: "June 5, 2026", in `timezone`. */
-export function formatDay(date: Date, timezone: string): string {
-  return new Intl.DateTimeFormat("en", { day: "numeric", month: "long", year: "numeric", timeZone: timezone }).format(date);
-}
+// The pages' one date format, kept in format.ts with the money format
+export { formatDay };
 
 /** Why a credit that needs a look does, in words. */
 function creditDetail(payout: NonNullable<HistoryEntry["payout"]>): string | null {

@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { useLoaderData, useNavigate } from "react-router";
+import { useLoaderData, useNavigate, useNavigation } from "react-router";
 
 import { formatMoney } from "~/admin/format";
 import { privatePageHeaders } from "~/admin/headers";
@@ -14,7 +14,9 @@ import { customerNames } from "~/shopify/names.server";
  * first: order, buyer (named live, never stored), the tier and rate its
  * cashback earned at, total, cashback, and status (Issued, Waiting, Taken
  * back, Needs a look, No cashback). `?look=1` keeps the orders with a payout
- * that needs a look; the order panel holds the answers.
+ * that needs a look, chosen with the one Show control, which carries their
+ * count (DESIGN-12; Home's banner links there); the order panel holds the
+ * answers. The table shows it is loading while the next page loads.
  */
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -64,24 +66,20 @@ function hrefFor(needsLookOnly: boolean, page: number) {
 export default function Orders() {
   const d = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+  const loading = useNavigation().state === "loading";
 
   const empty = d.needsLookOnly
     ? "No orders need a look."
     : d.page > 1
       ? "No orders on this page."
-      : "No orders yet. Paid orders show here once RewardsPro records them.";
+      : "No orders yet. They appear here once a buyer pays.";
 
   return (
     <s-page heading="Orders" inlineSize="base">
-      {d.needsLook > 0 && !d.needsLookOnly ? (
-        <s-banner tone="warning">
-          {d.needsLook === 1 ? "1 order needs a look." : `${d.needsLook} orders need a look.`}{" "}
-          <s-link href={hrefFor(true, 1)}>Show them</s-link>
-        </s-banner>
-      ) : null}
       <s-section padding="none">
         <s-table
           paginate
+          loading={loading}
           hasPreviousPage={d.hasPrevious}
           hasNextPage={d.hasNext}
           onPreviousPage={() => navigate(hrefFor(d.needsLookOnly, d.page - 1))}
@@ -95,7 +93,7 @@ export default function Orders() {
               onChange={(event) => navigate(hrefFor(event.currentTarget.value === "look", 1))}
             >
               <s-option value="">All orders</s-option>
-              <s-option value="look">Needs a look</s-option>
+              <s-option value="look">{`Needs a look (${d.needsLook})`}</s-option>
             </s-select>
           </s-grid>
           <s-table-header-row>

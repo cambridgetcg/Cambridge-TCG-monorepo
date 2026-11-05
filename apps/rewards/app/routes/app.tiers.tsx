@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { data, useFetcher, useLoaderData, useRevalidator } from "react-router";
+import { data, useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { formatMoney } from "~/admin/format";
+import { usePolling } from "~/admin/polling";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import type { ConnectionContext } from "~/lib/merchant.server";
 import {
@@ -31,6 +32,8 @@ import { syncWidgetConfig } from "~/shopify/widget-config.server";
  * says buyers are moving and reloads its data (Ruling 76). Every change
  * rewrites the widget's settings. Each control posts one change at a time,
  * and an edit says which version of the tier it was made on (CONCURRENCY-3).
+ * Edit brings the form into view with Name focused, and after a delete focus
+ * goes to the form's Name, since the row it came from is gone (DESIGN-14).
  */
 
 const DELETE_MODAL = "delete-tier";
@@ -137,27 +140,20 @@ function deleteSentence(tier: TierView): string {
   return `${count(tier.members, "member moves", "members move")} to the tier their spend qualifies for. ${locks}`;
 }
 
-/** Reload the page's data every MOVING_POLL_MS while buyers are moving to their new tiers. */
-function useMovingPolling(moving: boolean) {
-  const revalidator = useRevalidator();
-  const revalidate = useRef(revalidator.revalidate);
-  revalidate.current = revalidator.revalidate;
-  useEffect(() => {
-    if (!moving) return;
-    const timer = setInterval(() => void revalidate.current(), MOVING_POLL_MS);
-    return () => clearInterval(timer);
-  }, [moving]);
-}
-
 export default function Tiers() {
   const d = useLoaderData<typeof loader>();
   const saveFetcher = useFetcher<typeof action>();
   const deleteFetcher = useFetcher<typeof action>();
   const windowFetcher = useFetcher<typeof action>();
   const modal = useRef<HTMLElementTagNameMap["s-modal"]>(null);
+  const form = useRef<HTMLElementTagNameMap["s-section"]>(null);
+  const nameField = useRef<HTMLElementTagNameMap["s-text-field"]>(null);
   // The tier this tab deleted, which the edit form then lets go of quietly
   const deletedHere = useRef<string | null>(null);
-  useMovingPolling(d.moving);
+  // A delete is done: once the modal has closed, focus goes to the form
+  const focusAfterDelete = useRef(false);
+  // While buyers are moving to their new tiers (Ruling 76)
+  usePolling(d.moving, MOVING_POLL_MS);
 
   // The tier being edited, or null while adding one
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -187,10 +183,25 @@ export default function Tiers() {
 
   useEffect(() => {
     if (deleteFetcher.state !== "idle" || !deleteFetcher.data) return;
-    if (deleteFetcher.data.ok) modal.current?.hideOverlay?.();
-    else deletedHere.current = null;
+    if (deleteFetcher.data.ok) {
+      focusAfterDelete.current = true;
+      modal.current?.hideOverlay?.();
+    } else deletedHere.current = null;
     setDeleteError(errorsOf(deleteFetcher.data).form ?? null);
   }, [deleteFetcher.state, deleteFetcher.data]);
+
+  // Listened for directly: React 19 would listen for "AfterHide", not the element's "afterhide"
+  useEffect(() => {
+    const element = modal.current;
+    if (!element) return;
+    const afterHide = () => {
+      if (!focusAfterDelete.current) return;
+      focusAfterDelete.current = false;
+      nameField.current?.focus();
+    };
+    element.addEventListener("afterhide", afterHide);
+    return () => element.removeEventListener("afterhide", afterHide);
+  }, []);
 
   // The tier being edited is gone (deleted in another tab): say so and start
   // over, so Save can't bring it back as a new tier (A20-F4)
@@ -207,6 +218,9 @@ export default function Tiers() {
     setEditingVersion(tier.version);
     setValues({ name: tier.name, minSpend: tier.minSpend, percent: tier.percent });
     setErrors({});
+    // The form is below the table: bring it into view, ready to type in
+    form.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    nameField.current?.focus();
   };
   const cancelEdit = () => {
     setEditingId(null);
@@ -236,9 +250,13 @@ export default function Tiers() {
 
   return (
     <s-page heading="Tiers" inlineSize="base">
+      {d.moving ? (
+        <s-banner slot="supplemental-start" tone="info">
+          Buyers are moving to their new tiers.
+        </s-banner>
+      ) : null}
       <s-section>
         <s-stack gap="base">
-          {d.moving ? <s-banner tone="info">Buyers are moving to their new tiers.</s-banner> : null}
           {d.tiers.length === 0 ? (
             <s-text color="subdued">No tiers yet. Add your first one below; everyone starts there.</s-text>
           ) : (
@@ -250,7 +268,8 @@ export default function Tiers() {
                 </s-table-header>
                 <s-table-header format="numeric">Cashback</s-table-header>
                 <s-table-header format="numeric">Members</s-table-header>
-                <s-table-header>
+                {/* Inline on a phone's list, so no "Actions" label shows beside each tier */}
+                <s-table-header listSlot="inline">
                   <s-text accessibilityVisibility="exclusive">Actions</s-text>
                 </s-table-header>
               </s-table-header-row>
@@ -304,9 +323,10 @@ export default function Tiers() {
         </s-stack>
       </s-section>
 
-      <s-section heading={editing ? `Edit ${editing.name}` : "Add a tier"}>
+      <s-section ref={form} heading={editing ? `Edit ${editing.name}` : "Add a tier"}>
         <s-stack gap="base">
           <s-text-field
+            ref={nameField}
             label="Name"
             name="name"
             maxLength={d.nameMax}
@@ -320,12 +340,12 @@ export default function Tiers() {
               <s-text color="subdued">Everyone starts here</s-text>
             </s-stack>
           ) : (
-            <s-number-field
+            // Polaris's money field (DESIGN-18); it has no step, so whole amounts are the action's rule
+            <s-money-field
               label="Minimum spend"
               name="minSpend"
-              suffix={d.currency}
+              currencyCode={d.currency as HTMLElementTagNameMap["s-money-field"]["currencyCode"]}
               min={0}
-              step={1}
               value={values.minSpend}
               error={errors.minSpend}
               details="Buyers reach this tier once they spend this much. Whole amounts only."

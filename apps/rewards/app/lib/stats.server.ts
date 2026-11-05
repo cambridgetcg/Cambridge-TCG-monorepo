@@ -29,13 +29,13 @@
 import { Prisma, type LedgerEntryKind, type LookReason, type NoCashbackReason, type PayoutDirection, type PayoutState } from "@prisma/client";
 import type { Decimal } from "decimal.js";
 import prisma, { databaseSchema } from "~/db.server";
-import { daysEnding, reviewDue } from "./home-rules";
+import { daysEnding } from "./days";
 import type { ConnectionContext } from "./merchant.server";
 import { Money, fromDb } from "./money";
 import { type OrderStatus, orderStatus } from "./order-status";
 import { payoutVersion } from "./payouts.server";
 import { monitoring } from "./telemetry.server";
-import { type Progress, type TierRow, progress, qualify, spendCounted, spendOf, tierSpend, tierTable } from "./tiers.server";
+import { type Progress, type TierRow, progress, qualify, spendCounted, spendOf, tierPassPending, tierSpend, tierTable } from "./tiers.server";
 import { UUID } from "./uuid";
 
 export type RecentReward = {
@@ -43,7 +43,9 @@ export type RecentReward = {
   orderName: string;
   /** The buyer's Shopify customer id, for their live name; "" once redacted */
   customerId: string;
+  /** The tier and rate it earned at, as every page shows them (DESIGN-6) */
   tierName: string | null;
+  ratePercent: Decimal | null;
   kind: "cashback" | "reversal";
   /** Signed, in `currency` (the buyer's): a take-back is negative */
   amount: Decimal;
@@ -66,6 +68,8 @@ export interface HomeStats {
   tiers: { id: string; name: string; percent: Decimal; members: number }[];
   /** Orders with a payout that needs a look, as the Orders page counts them (Ruling 56) */
   needsLook: number;
+  /** The order that needs a look when there is exactly one, so Home's banner goes straight to it (DESIGN-12) */
+  needsLookOrderId: string | null;
   /** Cashback entries ever written (the review request counts them) */
   cashbackOrders: number;
 }
@@ -85,6 +89,16 @@ const NEEDS_LOOK_ORDER = { ledgerEntries: { some: { payout: { state: "needs_look
 /** The store's orders with a payout that needs a look: one count for Home's banner and the Orders page (Ruling 56). */
 function needsLookOrders(conn: Pick<ConnectionContext, "merchantId" | "connectionId">): Promise<number> {
   return prisma.order.count({ where: { merchantId: conn.merchantId, connectionId: conn.connectionId, ...NEEDS_LOOK_ORDER } });
+}
+
+/** The one order with a payout that needs a look, when there is exactly one; null otherwise. */
+async function onlyNeedsLookOrder(conn: Pick<ConnectionContext, "merchantId" | "connectionId">): Promise<string | null> {
+  const orders = await prisma.order.findMany({
+    where: { merchantId: conn.merchantId, connectionId: conn.connectionId, ...NEEDS_LOOK_ORDER },
+    take: 2,
+    select: { id: true },
+  });
+  return orders.length === 1 ? orders[0].id : null;
 }
 
 /** A cashback or take-back entry with no payout: every writer pairs the two, so say so, by the entry's id alone (A19-F8). */
@@ -112,7 +126,7 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
   const inMonth = { gte: monthStart, lte: now };
   const countedOrder = { merchantId, test: false, cancelledAt: null };
 
-  const [given, spent, cameBack, dailyGiven, dailySpent, recent, tiers, needsLook, cashbackOrders] = await Promise.all([
+  const [given, spent, cameBack, dailyGiven, dailySpent, recent, tiers, needsLook, needsLookOrderId, cashbackOrders] = await Promise.all([
     prisma.ledgerEntry.aggregate({ _sum: { shopAmount: true }, where: { merchantId, createdAt: inMonth } }),
     prisma.order.aggregate({ _sum: { shopStoreCreditUsed: true }, where: { ...countedOrder, paidAt: inMonth } }),
     prisma.$queryRaw<Array<{ n: number }>>`
@@ -151,6 +165,7 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
         amount: true,
         currency: true,
         tierName: true,
+        ratePercent: true,
         order: { select: { id: true, name: true } },
         customer: { select: { externalCustomerId: true } },
         payout: { select: { direction: true, state: true, amount: true, debitedAmount: true } },
@@ -162,6 +177,7 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
       select: { id: true, name: true, cashbackPercent: true, _count: { select: { members: { where: NOT_ERASED } } } },
     }),
     needsLookOrders(conn),
+    onlyNeedsLookOrder(conn),
     prisma.ledgerEntry.count({ where: { merchantId, kind: "cashback" } }),
   ]);
 
@@ -188,6 +204,7 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
           orderName: entry.order!.name,
           customerId: entry.customer.externalCustomerId ?? "",
           tierName: entry.tierName,
+          ratePercent: entry.ratePercent === null ? null : fromDb(entry.ratePercent),
           kind: entry.kind as "cashback" | "reversal",
           amount: fromDb(entry.amount),
           currency: entry.currency,
@@ -203,52 +220,81 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
       }),
     tiers: tiers.map((tier) => ({ id: tier.id, name: tier.name, percent: fromDb(tier.cashbackPercent), members: tier._count.members })),
     needsLook,
+    needsLookOrderId,
     cashbackOrders,
   };
 }
 
+/** The review request waits for this many cashback entries… */
+export const REVIEW_MIN_CASHBACK = 3;
+/** …and for the merchant to be this many days old. */
+export const REVIEW_MIN_AGE_DAYS = 7;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The review request is due once, after REVIEW_MIN_CASHBACK cashback
+ * entries and REVIEW_MIN_AGE_DAYS days, unless the merchant dismissed it or
+ * Shopify has shown it (spec 4.3).
+ */
+function reviewDue(i: { cashbackEntries: number; merchantCreatedAt: Date; dismissedAt: Date | null; shownAt: Date | null; now: Date }): boolean {
+  if (i.dismissedAt || i.shownAt) return false;
+  return i.cashbackEntries >= REVIEW_MIN_CASHBACK && i.now.getTime() - i.merchantCreatedAt.getTime() >= REVIEW_MIN_AGE_DAYS * DAY_MS;
+}
+
 /** Home's setup and request facts for one store at `now`. */
 export interface HomeState {
-  /** The soonest due date of an open customer data request */
+  /** The soonest due date of an open customer data request not past its expiry, at `now` (Ruling 64) */
   privacyDueAt: Date | null;
+  /** Every setup step was done once (Ruling 60) */
+  setupCompleted: boolean;
   importState: "not_started" | "running" | "done" | "failed";
+  /** The import's error as stored: for the log and support, never shown (Ruling 74) */
   importError: string | null;
   /** The merchant dismissed the import's outcome on Home */
   importDismissed: boolean;
   /** How far back the import reads: 365, or 60 without read_all_orders */
   importHorizonDays: number;
-  /** Buyers the past-orders import brought in who now hold a tier, erased ones aside */
-  placedBuyers: number;
+  /** Orders the past-orders import wrote, done or not */
+  importedOrders: number;
+  /** Buyers the past-orders import brought in, whatever their tier, erased ones aside (Ruling 76) */
+  importedBuyers: number;
+  /** A requested tier pass hasn't reached every buyer yet (tierPassPending): Home says they are being placed, and follows it */
+  placing: boolean;
   reviewDue: boolean;
 }
 
 /** `cashbackEntries` is HomeStats.cashbackOrders, read once for both. */
 export async function homeState(conn: ConnectionContext, now: Date, cashbackEntries: number): Promise<HomeState> {
-  const [merchant, connection, privacy, placedBuyers] = await Promise.all([
+  const [merchant, connection, privacy, importedOrders, importedBuyers, placing] = await Promise.all([
     prisma.merchant.findUniqueOrThrow({
       where: { id: conn.merchantId },
-      select: { createdAt: true, reviewPromptDismissedAt: true, reviewPromptShownAt: true },
+      select: { createdAt: true, reviewPromptDismissedAt: true, reviewPromptShownAt: true, setupCompletedAt: true },
     }),
     prisma.connection.findUniqueOrThrow({
       where: { id: conn.connectionId },
       select: { importState: true, importError: true, importHorizonDays: true, importDismissedAt: true },
     }),
     prisma.privacyRequest.findFirst({
-      where: { connectionId: conn.connectionId, status: "open" },
+      // One past its expiry can't be downloaded any more, marked expired yet or not (A23-F5)
+      where: { connectionId: conn.connectionId, status: "open", expiresAt: { gt: now } },
       orderBy: { dueAt: "asc" },
       select: { dueAt: true },
     }),
-    prisma.customer.count({
-      where: { connectionId: conn.connectionId, ...NOT_ERASED, tierId: { not: null }, orders: { some: { source: "import" } } },
-    }),
+    prisma.order.count({ where: { connectionId: conn.connectionId, source: "import" } }),
+    prisma.customer.count({ where: { connectionId: conn.connectionId, ...NOT_ERASED, orders: { some: { source: "import" } } } }),
+    tierPassPending(conn.connectionId),
   ]);
   return {
     privacyDueAt: privacy?.dueAt ?? null,
+    setupCompleted: merchant.setupCompletedAt !== null,
     importState: connection.importState,
     importError: connection.importError,
     importDismissed: connection.importDismissedAt !== null,
     importHorizonDays: connection.importHorizonDays,
-    placedBuyers,
+    importedOrders,
+    importedBuyers,
+    placing,
     reviewDue: reviewDue({
       cashbackEntries,
       merchantCreatedAt: merchant.createdAt,

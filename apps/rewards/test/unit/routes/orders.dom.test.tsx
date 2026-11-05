@@ -10,6 +10,12 @@ import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
 // the answers act are in the Postgres suite (orders-page).
 vi.mock("~/db.server", () => ({ default: {}, databaseSchema: "rewards" }));
 vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
+// Whether a page navigation is loading, set by a test (DESIGN-16)
+const navigation = { state: "idle" as "idle" | "loading" };
+vi.mock("react-router", async (original) => ({
+  ...(await original<typeof import("react-router")>()),
+  useNavigation: () => navigation,
+}));
 
 const { default: Orders } = await import("~/routes/app.orders._index");
 const { default: Order } = await import("~/routes/app.orders.$id");
@@ -188,6 +194,7 @@ const cells = (scope: ParentNode = document) =>
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  navigation.state = "idle";
 });
 
 describe("Orders list", () => {
@@ -198,8 +205,24 @@ describe("Orders list", () => {
       ["#1001", "Erased buyer", "", "£30.00", "None", "No cashbackCashback was off"],
     ]);
     expect(document.querySelector('s-link[href="/app/orders/o2"]')).not.toBeNull();
-    expect(document.querySelector("s-banner")?.textContent).toContain("1 order needs a look.");
-    expect(document.querySelector('s-banner s-link[href="?look=1"]')?.textContent).toBe("Show them");
+    // DESIGN-12: one control for the filter, carrying the count
+    expect([...document.querySelectorAll("s-select s-option")].map((o) => [o.getAttribute("value"), o.textContent])).toEqual([
+      ["", "All orders"],
+      ["look", "Needs a look (1)"],
+    ]);
+    expect(document.querySelector("s-banner")).toBeNull();
+    expect(document.querySelectorAll('s-link[href*="look"]')).toHaveLength(0);
+  });
+
+  // DESIGN-16
+  it("says the table is loading while the next page loads", async () => {
+    await renderList(LIST, "#1002");
+    expect(document.querySelector("s-table")?.hasAttribute("loading")).toBe(false);
+    cleanup();
+
+    navigation.state = "loading";
+    await renderList(LIST, "#1002");
+    expect(document.querySelector("s-table")?.hasAttribute("loading")).toBe(true);
   });
 
   it("says when no order needs a look", async () => {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { LoaderFunctionArgs } from "react-router";
-import { useLoaderData, useNavigate } from "react-router";
+import { useLoaderData, useNavigate, useNavigation } from "react-router";
 
 import { listBuyers, filterTiers, readFilters } from "~/admin/customer-list.server";
 import { saveResponseAsFile } from "~/admin/download";
@@ -14,7 +14,9 @@ import { NO_TIER, SEARCH_TOO_BROAD, SEARCH_UNREAD } from "~/admin/words";
  * Customers (spec 4.4): search, a tier filter, and a table of buyers (buyer,
  * tier, orders, cashback given), 50 to a page, newest first. The search is
  * Shopify's own, mapped to the buyers RewardsPro knows; names are read live
- * and never stored. Export CSV downloads the same buyers, every page.
+ * and never stored. Export CSV downloads the same buyers, every page. What
+ * went wrong (the export, the search) is said above the table (DESIGN-9),
+ * and the table shows it is loading while the next page loads (DESIGN-16).
  */
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -62,6 +64,7 @@ const DOWNLOAD_FAILED = "The file couldn't be made. Try again.";
 export default function Customers() {
   const d = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+  const loading = useNavigation().state === "loading";
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const current = { query: d.query, tierId: d.tierId, page: d.page };
@@ -98,9 +101,28 @@ export default function Customers() {
       <s-button slot="secondary-actions" loading={exporting} onClick={() => void download()}>
         Export CSV
       </s-button>
+      {exportError ? (
+        <s-banner slot="supplemental-start" tone="critical">
+          {exportError}
+        </s-banner>
+      ) : null}
+      {d.searchFailed ? (
+        <s-banner slot="supplemental-start" tone="warning">
+          {"Shopify didn't answer the search. Try again."}
+        </s-banner>
+      ) : null}
+      {d.searchUnread || d.searchCut ? (
+        <s-section>
+          <s-stack gap="small-200">
+            {d.searchUnread ? <s-text color="subdued">{SEARCH_UNREAD}</s-text> : null}
+            {d.searchCut ? <s-text color="subdued">Shopify found more customers than one search reads. Add more words to narrow it.</s-text> : null}
+          </s-stack>
+        </s-section>
+      ) : null}
       <s-section padding="none">
         <s-table
           paginate
+          loading={loading}
           hasPreviousPage={d.hasPrevious}
           hasNextPage={d.hasNext}
           onPreviousPage={() => navigate(hrefWith(current, { page: d.page - 1 }))}
@@ -111,7 +133,7 @@ export default function Customers() {
               label="Search buyers"
               labelAccessibilityVisibility="exclusive"
               placeholder="Search by name or email"
-              defaultValue={d.query}
+              value={d.query}
               onChange={(event) => navigate(hrefWith(current, { query: event.currentTarget.value.trim() }))}
             />
             <s-select
@@ -152,9 +174,7 @@ export default function Customers() {
           </s-table-body>
         </s-table>
       </s-section>
-      {d.searchFailed ? (
-        <s-banner tone="warning">{"Shopify didn't answer the search. Try again."}</s-banner>
-      ) : d.rows.length === 0 && d.page > 1 ? (
+      {d.searchFailed ? null : d.rows.length === 0 && d.page > 1 ? (
         // Past the last page: there may be buyers on page 1 (A21-F4)
         <s-section>
           <s-stack gap="small-200">
@@ -167,9 +187,6 @@ export default function Customers() {
           <s-text color="subdued">{filtered ? "No buyers match." : "No buyers yet. They appear here after their first paid order."}</s-text>
         </s-section>
       ) : null}
-      {d.searchUnread ? <s-text color="subdued">{SEARCH_UNREAD}</s-text> : null}
-      {d.searchCut ? <s-text color="subdued">Shopify found more customers than one search reads. Add more words to narrow it.</s-text> : null}
-      {exportError ? <s-text tone="critical">{exportError}</s-text> : null}
     </s-page>
   );
 }

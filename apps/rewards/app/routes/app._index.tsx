@@ -1,28 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { data, useFetcher, useLoaderData, useRevalidator } from "react-router";
+import { data, useFetcher, useLoaderData } from "react-router";
 
 import { Chart } from "~/admin/Chart";
 import { formatMoney } from "~/admin/format";
 import { privatePageHeaders } from "~/admin/headers";
-import { requireMerchant } from "~/admin/require-merchant.server";
-import { TierChip } from "~/admin/TierChip";
-import { ERASED_BUYER, rewardLine } from "~/admin/words";
 import {
+  type RunningChecks,
   homeBanners,
+  importOutcomeLines,
   importOutcomeShown,
-  parseBaseRate,
   reviewWasShown,
   runningSentence,
   runningSummary,
-  setupDone,
+  setupCardShown,
+  setupJustCompleted,
   themeEditorUrl,
   widgetEmbedOn,
-  type RunningChecks,
-} from "~/lib/home-rules";
-import { type ConnectionContext, dismissImportOutcome, recordReviewPrompt, setRunning } from "~/lib/merchant.server";
+} from "~/admin/home-rules";
+import { usePolling } from "~/admin/polling";
+import { requireMerchant } from "~/admin/require-merchant.server";
+import { TierChip } from "~/admin/TierChip";
+import { ERASED_BUYER, rewardLine } from "~/admin/words";
+import { type ConnectionContext, dismissImportOutcome, markSetupCompleted, recordReviewPrompt, setRunning } from "~/lib/merchant.server";
 import { homeState, homeStats } from "~/lib/stats.server";
-import { requestTierPass, setBaseRate } from "~/lib/tiers.server";
+import { parseBaseRate, requestTierPass, setBaseRate } from "~/lib/tiers.server";
 import { pollImport } from "~/shopify/bulk-import.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { customerNames } from "~/shopify/names.server";
@@ -34,20 +36,38 @@ import { syncWidgetConfig } from "~/shopify/widget-config.server";
  * act, the setup card until setup is done, this month's numbers, the chart
  * and recent rewards in the main column; Running and Tiers in the aside.
  * The widget embed is checked in the browser (shopify.app.extensions()),
- * and the past-orders import is polled while it runs (plan Decision 13).
+ * and the past-orders import, and the tier pass a base rate asks for, are
+ * followed while they run (plan Decision 13, Ruling 76).
+ *
+ * Two widths decide the layout (Ruling 70), each measured on Polaris 2's own
+ * page in both admin appearances (the milestone 3 review's Chromium harness):
+ * - Whether the side column sits beside the main one: Polaris puts it there
+ *   once the page is 784 px wide. The page sits in its own query container
+ *   ("home"), so the main column's one-line Running (with the switch) and
+ *   the side column's Running card each show on one side of that width, and
+ *   the switch is on the page exactly once at every width.
+ * - How much the main column holds: wider than 415 px it shows three numbers
+ *   to a row, the chart and every recent reward with its tier and status; at
+ *   or below, two numbers to a row, no chart and the newest two rewards,
+ *   amount only. Beside the side column the main column is never narrower
+ *   than 416 px; a phone up to 430 px wide gives it at most 414 px.
  */
 
 /** The App Store listing, opened on its review form. */
 const REVIEW_URL = "https://apps.shopify.com/rewards-pro#modal-show=ReviewListingModal";
-/** How often the page reloads its data while the import runs. */
-const IMPORT_POLL_MS = 15_000;
+/** How often the page reloads its data while the import runs or buyers are being placed. */
+const FOLLOW_MS = 10_000;
 /** How long one Home load may spend moving the import on. */
 const IMPORT_POLL_BUDGET_MS = 8_000;
 /** Recent rewards a phone shows. */
 const PHONE_ROWS = 2;
-/** Shown only when the main column is wider than a phone, and only on a phone. */
-const WIDE_ONLY = "@container main (inline-size > 600px) auto, none";
-const NARROW_ONLY = "@container main (inline-size > 600px) none, auto";
+/** The side column is beside the main one (Polaris's page layout switch). */
+const BESIDE = "@container home (inline-size >= 784px)";
+/** The main column holds the wide layout. */
+const WIDE = "@container main (inline-size > 415px)";
+const WIDE_ONLY = `${WIDE} auto, none`;
+const RECENT_COLUMNS = `${WIDE} 'minmax(0, 1fr) auto 7rem', 'minmax(0, 1fr) auto'`;
+const CHART_EMPTY = "No cashback given or store credit spent in the last 30 days.";
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -102,25 +122,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         orderName: r.orderName,
         buyer: r.customerId === "" ? ERASED_BUYER : names.get(r.customerId)!,
         tierName: r.tierName,
+        ratePercent: r.ratePercent?.toFixed() ?? null,
         ...rewardLine(r),
       })),
       tiers: stats.tiers.map((t) => ({ id: t.id, name: t.name, percent: t.percent.toFixed(), members: t.members })),
-      needsLook: stats.needsLook,
-      cashbackOrders: stats.cashbackOrders,
     },
     bannerFacts: {
       privacyDueAt: state.privacyDueAt,
       spendProblems: spend.state === "problems" ? spend.problems : [],
       needsLook: stats.needsLook,
+      needsLookOrderId: stats.needsLookOrderId,
       timezone: conn.timezone,
       themeEditorUrl: editorUrl,
     },
+    // The import's raw error stays in the log and the database (Ruling 74)
     setup: {
+      completed: state.setupCompleted,
       importState: state.importState,
-      importError: state.importError,
       importDismissed: state.importDismissed,
       importHorizonDays: state.importHorizonDays,
-      placedBuyers: state.placedBuyers,
+      importedOrders: state.importedOrders,
+      importedBuyers: state.importedBuyers,
+      unreadable: state.importState === "done" && state.importError !== null,
+      placing: state.placing,
     },
     reviewDue: state.reviewDue,
     // Ruling 59: null when Shopify couldn't say, shown as not checked
@@ -154,6 +178,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await tellWidget(admin, conn);
       return { ok: true } satisfies ActionResult;
     }
+    case "setup-done":
+      // The browser saw the widget on; the tier and the switch are checked here (Ruling 60)
+      await markSetupCompleted(conn.merchantId);
+      return { ok: true } satisfies ActionResult;
     case "import-dismissed":
       await dismissImportOutcome(conn.connectionId);
       return { ok: true } satisfies ActionResult;
@@ -188,25 +216,16 @@ function useWidgetEmbed(): boolean | null {
   return on;
 }
 
-/** Reload the page's data every IMPORT_POLL_MS while the import runs. */
-function useImportPolling(running: boolean) {
-  const revalidator = useRevalidator();
-  const revalidate = useRef(revalidator.revalidate);
-  revalidate.current = revalidator.revalidate;
-  useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(() => void revalidate.current(), IMPORT_POLL_MS);
-    return () => clearInterval(timer);
-  }, [running]);
-}
-
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+/** One of this month's numbers: its label, then the figure, emphasised as Polaris's number docs show a total (DESIGN-10). */
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <s-stack gap="small-300">
       <s-text color="subdued">{label}</s-text>
-      <s-heading>{value}</s-heading>
+      <s-number fontSize="large" fontWeight="bold">
+        {value}
+      </s-number>
       {note ? <s-text color="subdued">{note}</s-text> : null}
     </s-stack>
   );
@@ -238,8 +257,10 @@ export default function Home() {
   // Its own, so a Dismiss never aborts the review-shown post in flight (A19-F7)
   const reviewDismissFetcher = useFetcher<typeof action>();
   const importFetcher = useFetcher<typeof action>();
+  const setupFetcher = useFetcher<typeof action>();
   const widgetOn = useWidgetEmbed();
-  useImportPolling(d.setup.importState === "running");
+  // The import, and the tier pass a base rate asked for, until each has run (Ruling 76)
+  usePolling(d.setup.importState === "running" || d.setup.placing, FOLLOW_MS);
   const [rate, setRate] = useState("");
 
   // The review request: asked once per visit by an effect, as Shopify advises (not from a click)
@@ -256,247 +277,283 @@ export default function Home() {
     );
   }, [d.reviewDue, submitReview]);
 
-  const pending = switchFetcher.formData?.get("intent") === "running" ? switchFetcher.formData.get("running") === "on" : null;
-  const running = pending ?? d.running;
   const hasTiers = d.stats.tiers.length > 0;
-  const checks: RunningChecks = { storeCredit: d.storeCreditReady, widget: widgetOn, tiers: hasTiers };
-  const banners = homeBanners(d.bannerFacts, widgetOn);
   // Hidden at once on Dismiss, before the action answers
   const importDismissed = d.setup.importDismissed || importFetcher.formData?.get("intent") === "import-dismissed";
+  const setupFacts = { completed: d.setup.completed, hasTiers, running: d.running, widgetOn, importState: d.setup.importState, importDismissed };
+
+  // Setup is recorded as completed the first time every step is seen done (Ruling 60)
+  const recorded = useRef(false);
+  const submitSetup = setupFetcher.submit;
+  const justCompleted = setupJustCompleted(setupFacts);
+  useEffect(() => {
+    if (!justCompleted || recorded.current) return;
+    recorded.current = true;
+    void submitSetup({ intent: "setup-done" }, { method: "post" });
+  }, [justCompleted, submitSetup]);
+
+  const pending = switchFetcher.formData?.get("intent") === "running" ? switchFetcher.formData.get("running") === "on" : null;
+  const running = pending ?? d.running;
+  const checks: RunningChecks = { storeCredit: d.storeCreditReady, widget: widgetOn, tiers: hasTiers };
+  const banners = homeBanners(d.bannerFacts, widgetOn);
   const showImportOutcome = importOutcomeShown(d.setup.importState, importDismissed);
-  const showSetup = !setupDone({ hasTiers, running: d.running, widgetOn, importState: d.setup.importState, importDismissed });
+  const showSetup = setupCardShown(setupFacts);
   const reviewDismissed = reviewDismissFetcher.state !== "idle" || reviewDismissFetcher.data?.ok === true;
   const money = (amount: string) => formatMoney(amount, d.currency);
   const switchError = switchFetcher.data && !switchFetcher.data.ok ? switchFetcher.data.error : null;
   const rateError = rateFetcher.data && !rateFetcher.data.ok ? rateFetcher.data.error : null;
   const months = d.setup.importHorizonDays === 365 ? "12 months" : `${d.setup.importHorizonDays} days`;
+  const outcome =
+    d.setup.importState === "done" || d.setup.importState === "failed"
+      ? importOutcomeLines({
+          state: d.setup.importState,
+          importedOrders: d.setup.importedOrders,
+          importedBuyers: d.setup.importedBuyers,
+          unreadable: d.setup.unreadable,
+          hasTiers,
+          placing: d.setup.placing,
+        })
+      : [];
 
   // One change at a time, so the last one made is the one kept (CONCURRENCY-2)
   const switchBusy = switchFetcher.state !== "idle";
   const switchTo = (on: boolean) => {
     if (!switchBusy) switchFetcher.submit({ intent: "running", running: on ? "on" : "off" }, { method: "post" });
   };
+  // The one switch, wherever the page puts it
+  const cashbackSwitch = (o: { labelHidden: boolean }) => (
+    <s-switch
+      label="Cashback"
+      labelAccessibilityVisibility={o.labelHidden ? "exclusive" : "visible"}
+      checked={running}
+      disabled={switchBusy || (!hasTiers && !running)}
+      details={hasTiers || o.labelHidden ? undefined : "Set your base cashback rate first."}
+      onChange={(event) => switchTo(event.currentTarget.checked)}
+    />
+  );
 
   return (
-    <s-page heading="Home" inlineSize="base">
-      {banners.length > 0 ? (
-        <s-stack slot="supplemental-start" gap="base">
-          {banners.map((banner) => (
-            <s-banner key={banner.kind} tone={banner.tone}>
-              {banner.text}{" "}
-              {banner.link ? (
-                <s-link href={banner.link.href} target={/^(https|shopify):/.test(banner.link.href) ? "_top" : "auto"}>
-                  {banner.link.label}
-                </s-link>
-              ) : null}
-            </s-banner>
-          ))}
-        </s-stack>
-      ) : null}
+    <s-query-container containerName="home">
+      <s-page heading="Home" inlineSize="base">
+        {banners.length > 0 ? (
+          <s-stack slot="supplemental-start" gap="base">
+            {banners.map((banner) => (
+              <s-banner key={banner.kind} tone={banner.tone}>
+                {banner.text}{" "}
+                {banner.link ? (
+                  <s-link href={banner.link.href} target={/^(https|shopify):/.test(banner.link.href) ? "_top" : "auto"}>
+                    {banner.link.label}
+                  </s-link>
+                ) : null}
+              </s-banner>
+            ))}
+          </s-stack>
+        ) : null}
 
-      <s-query-container containerName="main">
-        <s-stack gap="base">
-          {showSetup ? (
-            <s-section data-setup-card="">
-              <s-stack gap="base">
-                <s-heading>Set up cashback</s-heading>
-                <Step done={hasTiers}>
-                  {hasTiers ? (
-                    <s-text>Your base cashback rate: {d.stats.tiers[0].percent}%</s-text>
-                  ) : (
-                    <s-stack direction="inline" gap="small-200" alignItems="end">
-                      <s-number-field
-                        label="Your base cashback rate"
-                        name="percent"
-                        suffix="%"
-                        min={0}
-                        max={100}
-                        step={1}
-                        value={rate}
-                        error={rateError ?? undefined}
-                        onInput={(event) => setRate(event.currentTarget.value)}
-                      />
-                      <s-button
-                        variant="primary"
-                        loading={rateFetcher.state !== "idle"}
-                        onClick={() => rateFetcher.submit({ intent: "base-rate", percent: rate }, { method: "post" })}
-                      >
-                        Save
+        <s-query-container containerName="main">
+          <s-stack gap="base">
+            {showSetup ? (
+              <s-section heading={d.setup.completed ? "Your past orders" : "Set up cashback"} data-setup-card="">
+                <s-stack gap="base">
+                  {d.setup.completed ? null : (
+                    <>
+                      <Step done={hasTiers}>
+                        {hasTiers ? (
+                          <s-text>Your base cashback rate: {d.stats.tiers[0].percent}%</s-text>
+                        ) : (
+                          <s-stack direction="inline" gap="small-200" alignItems="end">
+                            <s-number-field
+                              label="Your base cashback rate"
+                              name="percent"
+                              suffix="%"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={rate}
+                              error={rateError ?? undefined}
+                              onInput={(event) => setRate(event.currentTarget.value)}
+                            />
+                            <s-button
+                              variant="primary"
+                              loading={rateFetcher.state !== "idle"}
+                              onClick={() => rateFetcher.submit({ intent: "base-rate", percent: rate }, { method: "post" })}
+                            >
+                              Save
+                            </s-button>
+                          </s-stack>
+                        )}
+                      </Step>
+                      <Step done={d.running}>
+                        {d.running ? (
+                          <s-text>Cashback is on</s-text>
+                        ) : (
+                          <s-button disabled={!hasTiers || switchBusy} loading={switchBusy} onClick={() => switchTo(true)}>
+                            Switch cashback on
+                          </s-button>
+                        )}
+                      </Step>
+                      <Step done={widgetOn === true}>
+                        {widgetOn === true ? (
+                          <s-text>The widget is on in your theme</s-text>
+                        ) : (
+                          <s-link href={d.themeEditorUrl} target="_top">
+                            Turn on the widget in your theme
+                          </s-link>
+                        )}
+                      </Step>
+                    </>
+                  )}
+                  {d.setup.importState === "running" ? (
+                    <s-text color="subdued">Bringing in your last {months} of orders so buyers start in the right tier</s-text>
+                  ) : null}
+                  {showImportOutcome ? (
+                    <s-stack direction="inline" justifyContent="space-between" alignItems="start" gap="small-200" data-import-outcome="">
+                      <s-stack gap="small-200">
+                        {outcome.map((line) => (
+                          <s-text key={line} color="subdued">
+                            {line}
+                          </s-text>
+                        ))}
+                      </s-stack>
+                      <s-button variant="tertiary" onClick={() => importFetcher.submit({ intent: "import-dismissed" }, { method: "post" })}>
+                        Dismiss
                       </s-button>
                     </s-stack>
-                  )}
-                </Step>
-                <Step done={d.running}>
-                  {d.running ? (
-                    <s-text>Cashback is on</s-text>
-                  ) : (
-                    <s-button disabled={!hasTiers || switchBusy} loading={switchBusy} onClick={() => switchTo(true)}>
-                      Switch cashback on
-                    </s-button>
-                  )}
-                </Step>
-                <Step done={widgetOn === true}>
-                  {widgetOn === true ? (
-                    <s-text>The widget is on in your theme</s-text>
-                  ) : (
-                    <s-link href={d.themeEditorUrl} target="_top">
-                      Turn on the widget in your theme
+                  ) : null}
+                </s-stack>
+              </s-section>
+            ) : null}
+
+            {/* Running in one line, with the switch, while the side column is below (Ruling 70) */}
+            <s-box display={`${BESIDE} none, auto`}>
+              <s-section>
+                <s-stack gap="small-200">
+                  <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="base">
+                    <s-text>{runningSummary(running, checks)}</s-text>
+                    {cashbackSwitch({ labelHidden: true })}
+                  </s-stack>
+                  {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
+                </s-stack>
+              </s-section>
+            </s-box>
+
+            <s-section heading="This month">
+              <s-stack gap="base">
+                <s-grid gridTemplateColumns={`${WIDE} 1fr 1fr 1fr, 1fr 1fr`} gap="base">
+                  <Stat label="Cashback given" value={money(d.stats.cashbackGiven)} />
+                  <Stat label="Store credit spent at checkout" value={money(d.stats.creditSpent)} note="Counts store credit from any source" />
+                  <Stat label="Came back" value={String(d.stats.cameBack)} note="Bought again after earning cashback" />
+                </s-grid>
+                <s-box display={WIDE_ONLY}>
+                  <Chart
+                    label="Last 30 days"
+                    empty={CHART_EMPTY}
+                    series={[
+                      { label: "Cashback given", points: d.stats.daily.map((day) => ({ date: day.date, value: day.given })) },
+                      { label: "Store credit spent", points: d.stats.daily.map((day) => ({ date: day.date, value: day.spent })) },
+                    ]}
+                    formatValue={(value) => money(value.toFixed())}
+                  />
+                </s-box>
+              </s-stack>
+            </s-section>
+
+            <s-section heading="Recent rewards">
+              {/* The section header's own action: Polaris takes buttons there, not links */}
+              <s-button slot="secondary-actions" href="/app/orders">
+                All orders
+              </s-button>
+              <s-stack gap="base">
+                {d.stats.recent.length === 0 ? (
+                  <s-text color="subdued">No rewards yet. They appear here once a paid order earns cashback.</s-text>
+                ) : (
+                  d.stats.recent.map((reward, i) => (
+                    // Phones show the newest two, amount only
+                    <s-box key={i} data-reward="" display={i < PHONE_ROWS ? undefined : WIDE_ONLY}>
+                      <s-stack gap="small-300">
+                        {/* The amount in a column of its own, so the amounts line up (DESIGN-6) */}
+                        <s-grid gridTemplateColumns={RECENT_COLUMNS} gap="small-200" alignItems="center">
+                          <s-stack direction="inline" gap="small-300" alignItems="center">
+                            <s-link href={`/app/orders/${reward.orderId}`}>{reward.orderName}</s-link>
+                            <s-text>{reward.buyer}</s-text>
+                            {reward.tierName && reward.ratePercent ? (
+                              <s-box display={WIDE_ONLY}>
+                                <TierChip name={reward.tierName} percent={reward.ratePercent} />
+                              </s-box>
+                            ) : null}
+                          </s-stack>
+                          <s-box display={WIDE_ONLY}>
+                            <s-badge tone={reward.tone}>{reward.status}</s-badge>
+                          </s-box>
+                          <s-stack alignItems="end">
+                            <s-number>{reward.amount}</s-number>
+                          </s-stack>
+                        </s-grid>
+                        {reward.detail ? (
+                          <s-box display={WIDE_ONLY}>
+                            <s-text color="subdued">{reward.detail}</s-text>
+                          </s-box>
+                        ) : null}
+                      </s-stack>
+                    </s-box>
+                  ))
+                )}
+              </s-stack>
+            </s-section>
+
+            {d.reviewDue && !reviewDismissed ? (
+              <s-section>
+                <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="small-200">
+                  <s-text>A review helps other merchants find RewardsPro.</s-text>
+                  <s-stack direction="inline" gap="small-200" alignItems="center">
+                    <s-link href={REVIEW_URL} target="_blank">
+                      Leave a review
                     </s-link>
-                  )}
-                </Step>
-                {d.setup.importState === "running" ? (
-                  <s-text color="subdued">Bringing in your last {months} of orders so buyers start in the right tier</s-text>
-                ) : null}
-                {showImportOutcome ? (
-                  <s-stack direction="inline" justifyContent="space-between" alignItems="start" gap="small-200" data-import-outcome="">
-                    <s-stack gap="small-200">
-                      {d.setup.importState === "done" ? (
-                        <s-text color="subdued">Done: {count(d.setup.placedBuyers, "buyer", "buyers")} placed in tiers</s-text>
-                      ) : (
-                        <s-text color="subdued">{"Your past orders couldn't be brought in, so buyers start in the lowest tier."}</s-text>
-                      )}
-                      {d.setup.importError ? <s-text color="subdued">{d.setup.importError}</s-text> : null}
-                    </s-stack>
-                    <s-button variant="tertiary" onClick={() => importFetcher.submit({ intent: "import-dismissed" }, { method: "post" })}>
+                    <s-button variant="tertiary" onClick={() => reviewDismissFetcher.submit({ intent: "review-dismissed" }, { method: "post" })}>
                       Dismiss
                     </s-button>
                   </s-stack>
-                ) : null}
-              </s-stack>
-            </s-section>
-          ) : null}
-
-          <s-box display={NARROW_ONLY}>
-            <s-text>{runningSummary(running, checks)}</s-text>
-          </s-box>
-
-          <s-section>
-            <s-stack gap="base">
-              <s-heading>This month</s-heading>
-              <s-grid gridTemplateColumns="@container main (inline-size > 600px) 1fr 1fr 1fr, 1fr 1fr" gap="base">
-                <Stat label="Cashback given" value={money(d.stats.cashbackGiven)} />
-                <Stat label="Store credit spent at checkout" value={money(d.stats.creditSpent)} note="Counts store credit from any source" />
-                <Stat label="Came back" value={String(d.stats.cameBack)} note="Bought again after earning cashback" />
-              </s-grid>
-              <s-box display={WIDE_ONLY}>
-                <Chart
-                  series={[
-                    { label: "Cashback given", points: d.stats.daily.map((day) => ({ date: day.date, value: day.given })) },
-                    { label: "Store credit spent", points: d.stats.daily.map((day) => ({ date: day.date, value: day.spent })) },
-                  ]}
-                  formatValue={(value) => money(value.toFixed())}
-                />
-              </s-box>
-            </s-stack>
-          </s-section>
-
-          <s-section>
-            <s-stack gap="base">
-              <s-stack direction="inline" justifyContent="space-between" alignItems="center">
-                <s-heading>Recent rewards</s-heading>
-                <s-link href="/app/orders">All orders</s-link>
-              </s-stack>
-              {d.stats.recent.length === 0 ? (
-                <s-text color="subdued">No rewards yet.</s-text>
-              ) : (
-                d.stats.recent.map((reward, i) => {
-                  const line = (
-                    <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="small-200">
-                      <s-stack direction="inline" gap="small-300" alignItems="center">
-                        <s-link href={`/app/orders/${reward.orderId}`}>{reward.orderName}</s-link>
-                        <s-text>{reward.buyer}</s-text>
-                        <s-box display={WIDE_ONLY}>
-                          <s-text color="subdued">{reward.tierName ?? ""}</s-text>
-                        </s-box>
-                      </s-stack>
-                      <s-stack direction="inline" gap="small-300" alignItems="center">
-                        <s-text>{reward.amount}</s-text>
-                        <s-box display={WIDE_ONLY}>
-                          <s-badge tone={reward.tone}>{reward.status}</s-badge>
-                        </s-box>
-                      </s-stack>
-                    </s-stack>
-                  );
-                  const row = reward.detail ? (
-                    <s-stack gap="small-300">
-                      {line}
-                      <s-box display={WIDE_ONLY}>
-                        <s-text color="subdued">{reward.detail}</s-text>
-                      </s-box>
-                    </s-stack>
-                  ) : (
-                    line
-                  );
-                  // Phones show the newest two
-                  return i < PHONE_ROWS ? (
-                    <s-box key={i}>{row}</s-box>
-                  ) : (
-                    <s-box key={i} display={WIDE_ONLY}>
-                      {row}
-                    </s-box>
-                  );
-                })
-              )}
-            </s-stack>
-          </s-section>
-
-          {d.reviewDue && !reviewDismissed ? (
-            <s-section>
-              <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="small-200">
-                <s-text>A review helps other merchants find RewardsPro.</s-text>
-                <s-stack direction="inline" gap="small-200" alignItems="center">
-                  <s-link href={REVIEW_URL} target="_blank">
-                    Leave a review
-                  </s-link>
-                  <s-button variant="tertiary" onClick={() => reviewDismissFetcher.submit({ intent: "review-dismissed" }, { method: "post" })}>
-                    Dismiss
-                  </s-button>
                 </s-stack>
-              </s-stack>
-            </s-section>
-          ) : null}
-        </s-stack>
-      </s-query-container>
-
-      <s-section slot="aside">
-        <s-stack gap="base">
-          <s-heading>Running</s-heading>
-          <s-switch
-            label="Cashback"
-            checked={running}
-            disabled={switchBusy || (!hasTiers && !running)}
-            details={hasTiers ? undefined : "Set your base cashback rate first."}
-            onChange={(event) => switchTo(event.currentTarget.checked)}
-          />
-          <s-paragraph>{runningSentence(running)}</s-paragraph>
-          {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
-          <s-stack gap="small-200">
-            <Check ok={checks.storeCredit} yes="Store credit can be spent" no="Store credit can't be spent yet" unknown="Store credit: Shopify didn't say" />
-            <Check ok={checks.widget} yes="Widget is on" no="Widget is off" unknown="Widget: checking" />
-            <Check ok={checks.tiers} yes="Tiers are set" no="No tiers yet" />
+              </s-section>
+            ) : null}
           </s-stack>
-        </s-stack>
-      </s-section>
+        </s-query-container>
 
-      <s-section slot="aside">
-        <s-stack gap="base">
-          <s-stack direction="inline" justifyContent="space-between" alignItems="center">
-            <s-heading>Tiers</s-heading>
-            <s-link href="/app/tiers">Edit</s-link>
-          </s-stack>
-          {d.stats.tiers.length === 0 ? (
-            <s-text color="subdued">No tiers yet.</s-text>
-          ) : (
-            d.stats.tiers.map((tier) => (
-              <s-stack key={tier.id} direction="inline" justifyContent="space-between" alignItems="center">
-                <TierChip name={tier.name} percent={tier.percent} />
-                <s-text>{count(tier.members, "member", "members")}</s-text>
+        {/* The Running card, while the side column is beside the main one (Ruling 70) */}
+        <s-box slot="aside" display={`${BESIDE} auto, none`}>
+          <s-section heading="Running">
+            <s-stack gap="base">
+              {cashbackSwitch({ labelHidden: false })}
+              <s-paragraph>{runningSentence(running)}</s-paragraph>
+              {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
+              <s-stack gap="small-200">
+                <Check ok={checks.storeCredit} yes="Store credit can be spent" no="Store credit can't be spent yet" unknown="Store credit: Shopify didn't say" />
+                <Check ok={checks.widget} yes="Widget is on" no="Widget is off" unknown="Widget: checking" />
+                <Check ok={checks.tiers} yes="Tiers are set" no="No tiers yet" />
               </s-stack>
-            ))
-          )}
-        </s-stack>
-      </s-section>
-    </s-page>
+            </s-stack>
+          </s-section>
+        </s-box>
+
+        <s-section slot="aside" heading="Tiers">
+          <s-button slot="secondary-actions" href="/app/tiers">
+            Edit
+          </s-button>
+          <s-stack gap="base">
+            {d.stats.tiers.length === 0 ? (
+              <s-text color="subdued">No tiers yet.</s-text>
+            ) : (
+              d.stats.tiers.map((tier) => (
+                <s-stack key={tier.id} direction="inline" justifyContent="space-between" alignItems="center" gap="small-200">
+                  <TierChip name={tier.name} percent={tier.percent} />
+                  <s-text>{count(tier.members, "member", "members")}</s-text>
+                </s-stack>
+              ))
+            )}
+          </s-stack>
+        </s-section>
+      </s-page>
+    </s-query-container>
   );
 }
 

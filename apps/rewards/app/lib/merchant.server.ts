@@ -195,6 +195,19 @@ export async function recordReviewPrompt(merchantId: string, what: "dismissed" |
 }
 
 /**
+ * Home saw every setup step done (Ruling 60): record it the first time,
+ * and only while the store has a tier and cashback is on, the two steps the
+ * database can check (the widget embed is checked in the browser). The first
+ * time is kept.
+ */
+export async function markSetupCompleted(merchantId: string, now: Date = new Date()): Promise<void> {
+  await prisma.merchant.updateMany({
+    where: { id: merchantId, setupCompletedAt: null, running: true, tiers: { some: {} } },
+    data: { setupCompletedAt: now },
+  });
+}
+
+/**
  * The merchant dismissed the past-orders import's outcome on Home. Only an
  * import that has ended can be dismissed, and the first time is kept.
  */

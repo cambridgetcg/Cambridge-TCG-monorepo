@@ -1,9 +1,9 @@
 import { Prisma, type LedgerEntryKind, type LookReason, type PayoutDirection, type PayoutState } from "@prisma/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
-import { homeBanners } from "~/lib/home-rules";
+import { homeBanners, importOutcomeLines } from "~/admin/home-rules";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
-import { customerRows, homeStats } from "~/lib/stats.server";
+import { customerRows, homeState, homeStats } from "~/lib/stats.server";
 import { monitoring } from "~/lib/telemetry.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import type { GraphqlClient } from "~/shopify/graphql";
@@ -361,19 +361,38 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       const data = await load(fakeAdmin({ RewardsCustomerNames: { data: { nodes: [{ id: "gid://shopify/Customer/7001", firstName: "Sam", lastName: "K." }] } } }));
 
       expect(data.stats.recent).toEqual([
-        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Gold", amount: "£3.00", status: "Needs a look", tone: "warning", detail: null },
-        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Everyone", amount: "£4.00", status: "Waiting", tone: "info", detail: null },
-        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Everyone", amount: "-£1.00", status: "Needs a look", tone: "warning", detail: null },
-        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Everyone", amount: "£2.50", status: "Issued", tone: "success", detail: null },
-        { orderId: second.id, orderName: second.name, buyer: "Sam K.", tierName: "Everyone", amount: "£1.00", status: "Needs a look", tone: "warning", detail: null },
+        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Gold", ratePercent: "5", amount: "£3.00", status: "Needs a look", tone: "warning", detail: null },
+        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Everyone", ratePercent: "5", amount: "£4.00", status: "Waiting", tone: "info", detail: null },
+        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Everyone", ratePercent: "5", amount: "-£1.00", status: "Needs a look", tone: "warning", detail: null },
+        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Everyone", ratePercent: "5", amount: "£2.50", status: "Issued", tone: "success", detail: null },
+        { orderId: second.id, orderName: second.name, buyer: "Sam K.", tierName: "Everyone", ratePercent: "5", amount: "£1.00", status: "Needs a look", tone: "warning", detail: null },
       ]);
       expect(data.stats.tiers).toEqual([
         { id: everyone.id, name: "Everyone", percent: "5", members: 2 },
         { id: gold.id, name: "Gold", percent: "10", members: 1 },
       ]);
       // Ruling 56: three payouts need a look, on two orders, as the Orders page counts them
-      expect(data.stats.needsLook).toBe(2);
+      expect(data.bannerFacts.needsLook).toBe(2);
       expect(homeBanners(data.bannerFacts, true).map((b) => b.text)).toEqual(["2 orders need a look."]);
+      // DESIGN-12: two orders, so the banner opens Orders showing only those
+      expect(data.bannerFacts.needsLookOrderId).toBeNull();
+    });
+
+    // DESIGN-12: with one order that needs a look, the banner goes straight to it
+    it("names the order that needs a look when there is only one", async () => {
+      const conn = await seedShop();
+      const buyer = await seedBuyer(conn, "7001");
+      const order = await seedOrder(conn, buyer.id, { orderedAt: new Date("2026-11-02T09:00:00Z") });
+      // Two payouts of one order need a look: still one order
+      const credit = await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "2.00", createdAt: new Date("2026-11-02T09:00:00Z") });
+      await seedPayout(conn, credit, "needs_look");
+      const back = await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "reversal", amount: "-1.00", createdAt: new Date("2026-11-03T09:00:00Z") });
+      await seedPayout(conn, back, "needs_look", { direction: "debit", lookReason: "could_not_confirm" });
+
+      const data = await load();
+
+      expect(data.bannerFacts).toMatchObject({ needsLook: 1, needsLookOrderId: order.id });
+      expect(homeBanners(data.bannerFacts, true)[0].link).toEqual({ label: "Open the order", href: `/app/orders/${order.id}` });
     });
 
     it("names an erased buyer as every page does", async () => {
@@ -575,7 +594,7 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       "2 orders need a look.",
       "The rewards widget is off in your theme.",
     ]);
-    expect(banners[2].link).toEqual({ label: "Open orders", href: "/app/orders" });
+    expect(banners[2].link).toEqual({ label: "Open orders", href: "/app/orders?look=1" });
     expect(banners[3].link?.href).toBe(`https://${SHOP}/admin/themes/current/editor?context=apps&activateAppId=test-api-key/membership_widget`);
     // With nothing to act on, no banner
     expect(homeBanners({ ...data.bannerFacts, privacyDueAt: null, spendProblems: [], needsLook: 0 }, true)).toEqual([]);
@@ -698,7 +717,8 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
     });
   });
 
-  it("shows the past-orders import's progress and how many buyers it placed", async () => {
+  // Ruling 76 (TRUTH-2): the buyers it brought in, whatever their tier; Ruling 74: never the raw error
+  it("counts the orders and buyers the past-orders import brought in, and never sends its raw error to the page", async () => {
     const conn = await seedShop();
     const everyone = await seedTier(conn, "Everyone", "0", "5", 0);
     const placed = await seedBuyer(conn, "7001", everyone.id);
@@ -719,12 +739,134 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
 
     const data = await load();
 
-    expect(data.setup).toMatchObject({
+    expect(data.setup).toEqual({
+      completed: false,
       importState: "done",
-      placedBuyers: 1,
-      importError: "1 of 3 past orders could not be read, so their spend is not counted: #1",
       importDismissed: false,
+      importHorizonDays: 365,
+      // The erased buyer's order was brought in too; the buyers are the two still someone
+      importedOrders: 3,
+      importedBuyers: 2,
+      unreadable: true,
+      placing: false,
     });
+    expect(JSON.stringify(data)).not.toContain("could not be read");
+    expect(importOutcomeLines({ ...data.setup, state: "done", hasTiers: true })).toEqual([
+      "Brought in 3 of your past orders; the rest couldn't be read.",
+      "Done: 2 buyers placed in tiers",
+    ]);
+  });
+
+  it("names the buyers an import done with no tiers brought in, and counts them placed once the base rate's pass has run", async () => {
+    const conn = await seedShop();
+    for (const externalId of ["7001", "7002"]) {
+      const buyer = await seedBuyer(conn, externalId);
+      await seedOrder(conn, buyer.id, { orderedAt: new Date("2026-09-01T09:00:00Z"), source: "import" });
+    }
+    await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "done", importedCount: 2 } });
+    const outcome = (data: Awaited<ReturnType<typeof load>>) =>
+      importOutcomeLines({ ...data.setup, state: "done", hasTiers: data.stats.tiers.length > 0 });
+
+    const before = await load();
+    expect(before.setup).toMatchObject({ importedBuyers: 2, placing: false });
+    expect(outcome(before)).toEqual(["Brought in 2 buyers' past orders. They're placed in tiers when you save your base rate."]);
+
+    await expect(act({ intent: "base-rate", percent: "5" })).resolves.toEqual({ ok: true });
+    await flushWaitUntil();
+
+    const after = await load();
+    expect(after.setup).toMatchObject({ importedBuyers: 2, placing: false });
+    expect(outcome(after)).toEqual(["Done: 2 buyers placed in tiers"]);
+    const [everyone] = await prisma.tier.findMany({ where: { merchantId: conn.merchantId } });
+    expect(await prisma.customer.count({ where: { connectionId: conn.connectionId, tierId: everyone.id } })).toBe(2);
+  });
+
+  it("says the buyers are being placed while a requested pass hasn't reached them", async () => {
+    const conn = await seedShop();
+    await seedTier(conn, "Everyone", "0", "5", 0);
+    const buyer = await seedBuyer(conn, "7001");
+    await seedOrder(conn, buyer.id, { orderedAt: new Date("2026-09-01T09:00:00Z"), source: "import" });
+    // A pass asked for after the buyer was seen, not yet run
+    await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "done", tierPassRequestedAt: new Date(Date.now() + DAY) } });
+
+    const data = await load();
+
+    expect(data.setup.placing).toBe(true);
+    expect(importOutcomeLines({ ...data.setup, state: "done", hasTiers: true })).toEqual(["Brought in 1 buyer's past orders. They're being placed in tiers."]);
+  });
+
+  // Ruling 74 (BOUNDARY-4, TRUTH-12)
+  it("gives a failed import a plain sentence with what it brought in, and keeps its error off the page", async () => {
+    const conn = await seedShop();
+    const buyer = await seedBuyer(conn, "7001");
+    await seedOrder(conn, buyer.id, { orderedAt: new Date("2026-09-01T09:00:00Z"), source: "import" });
+    const raw = "HttpResponseError: Received an error response (502 Bad Gateway) from Shopify: please include this id: 7c1e";
+    await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "failed", importError: raw } });
+
+    const data = await load();
+
+    expect(JSON.stringify(data)).not.toContain("7c1e");
+    expect(data.setup).toMatchObject({ importState: "failed", importedOrders: 1, unreadable: false });
+    expect(importOutcomeLines({ ...data.setup, state: "failed", hasTiers: false })).toEqual([
+      "Brought in 1 of your past orders; the rest couldn't be read.",
+    ]);
+    // The error stays where support reads it
+    expect((await prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId } })).importError).toBe(raw);
+  });
+
+  // Ruling 60
+  describe("setup completed", () => {
+    it("is recorded once a tier exists and cashback is on, and keeps its first time", async () => {
+      const conn = await seedShop();
+      const completedAt = async () => (await merchantOf(conn)).setupCompletedAt;
+
+      // No tier, then a tier with cashback off: nothing to record
+      await expect(act({ intent: "setup-done" })).resolves.toEqual({ ok: true });
+      expect(await completedAt()).toBeNull();
+      await seedTier(conn, "Everyone", "0", "5", 0);
+      await expect(act({ intent: "setup-done" })).resolves.toEqual({ ok: true });
+      expect(await completedAt()).toBeNull();
+      expect((await load()).setup.completed).toBe(false);
+
+      await act({ intent: "running", running: "on" });
+      await expect(act({ intent: "setup-done" })).resolves.toEqual({ ok: true });
+      const first = await completedAt();
+      expect(first).toBeInstanceOf(Date);
+      expect((await load()).setup.completed).toBe(true);
+
+      // A pause later leaves setup completed, and a second post keeps the first time
+      await act({ intent: "running", running: "off" });
+      await act({ intent: "running", running: "on" });
+      await act({ intent: "setup-done" });
+      expect(await completedAt()).toEqual(first);
+      await act({ intent: "running", running: "off" });
+      expect((await load()).setup.completed).toBe(true);
+    });
+  });
+
+  // Ruling 64 (A23-F5): a request past its expiry can't be downloaded, so Home doesn't ask for it
+  it("asks for a data request only while it is open and not past its expiry", async () => {
+    const conn = await seedShop();
+    const expiresAt = new Date("2026-12-20T10:00:00Z");
+    await prisma.privacyRequest.create({
+      data: {
+        merchantId: conn.merchantId,
+        connectionId: conn.connectionId,
+        externalCustomerId: "7001",
+        shopifyRequestId: "1",
+        ordersRequested: [],
+        status: "open",
+        receivedAt: new Date("2026-11-05T10:00:00Z"),
+        dueAt: new Date("2026-12-05T10:00:00Z"),
+        expiresAt,
+      },
+    });
+
+    const at = (now: Date) => homeState(conn, now, 0);
+    expect((await at(new Date(expiresAt.getTime() - 1))).privacyDueAt).toEqual(new Date("2026-12-05T10:00:00Z"));
+    // Not yet marked expired by housekeeping, but past its expiry
+    expect((await at(expiresAt)).privacyDueAt).toBeNull();
+    expect((await at(new Date(expiresAt.getTime() + DAY))).privacyDueAt).toBeNull();
   });
 
   it("keeps the import's outcome until the merchant dismisses it, and takes a dismissal only once the import has ended", async () => {

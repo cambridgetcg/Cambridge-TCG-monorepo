@@ -13,6 +13,10 @@ vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
 
 const { default: Tiers } = await import("~/routes/app.tiers");
 
+// jsdom lays nothing out, so it has no scrollIntoView; Edit calls it
+const scrollIntoView = vi.fn();
+Element.prototype.scrollIntoView = scrollIntoView;
+
 const TIERS = [
   { id: "t0", name: "Bronze", minSpend: "0", percent: "5", members: 14, lowest: true, version: "2026-11-01T10:00:00.000Z" },
   { id: "t1", name: "Gold", minSpend: "500", percent: "10", members: 1, lowest: false, version: "2026-11-02T10:00:00.000Z" },
@@ -94,12 +98,12 @@ describe("Tiers page", () => {
 
   it("asks for a minimum when adding, and fixes the lowest tier's at 0 when editing it", async () => {
     await renderTiers();
-    expect(document.querySelector('s-number-field[name="minSpend"]')).not.toBeNull();
+    expect(document.querySelector('s-money-field[name="minSpend"]')).not.toBeNull();
 
     fireEvent.click(screen.getAllByText("Edit")[0]);
     await act(async () => {});
     expect(document.querySelector('s-section[heading="Edit Bronze"]')).not.toBeNull();
-    expect(document.querySelector('s-number-field[name="minSpend"]')).toBeNull();
+    expect(document.querySelector('s-money-field[name="minSpend"]')).toBeNull();
     expect(document.body.textContent).toContain("Minimum spend: £0.00");
 
     fireEvent.click(screen.getByText("Cancel", { selector: "s-section s-button" }));
@@ -107,10 +111,60 @@ describe("Tiers page", () => {
     expect(document.querySelector('s-section[heading="Add a tier"]')).not.toBeNull();
   });
 
+  // DESIGN-18: Polaris's money field, in the shop's currency, whole amounts from 0
+  it("asks for the minimum spend in a money field in the shop's currency", async () => {
+    await renderTiers(page({ currency: "JPY" }));
+    const field = document.querySelector('s-money-field[name="minSpend"]')!;
+    expect([field.getAttribute("label"), field.getAttribute("currencyCode"), field.getAttribute("min")]).toEqual(["Minimum spend", "JPY", "0"]);
+    expect(field.getAttribute("details")).toBe("Buyers reach this tier once they spend this much. Whole amounts only.");
+  });
+
+  // DESIGN-14
+  it("brings the form into view on Edit with Name focused, and keeps the actions beside each tier on a phone", async () => {
+    const scrolled = scrollIntoView;
+    scrolled.mockClear();
+    await renderTiers();
+    expect([...document.querySelectorAll("s-table-header")].at(-1)?.getAttribute("listSlot")).toBe("inline");
+    const name = document.querySelector('s-text-field[name="name"]') as HTMLElement;
+    const focus = vi.spyOn(name, "focus");
+
+    fireEvent.click(screen.getAllByText("Edit")[1]);
+    await act(async () => {});
+
+    expect(document.querySelector('s-section[heading="Edit Gold"]')).not.toBeNull();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(scrolled.mock.contexts[0]).toBe(document.querySelector('s-section[heading="Edit Gold"]'));
+    expect(focus).toHaveBeenCalledTimes(1);
+  });
+
+  it("moves focus to the form's Name once a delete is done and the modal has closed", async () => {
+    letFetchersPost();
+    await renderTiers(page(), { next: () => page({ tiers: [TIERS[0]] }) });
+    const name = document.querySelector('s-text-field[name="name"]') as HTMLElement;
+    const focus = vi.spyOn(name, "focus");
+    const modal = document.querySelector("s-modal") as HTMLElement & { hideOverlay?: () => void };
+    // The modal closes, then says so, as Polaris's does
+    modal.hideOverlay = () => modal.dispatchEvent(new Event("afterhide"));
+
+    fireEvent.click(screen.getByText("Delete", { selector: "s-table-cell s-button" }));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Delete tier"));
+    });
+    await act(async () => {});
+
+    expect(focus).toHaveBeenCalledTimes(1);
+    // A Cancel moves nothing
+    focus.mockClear();
+    await act(async () => {
+      modal.dispatchEvent(new Event("afterhide"));
+    });
+    expect(focus).not.toHaveBeenCalled();
+  });
+
   it("starts a store's first tier at 0", async () => {
     await renderTiers(page({ tiers: [] }));
     expect(document.body.textContent).toContain("No tiers yet.");
-    expect(document.querySelector('s-number-field[name="minSpend"]')).toBeNull();
+    expect(document.querySelector('s-money-field[name="minSpend"]')).toBeNull();
     expect(document.body.textContent).toContain("Everyone starts here");
   });
 

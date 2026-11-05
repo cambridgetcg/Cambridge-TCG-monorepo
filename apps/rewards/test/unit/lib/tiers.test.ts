@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("~/db.server", () => ({ default: {} }));
 
 import { Money } from "~/lib/money";
-import { type TierRow, progress, qualify, windowStart } from "~/lib/tiers.server";
+import { BASE_TIER_NAME, type TierRow, parseBaseRate, progress, qualify, windowStart } from "~/lib/tiers.server";
 
 const tier = (id: string, minSpend: string, percent: string, position: number): TierRow => ({
   id,
@@ -151,5 +151,17 @@ describe("progress", () => {
       amountRemaining: new Money(0),
       isTop: false,
     });
+  });
+});
+
+// A19-F4: the base rate's rules are the engine's, which the Home page uses
+describe("the base rate", () => {
+  it("takes a base rate only as a whole percent from 0 to 100", () => {
+    expect(["0", "5", " 12 ", "100"].map(parseBaseRate)).toEqual([0, 5, 12, 100]);
+    expect(["4.5", "101", "-1", "", "1e2", "five", null].map(parseBaseRate)).toEqual([null, null, null, null, null, null, null]);
+  });
+
+  it("names the tier it creates", () => {
+    expect(BASE_TIER_NAME).toBe("Everyone");
   });
 });

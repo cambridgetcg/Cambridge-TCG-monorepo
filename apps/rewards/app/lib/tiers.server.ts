@@ -25,10 +25,19 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
 import prisma, { databaseSchema } from "~/db.server";
 import { acquireCronLock, releaseCronLock } from "./cron.server";
-import { BASE_TIER_NAME, parseBaseRate } from "./home-rules";
 import { Money, fromDb } from "./money";
 import { UUID } from "./uuid";
 import { waitUntil } from "./wait-until.server";
+
+/** The name of the tier the base rate creates. */
+export const BASE_TIER_NAME = "Everyone";
+
+/** A percent as the merchant types it, the base rate's or a tier's: a whole number from 0 to 100, or null. */
+export function parseBaseRate(value: unknown): number | null {
+  if (typeof value !== "string" || !/^\d{1,3}$/.test(value.trim())) return null;
+  const percent = Number(value.trim());
+  return percent <= 100 ? percent : null;
+}
 
 export type TierWindow = "rolling_12_months" | "lifetime";
 

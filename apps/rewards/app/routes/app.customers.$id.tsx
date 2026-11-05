@@ -190,10 +190,15 @@ export default function Buyer() {
 
       <s-section heading="Store credit">
         <s-stack gap="small-200">
+          {/* Amounts as figures, not headings (DESIGN-10) */}
           {d.balances === null ? (
-            <s-heading>Shows at checkout</s-heading>
+            <s-text>Shows at checkout</s-text>
           ) : (
-            d.balances.map((line) => <s-heading key={line.currency}>{line.amount}</s-heading>)
+            d.balances.map((line) => (
+              <s-number key={line.currency} fontSize="large" fontWeight="bold">
+                {line.amount}
+              </s-number>
+            ))
           )}
           <s-text color="subdued">
             {d.balances === null ? `Shopify couldn't say just now. ${BUYER_IN_SHOPIFY} to see it.` : "As Shopify holds it now, from any source."}

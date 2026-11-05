@@ -126,7 +126,7 @@ function LookBanner({ payoutId, look, buyerAdminUrl }: { payoutId: string; look:
 
   return (
     <>
-      <s-banner tone="warning" heading={look.heading}>
+      <s-banner slot="supplemental-start" tone="warning" heading={look.heading}>
         <s-stack gap="small-200">
           {look.text ? <s-text>{look.text}</s-text> : null}
           {look.hint ? <s-text>{look.hint}</s-text> : null}
@@ -251,7 +251,7 @@ export default function Order() {
 
       <s-section heading="Refunds">
         {d.refunds.length === 0 ? (
-          <s-text color="subdued">No refunds.</s-text>
+          <s-text color="subdued">No refunds yet.</s-text>
         ) : (
           <s-table>
             <s-table-header-row>
