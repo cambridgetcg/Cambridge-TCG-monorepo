@@ -125,8 +125,9 @@ describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
 
     await expect(run()).resolves.toMatchObject({ status: 200, body: { success: true, sessionsDeleted: 1, tokensChecked: 0 } });
 
-    const left = await prisma.session.findMany({ select: { id: true }, orderBy: { id: "asc" } });
-    expect(left.map((s) => s.id)).toEqual([`offline_${QUIET_SHOP}`, `offline_${SHOP}`, "online-no-expiry", "online-recent"]);
+    // Sorted here, not by the database: its collation decides where "-" and "." fall
+    const left = await prisma.session.findMany({ select: { id: true } });
+    expect(left.map((s) => s.id).sort()).toEqual([`offline_${QUIET_SHOP}`, `offline_${SHOP}`, "online-no-expiry", "online-recent"]);
   });
 
   it("refreshes the token of a store whose refresh token runs out in 10 days", async () => {
