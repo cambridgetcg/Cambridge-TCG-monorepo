@@ -32,7 +32,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, conn } = await requireMerchant(request);
   const tiers = await filterTiers(conn.merchantId);
   const filters = readFilters(new URL(request.url), tiers.map((tier) => tier.id));
-  const { rows } = await listBuyers(admin, conn, filters, { allPages: true });
+  const { rows, searchFailed } = await listBuyers(admin, conn, filters, { allPages: true });
+  // A failed search is not "no buyers match": answer an error, so the page
+  // says the file couldn't be made instead of saving an empty one
+  if (searchFailed) {
+    return new Response("Shopify didn't answer the search. Try again.", {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "private, no-store" },
+    });
+  }
 
   const decimals = currencyDecimals(conn.currency);
   const amount = (value: Parameters<typeof roundMoney>[0]) => roundMoney(value, conn.currency).toFixed(decimals);

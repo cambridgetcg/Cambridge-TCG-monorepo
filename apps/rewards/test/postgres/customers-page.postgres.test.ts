@@ -504,6 +504,19 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       const searched = await (await exportCsv("?q=ann", fakeAdmin({ people, search: [ann.externalCustomerId!] }))).text();
       expect(searched.split("\r\n").slice(1, -1)).toEqual(["Ann,Gold,0.00,0.00"]);
     });
+
+    it("answers 503, not an empty file, when Shopify can't search", async () => {
+      await addBuyer();
+      captureLogs();
+
+      const response = await exportCsv("?q=smith", fakeAdmin({ search: "fail" }));
+
+      expect(response.ok).toBe(false);
+      expect(response.status).toBe(503);
+      expect(response.headers.get("Content-Disposition")).toBeNull();
+      expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+      expect(await response.text()).toBe("Shopify didn't answer the search. Try again.");
+    });
   });
 
   describe("the buyer panel", () => {
