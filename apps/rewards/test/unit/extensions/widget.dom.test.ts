@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { MembershipAnswer, ProxyAnswer } from "~/routes/api.proxy.$";
 import type { WidgetConfig } from "~/shopify/widget-config.server";
 
 /**
@@ -45,8 +46,10 @@ function guest(config: WidgetConfig | undefined, settings: { message?: string; c
   });
 }
 
-/** The proxy's answer for a signed-in buyer (app/routes/api.proxy.$.tsx). */
-function membership(change: { storeCredit?: number | null; running?: boolean; accounts?: string | null; top?: boolean } = {}) {
+type Accounts = MembershipAnswer["settings"]["customerAccountsVersion"];
+
+/** The proxy's answer for a signed-in buyer, typed against the route's own (app/routes/api.proxy.$.tsx). */
+function membership(change: { storeCredit?: number | null; running?: boolean; accounts?: Accounts; top?: boolean } = {}) {
   const top = change.top ?? false;
   return {
     success: true,
@@ -62,15 +65,23 @@ function membership(change: { storeCredit?: number | null; running?: boolean; ac
       currentSpending: 20,
     },
     settings: { currency: "GBP", customerAccountsVersion: change.accounts === undefined ? "NEW_CUSTOMER_ACCOUNTS" : change.accounts },
-    theme: {},
+    // The released widget's look; this widget ignores it (spec 5)
+    theme: {} as MembershipAnswer["theme"],
     running: change.running ?? true,
-  };
+  } satisfies MembershipAnswer;
 }
 
-function answering(body: unknown) {
-  const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => Response.json(body));
+function responding(make: () => Response) {
+  const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => make());
   vi.stubGlobal("fetch", fetch);
   return fetch;
+}
+const answering = (body: unknown) => responding(() => Response.json(body));
+
+/** Lets the one request, and whatever the widget does with its answer, finish. */
+async function settled(fetch: ReturnType<typeof responding>) {
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+  await new Promise((r) => setTimeout(r, 0));
 }
 
 /** The words a reader meets, one text node after another. */
@@ -130,7 +141,7 @@ describe("a signed-in buyer's widget", () => {
     await shown(withNew);
     expect(text(withNew)).toContain("Sign in and choose Apply store credit at checkout");
 
-    for (const accounts of ["CLASSIC", null]) {
+    for (const accounts of ["CLASSIC", null] as const) {
       document.body.replaceChildren();
       answering(membership({ accounts }));
       const root = signedIn();
@@ -159,11 +170,41 @@ describe("a signed-in buyer's widget", () => {
   });
 
   it("stays hidden when the proxy has no membership to show", async () => {
-    const fetch = answering({ success: false, message: "Rewards are not set up yet" });
+    const fetch = answering({ success: false, message: "Rewards are not set up yet" } satisfies ProxyAnswer);
     const root = signedIn();
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-    await new Promise((r) => setTimeout(r, 0));
+    await settled(fetch);
 
+    expect(root.hidden).toBe(true);
+    expect(text(root)).toBe("");
+  });
+
+  it("stays hidden when the proxy answers with an error status, even with a membership in the body", async () => {
+    const fetch = responding(() => Response.json(membership(), { status: 502 }));
+    const root = signedIn();
+    await settled(fetch);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(root.hidden).toBe(true);
+    expect(text(root)).toBe("");
+  });
+
+  it("stays hidden when the answer is not JSON", async () => {
+    const fetch = responding(() => new Response("<html><body>Bad gateway</body></html>", { status: 200, headers: { "Content-Type": "text/html" } }));
+    const root = signedIn();
+    await settled(fetch);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(root.hidden).toBe(true);
+    expect(text(root)).toBe("");
+  });
+
+  // Decision 10: a signed-in page whose buyer the proxy could only verify as a guest
+  it("stays hidden, with no sign-in invitation, when the proxy verified the signed-in page as a guest", async () => {
+    const fetch = answering({ success: false, requiresLogin: true, message: "Sign in to see your rewards", running: true } satisfies ProxyAnswer);
+    const root = signedIn();
+    await settled(fetch);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
     expect(root.hidden).toBe(true);
     expect(text(root)).toBe("");
   });
@@ -257,6 +298,24 @@ describe("a guest's widget", () => {
     expect(blank.querySelector("a")?.textContent).toBe("Sign in");
     // The released block's own default address means the store's sign-in route
     expect(blank.querySelector("a")?.getAttribute("href")).toBe("/customer_authentication/login");
+  });
+
+  // Ruling 83: the released block's shipped defaults, saved by a theme, are not the merchant's words
+  it("shows its own copy where the theme kept the released block's default guest copy", async () => {
+    const released = guest({ running: true, basePercent: 5 }, { message: "Join our rewards program!", ctaText: "Sign In", ctaUrl: "/account/login" });
+    await shown(released);
+    expect(text(released)).toContain("Sign in to see your rewards");
+    expect(text(released)).not.toContain("Join our rewards program!");
+    expect(released.querySelector("a")?.textContent).toBe("Sign in");
+    expect(released.querySelector("a")?.getAttribute("href")).toBe("/customer_authentication/login");
+
+    // Only those exact words: anything else the merchant wrote still overrides
+    document.body.replaceChildren();
+    const chosen = guest({ running: true, basePercent: 5 }, { message: "Join our rewards program today!", ctaText: "Sign In now" });
+    await shown(chosen);
+    expect(text(chosen)).toContain("Join our rewards program today!");
+    expect(text(chosen)).not.toContain("Sign in to see your rewards");
+    expect(chosen.querySelector("a")?.textContent).toBe("Sign In now");
   });
 
   it("never links to a script address", async () => {

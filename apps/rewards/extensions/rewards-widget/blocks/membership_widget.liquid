@@ -15,7 +15,7 @@
   data-rewards-widget
   data-look="{{ block.settings.look | escape }}"
   data-locale="{{ request.locale.iso_code }}"
-  style="--rw-accent: {{ rewards_accent }}"
+  style="--rw-accent: {{ rewards_accent | escape }}"
   {% if customer %}
     data-state="customer"
     data-endpoint="/apps/rewardspro/membership"

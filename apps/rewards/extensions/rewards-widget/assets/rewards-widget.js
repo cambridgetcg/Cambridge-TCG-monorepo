@@ -14,7 +14,11 @@
   "use strict";
 
   var TIMEOUT_MS = 8000;
+  // The released block's shipped defaults (Ruling 83): a theme that saved
+  // them shows this widget's copy, as if the setting were empty.
   var LOGIN_DEFAULT = "/account/login";
+  var MESSAGE_DEFAULT = "Join our rewards program!";
+  var CTA_DEFAULT = "Sign In";
   var made = 0;
 
   /** A locale string Liquid passed as data-t-<name>, with its {placeholders} filled. */
@@ -27,6 +31,12 @@
 
   function filled(value) {
     return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+  }
+
+  /** A guest setting the merchant filled in with words other than the released default. */
+  function chosen(root, name, releasedDefault) {
+    var value = filled(root.getAttribute(name));
+    return value === releasedDefault ? null : value;
   }
 
   function el(tag, className, text) {
@@ -152,7 +162,7 @@
 
   function guest(root) {
     if (root.getAttribute("data-running") === "false") return;
-    var lines = [el("p", "rw-title", filled(root.getAttribute("data-message")) || copy(root, "guest-message"))];
+    var lines = [el("p", "rw-title", chosen(root, "data-message", MESSAGE_DEFAULT) || copy(root, "guest-message"))];
 
     var rate = filled(root.getAttribute("data-base-percent"));
     var base = rate === null ? NaN : Number(rate);
@@ -160,9 +170,8 @@
       lines.push(el("p", "rw-line", copy(root, "guest-earn", { percent: percent(root, base) })));
     }
 
-    var asked = filled(root.getAttribute("data-cta-url"));
-    var link = el("a", "rw-cta", filled(root.getAttribute("data-cta-text")) || copy(root, "guest-cta"));
-    link.href = (asked !== LOGIN_DEFAULT && safeLink(asked)) || safeLink(root.getAttribute("data-login-url")) || LOGIN_DEFAULT;
+    var link = el("a", "rw-cta", chosen(root, "data-cta-text", CTA_DEFAULT) || copy(root, "guest-cta"));
+    link.href = safeLink(chosen(root, "data-cta-url", LOGIN_DEFAULT)) || safeLink(root.getAttribute("data-login-url")) || LOGIN_DEFAULT;
     lines.push(link);
     show(root, null, lines);
   }

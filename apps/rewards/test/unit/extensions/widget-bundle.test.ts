@@ -114,6 +114,10 @@ describe("the block's Liquid", () => {
     expect(liquid).toContain('data-login-url="{{ routes.account_login_url }}"');
   });
 
+  it("prints the accent colour escaped", () => {
+    expect(liquid).toContain('style="--rw-accent: {{ rewards_accent | escape }}"');
+  });
+
   it("loads the script with defer and the stylesheet once", () => {
     expect(liquid).toMatch(/<script src="\{\{ 'rewards-widget\.js' \| asset_url \}\}" defer><\/script>/);
     expect(schema.stylesheet).toBe("rewards-widget.css");

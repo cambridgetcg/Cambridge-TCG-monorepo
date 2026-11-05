@@ -40,7 +40,19 @@ const THEME = {
 
 const CURRENCY_PARAM = /^[A-Za-z]{3}$/;
 
-const answer = (body: unknown, status = 200) => Response.json(body, { status, headers: HEADERS });
+/** A signed-in buyer's answer, the shape the released widget reads (Decision 9). */
+export type MembershipAnswer = Awaited<ReturnType<typeof membership>>;
+
+/**
+ * Every JSON answer to `GET membership`. The widget's DOM tests type their
+ * fixtures against it, so a key renamed here fails their typecheck.
+ */
+export type ProxyAnswer =
+  | MembershipAnswer
+  | { success: false; requiresLogin: true; message: string; running: boolean }
+  | { success: false; message: string };
+
+const answer = (body: ProxyAnswer, status = 200) => Response.json(body, { status, headers: HEADERS });
 
 /** The signed-in buyer's membership: their tier, live balance and progress. */
 async function membership(conn: ConnectionContext, tiers: TierRow[], visitor: VerifiedProxyRequest & { customerId: string }, url: URL) {
@@ -64,7 +76,7 @@ async function membership(conn: ConnectionContext, tiers: TierRow[], visitor: Ve
   const shown = (v: Parameters<typeof roundMoney>[0]) => roundMoney(v, conn.currency).toNumber();
 
   return {
-    success: true,
+    success: true as const,
     membership: {
       tier: { id: tier.id, name: tier.name, cashbackPercent: tier.cashbackPercent.toNumber() },
       tierSource: locked ? "MANUAL_OVERRIDE" : "SPENDING_BASED",
