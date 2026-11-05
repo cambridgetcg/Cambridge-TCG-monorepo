@@ -1,5 +1,5 @@
 import type { Decimal } from "decimal.js";
-import { Money, currencyDecimals, toShopifyAmount } from "~/lib/money";
+import { Money, currencyDecimals, roundMoney, toShopifyAmount } from "~/lib/money";
 import type { CreditHistoryResult, CreditRecord, PayoutRail, RailAnswer } from "~/lib/ports";
 import { RewardsBalance, RewardsCredit, RewardsCreditHistory, RewardsDebit, type GraphqlClient } from "./graphql";
 
@@ -307,9 +307,11 @@ export function createStoreCreditRail(admin: GraphqlClient): PayoutRail {
     // nothing, and sending the same request again would fail the same way
     let variables: Record<string, unknown>;
     try {
-      const amount = toShopifyAmount(i.amount, i.currency);
-      const value = new Money(amount);
+      // Checked before toShopifyAmount, which throws for these, so the
+      // answer keeps its own message (an unknown currency throws here)
+      const value = roundMoney(i.amount, i.currency);
       if (!(value.isFinite() && value.gt(0))) return refused(true, null, `Invalid store credit amount (${i.amount.toString()} ${i.currency})`);
+      const amount = toShopifyAmount(i.amount, i.currency);
       const money = { amount, currencyCode: i.currency };
       const id = `gid://shopify/Customer/${i.externalCustomerId}`;
       variables = credit ? { id, creditInput: { creditAmount: money, notify: i.notify === true } } : { id, debitInput: { debitAmount: money } };

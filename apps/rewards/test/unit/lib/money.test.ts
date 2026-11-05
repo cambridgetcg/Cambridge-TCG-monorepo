@@ -53,6 +53,37 @@ describe("currencyDecimals", () => {
   it("names the code it refused", () => {
     expect(() => currencyDecimals("usd")).toThrow(/usd/);
   });
+
+  it("refuses a well formed code the runtime does not list", () => {
+    // Intl.NumberFormat formats "ZZZ" with 2 decimals rather than throwing
+    expect(Intl.supportedValuesOf("currency")).not.toContain("ZZZ");
+    expect(() => currencyDecimals("ZZZ")).toThrow(UnknownCurrencyError);
+    expect(() => currencyDecimals("ZZZ")).toThrow(/ZZZ/);
+    expect(currencyDecimals("GBP")).toBe(2);
+    expect(currencyDecimals("JPY")).toBe(0);
+    expect(currencyDecimals("KWD")).toBe(3);
+  });
+
+  it("pins the runtime's minor units, including where ICU differs from ISO 4217", () => {
+    // The decimals come from the runtime's ICU data, not from ISO 4217. They
+    // differ for some codes: ISO 4217 gives HUF, IDR and TWD 2 decimals,
+    // this Node's ICU gives HUF 0 and IDR 0 (TWD 2, though its cash rounding
+    // in CLDR is 0, so it is pinned too). The pin exists so a Node or ICU
+    // upgrade that changes a value fails CI instead of silently changing how
+    // cashback rounds. Fewer decimals than ISO still send a valid Shopify
+    // amount (a whole HUF is a valid HUF amount); only the rounding step is
+    // coarser. Update the pin deliberately if ICU changes.
+    expect({
+      JPY: currencyDecimals("JPY"),
+      GBP: currencyDecimals("GBP"),
+      KWD: currencyDecimals("KWD"),
+      HUF: currencyDecimals("HUF"),
+      IDR: currencyDecimals("IDR"),
+      TWD: currencyDecimals("TWD"),
+    }).toEqual({ JPY: 0, GBP: 2, KWD: 3, HUF: 0, IDR: 0, TWD: 2 });
+    expect(toShopifyAmount(new Money("1234.5"), "HUF")).toBe("1235");
+    expect(toShopifyAmount(new Money("15000.4"), "IDR")).toBe("15000");
+  });
 });
 
 describe("roundMoney", () => {
@@ -121,7 +152,32 @@ describe("toShopifyAmount", () => {
 
   it("never writes exponent notation", () => {
     expect(toShopifyAmount(new Money("1e21"), "GBP")).toBe("1000000000000000000000.00");
-    expect(toShopifyAmount(new Money("1e-7"), "GBP")).toBe("0.00");
+    expect(toShopifyAmount(new Money("1e-2"), "GBP")).toBe("0.01");
+  });
+
+  it("refuses a value that is zero once rounded to the currency's decimals", () => {
+    expect(() => toShopifyAmount(new Money(0), "GBP")).toThrow(RangeError);
+    expect(() => toShopifyAmount(new Money("1e-7"), "GBP")).toThrow(RangeError);
+    expect(() => toShopifyAmount(new Money("0.004"), "GBP")).toThrow(RangeError);
+    expect(() => toShopifyAmount(new Money("-0.001"), "GBP")).toThrow(RangeError);
+    expect(() => toShopifyAmount(new Money("0.4"), "JPY")).toThrow(RangeError);
+    // The smallest amount that rounds up to one minor unit is sent
+    expect(toShopifyAmount(new Money("0.005"), "GBP")).toBe("0.01");
+  });
+
+  it("refuses a negative value", () => {
+    expect(() => toShopifyAmount(new Money(-5), "GBP")).toThrow(RangeError);
+    expect(() => toShopifyAmount(new Money("-0.01"), "GBP")).toThrow(RangeError);
+  });
+
+  it("refuses NaN and infinities", () => {
+    expect(() => toShopifyAmount(new Money(NaN), "GBP")).toThrow(RangeError);
+    expect(() => toShopifyAmount(new Money(Infinity), "GBP")).toThrow(RangeError);
+    expect(() => toShopifyAmount(new Money(-Infinity), "GBP")).toThrow(RangeError);
+  });
+
+  it("refuses an unknown currency", () => {
+    expect(() => toShopifyAmount(new Money(5), "ZZZ")).toThrow(UnknownCurrencyError);
   });
 
   it("rounds half-up when given more decimals than the currency has", () => {
@@ -151,6 +207,25 @@ describe("fitsNumeric", () => {
   it("checks numeric(5,2) percentages", () => {
     expect(fitsNumeric(new Money("999.99"), 5, 2)).toBe(true);
     expect(fitsNumeric(new Money("1000"), 5, 2)).toBe(false);
+  });
+
+  it("refuses a precision and scale that are not a numeric type", () => {
+    for (const [precision, scale] of [
+      [19, -1],
+      [4, 5],
+      [19.5, 4],
+      [19, 4.5],
+      [NaN, 4],
+      [19, NaN],
+      [Infinity, 4],
+      [0, 0],
+    ]) {
+      expect(() => fitsNumeric(new Money(1), precision, scale)).toThrow(RangeError);
+    }
+    // scale equal to precision is a valid numeric: only |v| < 1 fits
+    expect(fitsNumeric(new Money("0.99"), 2, 2)).toBe(true);
+    expect(fitsNumeric(new Money("1"), 2, 2)).toBe(false);
+    expect(fitsNumeric(new Money("12"), 2, 0)).toBe(true);
   });
 
   it("refuses NaN and infinities", () => {
