@@ -18,6 +18,10 @@
  * Customers (spec 4.4): each buyer's spend is the tier engine's own
  * (spendCounted, the figure that decides the tier) and their cashback given
  * is the same ledger net as Home's, per buyer.
+ *
+ * Orders (spec 4.6): each order's status is orderStatus (order-status.ts,
+ * no database) over its cashback entry, that entry's credit and its
+ * take-backs.
  */
 import { Prisma, type LedgerEntryKind, type LookReason, type NoCashbackReason, type PayoutDirection, type PayoutState } from "@prisma/client";
 import type { Decimal } from "decimal.js";
@@ -25,6 +29,7 @@ import prisma, { databaseSchema } from "~/db.server";
 import { daysEnding, reviewDue, rewardStatus } from "./home-rules";
 import type { ConnectionContext } from "./merchant.server";
 import { Money, fromDb } from "./money";
+import { type OrderStatus, type OrderStatusLabel, orderStatus } from "./order-status";
 import { type Progress, type TierRow, progress, spendCounted, spendOf, tierSpend, tierTable } from "./tiers.server";
 
 export type RecentReward = {
@@ -459,4 +464,321 @@ export async function buyerPanel(conn: ConnectionContext, customerId: string, no
       };
     }),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Orders (spec 4.6)
+// ---------------------------------------------------------------------------
+
+// The pure rule, here with the rest of the admin's numbers
+export { orderStatus };
+export type { OrderStatus, OrderStatusLabel };
+
+/** Orders an Orders page shows. */
+export const ORDER_PAGE_SIZE = 50;
+
+/** An order with a payout (its credit or a take-back) that needs a look. */
+const NEEDS_LOOK_ORDER = { ledgerEntries: { some: { payout: { state: "needs_look" as const } } } };
+
+/** What orderStatus reads of an order's cashback entry and take-backs. */
+const STATUS_ENTRY_SELECT = {
+  kind: true,
+  amount: true,
+  currency: true,
+  tierName: true,
+  ratePercent: true,
+  payout: { select: { state: true, lookReason: true, shortfall: true } },
+} as const;
+
+type StatusEntry = {
+  kind: LedgerEntryKind;
+  amount: Prisma.Decimal;
+  currency: string;
+  tierName: string | null;
+  ratePercent: Prisma.Decimal | null;
+  payout: { state: PayoutState; lookReason: LookReason | null; shortfall: Prisma.Decimal | null } | null;
+};
+
+type StatusOrder = { source: "live" | "import"; test: boolean; noCashbackReason: NoCashbackReason | null };
+
+/** The order's cashback (amount, tier and rate) and status, from its ledger entries. */
+function cashbackAndStatus(order: StatusOrder, entries: StatusEntry[]) {
+  const cashback = entries.find((entry) => entry.kind === "cashback") ?? null;
+  const reversals = entries.flatMap((entry) =>
+    entry.kind === "reversal" && entry.payout
+      ? [{ amount: fromDb(entry.amount), state: entry.payout.state, lookReason: entry.payout.lookReason, shortfall: entry.payout.shortfall === null ? null : fromDb(entry.payout.shortfall) }]
+      : [],
+  );
+  return {
+    cashback: cashback
+      ? {
+          amount: fromDb(cashback.amount),
+          currency: cashback.currency,
+          tierName: cashback.tierName,
+          ratePercent: cashback.ratePercent === null ? null : fromDb(cashback.ratePercent),
+        }
+      : null,
+    status: orderStatus(order, cashback ? { amount: fromDb(cashback.amount) } : null, cashback?.payout ?? null, reversals),
+  };
+}
+
+export type OrderRow = {
+  id: string;
+  name: string;
+  currency: string;
+  totalAmount: Decimal;
+  /** The buyer's customer row, for their panel; null once erased */
+  customerId: string | null;
+  /** The buyer's Shopify customer id, for their live name; null once erased */
+  externalCustomerId: string | null;
+  /** Its cashback entry, in the buyer's currency, with the tier and rate it earned at */
+  cashback: { amount: Decimal; currency: string; tierName: string | null; ratePercent: Decimal | null } | null;
+  status: OrderStatus;
+};
+
+/**
+ * One page of the Orders list (spec 4.6): the store's orders, newest first
+ * (by created date, then id), ORDER_PAGE_SIZE to a page counted from 1;
+ * `needsLook` keeps only the orders with a payout that needs a look.
+ * `needsLook` in the answer counts those orders, whichever page is asked for.
+ */
+export async function orderRows(
+  conn: ConnectionContext,
+  o: { page: number; needsLook?: boolean },
+): Promise<{ rows: OrderRow[]; hasNext: boolean; needsLook: number }> {
+  const page = Number.isSafeInteger(o.page) && o.page >= 1 ? o.page : 1;
+  const ours = { merchantId: conn.merchantId, connectionId: conn.connectionId };
+  const [orders, needsLook] = await Promise.all([
+    prisma.order.findMany({
+      where: { ...ours, ...(o.needsLook ? NEEDS_LOOK_ORDER : {}) },
+      orderBy: [{ orderedAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * ORDER_PAGE_SIZE,
+      take: ORDER_PAGE_SIZE + 1,
+      select: {
+        id: true,
+        name: true,
+        source: true,
+        test: true,
+        noCashbackReason: true,
+        currency: true,
+        totalAmount: true,
+        customer: { select: { id: true, externalCustomerId: true } },
+        ledgerEntries: { where: { kind: { in: ["cashback", "reversal"] } }, select: STATUS_ENTRY_SELECT },
+      },
+    }),
+    prisma.order.count({ where: { ...ours, ...NEEDS_LOOK_ORDER } }),
+  ]);
+
+  return {
+    rows: orders.slice(0, ORDER_PAGE_SIZE).map((order) => {
+      const erased = order.customer.externalCustomerId === null;
+      return {
+        id: order.id,
+        name: order.name,
+        currency: order.currency,
+        totalAmount: fromDb(order.totalAmount),
+        customerId: erased ? null : order.customer.id,
+        externalCustomerId: order.customer.externalCustomerId,
+        ...cashbackAndStatus(order, order.ledgerEntries),
+      };
+    }),
+    hasNext: orders.length > ORDER_PAGE_SIZE,
+    needsLook,
+  };
+}
+
+/** A payout as the order panel shows it: the buyer panel's facts and its own. */
+export type PanelPayout = NonNullable<HistoryEntry["payout"]> & {
+  id: string;
+  attempts: number;
+  sentAt: Date | null;
+  shortfall: Decimal | null;
+};
+
+export type OrderEntry = Omit<HistoryEntry, "payout"> & { payout: PanelPayout | null };
+
+export type OrderRefund = {
+  id: string;
+  /** Shopify's id, which an import order's importRefundIds lists when the import counted it */
+  externalRefundId: string;
+  /** The product value it returned, in the order's currency */
+  productAmount: Decimal;
+  refundedAt: Date;
+  /** Already on the order when RewardsPro recorded it (Ruling 24) */
+  appliedBeforeCashback: boolean;
+  /** What its take-back took off the cashback (positive, in the cashback's currency); null when it took nothing */
+  takenBack: { amount: Decimal; currency: string } | null;
+  /** The past-orders import counted it already (Ruling 54) */
+  countedAtImport: boolean;
+};
+
+export interface OrderPanel {
+  id: string;
+  name: string;
+  source: "live" | "import";
+  test: boolean;
+  cancelledAt: Date | null;
+  noCashbackReason: NoCashbackReason | null;
+  currency: string;
+  totalAmount: Decimal;
+  productAmount: Decimal;
+  storeCreditUsed: Decimal;
+  giftCardUsed: Decimal;
+  cashbackBase: Decimal;
+  /** The order's processedAt (Ruling 27) */
+  paidAt: Date;
+  /** Null once the buyer was erased */
+  customerId: string | null;
+  externalCustomerId: string | null;
+  status: OrderStatus;
+  /** Every ledger entry of the order, newest first, each with its payout */
+  entries: OrderEntry[];
+  /** Newest first */
+  refunds: OrderRefund[];
+}
+
+/**
+ * The order panel's facts (spec 4.6) for one of the store's orders: the
+ * order, its status, its ledger entries with their payouts, and its refunds
+ * with what each took back. Null when the order is not the store's or
+ * `orderId` is no id at all. An order holds one cashback entry and a few
+ * take-backs and adjustments, so everything is read.
+ */
+export async function orderPanel(conn: ConnectionContext, orderId: string): Promise<OrderPanel | null> {
+  if (!UUID.test(orderId)) return null;
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, merchantId: conn.merchantId, connectionId: conn.connectionId },
+    select: {
+      id: true,
+      name: true,
+      source: true,
+      test: true,
+      cancelledAt: true,
+      noCashbackReason: true,
+      currency: true,
+      totalAmount: true,
+      productAmount: true,
+      storeCreditUsed: true,
+      giftCardUsed: true,
+      cashbackBase: true,
+      paidAt: true,
+      importRefundIds: true,
+      customer: { select: { id: true, externalCustomerId: true } },
+      refunds: {
+        orderBy: [{ refundedAt: "desc" }, { id: "desc" }],
+        select: {
+          id: true,
+          externalRefundId: true,
+          productAmount: true,
+          refundedAt: true,
+          appliedBeforeCashback: true,
+          ledgerEntries: { where: { kind: "reversal" }, select: { amount: true, currency: true } },
+        },
+      },
+    },
+  });
+  if (!order) return null;
+
+  const entries = await prisma.ledgerEntry.findMany({
+    where: { merchantId: conn.merchantId, orderId: order.id },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: {
+      kind: true,
+      amount: true,
+      currency: true,
+      tierName: true,
+      ratePercent: true,
+      idempotencyKey: true,
+      createdAt: true,
+      payout: {
+        select: {
+          id: true,
+          direction: true,
+          state: true,
+          lookReason: true,
+          amount: true,
+          debitedAmount: true,
+          shortfall: true,
+          unconfirmedAt: true,
+          lastError: true,
+          attempts: true,
+          sentAt: true,
+        },
+      },
+    },
+  });
+  const orNull = (value: Prisma.Decimal | null) => (value === null ? null : fromDb(value));
+  const erased = order.customer.externalCustomerId === null;
+
+  return {
+    id: order.id,
+    name: order.name,
+    source: order.source,
+    test: order.test,
+    cancelledAt: order.cancelledAt,
+    noCashbackReason: order.noCashbackReason,
+    currency: order.currency,
+    totalAmount: fromDb(order.totalAmount),
+    productAmount: fromDb(order.productAmount),
+    storeCreditUsed: fromDb(order.storeCreditUsed),
+    giftCardUsed: fromDb(order.giftCardUsed),
+    cashbackBase: fromDb(order.cashbackBase),
+    paidAt: order.paidAt,
+    customerId: erased ? null : order.customer.id,
+    externalCustomerId: order.customer.externalCustomerId,
+    status: cashbackAndStatus(order, entries).status,
+    entries: entries.map((entry) => ({
+      kind: entry.kind,
+      amount: fromDb(entry.amount),
+      currency: entry.currency,
+      tierName: entry.tierName,
+      ratePercent: orNull(entry.ratePercent),
+      idempotencyKey: entry.idempotencyKey,
+      createdAt: entry.createdAt,
+      orderId: order.id,
+      orderName: order.name,
+      payout: entry.payout
+        ? {
+            id: entry.payout.id,
+            direction: entry.payout.direction,
+            state: entry.payout.state,
+            lookReason: entry.payout.lookReason,
+            amount: fromDb(entry.payout.amount),
+            debitedAmount: orNull(entry.payout.debitedAmount),
+            shortfall: orNull(entry.payout.shortfall),
+            unconfirmedAt: entry.payout.unconfirmedAt,
+            lastError: entry.payout.lastError,
+            attempts: entry.payout.attempts,
+            sentAt: entry.payout.sentAt,
+          }
+        : null,
+    })),
+    refunds: order.refunds.map((refund) => {
+      // One reversal per refund (its key is the refund's id), in the cashback's currency
+      const [reversal] = refund.ledgerEntries;
+      const taken = reversal ? fromDb(reversal.amount).abs() : new Money(0);
+      return {
+        id: refund.id,
+        externalRefundId: refund.externalRefundId,
+        productAmount: fromDb(refund.productAmount),
+        refundedAt: refund.refundedAt,
+        appliedBeforeCashback: refund.appliedBeforeCashback,
+        takenBack: reversal && taken.gt(0) ? { amount: taken, currency: reversal.currency } : null,
+        countedAtImport: order.source === "import" && order.importRefundIds.includes(refund.externalRefundId),
+      };
+    }),
+  };
+}
+
+/**
+ * Whether `payoutId` is a payout of `orderId`, an order of the store: the
+ * order panel's answers act only on the order's own payouts.
+ */
+export async function orderHasPayout(conn: ConnectionContext, orderId: string, payoutId: string): Promise<boolean> {
+  if (!UUID.test(orderId) || !UUID.test(payoutId)) return false;
+  const payout = await prisma.payout.findFirst({
+    where: { id: payoutId, merchantId: conn.merchantId, ledgerEntry: { orderId, order: { connectionId: conn.connectionId } } },
+    select: { id: true },
+  });
+  return payout !== null;
 }

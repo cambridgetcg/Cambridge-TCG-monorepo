@@ -93,6 +93,12 @@ function adjustmentLabel(key: string): string {
   return "Adjustment";
 }
 
+/** What happened to an entry's payout, in words: a line's detail (null for an adjustment). */
+export function payoutDetail(entry: HistoryEntry): string | null {
+  if (entry.kind === "adjustment" || !entry.payout) return null;
+  return entry.kind === "reversal" ? takeBackDetail(entry.payout, entry.currency) : creditDetail(entry.payout);
+}
+
 export function historyLine(entry: HistoryEntry, timezone: string): HistoryLine {
   const line = {
     date: formatDay(entry.createdAt, timezone),
@@ -107,9 +113,9 @@ export function historyLine(entry: HistoryEntry, timezone: string): HistoryLine 
   }
   const { payout } = entry;
   if (entry.kind === "reversal") {
-    return { ...line, label: "Taken back for a refund", status: rewardStatus("reversal", payout.state), detail: takeBackDetail(payout, entry.currency) };
+    return { ...line, label: "Taken back for a refund", status: rewardStatus("reversal", payout.state), detail: payoutDetail(entry) };
   }
-  return { ...line, label: "Cashback", status: rewardStatus("cashback", payout.state), detail: creditDetail(payout) };
+  return { ...line, label: "Cashback", status: rewardStatus("cashback", payout.state), detail: payoutDetail(entry) };
 }
 
 /** An order's note when it earned nothing for a reason worth saying. */
