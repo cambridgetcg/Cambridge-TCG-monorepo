@@ -25,7 +25,7 @@ overrides:
   '@visx/xychart>@types/react': ^18.3.31
   qs: ^6.16.0
 
-packageExtensionsChecksum: f21de9a67cd72074c8d480e073ec3960
+packageExtensionsChecksum: 379976ba83ac9dbef1898ca93c0c893d
 
 importers:
 
@@ -98,7 +98,7 @@ importers:
         version: 1.2.2(@types/node@24.13.3)(typescript@5.9.3)
       '@shopify/polaris-types':
         specifier: ^2.0.0
-        version: 2.0.0
+        version: 2.0.0(@types/react@19.2.14)
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.2
@@ -4486,6 +4486,11 @@ packages:
 
   '@shopify/polaris-types@2.0.0':
     resolution: {integrity: sha512-G1nv58jrTVvR07cBzIybtM66/wFykUyyBab4WSncV08ZmWamPfbs6bv3c0wC4UTDz4f2V0et0HbqLsBH8ZkJCQ==}
+    peerDependencies:
+      '@types/react': '*'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   '@shopify/polaris@12.27.0':
     resolution: {integrity: sha512-Y8yus6iEjcfW2ZtEJtlqxbWeDJqTX3S/MOLH4GWRvU5gFYJQhlaHaETs0+OimbhEpO95mXbY8qB+KnIJaVBHwA==}
@@ -15536,7 +15541,9 @@ snapshots:
     dependencies:
       deepmerge: 4.3.1
 
-  '@shopify/polaris-types@2.0.0': {}
+  '@shopify/polaris-types@2.0.0(@types/react@19.2.14)':
+    optionalDependencies:
+      '@types/react': 19.2.14
 
   '@shopify/polaris@12.27.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:

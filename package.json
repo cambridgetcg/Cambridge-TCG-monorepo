@@ -123,6 +123,14 @@
         "peerDependenciesMeta": {
           "@types/react": { "optional": true }
         }
+      },
+      "@shopify/polaris-types": {
+        "peerDependencies": {
+          "@types/react": "*"
+        },
+        "peerDependenciesMeta": {
+          "@types/react": { "optional": true }
+        }
       }
     },
     "overrides": {

@@ -12,14 +12,21 @@ import "@shopify/shopify-app-react-router/adapters/node";
 import { ApiVersion, AppDistribution, shopifyApp } from "@shopify/shopify-app-react-router/server";
 import prisma from "./db.server";
 import { onAppOpened } from "./shopify/install.server";
+import { POLARIS_URL } from "./shopify/polaris";
 import { EncryptedPrismaSessionStorage } from "./shopify/session-storage.server";
-
-// The same URL as on AppProvider, so the preload header and the page load one bundle.
-const POLARIS_URL = "https://cdn.shopify.com/shopifycloud/polaris-2.js";
 
 // An extra shop domain to accept, a regular-expression fragment as before
 // (`customShopDomains` in library 1.1 and earlier; `domainTransformations`
 // now). The shop is accepted as it is, not rewritten.
+//
+// Required shape: an escaped literal domain such as `shops\.example\.test`,
+// with no alternation (`a|b`), optional groups (`(x)?`) or other regex
+// syntax. shopify-api 15's getTransformationDomains reads the domain back
+// out of this pattern for sanitizeShop's allow-list and silently drops any
+// shape it can't parse (logged at debug level only), so a richer fragment
+// matches here yet its shops are still rejected as invalid. The
+// contract stays a regex fragment because the old app reads the same env
+// name, possibly in the same Vercel project.
 const customShopDomain = process.env.SHOP_CUSTOM_DOMAIN;
 
 const shopify = shopifyApp({

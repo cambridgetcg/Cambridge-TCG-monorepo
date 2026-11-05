@@ -5,6 +5,7 @@ import type { LoginError } from "@shopify/shopify-app-react-router/server";
 import { LoginErrorType } from "@shopify/shopify-app-react-router/server";
 
 import { login } from "../shopify.server";
+import { POLARIS_URL } from "../shopify/polaris";
 
 /**
  * login() sends any request that names a shop on to Shopify. Anyone else
@@ -48,26 +49,29 @@ export default function Auth() {
   const [shop, setShop] = useState("");
   const { errors } = actionData || loaderData;
 
-  // A plain form, like the CLI 5 scaffold's: this page only renders in local
-  // development and sits outside AppProvider, which is what loads Polaris.
+  // This page only renders in local development, outside the admin, so it
+  // loads the Polaris script itself and no App Bridge (AppProvider would add
+  // App Bridge, which belongs to pages inside the admin). Polaris fields are
+  // form-associated, so the shop reaches the action as an ordinary form field.
   return (
-    <main>
-      <Form method="post">
-        <h1>Log in</h1>
-        <label>
-          Shop domain
-          <input
-            type="text"
-            name="shop"
-            value={shop}
-            onChange={(e) => setShop(e.currentTarget.value)}
-            autoComplete="on"
-            aria-describedby="shop-help"
-          />
-        </label>
-        <p id="shop-help">{errors.shop ?? "example.myshopify.com"}</p>
-        <button type="submit">Log in</button>
-      </Form>
-    </main>
+    <>
+      <script src={POLARIS_URL} />
+      <s-page>
+        <Form method="post">
+          <s-section heading="Log in">
+            <s-text-field
+              name="shop"
+              label="Shop domain"
+              details="example.myshopify.com"
+              value={shop}
+              onChange={(e) => setShop(e.currentTarget.value)}
+              autocomplete="on"
+              error={errors.shop}
+            ></s-text-field>
+            <s-button type="submit">Log in</s-button>
+          </s-section>
+        </Form>
+      </s-page>
+    </>
   );
 }

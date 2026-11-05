@@ -68,4 +68,22 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
     await expect(prisma.merchant.count()).resolves.toBe(0);
     expect(errors).toHaveBeenCalledWith(expect.stringContaining(SHOP), expect.any(Error));
   });
+
+  it("passes the library's re-auth redirect on unchanged and does not log it", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const reauth = new Response(null, { status: 302 });
+    const graphql = vi.fn<(query: string) => Promise<Response>>(async () => {
+      throw reauth;
+    });
+    const admin = { graphql } as unknown as AdminApiContext;
+
+    const thrown = await onAppOpened({ session, admin }).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+
+    expect(thrown).toBe(reauth);
+    expect(errors).not.toHaveBeenCalled();
+    await expect(prisma.merchant.count()).resolves.toBe(0);
+  });
 });
