@@ -382,16 +382,66 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
         { label: "Cashback", amount: "£2.00", status: "Issued", detail: null },
       ]);
       expect(page.entries.at(-1)).toMatchObject({ tierName: "Silver", ratePercent: "5" });
-      expect(page.payouts.map(({ what, amount, state, look }) => ({ what, amount, state, look }))).toEqual([
-        { what: "Take-back", amount: "£0.25", state: "Sent", look: null },
-        { what: "Take-back", amount: "£1.00", state: "Sent", look: null },
-        { what: "Store credit", amount: "£2.00", state: "Sent", look: null },
+      expect(page.payouts.map(({ what, amount, state, sent, look }) => ({ what, amount, state, sent, look }))).toEqual([
+        { what: "Take-back", amount: "£0.25", state: "Sent", sent: expect.stringMatching(/\d{4}$/), look: null },
+        { what: "Take-back", amount: "£1.00", state: "Sent", sent: expect.stringMatching(/\d{4}$/), look: null },
+        { what: "Store credit", amount: "£2.00", state: "Sent", sent: expect.stringMatching(/\d{4}$/), look: null },
       ]);
+      // What was taken, as the entries say: £0.40 of the £1.00 asked, and an amount Shopify never told
       expect(page.refunds).toEqual([
-        { date: expect.any(String), productValue: "£5.00", takenBack: "£0.25", note: null },
-        { date: expect.any(String), productValue: "£20.00", takenBack: "£1.00", note: null },
+        { date: expect.any(String), productValue: "£5.00", takenBack: "Amount unknown", note: null },
+        { date: expect.any(String), productValue: "£20.00", takenBack: "£0.40", note: null },
       ]);
       expect(JSON.stringify(page)).not.toContain("ann@example.com");
+    });
+
+    it("says what each refund's take-back took, or where it stands", async () => {
+      const buyer = await addBuyer();
+      const order = await addOrder(buyer.id, "100.00", 10);
+      await addPayout(await addEntry(order, { kind: "cashback", amount: "5.00" }), "sent");
+      /** A refund `daysAgo` days ago whose take-back of `amount` is in `state` */
+      const takeBack = async (daysAgo: number, amount: string, state: PayoutState, more: Parameters<typeof addPayout>[2] = {}) => {
+        const refund = await addRefund(order, "10.00", { daysAgo });
+        const entry = await addEntry(order, { kind: "reversal", amount: `-${amount}`, refundId: refund.id });
+        const payout = await addPayout(entry, state, { direction: "debit", ...more });
+        return payout;
+      };
+      await takeBack(9, "1.00", "sent", { debitedAmount: "1.00", shortfall: "0" });
+      // Closed: it took nothing, and its close: adjustment cancels the reversal
+      const closed = await takeBack(8, "0.50", "closed", { lastError: "ACCOUNT_LIMIT" });
+      await addEntry(order, { kind: "adjustment", amount: "0.50", key: `close:${closed.id}` });
+      await takeBack(7, "0.30", "pending");
+      await takeBack(6, "0.20", "held");
+      await takeBack(5, "0.15", "unconfirmed", { unconfirmedAt: new Date() });
+      await takeBack(4, "0.10", "needs_look", { lookReason: "could_not_confirm" });
+      // A refund before the credit was sent: the credit went out less, by the ledger's amount
+      await takeBack(3, "0.40", "nothing_to_send");
+      // A refund that took nothing off the cashback
+      await addRefund(order, "10.00", { daysAgo: 2 });
+
+      const page = await loadPanel(order.id);
+
+      expect(page.refunds.map((refund) => refund.takenBack)).toEqual([null, "£0.40", "Needs a look", "Waiting", "Waiting", "Waiting", "None (closed)", "£1.00"]);
+    });
+
+    it("never says Not sent for a payout that may have arrived", async () => {
+      const sentDay = new Date("2026-06-06T12:00:00Z");
+      const cases: Array<[PayoutState, Parameters<typeof addPayout>[2], string]> = [
+        ["sent", { sentAt: sentDay }, "June 6, 2026"],
+        ["sending", { claimedAt: new Date() }, "Not confirmed"],
+        ["unconfirmed", { unconfirmedAt: new Date() }, "Not confirmed"],
+        ["needs_look", { lookReason: "could_not_confirm" }, "Not confirmed"],
+        ["needs_look", { lookReason: "refused" }, "Not sent"],
+        ["needs_look", { lookReason: "kept_failing" }, "Not sent"],
+        ["pending", {}, "Not sent"],
+        ["held", {}, "Not sent"],
+        ["closed", {}, "Not sent"],
+        ["nothing_to_send", {}, "Not sent"],
+      ];
+      for (const [state, more, sent] of cases) {
+        const { order } = await orderWithCredit(state, more);
+        expect({ state, ...more, sent: (await loadPanel(order.id)).payouts[0]?.sent }).toEqual({ state, ...more, sent });
+      }
     });
 
     it("offers the answers each needs-a-look reason takes, with the check for one it couldn't confirm", async () => {

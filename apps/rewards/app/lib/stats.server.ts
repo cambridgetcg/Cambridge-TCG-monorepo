@@ -606,8 +606,18 @@ export type OrderRefund = {
   refundedAt: Date;
   /** Already on the order when RewardsPro recorded it (Ruling 24) */
   appliedBeforeCashback: boolean;
-  /** What its take-back took off the cashback (positive, in the cashback's currency); null when it took nothing */
-  takenBack: { amount: Decimal; currency: string } | null;
+  /**
+   * Its take-back: what the ledger's reversal asked for (positive, in the
+   * cashback's currency) and where its payout stands, which says what was
+   * actually taken (debitedAmount, null when Shopify never told). Null when
+   * the refund took nothing off the cashback.
+   */
+  takeBack: {
+    amount: Decimal;
+    currency: string;
+    state: NonNullable<OrderEntry["payout"]>["state"] | null;
+    debitedAmount: Decimal | null;
+  } | null;
   /** The past-orders import counted it already (Ruling 54) */
   countedAtImport: boolean;
 };
@@ -672,7 +682,10 @@ export async function orderPanel(conn: ConnectionContext, orderId: string): Prom
           productAmount: true,
           refundedAt: true,
           appliedBeforeCashback: true,
-          ledgerEntries: { where: { kind: "reversal" }, select: { amount: true, currency: true } },
+          ledgerEntries: {
+            where: { kind: "reversal" },
+            select: { amount: true, currency: true, payout: { select: { state: true, debitedAmount: true } } },
+          },
         },
       },
     },
@@ -763,7 +776,15 @@ export async function orderPanel(conn: ConnectionContext, orderId: string): Prom
         productAmount: fromDb(refund.productAmount),
         refundedAt: refund.refundedAt,
         appliedBeforeCashback: refund.appliedBeforeCashback,
-        takenBack: reversal && taken.gt(0) ? { amount: taken, currency: reversal.currency } : null,
+        takeBack:
+          reversal && taken.gt(0)
+            ? {
+                amount: taken,
+                currency: reversal.currency,
+                state: reversal.payout?.state ?? null,
+                debitedAmount: reversal.payout?.debitedAmount ? fromDb(reversal.payout.debitedAmount) : null,
+              }
+            : null,
         countedAtImport: order.source === "import" && order.importRefundIds.includes(refund.externalRefundId),
       };
     }),

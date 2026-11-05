@@ -66,7 +66,7 @@ const PANEL = {
       what: "Store credit" as const,
       amount: "£4.00",
       state: "Needs a look",
-      sent: null,
+      sent: "Not confirmed",
       attempts: 1,
       look: {
         heading: "Cashback of £4.00 needs a look",
@@ -79,7 +79,10 @@ const PANEL = {
       },
     },
   ],
-  refunds: [{ date: "June 6, 2026", productValue: "£20.00", takenBack: "£1.00", note: null }],
+  refunds: [
+    { date: "June 6, 2026", productValue: "£20.00", takenBack: "£0.40", note: null },
+    { date: "June 5, 2026", productValue: "£5.00", takenBack: null, note: null },
+  ],
 };
 
 async function renderPanel() {
@@ -128,7 +131,10 @@ describe("Order panel", () => {
       "It arrived",
       "It didn't arrive, send it",
     ]);
-    expect(cells(document.querySelector('s-section[heading="Payouts"]')!)).toEqual([["Store credit", "£4.00", "Needs a look", "Not sent", "1"]]);
-    expect(cells(document.querySelector('s-section[heading="Refunds"]')!)).toEqual([["June 6, 2026", "£20.00", "£1.00"]]);
+    expect(cells(document.querySelector('s-section[heading="Payouts"]')!)).toEqual([["Store credit", "£4.00", "Needs a look", "Not confirmed", "1"]]);
+    expect(cells(document.querySelector('s-section[heading="Refunds"]')!)).toEqual([
+      ["June 6, 2026", "£20.00", "£0.40"],
+      ["June 5, 2026", "£5.00", "None"],
+    ]);
   });
 });

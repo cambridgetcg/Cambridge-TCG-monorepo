@@ -32,13 +32,23 @@ export type PayoutLine = {
   /** What it is to move, in the buyer's currency */
   amount: string;
   state: string;
-  /** The day it went out, in the shop's time zone */
-  sent: string | null;
+  /**
+   * The day it went out, in the shop's time zone; "Not confirmed" while it
+   * may have arrived (sending, unconfirmed, or RewardsPro couldn't confirm
+   * it), else "Not sent"
+   */
+  sent: string;
   attempts: number;
   look: Look | null;
 };
 
-export type RefundLine = { date: string; productValue: string; takenBack: string | null; note: string | null };
+export type RefundLine = {
+  date: string;
+  productValue: string;
+  /** What its take-back took, or where it stands; null when it took nothing */
+  takenBack: string | null;
+  note: string | null;
+};
 
 const STATE: Record<NonNullable<OrderEntry["payout"]>["state"], string> = {
   pending: "Waiting to send",
@@ -87,6 +97,18 @@ function lookOf(entry: OrderEntry, payout: NonNullable<OrderEntry["payout"]>): L
   };
 }
 
+/**
+ * When a payout went out. One that may have arrived never reads "Not sent":
+ * beside "It didn't arrive, send it" that would push the merchant to the
+ * answer that pays the buyer twice if the first send landed.
+ */
+function sentCell(payout: NonNullable<OrderEntry["payout"]>, timezone: string): string {
+  if (payout.state === "sent") return payout.sentAt ? formatDay(payout.sentAt, timezone) : "Sent";
+  if (payout.state === "sending" || payout.state === "unconfirmed") return "Not confirmed";
+  if (payout.state === "needs_look" && payout.lookReason === "could_not_confirm") return "Not confirmed";
+  return "Not sent";
+}
+
 /** Each of the order's payouts, newest first, with the answers one that needs a look takes. */
 export function payoutLines(panel: OrderPanel, timezone: string): PayoutLine[] {
   return panel.entries.flatMap((entry) => {
@@ -98,7 +120,7 @@ export function payoutLines(panel: OrderPanel, timezone: string): PayoutLine[] {
         what: payout.direction === "credit" ? ("Store credit" as const) : ("Take-back" as const),
         amount: formatMoney(payout.amount, entry.currency),
         state: STATE[payout.state],
-        sent: payout.state === "sent" && payout.sentAt ? formatDay(payout.sentAt, timezone) : null,
+        sent: sentCell(payout, timezone),
         attempts: payout.attempts,
         look: lookOf(entry, payout),
       },
@@ -122,11 +144,38 @@ function refundNote(refund: OrderRefund): string | null {
   return null;
 }
 
+/**
+ * What a refund's take-back took off the buyer's store credit, as the
+ * entries table says it: what Shopify took when it was sent ("Amount
+ * unknown" when Shopify never told, A11-F4), the ledger's amount when it
+ * reduced a credit not yet sent, nothing when it was closed, and where it
+ * stands while it is on its way or needs a look.
+ */
+function takenBackCell(takeBack: NonNullable<OrderRefund["takeBack"]>): string {
+  switch (takeBack.state) {
+    case "sent":
+      return takeBack.debitedAmount === null ? "Amount unknown" : formatMoney(takeBack.debitedAmount, takeBack.currency);
+    case "closed":
+      return "None (closed)";
+    case "needs_look":
+      return "Needs a look";
+    case "pending":
+    case "held":
+    case "sending":
+    case "unconfirmed":
+      return "Waiting";
+    // nothing_to_send: the credit was sent less, by the ledger's amount.
+    // Every reversal is written with its payout, so null does not occur.
+    default:
+      return formatMoney(takeBack.amount, takeBack.currency);
+  }
+}
+
 export function refundLine(refund: OrderRefund, currency: string, timezone: string): RefundLine {
   return {
     date: formatDay(refund.refundedAt, timezone),
     productValue: formatMoney(refund.productAmount, currency),
-    takenBack: refund.takenBack ? formatMoney(refund.takenBack.amount, refund.takenBack.currency) : null,
+    takenBack: refund.takeBack ? takenBackCell(refund.takeBack) : null,
     note: refundNote(refund),
   };
 }

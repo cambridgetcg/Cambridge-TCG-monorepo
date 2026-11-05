@@ -188,7 +188,7 @@ export default function Order() {
                   <s-table-cell>{payout.what}</s-table-cell>
                   <s-table-cell>{payout.amount}</s-table-cell>
                   <s-table-cell>{payout.state}</s-table-cell>
-                  <s-table-cell>{payout.sent ?? "Not sent"}</s-table-cell>
+                  <s-table-cell>{payout.sent}</s-table-cell>
                   <s-table-cell>{payout.attempts}</s-table-cell>
                 </s-table-row>
               ))}
