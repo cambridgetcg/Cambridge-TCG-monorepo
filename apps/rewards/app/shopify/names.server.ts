@@ -14,9 +14,10 @@ const BATCH_SIZE = 250;
 // As live-balance: a page shouldn't wait longer than this on Shopify
 const TIMEOUT_MS = 2_500;
 
-/** What the admin shows for a buyer whose name it can't read. */
+/** What the admin shows for a buyer whose name it can't read: the id's last four digits, or plain "Customer" (A18-F3). */
 export function nameFallback(externalId: string): string {
-  return `Customer ····${externalId.slice(-4)}`;
+  const digits = externalId.replace(/\D/g, "").slice(-4);
+  return digits === "" ? "Customer" : `Customer ····${digits}`;
 }
 
 type NameNode = { id?: unknown; firstName?: unknown; lastName?: unknown } | null;

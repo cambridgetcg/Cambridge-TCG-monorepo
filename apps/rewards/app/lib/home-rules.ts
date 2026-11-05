@@ -1,7 +1,8 @@
 /**
  * Home's rules that need no database (spec 4.3): which banners show and in
- * what order, when setup is finished, when the review request is due, what
- * the switch's sentence says and what a ledger event's status is. Not a
+ * what order, when setup is finished, when the review request is due and
+ * what the switch's sentence says. A ledger event's status is the pages'
+ * shared one (admin/words.ts payoutStatus). Not a
  * .server module: the page uses these in the browser too, where the widget
  * check runs.
  */
@@ -75,7 +76,8 @@ export function runningSentence(running: boolean): string {
 }
 
 export interface RunningChecks {
-  storeCredit: boolean;
+  /** null when Shopify couldn't say (storeCreditSpendProblems answered unknown, Ruling 59) */
+  storeCredit: boolean | null;
   /** null while the browser hasn't said */
   widget: boolean | null;
   tiers: boolean;
@@ -83,11 +85,11 @@ export interface RunningChecks {
 
 /** The one-line Running summary phones show above the numbers. */
 export function runningSummary(running: boolean, checks: RunningChecks): string {
-  const failing = [checks.storeCredit, checks.widget !== false, checks.tiers].filter((ok) => !ok).length;
+  const failing = [checks.storeCredit !== false, checks.widget !== false, checks.tiers].filter((ok) => !ok).length;
   const state = running ? "Cashback is on." : "Cashback is off.";
   if (failing > 0) return `${state} ${failing} ${failing === 1 ? "check needs" : "checks need"} you.`;
-  // Nothing failing, but the widget check hasn't answered: claim nothing about it
-  return checks.widget === null ? state : `${state} All checks pass.`;
+  // Nothing failing, but a check has no answer: claim nothing about it
+  return checks.widget === null || checks.storeCredit === null ? state : `${state} All checks pass.`;
 }
 
 /**
@@ -122,31 +124,6 @@ export function setupDone(i: {
   );
 }
 
-/**
- * A cashback or take-back's status on Home, from its own payout's state
- * (every such ledger entry has one).
- */
-export function rewardStatus(kind: "cashback" | "reversal", state: string): string {
-  switch (state) {
-    case "sent":
-      return kind === "reversal" ? "Taken back" : "Issued";
-    case "pending":
-    case "sending":
-    case "unconfirmed":
-    case "held":
-      return "Waiting";
-    case "needs_look":
-      return "Needs a look";
-    case "nothing_to_send":
-      // A credit a refund cancelled before it went out, or a take-back from that unsent credit
-      return "Taken back";
-    case "closed":
-      return "No cashback";
-    default:
-      throw new RangeError(`Unknown payout state ${JSON.stringify(state)}`);
-  }
-}
-
 export type BannerKind = "privacy" | "store-credit" | "needs-look" | "widget";
 
 export interface HomeBanner {
@@ -161,7 +138,7 @@ export interface BannerFacts {
   privacyDueAt: Date | null;
   /** storeCreditSpendProblems, in the order the merchant fixes them */
   spendProblems: string[];
-  /** Payouts that need a look */
+  /** Orders with a payout that needs a look, counted as the Orders page counts them (Ruling 56) */
   needsLook: number;
   timezone: string;
   themeEditorUrl: string;
@@ -176,7 +153,7 @@ const SPEND_PROBLEMS: Record<string, string> = {
 /**
  * The banners, only those that apply, most urgent first (spec 4.3): a data
  * request to download (a legal duty), store credit buyers can't spend,
- * payouts that need a look, and the widget embed off (`widgetOn` comes from
+ * orders that need a look, and the widget embed off (`widgetOn` comes from
  * the browser; null shows nothing).
  */
 export function homeBanners(facts: BannerFacts, widgetOn: boolean | null): HomeBanner[] {
@@ -189,7 +166,7 @@ export function homeBanners(facts: BannerFacts, widgetOn: boolean | null): HomeB
       kind: "privacy",
       tone: "warning",
       text: `A customer asked for their data. Download it by ${due}.`,
-      link: { label: "Open data requests", href: "/app/settings/privacy" },
+      link: { label: "Open customer data requests", href: "/app/settings/privacy" },
     });
   }
   const problems = facts.spendProblems.map((problem) => SPEND_PROBLEMS[problem]).filter((text): text is string => Boolean(text));
@@ -205,7 +182,7 @@ export function homeBanners(facts: BannerFacts, widgetOn: boolean | null): HomeB
     banners.push({
       kind: "needs-look",
       tone: "warning",
-      text: facts.needsLook === 1 ? "1 cashback payment needs a look." : `${facts.needsLook} cashback payments need a look.`,
+      text: facts.needsLook === 1 ? "1 order needs a look." : `${facts.needsLook} orders need a look.`,
       link: { label: "Open orders", href: "/app/orders" },
     });
   }

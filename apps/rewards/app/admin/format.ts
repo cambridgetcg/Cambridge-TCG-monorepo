@@ -1,6 +1,5 @@
 import type { Decimal } from "decimal.js";
 import { Money, currencyDecimals, roundMoney } from "~/lib/money";
-import type { OrderStatusLabel } from "~/lib/order-status";
 
 /**
  * Display formatting for the admin pages. Not a .server module: components
@@ -28,12 +27,3 @@ export function formatMoney(amount: Decimal | number | string, currency: string,
   // setting (ES2022) types format() for numbers only.
   return (formatter.format as unknown as (value: string) => string)(exact);
 }
-
-/** The badge tone of each order status (spec 4.6). */
-export const ORDER_STATUS_TONE: Record<OrderStatusLabel, "success" | "warning" | "neutral" | "info"> = {
-  Issued: "success",
-  Waiting: "info",
-  "Needs a look": "warning",
-  "Taken back": "neutral",
-  "No cashback": "neutral",
-};

@@ -33,11 +33,17 @@ type Person = { firstName?: string; lastName?: string; email?: string };
  * - RewardsCustomerNames from `people` (by numeric id; each node also
  *   carries an email, which the pages must never show);
  * - RewardsCustomerSearch with `search` (numeric ids), or a failure;
- * - RewardsBalance with `balance` (GBP), or no answer until the request is
- *   aborted ("hang"), as when Shopify is slow.
+ * - RewardsBalance with `balance` (GBP) or the `accounts` given, or no
+ *   answer until the request is aborted ("hang"), as when Shopify is slow.
  */
 function fakeAdmin(
-  o: { people?: Record<string, Person>; search?: string[] | "fail"; searchMore?: boolean; balance?: string | "hang" } = {},
+  o: {
+    people?: Record<string, Person>;
+    search?: string[] | "fail";
+    searchMore?: boolean;
+    balance?: string | "hang";
+    accounts?: Array<{ amount: string; currencyCode: string }>;
+  } = {},
 ): GraphqlClient & { calls: Call[] } {
   const calls: Call[] = [];
   return {
@@ -72,7 +78,12 @@ function fakeAdmin(
           }
           answer = {
             data: {
-              customer: { storeCreditAccounts: { nodes: [{ balance: { amount: o.balance ?? "0.00", currencyCode: "GBP" } }], pageInfo: { hasNextPage: false } } },
+              customer: {
+                storeCreditAccounts: {
+                  nodes: (o.accounts ?? [{ amount: o.balance ?? "0.00", currencyCode: "GBP" }]).map((balance) => ({ balance })),
+                  pageInfo: { hasNextPage: false },
+                },
+              },
             },
           };
           break;
@@ -225,7 +236,17 @@ let entryNumber = 0;
 
 async function addEntry(
   customerId: string,
-  o: { orderId?: string; kind: LedgerEntryKind; amount: string; shopAmount?: string; createdAt?: Date; tierName?: string; rate?: string; key?: string },
+  o: {
+    orderId?: string;
+    kind: LedgerEntryKind;
+    amount: string;
+    currency?: string;
+    shopAmount?: string;
+    createdAt?: Date;
+    tierName?: string;
+    rate?: string;
+    key?: string;
+  },
 ) {
   entryNumber++;
   return prisma.ledgerEntry.create({
@@ -236,7 +257,7 @@ async function addEntry(
       orderId: o.orderId ?? null,
       kind: o.kind,
       amount: o.amount,
-      currency: "GBP",
+      currency: o.currency ?? "GBP",
       shopAmount: o.shopAmount ?? o.amount,
       tierName: o.tierName ?? "Bronze",
       ratePercent: o.rate ?? "5",
@@ -553,8 +574,8 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
         spend: "£400.00",
         windowLabel: "Last 12 months",
         // (400 − 200) × 100 ÷ (500 − 200), floored
-        progress: { percent: 66, isTop: false, nextTierName: "Gold", nextTierPercent: "10", amountRemaining: "£100.00" },
-        balance: "£12.50",
+        progress: { percent: 66, isTop: false, nextTierName: "Gold", nextTierPercent: "10", amountRemaining: "£100.00", movesTo: null },
+        balances: [{ currency: "GBP", amount: "£12.50" }],
       });
       expect(page.tiers.map((tier) => tier.name)).toEqual(["Bronze", "Silver", "Gold"]);
       expect(page.history).toEqual([
@@ -562,24 +583,49 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
           date: expect.any(String),
           orderId: refunded.id,
           orderName: refunded.name,
-          label: "Not taken back: the buyer had spent it",
+          label: "Couldn't take back: the buyer had spent it",
           amount: "£0.60",
           tierName: "Bronze",
           ratePercent: "5",
           status: null,
+          tone: null,
           detail: null,
         },
-        expect.objectContaining({ label: "Taken back for a refund", amount: "-£1.00", status: "Taken back", detail: "Took back £0.40 of £1.00; the buyer had spent the rest" }),
-        expect.objectContaining({ label: "Taken back for a refund", amount: "-£0.50", status: "Taken back", detail: "Amount taken back: unknown" }),
-        expect.objectContaining({ label: "Cashback", amount: "£1.00", status: "Issued", detail: null }),
+        expect.objectContaining({
+          label: "Taken back for a refund",
+          amount: "-£1.00",
+          status: "Taken back",
+          tone: "neutral",
+          detail: "Took back £0.40 of £1.00; the buyer had spent the rest",
+        }),
+        expect.objectContaining({ label: "Taken back for a refund", amount: "-£0.50", status: "Taken back", detail: "Amount unknown" }),
+        expect.objectContaining({ label: "Cashback", amount: "£1.00", status: "Issued", tone: "success", detail: null }),
         expect.objectContaining({ label: "Cashback", amount: "£21.00", tierName: "Silver", ratePercent: "7", status: "Issued", detail: null, orderName: paid.name }),
       ]);
+      // Each order's status beside its cashback (TRUTH-14)
       expect(page.orders).toEqual([
-        { id: refunded.id, name: refunded.name, processed: expect.any(String), total: "£100.00", cashback: "£1.00", note: null },
-        { id: paid.id, name: paid.name, processed: expect.any(String), total: "£320.00", cashback: "£21.00", note: null },
-        { id: old.id, name: old.name, processed: expect.any(String), total: "£50.00", cashback: null, note: "From before install" },
+        { id: refunded.id, name: refunded.name, processed: expect.any(String), total: "£100.00", cashback: "£1.00", status: "Issued", tone: "success", notes: [] },
+        { id: paid.id, name: paid.name, processed: expect.any(String), total: "£320.00", cashback: "£21.00", status: "Issued", tone: "success", notes: [] },
+        { id: old.id, name: old.name, processed: expect.any(String), total: "£50.00", cashback: null, status: "No cashback", tone: "neutral", notes: ["From before install"] },
       ]);
       expect(JSON.stringify(page)).not.toContain("ann@example.com");
+    });
+
+    it("shows an order taken back in full, or closed without sending, by its status and not only what it first earned", async () => {
+      const buyer = await addBuyer();
+      const refunded = await addOrder(buyer.id, "20.00", 5);
+      await addPayout(await addEntry(buyer.id, { orderId: refunded.id, kind: "cashback", amount: "1.00" }), "sent");
+      await addPayout(await addEntry(buyer.id, { orderId: refunded.id, kind: "reversal", amount: "-1.00" }), "sent", { direction: "debit", debitedAmount: "1.00", shortfall: "0" });
+      const closed = await addOrder(buyer.id, "20.00", 4);
+      const closedCredit = await addPayout(await addEntry(buyer.id, { orderId: closed.id, kind: "cashback", amount: "1.00" }), "closed");
+      await addEntry(buyer.id, { orderId: closed.id, kind: "adjustment", amount: "-1.00", key: `close:${closedCredit.id}` });
+
+      const page = await loadPanel(buyer.id);
+
+      expect(page.orders.map(({ name, cashback, status }) => ({ name, cashback, status }))).toEqual([
+        { name: closed.name, cashback: "£1.00", status: "No cashback" },
+        { name: refunded.name, cashback: "£1.00", status: "Taken back" },
+      ]);
     });
 
     it("says what happened to cashback that didn't simply go out", async () => {
@@ -588,6 +634,8 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       const entries: Array<[PayoutState, Parameters<typeof addPayout>[2]]> = [
         ["needs_look", { lookReason: "refused", lastError: "ACCOUNT_LIMIT" }],
         // Settled from unclear, then refused: it may have arrived
+        ["needs_look", { lookReason: "refused", unconfirmedAt: new Date(Date.now() - DAY), lastError: "ACCOUNT_LIMIT" }],
+        // Refused because the buyer is gone from Shopify: there is no one to check (TRUTH-13)
         ["needs_look", { lookReason: "refused", unconfirmedAt: new Date(Date.now() - DAY), lastError: "The customer no longer exists in Shopify" }],
         ["needs_look", { lookReason: "kept_failing" }],
         ["needs_look", { lookReason: "could_not_confirm" }],
@@ -613,7 +661,11 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       ];
       for (const [state, options] of takeBacks) {
         const takeBack = await addEntry(buyer.id, { orderId: order.id, kind: "reversal", amount: "-1.00", createdAt: new Date(Date.now() - DAY + ++minute * 60_000) });
-        await addPayout(takeBack, state, options);
+        const payout = await addPayout(takeBack, state, options);
+        // A take-back closed without taking: the buyer keeps the cashback (TRUTH-4)
+        if (state === "closed") {
+          await addEntry(buyer.id, { orderId: order.id, kind: "adjustment", amount: "1.00", key: `close:${payout.id}`, createdAt: new Date(Date.now() - DAY + ++minute * 60_000) });
+        }
       }
 
       const page = await loadPanel(buyer.id);
@@ -625,6 +677,7 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
           status: "Needs a look",
           detail: "Shopify refused it after a send that wasn't clear, so it may have arrived. Check the buyer's store credit in Shopify.",
         },
+        { label: "Cashback", status: "Needs a look", detail: "The buyer no longer exists in Shopify; close it without sending." },
         { label: "Cashback", status: "Needs a look", detail: "Sending kept failing." },
         { label: "Cashback", status: "Needs a look", detail: "RewardsPro couldn't confirm it arrived." },
         { label: "Cashback", status: "Taken back", detail: "A refund cancelled it before it was sent." },
@@ -634,7 +687,8 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
         { label: "Taken back for a refund", status: "Needs a look", detail: "RewardsPro couldn't confirm it was taken back." },
         { label: "Taken back for a refund", status: "Needs a look", detail: "Shopify refused to take it back." },
         { label: "Taken back for a refund", status: "Needs a look", detail: "Taking it back kept failing." },
-        { label: "Taken back for a refund", status: "No cashback", detail: "Closed without taking it back." },
+        { label: "Taken back for a refund", status: "Not taken back", detail: "Closed without taking it back." },
+        { label: "Take-back closed: the buyer keeps it", status: null, detail: null },
         { label: "Taken back for a refund", status: "Taken back", detail: null },
       ]);
       expect(page).toMatchObject({ moreHistory: false, moreOrders: false });
@@ -659,15 +713,61 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
     it("shows the balance as unknown when Shopify doesn't answer in time", async () => {
       const answered = await addBuyer();
       const slow = await addBuyer();
-      expect((await loadPanel(answered.id, fakeAdmin({ balance: "3.20" }))).balance).toBe("£3.20");
+      expect((await loadPanel(answered.id, fakeAdmin({ balance: "3.20" }))).balances).toEqual([{ currency: "GBP", amount: "£3.20" }]);
 
       const logged = captureLogs();
       const started = Date.now();
       const page = await loadPanel(slow.id, fakeAdmin({ balance: "hang" }));
 
-      expect(page.balance).toBeNull();
+      expect(page.balances).toBeNull();
       expect(Date.now() - started).toBeLessThan(4_000);
       expect(logged.join("\n")).toMatch(/Could not read a buyer's store credit balance/);
+    });
+
+    // Ruling 66 (TRUTH-3): cashback is issued in the buyer's currency, so a euro order on a GBP shop is paid in euros
+    it("shows the balance in each currency RewardsPro issued the buyer, and the shop's", async () => {
+      const buyer = await addBuyer();
+      const order = await addOrder(buyer.id, "100.00", 5);
+      await prisma.order.update({ where: { id: order.id }, data: { currency: "EUR" } });
+      await addEntry(buyer.id, { orderId: order.id, kind: "cashback", amount: "5.00", currency: "EUR", shopAmount: "4.30" });
+
+      const eurOnly = await loadPanel(buyer.id, fakeAdmin({ accounts: [{ amount: "5.00", currencyCode: "EUR" }] }));
+      expect(eurOnly.balances).toEqual([
+        { currency: "GBP", amount: "£0.00" },
+        { currency: "EUR", amount: "€5.00" },
+      ]);
+      // Credit the merchant added in pounds, beside the euro cashback
+      const both = await loadPanel(
+        buyer.id,
+        fakeAdmin({
+          accounts: [
+            { amount: "5.00", currencyCode: "EUR" },
+            { amount: "2.00", currencyCode: "GBP" },
+          ],
+        }),
+      );
+      expect(both.balances).toEqual([
+        { currency: "GBP", amount: "£2.00" },
+        { currency: "EUR", amount: "€5.00" },
+      ]);
+    });
+
+    // A21-F6: the panel says "now", so it reads Shopify on every load
+    it("reads the balance afresh on every load", async () => {
+      const buyer = await addBuyer();
+      expect((await loadPanel(buyer.id, fakeAdmin({ balance: "3.20" }))).balances).toEqual([{ currency: "GBP", amount: "£3.20" }]);
+      expect((await loadPanel(buyer.id, fakeAdmin({ balance: "8.00" }))).balances).toEqual([{ currency: "GBP", amount: "£8.00" }]);
+    });
+
+    // TRUTH-11, A21-F2: progress is true for a locked buyer and for one the tier pass hasn't reached
+    it("says a buyer who already qualifies for a higher tier moves at the next update, and a locked one doesn't", async () => {
+      const waiting = await addBuyer({ tierId: silver.id });
+      await addOrder(waiting.id, "600.00", 10);
+      const locked = await addBuyer({ tierId: bronze.id, lockedTierId: bronze.id });
+      await addOrder(locked.id, "600.00", 10);
+
+      expect((await loadPanel(waiting.id)).progress).toMatchObject({ movesTo: "Gold" });
+      expect((await loadPanel(locked.id)).progress).toMatchObject({ movesTo: null });
     });
 
     it("answers 404 for another merchant's buyer, an erased one, or no buyer", async () => {

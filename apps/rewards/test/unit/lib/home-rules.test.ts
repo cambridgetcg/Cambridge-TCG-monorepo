@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysEnding, importOutcomeShown, parseBaseRate, rewardStatus, runningSummary, setupDone, widgetEmbedOn } from "~/lib/home-rules";
+import { daysEnding, homeBanners, importOutcomeShown, parseBaseRate, runningSummary, setupDone, widgetEmbedOn } from "~/lib/home-rules";
 
 describe("Home's rules", () => {
   it("finds the widget embed among the app's extensions", () => {
@@ -21,20 +21,21 @@ describe("Home's rules", () => {
     expect(["4.5", "101", "-1", "", "1e2", "five", null].map(parseBaseRate)).toEqual([null, null, null, null, null, null, null]);
   });
 
-  it("gives each payout state its status", () => {
-    expect(rewardStatus("cashback", "sent")).toBe("Issued");
-    expect(rewardStatus("reversal", "sent")).toBe("Taken back");
-    expect(["pending", "sending", "unconfirmed", "held"].map((state) => rewardStatus("cashback", state))).toEqual(["Waiting", "Waiting", "Waiting", "Waiting"]);
-    expect(rewardStatus("reversal", "needs_look")).toBe("Needs a look");
-    expect(rewardStatus("cashback", "nothing_to_send")).toBe("Taken back");
-    expect(rewardStatus("cashback", "closed")).toBe("No cashback");
-  });
-
   it("sums the Running card up in one line, claiming nothing the browser hasn't checked", () => {
     expect(runningSummary(true, { storeCredit: true, widget: true, tiers: true })).toBe("Cashback is on. All checks pass.");
     expect(runningSummary(true, { storeCredit: true, widget: null, tiers: true })).toBe("Cashback is on.");
     expect(runningSummary(false, { storeCredit: false, widget: false, tiers: true })).toBe("Cashback is off. 2 checks need you.");
     expect(runningSummary(false, { storeCredit: true, widget: null, tiers: false })).toBe("Cashback is off. 1 check needs you.");
+    // Ruling 59: Shopify didn't say whether store credit can be spent, so no check is claimed to pass
+    expect(runningSummary(true, { storeCredit: null, widget: true, tiers: true })).toBe("Cashback is on.");
+    expect(runningSummary(true, { storeCredit: null, widget: true, tiers: false })).toBe("Cashback is on. 1 check needs you.");
+  });
+
+  // Ruling 56: Home counts what Orders counts, orders that need a look
+  it("counts the orders that need a look, as the Orders page does", () => {
+    const facts = { privacyDueAt: null, spendProblems: [], timezone: "Europe/London", themeEditorUrl: "" };
+    expect(homeBanners({ ...facts, needsLook: 1 }, true).map((b) => b.text)).toEqual(["1 order needs a look."]);
+    expect(homeBanners({ ...facts, needsLook: 3 }, true).map((b) => b.text)).toEqual(["3 orders need a look."]);
   });
 
   it("finishes setup with a tier, cashback on, the widget not off and the import ended and its outcome dismissed", () => {

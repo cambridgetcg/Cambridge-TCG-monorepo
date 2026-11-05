@@ -2,9 +2,10 @@ import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useNavigate } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
-import { ORDER_STATUS_TONE, formatMoney } from "~/admin/format";
+import { formatMoney } from "~/admin/format";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
+import { ERASED_BUYER, STATUS_TONE } from "~/admin/words";
 import { orderRows } from "~/lib/stats.server";
 import { customerNames } from "~/shopify/names.server";
 
@@ -38,13 +39,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     rows: listing.rows.map((row) => ({
       id: row.id,
       name: row.name,
-      buyer: row.externalCustomerId === null ? "Erased buyer" : names.get(row.externalCustomerId)!,
+      buyer: row.externalCustomerId === null ? ERASED_BUYER : names.get(row.externalCustomerId)!,
       customerId: row.customerId,
       tierName: row.cashback?.tierName ?? null,
       ratePercent: row.cashback?.ratePercent?.toFixed() ?? null,
       total: formatMoney(row.totalAmount, row.currency),
       cashback: row.cashback ? formatMoney(row.cashback.amount, row.cashback.currency) : null,
       status: row.status.label,
+      tone: STATUS_TONE[row.status.key],
       detail: row.status.detail,
     })),
   };
@@ -120,7 +122,7 @@ export default function Orders() {
                 <s-table-cell>{row.cashback ?? "None"}</s-table-cell>
                 <s-table-cell>
                   <s-stack gap="small-300">
-                    <s-badge tone={ORDER_STATUS_TONE[row.status]}>{row.status}</s-badge>
+                    <s-badge tone={row.tone}>{row.status}</s-badge>
                     {row.detail ? <s-text color="subdued">{row.detail}</s-text> : null}
                   </s-stack>
                 </s-table-cell>

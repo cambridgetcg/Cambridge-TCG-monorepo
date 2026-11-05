@@ -1,14 +1,17 @@
 import type { LookReason, NoCashbackReason, PayoutState } from "@prisma/client";
 import type { Decimal } from "decimal.js";
+import { AMOUNT_UNKNOWN, STATUS_LABEL, type StatusKey, takeBackShort } from "~/admin/words";
 import { Money } from "./money";
 
 /**
  * An order's status on the Orders page (spec 4.6), from its cashback entry,
  * that entry's credit payout and its take-backs (reversal payouts). No
- * database here, so it is tested on its own; stats.server re-exports it.
+ * database here, so it is tested on its own; stats.server re-exports it. The
+ * words are the pages' shared ones (admin/words.ts).
  *
  * - No cashback entry: No cashback, saying why (the order's
- *   noCashbackReason).
+ *   noCashbackReason; a positive base at a rate that gave nothing says so,
+ *   TRUTH-6).
  * - A credit or a take-back that needs a look: Needs a look, whatever else
  *   is true (it wins over Issued and Taken back).
  * - A credit closed without sending: No cashback.
@@ -16,15 +19,16 @@ import { Money } from "./money";
  * - Take-backs that took all the cashback: Taken back; Waiting while one of
  *   them is still on its way. A credit with nothing left to send was all
  *   taken back before it went out.
- * - Otherwise the credit went out: Issued, saying what part a refund took.
- * A take-back closed without taking anything takes nothing. One that fell
- * short (Ruling 35) took all it asked for on the ledger; the buyer had spent
- * the rest, which the detail says.
+ * - Otherwise the credit went out and the buyer holds some of it: Issued,
+ *   saying what part a refund took.
+ * A sent take-back counts at what it took, its debitedAmount (Ruling 65):
+ * one that fell short leaves the order Issued, with the spec's sentence. One
+ * Shopify confirmed without saying how much counts at its ask, as the ledger
+ * does (no shortfall is recorded for it), and the detail says the amount is
+ * unknown. A take-back closed without taking anything takes nothing.
  */
 
-export type OrderStatusLabel = "Issued" | "Waiting" | "Taken back" | "Needs a look" | "No cashback";
-
-export type OrderStatus = { label: OrderStatusLabel; detail: string | null };
+export type OrderStatus = { key: StatusKey; label: string; detail: string | null };
 
 type Amount = Decimal | number | string;
 
@@ -37,6 +41,8 @@ const NO_CASHBACK: Record<NoCashbackReason, string> = {
   no_tier: "No tiers were set up",
   nothing_to_pay_on: "Nothing to pay on",
 };
+
+const RATE_GAVE_NOTHING = "The rate gave nothing on this order";
 
 const ON_ITS_WAY: ReadonlySet<PayoutState> = new Set(["pending", "sending", "unconfirmed", "held"]);
 
@@ -52,51 +58,58 @@ const TAKE_BACK_LOOK: Record<LookReason, string> = {
   could_not_confirm: "RewardsPro couldn't confirm it was taken back.",
 };
 
-const SPENT = "Part of it couldn't be taken back: the buyer had spent it";
+const status = (key: StatusKey, detail: string | null = null): OrderStatus => ({ key, label: STATUS_LABEL[key], detail });
 
 /**
- * `entry` is the order's cashback ledger entry and `credit` its payout;
- * `reversals` are the order's take-backs, each its reversal entry's amount
- * (signed or not) with its payout's state, look reason and shortfall.
+ * `entry` is the order's cashback ledger entry (its amount and the buyer's
+ * currency) and `credit` its payout; `reversals` are the order's take-backs,
+ * each its reversal entry's amount (signed or not) with its payout's state,
+ * look reason and what a sent one took (`debitedAmount`, null when Shopify
+ * never said).
  */
 export function orderStatus(
-  o: { source: "live" | "import"; test: boolean; noCashbackReason?: NoCashbackReason | null },
-  entry?: { amount: Amount } | null,
+  o: { source: "live" | "import"; test: boolean; noCashbackReason?: NoCashbackReason | null; cashbackBase?: Amount },
+  entry?: { amount: Amount; currency: string } | null,
   credit?: { state: PayoutState; lookReason?: LookReason | null } | null,
-  reversals: ReadonlyArray<{ amount: Amount; state: PayoutState; shortfall?: Amount | null; lookReason?: LookReason | null }> = [],
+  reversals: ReadonlyArray<{ amount: Amount; state: PayoutState; debitedAmount?: Amount | null; lookReason?: LookReason | null }> = [],
 ): OrderStatus {
   if (!entry) {
+    if (o.noCashbackReason === "nothing_to_pay_on" && o.cashbackBase !== undefined && new Money(o.cashbackBase).gt(0)) {
+      return status("no_cashback", RATE_GAVE_NOTHING);
+    }
     const detail = o.noCashbackReason ? NO_CASHBACK[o.noCashbackReason] : o.test ? "Test order" : o.source === "import" ? "From before install" : null;
-    return { label: "No cashback", detail };
+    return status("no_cashback", detail);
   }
   // Every cashback entry is written with its payout (recordOrder): none yet reads as not sent
   const state = credit?.state ?? "pending";
 
-  if (state === "needs_look") {
-    return { label: "Needs a look", detail: credit?.lookReason ? CREDIT_LOOK[credit.lookReason] : null };
-  }
+  if (state === "needs_look") return status("needs_look", credit?.lookReason ? CREDIT_LOOK[credit.lookReason] : null);
   const lookingBack = reversals.find((r) => r.state === "needs_look");
-  if (lookingBack) {
-    return { label: "Needs a look", detail: lookingBack.lookReason ? TAKE_BACK_LOOK[lookingBack.lookReason] : "A take-back needs a look." };
-  }
-  if (state === "closed") return { label: "No cashback", detail: "Closed without sending" };
-  if (ON_ITS_WAY.has(state)) {
-    return { label: "Waiting", detail: state === "unconfirmed" ? "Checking with Shopify whether it arrived" : null };
-  }
+  if (lookingBack) return status("needs_look", lookingBack.lookReason ? TAKE_BACK_LOOK[lookingBack.lookReason] : "A take-back needs a look.");
+  if (state === "closed") return status("no_cashback", "Closed without sending");
+  if (ON_ITS_WAY.has(state)) return status("waiting", state === "unconfirmed" ? "Checking with Shopify whether it arrived" : null);
 
   // Sent, or nothing left to send
-  const taking = reversals.filter((r) => r.state !== "closed");
-  const taken = taking.reduce((sum, r) => sum.plus(new Money(r.amount).abs()), new Money(0));
-  const all = state === "nothing_to_send" || taken.gte(new Money(entry.amount).abs());
-  const moving = taking.some((r) => ON_ITS_WAY.has(r.state));
-  const short = taking.some((r) => r.shortfall !== undefined && r.shortfall !== null && new Money(r.shortfall).gt(0));
+  const cashback = new Money(entry.amount).abs();
+  const ask = (r: (typeof reversals)[number]) => new Money(r.amount).abs();
+  const settled = reversals.filter((r) => r.state === "sent" || r.state === "nothing_to_send");
+  const moving = reversals.filter((r) => ON_ITS_WAY.has(r.state));
+  const sum = (amounts: Decimal[]) => amounts.reduce((total, amount) => total.plus(amount), new Money(0));
+  // What each settled take-back took: a sent one its debitedAmount (its ask
+  // when Shopify never said), one that reduced the unsent credit its ask
+  const taken = sum(settled.map((r) => (r.state === "sent" && r.debitedAmount !== undefined && r.debitedAmount !== null ? new Money(r.debitedAmount) : ask(r))));
+  // The sent ones whose take is known, for the shortfall sentence
+  const known = settled.filter((r) => r.state === "sent" && r.debitedAmount !== undefined && r.debitedAmount !== null);
+  const short = takeBackShort(sum(known.map((r) => new Money(r.debitedAmount!))), sum(known.map(ask)), entry.currency);
+  const unknown = settled.some((r) => r.state === "sent" && (r.debitedAmount === undefined || r.debitedAmount === null));
 
-  if (all) {
-    if (moving) return { label: "Waiting", detail: "Being taken back for a refund" };
-    return { label: "Taken back", detail: short ? SPENT : null };
+  if (state === "nothing_to_send" || taken.plus(sum(moving.map(ask))).gte(cashback)) {
+    if (moving.length > 0) return status("waiting", "Being taken back for a refund");
+    if (state === "nothing_to_send" || taken.gte(cashback)) return status("taken_back", unknown ? AMOUNT_UNKNOWN : null);
   }
-  if (moving) return { label: "Issued", detail: "Part being taken back for a refund" };
-  if (taken.gt(0)) return { label: "Issued", detail: short ? SPENT : "Part taken back for a refund" };
-  if (reversals.some((r) => r.state === "closed")) return { label: "Issued", detail: "A take-back was closed without taking it back" };
-  return { label: "Issued", detail: null };
+  if (moving.length > 0) return status("issued", "Part being taken back for a refund");
+  if (short) return status("issued", short);
+  if (taken.gt(0)) return status("issued", "Part taken back for a refund");
+  if (reversals.some((r) => r.state === "closed")) return status("issued", "A take-back was closed without taking it back");
+  return status("issued");
 }

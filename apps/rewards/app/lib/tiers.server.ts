@@ -362,11 +362,22 @@ async function lockMerchantTiers(tx: Prisma.TransactionClient, merchantId: strin
   await tx.$queryRaw`SELECT id FROM ${Prisma.raw(`"${databaseSchema}"."merchant"`)} WHERE id = ${merchantId}::uuid FOR NO KEY UPDATE`;
 }
 
-/** A merchant's tiers for the Tiers page, lowest first, with their members (buyers who hold each). */
+/**
+ * A merchant's tiers for the Tiers page, lowest first, with their members:
+ * the buyers who hold each, erased ones aside (customers/redact keeps the
+ * row without its Shopify id, and the Customers list leaves it out, TRUTH-9).
+ */
 export async function tierTable(merchantId: string): Promise<Array<TierRow & { members: number; lowest: boolean }>> {
   const rows = await prisma.tier.findMany({
     where: { merchantId },
-    select: { id: true, name: true, minSpend: true, cashbackPercent: true, position: true, _count: { select: { members: true } } },
+    select: {
+      id: true,
+      name: true,
+      minSpend: true,
+      cashbackPercent: true,
+      position: true,
+      _count: { select: { members: { where: { externalCustomerId: { not: null } } } } },
+    },
   });
   const members = new Map(rows.map((t) => [t.id, t._count.members]));
   const tiers = byMinimum(

@@ -21,6 +21,7 @@ function homeData(
     importError?: string | null;
     importDismissed?: boolean;
     placedBuyers?: number;
+    storeCreditReady?: boolean | null;
   } = {},
 ): HomeData {
   const hasTiers = overrides.hasTiers ?? true;
@@ -37,9 +38,18 @@ function homeData(
         { date: "2026-11-02", given: "4.20", spent: "11.00" },
       ],
       recent: [
-        { orderId: "o1", orderName: "#1012", buyer: "Sam K.", tierName: "Everyone", amount: "2.50", currency: "GBP", status: "Issued" },
-        { orderId: "o2", orderName: "#1011", buyer: "Priya R.", tierName: "Everyone", amount: "4.20", currency: "GBP", status: "Waiting" },
-        { orderId: "o3", orderName: "#1009", buyer: "Customer ····7001", tierName: "Everyone", amount: "-1.00", currency: "GBP", status: "Taken back" },
+        { orderId: "o1", orderName: "#1012", buyer: "Sam K.", tierName: "Everyone", amount: "£2.50", status: "Issued", tone: "success", detail: null },
+        { orderId: "o2", orderName: "#1011", buyer: "Priya R.", tierName: "Everyone", amount: "£4.20", status: "Waiting", tone: "info", detail: null },
+        {
+          orderId: "o3",
+          orderName: "#1009",
+          buyer: "Customer ····7001",
+          tierName: "Everyone",
+          amount: "-£0.40",
+          status: "Taken back",
+          tone: "neutral",
+          detail: "Took back £0.40 of £1.00; the buyer had spent the rest",
+        },
       ],
       tiers: hasTiers ? [{ id: "t1", name: "Everyone", percent: "5", members: 14 }] : [],
       needsLook: 0,
@@ -54,7 +64,7 @@ function homeData(
       placedBuyers: overrides.placedBuyers ?? 14,
     },
     reviewDue: false,
-    storeCreditReady: true,
+    storeCreditReady: overrides.storeCreditReady === undefined ? true : overrides.storeCreditReady,
     themeEditorUrl: "https://home-dom.myshopify.com/admin/themes/current/editor",
   };
 }
@@ -175,10 +185,32 @@ describe("Home", () => {
     expect(text).toContain("£24.50");
     expect(text).toContain("£11.00");
     expect(text).toContain("Sam K.");
-    expect(text).toContain("-£1.00");
+    // A take-back at what it took, with the spec's sentence (Ruling 65)
+    expect(text).toContain("-£0.40");
+    expect(text).toContain("Took back £0.40 of £1.00; the buyer had spent the rest");
+    expect([...document.querySelectorAll("s-badge")].map((badge) => [badge.textContent, badge.getAttribute("tone")])).toEqual([
+      ["Issued", "success"],
+      ["Waiting", "info"],
+      ["Taken back", "neutral"],
+    ]);
     expect(text).toContain("14 members");
     // The widget is on, so no banner
     expect(document.querySelector('[slot="supplemental-start"]')).toBeNull();
+  });
+
+  // Ruling 59: a check Shopify couldn't answer is shown as not checked, never as passing
+  it("shows the store credit check as unknown when Shopify didn't say, and claims no pass", async () => {
+    stubAppBridge("active");
+    await renderHome(homeData({ storeCreditReady: null }));
+    const check = screen.getByText("Store credit: Shopify didn't say").closest("s-stack");
+    expect(check?.querySelector("s-icon")?.getAttribute("type")).toBe("circle-dashed");
+    expect(check?.querySelector("s-icon")?.getAttribute("tone")).toBe("neutral");
+    expect(screen.getByText("Cashback is on.")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("All checks pass");
+    cleanup();
+
+    await renderHome(homeData({ storeCreditReady: true }));
+    expect(screen.getByText("Cashback is on. All checks pass.")).toBeTruthy();
   });
 
   it("warns when the widget embed is off", async () => {

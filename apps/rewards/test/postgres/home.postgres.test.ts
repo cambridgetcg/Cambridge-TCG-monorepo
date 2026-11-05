@@ -1,9 +1,10 @@
-import type { LedgerEntryKind, LookReason, PayoutDirection, PayoutState } from "@prisma/client";
+import { Prisma, type LedgerEntryKind, type LookReason, type PayoutDirection, type PayoutState } from "@prisma/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
 import { homeBanners } from "~/lib/home-rules";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
-import { homeStats } from "~/lib/stats.server";
+import { customerRows, homeStats } from "~/lib/stats.server";
+import { monitoring } from "~/lib/telemetry.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
@@ -168,7 +169,7 @@ async function seedPayout(
   conn: ConnectionContext,
   entry: { id: string; customerId: string; amount: { toString(): string }; currency: string },
   state: PayoutState,
-  o: { direction?: PayoutDirection; lookReason?: LookReason } = {},
+  o: { direction?: PayoutDirection; lookReason?: LookReason; debitedAmount?: string; shortfall?: string } = {},
 ) {
   const amount = entry.amount.toString().replace("-", "");
   return prisma.payout.create({
@@ -182,6 +183,8 @@ async function seedPayout(
       currency: entry.currency,
       state,
       lookReason: o.lookReason ?? (state === "needs_look" ? "refused" : null),
+      debitedAmount: o.debitedAmount ?? null,
+      shortfall: o.shortfall ?? null,
       nextAttemptAt: NOW,
     },
   });
@@ -195,7 +198,8 @@ async function seedCashbackEntries(conn: ConnectionContext, n: number) {
   const buyer = await seedBuyer(conn, String(reviewBuyers));
   for (let i = 0; i < n; i++) {
     const order = await seedOrder(conn, buyer.id, { orderedAt: new Date(Date.now() - DAY) });
-    await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "1.00", createdAt: new Date(Date.now() - DAY) });
+    const entry = await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "1.00", createdAt: new Date(Date.now() - DAY) });
+    await seedPayout(conn, entry, "sent");
   }
 }
 
@@ -239,7 +243,8 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       const at = (iso: string) => new Date(iso);
       // 1 November at 01:00 in Auckland (still 31 October in UTC): this month.
       // A euro order on the GBP shop: counted at its shop amount.
-      await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "6.00", currency: "EUR", shopAmount: "5.00", createdAt: at("2026-10-31T12:00:00Z") });
+      const euro = await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "6.00", currency: "EUR", shopAmount: "5.00", createdAt: at("2026-10-31T12:00:00Z") });
+      await seedPayout(conn, euro, "sent");
       // 31 October at 23:00 in Auckland: last month
       await seedEntry(conn, { customerId: buyer.id, kind: "cashback", amount: "3.00", createdAt: at("2026-10-31T10:00:00Z") });
       await seedEntry(conn, { customerId: buyer.id, kind: "cashback", amount: "4.00", createdAt: at("2026-11-10T09:00:00Z") });
@@ -294,7 +299,7 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       const conn = await seedShop();
       const earned = async (customerId: string, orderedAt: Date) => {
         const order = await seedOrder(conn, customerId, { orderedAt });
-        await seedEntry(conn, { customerId, orderId: order.id, kind: "cashback", amount: "1.00", createdAt: orderedAt });
+        await seedPayout(conn, await seedEntry(conn, { customerId, orderId: order.id, kind: "cashback", amount: "1.00", createdAt: orderedAt }), "sent");
       };
       // Earned in October, bought again in November: came back
       const returning = await seedBuyer(conn, "7001");
@@ -321,7 +326,7 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       expect(stats.cameBack).toBe(2);
     });
 
-    it("lists recent rewards newest first with their status, the tiers with their members, and the payouts that need a look", async () => {
+    it("lists recent rewards newest first with their status, the tiers with their members, and the orders that need a look", async () => {
       const conn = await seedShop();
       const everyone = await seedTier(conn, "Everyone", "0", "5", 0);
       const gold = await seedTier(conn, "Gold", "500", "10", 1);
@@ -329,6 +334,10 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       await seedBuyer(conn, "7002", everyone.id);
       await seedBuyer(conn, "7003", gold.id);
       await seedBuyer(conn, "7004");
+      // Erased by customers/redact: the row stays, but is no member (TRUTH-9)
+      await seedBuyer(conn, "erased-placeholder", gold.id).then((erased) =>
+        prisma.customer.update({ where: { id: erased.id }, data: { externalCustomerId: null } }),
+      );
       const order = await seedOrder(conn, buyer.id, { orderedAt: new Date("2026-11-02T09:00:00Z") });
       const sent = await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "2.50", createdAt: new Date("2026-11-02T09:00:00Z") });
       await seedPayout(conn, sent, "sent");
@@ -338,21 +347,127 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       await seedPayout(conn, waiting, "unconfirmed");
       const refused = await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "3.00", tierName: "Gold", createdAt: new Date("2026-11-05T09:00:00Z") });
       await seedPayout(conn, refused, "needs_look");
+      // An earlier order whose credit needs a look
+      const second = await seedOrder(conn, buyer.id, { orderedAt: new Date("2026-11-01T09:00:00Z") });
+      const stuck = await seedEntry(conn, { customerId: buyer.id, orderId: second.id, kind: "cashback", amount: "1.00", createdAt: new Date("2026-11-01T09:00:00Z") });
+      await seedPayout(conn, stuck, "needs_look", { lookReason: "kept_failing" });
 
-      const stats = await homeStats(conn, NOW);
+      const data = await load(fakeAdmin({ RewardsCustomerNames: { data: { nodes: [{ id: "gid://shopify/Customer/7001", firstName: "Sam", lastName: "K." }] } } }));
 
-      expect(stats.recent.map((r) => ({ ...r, amount: r.amount.toFixed(2) }))).toEqual([
-        { orderId: order.id, orderName: order.name, customerId: "7001", tierName: "Gold", amount: "3.00", currency: "GBP", status: "Needs a look" },
-        { orderId: order.id, orderName: order.name, customerId: "7001", tierName: "Everyone", amount: "4.00", currency: "GBP", status: "Waiting" },
-        { orderId: order.id, orderName: order.name, customerId: "7001", tierName: "Everyone", amount: "-1.00", currency: "GBP", status: "Needs a look" },
-        { orderId: order.id, orderName: order.name, customerId: "7001", tierName: "Everyone", amount: "2.50", currency: "GBP", status: "Issued" },
+      expect(data.stats.recent).toEqual([
+        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Gold", amount: "£3.00", status: "Needs a look", tone: "warning", detail: null },
+        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Everyone", amount: "£4.00", status: "Waiting", tone: "info", detail: null },
+        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Everyone", amount: "-£1.00", status: "Needs a look", tone: "warning", detail: null },
+        { orderId: order.id, orderName: order.name, buyer: "Sam K.", tierName: "Everyone", amount: "£2.50", status: "Issued", tone: "success", detail: null },
+        { orderId: second.id, orderName: second.name, buyer: "Sam K.", tierName: "Everyone", amount: "£1.00", status: "Needs a look", tone: "warning", detail: null },
       ]);
-      expect(stats.tiers.map((t) => ({ ...t, percent: t.percent.toString() }))).toEqual([
+      expect(data.stats.tiers).toEqual([
         { id: everyone.id, name: "Everyone", percent: "5", members: 2 },
         { id: gold.id, name: "Gold", percent: "10", members: 1 },
       ]);
-      expect(stats.needsLook).toBe(2);
+      // Ruling 56: three payouts need a look, on two orders, as the Orders page counts them
+      expect(data.stats.needsLook).toBe(2);
+      expect(homeBanners(data.bannerFacts, true).map((b) => b.text)).toEqual(["2 orders need a look."]);
     });
+
+    it("names an erased buyer as every page does", async () => {
+      const conn = await seedShop();
+      const buyer = await seedBuyer(conn, "7001");
+      const order = await seedOrder(conn, buyer.id, { orderedAt: new Date("2026-11-02T09:00:00Z") });
+      await seedPayout(conn, await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "1.00", createdAt: new Date("2026-11-02T09:00:00Z") }), "sent");
+      await prisma.customer.update({ where: { id: buyer.id }, data: { externalCustomerId: null } });
+
+      const data = await load();
+
+      expect(data.stats.recent.map((r) => r.buyer)).toEqual(["Erased buyer"]);
+    });
+
+    // A19-F8: every cashback and take-back is written with its payout; one without is reported, not shown as Waiting
+    it("reports an entry with no payout, by its id alone, and shows it as Unknown", async () => {
+      const conn = await seedShop();
+      const buyer = await seedBuyer(conn, "7001");
+      const order = await seedOrder(conn, buyer.id, { orderedAt: new Date("2026-11-02T09:00:00Z") });
+      const orphan = await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "1.00", createdAt: new Date("2026-11-02T09:00:00Z") });
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const capture = vi.spyOn(monitoring, "captureMessage").mockImplementation(() => true);
+
+      const data = await load();
+
+      expect(data.stats.recent).toEqual([expect.objectContaining({ amount: "£1.00", status: "Unknown", tone: "neutral" })]);
+      expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([expect.stringContaining(orphan.id)]);
+      expect(capture).toHaveBeenCalledWith(expect.stringContaining("no payout"), "error", { tags: { "ledger.invariant": "entry-without-payout" }, extra: { ledgerEntryId: orphan.id } });
+      // No buyer detail goes with it
+      const reported = JSON.stringify([errors.mock.calls, capture.mock.calls]);
+      expect(reported).not.toContain("7001");
+      expect(reported).not.toContain(buyer.id);
+      errors.mockRestore();
+      capture.mockRestore();
+    });
+
+    // Ruling 65 (TRUTH-1, DESIGN-2): what left the buyer, as the ledger nets it
+    describe("a take-back, at what it took", () => {
+      /** A £1.00 credit sent, then fully refunded: the debit took `taken` (null: Shopify never said) */
+      async function refundedInFull(conn: ConnectionContext, externalId: string, taken: string | null, day: number) {
+        const buyer = await seedBuyer(conn, externalId);
+        const order = await seedOrder(conn, buyer.id, { orderedAt: new Date(`2026-11-0${day}T09:00:00Z`) });
+        const credit = await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "1.00", createdAt: new Date(`2026-11-0${day}T09:00:00Z`) });
+        await seedPayout(conn, credit, "sent");
+        const reversal = await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "reversal", amount: "-1.00", createdAt: new Date(`2026-11-0${day}T10:00:00Z`) });
+        const shortfall = taken === null ? null : new Prisma.Decimal("1.00").minus(taken).toFixed(2);
+        const debit = await seedPayout(conn, reversal, "sent", { direction: "debit", debitedAmount: taken ?? undefined, shortfall: shortfall ?? undefined });
+        // Ruling 35: the part not taken comes back on the ledger
+        if (shortfall !== null && shortfall !== "0.00") {
+          await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "adjustment", amount: shortfall, createdAt: new Date(`2026-11-0${day}T10:00:01Z`), key: `shortfall:${debit.id}` });
+        }
+        return buyer;
+      }
+
+      it("shows on Recent rewards what the debit took, the spec's sentence when short, and Amount unknown when Shopify never said", async () => {
+        const conn = await seedShop();
+        await refundedInFull(conn, "7001", "0", 2);
+        await refundedInFull(conn, "7002", "0.40", 3);
+
+        const data = await load();
+
+        expect(data.stats.recent.map(({ amount, status, detail }) => ({ amount, status, detail }))).toEqual([
+          { amount: "-£0.40", status: "Taken back", detail: "Took back £0.40 of £1.00; the buyer had spent the rest" },
+          { amount: "£1.00", status: "Issued", detail: null },
+          { amount: "£0.00", status: "Not taken back", detail: "Couldn't take back £1.00; the buyer had spent it" },
+          { amount: "£1.00", status: "Issued", detail: null },
+        ]);
+        // The ledger agrees: £1.00 kept by the first buyer, £0.60 by the second
+        expect(data.stats.cashbackGiven).toBe("1.6");
+        const rows = await customerRows(conn, { page: 1, now: NOW });
+        expect(Object.fromEntries(rows.rows.map((row) => [row.externalCustomerId, row.cashbackGiven.toFixed(2)]))).toEqual({ "7001": "1.00", "7002": "0.60" });
+      });
+
+      it("shows Amount unknown for a take-back Shopify confirmed without saying how much", async () => {
+        const conn = await seedShop();
+        await refundedInFull(conn, "7003", null, 4);
+
+        const data = await load();
+
+        expect(data.stats.recent.map(({ amount, status, detail }) => ({ amount, status, detail }))).toEqual([
+          { amount: "Amount unknown", status: "Taken back", detail: null },
+          { amount: "£1.00", status: "Issued", detail: null },
+        ]);
+        // No shortfall was recorded, so the ledger counts it as taken
+        const rows = await customerRows(conn, { page: 1, now: NOW });
+        expect(rows.rows.map((row) => row.cashbackGiven.toFixed(2))).toEqual(["0.00"]);
+      });
+    });
+  });
+
+  // Ruling 59 (A19-F3): a check Shopify couldn't answer is unknown, never "can be spent"
+  it("says the store credit check is unknown when Shopify couldn't answer it", async () => {
+    await seedShop();
+    const silent = fakeAdmin({ RewardsStoreCreditConfig: { errors: [{ message: "Throttled" }] } });
+
+    const data = await load(silent);
+
+    expect(data.storeCreditReady).toBeNull();
+    expect(data.bannerFacts.spendProblems).toEqual([]);
+    expect((await load()).storeCreditReady).toBe(true);
   });
 
   describe("the review request", () => {
@@ -415,7 +530,8 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
     const conn = await seedShop();
     const buyer = await seedBuyer(conn, "7001");
     for (const [i, key] of ["a", "b"].entries()) {
-      const entry = await seedEntry(conn, { customerId: buyer.id, kind: "cashback", amount: "1.00", createdAt: new Date(Date.now() - (i + 1) * DAY), key });
+      const order = await seedOrder(conn, buyer.id, { orderedAt: new Date(Date.now() - (i + 1) * DAY) });
+      const entry = await seedEntry(conn, { customerId: buyer.id, orderId: order.id, kind: "cashback", amount: "1.00", createdAt: new Date(Date.now() - (i + 1) * DAY), key });
       await seedPayout(conn, entry, "needs_look");
     }
     const request = (shopifyRequestId: string, dueAt: Date, status: "open" | "downloaded" = "open") => ({
@@ -450,7 +566,7 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
     expect(banners.map((b) => b.text)).toEqual([
       "A customer asked for their data. Download it by December 5, 2026.",
       "Buyers can't spend their store credit yet: your store uses legacy customer accounts; store credit is turned off in Settings > Customer accounts.",
-      "2 cashback payments need a look.",
+      "2 orders need a look.",
       "The rewards widget is off in your theme.",
     ]);
     expect(banners[2].link).toEqual({ label: "Open orders", href: "/app/orders" });
@@ -555,6 +671,10 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
     await seedOrder(conn, waiting.id, { orderedAt: new Date("2026-09-02T09:00:00Z"), source: "import" });
     const live = await seedBuyer(conn, "7003", everyone.id);
     await seedOrder(conn, live.id, { orderedAt: new Date("2026-11-02T09:00:00Z") });
+    // An imported buyer since erased by customers/redact (TRUTH-9)
+    const erased = await seedBuyer(conn, "7004", everyone.id);
+    await seedOrder(conn, erased.id, { orderedAt: new Date("2026-09-03T09:00:00Z"), source: "import" });
+    await prisma.customer.update({ where: { id: erased.id }, data: { externalCustomerId: null } });
     await prisma.connection.update({
       where: { id: conn.connectionId },
       data: { importState: "done", importedCount: 2, importError: "1 of 3 past orders could not be read, so their spend is not counted: #1" },

@@ -21,16 +21,20 @@
  *
  * Orders (spec 4.6): each order's status is orderStatus (order-status.ts,
  * no database) over its cashback entry, that entry's credit and its
- * take-backs.
+ * take-backs, each sent take-back counted at what it took (Ruling 65).
+ *
+ * Erased buyers (customers/redact keeps the row without its Shopify id) are
+ * nobody's member and placed by no import (TRUTH-9).
  */
 import { Prisma, type LedgerEntryKind, type LookReason, type NoCashbackReason, type PayoutDirection, type PayoutState } from "@prisma/client";
 import type { Decimal } from "decimal.js";
 import prisma, { databaseSchema } from "~/db.server";
-import { daysEnding, reviewDue, rewardStatus } from "./home-rules";
+import { daysEnding, reviewDue } from "./home-rules";
 import type { ConnectionContext } from "./merchant.server";
 import { Money, fromDb } from "./money";
-import { type OrderStatus, type OrderStatusLabel, orderStatus } from "./order-status";
-import { type Progress, type TierRow, progress, spendCounted, spendOf, tierSpend, tierTable } from "./tiers.server";
+import { type OrderStatus, orderStatus } from "./order-status";
+import { monitoring } from "./telemetry.server";
+import { type Progress, type TierRow, progress, qualify, spendCounted, spendOf, tierSpend, tierTable } from "./tiers.server";
 
 export type RecentReward = {
   orderId: string;
@@ -38,10 +42,15 @@ export type RecentReward = {
   /** The buyer's Shopify customer id, for their live name; "" once redacted */
   customerId: string;
   tierName: string | null;
+  kind: "cashback" | "reversal";
   /** Signed, in `currency` (the buyer's): a take-back is negative */
   amount: Decimal;
   currency: string;
-  status: string;
+  /**
+   * Its payout, which says what really moved (a take-back's debitedAmount,
+   * Ruling 65). Null is a broken invariant, reported when read (A19-F8).
+   */
+  payout: { direction: PayoutDirection; state: PayoutState; amount: Decimal; debitedAmount: Decimal | null } | null;
 };
 
 export interface HomeStats {
@@ -51,8 +60,9 @@ export interface HomeStats {
   /** The last 30 days in the shop's time zone, oldest first, in the shop's currency */
   daily: { date: string; given: Decimal; spent: Decimal }[];
   recent: RecentReward[];
-  /** Lowest first */
+  /** Lowest first; members are the buyers who hold each, erased ones aside */
   tiers: { id: string; name: string; percent: Decimal; members: number }[];
+  /** Orders with a payout that needs a look, as the Orders page counts them (Ruling 56) */
   needsLook: number;
   /** Cashback entries ever written (the review request counts them) */
   cashbackOrders: number;
@@ -63,6 +73,24 @@ const RECENT = 5;
 const DAYS = 30;
 
 const table = (name: string) => Prisma.raw(`"${databaseSchema}"."${name}"`);
+
+/** A buyer who is still someone: customers/redact blanks the Shopify id (TRUTH-9). */
+const NOT_ERASED = { externalCustomerId: { not: null } };
+
+/** An order with a payout (its credit or a take-back) that needs a look. */
+const NEEDS_LOOK_ORDER = { ledgerEntries: { some: { payout: { state: "needs_look" as const } } } };
+
+/** The store's orders with a payout that needs a look: one count for Home's banner and the Orders page (Ruling 56). */
+function needsLookOrders(conn: Pick<ConnectionContext, "merchantId" | "connectionId">): Promise<number> {
+  return prisma.order.count({ where: { merchantId: conn.merchantId, connectionId: conn.connectionId, ...NEEDS_LOOK_ORDER } });
+}
+
+/** A cashback or take-back entry with no payout: every writer pairs the two, so say so, by the entry's id alone (A19-F8). */
+function reportMissingPayout(ledgerEntryId: string): void {
+  const message = `A cashback or take-back ledger entry has no payout: ${ledgerEntryId}`;
+  console.error(`[stats] ${message}`);
+  monitoring.captureMessage(message, "error", { tags: { "ledger.invariant": "entry-without-payout" }, extra: { ledgerEntryId } });
+}
 
 /**
  * Home's numbers for one store at `now`. Reads only; amounts stay exact
@@ -116,21 +144,22 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: RECENT,
       select: {
+        id: true,
         kind: true,
         amount: true,
         currency: true,
         tierName: true,
         order: { select: { id: true, name: true } },
         customer: { select: { externalCustomerId: true } },
-        payout: { select: { state: true } },
+        payout: { select: { direction: true, state: true, amount: true, debitedAmount: true } },
       },
     }),
     prisma.tier.findMany({
       where: { merchantId },
       orderBy: [{ minSpend: "asc" }, { position: "asc" }, { id: "asc" }],
-      select: { id: true, name: true, cashbackPercent: true, _count: { select: { members: true } } },
+      select: { id: true, name: true, cashbackPercent: true, _count: { select: { members: { where: NOT_ERASED } } } },
     }),
-    prisma.payout.count({ where: { merchantId, state: "needs_look" } }),
+    needsLookOrders(conn),
     prisma.ledgerEntry.count({ where: { merchantId, kind: "cashback" } }),
   ]);
 
@@ -149,16 +178,27 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
     })),
     recent: recent
       .filter((entry) => entry.order !== null)
-      .map((entry) => ({
-        orderId: entry.order!.id,
-        orderName: entry.order!.name,
-        customerId: entry.customer.externalCustomerId ?? "",
-        tierName: entry.tierName,
-        amount: fromDb(entry.amount),
-        currency: entry.currency,
+      .map((entry) => {
         // A cashback or take-back entry is written with its payout, in one transaction
-        status: rewardStatus(entry.kind as "cashback" | "reversal", entry.payout?.state ?? "pending"),
-      })),
+        if (!entry.payout) reportMissingPayout(entry.id);
+        return {
+          orderId: entry.order!.id,
+          orderName: entry.order!.name,
+          customerId: entry.customer.externalCustomerId ?? "",
+          tierName: entry.tierName,
+          kind: entry.kind as "cashback" | "reversal",
+          amount: fromDb(entry.amount),
+          currency: entry.currency,
+          payout: entry.payout
+            ? {
+                direction: entry.payout.direction,
+                state: entry.payout.state,
+                amount: fromDb(entry.payout.amount),
+                debitedAmount: entry.payout.debitedAmount === null ? null : fromDb(entry.payout.debitedAmount),
+              }
+            : null,
+        };
+      }),
     tiers: tiers.map((tier) => ({ id: tier.id, name: tier.name, percent: fromDb(tier.cashbackPercent), members: tier._count.members })),
     needsLook,
     cashbackOrders,
@@ -175,7 +215,7 @@ export interface HomeState {
   importDismissed: boolean;
   /** How far back the import reads: 365, or 60 without read_all_orders */
   importHorizonDays: number;
-  /** Buyers the past-orders import brought in who now hold a tier */
+  /** Buyers the past-orders import brought in who now hold a tier, erased ones aside */
   placedBuyers: number;
   reviewDue: boolean;
 }
@@ -197,7 +237,7 @@ export async function homeState(conn: ConnectionContext, now: Date, cashbackEntr
       select: { dueAt: true },
     }),
     prisma.customer.count({
-      where: { connectionId: conn.connectionId, tierId: { not: null }, orders: { some: { source: "import" } } },
+      where: { connectionId: conn.connectionId, ...NOT_ERASED, tierId: { not: null }, orders: { some: { source: "import" } } },
     }),
   ]);
   return {
@@ -341,6 +381,8 @@ export type BuyerOrder = {
   paidAt: Date;
   /** Its cashback entry, in the buyer's currency */
   cashback: { amount: Decimal; currency: string } | null;
+  /** As the Orders page says it (TRUTH-14) */
+  status: OrderStatus;
 };
 
 export interface BuyerPanel {
@@ -354,6 +396,14 @@ export interface BuyerPanel {
   /** Tier spend over the merchant's window, the figure that decides the tier */
   spend: Decimal;
   progress: Progress;
+  /**
+   * The tier the buyer's spend already qualifies for when it is above the
+   * one they hold (the tier pass hasn't reached them yet, TRUTH-11); null
+   * otherwise, and always for a locked buyer, whom spend doesn't move.
+   */
+  movesTo: string | null;
+  /** The currencies RewardsPro wrote the buyer's ledger entries in, for their live balance (Ruling 66) */
+  currencies: string[];
   history: HistoryEntry[];
   /** The buyer has older entries than `history` holds */
   moreHistory: boolean;
@@ -376,7 +426,7 @@ export async function buyerPanel(conn: ConnectionContext, customerId: string, no
   });
   if (!customer) return null;
 
-  const [tiers, spend, entries, orders] = await Promise.all([
+  const [tiers, spend, entries, orders, currencies] = await Promise.all([
     tierTable(conn.merchantId),
     tierSpend(customer.id, conn.tierWindow, now),
     prisma.ledgerEntry.findMany({
@@ -408,12 +458,18 @@ export async function buyerPanel(conn: ConnectionContext, customerId: string, no
         noCashbackReason: true,
         currency: true,
         totalAmount: true,
+        cashbackBase: true,
         paidAt: true,
-        ledgerEntries: { where: { kind: "cashback" }, select: { amount: true, currency: true }, take: 1 },
+        ledgerEntries: { where: { kind: { in: ["cashback", "reversal"] } }, select: STATUS_ENTRY_SELECT },
       },
     }),
+    // GROUP BY in Postgres: one row per currency, however many entries
+    prisma.ledgerEntry.groupBy({ by: ["currency"], where: { merchantId: conn.merchantId, customerId: customer.id } }),
   ]);
   const tierRows: TierRow[] = tiers.map(({ id, name, minSpend, cashbackPercent, position }) => ({ id, name, minSpend, cashbackPercent, position }));
+  // The held tier, or the lowest for a buyer with none (rule 2), against the one their spend qualifies for
+  const held = tierRows.find((t) => t.id === customer.tierId) ?? tierRows[0] ?? null;
+  const qualified = held && customer.lockedTierId === null ? qualify(spend, tierRows) : null;
 
   return {
     id: customer.id,
@@ -424,6 +480,8 @@ export async function buyerPanel(conn: ConnectionContext, customerId: string, no
     tiers: tierRows,
     spend,
     progress: progress(spend, customer.tierId ?? "", tierRows),
+    movesTo: held && qualified && qualified.minSpend.gt(held.minSpend) ? qualified.name : null,
+    currencies: currencies.map((row) => row.currency).sort(),
     moreHistory: entries.length > PANEL_LIMIT,
     moreOrders: orders.length > PANEL_LIMIT,
     history: entries.slice(0, PANEL_LIMIT).map((entry) => ({
@@ -449,7 +507,7 @@ export async function buyerPanel(conn: ConnectionContext, customerId: string, no
         : null,
     })),
     orders: orders.slice(0, PANEL_LIMIT).map((order) => {
-      const [cashback] = order.ledgerEntries;
+      const { cashback, status } = cashbackAndStatus(order, order.ledgerEntries);
       return {
         id: order.id,
         name: order.name,
@@ -460,7 +518,8 @@ export async function buyerPanel(conn: ConnectionContext, customerId: string, no
         currency: order.currency,
         totalAmount: fromDb(order.totalAmount),
         paidAt: order.paidAt,
-        cashback: cashback ? { amount: fromDb(cashback.amount), currency: cashback.currency } : null,
+        cashback: cashback ? { amount: cashback.amount, currency: cashback.currency } : null,
+        status,
       };
     }),
   };
@@ -472,13 +531,10 @@ export async function buyerPanel(conn: ConnectionContext, customerId: string, no
 
 // The pure rule, here with the rest of the admin's numbers
 export { orderStatus };
-export type { OrderStatus, OrderStatusLabel };
+export type { OrderStatus };
 
 /** Orders an Orders page shows. */
 export const ORDER_PAGE_SIZE = 50;
-
-/** An order with a payout (its credit or a take-back) that needs a look. */
-const NEEDS_LOOK_ORDER = { ledgerEntries: { some: { payout: { state: "needs_look" as const } } } };
 
 /** What orderStatus reads of an order's cashback entry and take-backs. */
 const STATUS_ENTRY_SELECT = {
@@ -487,7 +543,7 @@ const STATUS_ENTRY_SELECT = {
   currency: true,
   tierName: true,
   ratePercent: true,
-  payout: { select: { state: true, lookReason: true, shortfall: true } },
+  payout: { select: { state: true, lookReason: true, debitedAmount: true } },
 } as const;
 
 type StatusEntry = {
@@ -496,17 +552,24 @@ type StatusEntry = {
   currency: string;
   tierName: string | null;
   ratePercent: Prisma.Decimal | null;
-  payout: { state: PayoutState; lookReason: LookReason | null; shortfall: Prisma.Decimal | null } | null;
+  payout: { state: PayoutState; lookReason: LookReason | null; debitedAmount: Prisma.Decimal | null } | null;
 };
 
-type StatusOrder = { source: "live" | "import"; test: boolean; noCashbackReason: NoCashbackReason | null };
+type StatusOrder = { source: "live" | "import"; test: boolean; noCashbackReason: NoCashbackReason | null; cashbackBase: Prisma.Decimal };
 
 /** The order's cashback (amount, tier and rate) and status, from its ledger entries. */
 function cashbackAndStatus(order: StatusOrder, entries: StatusEntry[]) {
   const cashback = entries.find((entry) => entry.kind === "cashback") ?? null;
   const reversals = entries.flatMap((entry) =>
     entry.kind === "reversal" && entry.payout
-      ? [{ amount: fromDb(entry.amount), state: entry.payout.state, lookReason: entry.payout.lookReason, shortfall: entry.payout.shortfall === null ? null : fromDb(entry.payout.shortfall) }]
+      ? [
+          {
+            amount: fromDb(entry.amount),
+            state: entry.payout.state,
+            lookReason: entry.payout.lookReason,
+            debitedAmount: entry.payout.debitedAmount === null ? null : fromDb(entry.payout.debitedAmount),
+          },
+        ]
       : [],
   );
   return {
@@ -518,7 +581,12 @@ function cashbackAndStatus(order: StatusOrder, entries: StatusEntry[]) {
           ratePercent: cashback.ratePercent === null ? null : fromDb(cashback.ratePercent),
         }
       : null,
-    status: orderStatus(order, cashback ? { amount: fromDb(cashback.amount) } : null, cashback?.payout ?? null, reversals),
+    status: orderStatus(
+      { ...order, cashbackBase: fromDb(order.cashbackBase) },
+      cashback ? { amount: fromDb(cashback.amount), currency: cashback.currency } : null,
+      cashback?.payout ?? null,
+      reversals,
+    ),
   };
 }
 
@@ -562,11 +630,12 @@ export async function orderRows(
         noCashbackReason: true,
         currency: true,
         totalAmount: true,
+        cashbackBase: true,
         customer: { select: { id: true, externalCustomerId: true } },
         ledgerEntries: { where: { kind: { in: ["cashback", "reversal"] } }, select: STATUS_ENTRY_SELECT },
       },
     }),
-    prisma.order.count({ where: { ...ours, ...NEEDS_LOOK_ORDER } }),
+    needsLookOrders(conn),
   ]);
 
   return {
@@ -590,7 +659,6 @@ export async function orderRows(
 /** A payout as the order panel shows it: the buyer panel's facts and its own. */
 export type PanelPayout = NonNullable<HistoryEntry["payout"]> & {
   id: string;
-  attempts: number;
   sentAt: Date | null;
   shortfall: Decimal | null;
 };
@@ -714,7 +782,6 @@ export async function orderPanel(conn: ConnectionContext, orderId: string): Prom
           shortfall: true,
           unconfirmedAt: true,
           lastError: true,
-          attempts: true,
           sentAt: true,
         },
       },
@@ -761,7 +828,6 @@ export async function orderPanel(conn: ConnectionContext, orderId: string): Prom
             shortfall: orNull(entry.payout.shortfall),
             unconfirmedAt: entry.payout.unconfirmedAt,
             lastError: entry.payout.lastError,
-            attempts: entry.payout.attempts,
             sentAt: entry.payout.sentAt,
           }
         : null,

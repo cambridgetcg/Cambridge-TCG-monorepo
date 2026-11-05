@@ -2,23 +2,25 @@ import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "re
 import { data, useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
-import { formatDay, historyLine } from "~/admin/customer-history.server";
-import { ORDER_STATUS_TONE, formatMoney } from "~/admin/format";
-import { type Look, orderNotes, payoutLines, refundLine } from "~/admin/order-panel.server";
+import { formatDay } from "~/admin/customer-history.server";
+import { formatMoney } from "~/admin/format";
+import { type Look, entryLines, panelNotes, refundLine } from "~/admin/order-panel.server";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
+import { BUYER_IN_SHOPIFY, ERASED_BUYER, STATUS_TONE } from "~/admin/words";
 import { type MerchantAnswer, answerNeedsLook } from "~/lib/payouts.server";
 import { orderHasPayout, orderPanel } from "~/lib/stats.server";
 import { customerNames } from "~/shopify/names.server";
 
 /**
- * The order panel (spec 4.6): the order, its status, its ledger entries,
- * payouts and refunds. The only actions are rule 12's answers to a payout
- * that needs a look, each made through answerNeedsLook (A11), which does
- * all of the money: Shopify refused it or it kept failing, "Retry" or "Close
- * without sending"; RewardsPro couldn't confirm it, "It arrived" or "It
- * didn't arrive, send it", after the merchant checks the buyer's store
- * credit in Shopify. A take-back that fell short is information only.
+ * The order panel (spec 4.6): the order, its status, its ledger entries
+ * (each payout folded into its entry's row, DESIGN-13) and refunds. The
+ * only actions are rule 12's answers to a payout that needs a look, each
+ * made through answerNeedsLook (A11), which does all of the money: Shopify
+ * refused it or it kept failing, "Retry" or "Close without sending";
+ * RewardsPro couldn't confirm it, "It arrived" or "It didn't arrive, send
+ * it", after the merchant checks the buyer's store credit in Shopify. A
+ * take-back that fell short is information only.
  */
 
 const notFound = () => new Response("Not found", { status: 404 });
@@ -34,19 +36,19 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   return {
     id: panel.id,
     name: panel.name,
-    buyer: external === null ? "Erased buyer" : names.get(external)!,
+    buyer: external === null ? ERASED_BUYER : names.get(external)!,
     customerId: panel.customerId,
     buyerAdminUrl: external === null ? null : `shopify://admin/customers/${external}`,
     processed: formatDay(panel.paidAt, conn.timezone),
     total: money(panel.totalAmount),
     productValue: money(panel.productAmount),
-    storeCreditUsed: money(panel.storeCreditUsed),
-    giftCardUsed: money(panel.giftCardUsed),
+    // Lines for money that wasn't paid that way are left out (DESIGN-13)
+    storeCreditUsed: panel.storeCreditUsed.isZero() ? null : money(panel.storeCreditUsed),
+    giftCardUsed: panel.giftCardUsed.isZero() ? null : money(panel.giftCardUsed),
     cashbackBase: money(panel.cashbackBase),
     status: panel.status,
-    notes: orderNotes(panel),
-    entries: panel.entries.map((entry) => historyLine(entry, conn.timezone)),
-    payouts: payoutLines(panel, conn.timezone),
+    notes: panelNotes(panel),
+    entries: entryLines(panel, conn.timezone),
     refunds: panel.refunds.map((refund) => refundLine(refund, panel.currency, conn.timezone)),
   };
 };
@@ -84,7 +86,7 @@ function LookBanner({ payoutId, look, buyerAdminUrl }: { payoutId: string; look:
       <s-stack gap="small-200">
         {look.text ? <s-text>{look.text}</s-text> : null}
         {look.hint ? <s-text>{look.hint}</s-text> : null}
-        {look.hint && buyerAdminUrl ? <s-link href={buyerAdminUrl}>Open the buyer in Shopify</s-link> : null}
+        {look.hint && buyerAdminUrl ? <s-link href={buyerAdminUrl}>{BUYER_IN_SHOPIFY}</s-link> : null}
         {error ? <s-text tone="critical">{error}</s-text> : null}
       </s-stack>
       {look.answers.map((button) => (
@@ -104,7 +106,7 @@ function LookBanner({ payoutId, look, buyerAdminUrl }: { payoutId: string; look:
 
 export default function Order() {
   const d = useLoaderData<typeof loader>();
-  const looks = d.payouts.flatMap((payout) => (payout.look ? [{ id: payout.id, look: payout.look }] : []));
+  const looks = d.entries.flatMap((entry) => (entry.look && entry.payoutId ? [{ id: entry.payoutId, look: entry.look }] : []));
 
   return (
     <s-page heading={d.name} inlineSize="base">
@@ -119,16 +121,16 @@ export default function Order() {
       <s-section heading="Order">
         <s-stack gap="small-200">
           <s-stack direction="inline" gap="small-200" alignItems="center">
-            <s-badge tone={ORDER_STATUS_TONE[d.status.label]}>{d.status.label}</s-badge>
+            <s-badge tone={STATUS_TONE[d.status.key]}>{d.status.label}</s-badge>
             {d.status.detail ? <s-text color="subdued">{d.status.detail}</s-text> : null}
           </s-stack>
           <s-text>Buyer: {d.customerId ? <s-link href={`/app/customers/${d.customerId}`}>{d.buyer}</s-link> : d.buyer}</s-text>
           <s-text>Processed: {d.processed}</s-text>
           <s-text>Total: {d.total}</s-text>
           <s-text>Products after discounts: {d.productValue}</s-text>
-          <s-text>Paid with store credit: {d.storeCreditUsed}</s-text>
-          <s-text>Paid with gift cards: {d.giftCardUsed}</s-text>
-          <s-text>Cashback base: {d.cashbackBase}</s-text>
+          {d.storeCreditUsed ? <s-text>Paid with store credit: {d.storeCreditUsed}</s-text> : null}
+          {d.giftCardUsed ? <s-text>Paid with gift cards: {d.giftCardUsed}</s-text> : null}
+          <s-text>Earns cashback on: {d.cashbackBase}</s-text>
           {d.notes.map((note) => (
             <s-text key={note} color="subdued">
               {note}
@@ -162,40 +164,20 @@ export default function Order() {
                   </s-table-cell>
                   <s-table-cell>{line.tierName && line.ratePercent ? <TierChip name={line.tierName} percent={line.ratePercent} /> : null}</s-table-cell>
                   <s-table-cell>{line.amount}</s-table-cell>
-                  <s-table-cell>{line.status ? <s-text>{line.status}</s-text> : null}</s-table-cell>
+                  <s-table-cell>
+                    {line.status && line.tone ? (
+                      <s-stack gap="small-300">
+                        <s-badge tone={line.tone}>{line.status}</s-badge>
+                        {line.payout ? <s-text color="subdued">{line.payout}</s-text> : null}
+                      </s-stack>
+                    ) : null}
+                  </s-table-cell>
                 </s-table-row>
               ))}
             </s-table-body>
           </s-table>
         )}
       </s-section>
-
-      {d.payouts.length > 0 ? (
-        <s-section heading="Payouts">
-          <s-table>
-            <s-table-header-row>
-              <s-table-header listSlot="primary">Payout</s-table-header>
-              <s-table-header listSlot="labeled" format="currency">
-                Amount
-              </s-table-header>
-              <s-table-header listSlot="inline">State</s-table-header>
-              <s-table-header>Sent</s-table-header>
-              <s-table-header format="numeric">Tries</s-table-header>
-            </s-table-header-row>
-            <s-table-body>
-              {d.payouts.map((payout) => (
-                <s-table-row key={payout.id}>
-                  <s-table-cell>{payout.what}</s-table-cell>
-                  <s-table-cell>{payout.amount}</s-table-cell>
-                  <s-table-cell>{payout.state}</s-table-cell>
-                  <s-table-cell>{payout.sent}</s-table-cell>
-                  <s-table-cell>{payout.attempts}</s-table-cell>
-                </s-table-row>
-              ))}
-            </s-table-body>
-          </s-table>
-        </s-section>
-      ) : null}
 
       <s-section heading="Refunds">
         {d.refunds.length === 0 ? (

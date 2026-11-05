@@ -575,10 +575,13 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
     if (refund.status !== "recorded" || !refund.reversalPayoutId) throw new Error("no take-back");
     await expect(payoutOf(refund.reversalPayoutId)).resolves.toMatchObject({ state: "held" });
     const now = new Date();
+    const { claimedAt } = await prisma.payout.findUniqueOrThrow({ where: { id: payoutId } });
+    expect(claimedAt).toBeInstanceOf(Date);
 
     await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived", now)).resolves.toEqual({ ok: true });
 
-    await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "sent", settledBy: "merchant", sentAt: now, amount: "2.50" });
+    // Dated when it went out, not when the merchant answered (TRUTH-8)
+    await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "sent", settledBy: "merchant", sentAt: claimedAt, amount: "2.50" });
     await expect(payoutOf(refund.reversalPayoutId)).resolves.toMatchObject({ state: "pending", nextAttemptAt: now, amount: "0.50" });
     const rail = fakeRail();
     await expect(sendPayout(refund.reversalPayoutId, rail, now)).resolves.toBe("sent");
@@ -617,6 +620,7 @@ describe.skipIf(!hasTestDatabase)("answerNeedsLook", () => {
 
     await expect(answerNeedsLook(conn.merchantId, payoutId, "arrived", now)).resolves.toEqual({ ok: true });
 
+    // No claim or unconfirmed time on record: the answer's own time
     await expect(payoutOf(payoutId)).resolves.toMatchObject({ state: "sent", settledBy: "merchant", sentAt: now, debitedAmount: "0.50", shortfall: "0.00" });
     await expect(prisma.ledgerEntry.count({ where: { kind: "adjustment" } })).resolves.toBe(0);
   });

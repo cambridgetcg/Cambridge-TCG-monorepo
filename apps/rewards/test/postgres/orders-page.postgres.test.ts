@@ -2,6 +2,8 @@ import { Prisma, type LedgerEntryKind, type LookReason, type PayoutDirection, ty
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
+import { CUSTOMER_MISSING } from "~/lib/payouts.server";
+import { customerRows, orderRows } from "~/lib/stats.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
@@ -119,6 +121,7 @@ async function addOrder(
     source?: "live" | "import";
     reason?: "import" | "before_install" | "test" | "cancelled" | "off" | "no_tier" | "nothing_to_pay_on" | null;
     storeCredit?: string;
+    base?: string;
     importRefundIds?: string[];
   } = {},
 ) {
@@ -140,7 +143,7 @@ async function addOrder(
       storeCreditUsed: o.storeCredit ?? "0",
       shopStoreCreditUsed: o.storeCredit ?? "0",
       giftCardUsed: "0",
-      cashbackBase: new Prisma.Decimal(amount).minus(o.storeCredit ?? "0"),
+      cashbackBase: o.base ?? new Prisma.Decimal(amount).minus(o.storeCredit ?? "0"),
       orderedAt: at,
       paidAt: at,
       cancelledAt: o.cancelled ? at : null,
@@ -290,7 +293,9 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       const imported = await addOrder(ann.id, "30.00", 300, { source: "import" });
       // An erased buyer's order stays, with no one to name
       const erased = await addBuyer({ externalId: null });
+      // A base the rate gave nothing on (TRUTH-6), and one with no base at all
       const theirs = await addOrder(erased.id, "10.00", 2, { reason: "nothing_to_pay_on" });
+      const allCredit = await addOrder(erased.id, "10.00", 2.5, { reason: "nothing_to_pay_on", base: "0" });
       // Another store's order is not listed
       await ensureMerchant({ shop: OTHER_SHOP, name: "Other", currency: "GBP", timezone: "Europe/London" });
       const other = (await findConnection(OTHER_SHOP))!;
@@ -300,14 +305,15 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
 
       expect(page).toMatchObject({ page: 1, hasNext: false, hasPrevious: false, needsLookOnly: false, needsLook: 1 });
       expect(page.rows).toEqual([
-        { id: theirs.id, name: theirs.name, buyer: "Erased buyer", customerId: null, tierName: null, ratePercent: null, total: "£10.00", cashback: null, status: "No cashback", detail: "Nothing to pay on" },
-        { id: test.id, name: test.name, buyer: "Ann Smith", customerId: ann.id, tierName: null, ratePercent: null, total: "£30.00", cashback: null, status: "No cashback", detail: "Test order" },
-        { id: off.id, name: off.name, buyer: "Ann Smith", customerId: ann.id, tierName: null, ratePercent: null, total: "£30.00", cashback: null, status: "No cashback", detail: "Cashback was off" },
-        { id: look.id, name: look.name, buyer: "Ann Smith", customerId: ann.id, tierName: "Bronze", ratePercent: "5", total: "£60.00", cashback: "£3.00", status: "Needs a look", detail: "Shopify refused it." },
-        { id: takenBack.id, name: takenBack.name, buyer: "Ann Smith", customerId: ann.id, tierName: "Bronze", ratePercent: "5", total: "£20.00", cashback: "£1.00", status: "Taken back", detail: null },
-        { id: waiting.id, name: waiting.name, buyer: "Ann Smith", customerId: ann.id, tierName: "Bronze", ratePercent: "5", total: "£40.00", cashback: "£2.00", status: "Waiting", detail: null },
-        { id: issued.id, name: issued.name, buyer: "Ann Smith", customerId: ann.id, tierName: "Silver", ratePercent: "7", total: "£105.00", cashback: "£7.00", status: "Issued", detail: null },
-        { id: imported.id, name: imported.name, buyer: "Ann Smith", customerId: ann.id, tierName: null, ratePercent: null, total: "£30.00", cashback: null, status: "No cashback", detail: "From before install" },
+        { id: theirs.id, name: theirs.name, buyer: "Erased buyer", customerId: null, tierName: null, ratePercent: null, total: "£10.00", cashback: null, status: "No cashback", tone: "neutral", detail: "The rate gave nothing on this order" },
+        { id: allCredit.id, name: allCredit.name, buyer: "Erased buyer", customerId: null, tierName: null, ratePercent: null, total: "£10.00", cashback: null, status: "No cashback", tone: "neutral", detail: "Nothing to pay on" },
+        { id: test.id, name: test.name, buyer: "Ann Smith", customerId: ann.id, tierName: null, ratePercent: null, total: "£30.00", cashback: null, status: "No cashback", tone: "neutral", detail: "Test order" },
+        { id: off.id, name: off.name, buyer: "Ann Smith", customerId: ann.id, tierName: null, ratePercent: null, total: "£30.00", cashback: null, status: "No cashback", tone: "neutral", detail: "Cashback was off" },
+        { id: look.id, name: look.name, buyer: "Ann Smith", customerId: ann.id, tierName: "Bronze", ratePercent: "5", total: "£60.00", cashback: "£3.00", status: "Needs a look", tone: "warning", detail: "Shopify refused it." },
+        { id: takenBack.id, name: takenBack.name, buyer: "Ann Smith", customerId: ann.id, tierName: "Bronze", ratePercent: "5", total: "£20.00", cashback: "£1.00", status: "Taken back", tone: "neutral", detail: null },
+        { id: waiting.id, name: waiting.name, buyer: "Ann Smith", customerId: ann.id, tierName: "Bronze", ratePercent: "5", total: "£40.00", cashback: "£2.00", status: "Waiting", tone: "info", detail: null },
+        { id: issued.id, name: issued.name, buyer: "Ann Smith", customerId: ann.id, tierName: "Silver", ratePercent: "7", total: "£105.00", cashback: "£7.00", status: "Issued", tone: "success", detail: null },
+        { id: imported.id, name: imported.name, buyer: "Ann Smith", customerId: ann.id, tierName: null, ratePercent: null, total: "£30.00", cashback: null, status: "No cashback", tone: "neutral", detail: "From before install" },
       ]);
       expect(JSON.stringify(page)).not.toContain("ann@example.com");
     });
@@ -341,6 +347,47 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       expect(page.rows.map((row) => row.id).sort()).toEqual([credit.order.id, debited.order.id].sort());
       expect(page.rows.map((row) => row.status)).toEqual(["Needs a look", "Needs a look"]);
     });
+
+    // Ruling 65 (TRUTH-1): a sent take-back counts at what it took, as the ledger nets it
+    it("says Issued with the spec's sentence for a take-back that fell short, and agrees with Customers", async () => {
+      /** A £1.00 credit sent, then fully refunded: the debit took `taken` (null: Shopify never said) */
+      const refundedInFull = async (taken: string | null, daysAgo: number) => {
+        const buyer = await addBuyer();
+        const order = await addOrder(buyer.id, "20.00", daysAgo);
+        await addPayout(await addEntry(order, { kind: "cashback", amount: "1.00" }), "sent");
+        const refund = await addRefund(order, "20.00");
+        const shortfall = taken === null ? null : new Prisma.Decimal("1.00").minus(taken).toFixed(2);
+        const debit = await addPayout(await addEntry(order, { kind: "reversal", amount: "-1.00", refundId: refund.id }), "sent", {
+          direction: "debit",
+          debitedAmount: taken ?? undefined,
+          shortfall: shortfall ?? undefined,
+        });
+        // Ruling 35: the part not taken comes back on the ledger
+        if (shortfall !== null) await addEntry(order, { kind: "adjustment", amount: shortfall, key: `shortfall:${debit.id}` });
+        return { buyer, order };
+      };
+      const none = await refundedInFull("0", 3);
+      const part = await refundedInFull("0.40", 2);
+      const unknown = await refundedInFull(null, 1);
+
+      const rows = (await orderRows(conn, { page: 1 })).rows;
+      const statusOf = (id: string) => rows.find((row) => row.id === id)?.status;
+      expect(statusOf(none.order.id)).toEqual({ key: "issued", label: "Issued", detail: "Couldn't take back £1.00; the buyer had spent it" });
+      expect(statusOf(part.order.id)).toEqual({ key: "issued", label: "Issued", detail: "Took back £0.40 of £1.00; the buyer had spent the rest" });
+      expect(statusOf(unknown.order.id)).toEqual({ key: "taken_back", label: "Taken back", detail: "Amount unknown" });
+
+      const page = await loadList("");
+      expect(page.rows.map(({ status, detail }) => ({ status, detail }))).toEqual([
+        { status: "Taken back", detail: "Amount unknown" },
+        { status: "Issued", detail: "Took back £0.40 of £1.00; the buyer had spent the rest" },
+        { status: "Issued", detail: "Couldn't take back £1.00; the buyer had spent it" },
+      ]);
+      // The same buyers on Customers: what each kept, by the ledger
+      const given = Object.fromEntries((await customerRows(conn, { page: 1 })).rows.map((row) => [row.id, row.cashbackGiven.toFixed(2)]));
+      expect(given).toEqual({ [none.buyer.id]: "1.00", [part.buyer.id]: "0.60", [unknown.buyer.id]: "0.00" });
+      // And the order panel
+      expect((await loadPanel(part.order.id)).status).toEqual({ key: "issued", label: "Issued", detail: "Took back £0.40 of £1.00; the buyer had spent the rest" });
+    });
   });
 
   describe("the order panel", () => {
@@ -371,22 +418,29 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
         total: "£55.00",
         productValue: "£50.00",
         storeCreditUsed: "£10.00",
+        // Nothing was paid with gift cards, so the line isn't shown (DESIGN-13)
+        giftCardUsed: null,
         cashbackBase: "£40.00",
-        status: { label: "Issued", detail: "Part of it couldn't be taken back: the buyer had spent it" },
+        status: { key: "issued", label: "Issued", detail: "Took back £0.40 of £1.00; the buyer had spent the rest" },
         notes: [],
       });
-      expect(page.entries.map(({ label, amount, status, detail }) => ({ label, amount, status, detail }))).toEqual([
-        { label: "Taken back for a refund", amount: "-£0.25", status: "Taken back", detail: "Amount taken back: unknown" },
-        { label: "Not taken back: the buyer had spent it", amount: "£0.60", status: null, detail: null },
-        { label: "Taken back for a refund", amount: "-£1.00", status: "Taken back", detail: "Took back £0.40 of £1.00; the buyer had spent the rest" },
-        { label: "Cashback", amount: "£2.00", status: "Issued", detail: null },
+      // Each payout once, in its entry's row (DESIGN-13)
+      expect(page.entries.map(({ label, amount, status, tone, detail, payout, look }) => ({ label, amount, status, tone, detail, payout, look }))).toEqual([
+        { label: "Taken back for a refund", amount: "-£0.25", status: "Taken back", tone: "neutral", detail: "Amount unknown", payout: expect.stringMatching(/^Taken back \w+ \d+, \d{4}$/), look: null },
+        { label: "Couldn't take back: the buyer had spent it", amount: "£0.60", status: null, tone: null, detail: null, payout: null, look: null },
+        {
+          label: "Taken back for a refund",
+          amount: "-£1.00",
+          status: "Taken back",
+          tone: "neutral",
+          detail: "Took back £0.40 of £1.00; the buyer had spent the rest",
+          payout: expect.stringMatching(/^Taken back \w+ \d+, \d{4}$/),
+          look: null,
+        },
+        { label: "Cashback", amount: "£2.00", status: "Issued", tone: "success", detail: null, payout: expect.stringMatching(/^Sent \w+ \d+, \d{4}$/), look: null },
       ]);
       expect(page.entries.at(-1)).toMatchObject({ tierName: "Silver", ratePercent: "5" });
-      expect(page.payouts.map(({ what, amount, state, sent, look }) => ({ what, amount, state, sent, look }))).toEqual([
-        { what: "Take-back", amount: "£0.25", state: "Sent", sent: expect.stringMatching(/\d{4}$/), look: null },
-        { what: "Take-back", amount: "£1.00", state: "Sent", sent: expect.stringMatching(/\d{4}$/), look: null },
-        { what: "Store credit", amount: "£2.00", state: "Sent", sent: expect.stringMatching(/\d{4}$/), look: null },
-      ]);
+      expect(page).not.toHaveProperty("payouts");
       // What was taken, as the entries say: £0.40 of the £1.00 asked, and an amount Shopify never told
       expect(page.refunds).toEqual([
         { date: expect.any(String), productValue: "£5.00", takenBack: "Amount unknown", note: null },
@@ -424,23 +478,46 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       expect(page.refunds.map((refund) => refund.takenBack)).toEqual([null, "£0.40", "Needs a look", "Waiting", "Waiting", "Waiting", "None (closed)", "£1.00"]);
     });
 
-    it("never says Not sent for a payout that may have arrived", async () => {
+    it("says where each payout stands, and never Not sent for one that may have arrived", async () => {
       const sentDay = new Date("2026-06-06T12:00:00Z");
       const cases: Array<[PayoutState, Parameters<typeof addPayout>[2], string]> = [
-        ["sent", { sentAt: sentDay }, "June 6, 2026"],
+        ["sent", { sentAt: sentDay }, "Sent June 6, 2026"],
         ["sending", { claimedAt: new Date() }, "Not confirmed"],
         ["unconfirmed", { unconfirmedAt: new Date() }, "Not confirmed"],
         ["needs_look", { lookReason: "could_not_confirm" }, "Not confirmed"],
         ["needs_look", { lookReason: "refused" }, "Not sent"],
         ["needs_look", { lookReason: "kept_failing" }, "Not sent"],
-        ["pending", {}, "Not sent"],
-        ["held", {}, "Not sent"],
-        ["closed", {}, "Not sent"],
-        ["nothing_to_send", {}, "Not sent"],
+        ["pending", {}, "Waiting to send"],
+        ["held", {}, "Held until its cashback is confirmed"],
+        ["closed", {}, "Closed, not sent"],
+        ["nothing_to_send", {}, "Nothing to send"],
       ];
-      for (const [state, more, sent] of cases) {
+      for (const [state, more, payout] of cases) {
         const { order } = await orderWithCredit(state, more);
-        expect({ state, ...more, sent: (await loadPanel(order.id)).payouts[0]?.sent }).toEqual({ state, ...more, sent });
+        expect({ state, ...more, payout: (await loadPanel(order.id)).entries[0]?.payout }).toEqual({ state, ...more, payout });
+      }
+    });
+
+    // A22-F4: a take-back's words follow its direction
+    it("says where a take-back stands in take-back words", async () => {
+      const sentDay = new Date("2026-06-06T12:00:00Z");
+      const cases: Array<[PayoutState, Parameters<typeof addPayout>[2], string]> = [
+        ["pending", {}, "Waiting to take back"],
+        ["held", {}, "Held until its cashback is confirmed"],
+        ["sending", { claimedAt: new Date() }, "Not confirmed"],
+        ["unconfirmed", { unconfirmedAt: new Date() }, "Not confirmed"],
+        ["sent", { sentAt: sentDay, debitedAmount: "1.00", shortfall: "0" }, "Taken back June 6, 2026"],
+        // The buyer had spent it all, so nothing was taken
+        ["sent", { sentAt: sentDay, debitedAmount: "0", shortfall: "1.00" }, "Settled June 6, 2026"],
+        ["needs_look", { lookReason: "refused" }, "Not taken back"],
+        ["closed", {}, "Closed, not taken back"],
+        ["nothing_to_send", {}, "Nothing to take back"],
+      ];
+      for (const [state, more, payout] of cases) {
+        const { order } = await orderWithCredit("sent");
+        await addPayout(await addEntry(order, { kind: "reversal", amount: "-1.00" }), state, { direction: "debit", ...more });
+        const entries = (await loadPanel(order.id)).entries;
+        expect({ state, ...more, payout: entries.find((e) => e.label === "Taken back for a refund")?.payout }).toEqual({ state, ...more, payout });
       }
     });
 
@@ -454,7 +531,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
         lookReason: "could_not_confirm",
       });
 
-      const looks = async (orderId: string) => (await loadPanel(orderId)).payouts.flatMap((p) => (p.look ? [{ id: p.id, ...p.look }] : []));
+      const looks = async (orderId: string) => (await loadPanel(orderId)).entries.flatMap((e) => (e.look ? [{ id: e.payoutId, ...e.look }] : []));
 
       expect(await looks(refused.order.id)).toEqual([
         {
@@ -469,6 +546,9 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
         },
       ]);
       expect((await looks(failing.order.id))[0]).toMatchObject({ text: "Sending kept failing.", answers: [{ answer: "retry" }, { answer: "close" }] });
+      // TRUTH-13: there is no buyer left in Shopify to check
+      const gone = await orderWithCredit("needs_look", { lookReason: "refused", unconfirmedAt: new Date(Date.now() - DAY), lastError: CUSTOMER_MISSING });
+      expect((await looks(gone.order.id))[0]).toMatchObject({ text: "The buyer no longer exists in Shopify; close it without sending." });
       expect(await looks(unclear.order.id)).toEqual([
         {
           id: unclear.credit.id,
@@ -503,12 +583,15 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       const cancelledTest = await addOrder(buyer.id, "10.00", 2, { test: true, cancelled: true, reason: "test" });
 
       const page = await loadPanel(imported.id);
-      expect(page).toMatchObject({ status: { label: "No cashback", detail: "From before install" }, notes: ["From before install"], entries: [], payouts: [] });
+      // The status detail says it already, so no note repeats it (A22-F8)
+      expect(page).toMatchObject({ status: { label: "No cashback", detail: "From before install" }, notes: [], entries: [] });
       expect(page.refunds).toEqual([
         { date: expect.any(String), productValue: "£10.00", takenBack: null, note: null },
         { date: expect.any(String), productValue: "£30.00", takenBack: null, note: "Counted at import" },
       ]);
-      expect((await loadPanel(cancelledTest.id)).notes).toEqual(["Test order", "Cancelled"]);
+      const cancelled = await loadPanel(cancelledTest.id);
+      expect(cancelled.status.detail).toBe("Test order");
+      expect(cancelled.notes).toEqual(["Cancelled"]);
     });
 
     it("answers 404 for another merchant's order, or no order", async () => {
@@ -538,7 +621,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       expect(payout).toMatchObject({ state: "pending", lookReason: null, attempts: 0, firstFailedAt: null });
       expect(payout.nextAttemptAt.getTime()).toBeGreaterThanOrEqual(before - 1000);
       expect(payout.nextAttemptAt.getTime()).toBeLessThanOrEqual(Date.now());
-      expect((await loadPanel(order.id)).status).toEqual({ label: "Waiting", detail: null });
+      expect((await loadPanel(order.id)).status).toEqual({ key: "waiting", label: "Waiting", detail: null });
     });
 
     it("Close without sending closes a credit that kept failing, and the ledger cancels it", async () => {
@@ -551,18 +634,30 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       expect(adjustment).toMatchObject({ kind: "adjustment", orderId: order.id, customerId: entry.customerId });
       expect(adjustment.amount.toFixed(2)).toBe("-1.50");
       const page = await loadPanel(order.id);
-      expect(page.status).toEqual({ label: "No cashback", detail: "Closed without sending" });
-      expect(page.payouts[0].look).toBeNull();
+      expect(page.status).toEqual({ key: "no_cashback", label: "No cashback", detail: "Closed without sending" });
+      expect(page.entries.every((entry) => entry.look === null)).toBe(true);
     });
 
-    it("It arrived marks a credit sent and releases its held take-back", async () => {
-      const { order, credit } = await orderWithCredit("needs_look", { lookReason: "could_not_confirm", claimedAt: new Date(Date.now() - DAY) });
+    it("It arrived marks a credit sent on the day it went out, and releases its held take-back", async () => {
+      const claimedAt = new Date("2026-06-01T09:00:00Z");
+      const { order, credit } = await orderWithCredit("needs_look", { lookReason: "could_not_confirm", claimedAt, unconfirmedAt: new Date("2026-06-01T09:05:00Z") });
       const held = await addPayout(await addEntry(order, { kind: "reversal", amount: "-0.50" }), "held", { direction: "debit" });
 
       expect(await answer(order.id, { intent: "arrived", payoutId: credit.id })).toEqual({ ok: true });
 
-      expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "sent", settledBy: "merchant" });
+      // TRUTH-8: sent when it was claimed, not on the day of the answer
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "sent", settledBy: "merchant", sentAt: claimedAt });
       expect(await prisma.payout.findUniqueOrThrow({ where: { id: held.id } })).toMatchObject({ state: "pending" });
+      expect((await loadPanel(order.id)).entries.find((e) => e.label === "Cashback")?.payout).toBe("Sent June 1, 2026");
+    });
+
+    it("It arrived dates a credit with no claim on record by when it became unconfirmed", async () => {
+      const unconfirmedAt = new Date("2026-06-02T09:05:00Z");
+      const { order, credit } = await orderWithCredit("needs_look", { lookReason: "could_not_confirm", unconfirmedAt });
+
+      expect(await answer(order.id, { intent: "arrived", payoutId: credit.id })).toEqual({ ok: true });
+
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: credit.id } })).toMatchObject({ state: "sent", sentAt: unconfirmedAt });
     });
 
     it("It didn't arrive, send it puts a credit back to pending", async () => {
@@ -576,17 +671,19 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
     it("It arrived on a take-back that fell short writes the shortfall, and the order says so", async () => {
       const { order } = await orderWithCredit("sent");
       const reversal = await addEntry(order, { kind: "reversal", amount: "-1.00" });
-      const debit = await addPayout(reversal, "needs_look", { direction: "debit", lookReason: "could_not_confirm", debitedAmount: "0.40", shortfall: "0.60" });
+      const claimedAt = new Date("2026-06-03T09:00:00Z");
+      const debit = await addPayout(reversal, "needs_look", { direction: "debit", lookReason: "could_not_confirm", debitedAmount: "0.40", shortfall: "0.60", claimedAt });
 
       expect(await answer(order.id, { intent: "arrived", payoutId: debit.id })).toEqual({ ok: true });
 
-      expect(await prisma.payout.findUniqueOrThrow({ where: { id: debit.id } })).toMatchObject({ state: "sent", settledBy: "merchant" });
+      expect(await prisma.payout.findUniqueOrThrow({ where: { id: debit.id } })).toMatchObject({ state: "sent", settledBy: "merchant", sentAt: claimedAt });
       const shortfall = await prisma.ledgerEntry.findFirstOrThrow({ where: { idempotencyKey: `shortfall:${debit.id}` } });
       expect(shortfall.amount.toFixed(2)).toBe("0.60");
       const page = await loadPanel(order.id);
-      expect(page.status).toEqual({ label: "Taken back", detail: "Part of it couldn't be taken back: the buyer had spent it" });
+      // The buyer kept £0.60 of the £1.00, so the order is Issued, as the ledger says (Ruling 65)
+      expect(page.status).toEqual({ key: "issued", label: "Issued", detail: "Took back £0.40 of £1.00; the buyer had spent the rest" });
       expect(page.entries.find((e) => e.label === "Taken back for a refund")?.detail).toBe("Took back £0.40 of £1.00; the buyer had spent the rest");
-      expect(page.entries.map((e) => e.label)).toContain("Not taken back: the buyer had spent it");
+      expect(page.entries.map((e) => e.label)).toContain("Couldn't take back: the buyer had spent it");
     });
 
     it("It wasn't taken back puts a take-back back to pending, forgetting what it asked", async () => {

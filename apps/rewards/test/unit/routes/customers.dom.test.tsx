@@ -50,8 +50,15 @@ const PANEL = {
   ],
   spend: "£400.00",
   windowLabel: "Last 12 months",
-  progress: { percent: 66, isTop: false, nextTierName: "Gold" as string | null, nextTierPercent: "10" as string | null, amountRemaining: "£100.00" },
-  balance: null as string | null,
+  progress: {
+    percent: 66,
+    isTop: false,
+    nextTierName: "Gold" as string | null,
+    nextTierPercent: "10" as string | null,
+    amountRemaining: "£100.00",
+    movesTo: null as string | null,
+  },
+  balances: null as Array<{ currency: string; amount: string }> | null,
   history: [
     {
       date: "June 6, 2026",
@@ -62,16 +69,20 @@ const PANEL = {
       tierName: "Bronze",
       ratePercent: "5",
       status: "Taken back",
-      detail: "Amount taken back: unknown",
+      tone: "neutral",
+      detail: "Amount unknown",
     },
   ],
-  orders: [{ id: "o1", name: "#1001", processed: "June 1, 2026", total: "£100.00", cashback: null, note: "From before install" }],
+  orders: [
+    { id: "o1", name: "#1001", processed: "June 1, 2026", total: "£100.00", cashback: null, status: "No cashback", tone: "neutral", notes: ["From before install"] },
+    { id: "o2", name: "#1002", processed: "June 2, 2026", total: "£20.00", cashback: "£1.00", status: "Taken back", tone: "neutral", notes: [] },
+  ],
 };
 
 async function renderPanel(data = PANEL) {
   const Stub = createRoutesStub([{ id: "routes/app.customers.$id", path: "/app/customers/:id", Component: Buyer }]);
   render(<Stub initialEntries={["/app/customers/c1"]} hydrationData={{ loaderData: { "routes/app.customers.$id": data } }} />);
-  await screen.findByText("Adjust store credit in Shopify");
+  await screen.findByText("Open the buyer in Shopify");
 }
 
 const cells = (scope: ParentNode = document) =>
@@ -115,18 +126,49 @@ describe("Buyer panel", () => {
     expect(text).toContain("£100.00 more to reach Gold (10%)");
     expect(document.querySelector("s-progress")?.getAttribute("value")).toBe("66");
     expect(text).toContain("Shows at checkout");
-    expect(text).toContain("Amount taken back: unknown");
+    expect(text).toContain("Amount unknown");
     expect(text).toContain("From before install");
-    expect(document.querySelector('s-button[href="shopify://admin/customers/8001"]')?.textContent).toBe("Adjust store credit in Shopify");
-    expect(screen.getByText("Lock to a tier", { selector: "s-button" })).toBeTruthy();
+    expect(document.querySelector('s-button[href="shopify://admin/customers/8001"]')?.textContent).toBe("Open the buyer in Shopify");
+    expect(screen.getByText("Lock", { selector: "s-button" })).toBeTruthy();
+    expect(document.querySelector('s-select[label="Lock to a tier"]')).not.toBeNull();
   });
 
-  it("offers Return to automatic for a locked buyer, and shows a known balance", async () => {
-    await renderPanel({ ...PANEL, lockedTierId: "t1", balance: "£12.50" });
+  // TRUTH-14: each order's status beside its cashback, as on Orders
+  it("shows each order's status beside its cashback", async () => {
+    await renderPanel();
+    const orders = cells(document.querySelector('s-section[heading="Orders"]')!);
+    expect(orders).toEqual([
+      ["#1001From before install", "June 1, 2026", "£100.00", "None", "No cashback"],
+      ["#1002", "June 2, 2026", "£20.00", "£1.00", "Taken back"],
+    ]);
+  });
+
+  // A21-F2: spend doesn't move a locked buyer, so no progress shows
+  it("offers Return to automatic for a locked buyer, with no progress, and shows a known balance in each currency", async () => {
+    await renderPanel({
+      ...PANEL,
+      lockedTierId: "t1",
+      balances: [
+        { currency: "GBP", amount: "£12.50" },
+        { currency: "EUR", amount: "€5.00" },
+      ],
+    });
     const text = document.body.textContent ?? "";
     expect(text).toContain("Locked to Gold.");
+    expect(text).toContain("Spend doesn't move this buyer while they're locked to Gold.");
+    expect(document.querySelector("s-progress")).toBeNull();
+    expect(text).not.toContain("more to reach");
     expect(screen.getByText("Return to automatic", { selector: "s-button" })).toBeTruthy();
-    expect(text).toContain("£12.50");
+    expect([...document.querySelectorAll('s-section[heading="Store credit"] s-heading')].map((h) => h.textContent)).toEqual(["£12.50", "€5.00"]);
     expect(text).not.toContain("Shows at checkout");
+  });
+
+  // TRUTH-11: a buyer the tier pass hasn't reached yet
+  it("says a buyer who already qualifies for a higher tier moves at the next tier update", async () => {
+    await renderPanel({ ...PANEL, progress: { ...PANEL.progress, percent: 99, amountRemaining: "£0.00", movesTo: "Gold" } });
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("Moves to Gold at the next tier update.");
+    expect(document.querySelector("s-progress")).toBeNull();
+    expect(text).not.toContain("£0.00 more");
   });
 });

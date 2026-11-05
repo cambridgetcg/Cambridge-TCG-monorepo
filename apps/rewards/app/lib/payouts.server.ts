@@ -673,7 +673,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * - retry (refused or kept failing): `pending` now, the failure clock and
  *   the attempt count cleared (Ruling 37);
  * - close (the same): closeWithoutSending, settled by the merchant;
- * - arrived (couldn't confirm): `sent`, settled by the merchant; a credit's
+ * - arrived (couldn't confirm): `sent`, settled by the merchant, dated by
+ *   when it went out (its claim, else when it became unconfirmed); a credit's
  *   held take-backs are released, and a take-back's known shortfall reaches
  *   the ledger (recordShortfall);
  * - not_arrived (the same): a credit is sent again less its held take-backs
@@ -723,7 +724,12 @@ export async function answerNeedsLook(
         await closeWithoutSending(tx, payout, { now, settledBy: "merchant" });
         break;
       case "arrived":
-        await tx.payout.update({ where: { id: payout.id }, data: { state: "sent", sentAt: now, settledBy: "merchant" } });
+        // It went out when it was claimed, not when the merchant answered
+        // (TRUTH-8): the claim, else when it became unconfirmed, else now
+        await tx.payout.update({
+          where: { id: payout.id },
+          data: { state: "sent", sentAt: payout.claimedAt ?? payout.unconfirmedAt ?? now, settledBy: "merchant" },
+        });
         if (payout.direction === "credit") await releaseHeld(tx, payout, now);
         // A take-back whose ask is known gives back what it fell short by
         // (Ruling 35). One that died mid-send asked for nothing on record

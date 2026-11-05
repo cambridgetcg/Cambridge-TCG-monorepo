@@ -1,19 +1,21 @@
-import { rewardStatus } from "~/lib/home-rules";
 import { CUSTOMER_ERASED, CUSTOMER_MISSING } from "~/lib/payouts.server";
 import type { BuyerOrder, HistoryEntry } from "~/lib/stats.server";
 import { formatMoney } from "./format";
+import { AMOUNT_UNKNOWN, type BadgeTone, STATUS_LABEL, STATUS_TONE, orderNotes, payoutStatus, takeBackShort } from "./words";
 
 /**
  * The buyer panel's words for each ledger entry and order (spec 4.4), as
- * plain strings for the page. Each entry keeps the tier and rate it earned
- * at. Where an entry's money didn't simply move, its detail says what
- * happened, from the ledger and the payout alone:
- * - a take-back Shopify took without saying how much reads "unknown", never
- *   0 (A11-F4);
- * - one that took less shows what it took of what it asked (Ruling 35's
- *   shortfall, with its own adjustment line);
+ * plain strings for the page, in the pages' shared words (words.ts). Each
+ * entry keeps the tier and rate it earned at. Where an entry's money didn't
+ * simply move, its detail says what happened, from the ledger and the payout
+ * alone:
+ * - a take-back Shopify took without saying how much reads AMOUNT_UNKNOWN,
+ *   never 0 (A11-F4);
+ * - one that took less says the spec's sentence (Ruling 35's shortfall,
+ *   with its own adjustment line);
  * - a credit Shopify refused after a send that wasn't clear may have arrived
- *   (A11), and the merchant is told to look in Shopify before answering.
+ *   (A11), and the merchant is told to look in Shopify before answering,
+ *   unless the buyer is gone from Shopify (TRUTH-13).
  */
 
 export type HistoryLine = {
@@ -26,8 +28,9 @@ export type HistoryLine = {
   amount: string;
   tierName: string | null;
   ratePercent: string | null;
-  /** Its payout's status, as on Home; null for an adjustment */
+  /** Its payout's status; null for an adjustment */
   status: string | null;
+  tone: BadgeTone | null;
   detail: string | null;
 };
 
@@ -38,7 +41,10 @@ export type OrderLine = {
   processed: string;
   total: string;
   cashback: string | null;
-  note: string | null;
+  /** As the Orders page says it (TRUTH-14) */
+  status: string;
+  tone: BadgeTone;
+  notes: string[];
 };
 
 /** A day as the admin shows it: "June 5, 2026", in `timezone`. */
@@ -52,9 +58,12 @@ function creditDetail(payout: NonNullable<HistoryEntry["payout"]>): string | nul
     case "needs_look":
       switch (payout.lookReason) {
         case "refused":
-          // Settled from an unclear send (settleUnconfirmed's refusals keep
-          // unconfirmedAt or say the buyer is gone): it may have landed first
-          return payout.unconfirmedAt !== null || payout.lastError === CUSTOMER_MISSING || payout.lastError === CUSTOMER_ERASED
+          // settleUnconfirmed refuses for a buyer gone from Shopify: there is no one to check
+          if (payout.lastError === CUSTOMER_MISSING || payout.lastError === CUSTOMER_ERASED) {
+            return "The buyer no longer exists in Shopify; close it without sending.";
+          }
+          // Settled from an unclear send: it may have landed first
+          return payout.unconfirmedAt !== null
             ? "Shopify refused it after a send that wasn't clear, so it may have arrived. Check the buyer's store credit in Shopify."
             : "Shopify refused it.";
         case "kept_failing":
@@ -79,17 +88,20 @@ function takeBackDetail(payout: NonNullable<HistoryEntry["payout"]>, currency: s
   if (payout.state === "needs_look") return payout.lookReason === "kept_failing" ? "Taking it back kept failing." : "Shopify refused to take it back.";
   if (payout.state === "closed") return "Closed without taking it back.";
   if (payout.state !== "sent") return null;
-  if (payout.debitedAmount === null) return "Amount taken back: unknown";
-  if (payout.debitedAmount.lt(payout.amount)) {
-    return `Took back ${formatMoney(payout.debitedAmount, currency)} of ${formatMoney(payout.amount, currency)}; the buyer had spent the rest`;
-  }
-  return null;
+  if (payout.debitedAmount === null) return AMOUNT_UNKNOWN;
+  return takeBackShort(payout.debitedAmount, payout.amount, currency);
 }
 
-/** An adjustment's label, from its key: a take-back's shortfall (Ruling 35), or a payout closed without sending. */
-function adjustmentLabel(key: string): string {
-  if (key.startsWith("shortfall:")) return "Not taken back: the buyer had spent it";
-  if (key.startsWith("close:")) return "Closed without sending";
+/**
+ * An adjustment's label, from its key and sign: a take-back's shortfall
+ * (Ruling 35), or a payout closed without sending. Closing a take-back gives
+ * the cashback back to the buyer (+), closing a credit cancels it (−)
+ * (TRUTH-4).
+ */
+function adjustmentLabel(entry: HistoryEntry): string {
+  const key = entry.idempotencyKey;
+  if (key.startsWith("shortfall:")) return "Couldn't take back: the buyer had spent it";
+  if (key.startsWith("close:")) return entry.amount.gt(0) ? "Take-back closed: the buyer keeps it" : "Closed without sending";
   return "Adjustment";
 }
 
@@ -108,22 +120,16 @@ export function historyLine(entry: HistoryEntry, timezone: string): HistoryLine 
     tierName: entry.tierName,
     ratePercent: entry.ratePercent === null ? null : entry.ratePercent.toFixed(),
   };
-  if (entry.kind === "adjustment" || !entry.payout) {
-    return { ...line, label: entry.kind === "adjustment" ? adjustmentLabel(entry.idempotencyKey) : "Cashback", status: null, detail: null };
-  }
-  const { payout } = entry;
-  if (entry.kind === "reversal") {
-    return { ...line, label: "Taken back for a refund", status: rewardStatus("reversal", payout.state), detail: payoutDetail(entry) };
-  }
-  return { ...line, label: "Cashback", status: rewardStatus("cashback", payout.state), detail: payoutDetail(entry) };
-}
-
-/** An order's note when it earned nothing for a reason worth saying. */
-function orderNote(order: BuyerOrder): string | null {
-  if (order.test) return "Test order";
-  if (order.cancelledAt) return "Cancelled";
-  if (order.source === "import" || order.noCashbackReason === "before_install") return "From before install";
-  return null;
+  if (entry.kind === "adjustment") return { ...line, label: adjustmentLabel(entry), status: null, tone: null, detail: null };
+  // A cashback or take-back always has its payout; one without reads Unknown
+  const status = payoutStatus(entry.payout);
+  return {
+    ...line,
+    label: entry.kind === "reversal" ? "Taken back for a refund" : "Cashback",
+    status: STATUS_LABEL[status],
+    tone: STATUS_TONE[status],
+    detail: payoutDetail(entry),
+  };
 }
 
 export function orderLine(order: BuyerOrder, timezone: string): OrderLine {
@@ -133,6 +139,8 @@ export function orderLine(order: BuyerOrder, timezone: string): OrderLine {
     processed: formatDay(order.paidAt, timezone),
     total: formatMoney(order.totalAmount, order.currency),
     cashback: order.cashback ? formatMoney(order.cashback.amount, order.cashback.currency) : null,
-    note: orderNote(order),
+    status: order.status.label,
+    tone: STATUS_TONE[order.status.key],
+    notes: orderNotes(order),
   };
 }

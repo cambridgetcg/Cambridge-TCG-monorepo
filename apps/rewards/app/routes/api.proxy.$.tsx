@@ -16,7 +16,7 @@ import prisma from "~/db.server";
 import { type ConnectionContext, findConnection } from "~/lib/merchant.server";
 import { fromDb, roundMoney } from "~/lib/money";
 import { type TierRow, progress, qualify, tierSpend, tiersOf } from "~/lib/tiers.server";
-import { liveBalance } from "~/shopify/live-balance.server";
+import { widgetBalance } from "~/shopify/live-balance.server";
 import { verifyProxyRequest, type VerifiedProxyRequest } from "~/shopify/proxy.server";
 import { customerAccountsVersion } from "~/shopify/shop-checks.server";
 
@@ -52,7 +52,7 @@ async function membership(conn: ConnectionContext, tiers: TierRow[], visitor: Ve
       where: { connectionId_externalCustomerId: { connectionId: conn.connectionId, externalCustomerId: visitor.customerId } },
       select: { id: true, tierId: true, lockedTierId: true },
     }),
-    liveBalance(conn.shop, visitor.customerId, balanceCurrency, visitor.admin),
+    widgetBalance(conn.shop, visitor.customerId, balanceCurrency, visitor.admin),
     customerAccountsVersion(conn.shop, visitor.admin),
   ]);
 

@@ -226,6 +226,8 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
     await addBuyer();
     await addBuyer({ tierId: gold.id });
     await addBuyer({ tierId: gold.id });
+    // A buyer erased by customers/redact keeps their row, but is no member (TRUTH-9)
+    await prisma.customer.create({ data: { merchantId: conn.merchantId, connectionId: conn.connectionId, externalCustomerId: null, tierId: gold.id } });
 
     const page = await load();
 

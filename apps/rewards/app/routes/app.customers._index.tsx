@@ -8,6 +8,7 @@ import { saveResponseAsFile } from "~/admin/download";
 import { formatMoney } from "~/admin/format";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
+import { NO_TIER } from "~/admin/words";
 
 /**
  * Customers (spec 4.4): search, a tier filter, and a table of buyers (buyer,
@@ -135,7 +136,7 @@ export default function Customers() {
                     {row.buyer}
                   </s-link>
                 </s-table-cell>
-                <s-table-cell>{row.tierName && row.tierPercent ? <TierChip name={row.tierName} percent={row.tierPercent} /> : "No tier"}</s-table-cell>
+                <s-table-cell>{row.tierName && row.tierPercent ? <TierChip name={row.tierName} percent={row.tierPercent} /> : NO_TIER}</s-table-cell>
                 <s-table-cell>{row.orders}</s-table-cell>
                 <s-table-cell>{row.cashbackGiven}</s-table-cell>
               </s-table-row>

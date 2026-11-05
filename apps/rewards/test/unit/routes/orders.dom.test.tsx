@@ -21,8 +21,32 @@ const LIST = {
   hasNext: false,
   hasPrevious: false,
   rows: [
-    { id: "o2", name: "#1002", buyer: "Ann Smith", customerId: "c1", tierName: "Gold", ratePercent: "10", total: "£60.00", cashback: "£6.00", status: "Needs a look" as const, detail: "Shopify refused it." },
-    { id: "o1", name: "#1001", buyer: "Erased buyer", customerId: null, tierName: null, ratePercent: null, total: "£30.00", cashback: null, status: "No cashback" as const, detail: "Cashback was off" },
+    {
+      id: "o2",
+      name: "#1002",
+      buyer: "Ann Smith",
+      customerId: "c1",
+      tierName: "Gold",
+      ratePercent: "10",
+      total: "£60.00",
+      cashback: "£6.00",
+      status: "Needs a look",
+      tone: "warning" as const,
+      detail: "Shopify refused it.",
+    },
+    {
+      id: "o1",
+      name: "#1001",
+      buyer: "Erased buyer",
+      customerId: null,
+      tierName: null,
+      ratePercent: null,
+      total: "£30.00",
+      cashback: null,
+      status: "No cashback",
+      tone: "neutral" as const,
+      detail: "Cashback was off",
+    },
   ],
 };
 
@@ -42,10 +66,10 @@ const PANEL = {
   processed: "June 1, 2026",
   total: "£60.00",
   productValue: "£50.00",
-  storeCreditUsed: "£10.00",
-  giftCardUsed: "£0.00",
+  storeCreditUsed: "£10.00" as string | null,
+  giftCardUsed: null as string | null,
   cashbackBase: "£40.00",
-  status: { label: "Needs a look" as const, detail: "RewardsPro couldn't confirm it arrived." },
+  status: { key: "needs_look" as const, label: "Needs a look", detail: "RewardsPro couldn't confirm it arrived." },
   notes: [] as string[],
   entries: [
     {
@@ -57,17 +81,25 @@ const PANEL = {
       tierName: "Gold",
       ratePercent: "10",
       status: "Taken back",
+      tone: "neutral" as const,
       detail: "Took back £0.40 of £1.00; the buyer had spent the rest",
+      payoutId: "p2",
+      payout: "Taken back June 6, 2026",
+      look: null,
     },
-  ],
-  payouts: [
     {
-      id: "p1",
-      what: "Store credit" as const,
+      date: "June 1, 2026",
+      orderId: "o2",
+      orderName: "#1002",
+      label: "Cashback",
       amount: "£4.00",
-      state: "Needs a look",
-      sent: "Not confirmed",
-      attempts: 1,
+      tierName: "Gold",
+      ratePercent: "10",
+      status: "Needs a look",
+      tone: "warning" as const,
+      detail: "RewardsPro couldn't confirm it arrived.",
+      payoutId: "p1",
+      payout: "Not confirmed",
       look: {
         heading: "Cashback of £4.00 needs a look",
         text: "RewardsPro couldn't confirm it arrived.",
@@ -76,7 +108,7 @@ const PANEL = {
           { answer: "arrived" as const, label: "It arrived" },
           { answer: "not_arrived" as const, label: "It didn't arrive, send it" },
         ],
-      },
+      } as { heading: string; text: string; hint: string | null; answers: Array<{ answer: "arrived" | "not_arrived" | "retry" | "close"; label: string }> } | null,
     },
   ],
   refunds: [
@@ -126,12 +158,24 @@ describe("Order panel", () => {
     expect(text).toContain("Check the buyer's store credit in Shopify first. If you already added it by hand, choose It arrived.");
     expect(document.querySelector('s-banner s-link[href="shopify://admin/customers/8001"]')).not.toBeNull();
     expect(text).toContain("Took back £0.40 of £1.00; the buyer had spent the rest");
-    expect(text).toContain("Cashback base: £40.00");
+    expect(text).toContain("Earns cashback on: £40.00");
+    expect(text).toContain("Paid with store credit: £10.00");
+    // Nothing paid with gift cards: no line for it (DESIGN-13)
+    expect(text).not.toContain("Paid with gift cards");
     expect([...document.querySelectorAll('s-banner s-button[slot="secondary-actions"]')].map((button) => button.textContent)).toEqual([
       "It arrived",
       "It didn't arrive, send it",
     ]);
-    expect(cells(document.querySelector('s-section[heading="Payouts"]')!)).toEqual([["Store credit", "£4.00", "Needs a look", "Not confirmed", "1"]]);
+    // Each payout once, in its entry's row, its status a badge as on the lists
+    expect(document.querySelector('s-section[heading="Payouts"]')).toBeNull();
+    expect(text).not.toContain("Tries");
+    const entries = document.querySelector('s-section[heading="Cashback and take-backs"]')!;
+    expect(cells(entries).map((row) => row.at(-1))).toEqual(["Taken backTaken back June 6, 2026", "Needs a lookNot confirmed"]);
+    expect([...entries.querySelectorAll("s-badge")].map((badge) => [badge.textContent, badge.getAttribute("tone")])).toEqual([
+      ["Taken back", "neutral"],
+      ["Needs a look", "warning"],
+    ]);
+    expect(document.querySelector('s-section[heading="Order"] s-badge')?.getAttribute("tone")).toBe("warning");
     expect(cells(document.querySelector('s-section[heading="Refunds"]')!)).toEqual([
       ["June 6, 2026", "£20.00", "£0.40"],
       ["June 5, 2026", "£5.00", "None"],

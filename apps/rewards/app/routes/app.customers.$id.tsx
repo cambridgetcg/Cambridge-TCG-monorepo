@@ -7,19 +7,23 @@ import { formatDay, historyLine, orderLine } from "~/admin/customer-history.serv
 import { formatMoney } from "~/admin/format";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
+import { BUYER_IN_SHOPIFY, LOCK, NO_TIER } from "~/admin/words";
 import type { ConnectionContext } from "~/lib/merchant.server";
 import { PANEL_LIMIT, buyerPanel } from "~/lib/stats.server";
 import { TIER_ERRORS, lockTier } from "~/lib/tiers.server";
-import { liveBalance } from "~/shopify/live-balance.server";
+import { balanceLines, liveBalance } from "~/shopify/live-balance.server";
 import { customerNames } from "~/shopify/names.server";
 
 /**
  * The buyer panel (spec 4.4): tier and since when, progress from the same
- * spend that decides the tier, the live store credit balance (none kept;
- * "Shows at checkout" when Shopify can't say in time), cashback history with
- * the tier and rate each entry earned at, and orders. "Lock to a tier" and
- * "Return to automatic" set the manual tier lock. Store credit is adjusted
- * in Shopify's own customer page, which the panel links to.
+ * spend that decides the tier (none for a locked buyer; a buyer who already
+ * qualifies for a higher tier is told they move at the next update), the
+ * live store credit balance read fresh, one line per currency (none kept;
+ * "Shows at checkout" when Shopify can't say in time, Ruling 66), cashback
+ * history with the tier and rate each entry earned at, and orders with their
+ * status. "Lock to a tier" and "Return to automatic" set the manual tier
+ * lock. Store credit is adjusted in Shopify's own customer page, which the
+ * panel links to.
  */
 
 const WINDOWS = { rolling_12_months: "Last 12 months", lifetime: "All time" } as const;
@@ -38,8 +42,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const panel = await panelOf(conn, params.id, new Date());
   const [names, balance] = await Promise.all([
     customerNames(admin, [panel.externalCustomerId]),
-    liveBalance(conn.shop, panel.externalCustomerId, conn.currency, admin),
+    // "Now" on the page, so never a cached answer (A21-F6)
+    liveBalance(conn.shop, panel.externalCustomerId, admin, { fresh: true }),
   ]);
+  const balances = balanceLines(balance, [conn.currency, ...panel.currencies]);
   const money = (amount: { toFixed(): string }) => formatMoney(amount.toFixed(), conn.currency);
   const tier = panel.tiers.find((t) => t.id === panel.tierId) ?? null;
 
@@ -59,8 +65,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       nextTierName: panel.progress.nextTierName,
       nextTierPercent: panel.progress.nextTierPercent?.toFixed() ?? null,
       amountRemaining: money(panel.progress.amountRemaining),
+      movesTo: panel.movesTo,
     },
-    balance: balance === null ? null : money(balance),
+    balances: balances === null ? null : balances.map((line) => ({ currency: line.currency, amount: formatMoney(line.amount.toFixed(), line.currency) })),
     history: panel.history.map((entry) => historyLine(entry, conn.timezone)),
     moreHistory: panel.moreHistory,
     orders: panel.orders.map((order) => orderLine(order, conn.timezone)),
@@ -93,14 +100,6 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   }
 };
 
-const STATUS_TONE: Record<string, "success" | "warning" | "neutral" | "info"> = {
-  Issued: "success",
-  Waiting: "info",
-  "Needs a look": "warning",
-  "Taken back": "neutral",
-  "No cashback": "neutral",
-};
-
 export default function Buyer() {
   const d = useLoaderData<typeof loader>();
   const lockFetcher = useFetcher<typeof action>();
@@ -114,7 +113,7 @@ export default function Buyer() {
         Customers
       </s-link>
       <s-button slot="secondary-actions" href={d.adminUrl}>
-        Adjust store credit in Shopify
+        {BUYER_IN_SHOPIFY}
       </s-button>
 
       <s-section heading="Tier">
@@ -125,13 +124,19 @@ export default function Buyer() {
               {d.tierSince ? <s-text color="subdued">In this tier since {d.tierSince}</s-text> : null}
             </s-stack>
           ) : (
-            <s-text color="subdued">No tier yet.</s-text>
+            <s-text color="subdued">{NO_TIER}</s-text>
           )}
           <s-text>
             Spend counted ({d.windowLabel.toLowerCase()}): {d.spend}
           </s-text>
-          {d.progress.isTop ? (
+          {lockedTier ? (
+            // Spend doesn't move a locked buyer, so there is no progress to show (A21-F2)
+            <s-text color="subdued">{`Spend doesn't move this buyer while they're locked to ${lockedTier.name}.`}</s-text>
+          ) : d.progress.isTop ? (
             <s-text color="subdued">In the top tier.</s-text>
+          ) : d.progress.movesTo ? (
+            // The tier pass hasn't reached them yet (TRUTH-11)
+            <s-text color="subdued">{`Moves to ${d.progress.movesTo} at the next tier update.`}</s-text>
           ) : d.progress.nextTierName ? (
             <s-stack gap="small-200">
               <s-progress
@@ -147,7 +152,7 @@ export default function Buyer() {
 
           {lockedTier ? (
             <s-stack direction="inline" gap="small-200" alignItems="center">
-              <s-text>{`Locked to ${lockedTier.name}. Spend doesn't move this buyer.`}</s-text>
+              <s-text>{`Locked to ${lockedTier.name}.`}</s-text>
               <s-button
                 loading={lockFetcher.state !== "idle"}
                 onClick={() => lockFetcher.submit({ intent: "automatic" }, { method: "post" })}
@@ -168,7 +173,7 @@ export default function Buyer() {
                 loading={lockFetcher.state !== "idle"}
                 onClick={() => lockFetcher.submit({ intent: "lock", tierId: chosen }, { method: "post" })}
               >
-                Lock to a tier
+                {LOCK}
               </s-button>
             </s-stack>
           ) : null}
@@ -178,9 +183,13 @@ export default function Buyer() {
 
       <s-section heading="Store credit">
         <s-stack gap="small-200">
-          <s-heading>{d.balance ?? "Shows at checkout"}</s-heading>
+          {d.balances === null ? (
+            <s-heading>Shows at checkout</s-heading>
+          ) : (
+            d.balances.map((line) => <s-heading key={line.currency}>{line.amount}</s-heading>)
+          )}
           <s-text color="subdued">
-            {d.balance === null ? "Shopify couldn't say just now. Open the buyer in Shopify to see it." : "As Shopify holds it now, from any source."}
+            {d.balances === null ? `Shopify couldn't say just now. ${BUYER_IN_SHOPIFY} to see it.` : "As Shopify holds it now, from any source."}
           </s-text>
         </s-stack>
       </s-section>
@@ -212,7 +221,7 @@ export default function Buyer() {
                   <s-table-cell>{line.orderId ? <s-link href={`/app/orders/${line.orderId}`}>{line.orderName}</s-link> : null}</s-table-cell>
                   <s-table-cell>{line.tierName && line.ratePercent ? <TierChip name={line.tierName} percent={line.ratePercent} /> : null}</s-table-cell>
                   <s-table-cell>{line.amount}</s-table-cell>
-                  <s-table-cell>{line.status ? <s-badge tone={STATUS_TONE[line.status] ?? "neutral"}>{line.status}</s-badge> : null}</s-table-cell>
+                  <s-table-cell>{line.status && line.tone ? <s-badge tone={line.tone}>{line.status}</s-badge> : null}</s-table-cell>
                 </s-table-row>
               ))}
             </s-table-body>
@@ -233,6 +242,7 @@ export default function Buyer() {
               <s-table-header listSlot="labeled" format="currency">
                 Cashback
               </s-table-header>
+              <s-table-header listSlot="inline">Status</s-table-header>
             </s-table-header-row>
             <s-table-body>
               {d.orders.map((order) => (
@@ -240,12 +250,19 @@ export default function Buyer() {
                   <s-table-cell>
                     <s-stack gap="small-300">
                       <s-link href={`/app/orders/${order.id}`}>{order.name}</s-link>
-                      {order.note ? <s-text color="subdued">{order.note}</s-text> : null}
+                      {order.notes.map((note) => (
+                        <s-text key={note} color="subdued">
+                          {note}
+                        </s-text>
+                      ))}
                     </s-stack>
                   </s-table-cell>
                   <s-table-cell>{order.processed}</s-table-cell>
                   <s-table-cell>{order.total}</s-table-cell>
                   <s-table-cell>{order.cashback ?? "None"}</s-table-cell>
+                  <s-table-cell>
+                    <s-badge tone={order.tone}>{order.status}</s-badge>
+                  </s-table-cell>
                 </s-table-row>
               ))}
             </s-table-body>

@@ -87,19 +87,23 @@ describe("customerAccountsVersion", () => {
   });
 });
 
+// Ruling 59: ok, the problems Shopify confirms, or unknown when Shopify
+// couldn't say, so Home never shows a check as passing that wasn't made
 describe("storeCreditSpendProblems", () => {
-  it("reports nothing when buyers can spend store credit", async () => {
-    await expect(checks.storeCreditSpendProblems(admin().admin, "fine.myshopify.com")).resolves.toEqual([]);
+  it("answers ok when Shopify says buyers can spend store credit", async () => {
+    await expect(checks.storeCreditSpendProblems(admin().admin, "fine.myshopify.com")).resolves.toEqual({ state: "ok" });
   });
 
   it("reports each problem Shopify confirms, in the order the merchant fixes them", async () => {
     const all = admin({ version: "CLASSIC", signInLinksShown: false, storeCreditOn: false });
-    await expect(checks.storeCreditSpendProblems(all.admin, "all.myshopify.com")).resolves.toEqual([
-      "legacy-accounts",
-      "sign-in-links-hidden",
-      "store-credit-off",
-    ]);
-    await expect(checks.storeCreditSpendProblems(admin({ storeCreditOn: false }).admin, "off.myshopify.com")).resolves.toEqual(["store-credit-off"]);
+    await expect(checks.storeCreditSpendProblems(all.admin, "all.myshopify.com")).resolves.toEqual({
+      state: "problems",
+      problems: ["legacy-accounts", "sign-in-links-hidden", "store-credit-off"],
+    });
+    await expect(checks.storeCreditSpendProblems(admin({ storeCreditOn: false }).admin, "off.myshopify.com")).resolves.toEqual({
+      state: "problems",
+      problems: ["store-credit-off"],
+    });
   });
 
   it("asks fresh on every call", async () => {
@@ -109,17 +113,35 @@ describe("storeCreditSpendProblems", () => {
     expect(graphql).toHaveBeenCalledTimes(4);
   });
 
-  it("one answer Shopify can't give doesn't hide the other, and reports nothing itself", async () => {
+  it("one answer Shopify can't give doesn't hide the problems the other shows", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(
       checks.storeCreditSpendProblems(admin({ version: "CLASSIC", storeCreditFail: true }).admin, "half.myshopify.com"),
-    ).resolves.toEqual(["legacy-accounts"]);
+    ).resolves.toEqual({ state: "problems", problems: ["legacy-accounts"] });
     await expect(
       checks.storeCreditSpendProblems(admin({ accountsFail: true, storeCreditOn: false }).admin, "other-half.myshopify.com"),
-    ).resolves.toEqual(["store-credit-off"]);
-    // Answers this code doesn't know report nothing
+    ).resolves.toEqual({ state: "problems", problems: ["store-credit-off"] });
+  });
+
+  it("answers unknown when a check found nothing and another couldn't be made", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(checks.storeCreditSpendProblems(admin({ storeCreditFail: true }).admin, "no-config.myshopify.com")).resolves.toEqual({ state: "unknown" });
+    await expect(checks.storeCreditSpendProblems(admin({ accountsFail: true }).admin, "no-accounts.myshopify.com")).resolves.toEqual({ state: "unknown" });
+    await expect(checks.storeCreditSpendProblems(admin({ accountsFail: true, storeCreditFail: true }).admin, "down.myshopify.com")).resolves.toEqual({
+      state: "unknown",
+    });
+    // Answers this code doesn't know are no answer
     await expect(
       checks.storeCreditSpendProblems(admin({ version: null, signInLinksShown: "no", storeCreditOn: 0 }).admin, "odd.myshopify.com"),
-    ).resolves.toEqual([]);
+    ).resolves.toEqual({ state: "unknown" });
+    await expect(checks.storeCreditSpendProblems(admin({ version: "SOMETHING_NEW" }).admin, "new-kind.myshopify.com")).resolves.toEqual({ state: "unknown" });
+  });
+
+  it("answers unknown when Shopify takes over 2.5 seconds", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const slow = checks.storeCreditSpendProblems(admin({ accountsHang: true }).admin, "slow.myshopify.com");
+    await vi.advanceTimersByTimeAsync(checks.SHOP_CHECK_TIMEOUT_MS);
+    await expect(slow).resolves.toEqual({ state: "unknown" });
   });
 });

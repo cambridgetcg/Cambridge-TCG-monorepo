@@ -164,26 +164,28 @@ function decimalOf(value: unknown): Decimal | null {
   }
 }
 
-/** What one RewardsBalance answer says about the buyer's balance in one currency. */
+/** The buyer's store credit accounts, one per currency, as one RewardsBalance answer gives them. */
+export interface BalanceAccounts {
+  /** Each account on the page: its currency and balance, null when the amount can't be read. */
+  accounts: Array<{ currency: string; amount: Decimal | null }>;
+  /** Every account was on this page. */
+  complete: boolean;
+}
+
+/** What one RewardsBalance answer says. */
 export interface BalanceRead {
   /** The shop's API budget was below half after the read. */
   budgetLow: boolean;
   /** Null when the answer can't be read (including a customer Shopify doesn't know). */
-  read: {
-    /** The account's balance in the currency asked for; null when the buyer has no account in it. */
-    account: Decimal | null;
-    /** Another account holds credit, or an amount that couldn't be read. */
-    creditElsewhere: boolean;
-    /** Every account was on this page. */
-    complete: boolean;
-  } | null;
+  read: BalanceAccounts | null;
 }
 
 /**
- * Reads the buyer's store credit accounts once, with the 2.5 s timeout.
- * Throws when Shopify can't be reached in time.
+ * Reads the buyer's store credit accounts once, with the 2.5 s timeout:
+ * every account, not only one currency's (Ruling 66). Throws when Shopify
+ * can't be reached in time.
  */
-export async function readBalance(admin: GraphqlClient, externalCustomerId: string, currency: string): Promise<BalanceRead> {
+export async function readBalance(admin: GraphqlClient, externalCustomerId: string): Promise<BalanceRead> {
   const body = asRecord(
     await askShopify(admin, RewardsBalance, { customerId: `gid://shopify/Customer/${externalCustomerId}` }, BALANCE_TIMEOUT_MS),
   );
@@ -195,20 +197,37 @@ export async function readBalance(admin: GraphqlClient, externalCustomerId: stri
   const accounts = asRecord(asRecord(asRecord(body?.data)?.customer)?.storeCreditAccounts);
   if (!Array.isArray(accounts?.nodes)) return { budgetLow, read: null };
 
+  const nodes: unknown[] = accounts.nodes;
+  return {
+    budgetLow,
+    read: {
+      accounts: nodes.map((node) => {
+        const balance = asRecord(asRecord(node)?.balance);
+        // A code that isn't a string matches no currency asked for
+        return { currency: typeof balance?.currencyCode === "string" ? balance.currencyCode : "", amount: decimalOf(balance?.amount) };
+      }),
+      complete: asRecord(accounts.pageInfo)?.hasNextPage === false,
+    },
+  };
+}
+
+/**
+ * The account in `currency` (null when the buyer has none in it) and
+ * whether another account holds credit or an amount that couldn't be read;
+ * null when the account in `currency` has an amount that can't be read.
+ */
+export function accountIn(read: BalanceAccounts, currency: string): { account: Decimal | null; creditElsewhere: boolean } | null {
   let account: Decimal | null = null;
   let creditElsewhere = false;
-  for (const node of accounts.nodes) {
-    const balance = asRecord(asRecord(node)?.balance);
-    const amount = decimalOf(balance?.amount);
-    if (balance?.currencyCode === currency) {
-      if (!amount) return { budgetLow, read: null };
+  for (const { currency: code, amount } of read.accounts) {
+    if (code === currency) {
+      if (!amount) return null;
       account = amount;
     } else if (!amount || amount.gt(0)) {
       creditElsewhere = true;
     }
   }
-  const complete = asRecord(accounts.pageInfo)?.hasNextPage === false;
-  return { budgetLow, read: { account, creditElsewhere, complete } };
+  return { account, creditElsewhere };
 }
 
 /** One credit transaction node as a CreditRecord; null when the node can't be read. */
@@ -344,9 +363,10 @@ export function createStoreCreditRail(admin: GraphqlClient): PayoutRail {
     async balance(externalCustomerId, currency) {
       try {
         currencyDecimals(currency);
-        const { read } = await readBalance(admin, externalCustomerId, currency);
-        if (!read) return null;
-        if (read.account) return read.account;
+        const { read } = await readBalance(admin, externalCustomerId);
+        const here = read && accountIn(read, currency);
+        if (!read || !here) return null;
+        if (here.account) return here.account;
         return read.complete ? new Money(0) : null;
       } catch {
         return null;

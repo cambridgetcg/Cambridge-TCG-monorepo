@@ -1,18 +1,22 @@
+import type { PayoutState } from "@prisma/client";
 import type { MerchantAnswer } from "~/lib/payouts.server";
 import type { OrderEntry, OrderPanel, OrderRefund } from "~/lib/stats.server";
-import { formatDay, payoutDetail } from "./customer-history.server";
+import { type HistoryLine, formatDay, historyLine, payoutDetail } from "./customer-history.server";
 import { formatMoney } from "./format";
+import { AMOUNT_UNKNOWN, orderNotes } from "./words";
 
 /**
- * The order panel's words (spec 4.6), as plain strings for the page: each
- * payout's state, the answers a payout that needs a look takes (rule 12),
- * the order's notes and its refunds. The ledger entries read as on the buyer
- * panel (historyLine), so a take-back that fell short says "Took back £0.40
- * of £1.00; the buyer had spent the rest" in both places.
+ * The order panel's words (spec 4.6), as plain strings for the page. The
+ * ledger entries read as on the buyer panel (historyLine), so a take-back
+ * that fell short says "Took back £0.40 of £1.00; the buyer had spent the
+ * rest" in both places. Each payout shows once, in its entry's row, with
+ * where it stands and when it went out (DESIGN-13), in words that follow its
+ * direction (A22-F4), and the answers a payout that needs a look takes (rule
+ * 12).
  *
  * The answers are the brief's words for cashback. A take-back takes the
  * same two answers (plan Decision 5) in words that fit it: nothing "arrives"
- * when credit is taken back.
+ * when credit is taken back (Ruling 55).
  */
 
 export type AnswerButton = { answer: MerchantAnswer; label: string };
@@ -26,19 +30,16 @@ export type Look = {
   answers: AnswerButton[];
 };
 
-export type PayoutLine = {
-  id: string;
-  what: "Store credit" | "Take-back";
-  /** What it is to move, in the buyer's currency */
-  amount: string;
-  state: string;
+/** An entry of the order, with its payout folded in. */
+export type EntryLine = HistoryLine & {
+  payoutId: string | null;
   /**
-   * The day it went out, in the shop's time zone; "Not confirmed" while it
-   * may have arrived (sending, unconfirmed, or RewardsPro couldn't confirm
-   * it), else "Not sent"
+   * Where its payout stands, with the day it went out, in the shop's time
+   * zone; "Not confirmed" while it may have arrived (sending, unconfirmed,
+   * or RewardsPro couldn't confirm it), never "Not sent". Null for an
+   * adjustment.
    */
-  sent: string;
-  attempts: number;
+  payout: string | null;
   look: Look | null;
 };
 
@@ -50,21 +51,36 @@ export type RefundLine = {
   note: string | null;
 };
 
-const STATE: Record<NonNullable<OrderEntry["payout"]>["state"], string> = {
-  pending: "Waiting to send",
-  held: "Held until its cashback is confirmed",
-  sending: "Sending",
-  sent: "Sent",
-  unconfirmed: "Sent, not confirmed yet",
-  needs_look: "Needs a look",
-  closed: "Closed",
-  nothing_to_send: "Nothing to send",
+type Payout = NonNullable<OrderEntry["payout"]>;
+
+/** Where a payout stands, in its direction's words (a day is added to a sent one). */
+const STATE_WORDS: Record<"credit" | "debit", Record<PayoutState, string>> = {
+  credit: {
+    pending: "Waiting to send",
+    held: "Held until its cashback is confirmed",
+    sending: "Not confirmed",
+    sent: "Sent",
+    unconfirmed: "Not confirmed",
+    needs_look: "Not sent",
+    closed: "Closed, not sent",
+    nothing_to_send: "Nothing to send",
+  },
+  debit: {
+    pending: "Waiting to take back",
+    held: "Held until its cashback is confirmed",
+    sending: "Not confirmed",
+    sent: "Taken back",
+    unconfirmed: "Not confirmed",
+    needs_look: "Not taken back",
+    closed: "Closed, not taken back",
+    nothing_to_send: "Nothing to take back",
+  },
 };
 
 const CHECK_CREDIT = "Check the buyer's store credit in Shopify first. If you already added it by hand, choose It arrived.";
 const CHECK_TAKE_BACK = "Check the buyer's store credit in Shopify first. If you already took it back by hand, choose It was taken back.";
 
-function lookOf(entry: OrderEntry, payout: NonNullable<OrderEntry["payout"]>): Look | null {
+function lookOf(entry: OrderEntry, payout: Payout): Look | null {
   if (payout.state !== "needs_look" || payout.lookReason === null) return null;
   const credit = payout.direction === "credit";
   const amount = formatMoney(payout.amount, entry.currency);
@@ -98,43 +114,35 @@ function lookOf(entry: OrderEntry, payout: NonNullable<OrderEntry["payout"]>): L
 }
 
 /**
- * When a payout went out. One that may have arrived never reads "Not sent":
+ * Where a payout stands. One that may have arrived never reads "Not sent":
  * beside "It didn't arrive, send it" that would push the merchant to the
- * answer that pays the buyer twice if the first send landed.
+ * answer that pays the buyer twice if the first send landed. A sent
+ * take-back that took nothing (the buyer had spent it all) was settled, not
+ * taken back.
  */
-function sentCell(payout: NonNullable<OrderEntry["payout"]>, timezone: string): string {
-  if (payout.state === "sent") return payout.sentAt ? formatDay(payout.sentAt, timezone) : "Sent";
-  if (payout.state === "sending" || payout.state === "unconfirmed") return "Not confirmed";
+function payoutCell(payout: Payout, timezone: string): string {
   if (payout.state === "needs_look" && payout.lookReason === "could_not_confirm") return "Not confirmed";
-  return "Not sent";
+  if (payout.state !== "sent") return STATE_WORDS[payout.direction][payout.state];
+  const words = payout.direction === "debit" && payout.debitedAmount?.isZero() ? "Settled" : STATE_WORDS[payout.direction].sent;
+  return payout.sentAt ? `${words} ${formatDay(payout.sentAt, timezone)}` : words;
 }
 
-/** Each of the order's payouts, newest first, with the answers one that needs a look takes. */
-export function payoutLines(panel: OrderPanel, timezone: string): PayoutLine[] {
-  return panel.entries.flatMap((entry) => {
+/** Each of the order's entries, newest first, each with its payout and the answers one that needs a look takes. */
+export function entryLines(panel: OrderPanel, timezone: string): EntryLine[] {
+  return panel.entries.map((entry) => {
     const { payout } = entry;
-    if (!payout) return [];
-    return [
-      {
-        id: payout.id,
-        what: payout.direction === "credit" ? ("Store credit" as const) : ("Take-back" as const),
-        amount: formatMoney(payout.amount, entry.currency),
-        state: STATE[payout.state],
-        sent: sentCell(payout, timezone),
-        attempts: payout.attempts,
-        look: lookOf(entry, payout),
-      },
-    ];
+    return {
+      ...historyLine(entry, timezone),
+      payoutId: payout?.id ?? null,
+      payout: payout ? payoutCell(payout, timezone) : null,
+      look: payout ? lookOf(entry, payout) : null,
+    };
   });
 }
 
-/** What the order itself says about its cashback: a test order, cancelled, or from before install. */
-export function orderNotes(panel: OrderPanel): string[] {
-  const notes: string[] = [];
-  if (panel.test) notes.push("Test order");
-  if (panel.cancelledAt) notes.push("Cancelled");
-  if (panel.source === "import" || panel.noCashbackReason === "before_install") notes.push("From before install");
-  return notes;
+/** What the order itself says about its cashback, less what its status already says (A22-F8). */
+export function panelNotes(panel: OrderPanel): string[] {
+  return orderNotes(panel, panel.status.detail);
 }
 
 function refundNote(refund: OrderRefund): string | null {
@@ -146,15 +154,15 @@ function refundNote(refund: OrderRefund): string | null {
 
 /**
  * What a refund's take-back took off the buyer's store credit, as the
- * entries table says it: what Shopify took when it was sent ("Amount
- * unknown" when Shopify never told, A11-F4), the ledger's amount when it
- * reduced a credit not yet sent, nothing when it was closed, and where it
- * stands while it is on its way or needs a look.
+ * entries say it: what Shopify took when it was sent (AMOUNT_UNKNOWN when
+ * Shopify never told, A11-F4), the ledger's amount when it reduced a credit
+ * not yet sent, nothing when it was closed, and where it stands while it is
+ * on its way or needs a look.
  */
 function takenBackCell(takeBack: NonNullable<OrderRefund["takeBack"]>): string {
   switch (takeBack.state) {
     case "sent":
-      return takeBack.debitedAmount === null ? "Amount unknown" : formatMoney(takeBack.debitedAmount, takeBack.currency);
+      return takeBack.debitedAmount === null ? AMOUNT_UNKNOWN : formatMoney(takeBack.debitedAmount, takeBack.currency);
     case "closed":
       return "None (closed)";
     case "needs_look":

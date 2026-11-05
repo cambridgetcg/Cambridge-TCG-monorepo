@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RewardsCustomerNames, type GraphqlClient } from "~/shopify/graphql";
-import { customerNames } from "~/shopify/names.server";
+import { customerNames, nameFallback } from "~/shopify/names.server";
 
 /**
  * Buyer names are read live from Shopify for display and never stored
@@ -117,5 +117,14 @@ describe("customerNames", () => {
     // A GID where a numeric id belongs would fail the whole batch
     expect(names.get("gid://shopify/Customer/1")).toMatch(/^Customer ····/);
     expect(graphql).not.toHaveBeenCalled();
+  });
+
+  // A18-F3: the fallback shows the id's digits only, never part of a word
+  it("names a buyer by the last four digits of their id, or plain Customer when it has none", () => {
+    expect(nameFallback("7001234")).toBe("Customer ····1234");
+    expect(nameFallback("gid://shopify/Customer/1")).toBe("Customer ····1");
+    expect(nameFallback("gid://shopify/Customer/123456")).toBe("Customer ····3456");
+    expect(nameFallback("not-an-id")).toBe("Customer");
+    expect(nameFallback("")).toBe("Customer");
   });
 });

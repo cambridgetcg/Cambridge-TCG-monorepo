@@ -7,6 +7,7 @@ import { Chart } from "~/admin/Chart";
 import { formatMoney } from "~/admin/format";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
+import { ERASED_BUYER, rewardLine } from "~/admin/words";
 import {
   homeBanners,
   importOutcomeShown,
@@ -74,7 +75,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, conn } = await requireMerchant(request);
   const now = new Date();
 
-  const [stats, spendProblems] = await Promise.all([homeStats(conn, now), storeCreditSpendProblems(admin, conn.shop)]);
+  const [stats, spend] = await Promise.all([homeStats(conn, now), storeCreditSpendProblems(admin, conn.shop)]);
   let state = await homeState(conn, now, stats.cashbackOrders);
   if (state.importState === "running") {
     await followImport(admin, conn);
@@ -95,14 +96,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       creditSpent: stats.creditSpent.toFixed(),
       cameBack: stats.cameBack,
       daily: stats.daily.map((d) => ({ date: d.date, given: d.given.toFixed(), spent: d.spent.toFixed() })),
+      // What really moved, in the pages' shared words (Ruling 65)
       recent: stats.recent.map((r) => ({
         orderId: r.orderId,
         orderName: r.orderName,
-        buyer: r.customerId === "" ? "Customer" : (names.get(r.customerId) ?? "Customer"),
+        buyer: r.customerId === "" ? ERASED_BUYER : names.get(r.customerId)!,
         tierName: r.tierName,
-        amount: r.amount.toFixed(),
-        currency: r.currency,
-        status: r.status,
+        ...rewardLine(r),
       })),
       tiers: stats.tiers.map((t) => ({ id: t.id, name: t.name, percent: t.percent.toFixed(), members: t.members })),
       needsLook: stats.needsLook,
@@ -110,7 +110,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     },
     bannerFacts: {
       privacyDueAt: state.privacyDueAt,
-      spendProblems,
+      spendProblems: spend.state === "problems" ? spend.problems : [],
       needsLook: stats.needsLook,
       timezone: conn.timezone,
       themeEditorUrl: editorUrl,
@@ -123,7 +123,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       placedBuyers: state.placedBuyers,
     },
     reviewDue: state.reviewDue,
-    storeCreditReady: spendProblems.length === 0,
+    // Ruling 59: null when Shopify couldn't say, shown as not checked
+    storeCreditReady: spend.state === "ok" ? true : spend.state === "unknown" ? null : false,
     themeEditorUrl: editorUrl,
   };
 };
@@ -226,14 +227,6 @@ function Step({ done, children }: { done: boolean; children: React.ReactNode }) 
   );
 }
 
-const STATUS_TONE: Record<string, "success" | "warning" | "neutral" | "info"> = {
-  Issued: "success",
-  Waiting: "info",
-  "Needs a look": "warning",
-  "Taken back": "neutral",
-  "No cashback": "neutral",
-};
-
 export default function Home() {
   const d = useLoaderData<typeof loader>();
   const switchFetcher = useFetcher<typeof action>();
@@ -268,7 +261,7 @@ export default function Home() {
   const showImportOutcome = importOutcomeShown(d.setup.importState, importDismissed);
   const showSetup = !setupDone({ hasTiers, running: d.running, widgetOn, importState: d.setup.importState, importDismissed });
   const reviewDismissed = reviewFetcher.formData?.get("intent") === "review-dismissed";
-  const money = (amount: string, currency = d.currency) => formatMoney(amount, currency);
+  const money = (amount: string) => formatMoney(amount, d.currency);
   const switchError = switchFetcher.data && !switchFetcher.data.ok ? switchFetcher.data.error : null;
   const rateError = rateFetcher.data && !rateFetcher.data.ok ? rateFetcher.data.error : null;
   const months = d.setup.importHorizonDays === 365 ? "12 months" : `${d.setup.importHorizonDays} days`;
@@ -398,7 +391,7 @@ export default function Home() {
                 <s-text color="subdued">No rewards yet.</s-text>
               ) : (
                 d.stats.recent.map((reward, i) => {
-                  const row = (
+                  const line = (
                     <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="small-200">
                       <s-stack direction="inline" gap="small-300" alignItems="center">
                         <s-link href={`/app/orders/${reward.orderId}`}>{reward.orderName}</s-link>
@@ -408,12 +401,22 @@ export default function Home() {
                         </s-box>
                       </s-stack>
                       <s-stack direction="inline" gap="small-300" alignItems="center">
-                        <s-text>{money(reward.amount, reward.currency)}</s-text>
+                        <s-text>{reward.amount}</s-text>
                         <s-box display={WIDE_ONLY}>
-                          <s-badge tone={STATUS_TONE[reward.status] ?? "neutral"}>{reward.status}</s-badge>
+                          <s-badge tone={reward.tone}>{reward.status}</s-badge>
                         </s-box>
                       </s-stack>
                     </s-stack>
+                  );
+                  const row = reward.detail ? (
+                    <s-stack gap="small-300">
+                      {line}
+                      <s-box display={WIDE_ONLY}>
+                        <s-text color="subdued">{reward.detail}</s-text>
+                      </s-box>
+                    </s-stack>
+                  ) : (
+                    line
                   );
                   // Phones show the newest two
                   return i < PHONE_ROWS ? (
@@ -459,7 +462,7 @@ export default function Home() {
           <s-paragraph>{runningSentence(running)}</s-paragraph>
           {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
           <s-stack gap="small-200">
-            <Check ok={checks.storeCredit} yes="Store credit can be spent" no="Store credit can't be spent yet" />
+            <Check ok={checks.storeCredit} yes="Store credit can be spent" no="Store credit can't be spent yet" unknown="Store credit: Shopify didn't say" />
             <Check ok={checks.widget} yes="Widget is on" no="Widget is off" unknown="Widget: checking" />
             <Check ok={checks.tiers} yes="Tiers are set" no="No tiers yet" />
           </s-stack>
