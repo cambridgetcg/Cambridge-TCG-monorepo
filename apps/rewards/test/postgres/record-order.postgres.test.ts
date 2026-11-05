@@ -555,7 +555,7 @@ describe.skipIf(!hasTestDatabase)("recordOrder", () => {
       ["at the reinstall", REACTIVATED, null],
     ])("%s", async (_, orderedAt, reason) => {
       const { conn: first } = await runningShop();
-      expect(await markUninstalled(SHOP, UNINSTALLED)).toBe(true);
+      expect(await markUninstalled(SHOP, UNINSTALLED)).toBe("uninstalled");
       const conn = { ...(await openShop({ now: REACTIVATED })), running: true };
       expect(conn).toMatchObject({ installedAt: first.installedAt, activatedAt: REACTIVATED, uninstalledAt: UNINSTALLED });
 

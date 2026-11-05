@@ -34,6 +34,8 @@ import { server } from "../../setup";
 /**
  * A webhook delivery as Shopify signs it. `apiVersion` is the subscription's
  * version: 2026-01 is the released app's; the new tomls move it to 2026-10.
+ * `headers` are added last, so they can also replace one Shopify sets (such
+ * as X-Shopify-Triggered-At, which Shopify sends unsigned).
  */
 export function signedWebhook(
   topic: string,
@@ -41,6 +43,7 @@ export function signedWebhook(
   payload: unknown,
   webhookId: string = crypto.randomUUID(),
   apiVersion = "2026-01",
+  headers: Record<string, string> = {},
 ): Request {
   const body = JSON.stringify(payload);
   const hmac = crypto.createHmac("sha256", process.env.SHOPIFY_API_SECRET!).update(body, "utf8").digest("base64");
@@ -54,6 +57,7 @@ export function signedWebhook(
       "X-Shopify-Hmac-Sha256": hmac,
       "X-Shopify-Webhook-Id": webhookId,
       "X-Shopify-API-Version": apiVersion,
+      ...headers,
     },
   });
 }

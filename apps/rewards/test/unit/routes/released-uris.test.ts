@@ -13,13 +13,6 @@ import { describe, expect, it } from "vitest";
 const releasedToml = fileURLToPath(new URL("../../../../rewardspro/shopify.app.toml", import.meta.url));
 const routes = fileURLToPath(new URL("../../../app/routes/", import.meta.url));
 
-/** URIs whose routes come with a later task. */
-const LATER: Record<string, string> = {
-  "/webhooks/compliance": "A14 adds the compliance route",
-  // A14 adds this route and removes this skip (Ruling 5).
-  "/webhooks/app/uninstalled": "A14 adds the uninstall route",
-};
-
 function releasedUris(): string[] {
   const toml = parse(readFileSync(releasedToml, "utf8")) as { webhooks?: { subscriptions?: Array<{ uri?: string }> } };
   return (toml.webhooks?.subscriptions ?? []).map((subscription) => {
@@ -35,7 +28,7 @@ describe("the released app's webhook URIs", () => {
     expect(releasedUris()).toContain("/webhooks/orders/paid");
   });
 
-  it.each(releasedUris().filter((uri) => !(uri in LATER)))("%s has a route", (uri) => {
+  it.each(releasedUris())("%s has a route", (uri) => {
     expect(routeFile(uri).some((file) => existsSync(`${routes}${file}`)), `${routeFile(uri)[0]} in app/routes`).toBe(true);
   });
 });

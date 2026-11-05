@@ -331,15 +331,18 @@ async function sendAgainLessHeld(tx: Prisma.TransactionClient, credit: LockedPay
  * Close a payout without sending it (rule 12's "Close without sending"):
  * `closed`, settled by `settledBy`, with an adjustment entry (key
  * `close:<payout id>`) cancelling what is left of its ledger entry in both
- * currencies: the entry's amount plus, for cashback, its order's reversals.
+ * currencies: the entry's amount plus, for cashback, its order's reversals
+ * and earlier adjustments (a take-back closed before its credit, as
+ * customers/redact closes a held one whose credit is still unclear, has
+ * cancelled its reversal already).
  * For a credit that is the payout's current amount once its held
  * take-backs are netted into it (netHeld): they have nothing to send, so none
  * stays held for a credit that will never be settled. A credit netted to 0
  * has nothing to send instead (Ruling 22), and needs no adjustment. For a
  * take-back, the adjustment cancels the reversal itself. Nothing is sent or
  * taken back for it again. The caller holds the locks (lockPayout) and has
- * checked the payout may be closed; A14's redaction closes through this same
- * helper.
+ * checked the payout may be closed; customers/redact (redactCustomer) closes
+ * through this same helper.
  */
 export async function closeWithoutSending(
   tx: Prisma.TransactionClient,
@@ -348,15 +351,15 @@ export async function closeWithoutSending(
 ): Promise<void> {
   const entry = payout.ledgerEntry;
   const amount = await netHeld(tx, payout);
-  const reversals =
+  const takenOrCancelled =
     entry.kind === "cashback" && entry.orderId !== null
       ? await tx.ledgerEntry.findMany({
-          where: { merchantId: entry.merchantId, orderId: entry.orderId, kind: "reversal" },
+          where: { merchantId: entry.merchantId, orderId: entry.orderId, kind: { in: ["reversal", "adjustment"] } },
           select: { amount: true, shopAmount: true },
         })
       : [];
-  const left = reversals.reduce((sum, r) => sum.plus(fromDb(r.amount)), fromDb(entry.amount));
-  const shopLeft = reversals.reduce((sum, r) => sum.plus(fromDb(r.shopAmount)), fromDb(entry.shopAmount));
+  const left = takenOrCancelled.reduce((sum, r) => sum.plus(fromDb(r.amount)), fromDb(entry.amount));
+  const shopLeft = takenOrCancelled.reduce((sum, r) => sum.plus(fromDb(r.shopAmount)), fromDb(entry.shopAmount));
   if (!(left.isZero() && shopLeft.isZero())) {
     await tx.ledgerEntry.create({
       data: {

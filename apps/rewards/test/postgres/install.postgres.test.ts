@@ -59,6 +59,20 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
     expect(merchants[0].name).toBe("Install Test Renamed");
   });
 
+  it("records the time of every token exchange on the connection, so an older uninstall can't undo it (Ruling 13)", async () => {
+    const before = Date.now();
+    await onAppOpened({ session, admin: adminAnswering(shopAnswer("Install Test")).admin });
+    const first = await prisma.connection.findFirstOrThrow();
+    expect(first.lastAuthAt!.getTime()).toBeGreaterThanOrEqual(before);
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await onAppOpened({ session, admin: adminAnswering(shopAnswer("Install Test")).admin });
+
+    const second = await prisma.connection.findFirstOrThrow();
+    expect(second.lastAuthAt!.getTime()).toBeGreaterThan(first.lastAuthAt!.getTime());
+    expect(second.activatedAt).toEqual(first.activatedAt);
+  });
+
   it("writes nothing and fails the open when Shopify's answer has no shop", async () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const { admin } = adminAnswering({ errors: [{ message: "Internal error" }] });
