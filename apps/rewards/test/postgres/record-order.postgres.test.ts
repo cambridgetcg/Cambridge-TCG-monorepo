@@ -479,9 +479,9 @@ describe.skipIf(!hasTestDatabase)("recordOrder", () => {
     expect([entry.payout?.currency, money(entry.payout?.amount)]).toEqual(["EUR", "2.5000"]);
   });
 
-  it("a late order with a refund already in Shopify is recorded at the full base", async () => {
-    // Ruling 24: the base is never netted; A10 applies the refund afterwards
-    // inside this transaction. Until then no refund row is written.
+  it("a late order with a refund already in Shopify earns on the full base, then the refund takes its share", async () => {
+    // Ruling 24: the base is never netted; the refund is then recorded inside
+    // this transaction as one before payout (A10: refunds.postgres.test.ts).
     const { conn } = await runningShop();
     const facts = orderFacts({
       refundedProductValue: pair("20.00", "20.00"),
@@ -503,9 +503,14 @@ describe.skipIf(!hasTestDatabase)("recordOrder", () => {
       "20.0000",
       "20.0000",
     ]);
-    const entry = await prisma.ledgerEntry.findFirstOrThrow({ include: { payout: true } });
-    expect([money(entry.amount), money(entry.payout?.amount)]).toEqual(["2.5000", "2.5000"]);
-    expect(await prisma.refund.count()).toBe(0);
+    const entry = await prisma.ledgerEntry.findFirstOrThrow({ where: { kind: "cashback" }, include: { payout: true } });
+    expect([money(entry.amount), money(entry.payout?.amount)]).toEqual(["2.5000", "1.5000"]);
+    const reversal = await prisma.ledgerEntry.findFirstOrThrow({ where: { kind: "reversal" } });
+    expect(money(reversal.amount)).toBe("-1.0000");
+    expect(await prisma.refund.findFirstOrThrow()).toMatchObject({
+      externalRefundId: "gid://shopify/Refund/1",
+      appliedBeforeCashback: true,
+    });
   });
 
   it("a guest order is not recorded", async () => {

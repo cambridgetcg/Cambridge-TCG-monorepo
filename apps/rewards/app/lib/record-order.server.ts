@@ -15,8 +15,9 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
 import prisma from "~/db.server";
 import type { ConnectionContext } from "./merchant.server";
-import { ISSUE_IN, cashbackFor, fromDb } from "./money";
-import { type OrderFacts, cashbackBase } from "./order-facts";
+import { ISSUE_IN, Money, cashbackFor, fromDb } from "./money";
+import { type OrderFacts, type RefundFacts, cashbackBase } from "./order-facts";
+import { recordRefundInTransaction } from "./refunds.server";
 
 export type NoCashbackReason = "import" | "before_install" | "test" | "cancelled" | "off" | "no_tier" | "nothing_to_pay_on";
 
@@ -33,6 +34,14 @@ class AlreadyRecorded extends Error {
 }
 
 type TierRate = { id: string; name: string; cashbackPercent: Prisma.Decimal };
+
+/** Oldest first: by Shopify's created time, then by id (numeric ids in order). */
+function oldestFirst(a: RefundFacts, b: RefundFacts): number {
+  const byTime = a.refundedAt.getTime() - b.refundedAt.getTime();
+  if (byTime !== 0) return byTime;
+  const [x, y] = [a.externalRefundId, b.externalRefundId];
+  return x.length - y.length || (x < y ? -1 : x > y ? 1 : 0);
+}
 
 /**
  * Why an order earns nothing, before any amount is worked out, in the brief's
@@ -69,8 +78,10 @@ function reasonBeforeAmounts(
  * (rule 2): a buyer new to the store, or with no tier yet, is placed in the
  * lowest tier first; a locked tier's rate wins over the stored one. The base
  * is the full `cashbackBase(facts)` even when Shopify already shows refunds:
- * those are applied after, as refunds before payout (Ruling 24, A10), so
- * `facts.refunds` is not written here.
+ * those are then recorded in this same transaction, oldest first, exactly as
+ * refunds delivered before payout would be (recordRefundInTransaction, marked
+ * `appliedBeforeCashback`), so a late order ends with the money and ledger an
+ * on-time one would have (Ruling 24).
  */
 export async function recordOrder(
   conn: ConnectionContext,
@@ -83,6 +94,13 @@ export async function recordOrder(
   const { merchantId, connectionId } = conn;
   const now = new Date();
   const base = cashbackBase(facts);
+  const refunds = [...facts.refunds].sort(oldestFirst);
+  // The refunds recorded below add their own product value; what is left is
+  // what no refund row stands for (the import's bulk node has only quantities).
+  const unlisted = (side: "amount" | "shopAmount") => {
+    const listed = refunds.reduce((total, r) => total.plus(r.productValue[side]), new Money(0));
+    return Money.max(0, new Money(facts.refundedProductValue[side]).minus(listed));
+  };
 
   try {
     return await db.$transaction(async (tx) => {
@@ -162,8 +180,8 @@ export async function recordOrder(
             shopStoreCreditUsed: facts.storeCreditUsed.shopAmount.toFixed(),
             giftCardUsed: facts.giftCardUsed.amount.toFixed(),
             cashbackBase: base.amount.toFixed(),
-            refundedProductAmount: facts.refundedProductValue.amount.toFixed(),
-            shopRefundedProductAmount: facts.refundedProductValue.shopAmount.toFixed(),
+            refundedProductAmount: unlisted("amount").toFixed(),
+            shopRefundedProductAmount: unlisted("shopAmount").toFixed(),
             orderedAt: facts.orderedAt,
             paidAt: facts.paidAt,
             cancelledAt: facts.cancelledAt,
@@ -184,41 +202,46 @@ export async function recordOrder(
       }
       const orderId = inserted[0].id;
 
-      if (!cashback || !rateTier) {
-        return { status: "recorded", orderId, customerId: customer.id, payoutId: null, noCashback };
+      let payoutId: string | null = null;
+      if (cashback && rateTier) {
+        const entry = await tx.ledgerEntry.create({
+          data: {
+            merchantId,
+            connectionId,
+            customerId: customer.id,
+            orderId,
+            kind: "cashback",
+            amount: cashback.amount.toFixed(),
+            currency: cashback.currency,
+            shopAmount: cashback.shopAmount.toFixed(),
+            tierName: rateTier.name,
+            ratePercent: cashback.percent.toFixed(),
+            idempotencyKey: `cashback:${orderId}`,
+          },
+          select: { id: true },
+        });
+        const payout = await tx.payout.create({
+          data: {
+            merchantId,
+            ledgerEntryId: entry.id,
+            customerId: customer.id,
+            rail: "shopify_store_credit",
+            direction: "credit",
+            amount: cashback.amount.toFixed(),
+            currency: cashback.currency,
+            state: "pending",
+            nextAttemptAt: now,
+          },
+          select: { id: true },
+        });
+        payoutId = payout.id;
       }
 
-      const entry = await tx.ledgerEntry.create({
-        data: {
-          merchantId,
-          connectionId,
-          customerId: customer.id,
-          orderId,
-          kind: "cashback",
-          amount: cashback.amount.toFixed(),
-          currency: cashback.currency,
-          shopAmount: cashback.shopAmount.toFixed(),
-          tierName: rateTier.name,
-          ratePercent: cashback.percent.toFixed(),
-          idempotencyKey: `cashback:${orderId}`,
-        },
-        select: { id: true },
-      });
-      const payout = await tx.payout.create({
-        data: {
-          merchantId,
-          ledgerEntryId: entry.id,
-          customerId: customer.id,
-          rail: "shopify_store_credit",
-          direction: "credit",
-          amount: cashback.amount.toFixed(),
-          currency: cashback.currency,
-          state: "pending",
-          nextAttemptAt: now,
-        },
-        select: { id: true },
-      });
-      return { status: "recorded", orderId, customerId: customer.id, payoutId: payout.id, noCashback: null };
+      // Refunds Shopify already shows on a late-recorded order (Ruling 24).
+      for (const refund of refunds) {
+        await recordRefundInTransaction(tx, conn, facts.externalOrderId, refund, { now, appliedBeforeCashback: true });
+      }
+      return { status: "recorded", orderId, customerId: customer.id, payoutId, noCashback };
     });
   } catch (error) {
     if (error instanceof AlreadyRecorded) return error.result;
