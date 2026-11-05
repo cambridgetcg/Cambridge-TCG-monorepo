@@ -220,6 +220,34 @@ function readable(node: unknown, shopCurrency: string, shop: string): OrderFacts
   }
 }
 
+/** How many order ids an unreadable-orders summary names before it says "and N more". */
+const NAMED_UNREADABLE = 5;
+const countFormat = new Intl.NumberFormat("en-GB");
+
+/**
+ * The import's error once it is done: null when every order node of the file
+ * could be read, else how many could not, out of how many, naming the first
+ * few by their numeric order id (never buyer data). Read across the whole
+ * file, not only the chunks this poll wrote, so drops logged by earlier polls
+ * are counted too. Pure; the reasons are in the per-order log lines.
+ */
+export function unreadableSummary(nodes: unknown[], shopCurrency: string): string | null {
+  const ids: string[] = [];
+  for (const node of nodes) {
+    try {
+      factsFromOrderNode(node, shopCurrency, "quantities");
+    } catch {
+      const id = asRecord(node)?.id;
+      ids.push(typeof id === "string" ? id.replace(/^gid:\/\/shopify\/Order\//, "") : "(no id)");
+    }
+  }
+  if (ids.length === 0) return null;
+  const named = ids.slice(0, NAMED_UNREADABLE).join(", ");
+  const more = ids.length > NAMED_UNREADABLE ? ` and ${countFormat.format(ids.length - NAMED_UNREADABLE)} more` : "";
+  const summary = `${countFormat.format(ids.length)} of ${countFormat.format(nodes.length)} past orders could not be read, so their spend is not counted: ${named}${more}`;
+  return summary.slice(0, 500);
+}
+
 /**
  * Follow one connection's import until `deadline` (a Date.now() time):
  * - not started: start it (`running`);
@@ -227,8 +255,9 @@ function readable(node: unknown, shopCurrency: string, shop: string): OrderFacts
  * - COMPLETED: fetch the file and, from `importCursor`, write its orders
  *   IMPORT_CHUNK at a time, saving the cursor after each chunk and stopping at
  *   the deadline; once all are written, place the buyers in tiers
- *   (runTierPass, resolving everyone resolved before now), set `done` and
- *   `importedCount`. A tier pass the deadline cuts short is left to the
+ *   (runTierPass, resolving everyone resolved before now), set `done`,
+ *   `importedCount`, and `importError` to how many of the file's orders could
+ *   not be read (unreadableSummary; null when none). A tier pass the deadline cuts short is left to the
  *   nightly pass (`tierPassRequestedAt`).
  * - FAILED, CANCELED or EXPIRED (or a file that can't be read): start it
  *   again, up to MAX_IMPORT_RESTARTS times, then `failed` with the error.
@@ -306,7 +335,7 @@ export async function pollImport(admin: GraphqlClient, connectionId: string, dea
     data: {
       importState: "done",
       importedCount,
-      importError: null,
+      importError: unreadableSummary(nodes, conn.currency),
       ...(unfinished
         ? { tierPassRequestedAt: new Date(Math.max(resolvedBefore.getTime(), row.tierPassRequestedAt?.getTime() ?? 0)) }
         : {}),

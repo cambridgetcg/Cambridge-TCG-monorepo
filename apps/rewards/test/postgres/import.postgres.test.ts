@@ -186,8 +186,14 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
     for (const order of orders) expect(order).toMatchObject({ source: "import", noCashbackReason: "import" });
     await expect(prisma.ledgerEntry.count()).resolves.toBe(0);
     await expect(prisma.payout.count()).resolves.toBe(0);
-    await expect(connectionRow()).resolves.toMatchObject({ importState: "done", importedCount: 3, importCursor: 8, importError: null });
-    // The unreadable order is logged by its id only
+    // The unreadable order is counted where Home and the operator see it, by its id only
+    await expect(connectionRow()).resolves.toMatchObject({
+      importState: "done",
+      importedCount: 3,
+      importCursor: 8,
+      importError: "1 of 8 past orders could not be read, so their spend is not counted: 9008",
+    });
+    // and logged by its id only
     const logged = vi.mocked(console.error).mock.calls.map((call) => call.map(String).join(" "));
     expect(logged).toEqual([expect.stringContaining("gid://shopify/Order/9008")]);
   });
@@ -242,6 +248,20 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
     await expect(connectionRow()).resolves.toMatchObject({ importState: "done", importCursor: 8 });
     expect(file.fetches).toBeGreaterThanOrEqual(1);
     expect(shopify.started).toHaveLength(1);
+  });
+
+  it("counts an unreadable order that an earlier poll skipped when it finishes", async () => {
+    const { conn, shopify } = await firstOpen();
+    complete(shopify);
+    serveFile();
+    // As an earlier poll that wrote every order (skipping 9008) and ran out of time before the tier pass left it
+    await prisma.connection.update({ where: { id: conn.connectionId }, data: { importCursor: 8 } });
+
+    await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("done");
+
+    await expect(prisma.order.count()).resolves.toBe(0);
+    await expect(connectionRow()).resolves.toMatchObject({ importState: "done", importError: expect.stringContaining("9008") });
+    await expect(connectionRow()).resolves.toMatchObject({ importError: expect.stringMatching(/^1 of 8 past orders could not be read/) });
   });
 
   it("restarts a bulk query Shopify failed up to 3 times, then fails with Shopify's error", async () => {
