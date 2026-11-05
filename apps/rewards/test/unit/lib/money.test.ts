@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { describe, expect, it } from "vitest";
 import {
@@ -8,6 +9,7 @@ import {
   currencyDecimals,
   fitsNumeric,
   floorMoney,
+  fromDb,
   roundMoney,
   toShopifyAmount,
 } from "~/lib/money";
@@ -232,5 +234,35 @@ describe("fitsNumeric", () => {
     expect(fitsNumeric(new Money(NaN), 19, 4)).toBe(false);
     expect(fitsNumeric(new Money(Infinity), 19, 4)).toBe(false);
     expect(fitsNumeric(new Money(-Infinity), 19, 4)).toBe(false);
+  });
+});
+
+describe("fromDb (Ruling 28)", () => {
+  it("wraps a Prisma.Decimal from a numeric(19,4) column in Money, digits exact", () => {
+    const value = fromDb(new Prisma.Decimal("123456789012345.6789"));
+    expect(value.constructor).toBe(Money);
+    expect(value.toFixed(4)).toBe("123456789012345.6789");
+    expect(fromDb(new Prisma.Decimal("2.5000")).toString()).toBe("2.5");
+    expect(fromDb(new Prisma.Decimal("-0.0001")).toFixed(4)).toBe("-0.0001");
+  });
+
+  it("does its arithmetic at Money's 40 digits, not Prisma's 20", () => {
+    const prisma = new Prisma.Decimal("123456789012345.6789");
+    // Prisma's own Decimal rounds the product to 20 significant digits
+    expect(prisma.times("1.0001").toFixed(8)).toBe("123469134691246.91347000");
+    expect(fromDb(prisma).times("1.0001").toFixed(8)).toBe("123469134691246.91346789");
+  });
+
+  it("takes the string or number a raw query gives", () => {
+    expect(fromDb("2.5000").toFixed(4)).toBe("2.5000");
+    expect(fromDb(0).toString()).toBe("0");
+    expect(fromDb(12).constructor).toBe(Money);
+    expect(fromDb(new Decimal("1.25")).constructor).toBe(Money);
+  });
+
+  it("refuses anything that is not a finite amount", () => {
+    for (const bad of ["", "abc", "NaN", "Infinity", Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => fromDb(bad)).toThrow(RangeError);
+    }
   });
 });

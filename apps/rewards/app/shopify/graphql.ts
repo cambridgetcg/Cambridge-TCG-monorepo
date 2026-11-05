@@ -159,15 +159,17 @@ export const RewardsCreditHistory = `#graphql
 `;
 
 /**
- * One order's facts (spec 6.3 rule 1): its lines with their discounts, its
- * tenders, its refunds' ids, whether its prices include tax (for the shipping
- * a money-only refund returned, rule 7) and the shop's currency. Line items come 100 to a
- * page; `$after` reads the next. Kept apart from the refunds so each read
+ * One order's facts (spec 6.3 rule 1): its lines with their discounts and
+ * their quantities before and after edits and refunds (Ruling 25), its tips
+ * (Ruling 26), its tenders, its refunds' ids, whether its prices include tax
+ * (for the shipping a money-only refund returned, rule 7) and the shop's
+ * currency. Line items come 100 to a page; `$after` reads the next. Kept apart from the refunds so each read
  * stays under the 1,000-point limit (one query with everything is refused
  * with MAX_COST_EXCEEDED).
  * Scopes (as the validator names them): read_orders, read_marketplace_orders,
  * read_quick_sale, read_customers; read_all_orders for orders older than 60 days.
- * Cost: 909 = shop 1 + order 1 + customer 1 + totalPriceSet 3 + lineItems
+ * Cost: 912 = shop 1 + order 1 + customer 1 + totalPriceSet 3
+ * + totalTipReceivedSet 3 + lineItems
  * (connection 2, pageInfo 1, 100 × (line 1 + originalTotalSet 3 + one
  * discount allocation 4)) + transactions 20 × (transaction 1 + amountSet 3)
  * + refunds 20 × 1 (taxesIncluded and the other scalars cost nothing).
@@ -192,6 +194,14 @@ export const RewardsOrderFacts = `#graphql
         id
       }
       totalPriceSet {
+        shopMoney {
+          amount
+        }
+        presentmentMoney {
+          amount
+        }
+      }
+      totalTipReceivedSet {
         shopMoney {
           amount
         }
@@ -349,7 +359,7 @@ export const RewardsRefundFacts = `#graphql
 `;
 
 /**
- * The paid and partly refunded orders created since a time, oldest first, 50
+ * The paid and partly refunded orders created since a time, newest first, 50
  * to a page, for the hourly sweep of missed orders (rule 13).
  * Scopes (as the validator names them): read_orders, read_marketplace_orders,
  * read_quick_sale, read_customers.
@@ -357,7 +367,7 @@ export const RewardsRefundFacts = `#graphql
  */
 export const RewardsRecentPaidOrders = `#graphql
   query RewardsRecentPaidOrders($query: String!, $after: String) {
-    orders(first: 50, after: $after, query: $query, sortKey: CREATED_AT) {
+    orders(first: 50, after: $after, query: $query, sortKey: CREATED_AT, reverse: true) {
       pageInfo {
         hasNextPage
         endCursor

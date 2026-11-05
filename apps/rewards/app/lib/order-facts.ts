@@ -38,46 +38,44 @@ export interface OrderFacts {
   financialStatus: string;
   /** The order total, for display only. */
   total: MoneyPair;
-  /** Line items after line and order discounts; no shipping, duties, tips or gift-card lines (rule 1). */
+  /**
+   * What the buyer bought (rule 1), in each currency on its own: the sum of
+   * the line items' original totals less their line and order discount
+   * allocations, with gift-card lines counted as 0; on a read that has the
+   * order's refunds, less the units order edits removed, at each line's
+   * discounted unit value (Ruling 25); then less the order's tips
+   * (totalTipReceivedSet), never below 0 (Ruling 26). Shipping and duties are
+   * not line items, so they never enter it. Refunds are not taken off.
+   */
   productValue: MoneyPair;
   storeCreditUsed: MoneyPair;
   giftCardUsed: MoneyPair;
   /**
-   * The sum of `refunds` when the read had them, or, for a bulk import node
-   * with no refunds, the value of quantity − currentQuantity on each line (A7).
+   * The sum of `refunds` on a read that has the order's refunds (0 when there
+   * are none), or, for the import's bulk node (which has no refunds, and says
+   * so by passing "quantities"), the value of quantity − currentQuantity on
+   * each line, rounded down (A7, Ruling 25).
    */
   refundedProductValue: MoneyPair;
   refunds: RefundFacts[];
 }
 
-const ZERO_PAIR: MoneyPair = { amount: new Money(0), shopAmount: new Money(0) };
-
-function baseOf(
-  productValue: Decimal,
-  alreadyRefunded: Decimal,
-  storeCreditUsed: Decimal,
-  giftCardUsed: Decimal,
-): Decimal {
-  return Money.max(0, new Money(productValue).minus(alreadyRefunded).minus(storeCreditUsed).minus(giftCardUsed));
+function baseOf(productValue: Decimal, storeCreditUsed: Decimal, giftCardUsed: Decimal): Decimal {
+  return Money.max(0, new Money(productValue).minus(storeCreditUsed).minus(giftCardUsed));
 }
 
 /**
- * Rule 1: the product value after discounts, less anything already refunded
- * (Decision 6), less what was paid with store credit and gift cards, never
- * below zero, so credit never earns credit. Each currency is worked on its own.
+ * Rule 1: the product value after discounts, less what was paid with store
+ * credit and gift cards, never below zero, so credit never earns credit. Each
+ * currency is worked on its own. Refunds are never netted here: an order
+ * recorded after Shopify shows refunds on it earns on this same full base, and
+ * those refunds are then taken back one by one, as refunds that arrive before
+ * payout (Ruling 24), so a late order and an on-time one get the same money.
  */
-export function cashbackBase(
-  f: Pick<OrderFacts, "productValue" | "storeCreditUsed" | "giftCardUsed">,
-  alreadyRefunded: MoneyPair = ZERO_PAIR,
-): MoneyPair {
+export function cashbackBase(f: Pick<OrderFacts, "productValue" | "storeCreditUsed" | "giftCardUsed">): MoneyPair {
   return {
-    amount: baseOf(f.productValue.amount, alreadyRefunded.amount, f.storeCreditUsed.amount, f.giftCardUsed.amount),
-    shopAmount: baseOf(
-      f.productValue.shopAmount,
-      alreadyRefunded.shopAmount,
-      f.storeCreditUsed.shopAmount,
-      f.giftCardUsed.shopAmount,
-    ),
+    amount: baseOf(f.productValue.amount, f.storeCreditUsed.amount, f.giftCardUsed.amount),
+    shopAmount: baseOf(f.productValue.shopAmount, f.storeCreditUsed.shopAmount, f.giftCardUsed.shopAmount),
   };
 }
 

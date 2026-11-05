@@ -18,6 +18,8 @@ import {
 } from "~/shopify/order-source.server";
 import bulkNode from "../../fixtures/orders/bulk-node.json";
 import discounts from "../../fixtures/orders/discounts.json";
+import editedAndRefunded from "../../fixtures/orders/edited-and-refunded.json";
+import editedBeforePayment from "../../fixtures/orders/edited-before-payment.json";
 import eurOnGbp from "../../fixtures/orders/eur-on-gbp.json";
 import giftCardLine from "../../fixtures/orders/gift-card-line.json";
 import giftCardTender from "../../fixtures/orders/gift-card-tender.json";
@@ -25,6 +27,7 @@ import jpy from "../../fixtures/orders/jpy.json";
 import plain from "../../fixtures/orders/plain.json";
 import recentPaid1 from "../../fixtures/orders/recent-paid-1.json";
 import recentPaid2 from "../../fixtures/orders/recent-paid-2.json";
+import refundEditedItems from "../../fixtures/orders/refund-edited-items.json";
 import refundInFullUsd from "../../fixtures/orders/refund-in-full-usd.json";
 import refundItems from "../../fixtures/orders/refund-items.json";
 import refundJpyItems from "../../fixtures/orders/refund-jpy-items.json";
@@ -40,6 +43,7 @@ import taxExclusiveUsd from "../../fixtures/orders/tax-exclusive-usd.json";
 import taxInclusiveGbp from "../../fixtures/orders/tax-inclusive-gbp.json";
 import taxedShippingUsd from "../../fixtures/orders/taxed-shipping-usd.json";
 import testOrder from "../../fixtures/orders/test-order.json";
+import tip from "../../fixtures/orders/tip.json";
 
 type Answer = { data: Record<string, unknown> };
 type Route = (query: string, variables: Record<string, unknown>) => unknown;
@@ -305,6 +309,71 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
     await expect(readOrder(order as Answer, [refundItems, refundShippingOnly, refundMoneyOnly])).rejects.toThrow(/include tax/);
   });
 
+  it("leaves out the items an order edit removed before payment, and counts them as no refund (Ruling 25)", async () => {
+    const { facts: f } = await readOrder(editedBeforePayment);
+    // Two £15 items less £3 of discount (£13.50 each), one removed by the edit, and one £20 item
+    expect(f.productValue.amount.toFixed(2)).toBe("33.50");
+    expect(f.productValue.shopAmount.toFixed(2)).toBe("33.50");
+    expect(f.refunds).toEqual([]);
+    expect(f.refundedProductValue.amount.toFixed(2)).toBe("0.00");
+    expect(f.refundedProductValue.shopAmount.toFixed(2)).toBe("0.00");
+    expect(cashbackBase(f).amount.toFixed(2)).toBe("33.50");
+  });
+
+  it("nets an edit and an item refund on the same line apart (Ruling 25)", async () => {
+    const { facts: f } = await readOrder(editedAndRefunded, [refundEditedItems]);
+    // Three £15 items: one refunded, one removed by an edit (3 − 1 current − 1 refunded), so £30 of them were bought
+    expect(f.productValue.amount.toFixed(2)).toBe("50.00");
+    expect(f.productValue.shopAmount.toFixed(2)).toBe("50.00");
+    expect(f.refunds.map((r) => [r.externalRefundId, r.productValue.amount.toFixed(2)])).toEqual([["gid://shopify/Refund/6451", "15.00"]]);
+    expect(f.refundedProductValue.amount.toFixed(2)).toBe("15.00");
+    expect(f.refundedProductValue.shopAmount.toFixed(2)).toBe("15.00");
+
+    // readRefund caps the refund against the same product value
+    const one = await createShopifyOrderSource(fromFixtures([editedAndRefunded], [refundEditedItems])).readRefund(
+      "gid://shopify/Refund/6451",
+    );
+    expect(one?.refund.productValue.amount.toFixed(2)).toBe("15.00");
+  });
+
+  it("caps a later money-only refund at what was bought, not what was ordered before the edit", async () => {
+    const order = clone(editedBeforePayment) as { data: { order: Record<string, unknown> } };
+    order.data.order.refunds = [{ id: "gid://shopify/Refund/6461" }];
+    const { facts: f } = await readOrder(order as Answer, [moneyRefund("gid://shopify/Refund/6461", "50.0")]);
+    expect(f.productValue.amount.toFixed(2)).toBe("33.50");
+    expect(f.refunds[0].productValue.amount.toFixed(2)).toBe("33.50");
+  });
+
+  it("leaves an order with no edits as it was: every unit still on it or refunded counts", async () => {
+    // refunded.json: one of two items refunded (currentQuantity 1), nothing removed
+    const { facts: f } = await readOrder(refunded, [refundItems, refundShippingOnly, refundMoneyOnly]);
+    expect(f.productValue.amount.toFixed(2)).toBe("47.00");
+    const { facts: p } = await readOrder(plain);
+    expect(p.productValue.amount.toFixed(2)).toBe("50.00");
+  });
+
+  it("leaves tips out of the product value in each currency (Ruling 26)", async () => {
+    const { facts: f } = await readOrder(tip);
+    // €58 / £50 of products and a €5.80 / £5 tip line
+    expect(f.productValue.amount.toFixed(2)).toBe("58.00");
+    expect(f.productValue.shopAmount.toFixed(2)).toBe("50.00");
+    expect(f.total.amount.toFixed(2)).toBe("69.60");
+  });
+
+  it("never takes a tip below zero", async () => {
+    const order = clone(plain);
+    order.data.order.totalTipReceivedSet = { shopMoney: { amount: "80.0" }, presentmentMoney: { amount: "80.0" } };
+    const { facts: f } = await readOrder(order);
+    expect(f.productValue.amount.toFixed(2)).toBe("0.00");
+    expect(f.productValue.shopAmount.toFixed(2)).toBe("0.00");
+  });
+
+  it("throws when the order's tips can't be read", async () => {
+    const order = clone(plain) as { data: { order: Record<string, unknown> } };
+    delete order.data.order.totalTipReceivedSet;
+    await expect(readOrder(order as Answer)).rejects.toThrow(/tips/);
+  });
+
   it("reads a test order from a guest", async () => {
     const { facts: f } = await readOrder(testOrder);
     expect(f.test).toBe(true);
@@ -445,7 +514,7 @@ describe("the calls in flight (their requested cost within MAX_COST_IN_FLIGHT)",
    */
   function metered(order: Answer, refunds: Map<string, Answer>, failFollowUp = false) {
     const cost = (query: string) =>
-      query === RewardsRefundFacts ? RewardsRefundFactsCost : query === RewardsOrderTransactions ? RewardsOrderTransactionsCost : 909;
+      query === RewardsRefundFacts ? RewardsRefundFactsCost : query === RewardsOrderTransactions ? RewardsOrderTransactionsCost : 912;
     let inFlight = 0;
     const seen: Array<{ document: string; inFlight: number }> = [];
     const graphql = vi.fn<GraphqlClient["graphql"]>(async (query, options) => {
@@ -474,7 +543,7 @@ describe("the calls in flight (their requested cost within MAX_COST_IN_FLIGHT)",
     expect(seen.map((s) => s.document)).toEqual(["order", "transactions", "refund", "refund", "refund", "refund", "refund"]);
     expect(Math.max(...seen.map((s) => s.inFlight))).toBeLessThanOrEqual(MAX_COST_IN_FLIGHT);
     // The follow-up alone, then the refunds two at a time, the next sent as one answers
-    expect(seen.map((s) => s.inFlight)).toEqual([909, 801, 429, 858, 858, 858, 858]);
+    expect(seen.map((s) => s.inFlight)).toEqual([912, 801, 429, 858, 858, 858, 858]);
   });
 
   it("holds readRefund's other refunds to two at a time", async () => {
@@ -484,7 +553,7 @@ describe("the calls in flight (their requested cost within MAX_COST_IN_FLIGHT)",
     const answer = await createShopifyOrderSource(client).readRefund(ids[4]);
 
     expect(answer?.refund.productValue.amount.toFixed(2)).toBe("1.00");
-    expect(seen.map((s) => s.inFlight)).toEqual([429, 909, 429, 858, 858, 858]);
+    expect(seen.map((s) => s.inFlight)).toEqual([429, 912, 429, 858, 858, 858]);
   });
 
   it("rejects once, and sends no waiting refund, when the tender follow-up fails", async () => {
@@ -600,8 +669,8 @@ describe("readRefund (one refund, valued against its order's lines)", () => {
 });
 
 describe("factsFromOrderNode (shared with the import)", () => {
-  it("values a bulk-shaped node's refunded quantities when it has no refunds", () => {
-    const f = factsFromOrderNode(bulkNode, "GBP", []);
+  it("values a bulk-shaped node's missing quantities as refunded when told to (\"quantities\")", () => {
+    const f = factsFromOrderNode(bulkNode, "GBP", "quantities");
     // (£45 − £4.50) + £19.99; the £10 gift card line doesn't count
     expect(f.productValue.amount.toFixed(2)).toBe("60.49");
     // 2 × £13.50 + 1 × £9.995 = £36.995, rounded down
@@ -611,8 +680,21 @@ describe("factsFromOrderNode (shared with the import)", () => {
     expect(f.financialStatus).toBe("PARTIALLY_REFUNDED");
   });
 
+  it("reads the same node as edited, not refunded, when given its (empty) refunds: the choice is the caller's", () => {
+    const f = factsFromOrderNode(bulkNode, "GBP", { refunds: [] });
+    // The £36.99 no longer on the order was removed: £60.49 − £36.99
+    expect(f.productValue.amount.toFixed(2)).toBe("23.50");
+    expect(f.refundedProductValue.amount.toFixed(2)).toBe("0.00");
+  });
+
+  it("takes the tips off a bulk node too", () => {
+    const node = clone(bulkNode);
+    node.totalTipReceivedSet = { shopMoney: { amount: "0.49" }, presentmentMoney: { amount: "0.49" } };
+    expect(factsFromOrderNode(node, "GBP", "quantities").productValue.amount.toFixed(2)).toBe("60.00");
+  });
+
   it("refuses an order whose shop money is in another currency than the shop's", () => {
-    expect(() => factsFromOrderNode(plain.data.order, "USD", [])).toThrow(/GBP/);
+    expect(() => factsFromOrderNode(plain.data.order, "USD", { refunds: [] })).toThrow(/GBP/);
   });
 });
 
@@ -622,8 +704,11 @@ describe("recentPaidOrders (the hourly sweep's candidates)", () => {
   it("pages the paid and partly refunded orders created since then", async () => {
     const client = shopify((_query, variables) => (variables.after ? recentPaid2 : recentPaid1));
 
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const orders = await createShopifyOrderSource(client).recentPaidOrders(since);
 
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
     const query = "created_at:>='2026-11-01T09:00:00.000Z' AND (financial_status:paid OR financial_status:partially_refunded)";
     expect(client.graphql.mock.calls.map(([document, options]) => [document, options?.variables])).toEqual([
       [RewardsRecentPaidOrders, { query, after: null }],
@@ -636,11 +721,32 @@ describe("recentPaidOrders (the hourly sweep's candidates)", () => {
     ]);
   });
 
-  it("reads at most 10 pages", async () => {
+  it("reads the newest orders first (CREATED_AT, reversed)", () => {
+    expect(RewardsRecentPaidOrders).toMatch(/orders\(first: 50, after: \$after, query: \$query, sortKey: CREATED_AT, reverse: true\)/);
+  });
+
+  it("reads at most 10 pages, and says so (with no buyer data) when there were more", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const client = shopify(() => recentPaid1);
     const orders = await createShopifyOrderSource(client).recentPaidOrders(since);
     expect(client.graphql).toHaveBeenCalledTimes(10);
     expect(orders).toHaveLength(20);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      "[order-source] The sweep read 20 paid orders created since 2026-11-01T09:00:00.000Z, the most it reads; older ones were not read",
+    );
+    warn.mockRestore();
+  });
+
+  it("says nothing when the tenth page is the last", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let page = 0;
+    const client = shopify(() => (++page === 10 ? recentPaid2 : recentPaid1));
+    const orders = await createShopifyOrderSource(client).recentPaidOrders(since);
+    expect(client.graphql).toHaveBeenCalledTimes(10);
+    expect(orders).toHaveLength(19);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("throws when Shopify answers with errors", async () => {

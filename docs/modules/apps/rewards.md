@@ -12,20 +12,28 @@ The new RewardsPro: one embedded Shopify app where a paid order earns cashback a
 
 ## Progress
 
-Source review recorded **2026-09-28**. 2026-11-04: scaffold only. The template's root, server entry and route config, a root route that redirects, the Vercel preset in lhr1 on Node 24, the ignore-build script and a CI job (typecheck and unit tests). No database, Shopify connection, admin pages or widget yet.
+Source review recorded **2026-09-28**. 2026-11-05: the foundation (Milestone 1) is built. On the template scaffold (Vercel preset in lhr1 on Node 24, ignore-build script): the data model and its init migration in Postgres schema rewards, with an append-only ledger, per-merchant composite keys and the payout checks enforced by the database; a local Postgres test bed (scripts/test-db.sh, pnpm test:postgres); exact money maths and order facts; encrypted Shopify sessions; the store credit rail and the order source. The CI job runs typecheck, unit tests, migrations, a drift check, the Postgres tests on Postgres 17 and the build. No route moves money yet: no webhooks, payouts, admin pages or widget.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
-**Next review:** Build the data model and Postgres test bed, then the money rules, the Shopify adapter, the webhooks, the admin and the widget, task by task; prove it on a staging app before any switch.
+**Next review:** Build the money loop (recording orders, payouts, refunds, tiers, the webhooks and the import), then the admin and the widget, task by task; prove it on a staging app before any switch.
 
 ## Evidence and entry points
 
 - [apps/rewards/package.json](../../../apps/rewards/package.json)
-- [apps/rewards/app](../../../apps/rewards/app)
-- [apps/rewards/vercel.json](../../../apps/rewards/vercel.json)
-- [apps/rewards/react-router.config.ts](../../../apps/rewards/react-router.config.ts)
-- [apps/rewards/scripts/vercel-ignore-build.sh](../../../apps/rewards/scripts/vercel-ignore-build.sh)
+- [apps/rewards/prisma/schema.prisma](../../../apps/rewards/prisma/schema.prisma)
+- [apps/rewards/prisma/migrations/20261105000000_init/migration.sql](../../../apps/rewards/prisma/migrations/20261105000000_init/migration.sql)
+- [apps/rewards/scripts/test-db.sh](../../../apps/rewards/scripts/test-db.sh)
+- [apps/rewards/app/lib/money.ts](../../../apps/rewards/app/lib/money.ts)
+- [apps/rewards/app/lib/order-facts.ts](../../../apps/rewards/app/lib/order-facts.ts)
+- [apps/rewards/app/shopify/session-storage.server.ts](../../../apps/rewards/app/shopify/session-storage.server.ts)
+- [apps/rewards/app/shopify/store-credit-rail.server.ts](../../../apps/rewards/app/shopify/store-credit-rail.server.ts)
+- [apps/rewards/app/shopify/order-source.server.ts](../../../apps/rewards/app/shopify/order-source.server.ts)
+- [apps/rewards/app/shopify/graphql.ts](../../../apps/rewards/app/shopify/graphql.ts)
+- [apps/rewards/test/postgres](../../../apps/rewards/test/postgres)
 - [apps/rewards/test/unit](../../../apps/rewards/test/unit)
+- [apps/rewards/vercel.json](../../../apps/rewards/vercel.json)
+- [apps/rewards/scripts/vercel-ignore-build.sh](../../../apps/rewards/scripts/vercel-ignore-build.sh)
 
 ## Declared package relationships
 

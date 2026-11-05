@@ -366,6 +366,9 @@ jobs:
         run: pnpm --filter rewards test:postgres
         env:
           REWARDS_TEST_DATABASE_URL: postgresql://rewards_app:rewards_app@localhost:5432/postgres?schema=rewards&connection_limit=1
+      # The production build (prisma generate, then react-router build) needs
+      # no database: no REWARDS_DATABASE_URL or REWARDS_DIRECT_URL here.
+      - run: pnpm --filter rewards build
 
   ci-status:
     name: CI status

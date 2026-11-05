@@ -227,6 +227,7 @@ model Customer {
 
   @@unique([connectionId, externalCustomerId])
   @@unique([merchantId, id])
+  @@index([merchantId, tierId])
   @@map("customer")
 }
 
@@ -309,6 +310,7 @@ model Refund {
 
   @@unique([connectionId, externalRefundId])
   @@unique([merchantId, id])
+  @@index([merchantId, orderId])
   @@map("refund")
 }
 
@@ -345,6 +347,11 @@ model LedgerEntry {
 
   @@unique([merchantId, idempotencyKey])
   @@unique([merchantId, id])
+  // For the foreign keys: a refund's earlier reversals, a buyer's entries,
+  // and the RESTRICT checks of the erasure purge.
+  @@index([merchantId, orderId])
+  @@index([merchantId, customerId])
+  @@index([merchantId, refundId])
   @@map("ledger_entry")
 }
 
@@ -356,7 +363,7 @@ model Payout {
   customerId            String          @map("customer_id") @db.Uuid
   rail                  PayoutRailKind
   direction             PayoutDirection
-  /// Positive; `direction` says which way.
+  /// Positive, or 0 only when nothing_to_send; `direction` says which way.
   amount                Decimal         @db.Decimal(19, 4)
   currency              String
   state                 PayoutState
@@ -383,6 +390,7 @@ model Payout {
   // needs it to be one-to-one.
   @@unique([merchantId, ledgerEntryId])
   @@index([state, nextAttemptAt])
+  @@index([merchantId, customerId])
   @@map("payout")
 }
 
@@ -426,6 +434,9 @@ model PrivacyRequest {
   merchant   Merchant   @relation(fields: [merchantId], references: [id])
   connection Connection @relation(fields: [merchantId, connectionId], references: [merchantId, id])
 
+  // A retried customers/data_request opens no second request. A request with
+  // no Shopify id (NULL) never collides: Postgres keeps NULLs distinct.
+  @@unique([connectionId, shopifyRequestId])
   @@map("privacy_request")
 }
 

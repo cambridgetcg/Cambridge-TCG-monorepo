@@ -293,6 +293,9 @@ CREATE UNIQUE INDEX "connection_platform_external_account_id_key" ON "connection
 CREATE UNIQUE INDEX "connection_merchant_id_id_key" ON "connection"("merchant_id", "id");
 
 -- CreateIndex
+CREATE INDEX "customer_merchant_id_tier_id_idx" ON "customer"("merchant_id", "tier_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "customer_connection_id_external_customer_id_key" ON "customer"("connection_id", "external_customer_id");
 
 -- CreateIndex
@@ -311,10 +314,22 @@ CREATE UNIQUE INDEX "orders_connection_id_external_order_id_key" ON "orders"("co
 CREATE UNIQUE INDEX "orders_merchant_id_id_key" ON "orders"("merchant_id", "id");
 
 -- CreateIndex
+CREATE INDEX "refund_merchant_id_order_id_idx" ON "refund"("merchant_id", "order_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "refund_connection_id_external_refund_id_key" ON "refund"("connection_id", "external_refund_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "refund_merchant_id_id_key" ON "refund"("merchant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "ledger_entry_merchant_id_order_id_idx" ON "ledger_entry"("merchant_id", "order_id");
+
+-- CreateIndex
+CREATE INDEX "ledger_entry_merchant_id_customer_id_idx" ON "ledger_entry"("merchant_id", "customer_id");
+
+-- CreateIndex
+CREATE INDEX "ledger_entry_merchant_id_refund_id_idx" ON "ledger_entry"("merchant_id", "refund_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ledger_entry_merchant_id_idempotency_key_key" ON "ledger_entry"("merchant_id", "idempotency_key");
@@ -329,7 +344,13 @@ CREATE UNIQUE INDEX "payout_ledger_entry_id_key" ON "payout"("ledger_entry_id");
 CREATE INDEX "payout_state_next_attempt_at_idx" ON "payout"("state", "next_attempt_at");
 
 -- CreateIndex
+CREATE INDEX "payout_merchant_id_customer_id_idx" ON "payout"("merchant_id", "customer_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "payout_merchant_id_ledger_entry_id_key" ON "payout"("merchant_id", "ledger_entry_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "privacy_request_connection_id_shopify_request_id_key" ON "privacy_request"("connection_id", "shopify_request_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "cron_lock_job_name_key" ON "cron_lock"("job_name");
@@ -437,8 +458,11 @@ CREATE TRIGGER "ledger_entry_append_only_truncate"
 BEFORE TRUNCATE ON "ledger_entry"
 FOR EACH STATEMENT EXECUTE FUNCTION "ledger_entry_append_only"();
 
--- A payout moves a positive amount (direction says which way), and one that
--- needs a look says why. (Written by hand; Prisma does not model CHECKs.)
-ALTER TABLE "payout" ADD CONSTRAINT "payout_amount_positive" CHECK ("amount" > 0);
+-- A payout moves a positive amount (direction says which way), or, only when
+-- there is nothing to send (a credit a refund before payout took down to 0,
+-- Ruling 22), exactly 0; never a negative one. One that needs a look says
+-- why. (Written by hand; Prisma does not model CHECKs.)
+ALTER TABLE "payout" ADD CONSTRAINT "payout_amount_positive"
+    CHECK ("amount" > 0 OR ("amount" = 0 AND "state" = 'nothing_to_send'));
 ALTER TABLE "payout" ADD CONSTRAINT "payout_needs_look_has_reason"
     CHECK ("state" <> 'needs_look' OR "look_reason" IS NOT NULL);

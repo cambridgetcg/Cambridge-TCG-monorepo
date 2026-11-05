@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { Decimal } from "decimal.js";
 
 /**
@@ -23,6 +24,26 @@ export const Money: typeof Decimal = Decimal.clone({
  * currency the buyer paid in. Were Shopify to convert, this would be "shop".
  */
 export const ISSUE_IN: "presentment" | "shop" = "presentment";
+
+/**
+ * A database decimal as Money (Ruling 28): a Prisma.Decimal from a numeric
+ * column, or the string or number a raw query gives. Prisma's Decimal keeps
+ * 20 significant digits and rounds its own way; Money keeps 40 and is what
+ * every rule here relies on, so a value read from the database is wrapped
+ * with this before any arithmetic, never worked on as it came. The digits
+ * are carried exactly. Throws RangeError for anything that is not a finite
+ * amount.
+ */
+export function fromDb(value: Prisma.Decimal | Decimal | string | number): Decimal {
+  let money: Decimal | null = null;
+  try {
+    money = new Money(typeof value === "object" && value !== null ? value.toString() : value);
+  } catch {
+    // not a decimal: refused below
+  }
+  if (!money?.isFinite()) throw new RangeError(`Not a database amount: ${String(value)}`);
+  return money;
+}
 
 export class UnknownCurrencyError extends Error {
   constructor(readonly code: string) {

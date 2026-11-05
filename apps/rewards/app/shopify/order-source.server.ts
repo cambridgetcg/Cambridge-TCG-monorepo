@@ -160,8 +160,10 @@ interface Line {
 }
 
 interface ParsedOrder extends Currencies {
-  facts: Omit<OrderFacts, "refundedProductValue" | "refunds">;
+  facts: Omit<OrderFacts, "productValue" | "refundedProductValue" | "refunds">;
   lines: Map<string, Line>;
+  /** totalTipReceivedSet: the tips, which the lines hold and the product value leaves out (rule 1, Ruling 26). */
+  tip: MoneyPair;
   /** Whether the order's prices include tax; null when the node doesn't say (the import's bulk node). */
   taxesIncluded: boolean | null;
 }
@@ -234,6 +236,7 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
     currency,
     shopCurrency,
     lines,
+    tip: pairOf(node.totalTipReceivedSet, "the order's tips"),
     taxesIncluded: node.taxesIncluded === undefined ? null : flag(node.taxesIncluded, "taxesIncluded"),
     facts: {
       externalOrderId: text(node.id, "the order id"),
@@ -248,7 +251,6 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
       // Display only, and nullable in the Admin schema
       financialStatus: node.displayFinancialStatus === null ? "UNKNOWN" : text(node.displayFinancialStatus, "the financial status"),
       total: pairOf(node.totalPriceSet, "the order's total"),
-      productValue: sum([...lines.values()].map((line) => line.value)),
       storeCreditUsed,
       giftCardUsed,
     },
@@ -273,6 +275,21 @@ function shippingRefunded(item: unknown, order: ParsedOrder): MoneyPair {
   return order.taxesIncluded ? subtotal : plus(subtotal, pairOf(line.taxAmountSet, "a refunded shipping line's tax"));
 }
 
+/** The order's lines one refund returned, with the units of each; throws on more than 100, or on a line the order doesn't have. */
+function refundLinesOf(refund: Rec, order: ParsedOrder): Array<{ line: Line; quantity: number }> {
+  const lineItems = rec(refund.refundLineItems, "a refund's line items");
+  if (rec(lineItems.pageInfo, "a refund's line items").hasNextPage !== false) {
+    throw new OrderReadError("A refund returned more than 100 lines, the most one read takes");
+  }
+  return list(lineItems.nodes, "refund line items").map((item) => {
+    const refundLine = rec(item, "a refund line");
+    const id = text(rec(refundLine.lineItem, "a refund line's line item").id, "a refund line's line item id");
+    const line = order.lines.get(id);
+    if (!line) throw new OrderReadError("A refund returned a line the order doesn't have");
+    return { line, quantity: count(refundLine.quantity, "a refund line's quantity") };
+  });
+}
+
 /**
  * The product value one refund returned (rule 7), rounded down to the minor
  * unit: its items at their discounted price, or, with no items, its
@@ -280,23 +297,10 @@ function shippingRefunded(item: unknown, order: ParsedOrder): MoneyPair {
  * product value not yet refunded (`left`, Ruling 20) and never below 0.
  */
 function refundValue(refund: Rec, order: ParsedOrder, left: MoneyPair): RefundFacts {
-  const lineItems = rec(refund.refundLineItems, "a refund's line items");
-  if (rec(lineItems.pageInfo, "a refund's line items").hasNextPage !== false) {
-    throw new OrderReadError("A refund returned more than 100 lines, the most one read takes");
-  }
-  const items = list(lineItems.nodes, "refund line items");
+  const items = refundLinesOf(refund, order);
   let value: MoneyPair;
   if (items.length > 0) {
-    const returned = sum(
-      items.map((item) => {
-        const refundLine = rec(item, "a refund line");
-        const id = text(rec(refundLine.lineItem, "a refund line's line item").id, "a refund line's line item id");
-        const line = order.lines.get(id);
-        if (!line) throw new OrderReadError("A refund returned a line the order doesn't have");
-        return shareOf(line.value, count(refundLine.quantity, "a refund line's quantity"), line.quantity);
-      }),
-    );
-    value = clamp(returned, left);
+    value = clamp(sum(items.map(({ line, quantity }) => shareOf(line.value, quantity, line.quantity))), left);
   } else {
     const transactions = list(rec(refund.transactions, "a refund's transactions").nodes, "refund transactions");
     const shippingLines = list(rec(refund.refundShippingLines, "a refund's shipping lines").nodes, "refund shipping lines");
@@ -325,10 +329,11 @@ function byId(a: string, b: string): number {
 
 /**
  * Every refund of the order, oldest first and by id within the same moment,
- * each capped by the ones before it. readOrder and readRefund get the refunds
- * in different orders, and must give each the same value.
+ * each capped by the product value (`productValue`) less the ones before it.
+ * readOrder and readRefund get the refunds in different orders, and must give
+ * each the same value.
  */
-function refundsOf(order: ParsedOrder, refundNodes: Rec[]): RefundFacts[] {
+function refundsOf(order: ParsedOrder, productValue: MoneyPair, refundNodes: Rec[]): RefundFacts[] {
   const dated = refundNodes.map((node) => ({
     node,
     id: text(node.id, "the refund id"),
@@ -337,34 +342,86 @@ function refundsOf(order: ParsedOrder, refundNodes: Rec[]): RefundFacts[] {
   dated.sort((a, b) => a.at - b.at || byId(a.id, b.id));
   let refunded = zero();
   return dated.map(({ node }) => {
-    const refund = refundValue(node, order, minus(order.facts.productValue, refunded));
+    const refund = refundValue(node, order, minus(productValue, refunded));
     refunded = plus(refunded, refund.productValue);
     return refund;
   });
 }
 
-function factsFrom(order: ParsedOrder, refunds: RefundFacts[]): OrderFacts {
-  // A node with no refunds read (the import's bulk node): the quantities no
-  // longer on the order were refunded or removed
-  const refundedProductValue =
-    refunds.length > 0
-      ? sum(refunds.map((refund) => refund.productValue))
-      : floorPair(
-          sum([...order.lines.values()].map((line) => shareOf(line.value, Math.max(0, line.quantity - line.currentQuantity), line.quantity))),
-          order,
-        );
-  return { ...order.facts, refundedProductValue, refunds };
+/** Each side less the tips, never below 0 (Ruling 26). */
+function withoutTip(value: MoneyPair, tip: MoneyPair): MoneyPair {
+  return {
+    amount: Money.max(0, value.amount.minus(tip.amount)),
+    shopAmount: Money.max(0, value.shopAmount.minus(tip.shopAmount)),
+  };
+}
+
+/**
+ * What the buyer bought (rule 1, Ruling 25), on a read that has the order's
+ * refunds: every line's value, less the units order edits removed from it, at
+ * the line's discounted unit value and rounded down as a refund's share is,
+ * then less the tips, never below 0. A line's removed units are quantity −
+ * currentQuantity − its units in the refunds' line items, never below 0:
+ * Shopify's quantity (and the discounts on it) still counts refunded and
+ * removed units, and currentQuantity counts neither.
+ */
+function boughtValue(order: ParsedOrder, refundNodes: Rec[]): MoneyPair {
+  const refundedUnits = new Map<Line, number>();
+  for (const node of refundNodes) {
+    for (const { line, quantity } of refundLinesOf(node, order)) refundedUnits.set(line, (refundedUnits.get(line) ?? 0) + quantity);
+  }
+  const lines = [...order.lines.values()];
+  const removed = sum(
+    lines.map((line) =>
+      shareOf(line.value, Math.max(0, line.quantity - line.currentQuantity - (refundedUnits.get(line) ?? 0)), line.quantity),
+    ),
+  );
+  return withoutTip(minus(sum(lines.map((line) => line.value)), floorPair(removed, order)), order.tip);
+}
+
+/**
+ * Where an order node's refunded product value comes from (Ruling 25), said
+ * by the caller, never guessed from an empty list:
+ * - `{ refunds }`: the live read. The order's refunds, each a node in
+ *   RewardsRefundFacts's shape (an order with none passes []). The product value
+ *   leaves out the units order edits removed, and the refunded product value
+ *   is the sum of the refunds.
+ * - `"quantities"`: the import's bulk node, which has no refunds. Every unit
+ *   no longer on the order (quantity − currentQuantity) is valued as
+ *   refunded, rounded down, whether a refund or an edit took it off; the
+ *   product value counts every unit, less the tips. The node can't see a
+ *   refund of money with no items.
+ */
+export type RefundedFrom = { refunds: unknown[] } | "quantities";
+
+function factsFrom(order: ParsedOrder, refunded: RefundedFrom): OrderFacts {
+  const lines = [...order.lines.values()];
+  if (refunded === "quantities") {
+    return {
+      ...order.facts,
+      productValue: withoutTip(sum(lines.map((line) => line.value)), order.tip),
+      refundedProductValue: floorPair(
+        sum(lines.map((line) => shareOf(line.value, Math.max(0, line.quantity - line.currentQuantity), line.quantity))),
+        order,
+      ),
+      refunds: [],
+    };
+  }
+  const nodes = refunded.refunds.map((node) => rec(node, "a refund"));
+  const productValue = boughtValue(order, nodes);
+  const refunds = refundsOf(order, productValue, nodes);
+  return { ...order.facts, productValue, refundedProductValue: sum(refunds.map((refund) => refund.productValue)), refunds };
 }
 
 /**
  * An order's facts from one order node in RewardsOrderFacts's shape, with
  * every line in `lineItems.nodes`. Pure: the live read passes the query's
- * `shop.currencyCode` and the order's refunds; the import passes the
- * connection's currency and no refunds, and the refunded quantities on the
- * lines are valued instead. Throws OrderReadError when the node can't be read.
+ * `shop.currencyCode` and the order's refund nodes; the import passes the
+ * connection's currency and "quantities" (see RefundedFrom). Throws
+ * OrderReadError when the node can't be read.
  */
-export function factsFromOrderNode(node: unknown, shopCurrency: string, refunds: RefundFacts[]): OrderFacts {
-  return factsFrom(parseOrderNode(node, shopCurrency), refunds);
+export function factsFromOrderNode(node: unknown, shopCurrency: string, refunded: RefundedFrom): OrderFacts {
+  return factsFrom(parseOrderNode(node, shopCurrency), refunded);
 }
 
 function firstErrorMessage(errors: unknown): string {
@@ -512,8 +569,7 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
         transactionsOf(ask, inTurn, orderGid, read.node),
         refundNodes(ask, inTurn, ids),
       ]);
-      const order = parseOrderNode({ ...read.node, transactions }, read.shopCurrency);
-      return factsFrom(order, refundsOf(order, refundNodesRead));
+      return factsFromOrderNode({ ...read.node, transactions }, read.shopCurrency, { refunds: refundNodesRead });
     },
 
     /**
@@ -531,17 +587,22 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
       if (!read) throw new OrderReadError("The refund's order could not be read");
       const order = parseOrderNode(read.node, read.shopCurrency);
       const others = await refundNodes(ask, oneBucket(), refundIds(read.node).filter((id) => id !== refundGid));
-      const valued = refundsOf(order, [...others, refund]).find((r) => r.externalRefundId === refundGid);
+      const all = [...others, refund];
+      const valued = refundsOf(order, boughtValue(order, all), all).find((r) => r.externalRefundId === refundGid);
       if (!valued) throw new OrderReadError("The refund could not be valued");
       return { orderGid, refund: valued };
     },
 
-    /** Oldest first, at most MAX_RECENT_PAGES pages of 50; later orders wait for a later sweep. */
+    /**
+     * Newest first, at most MAX_RECENT_PAGES pages of 50, so a busy shop's
+     * newest missed orders are found first. When there are more, the older
+     * ones are not read, and a warning (with no buyer data) says so.
+     */
     async recentPaidOrders(since) {
       const query = `created_at:>='${since.toISOString()}' AND (financial_status:paid OR financial_status:partially_refunded)`;
       const found: Array<{ orderGid: string; hasCustomer: boolean; test: boolean; orderedAt: Date }> = [];
       let after: string | null = null;
-      for (let page = 0; page < MAX_RECENT_PAGES; page++) {
+      for (let page = 1; ; page++) {
         const orders = rec((await askWithin()(RewardsRecentPaidOrders, { query, after })).orders, "orders");
         for (const item of list(orders.nodes, "orders")) {
           const node = rec(item, "an order");
@@ -555,6 +616,12 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
         }
         const pageInfo = rec(orders.pageInfo, "the orders' page info");
         if (pageInfo.hasNextPage === false) break;
+        if (page >= MAX_RECENT_PAGES) {
+          console.warn(
+            `[order-source] The sweep read ${found.length} paid orders created since ${since.toISOString()}, the most it reads; older ones were not read`,
+          );
+          break;
+        }
         after = text(pageInfo.endCursor, "the orders' cursor");
       }
       return found;

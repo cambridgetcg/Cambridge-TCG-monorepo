@@ -25,6 +25,14 @@
           "amount": "49.3"
         }
       },
+      "totalTipReceivedSet": {
+        "shopMoney": {
+          "amount": "0.0"
+        },
+        "presentmentMoney": {
+          "amount": "0.0"
+        }
+      },
       "lineItems": {
         "pageInfo": {
           "hasNextPage": false,
@@ -70,7 +78,7 @@
   },
   "extensions": {
     "cost": {
-      "requestedQueryCost": 909,
+      "requestedQueryCost": 912,
       "actualQueryCost": 16,
       "throttleStatus": {
         "maximumAvailable": 2000.0,

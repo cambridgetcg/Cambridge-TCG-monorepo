@@ -22,7 +22,8 @@ async function seedMerchant(domain: string) {
     data: {
       merchantId: merchant.id,
       connectionId: connection.id,
-      externalCustomerId: `gid://shopify/Customer/${domain.length}`,
+      // The numeric id, the form OrderFacts and the app proxy use (A3)
+      externalCustomerId: String(7000 + domain.length),
     },
   });
   const entry = await prisma.ledgerEntry.create({
@@ -168,12 +169,17 @@ describe.skipIf(!hasTestDatabase)("database baseline", () => {
     expect(await prisma.ledgerEntry.count({ where: { merchantId: own.merchant.id } })).toBe(1);
   });
 
-  it("refuses a payout of zero and a needs_look payout without a reason", async () => {
+  it("refuses a payout of zero (unless nothing_to_send) and a needs_look payout without a reason", async () => {
     const seeded = await seedMerchant("payout.myshopify.com");
     captureQueryErrorLogs();
 
     await expect(
       prisma.payout.create({ data: payoutData(seeded, { amount: new Prisma.Decimal("0.0000") }) }),
+    ).rejects.toThrow(/payout_amount_positive/);
+    await expect(
+      prisma.payout.create({
+        data: payoutData(seeded, { amount: new Prisma.Decimal("-1.0000"), state: "nothing_to_send" }),
+      }),
     ).rejects.toThrow(/payout_amount_positive/);
     await expect(prisma.payout.create({ data: payoutData(seeded, { state: "needs_look" }) })).rejects.toThrow(
       /payout_needs_look_has_reason/,
@@ -188,6 +194,59 @@ describe.skipIf(!hasTestDatabase)("database baseline", () => {
       include: { payout: true },
     });
     expect(entry.payout?.state).toBe("needs_look");
+  });
+
+  it("accepts a payout of zero when there is nothing to send (Ruling 22)", async () => {
+    const seeded = await seedMerchant("nothing.myshopify.com");
+
+    const payout = await prisma.payout.create({
+      data: payoutData(seeded, { amount: new Prisma.Decimal("0.0000"), state: "nothing_to_send" }),
+    });
+
+    expect(payout.amount.toFixed(4)).toBe("0.0000");
+    expect(payout.state).toBe("nothing_to_send");
+  });
+
+  it("opens one privacy request per Shopify request id, and keeps requests with none apart", async () => {
+    const { merchant, connection } = await seedMerchant("privacy.myshopify.com");
+    const request = (shopifyRequestId: string | null) => ({
+      merchantId: merchant.id,
+      connectionId: connection.id,
+      externalCustomerId: "7021",
+      shopifyRequestId,
+      ordersRequested: [],
+      status: "open" as const,
+      receivedAt: new Date("2026-11-05T00:00:00Z"),
+      dueAt: new Date("2026-12-05T00:00:00Z"),
+      expiresAt: new Date("2026-12-05T00:00:00Z"),
+    });
+    captureQueryErrorLogs();
+
+    await prisma.privacyRequest.create({ data: request("9001") });
+    await expect(prisma.privacyRequest.create({ data: request("9001") })).rejects.toThrow(
+      /Unique constraint failed on the fields: \(`connection_id`,`shopify_request_id`\)/,
+    );
+    await prisma.privacyRequest.create({ data: request(null) });
+    await prisma.privacyRequest.create({ data: request(null) });
+
+    expect(await prisma.privacyRequest.count()).toBe(3);
+  });
+
+  it("indexes the foreign keys the ledger, refunds, payouts and buyers are found by", async () => {
+    const rows = await prisma.$queryRaw<Array<{ indexname: string }>>`
+      SELECT indexname::text AS indexname FROM pg_indexes WHERE schemaname = ${databaseSchema}`;
+    const names = rows.map((row) => row.indexname);
+
+    for (const name of [
+      "ledger_entry_merchant_id_order_id_idx",
+      "ledger_entry_merchant_id_customer_id_idx",
+      "ledger_entry_merchant_id_refund_id_idx",
+      "refund_merchant_id_order_id_idx",
+      "payout_merchant_id_customer_id_idx",
+      "customer_merchant_id_tier_id_idx",
+    ]) {
+      expect(names).toContain(name);
+    }
   });
 
   it("fails the next call of a model method once, then calls through", async () => {

@@ -29,27 +29,23 @@ describe("cashbackBase", () => {
     expect(base.amount.toFixed(2)).toBe("27.50");
   });
 
-  it("nets refunds already applied (Decision 6)", () => {
-    const base = cashbackBase(
-      { productValue: pair(50), storeCreditUsed: pair(10), giftCardUsed: pair(0) },
-      pair(20),
-    );
-    expect(base.amount.toFixed(2)).toBe("20.00");
+  it("takes no refunds into account: a late-recorded order earns on the full base (Ruling 24)", () => {
+    // The base reads only these three facts; refunds are taken back later, one by one
+    const base = cashbackBase({ productValue: pair(50), storeCreditUsed: pair(10), giftCardUsed: pair(0) });
+    expect(base.amount.toFixed(2)).toBe("40.00");
+    expect(cashbackBase.length).toBe(1);
   });
 
   it("works each currency on its own: a euro order on a GBP shop", () => {
-    const base = cashbackBase(
-      { productValue: pair(60, "51.30"), storeCreditUsed: pair(10, "8.55"), giftCardUsed: pair(0) },
-      pair(5, "4.28"),
-    );
-    expect(base.amount.toFixed(2)).toBe("45.00");
-    expect(base.shopAmount.toFixed(2)).toBe("38.47");
+    const base = cashbackBase({ productValue: pair(60, "51.30"), storeCreditUsed: pair(10, "8.55"), giftCardUsed: pair(0) });
+    expect(base.amount.toFixed(2)).toBe("50.00");
+    expect(base.shopAmount.toFixed(2)).toBe("42.75");
   });
 
   it("returns Money values, even from plain Decimal inputs", () => {
     // Clones share Decimal's prototype, so instanceof can't tell them apart.
     const plain = (v: number): MoneyPair => ({ amount: new Decimal(v), shopAmount: new Decimal(v) });
-    const base = cashbackBase({ productValue: plain(1), storeCreditUsed: plain(0), giftCardUsed: plain(0) }, plain(0));
+    const base = cashbackBase({ productValue: plain(1), storeCreditUsed: plain(0), giftCardUsed: plain(0) });
     expect(base.amount.constructor).toBe(Money);
     expect(base.shopAmount.constructor).toBe(Money);
   });
