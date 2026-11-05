@@ -62,6 +62,8 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
       notifyBuyers: false,
       tierWindow: "rolling_12_months",
       installedAt: OPENED,
+      activatedAt: OPENED,
+      uninstalledAt: null,
     });
 
     const second = await open({
@@ -87,8 +89,12 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
 
   it("an open that races another's first insert finds the winner's rows", async () => {
     let racing!: ReturnType<typeof open>;
-    // The client logs the loser's refused insert (log: ["error"]) through console.log.
-    const logs = vi.spyOn(console, "log").mockImplementation(() => {});
+    // The client would log a refused insert (log: ["error"]) through console.log.
+    const logs = [
+      vi.spyOn(console, "log").mockImplementation(() => {}),
+      vi.spyOn(console, "warn").mockImplementation(() => {}),
+      vi.spyOn(console, "error").mockImplementation(() => {}),
+    ];
     // The test pool has one connection (connection_limit=1), so the winner
     // holds its own.
     const winnerClient = createPrismaClient(process.env.REWARDS_DATABASE_URL);
@@ -108,6 +114,7 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
             externalAccountId: SHOP,
             status: "active",
             installedAt: OPENED,
+            activatedAt: OPENED,
           },
         });
         racing = open();
@@ -119,9 +126,13 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
       await winnerClient.$disconnect();
     }
 
+    // It really raced (waitForLockWait saw it blocked on the key), and its
+    // insert did nothing rather than fail: no error raised or logged.
     expect(await racing).toEqual({ ...winner, created: false, reactivated: false });
-    // It really raced: its first try hit the unique key and was rolled back whole.
-    expect(logs).toHaveBeenCalledWith(expect.stringContaining("prisma:error"), expect.stringMatching(/Unique constraint/));
+    for (const spy of logs) {
+      expect(spy.mock.calls.flat().map(String).join("\n")).not.toMatch(/prisma:error|Unique constraint/);
+    }
+    // No orphan merchant from the open that lost.
     expect(await prisma.merchant.count()).toBe(1);
     expect(await prisma.connection.count()).toBe(1);
   });
@@ -142,7 +153,8 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
       (await prisma.connection.findUniqueOrThrow({ where: { id: first.connectionId } })).uninstalledAt,
     ).toEqual(uninstalledAt);
 
-    const again = await open({ now: new Date("2026-11-08T09:00:00Z") });
+    const reopened = new Date("2026-11-08T09:00:00Z");
+    const again = await open({ now: reopened });
 
     expect(again).toEqual({
       merchantId: first.merchantId,
@@ -150,13 +162,60 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
       created: false,
       reactivated: true,
     });
-    expect(await findConnection(SHOP)).toMatchObject({ connectionId: first.connectionId, installedAt: OPENED });
+    // A reactivation starts a new install and keeps the last uninstall, so
+    // [uninstalledAt, activatedAt) is the gap.
+    expect(await findConnection(SHOP)).toMatchObject({
+      connectionId: first.connectionId,
+      installedAt: OPENED,
+      activatedAt: reopened,
+      uninstalledAt,
+    });
     expect(await prisma.connection.findUniqueOrThrow({ where: { id: first.connectionId } })).toMatchObject({
       status: "active",
-      uninstalledAt: null,
+      activatedAt: reopened,
+      uninstalledAt,
     });
     // Only the open that brought it back says so.
     expect((await open()).reactivated).toBe(false);
+  });
+
+  it("an uninstall dated before the reactivation leaves the live store active", async () => {
+    const first = await open();
+    const uninstalledAt = new Date("2026-11-07T10:00:00Z");
+    await markUninstalled(SHOP, uninstalledAt);
+    const reopened = new Date("2026-11-08T09:00:00Z");
+    await open({ now: reopened });
+
+    // A late retry of that app/uninstalled, or any uninstall the reinstall overtook.
+    expect(await markUninstalled(SHOP, uninstalledAt)).toBe(true);
+    expect(await markUninstalled(SHOP, new Date("2026-11-08T08:59:59Z"))).toBe(true);
+    // At the very instant of reactivation counts as before it, too.
+    expect(await markUninstalled(SHOP, reopened)).toBe(true);
+
+    expect(await findConnection(SHOP)).toMatchObject({
+      connectionId: first.connectionId,
+      activatedAt: reopened,
+      uninstalledAt,
+    });
+    expect(await prisma.connection.findUniqueOrThrow({ where: { id: first.connectionId } })).toMatchObject({
+      status: "active",
+      uninstalledAt,
+    });
+  });
+
+  it("an uninstall dated after the reactivation marks the store uninstalled", async () => {
+    const first = await open();
+    await markUninstalled(SHOP, new Date("2026-11-07T10:00:00Z"));
+    await open({ now: new Date("2026-11-08T09:00:00Z") });
+    const uninstalledAgain = new Date("2026-11-08T09:00:01Z");
+
+    expect(await markUninstalled(SHOP, uninstalledAgain)).toBe(true);
+
+    expect(await findConnection(SHOP)).toBeNull();
+    expect(await prisma.connection.findUniqueOrThrow({ where: { id: first.connectionId } })).toMatchObject({
+      status: "uninstalled",
+      uninstalledAt: uninstalledAgain,
+    });
   });
 
   it("markUninstalled on a shop it has never seen changes nothing", async () => {
@@ -177,6 +236,7 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
 
   it("refuses a currency that isn't an ISO code", async () => {
     await expect(open({ currency: "" })).rejects.toThrow(/currency/i);
+    await expect(open({ currency: "gbp" })).rejects.toThrow(/currency/i);
     expect(await prisma.merchant.count()).toBe(0);
   });
 
@@ -220,5 +280,6 @@ describe.skipIf(!hasTestDatabase)("merchants and connections", () => {
 
   it("setRunning on a merchant that doesn't exist throws", async () => {
     await expect(setRunning("00000000-0000-4000-8000-000000000000", false)).rejects.toThrow(/no merchant/i);
+    await expect(setRunning("00000000-0000-4000-8000-000000000000", true)).rejects.toThrow(/no merchant/i);
   });
 });

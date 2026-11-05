@@ -171,6 +171,9 @@ model Connection {
   externalAccountId   String           @map("external_account_id")
   status              ConnectionStatus
   installedAt         DateTime         @map("installed_at")
+  /// When the current install began: installedAt at first, then each reactivation.
+  activatedAt         DateTime         @map("activated_at")
+  /// The last uninstall; kept on reactivation, so [uninstalledAt, activatedAt) is the gap.
   uninstalledAt       DateTime?        @map("uninstalled_at")
   importState         ImportState      @default(not_started) @map("import_state")
   importOperationId   String?          @map("import_operation_id")

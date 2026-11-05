@@ -15,6 +15,7 @@ async function seedMerchant(domain: string) {
       externalAccountId: domain,
       status: "active",
       installedAt: new Date("2026-11-01T00:00:00Z"),
+      activatedAt: new Date("2026-11-01T00:00:00Z"),
     },
   });
   const customer = await prisma.customer.create({

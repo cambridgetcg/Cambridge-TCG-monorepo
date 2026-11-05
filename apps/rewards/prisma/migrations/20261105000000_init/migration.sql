@@ -74,6 +74,7 @@ CREATE TABLE "connection" (
     "external_account_id" TEXT NOT NULL,
     "status" "connection_status" NOT NULL,
     "installed_at" TIMESTAMP(3) NOT NULL,
+    "activated_at" TIMESTAMP(3) NOT NULL,
     "uninstalled_at" TIMESTAMP(3),
     "import_state" "import_state" NOT NULL DEFAULT 'not_started',
     "import_operation_id" TEXT,
