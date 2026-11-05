@@ -624,6 +624,39 @@ describe("the read deadline (every call of one read within ORDER_READ_DEADLINE_M
     // The refund at 0 s and the order at 2 s answered; the other refunds, sent at 4 s, had 0.5 s left
     expect(read.outcome).toBeInstanceOf(ShopifyTimeoutError);
   });
+
+  it("ends a read by the caller's deadline when it comes sooner (one deadline for a whole webhook)", async () => {
+    vi.useFakeTimers();
+    const client = late(800, fromFixtures([refunded], [refundItems, refundShippingOnly, refundMoneyOnly]));
+    const read = watch(createShopifyOrderSource(client).readRefund("gid://shopify/Refund/6153", { deadline: Date.now() + 1500 }));
+
+    // The refund answered at 0.8 s; the order, asked then, had 0.7 s left, not its own 3.7 s
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(read.outcome).toBe("pending");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(read.outcome).toBeInstanceOf(ShopifyTimeoutError);
+    expect(client.graphql.mock.calls[1][1]?.signal?.aborted).toBe(true);
+  });
+
+  it("keeps its own 4.5 s when the caller's deadline is later", async () => {
+    vi.useFakeTimers();
+    const client = late(3000, fromFixtures([refundedInFullUsd], [refundInFullUsd]));
+    const read = watch(
+      createShopifyOrderSource(client).readOrder("gid://shopify/Order/5012", { deadline: Date.now() + 60_000 }),
+    );
+
+    await vi.advanceTimersByTimeAsync(ORDER_READ_DEADLINE_MS);
+    expect(read.outcome).toBeInstanceOf(ShopifyTimeoutError);
+  });
+
+  it("sends nothing once the caller's deadline has passed", async () => {
+    const client = fromFixtures([plain]);
+
+    await expect(createShopifyOrderSource(client).readOrder("gid://shopify/Order/5001", { deadline: Date.now() - 1 })).rejects.toBeInstanceOf(
+      ShopifyTimeoutError,
+    );
+    expect(client.graphql).not.toHaveBeenCalled();
+  });
 });
 
 describe("readRefund (one refund, valued against its order's lines)", () => {

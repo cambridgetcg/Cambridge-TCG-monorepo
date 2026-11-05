@@ -242,6 +242,34 @@ export function mockStoreCredit(
   return calls;
 }
 
+/** One Admin GraphQL answer as the fixtures in test/fixtures/orders hold it. */
+export type FixtureAnswer = { data: Record<string, unknown> };
+
+/**
+ * Answer the order reads the app sends for `shop` (RewardsOrderFacts and
+ * RewardsRefundFacts, matched by operation name) from fixture answers, by
+ * the id asked for; Shopify's null for any other id. The lists are read at
+ * each request, so a test can change them between deliveries. Returns the
+ * ids read, in order.
+ */
+export function mockOrderFacts(shop: string, answers: { orders?: FixtureAnswer[]; refunds?: FixtureAnswer[] }): { reads: string[] } {
+  const reads: string[] = [];
+  const find = (list: FixtureAnswer[] | undefined, key: "order" | "refund", id: unknown) =>
+    (list ?? []).find((answer) => (answer.data[key] as { id?: string } | null)?.id === id);
+  const link = graphql.link(adminGraphqlUrl(shop));
+  server.use(
+    link.query("RewardsOrderFacts", ({ variables }) => {
+      reads.push(String(variables.id));
+      return HttpResponse.json(find(answers.orders, "order", variables.id) ?? { data: { shop: { currencyCode: "GBP" }, order: null } });
+    }),
+    link.query("RewardsRefundFacts", ({ variables }) => {
+      reads.push(String(variables.id));
+      return HttpResponse.json(find(answers.refunds, "refund", variables.id) ?? { data: { refund: null } });
+    }),
+  );
+  return { reads };
+}
+
 /**
  * Move a payout's claim (and Shopify's unclear answer to it) `minutes` into
  * the past, with the credits Shopify applied meanwhile: an unclear payout is

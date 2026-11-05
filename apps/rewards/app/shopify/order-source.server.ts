@@ -28,9 +28,18 @@ import {
 /**
  * How long one whole readOrder or readRefund waits for Shopify, every call in
  * it together (each call gets the time left), so a webhook that makes the read
- * still answers inside its 5 s. Each page of the sweep gets the same.
+ * still answers inside its 5 s. Each page of the sweep gets the same. A caller
+ * can end a read sooner with its own deadline (OrderSource's `deadline`).
  */
 export const ORDER_READ_DEADLINE_MS = 4500;
+/**
+ * The deadline a webhook gives every read it makes, from the moment it is
+ * received (before its authentication, which may refresh the token): Shopify
+ * waits 5 s for the answer, and the last second is for the database and the
+ * answer itself. refunds/create reads the refund and may then read its order,
+ * both within this one deadline.
+ */
+export const WEBHOOK_READ_DEADLINE_MS = 4000;
 /** Pages of 100 line items read for one order before giving up. */
 export const MAX_LINE_PAGES = 25;
 /** Pages of 50 orders the sweep reads at most. */
@@ -480,14 +489,16 @@ function oneBucket(): InTurn {
 export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
   /**
    * A reader whose calls all end by one deadline, ORDER_READ_DEADLINE_MS from
-   * now: each call waits only the time left. Each answer's `data`; throws on
-   * GraphQL errors, an answer that can't be read, or no time left.
+   * now or the caller's `given` deadline (a Date.now() time) if that comes
+   * sooner: each call waits only the time left. Each answer's `data`; throws
+   * on GraphQL errors, an answer that can't be read, or no time left.
    */
-  function askWithin(): Ask {
-    const deadline = Date.now() + ORDER_READ_DEADLINE_MS;
+  function askWithin(given?: number): Ask {
+    const start = Date.now();
+    const deadline = Math.min(start + ORDER_READ_DEADLINE_MS, given ?? Number.POSITIVE_INFINITY);
     return async (query, variables) => {
       const left = deadline - Date.now();
-      if (left <= 0) throw new ShopifyTimeoutError(ORDER_READ_DEADLINE_MS);
+      if (left <= 0) throw new ShopifyTimeoutError(Math.max(0, deadline - start));
       const body = asRecord(await askShopify(admin, query, variables, left));
       if (body?.errors) throw new OrderReadError(`Shopify answered with errors: ${firstErrorMessage(body.errors)}`);
       return rec(body?.data, "data");
@@ -558,8 +569,8 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
      * many together as MAX_COST_IN_FLIGHT allows, then the facts; all within
      * one deadline.
      */
-    async readOrder(orderGid) {
-      const ask = askWithin();
+    async readOrder(orderGid, o = {}) {
+      const ask = askWithin(o.deadline);
       const read = await orderNode(ask, orderGid);
       if (!read) return null;
       // Before any call is sent: a throw here must not leave one unawaited
@@ -578,8 +589,8 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
      * yet refunded, so it is valued exactly as readOrder values it. All
      * within one deadline.
      */
-    async readRefund(refundGid) {
-      const ask = askWithin();
+    async readRefund(refundGid, o = {}) {
+      const ask = askWithin(o.deadline);
       const refund = await refundNode(ask, refundGid);
       if (!refund) return null;
       const orderGid = text(rec(refund.order, "the refund's order").id, "the refund's order id");

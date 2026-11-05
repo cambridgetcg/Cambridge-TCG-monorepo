@@ -48,9 +48,18 @@ export interface PayoutRail {
   creditHistory(externalCustomerId: string, since: Date): Promise<CreditHistoryResult>;
 }
 
+/**
+ * When a read must be over by, as a Date.now() time. A read keeps its own
+ * limit too and ends at whichever comes first; a webhook that makes two
+ * reads passes both one deadline from when it was received.
+ */
+export interface ReadOptions {
+  deadline?: number;
+}
+
 export interface OrderSource {
-  readOrder(orderGid: string): Promise<OrderFacts | null>;
-  readRefund(refundGid: string): Promise<{ orderGid: string; refund: RefundFacts } | null>;
+  readOrder(orderGid: string, o?: ReadOptions): Promise<OrderFacts | null>;
+  readRefund(refundGid: string, o?: ReadOptions): Promise<{ orderGid: string; refund: RefundFacts } | null>;
   recentPaidOrders(since: Date): Promise<Array<{ orderGid: string; hasCustomer: boolean; test: boolean; orderedAt: Date }>>;
 }
 

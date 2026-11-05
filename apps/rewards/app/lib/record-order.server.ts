@@ -248,3 +248,26 @@ export async function recordOrder(
     throw error;
   }
 }
+
+/**
+ * Mark a recorded order cancelled (orders/cancelled), keeping the first
+ * cancellation time. A cancelled order stops counting toward tier spend
+ * (plan Decision 7); money moves only with its refunds, which arrive as
+ * refunds/create. The buyer, so the caller can resolve their tier; null when
+ * the order isn't recorded (a guest's, or not paid yet: its later read
+ * carries the cancellation).
+ */
+export async function recordCancellation(
+  conn: ConnectionContext,
+  externalOrderId: string,
+  cancelledAt: Date,
+  db: PrismaClient = prisma,
+): Promise<{ customerId: string } | null> {
+  const order = await db.order.findUnique({
+    where: { connectionId_externalOrderId: { connectionId: conn.connectionId, externalOrderId } },
+    select: { id: true, customerId: true },
+  });
+  if (!order) return null;
+  await db.order.updateMany({ where: { id: order.id, cancelledAt: null }, data: { cancelledAt } });
+  return { customerId: order.customerId };
+}
