@@ -364,5 +364,31 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       expect(loaded?.expires).toEqual(session.expires);
       await expect(prisma.session.findUniqueOrThrow({ where: { id: ID } })).resolves.toMatchObject({ accessToken: "" });
     });
+
+    it("a session the library invalidated (no access token, far-off expiry) is renewed under the lease: the other waits for the exchange", async () => {
+      const exchanging = anotherInstance();
+      const other = anotherInstance();
+      // After an Admin 401 the library stores the session with its access token removed and the same expiry
+      const invalidated = expiringIn(60, "shpat_revoked_by_shopify");
+      invalidated.accessToken = undefined;
+      await exchanging.storeSession(invalidated);
+
+      // isActive is false without an access token, so the token-exchange strategy exchanges: under the lease
+      const loadedFirst = await exchanging.loadSession(ID);
+      expect(loadedFirst?.accessToken).toBeFalsy();
+      expect(await leases()).toHaveLength(1);
+
+      const start = Date.now();
+      const waiting = other.loadSession(ID);
+      await pause(400);
+      await exchanging.storeSession(expiringIn(60, "shpat_exchanged"));
+      const loaded = await waiting;
+
+      // Not the invalidated session, which it would have exchanged itself at the same time
+      expect(loaded?.accessToken).toBe("shpat_exchanged");
+      expect(Date.now() - start).toBeGreaterThanOrEqual(400);
+      expect(Date.now() - start).toBeLessThan(1500);
+      expect(await leases()).toEqual([]);
+    });
   });
 });

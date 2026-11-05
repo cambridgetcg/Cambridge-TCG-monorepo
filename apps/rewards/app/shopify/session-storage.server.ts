@@ -21,8 +21,10 @@
  * here first (authenticate.admin's exchange, authenticate.webhook,
  * unauthenticated.admin and the app proxy refresh one due within 5 minutes),
  * so loadSession takes a short per-store lease for a session that is due:
- * - missing, or expiring within RENEWAL_WINDOW_MS (6 minutes, the library
- *   renews inside 5), the session is loaded under the lease, a cron_lock row
+ * - missing, without an access token (the library invalidated it after an
+ *   Admin 401, keeping its expiry, so the token exchange renews it), or
+ *   expiring within RENEWAL_WINDOW_MS (6 minutes, the library renews inside
+ *   5), the session is loaded under the lease, a cron_lock row
  *   `session-renewal:<shop>` taken atomically (inserted, or taken over once
  *   expired) for RENEWAL_LEASE_MS;
  * - while another caller holds it, the session is read again (and the lease
@@ -97,9 +99,18 @@ function offlineShop(id: string): string | null {
   return id.startsWith(OFFLINE_PREFIX) && id.length > OFFLINE_PREFIX.length ? id.slice(OFFLINE_PREFIX.length) : null;
 }
 
-/** Missing, or expiring within RENEWAL_WINDOW_MS: some path is about to renew it. */
+/**
+ * Missing, without an access token, or expiring within RENEWAL_WINDOW_MS:
+ * some path is about to renew it. A session with no access token is one the
+ * library invalidated after an Admin 401 (stored again with the same, far-off
+ * expiry); Session.isActive is false for it, so the token exchange renews it.
+ */
 function dueForRenewal(session: Session | undefined): boolean {
-  return !session || (session.expires !== undefined && session.expires.getTime() - Date.now() < RENEWAL_WINDOW_MS);
+  return (
+    !session ||
+    !session.accessToken ||
+    (session.expires !== undefined && session.expires.getTime() - Date.now() < RENEWAL_WINDOW_MS)
+  );
 }
 
 const leaseJob = (shop: string) => `session-renewal:${shop}`;
