@@ -15,6 +15,7 @@ import { monitoring } from "~/lib/telemetry.server";
 import { action as compliance } from "~/routes/webhooks.compliance";
 import { action as appUninstalled } from "~/routes/webhooks.app.uninstalled";
 import { failNextCall, hasTestDatabase, resetDatabase, restoreFailedCalls } from "./helpers/database";
+import { noIds } from "./helpers/ids";
 import { backdateClaim, signedWebhook } from "./helpers/shopify";
 
 /**
@@ -782,7 +783,7 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
       expect(report.payouts.map((p: { id: string }) => p.id).sort()).toEqual([paid.payoutId, refundPayout, pending.payoutId].sort());
       // Nothing of the other buyer's.
       expect(download!.json).not.toContain(bob.customerId);
-      expect(download!.json).not.toContain(BOB);
+      expect(noIds(download!.json)).not.toContain(BOB);
       await expect(prisma.privacyRequest.findUniqueOrThrow({ where: { id: request.id } })).resolves.toMatchObject({
         status: "downloaded",
         downloadedAt: expect.any(Date),

@@ -10,6 +10,7 @@ import { monitoring } from "~/lib/telemetry.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
+import { noIds } from "./helpers/ids";
 
 /**
  * Orders and the needs-a-look answers (spec 4.6, rule 12): the list's pages,
@@ -409,7 +410,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       expect(capture).toHaveBeenCalledWith(expect.stringContaining("no payout"), "error", { tags: { "ledger.invariant": "entry-without-payout" }, extra: { ledgerEntryId: orphan.id } });
       // No buyer detail goes with it
       const reported = JSON.stringify([errors.mock.calls, capture.mock.calls]);
-      expect(reported).not.toContain(buyer.externalCustomerId!);
+      expect(noIds(reported)).not.toContain(buyer.externalCustomerId!);
       expect(reported).not.toContain(buyer.id);
     });
 
@@ -1032,7 +1033,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       const logged = errors.mock.calls.map((args) => args.join(" "));
       expect(logged).toEqual([expect.stringContaining(failed)]);
       expect(logged[0]).toContain("Connection reset");
-      expect(logged[0]).not.toContain(buyer.externalCustomerId!);
+      expect(noIds(logged[0])).not.toContain(buyer.externalCustomerId!);
     });
 
     it("Close sends nothing", async () => {

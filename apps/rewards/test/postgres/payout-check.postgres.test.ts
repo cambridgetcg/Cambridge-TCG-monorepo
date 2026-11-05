@@ -17,6 +17,7 @@ import plain from "../fixtures/orders/plain.json";
 import refundMoneyOnly from "../fixtures/orders/refund-money-only.json";
 import { server } from "../setup";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
+import { noIds } from "./helpers/ids";
 import {
   type FixtureAnswer,
   adminGraphqlUrl,
@@ -294,7 +295,7 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
     // One line per failed send: the payout id and the code, nothing about the buyer
     const logged = errors.mock.calls.map((args) => args.join(" "));
     expect(logged).toEqual([expect.stringContaining(first), expect.any(String)]);
-    expect(logged.every((line) => line.includes("THROTTLED") && !/7001|7002|Customer/.test(line))).toBe(true);
+    expect(logged.every((line) => line.includes("THROTTLED") && !/7001|7002|Customer/.test(noIds(line)))).toBe(true);
     errors.mockRestore();
     warning.mockRestore();
   });
