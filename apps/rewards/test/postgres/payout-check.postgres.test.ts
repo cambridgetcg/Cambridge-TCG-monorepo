@@ -793,6 +793,64 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
       expect(String(result.firstProblem)).toMatch(/cut short by the deadline/);
       await expect(prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId } })).resolves.toMatchObject({ lastSweptAt: sweptBefore });
     });
+    it("leaves a store unstamped when the deadline cuts off one of its order's refund reads, counted once (M2d-F1)", async () => {
+      const conn = await runningShop(SHOP, { session: false });
+      await pendingCredit(conn, 5001, { minutesAgo: 0 });
+      const sweptBefore = new Date(Date.now() - DAY);
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { lastSweptAt: sweptBefore } });
+      let deadline = 0;
+      const reads: string[] = [];
+      const orders: OrderSource = {
+        readOrder: async () => null,
+        // The first refund's read runs into the run's deadline
+        readRefund: async (refundGid) => {
+          reads.push(refundGid);
+          await new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now()) + 5));
+          throw new ShopifyTimeoutError(0);
+        },
+        recentlyUpdatedOrders: async () => [
+          listed(5001, {
+            refunds: [
+              { refundGid: "gid://shopify/Refund/6501", refundedAt: new Date(Date.now() - 30 * MINUTE) },
+              { refundGid: "gid://shopify/Refund/6502", refundedAt: new Date(Date.now() - 20 * MINUTE) },
+            ],
+          }),
+        ],
+      };
+
+      deadline = Date.now() + 50;
+      const result = await runPayoutCheck({ now: new Date(), railFor: async () => ({ rail, orders }), deadline });
+
+      expect(reads).toEqual(["gid://shopify/Refund/6501"]);
+      expect(result).toMatchObject({ refundsSwept: 0, unfinished: 1, problems: 1 });
+      expect(String(result.firstProblem)).toMatch(/cut short by the deadline/);
+      await expect(prisma.refund.count()).resolves.toBe(0);
+      await expect(prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId } })).resolves.toMatchObject({ lastSweptAt: sweptBefore });
+    });
+
+    it("leaves a store unstamped when the deadline cuts off the read of an order whose listed refunds were cut short (M2d-F1)", async () => {
+      const conn = await runningShop(SHOP, { session: false });
+      await pendingCredit(conn, 5001, { minutesAgo: 0 });
+      const sweptBefore = new Date(Date.now() - DAY);
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { lastSweptAt: sweptBefore } });
+      let deadline = 0;
+      const orders: OrderSource = {
+        readOrder: async () => {
+          await new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now()) + 5));
+          throw new ShopifyTimeoutError(0);
+        },
+        readRefund: async () => null,
+        recentlyUpdatedOrders: async () => [listed(5001, { refunds: null })],
+      };
+
+      deadline = Date.now() + 50;
+      const result = await runPayoutCheck({ now: new Date(), railFor: async () => ({ rail, orders }), deadline });
+
+      expect(result).toMatchObject({ unfinished: 1, problems: 1 });
+      expect(String(result.firstProblem)).toMatch(/cut short by the deadline/);
+      expect(vi.mocked(console.error)).not.toHaveBeenCalled();
+      await expect(prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId } })).resolves.toMatchObject({ lastSweptAt: sweptBefore });
+    });
   });
 
   describe("the sweep's turn (OPERATIONS-6)", () => {

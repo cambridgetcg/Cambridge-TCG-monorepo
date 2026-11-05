@@ -267,7 +267,10 @@ async function sweepStore(
     recorded = new Map(rows.map((row) => [row.externalOrderId, row]));
   } catch (error) {
     // The run's deadline cut the listing off: the store was not swept, and keeps its turn
-    if (ctx.outOfTime()) return false;
+    if (ctx.outOfTime()) {
+      console.warn(`[payout-check] The deadline cut off ${shop}'s listing: ${messageOf(error)}`);
+      return false;
+    }
     console.error(`[payout-check] Could not list ${shop}'s recently updated orders: ${messageOf(error)}`);
     ctx.problem(error);
     return true;
@@ -348,7 +351,9 @@ async function sweepRecordedOrder(
     } catch (error) {
       // Its refunds can't be had this run; its cancellation still can
       refunds = [];
-      if (isReadLimit(error)) readLimitReached(order.orderGid, shop, error);
+      // The run's deadline cut the read off: the order keeps its turn (M2d-F1)
+      if (ctx.outOfTime()) cut = true;
+      else if (isReadLimit(error)) readLimitReached(order.orderGid, shop, error);
       else {
         console.error(`[payout-check] Could not read the refunds of order ${order.orderGid} for ${shop}: ${messageOf(error)}`);
         ctx.problem(error);
@@ -370,6 +375,11 @@ async function sweepRecordedOrder(
       ctx.result.refundsSwept++;
       customerId = recorded.customerId;
     } catch (error) {
+      // The run's deadline cut the read off: the rest wait for the next run (M2d-F1)
+      if (ctx.outOfTime()) {
+        cut = true;
+        break;
+      }
       // Its order's credit is being sent right now: the next run takes it
       if (error instanceof RefundRetryLater) continue;
       // The refund's read values it against the order's other refunds, so it meets the same limit

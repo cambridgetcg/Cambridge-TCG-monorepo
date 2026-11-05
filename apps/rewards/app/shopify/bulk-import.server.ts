@@ -16,8 +16,9 @@
  *
  * Bulk limits shape what is read (graphql.ts, RewardsBulkOrderNodes): the
  * node has no refunds' items, so it is read with "quantities" (Ruling 25),
- * and a refund of money with no items made before the import still counts as
- * spend. It does list each order's refund ids, which the order keeps
+ * and a refund of money with no items that the file lists on its order
+ * (made before the import, or while it ran but before Shopify read that
+ * order) still counts as spend. It does list each order's refund ids, which the order keeps
  * (`importRefundIds`, Ruling 54): its quantities count those refunds, so
  * recording one later adds no spend again.
  */

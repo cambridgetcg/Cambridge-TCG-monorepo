@@ -487,8 +487,9 @@ export const RewardsAccessScopes = `#graphql
  * apart (its line items, transactions and shipping lines) is a connection,
  * and bulk refuses a connection inside a list field. The node is therefore
  * read with "quantities" (order-source.server.ts, Ruling 25), and a
- * money-only refund made before the import still counts as spend (a known
- * limit). The refund ids stay on the order's own line and are kept on its
+ * money-only refund the file lists on its order still counts as spend (a
+ * known limit: made before the import, or while it ran but before Shopify
+ * read that order). The refund ids stay on the order's own line and are kept on its
  * row: the quantities count those refunds, so recording one of them later
  * adds no spend again (Ruling 54).
  * `search` is Shopify search syntax, embedded as a GraphQL string; it is a
