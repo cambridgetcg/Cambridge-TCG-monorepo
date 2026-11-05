@@ -12,8 +12,8 @@ import { server } from "../../setup";
  * apps/rewardspro/test/integration/postgres/shopify.ts: deliveries signed the
  * way Shopify signs them (HMAC of the body with the app's client secret,
  * which test/setup.ts sets as SHOPIFY_API_SECRET), an offline session in
- * Postgres, Admin GraphQL answered by MSW, and app proxy requests signed as
- * Shopify signs them. Nothing here mocks authenticate.
+ * Postgres and Admin GraphQL answered by MSW (app proxy requests are signed by
+ * test/helpers/app-proxy.ts). Nothing here mocks authenticate.
  */
 
 // The library's adapter handed the Shopify runtime the global fetch when it
@@ -287,35 +287,4 @@ export async function backdateClaim(payoutId: string, minutes: number, history?:
     data: { claimedAt: shift(payout.claimedAt), unconfirmedAt: shift(payout.unconfirmedAt) },
   });
   for (const credit of history?.credits ?? []) credit.createdAt = new Date(credit.createdAt.getTime() - minutes * 60_000);
-}
-
-/**
- * An app proxy request signed the way Shopify signs it: HMAC-SHA256 (hex,
- * client secret) of the sorted `key=value` query pairs. `extra` pairs are
- * appended as given, so repeated keys can be sent; like Shopify and the
- * library, the signature joins a repeated key's values with commas.
- */
-export function signedProxyRequest(
-  path: string,
-  shop: string,
-  loggedInCustomerId: string,
-  extra: Array<[string, string]> = [],
-  init: RequestInit = {},
-): Request {
-  const pairs: Array<[string, string]> = [
-    ["shop", shop],
-    ["path_prefix", "/apps/rewardspro"],
-    ["timestamp", String(Math.trunc(Date.now() / 1000))],
-    ["logged_in_customer_id", loggedInCustomerId],
-    ...extra,
-  ];
-  const values = new Map<string, string[]>();
-  for (const [key, value] of pairs) values.set(key, [...(values.get(key) ?? []), value]);
-  const signed = [...values]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, list]) => `${key}=${list.join(",")}`)
-    .join("");
-  const signature = crypto.createHmac("sha256", process.env.SHOPIFY_API_SECRET!).update(signed).digest("hex");
-  const query = new URLSearchParams([...pairs, ["signature", signature]]);
-  return new Request(`https://test.example.com/api/proxy/${path}?${query}`, init);
 }

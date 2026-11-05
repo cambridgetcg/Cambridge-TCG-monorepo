@@ -399,3 +399,38 @@ export const RewardsRecentPaidOrders = `#graphql
     }
   }
 `;
+
+/**
+ * Which customer accounts the shop uses, and whether its sign-in links show
+ * on the storefront and at checkout: store credit can be spent only by a
+ * buyer signed in to new customer accounts (or using Shop Pay). Carried from
+ * apps/rewardspro's CustomerAccountsVersion and
+ * StoreCreditSpendCustomerAccounts, one document for both shop checks.
+ * Scopes: none documented (shop settings any installed app can read).
+ * Cost: 2 = shop 1 + customerAccountsV2 1 (its scalars cost nothing).
+ */
+export const RewardsCustomerAccounts = `#graphql
+  query RewardsCustomerAccounts {
+    shop {
+      customerAccountsV2 {
+        customerAccountsVersion
+        loginLinksVisibleOnStorefrontAndCheckout
+      }
+    }
+  }
+`;
+
+/**
+ * Whether store credit is turned on for buyers at checkout (Settings >
+ * Customer accounts). Carried from apps/rewardspro's
+ * StoreCreditSpendConfiguration; Admin API 2026-10 or later.
+ * Scopes: none documented on the query's reference page.
+ * Cost: 1 (the storeCreditConfiguration object).
+ */
+export const RewardsStoreCreditConfig = `#graphql
+  query RewardsStoreCreditConfig {
+    storeCreditConfiguration {
+      storeCreditEnabled
+    }
+  }
+`;
