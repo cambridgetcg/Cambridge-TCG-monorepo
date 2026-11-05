@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import prisma from "~/db.server";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
-import { CLAIM_FINISHED_MS, CUSTOMER_MISSING, sendPayout, settleUnconfirmed } from "~/lib/payouts.server";
+import { CLAIM_FINISHED_MS, CUSTOMER_ERASED, CUSTOMER_MISSING, sendPayout, settleUnconfirmed } from "~/lib/payouts.server";
 import type { CreditHistoryResult, OrderSource, PayoutRail, RailAnswer } from "~/lib/ports";
 import { customerRows, orderRows } from "~/lib/stats.server";
 import { monitoring } from "~/lib/telemetry.server";
@@ -559,6 +559,7 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
         ["needs_look", { lookReason: "refused", unconfirmedAt: new Date(), lastError: "ACCOUNT_LIMIT" }, "Not confirmed"],
         // The buyer is gone: nothing reached them
         ["needs_look", { lookReason: "refused", unconfirmedAt: new Date(), lastError: CUSTOMER_MISSING }, "Not sent"],
+        ["needs_look", { lookReason: "refused", unconfirmedAt: new Date(), lastError: CUSTOMER_ERASED }, "Not sent"],
         ["needs_look", { lookReason: "kept_failing" }, "Not sent"],
         ["pending", {}, "Waiting to send"],
         ["held", {}, "Held until its cashback is confirmed"],

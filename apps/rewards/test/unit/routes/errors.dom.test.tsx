@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("~/db.server", () => ({ default: {}, databaseSchema: "rewards" }));
 vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
 
+const { POLARIS_URL } = await import("~/shopify/polaris");
 const app = await import("~/routes/app");
 const root = await import("~/root");
 const buyer = await import("~/routes/app.customers.$id");
@@ -65,6 +66,8 @@ describe("an error the app didn't answer", () => {
     // M3c-F1: inside the admin, in Polaris
     expect(document.querySelector("s-page s-section s-paragraph")?.textContent).toBe("Something went wrong. Reload the page.");
     expect(document.querySelector("p")).toBeNull();
+    // M3f-F1: this boundary replaces AppProvider, so it loads Polaris itself
+    expect(document.querySelectorAll(`script[src="${POLARIS_URL}"]`)).toHaveLength(1);
   });
 
   it("shows one plain sentence at the root, never the stack", async () => {

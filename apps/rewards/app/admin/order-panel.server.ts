@@ -1,7 +1,7 @@
 import type { PayoutState } from "@prisma/client";
-import { CUSTOMER_ERASED, CUSTOMER_MISSING, type MerchantAnswer } from "~/lib/payouts.server";
+import type { MerchantAnswer } from "~/lib/payouts.server";
 import type { OrderEntry, OrderPanel, OrderRefund } from "~/lib/stats.server";
-import { type HistoryLine, formatDay, historyLine, payoutDetail } from "./customer-history.server";
+import { type HistoryLine, formatDay, historyLine, payoutDetail, refusedAfterUnclearSend } from "./customer-history.server";
 import { formatMoney } from "./format";
 import { AMOUNT_UNKNOWN, STATUS_LABEL, orderNotes } from "./words";
 
@@ -161,13 +161,7 @@ function lookOf(entry: OrderEntry, payout: Payout): Look | null {
  */
 function mayHaveArrived(payout: Payout): boolean {
   if (payout.lookReason === "could_not_confirm") return true;
-  return (
-    payout.direction === "credit" &&
-    payout.lookReason === "refused" &&
-    payout.unconfirmedAt !== null &&
-    payout.lastError !== CUSTOMER_MISSING &&
-    payout.lastError !== CUSTOMER_ERASED
-  );
+  return payout.direction === "credit" && refusedAfterUnclearSend(payout);
 }
 
 /**

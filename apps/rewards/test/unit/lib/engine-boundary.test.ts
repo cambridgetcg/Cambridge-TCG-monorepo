@@ -18,7 +18,8 @@ describe("the engine", () => {
     const outside = sources
       .filter((file) => file.startsWith("lib/"))
       .flatMap((file) =>
-        [...read(file).matchAll(/from "([^"]+)"/g)]
+        // `from "x"`, a side-effect `import "x"` and a dynamic `import("x")` (M3f-F4)
+        [...read(file).matchAll(/(?:\bfrom|\bimport)\s*\(?\s*"([^"]+)"/g)]
           .map((match) => match[1])
           .filter((path) => /^(~\/(admin|shopify|routes)\b|\.\.\/|react-router|@shopify\/)/.test(path))
           .map((path) => `${file}: ${path}`),

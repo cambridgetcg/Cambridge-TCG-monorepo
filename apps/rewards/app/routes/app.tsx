@@ -42,9 +42,17 @@ export default function App() {
 
 // Shopify needs React Router to catch some thrown responses, so that their
 // headers are included in the response. Any other error is one plain
-// sentence in Polaris, never the stack (BOUNDARY-3, M3c-F1).
+// sentence in Polaris, never the stack (BOUNDARY-3, M3c-F1). This boundary
+// replaces App, and with it AppProvider's Polaris script, so it loads the
+// script itself; else a server-rendered error shows unstyled (M3f-F1).
 export function ErrorBoundary() {
-  return adminError(useRouteError(), { polaris: true });
+  const error = useRouteError();
+  return (
+    <>
+      <script src={POLARIS_URL} />
+      {adminError(error, { polaris: true })}
+    </>
+  );
 }
 
 export const headers: HeadersFunction = (headersArgs) => {

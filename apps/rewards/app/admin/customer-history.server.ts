@@ -50,6 +50,23 @@ export type OrderLine = {
 // The pages' one date format, kept in format.ts with the money format
 export { formatDay };
 
+type LookFacts = Pick<NonNullable<HistoryEntry["payout"]>, "lookReason" | "unconfirmedAt" | "lastError">;
+
+/** Whether Shopify refused a payout because the buyer is gone from it (settleUnconfirmed's refusals). */
+export function buyerGone(payout: Pick<LookFacts, "lastError">): boolean {
+  return payout.lastError === CUSTOMER_MISSING || payout.lastError === CUSTOMER_ERASED;
+}
+
+/**
+ * Whether a refused payout came from a send that wasn't clear, so it may
+ * have landed first: settled from unconfirmed, and not refused for a buyer
+ * gone from Shopify. The one rule for a credit's detail here and the order
+ * panel's payouts cell, so the two can't disagree (M3f-F3).
+ */
+export function refusedAfterUnclearSend(payout: LookFacts): boolean {
+  return payout.lookReason === "refused" && payout.unconfirmedAt !== null && !buyerGone(payout);
+}
+
 /** Why a credit that needs a look does, in words. */
 function creditDetail(payout: NonNullable<HistoryEntry["payout"]>): string | null {
   switch (payout.state) {
@@ -57,11 +74,9 @@ function creditDetail(payout: NonNullable<HistoryEntry["payout"]>): string | nul
       switch (payout.lookReason) {
         case "refused":
           // settleUnconfirmed refuses for a buyer gone from Shopify: there is no one to check
-          if (payout.lastError === CUSTOMER_MISSING || payout.lastError === CUSTOMER_ERASED) {
-            return "The buyer no longer exists in Shopify; close it without sending.";
-          }
+          if (buyerGone(payout)) return "The buyer no longer exists in Shopify; close it without sending.";
           // Settled from an unclear send: it may have landed first
-          return payout.unconfirmedAt !== null
+          return refusedAfterUnclearSend(payout)
             ? "Shopify refused it after a send that wasn't clear, so it may have arrived. Check the buyer's store credit in Shopify."
             : "Shopify refused it.";
         case "kept_failing":
