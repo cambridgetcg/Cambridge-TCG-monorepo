@@ -24,6 +24,7 @@ jobs:
       storefront: ${{ steps.filter.outputs.storefront }}
       wholesale:  ${{ steps.filter.outputs.wholesale }}
       rewardspro: ${{ steps.filter.outputs.rewardspro }}
+      rewards:    ${{ steps.filter.outputs.rewards }}
       shared:     ${{ steps.filter.outputs.shared }}
       answering_rhymes: ${{ steps.filter.outputs.answering_rhymes }}
       data:       ${{ steps.filter.outputs.data }}
@@ -40,6 +41,8 @@ jobs:
               - 'apps/wholesale/**'
             rewardspro:
               - 'apps/rewardspro/**'
+            rewards:
+              - 'apps/rewards/**'
             shared:
               - 'packages/**'
               - 'pnpm-lock.yaml'
@@ -309,18 +312,76 @@ jobs:
       # The build needs no database: no DATABASE_URL or DIRECT_URL here.
       - run: pnpm --filter rewardspro build
 
+  rewards:
+    name: rewards (typecheck + unit + Postgres tests)
+    runs-on: ubuntu-latest
+    needs: [detect, install]
+    if: needs.detect.outputs.rewards == 'true' || needs.detect.outputs.shared == 'true'
+    # Same major as production (Supabase, Postgres 17), provisioned the way
+    # Supabase is: an app role that owns schema rewards and nothing else
+    # (apps/rewards/test/postgres/helpers/setup-database.sql).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      # Before typecheck, as in the rewardspro job: without it the client
+      # has no model types. generate never connects to a database.
+      - run: pnpm --filter rewards exec prisma generate
+      - run: pnpm --filter rewards typecheck
+      - run: pnpm --filter rewards test:unit
+      - name: Provision Postgres like Supabase
+        run: >-
+          pnpm --filter rewards exec prisma db execute
+          --url postgresql://postgres:postgres@localhost:5432/postgres
+          --file test/postgres/helpers/setup-database.sql
+      # The same command the production deploy runs (a loopback URL passes
+      # straight through scripts/prisma-tls.ts).
+      - name: Apply migrations as the app role
+        run: pnpm --filter rewards migrate:deploy
+        env:
+          REWARDS_DIRECT_URL: postgresql://rewards_app:rewards_app@localhost:5432/postgres?schema=rewards
+      # prisma-tls.ts points REWARDS_DATABASE_URL at the same database, so the
+      # datamodel side is compared in schema rewards.
+      - name: Migrations match schema.prisma (no drift)
+        run: pnpm --filter rewards migrate:drift
+        env:
+          REWARDS_DIRECT_URL: postgresql://rewards_app:rewards_app@localhost:5432/postgres?schema=rewards
+      - name: Postgres tests
+        run: pnpm --filter rewards test:postgres
+        env:
+          REWARDS_TEST_DATABASE_URL: postgresql://rewards_app:rewards_app@localhost:5432/postgres?schema=rewards&connection_limit=1
+      # The production build (prisma generate, then react-router build) needs
+      # no database: no REWARDS_DATABASE_URL or REWARDS_DIRECT_URL here.
+      - run: pnpm --filter rewards build
+
   ci-status:
     name: CI status
     runs-on: ubuntu-latest
     if: always()
-    needs: [install, answering_rhymes, data, storefront, wholesale, rewardspro]
+    needs: [install, answering_rhymes, data, storefront, wholesale, rewardspro, rewards]
     steps:
       - name: Fail if any required job failed
         # `install` always runs; the per-app jobs may be skipped if no relevant
         # files changed. A skipped job is fine — only failures block.
         run: |
           if [ "${{ needs.install.result }}" != "success" ]; then exit 1; fi
-          for r in "${{ needs.answering_rhymes.result }}" "${{ needs.data.result }}" "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}" "${{ needs.rewardspro.result }}"; do
+          for r in "${{ needs.answering_rhymes.result }}" "${{ needs.data.result }}" "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}" "${{ needs.rewardspro.result }}" "${{ needs.rewards.result }}"; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then exit 1; fi
           done
           echo "CI green"

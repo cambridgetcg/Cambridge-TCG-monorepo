@@ -1,0 +1,118 @@
+{
+  "data": {
+    "shop": {
+      "currencyCode": "GBP"
+    },
+    "order": {
+      "id": "gid://shopify/Order/5014",
+      "name": "#1014",
+      "test": false,
+      "createdAt": "2026-11-02T10:15:00Z",
+      "processedAt": "2026-11-02T10:15:04Z",
+      "cancelledAt": null,
+      "displayFinancialStatus": "PAID",
+      "currencyCode": "GBP",
+      "presentmentCurrencyCode": "GBP",
+      "taxesIncluded": true,
+      "customer": {
+        "id": "gid://shopify/Customer/7001"
+      },
+      "totalPriceSet": {
+        "shopMoney": {
+          "amount": "38.5"
+        },
+        "presentmentMoney": {
+          "amount": "38.5"
+        }
+      },
+      "totalTipReceivedSet": {
+        "shopMoney": {
+          "amount": "0.0"
+        },
+        "presentmentMoney": {
+          "amount": "0.0"
+        }
+      },
+      "lineItems": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "cursor-5014"
+        },
+        "nodes": [
+          {
+            "id": "gid://shopify/LineItem/6401",
+            "quantity": 2,
+            "currentQuantity": 1,
+            "isGiftCard": false,
+            "originalTotalSet": {
+              "shopMoney": {
+                "amount": "30.0",
+                "currencyCode": "GBP"
+              },
+              "presentmentMoney": {
+                "amount": "30.0",
+                "currencyCode": "GBP"
+              }
+            },
+            "discountAllocations": [
+              {
+                "allocatedAmountSet": {
+                  "shopMoney": {
+                    "amount": "3.0"
+                  },
+                  "presentmentMoney": {
+                    "amount": "3.0"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "gid://shopify/LineItem/6402",
+            "quantity": 1,
+            "currentQuantity": 1,
+            "isGiftCard": false,
+            "originalTotalSet": {
+              "shopMoney": {
+                "amount": "20.0",
+                "currencyCode": "GBP"
+              },
+              "presentmentMoney": {
+                "amount": "20.0",
+                "currencyCode": "GBP"
+              }
+            },
+            "discountAllocations": []
+          }
+        ]
+      },
+      "transactions": [
+        {
+          "gateway": "shopify_payments",
+          "status": "SUCCESS",
+          "kind": "SALE",
+          "amountSet": {
+            "shopMoney": {
+              "amount": "38.5"
+            },
+            "presentmentMoney": {
+              "amount": "38.5"
+            }
+          }
+        }
+      ],
+      "refunds": []
+    }
+  },
+  "extensions": {
+    "cost": {
+      "requestedQueryCost": 912,
+      "actualQueryCost": 18,
+      "throttleStatus": {
+        "maximumAvailable": 2000.0,
+        "currentlyAvailable": 1982,
+        "restoreRate": 100.0
+      }
+    }
+  }
+}
