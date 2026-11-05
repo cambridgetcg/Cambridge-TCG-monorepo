@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +22,7 @@ const listData = (o: Partial<Record<string, unknown>> = {}) => ({
   ],
   searchFailed: false,
   searchCut: false,
+  searchUnread: false,
   hasNext: true,
   hasPrevious: false,
   rows: [
@@ -92,6 +93,7 @@ const cells = (scope: ParentNode = document) =>
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 describe("Customers list", () => {
@@ -115,6 +117,54 @@ describe("Customers list", () => {
     await renderList(listData({ rows: [], hasNext: false, query: "smith", searchFailed: true }));
     expect(document.querySelector("s-banner")?.textContent).toBe("Shopify didn't answer the search. Try again.");
   });
+
+  // A21-F4: "No buyers yet" only where it is true
+  it("says no buyers yet only on page 1 with no filter, and offers page 1 from a page past the last", async () => {
+    await renderList(listData({ rows: [], hasNext: false }));
+    expect(document.body.textContent).toContain("No buyers yet. They appear here after their first paid order.");
+    cleanup();
+
+    await renderList(listData({ rows: [], hasNext: false, page: 4, hasPrevious: true }));
+    expect(document.body.textContent).toContain("No buyers on this page.");
+    expect(document.body.textContent).not.toContain("No buyers yet");
+    expect(document.querySelector('s-link[href="/app/customers"]')?.textContent).toBe("Go to page 1");
+    cleanup();
+
+    await renderList(listData({ rows: [], hasNext: false, page: 3, hasPrevious: true, query: "ann", tierId: "t1" }));
+    expect(document.body.textContent).toContain("No buyers on this page.");
+    expect(document.querySelector('s-link[href="/app/customers?q=ann&tier=t1"]')?.textContent).toBe("Go to page 1");
+  });
+
+  // BOUNDARY-5
+  it("says when Shopify couldn't read the search", async () => {
+    await renderList(listData({ query: "name:x", searchUnread: true }));
+    expect(document.body.textContent).toContain("Shopify couldn't read all of this search, so some buyers may be missing. Try other words.");
+  });
+
+  // Ruling 63 and A23-F4: the export's own words for a search cut short; anything that isn't a CSV is no file
+  it("shows why the file couldn't be made", async () => {
+    const answers = [
+      new Response("Too many buyers match this search for one file. Narrow the search, or export without one.", {
+        status: 422,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      }),
+      new Response("<html>Sign in</html>", { headers: { "Content-Type": "text/html" } }),
+    ];
+    const fetch = vi.fn(async () => answers.shift()!);
+    vi.stubGlobal("fetch", fetch);
+    await renderList(listData({ query: "a" }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Export CSV"));
+    });
+    expect(fetch.mock.calls[0]).toEqual(["/app/customers/export?q=a"]);
+    expect(await screen.findByText("Too many buyers match this search for one file. Narrow the search, or export without one.")).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Export CSV"));
+    });
+    expect(await screen.findByText("The file couldn't be made. Try again.")).toBeTruthy();
+  });
 });
 
 describe("Buyer panel", () => {
@@ -129,6 +179,8 @@ describe("Buyer panel", () => {
     expect(text).toContain("Amount unknown");
     expect(text).toContain("From before install");
     expect(document.querySelector('s-button[href="shopify://admin/customers/8001"]')?.textContent).toBe("Open the buyer in Shopify");
+    // An admin page opens in the admin, not a new tab (docs Q3)
+    expect(document.querySelector('s-button[href="shopify://admin/customers/8001"]')?.getAttribute("target")).toBe("_top");
     expect(screen.getByText("Lock", { selector: "s-button" })).toBeTruthy();
     expect(document.querySelector('s-select[label="Lock to a tier"]')).not.toBeNull();
   });

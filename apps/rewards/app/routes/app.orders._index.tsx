@@ -1,8 +1,8 @@
-import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
+import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useNavigate } from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { formatMoney } from "~/admin/format";
+import { privatePageHeaders } from "~/admin/headers";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
 import { ERASED_BUYER, STATUS_TONE } from "~/admin/words";
@@ -140,6 +140,4 @@ export default function Orders() {
   );
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export const headers = privatePageHeaders;

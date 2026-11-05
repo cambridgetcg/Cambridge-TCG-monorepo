@@ -1,14 +1,14 @@
 import { useState } from "react";
-import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
+import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useNavigate } from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { listBuyers, filterTiers, readFilters } from "~/admin/customer-list.server";
 import { saveResponseAsFile } from "~/admin/download";
 import { formatMoney } from "~/admin/format";
+import { privatePageHeaders } from "~/admin/headers";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
-import { NO_TIER } from "~/admin/words";
+import { NO_TIER, SEARCH_TOO_BROAD, SEARCH_UNREAD } from "~/admin/words";
 
 /**
  * Customers (spec 4.4): search, a tier filter, and a table of buyers (buyer,
@@ -32,6 +32,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     tiers,
     searchFailed: listing.searchFailed,
     searchCut: listing.searchCut,
+    searchUnread: listing.searchUnread,
     hasNext: listing.hasNext,
     hasPrevious: filters.page > 1,
     rows: listing.rows.map((row) => ({
@@ -74,8 +75,13 @@ export default function Customers() {
       if (d.query) params.set("q", d.query);
       if (d.tierId) params.set("tier", d.tierId);
       const response = await fetch(`/app/customers/export?${params}`);
+      // A search too broad for one file: the export says so in words of its own (Ruling 63)
+      if (response.status === 422) {
+        setExportError(SEARCH_TOO_BROAD);
+        return;
+      }
       if (!response.ok) throw new Error(String(response.status));
-      await saveResponseAsFile(response, "customers.csv");
+      await saveResponseAsFile(response, "customers.csv", "text/csv");
     } catch {
       setExportError(DOWNLOAD_FAILED);
     } finally {
@@ -84,6 +90,8 @@ export default function Customers() {
   };
 
   const filtered = d.query !== "" || d.tierId !== "";
+  // The same filters from page 1, as a link (A21-F4)
+  const pageOne = `/app/customers${hrefWith(current, { page: 1 }).replace(/^\?$/, "")}`;
 
   return (
     <s-page heading="Customers" inlineSize="base">
@@ -146,17 +154,24 @@ export default function Customers() {
       </s-section>
       {d.searchFailed ? (
         <s-banner tone="warning">{"Shopify didn't answer the search. Try again."}</s-banner>
+      ) : d.rows.length === 0 && d.page > 1 ? (
+        // Past the last page: there may be buyers on page 1 (A21-F4)
+        <s-section>
+          <s-stack gap="small-200">
+            <s-text color="subdued">No buyers on this page.</s-text>
+            <s-link href={pageOne}>Go to page 1</s-link>
+          </s-stack>
+        </s-section>
       ) : d.rows.length === 0 ? (
         <s-section>
           <s-text color="subdued">{filtered ? "No buyers match." : "No buyers yet. They appear here after their first paid order."}</s-text>
         </s-section>
       ) : null}
+      {d.searchUnread ? <s-text color="subdued">{SEARCH_UNREAD}</s-text> : null}
       {d.searchCut ? <s-text color="subdued">Shopify found more customers than one search reads. Add more words to narrow it.</s-text> : null}
       {exportError ? <s-text tone="critical">{exportError}</s-text> : null}
     </s-page>
   );
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export const headers = privatePageHeaders;

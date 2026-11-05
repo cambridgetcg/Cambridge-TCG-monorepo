@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { monitoring } from "~/lib/telemetry.server";
 import { triggeredAtOf, verifyShopifyWebhook } from "~/shopify/webhook-hmac.server";
 
 const SHOP = "hmac-test.myshopify.com";
@@ -31,6 +32,7 @@ function delivery(o: { body?: string; headers?: Record<string, string | null>; m
 
 afterEach(() => {
   process.env.SHOPIFY_API_SECRET = SECRET;
+  vi.restoreAllMocks();
 });
 
 describe("verifyShopifyWebhook", () => {
@@ -41,6 +43,17 @@ describe("verifyShopifyWebhook", () => {
       webhookId: "webhook-1",
       payload: UNINSTALLED,
     });
+  });
+
+  // OPERATIONS-8: the store a verified delivery is for goes on monitoring's scope; nothing for one Shopify didn't sign
+  it("tags monitoring with the store, once the delivery is verified", async () => {
+    const tagShop = vi.spyOn(monitoring, "tagShop");
+
+    await verifyShopifyWebhook(delivery({ headers: { "X-Shopify-Hmac-Sha256": sign("{}") } }));
+    expect(tagShop).not.toHaveBeenCalled();
+
+    await verifyShopifyWebhook(delivery());
+    expect(tagShop).toHaveBeenCalledWith(SHOP);
   });
 
   it("names the topic as the library does", async () => {

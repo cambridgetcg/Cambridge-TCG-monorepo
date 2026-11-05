@@ -426,9 +426,13 @@ export const RewardsUpdatedOrders = `#graphql
  * 6.2): up to 250 customers by GID (the most `nodes` takes). First and last
  * name only, not displayName, which falls back to the buyer's email or phone
  * when they have no name.
- * Scopes: read_customers, and protected customer data access to names.
+ * Scopes: read_customers, and protected customer data access to names
+ * (without it Shopify answers `errors` and the whole batch falls back).
  * Cost: 250 at most = 250 nodes × 1 (each Customer object; its scalars cost
- * nothing).
+ * nothing), an upper bound counted by hand: Shopify doesn't document how
+ * `nodes(ids:)` is costed, and A25 measures it with Shopify-GraphQL-Cost-Debug.
+ * customerNames waits out a THROTTLED answer by Shopify's own cost figures
+ * (Ruling 78).
  */
 export const RewardsCustomerNames = `#graphql
   query RewardsCustomerNames($ids: [ID!]!) {
@@ -451,8 +455,10 @@ export const RewardsCustomerNames = `#graphql
  * Scopes: read_customers (the validator's answer). A search on names or
  * email may also need protected customer data access to those fields, which
  * RewardsCustomerNames needs already.
- * Cost: 253 = customers (connection 2, pageInfo 1, 250 × customer 1); the
- * ids cost nothing.
+ * Cost: 253 at most = customers (connection 2, pageInfo 1, 250 × customer
+ * 1); the ids cost nothing. An upper bound counted by hand: Shopify has
+ * costed connections lower since 2024, and A25 measures it with
+ * Shopify-GraphQL-Cost-Debug.
  */
 export const RewardsCustomerSearch = `#graphql
   query RewardsCustomerSearch($query: String!) {

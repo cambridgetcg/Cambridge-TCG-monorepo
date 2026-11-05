@@ -214,7 +214,7 @@ describe("Order panel", () => {
     const text = document.body.textContent ?? "";
     expect(document.querySelector("s-banner")?.getAttribute("heading")).toBe("Cashback of £4.00 needs a look");
     expect(text).toContain("Check the buyer's store credit in Shopify first. If you already added it by hand, choose It arrived.");
-    expect(document.querySelector('s-banner s-link[href="shopify://admin/customers/8001"]')).not.toBeNull();
+    expect(document.querySelector('s-banner s-link[href="shopify://admin/customers/8001"]')?.getAttribute("target")).toBe("_top");
     expect(text).toContain("Took back £0.40 of £1.00; the buyer had spent the rest");
     expect(text).toContain("Earns cashback on: £40.00");
     expect(text).toContain("Paid with store credit: £10.00");

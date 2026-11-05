@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { daysEnding, homeBanners, importOutcomeShown, parseBaseRate, runningSummary, setupDone, widgetEmbedOn } from "~/lib/home-rules";
+import { daysEnding, homeBanners, importOutcomeShown, parseBaseRate, runningSummary, setupDone, themeEditorUrl, widgetEmbedOn } from "~/lib/home-rules";
 
 describe("Home's rules", () => {
+  // A19-F6: no app key is a configuration error, never a link that quietly goes nowhere
+  it("links to the widget embed in the theme editor, and refuses to without the app's key", () => {
+    expect(themeEditorUrl("a.myshopify.com", "k1")).toBe("https://a.myshopify.com/admin/themes/current/editor?context=apps&activateAppId=k1/membership_widget");
+    expect(() => themeEditorUrl("a.myshopify.com", "")).toThrow(/SHOPIFY_API_KEY/);
+    expect(() => themeEditorUrl("a.myshopify.com", undefined)).toThrow(/SHOPIFY_API_KEY/);
+  });
+
   it("finds the widget embed among the app's extensions", () => {
     const theme = (status: string) => ({
       type: "theme_app_extension",

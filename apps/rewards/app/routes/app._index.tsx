@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { data, useFetcher, useLoaderData, useRevalidator } from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { Chart } from "~/admin/Chart";
 import { formatMoney } from "~/admin/format";
+import { privatePageHeaders } from "~/admin/headers";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
 import { ERASED_BUYER, rewardLine } from "~/admin/words";
@@ -85,7 +85,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     admin,
     stats.recent.map((r) => r.customerId).filter((id) => id !== ""),
   );
-  const editorUrl = themeEditorUrl(conn.shop, process.env.SHOPIFY_API_KEY || "");
+  const editorUrl = themeEditorUrl(conn.shop, process.env.SHOPIFY_API_KEY);
 
   return {
     shop: conn.shop,
@@ -285,7 +285,7 @@ export default function Home() {
             <s-banner key={banner.kind} tone={banner.tone}>
               {banner.text}{" "}
               {banner.link ? (
-                <s-link href={banner.link.href} target={banner.link.href.startsWith("https://") ? "_top" : "auto"}>
+                <s-link href={banner.link.href} target={/^(https|shopify):/.test(banner.link.href) ? "_top" : "auto"}>
                   {banner.link.label}
                 </s-link>
               ) : null}
@@ -500,6 +500,4 @@ export default function Home() {
   );
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export const headers = privatePageHeaders;

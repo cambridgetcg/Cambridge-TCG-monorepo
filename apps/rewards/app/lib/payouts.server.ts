@@ -26,6 +26,7 @@ import type { Decimal } from "decimal.js";
 import prisma, { databaseSchema } from "~/db.server";
 import { Money, floorMoney, fromDb, roundMoney } from "./money";
 import type { CreditHistoryResult, CreditRecord, PayoutRail, RailAnswer } from "./ports";
+import { UUID } from "./uuid";
 
 /**
  * How long after its claim a send is surely over: the rail's calls time out
@@ -668,8 +669,6 @@ const ANSWERS_FOR: Record<MerchantAnswer, readonly LookReason[]> = {
   arrived: ["could_not_confirm"],
   not_arrived: ["could_not_confirm"],
 };
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Which send of a payout a page showed (Ruling 67): its claim, which every

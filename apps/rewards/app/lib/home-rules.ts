@@ -21,7 +21,9 @@ export const REVIEW_MIN_AGE_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The theme editor with the widget embed opened, ready to switch on (Shopify's deep link for app embeds). */
-export function themeEditorUrl(shop: string, apiKey: string): string {
+export function themeEditorUrl(shop: string, apiKey: string | undefined): string {
+  // A config error, reported where it is thrown, never a link that quietly goes nowhere (A19-F6)
+  if (!apiKey) throw new Error("SHOPIFY_API_KEY is not set, so the theme editor link can't name the app");
   return `https://${shop}/admin/themes/current/editor?context=apps&activateAppId=${apiKey}/${WIDGET_EMBED_HANDLE}`;
 }
 

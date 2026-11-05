@@ -8,7 +8,7 @@ import { buildPrivacyReport } from "~/lib/erasure.server";
  * from the Customer data requests page, with the request's `id`, answered
  * with buildPrivacyReport's JSON as an attachment. buildPrivacyReport builds
  * it live and records the first download, which clears Home's banner. A
- * request that isn't this merchant's, has expired or was erased with its
+ * request that isn't this store's, has expired or was erased with its
  * customer answers 404, the same for each, so nothing says which ids exist.
  *
  * Its own route, with no page: React Router renders a page route's action
@@ -22,7 +22,7 @@ const NO_STORE = "private, no-store";
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { conn } = await requireMerchant(request);
   const id = (await request.formData()).get("id");
-  const report = typeof id === "string" ? await buildPrivacyReport(conn.merchantId, id) : null;
+  const report = typeof id === "string" ? await buildPrivacyReport(conn, id) : null;
 
   if (!report) {
     return new Response("This report is no longer available.", {

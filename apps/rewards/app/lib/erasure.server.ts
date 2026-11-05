@@ -26,6 +26,7 @@ import { importCanStillWrite } from "./import.server";
 import type { ConnectionContext } from "./merchant.server";
 import { CUSTOMER_ERASED, closeWithoutSending, lockPayout } from "./payouts.server";
 import { isCanonicalShop } from "./shop-domain";
+import { UUID } from "./uuid";
 
 /** How long a data request's report can be downloaded, from its receipt. */
 export const REPORT_RETENTION_DAYS = 45;
@@ -37,7 +38,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // default 5 s interactive-transaction timeout (carried).
 const ERASURE_TRANSACTION = { timeout: 60_000, maxWait: 10_000 };
 const PLATFORM = "shopify" as const;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type DataModel = (typeof Prisma.dmmf.datamodel.models)[number];
 
@@ -261,7 +261,7 @@ export async function listPrivacyRequests(conn: ConnectionContext) {
   return prisma.privacyRequest.findMany({
     where: { merchantId: conn.merchantId, connectionId: conn.connectionId },
     orderBy: [{ receivedAt: "desc" }, { id: "asc" }],
-    select: { id: true, status: true, receivedAt: true, dueAt: true, expiresAt: true, downloadedAt: true },
+    select: { id: true, externalCustomerId: true, status: true, receivedAt: true, dueAt: true, expiresAt: true, downloadedAt: true },
   });
 }
 
@@ -269,16 +269,18 @@ export async function listPrivacyRequests(conn: ConnectionContext) {
  * The report of a data request, built now from what the app holds about the
  * buyer: their customer row, their orders (with refunds), ledger entries and
  * payouts. No names or emails are held, so none are in it. Null for a
- * request that isn't this merchant's, or past its expiry. The first download
- * is recorded (`downloadedAt`, status `downloaded`).
+ * request that isn't this store's (its merchant and connection, BOUNDARY-8,
+ * as listPrivacyRequests lists them), or past its expiry. The first
+ * download is recorded (`downloadedAt`, status `downloaded`).
  */
 export async function buildPrivacyReport(
-  merchantId: string,
+  conn: Pick<ConnectionContext, "merchantId" | "connectionId">,
   privacyRequestId: string,
   now: Date = new Date(),
 ): Promise<{ filename: string; json: string } | null> {
-  if (!UUID.test(merchantId) || !UUID.test(privacyRequestId)) return null;
-  const request = await prisma.privacyRequest.findFirst({ where: { id: privacyRequestId, merchantId } });
+  const { merchantId, connectionId } = conn;
+  if (!UUID.test(merchantId) || !UUID.test(connectionId) || !UUID.test(privacyRequestId)) return null;
+  const request = await prisma.privacyRequest.findFirst({ where: { id: privacyRequestId, merchantId, connectionId } });
   if (!request || reportExpired(request, now)) return null;
 
   const customer =

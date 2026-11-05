@@ -1,5 +1,6 @@
 import type { AdminApiContext, Session } from "@shopify/shopify-app-react-router/server";
 import { findConnection, type ConnectionContext } from "~/lib/merchant.server";
+import { monitoring } from "~/lib/telemetry.server";
 import { authenticate } from "~/shopify.server";
 import { onAppOpened } from "~/shopify/install.server";
 
@@ -16,12 +17,14 @@ import { onAppOpened } from "~/shopify/install.server";
  * and, if it never started, the past-orders import), exactly as afterAuth
  * runs it. Loaders that run in parallel may each do so; ensureMerchant and
  * the import's start are safe to race. A Response the library throws (a
- * re-auth redirect) passes on unchanged.
+ * re-auth redirect) passes on unchanged. Once the store is known, it names
+ * every failure the request reports to monitoring (OPERATIONS-8).
  */
 export async function requireMerchant(
   request: Request,
 ): Promise<{ admin: AdminApiContext; session: Session; conn: ConnectionContext }> {
   const { admin, session } = await authenticate.admin(request);
+  monitoring.tagShop(session.shop);
 
   let conn = await findConnection(session.shop);
   if (!conn) {

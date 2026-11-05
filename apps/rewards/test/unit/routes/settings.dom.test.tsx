@@ -37,9 +37,9 @@ async function renderSettings(notifyBuyers: boolean, posted?: Array<Record<strin
   await screen.findByText("Customer data requests");
 }
 
-const OPEN = { id: "r1", received: "November 3, 2026", due: "December 3, 2026", expires: "December 18, 2026", state: "open", downloaded: null };
-const DOWNLOADED = { id: "r2", received: "October 20, 2026", due: "November 19, 2026", expires: "December 4, 2026", state: "downloaded", downloaded: "October 22, 2026" };
-const EXPIRED = { id: "r3", received: "August 1, 2026", due: "August 31, 2026", expires: "September 15, 2026", state: "expired", downloaded: null };
+const OPEN = { id: "r1", buyer: "Ann Smith", received: "November 3, 2026", due: "December 3, 2026", expires: "December 18, 2026", state: "open", downloaded: null };
+const DOWNLOADED = { id: "r2", buyer: "Customer ····5678", received: "October 20, 2026", due: "November 19, 2026", expires: "December 4, 2026", state: "downloaded", downloaded: "October 22, 2026" };
+const EXPIRED = { id: "r3", buyer: "No customer named", received: "August 1, 2026", due: "August 31, 2026", expires: "September 15, 2026", state: "expired", downloaded: null };
 
 async function renderPrivacy(requests: Array<typeof OPEN | typeof DOWNLOADED | typeof EXPIRED>) {
   const Stub = createRoutesStub([{ id: "routes/app.settings.privacy", path: "/app/settings/privacy", Component: PrivacyRequests }]);
@@ -98,9 +98,10 @@ describe("Customer data requests", () => {
   it("lists each request's dates, with Download until the report expires", async () => {
     await renderPrivacy([OPEN, DOWNLOADED, EXPIRED]);
     expect(rows()).toEqual([
-      ["November 3, 2026", "December 3, 2026", "December 18, 2026", "Download"],
-      ["October 20, 2026", "November 19, 2026", "December 4, 2026", "DownloadDownloaded October 22, 2026"],
-      ["August 1, 2026", "August 31, 2026", "September 15, 2026", "This report has expired"],
+      // DESIGN-17: whose request each is, named live
+      ["Ann Smith", "November 3, 2026", "December 3, 2026", "December 18, 2026", "Download"],
+      ["Customer ····5678", "October 20, 2026", "November 19, 2026", "December 4, 2026", "DownloadDownloaded October 22, 2026"],
+      ["No customer named", "August 1, 2026", "August 31, 2026", "September 15, 2026", "This report has expired"],
     ]);
     expect(document.querySelectorAll("s-button")).toHaveLength(2);
     expect(document.querySelector('s-link[slot="breadcrumb-actions"]')?.getAttribute("href")).toBe("/app/settings");
@@ -129,5 +130,26 @@ describe("Customer data requests", () => {
     expect(await screen.findByText("This report is no longer available.")).toBeTruthy();
     // The list is read again, so it shows what the request has become
     expect(revalidate).toHaveBeenCalledTimes(1);
+  });
+
+  // A23-F4: a sign-in page answered 200 is not the report
+  it("saves nothing, and says the download failed, when the answer isn't the report", async () => {
+    // jsdom has no createObjectURL: set for this test, so only the type check can stop the save
+    const createObjectURL = vi.fn(() => "blob:x");
+    const original = URL.createObjectURL;
+    URL.createObjectURL = createObjectURL;
+    try {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>Sign in</html>", { headers: { "Content-Type": "text/html" } })));
+      await renderPrivacy([OPEN]);
+
+      await act(async () => {
+        fireEvent.click(document.querySelector("s-button")!);
+      });
+
+      expect(await screen.findByText("The report couldn't be downloaded. Try again.")).toBeTruthy();
+      expect(createObjectURL).not.toHaveBeenCalled();
+    } finally {
+      URL.createObjectURL = original;
+    }
   });
 });

@@ -1,28 +1,37 @@
 import { useState } from "react";
-import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
+import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useRevalidator } from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { formatDay } from "~/admin/customer-history.server";
 import { saveResponseAsFile } from "~/admin/download";
+import { privatePageHeaders } from "~/admin/headers";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { REPORT_DUE_DAYS, REPORT_RETENTION_DAYS, listPrivacyRequests, reportExpired } from "~/lib/erasure.server";
+import { customerNames } from "~/shopify/names.server";
 
 /**
  * Customer data requests (spec 4.7, a Settings sub-page, not in the menu):
  * each customers/data_request Shopify delivered, newest first, with the day
  * it came, the day it is due (REPORT_DUE_DAYS) and the day its report
- * expires (REPORT_RETENTION_DAYS). They are the rows Home's data-request
- * banner reads. Download fetches the report (app.settings.privacy.download),
+ * expires (REPORT_RETENTION_DAYS), and whose it is: the buyer's name, read
+ * live from Shopify and never stored (DESIGN-17). They are the rows Home's
+ * data-request banner reads. Download fetches the report (app.settings.privacy.download),
  * built live by buildPrivacyReport, which marks the request downloaded and so
  * clears that banner. A request past its expiry can't be downloaded, whether
  * or not the nightly housekeeping has marked it `expired` yet.
  */
 
+/** A request Shopify sent without a customer id. */
+const NO_CUSTOMER = "No customer named";
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { conn } = await requireMerchant(request);
+  const { admin, conn } = await requireMerchant(request);
   const now = new Date();
   const rows = await listPrivacyRequests(conn);
+  const names = await customerNames(
+    admin,
+    rows.flatMap((row) => (row.externalCustomerId === null ? [] : [row.externalCustomerId])),
+  );
   const day = (date: Date) => formatDay(date, conn.timezone);
 
   return {
@@ -32,6 +41,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const expired = reportExpired(row, now);
       return {
         id: row.id,
+        buyer: row.externalCustomerId === null ? NO_CUSTOMER : names.get(row.externalCustomerId)!,
         received: day(row.receivedAt),
         due: day(row.dueAt),
         expires: day(row.expiresAt),
@@ -64,7 +74,7 @@ export default function PrivacyRequests() {
         return;
       }
       if (!response.ok) throw new Error(String(response.status));
-      await saveResponseAsFile(response, "customer-data-request.json");
+      await saveResponseAsFile(response, "customer-data-request.json", "application/json");
     } catch {
       setError({ id, text: DOWNLOAD_FAILED });
     } finally {
@@ -104,7 +114,8 @@ export default function PrivacyRequests() {
         <s-section padding="none">
           <s-table>
             <s-table-header-row>
-              <s-table-header listSlot="primary">Received</s-table-header>
+              <s-table-header listSlot="primary">Buyer</s-table-header>
+              <s-table-header listSlot="labeled">Received</s-table-header>
               <s-table-header listSlot="labeled">Due</s-table-header>
               <s-table-header listSlot="labeled">Expires</s-table-header>
               <s-table-header listSlot="secondary">Report</s-table-header>
@@ -112,6 +123,7 @@ export default function PrivacyRequests() {
             <s-table-body>
               {d.requests.map((row) => (
                 <s-table-row key={row.id}>
+                  <s-table-cell>{row.buyer}</s-table-cell>
                   <s-table-cell>{row.received}</s-table-cell>
                   <s-table-cell>{row.due}</s-table-cell>
                   <s-table-cell>{row.expires}</s-table-cell>
@@ -131,6 +143,4 @@ export default function PrivacyRequests() {
   );
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export const headers = privatePageHeaders;

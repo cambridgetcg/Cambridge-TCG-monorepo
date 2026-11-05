@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { data, useFetcher, useLoaderData } from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { formatDay } from "~/admin/customer-history.server";
+import { notFoundBoundary } from "~/admin/errors";
 import { formatMoney } from "~/admin/format";
+import { privatePageHeaders } from "~/admin/headers";
 import { type AnswerButton, type Look, entryLines, panelNotes, refundLine } from "~/admin/order-panel.server";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
@@ -129,7 +130,9 @@ function LookBanner({ payoutId, look, buyerAdminUrl }: { payoutId: string; look:
         <s-stack gap="small-200">
           {look.text ? <s-text>{look.text}</s-text> : null}
           {look.hint ? <s-text>{look.hint}</s-text> : null}
-          {look.hint && buyerAdminUrl ? <s-link href={buyerAdminUrl}>{BUYER_IN_SHOPIFY}</s-link> : null}
+          {look.hint && buyerAdminUrl ? <s-link href={buyerAdminUrl} target="_top">
+              {BUYER_IN_SHOPIFY}
+            </s-link> : null}
           {error ? <s-text tone="critical">{error}</s-text> : null}
         </s-stack>
         {look.answers.map((button) =>
@@ -279,6 +282,7 @@ export default function Order() {
   );
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export const headers = privatePageHeaders;
+
+// A 404 (not the store's, erased, or no such id) inside the admin, with the way back (A21 concern 4)
+export const ErrorBoundary = notFoundBoundary("This order isn't here.", { href: "/app/orders", label: "Orders" });

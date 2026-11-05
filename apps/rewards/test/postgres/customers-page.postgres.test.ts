@@ -7,6 +7,7 @@ import { customerRows } from "~/lib/stats.server";
 import { tierSpend } from "~/lib/tiers.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import type { GraphqlClient } from "~/shopify/graphql";
+import { GraphqlQueryError } from "../helpers/shopify-api-errors";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
 
 /**
@@ -41,11 +42,16 @@ function fakeAdmin(
     people?: Record<string, Person>;
     search?: string[] | "fail";
     searchMore?: boolean;
+    /** Shopify's search warnings, as when it couldn't read the search */
+    searchWarnings?: string[];
+    /** The first RewardsCustomerNames call is throttled, with a 3 s wait: longer than a page's 2.5 s */
+    throttleNamesOnce?: boolean;
     balance?: string | "hang";
     accounts?: Array<{ amount: string; currencyCode: string }>;
   } = {},
 ): GraphqlClient & { calls: Call[] } {
   const calls: Call[] = [];
+  let throttled = false;
   return {
     calls,
     async graphql(query, options) {
@@ -55,6 +61,17 @@ function fakeAdmin(
       let answer: unknown;
       switch (operation) {
         case "RewardsCustomerNames":
+          if (o.throttleNamesOnce && !throttled) {
+            throttled = true;
+            throw new GraphqlQueryError({
+              message: "Throttled",
+              response: {},
+              body: {
+                errors: { networkStatusCode: 200, message: "GraphQL Client", graphQLErrors: [{ message: "Throttled", extensions: { code: "THROTTLED" } }] },
+                extensions: { cost: { requestedQueryCost: 300, throttleStatus: { maximumAvailable: 2000, currentlyAvailable: 0, restoreRate: 100 } } },
+              },
+            });
+          }
           answer = {
             data: {
               nodes: (variables.ids as string[]).map((gid) => {
@@ -70,6 +87,9 @@ function fakeAdmin(
             data: {
               customers: { pageInfo: { hasNextPage: o.searchMore ?? false }, nodes: o.search.map((id) => ({ id: `gid://shopify/Customer/${id}` })) },
             },
+            ...(o.searchWarnings
+              ? { extensions: { search: [{ path: ["customers"], query: variables.query, warnings: o.searchWarnings.map((message) => ({ field: "x", message })) }] } }
+              : {}),
           };
           break;
         case "RewardsBalance":
@@ -445,6 +465,13 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
 
       // Shopify has more matches than one search reads
       expect((await loadList("?q=a", fakeAdmin({ people, search: [bob.externalCustomerId!], searchMore: true }))).searchCut).toBe(true);
+
+      // BOUNDARY-5: the words are sent escaped, and the page says when Shopify couldn't read them
+      const escaped = fakeAdmin({ people, search: [ann.externalCustomerId!], searchWarnings: ["Invalid search field for this query."] });
+      const warned = await loadList(`?q=${encodeURIComponent("Name: -Smith")}`, escaped);
+      expect(escaped.calls.find((call) => call.operation === "RewardsCustomerSearch")?.variables).toEqual({ query: "Name\\: Smith" });
+      expect(warned).toMatchObject({ searchUnread: true, searchFailed: false, rows: [expect.objectContaining({ id: ann.id })] });
+      expect(page.searchUnread).toBe(false);
     });
 
     it("says so when Shopify can't search, and shows no one", async () => {
@@ -470,6 +497,10 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
         { firstName: "Comma,", lastName: "Person" },
         { firstName: 'Quote "Q"', lastName: "Person" },
         { firstName: "Line\nBreak" },
+        // BOUNDARY-1: no quote or comma, but a ; splits it into cells in a ; locale
+        { firstName: "Ann", lastName: ";=1+1;" },
+        // A name that reads as a number is still a name, not an amount the app wrote
+        { firstName: "-5" },
       ];
       const atTop = await addTier(conn.merchantId, "@Top", "900", "12", 3);
       const people: Record<string, Person> = {};
@@ -482,6 +513,10 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       await addOrder(named[0].id, "300.00", 30);
       await addEntry(named[0].id, { kind: "cashback", amount: "15.00" });
       await addEntry(named[0].id, { kind: "reversal", amount: "-20.00" });
+      // A tier name carried over from the old app may start with a tab
+      const tabbed = await addTier(conn.merchantId, "\tTabbed", "1200", "13", 4);
+      const tabBuyer = await addBuyer({ tierId: tabbed.id });
+      people[tabBuyer.externalCustomerId!] = { firstName: "Tab" };
       // 50 more, so the file runs past the first page
       for (let i = 0; i < 50; i++) await addBuyer();
 
@@ -496,19 +531,24 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       const body = await response.text();
       const lines = body.split("\r\n");
       expect(lines.at(-1)).toBe("");
-      expect(lines[0]).toBe("Buyer,Tier,Spend counted,Cashback given");
+      // TRUTH-15: the money columns name the shop's currency
+      expect(lines[0]).toBe('"Buyer","Tier","Spend counted (GBP)","Cashback given (GBP)"');
       // Newest first: the 50 unnamed buyers, then the named ones from the last
-      expect(lines.slice(1, -1)).toHaveLength(57);
-      expect(lines.slice(1, 51).every((line) => /^Customer ····\d{4},Bronze,0\.00,0\.00$/.test(line))).toBe(true);
+      expect(lines.slice(1, -1)).toHaveLength(60);
+      expect(lines.slice(1, 51).every((line) => /^"Customer ····\d{4}","Bronze","0\.00","0\.00"$/.test(line))).toBe(true);
       expect(lines.slice(51, -1).reverse()).toEqual([
-        `"'=HYPERLINK(""https://evil.example"")",'@Top,300.00,'-5.00`,
-        "'+44 Smith,'@Top,0.00,0.00",
-        "'-Neg,'@Top,0.00,0.00",
-        "'@Admin,'@Top,0.00,0.00",
-        `"Comma, Person",'@Top,0.00,0.00`,
-        `"Quote ""Q"" Person",'@Top,0.00,0.00`,
+        // Every cell quoted; a negative amount the app wrote stays a number a spreadsheet sums (Ruling 58)
+        `"'=HYPERLINK(""https://evil.example"")","'@Top","300.00","-5.00"`,
+        `"'+44 Smith","'@Top","0.00","0.00"`,
+        `"'-Neg","'@Top","0.00","0.00"`,
+        `"'@Admin","'@Top","0.00","0.00"`,
+        `"Comma, Person","'@Top","0.00","0.00"`,
+        `"Quote ""Q"" Person","'@Top","0.00","0.00"`,
         // A name's line break goes inside its quotes
-        `"Line\nBreak",'@Top,0.00,0.00`,
+        `"Line\nBreak","'@Top","0.00","0.00"`,
+        `"Ann ;=1+1;","'@Top","0.00","0.00"`,
+        `"'-5","'@Top","0.00","0.00"`,
+        `"Tab","'\tTabbed","0.00","0.00"`,
       ]);
       expect(body).not.toContain("@example.com");
     });
@@ -520,10 +560,75 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       const people = { [ann.externalCustomerId!]: { firstName: "Ann" }, [bob.externalCustomerId!]: { firstName: "Bob" } };
 
       const byTier = await (await exportCsv(`?tier=${gold.id}`, fakeAdmin({ people }))).text();
-      expect(byTier.split("\r\n").slice(1, -1)).toEqual(["Bob,Gold,0.00,0.00", "Ann,Gold,0.00,0.00"]);
+      expect(byTier.split("\r\n").slice(1, -1)).toEqual(['"Bob","Gold","0.00","0.00"', '"Ann","Gold","0.00","0.00"']);
 
       const searched = await (await exportCsv("?q=ann", fakeAdmin({ people, search: [ann.externalCustomerId!] }))).text();
-      expect(searched.split("\r\n").slice(1, -1)).toEqual(["Ann,Gold,0.00,0.00"]);
+      expect(searched.split("\r\n").slice(1, -1)).toEqual(['"Ann","Gold","0.00","0.00"']);
+    });
+
+    // BOUNDARY-7: a tier filter that isn't the merchant's never widens to every buyer
+    it("answers 404, not every buyer, for a tier that isn't there any more", async () => {
+      const goneTier = await addTier(conn.merchantId, "Gone", "700", "11", 3);
+      await addBuyer({ tierId: bronze.id });
+      await prisma.tier.delete({ where: { id: goneTier.id } });
+
+      for (const tier of [goneTier.id, "nonsense"]) {
+        const response = await exportCsv(`?tier=${tier}`);
+        expect(response.status, tier).toBe(404);
+        expect(response.headers.get("Content-Disposition")).toBeNull();
+        expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+      }
+    });
+
+    // Ruling 63: a file that passes for complete must be complete
+    it("answers an error the page shows, never part of the matches, when Shopify found more than one search reads", async () => {
+      const ann = await addBuyer({ tierId: gold.id });
+
+      const response = await exportCsv("?q=a", fakeAdmin({ search: [ann.externalCustomerId!], searchMore: true }));
+
+      expect(response.status).toBe(422);
+      expect(response.headers.get("Content-Disposition")).toBeNull();
+      expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+      expect(await response.text()).toBe("Too many buyers match this search for one file. Narrow the search, or export without one.");
+    });
+
+    // CONCURRENCY-5: a buyer leaving the tier mid-export moves no one else off the pages it reads
+    it("names every buyer who stayed in the tier when a tier pass moves one out while the pages are read", async () => {
+      const golds = [];
+      for (let i = 0; i < 51; i++) golds.push(await addBuyer({ tierId: gold.id }));
+      const people = Object.fromEntries(golds.map((buyer, i) => [buyer.externalCustomerId!, { firstName: `Gold${i}` }]));
+      const newest = golds[50];
+      // vi.spyOn's restore would leave the model method undefined (failNextCall), so it is patched by hand
+      const delegate = prisma.customer as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+      const findMany = delegate.findMany;
+      let reads = 0;
+      delegate.findMany = async (...args: unknown[]) => {
+        const rows = await findMany(...args);
+        // After the first page is read, the tier pass moves the newest Gold buyer to Silver
+        if (++reads === 1) await prisma.customer.update({ where: { id: newest.id }, data: { tierId: silver.id } });
+        return rows;
+      };
+
+      try {
+        const body = await (await exportCsv(`?tier=${gold.id}`, fakeAdmin({ people }))).text();
+        const named = body.split("\r\n").slice(1, -1).map((line) => line.split(",")[0]);
+        // Every buyer who stayed in Gold, the oldest included; the one who left was read before they left
+        for (let i = 0; i < 50; i++) expect(named, `Gold${i}`).toContain(`"Gold${i}"`);
+        expect(named).toHaveLength(51);
+      } finally {
+        delegate.findMany = findMany;
+      }
+    });
+
+    // Ruling 78: a throttle partway through the names waits and asks again, within the export's own budget
+    it("names every buyer when Shopify throttles the names once", async () => {
+      const ann = await addBuyer();
+      const admin = fakeAdmin({ people: { [ann.externalCustomerId!]: { firstName: "Ann" } }, throttleNamesOnce: true });
+
+      const body = await (await exportCsv("", admin)).text();
+
+      expect(body.split("\r\n")[1]).toBe('"Ann","Bronze","0.00","0.00"');
+      expect(admin.calls.filter((call) => call.operation === "RewardsCustomerNames")).toHaveLength(2);
     });
 
     it("answers 503, not an empty file, when Shopify can't search", async () => {
@@ -808,6 +913,23 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       }
       expect(await thrown(actOnPanel("not-a-buyer", { intent: "automatic" }))).toEqual({ status: 404 });
       expect(await prisma.customer.findUniqueOrThrow({ where: { id: theirs.id } })).toMatchObject({ lockedTierId: null, tierId: theirTier.id });
+    });
+
+    // A21-F5: the action checks the buyer is the store's with one light read, not the whole panel
+    it("checks the buyer without reading their panel", async () => {
+      const buyer = await addBuyer({ tierId: bronze.id });
+      const erased = await addBuyer({ externalId: null });
+      // The panel's reads, made to fail: the action must not need them
+      const delegates = [prisma.ledgerEntry, prisma.order] as unknown as Array<Record<string, (...args: unknown[]) => Promise<unknown>>>;
+      const originals = delegates.map((delegate) => delegate.findMany);
+      for (const delegate of delegates) delegate.findMany = async () => Promise.reject(new Error("the action read the panel"));
+      try {
+        expect(await actOnPanel(buyer.id, { intent: "lock", tierId: gold.id })).toEqual({ ok: true });
+        expect(await thrown(actOnPanel(erased.id, { intent: "automatic" }))).toEqual({ status: 404 });
+      } finally {
+        delegates.forEach((delegate, i) => (delegate.findMany = originals[i]));
+      }
+      expect(await prisma.customer.findUniqueOrThrow({ where: { id: buyer.id } })).toMatchObject({ lockedTierId: gold.id });
     });
 
     it("refuses a tier that isn't the merchant's, or an unknown action", async () => {

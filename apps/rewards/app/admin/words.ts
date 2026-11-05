@@ -19,6 +19,12 @@ export const BUYER_IN_SHOPIFY = "Open the buyer in Shopify";
 export const AMOUNT_UNKNOWN = "Amount unknown";
 /** The buyer panel's lock button; its select is "Lock to a tier". */
 export const LOCK = "Lock";
+/** The export's answer, shown on Customers, when Shopify found more buyers than one search reads (Ruling 63). */
+export const SEARCH_TOO_BROAD = "Too many buyers match this search for one file. Narrow the search, or export without one.";
+/** Customers, when Shopify warned it couldn't read the search (BOUNDARY-5). */
+export const SEARCH_UNREAD = "Shopify couldn't read all of this search, so some buyers may be missing. Try other words.";
+/** Any page, for an error that isn't one of the app's own answers (BOUNDARY-3). */
+export const SOMETHING_WRONG = "Something went wrong. Reload the page.";
 
 export type StatusKey = "issued" | "waiting" | "needs_look" | "taken_back" | "not_taken_back" | "no_cashback" | "unknown";
 

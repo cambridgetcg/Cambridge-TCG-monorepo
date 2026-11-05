@@ -13,8 +13,8 @@ import { hasTestDatabase, resetDatabase } from "./helpers/database";
  * gives the merchant's own report before it expires and clears Home's
  * data-request banner. The admin session is the library's job
  * (requireMerchant), so it is replaced here by the store's connection and an
- * Admin API client that must never be called: these pages ask Shopify
- * nothing.
+ * Admin API client that answers only the buyers' names the request list
+ * reads live (DESIGN-17); nothing else here asks Shopify anything.
  */
 
 vi.mock("~/admin/require-merchant.server", () => ({ requireMerchant: vi.fn() }));
@@ -24,9 +24,19 @@ const OTHER_SHOP = "other-settings-page.myshopify.com";
 const TIMEZONE = "Europe/London";
 const DAY = 24 * 60 * 60 * 1000;
 
-const noShopify: GraphqlClient = {
-  async graphql(query) {
-    throw new Error(`These pages ask Shopify nothing, but asked: ${query}`);
+/** Shopify's names, by numeric customer id; any other document fails the test. */
+const NAMES: Record<string, { firstName: string; lastName: string | null }> = { "7001": { firstName: "Ann", lastName: "Smith" } };
+const namesOnly: GraphqlClient & { asked: string[][] } = {
+  asked: [],
+  async graphql(query, options) {
+    if (!/query RewardsCustomerNames\b/.test(query)) throw new Error(`These pages ask Shopify only for names, but asked: ${query}`);
+    const ids = options?.variables?.ids as string[];
+    namesOnly.asked.push(ids);
+    const nodes = ids.map((gid) => {
+      const person = NAMES[gid.split("/").pop()!];
+      return person ? { id: gid, ...person } : null;
+    });
+    return { json: async () => ({ data: { nodes } }) };
   },
 };
 
@@ -43,7 +53,7 @@ let other: ConnectionContext;
 
 async function signIn(shop = SHOP) {
   const signedIn = (await findConnection(shop))!;
-  requireMerchant.mockResolvedValue({ admin: noShopify, session: { shop }, conn: signedIn });
+  requireMerchant.mockResolvedValue({ admin: namesOnly, session: { shop }, conn: signedIn });
 }
 
 type SettingsData = Exclude<Awaited<ReturnType<SettingsRoute["loader"]>>, Response>;
@@ -81,9 +91,9 @@ async function download(fields: Record<string, string>): Promise<Response> {
 }
 
 /** A data request received `daysAgo` days before `from`, as customers/data_request opens it. */
-const received = (c: ConnectionContext, shopifyRequestId: string, daysAgo: number, from = Date.now()) =>
+const received = (c: ConnectionContext, shopifyRequestId: string, daysAgo: number, from = Date.now(), externalCustomerId: string | null = "7001") =>
   openPrivacyRequest(c, {
-    externalCustomerId: "7001",
+    externalCustomerId,
     shopifyRequestId,
     ordersRequested: [],
     now: new Date(from - daysAgo * DAY),
@@ -111,6 +121,7 @@ describe.skipIf(!hasTestDatabase)("Settings and customer data requests", () => {
   });
 
   afterEach(() => {
+    namesOnly.asked = [];
     requireMerchant?.mockReset();
     vi.restoreAllMocks();
   });
@@ -157,10 +168,12 @@ describe.skipIf(!hasTestDatabase)("Settings and customer data requests", () => {
       const downloaded = await received(conn, "102", 10, from);
       // Past its expiry, before the nightly housekeeping marked it expired
       const lapsed = await received(conn, "103", REPORT_RETENTION_DAYS + 1, from);
-      const expired = await received(conn, "104", 60, from);
+      const expired = await received(conn, "104", 60, from, "8888885678");
       await prisma.privacyRequest.update({ where: { id: expired.id }, data: { status: "expired" } });
       const downloadedAt = new Date(from - 5 * DAY);
       await prisma.privacyRequest.update({ where: { id: downloaded.id }, data: { status: "downloaded", downloadedAt } });
+      // Shopify named no customer
+      const unnamed = await received(conn, "105", 70, from, null);
       await received(other, "201", 1);
 
       const d = await loadPrivacy();
@@ -175,12 +188,15 @@ describe.skipIf(!hasTestDatabase)("Settings and customer data requests", () => {
       };
       expect(d.dueDays).toBe(30);
       expect(d.retentionDays).toBe(45);
+      // DESIGN-17: whose request each is, read live from Shopify and never stored
       expect(d.requests).toEqual([
-        { id: fresh.id, ...dates(2), state: "open", downloaded: null },
-        { id: downloaded.id, ...dates(10), state: "downloaded", downloaded: day(downloadedAt) },
-        { id: lapsed.id, ...dates(REPORT_RETENTION_DAYS + 1), state: "expired", downloaded: null },
-        { id: expired.id, ...dates(60), state: "expired", downloaded: null },
+        { id: fresh.id, buyer: "Ann Smith", ...dates(2), state: "open", downloaded: null },
+        { id: downloaded.id, buyer: "Ann Smith", ...dates(10), state: "downloaded", downloaded: day(downloadedAt) },
+        { id: lapsed.id, buyer: "Ann Smith", ...dates(REPORT_RETENTION_DAYS + 1), state: "expired", downloaded: null },
+        { id: expired.id, buyer: "Customer ····5678", ...dates(60), state: "expired", downloaded: null },
+        { id: unnamed.id, buyer: "No customer named", ...dates(70), state: "expired", downloaded: null },
       ]);
+      expect(namesOnly.asked).toEqual([["gid://shopify/Customer/7001", "gid://shopify/Customer/8888885678"]]);
     });
 
     it("shows none when no customer has asked", async () => {
@@ -230,6 +246,21 @@ describe.skipIf(!hasTestDatabase)("Settings and customer data requests", () => {
       await expect(requestRow(theirs.id)).resolves.toEqual({ status: "open", downloadedAt: null });
       // The other store's banner stays
       await expect(homeState(other, new Date(), 0)).resolves.toMatchObject({ privacyDueAt: expect.any(Date) });
+    });
+
+    // BOUNDARY-8: a merchant with two stores downloads each store's reports from that store only
+    it("gives only the connection's own report, under one merchant with two stores", async () => {
+      const now = new Date();
+      const second = await prisma.connection.create({
+        data: { merchantId: conn.merchantId, platform: "shopify", externalAccountId: "second-settings-page.myshopify.com", status: "active", installedAt: now, activatedAt: now },
+      });
+      const theirs = await received({ ...conn, connectionId: second.id, shop: second.externalAccountId }, "601", 3);
+
+      const response = await download({ id: theirs.id });
+
+      expect(response.status).toBe(404);
+      await expect(response.text()).resolves.toBe("This report is no longer available.");
+      await expect(requestRow(theirs.id)).resolves.toEqual({ status: "open", downloadedAt: null });
     });
 
     it("refuses an expired report, whether or not housekeeping has marked it yet", async () => {

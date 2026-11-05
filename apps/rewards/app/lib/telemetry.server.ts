@@ -146,6 +146,15 @@ export const monitoring = {
     Sentry.captureMessage(message, { level, ...context });
     return true;
   },
+  /**
+   * Names the store a request is for on every event the request reports
+   * (OPERATIONS-8), as the `shop` tag: the store's own domain, never a
+   * buyer's detail. Set on the request's isolation scope (Sentry.setTag),
+   * which the SDK's HTTP server integration forks for each incoming request.
+   */
+  tagShop(shop: string): void {
+    if (monitoring.enabled()) Sentry.setTag("shop", shop);
+  },
   captureCheckIn(checkIn: Parameters<typeof Sentry.captureCheckIn>[0], config?: Parameters<typeof Sentry.captureCheckIn>[1]): string {
     return Sentry.captureCheckIn(checkIn, config);
   },

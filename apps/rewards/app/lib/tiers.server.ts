@@ -27,6 +27,7 @@ import prisma, { databaseSchema } from "~/db.server";
 import { acquireCronLock, releaseCronLock } from "./cron.server";
 import { BASE_TIER_NAME, parseBaseRate } from "./home-rules";
 import { Money, fromDb } from "./money";
+import { UUID } from "./uuid";
 import { waitUntil } from "./wait-until.server";
 
 export type TierWindow = "rolling_12_months" | "lifetime";
@@ -48,8 +49,6 @@ type Db = PrismaClient | Prisma.TransactionClient;
 
 /** How many times a resolve starts over when the buyer's row changed under it. */
 const RESOLVE_ATTEMPTS = 3;
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Where the window's spend starts: for the rolling window, the same instant

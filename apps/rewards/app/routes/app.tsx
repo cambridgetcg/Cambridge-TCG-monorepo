@@ -3,6 +3,7 @@ import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
+import { adminError } from "../admin/errors";
 import { authenticate } from "../shopify.server";
 import { POLARIS_URL } from "../shopify/polaris";
 
@@ -40,9 +41,10 @@ export default function App() {
 }
 
 // Shopify needs React Router to catch some thrown responses, so that their
-// headers are included in the response.
+// headers are included in the response. Any other error is one plain
+// sentence, never the stack (BOUNDARY-3).
 export function ErrorBoundary() {
-  return boundary.error(useRouteError());
+  return adminError(useRouteError());
 }
 
 export const headers: HeadersFunction = (headersArgs) => {

@@ -1,6 +1,10 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import type { ReactNode } from "react";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError } from "react-router";
 
-export default function App() {
+import { adminError } from "./admin/errors";
+
+/** The document every page and every error renders in. */
+export function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -11,10 +15,25 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <Outlet />
+        {children}
         <ScrollRestoration />
         <Scripts />
       </body>
     </html>
   );
+}
+
+export default function App() {
+  return <Outlet />;
+}
+
+/**
+ * The last boundary (BOUNDARY-3), for what the admin's own (app.tsx) doesn't
+ * hold: React Router's default, which shows the error's stack, never
+ * renders. As adminError: a thrown response as Shopify's boundary renders
+ * it, a URL no route matches in plain words, anything else the plain
+ * sentence.
+ */
+export function ErrorBoundary() {
+  return adminError(useRouteError());
 }

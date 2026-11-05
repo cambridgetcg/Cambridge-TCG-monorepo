@@ -1,5 +1,5 @@
 import type { ConnectionContext } from "~/lib/merchant.server";
-import { type CustomerRow, customerRows } from "~/lib/stats.server";
+import { type CustomerCursor, type CustomerRow, customerRows } from "~/lib/stats.server";
 import { tierTable } from "~/lib/tiers.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { SEARCH_MAX, customerNames, searchCustomers } from "~/shopify/names.server";
@@ -39,25 +39,33 @@ export type Listing = {
   searchFailed: boolean;
   /** Shopify found more customers than one search reads */
   searchCut: boolean;
+  /** Shopify warned it couldn't read the search (BOUNDARY-5) */
+  searchUnread: boolean;
 };
 
 /**
  * The buyers `filters` select, with their names: one page, or every page
- * (`allPages`, for the export).
+ * (`allPages`, for the export), read by keyset (CONCURRENCY-5). A search
+ * Shopify cut short gives the export no rows at all: a file of part of the
+ * matches would pass for all of them (Ruling 63). `namesBudgetMs` is how long
+ * the names may take in all (customerNames; a page's default otherwise).
  */
 export async function listBuyers(
   admin: GraphqlClient,
   conn: ConnectionContext,
   filters: CustomerFilters,
-  o: { allPages?: boolean } = {},
+  o: { allPages?: boolean; namesBudgetMs?: number } = {},
 ): Promise<Listing> {
   let externalIds: string[] | undefined;
   let searchCut = false;
+  let searchUnread = false;
   if (filters.query !== "") {
     const found = await searchCustomers(admin, filters.query);
-    if (!found) return { rows: [], hasNext: false, searchFailed: true, searchCut: false };
+    if (!found) return { rows: [], hasNext: false, searchFailed: true, searchCut: false, searchUnread: false };
     externalIds = found.ids;
     searchCut = found.more;
+    searchUnread = found.unread;
+    if (o.allPages && searchCut) return { rows: [], hasNext: false, searchFailed: false, searchCut, searchUnread };
   }
 
   const select = { tierId: filters.tierId || undefined, externalIds };
@@ -65,17 +73,16 @@ export async function listBuyers(
   const rows: CustomerRow[] = [];
   let hasNext: boolean;
   if (o.allPages) {
-    // A buyer first seen while the pages are read pushes the rest down one:
-    // the buyer it pushes onto the next page is read twice, and kept once
-    const seen = new Set<string>();
-    for (let page = 1; ; page++) {
-      const read = await customerRows(conn, { ...select, page, now });
-      for (const row of read.rows) {
-        if (!seen.has(row.id)) rows.push(row);
-        seen.add(row.id);
-      }
-      if (!read.hasNext) break;
-    }
+    // Each page starts after the last buyer read, so a buyer leaving the
+    // filter meanwhile can't slide another past the reader. A buyer first
+    // seen meanwhile sorts before the cursor and isn't in the file: they
+    // weren't a buyer when the export began.
+    let after: CustomerCursor | undefined;
+    do {
+      const read = await customerRows(conn, { ...select, page: 1, after, now });
+      rows.push(...read.rows);
+      after = read.next;
+    } while (after);
     hasNext = false;
   } else {
     const read = await customerRows(conn, { ...select, page: filters.page, now });
@@ -86,11 +93,13 @@ export async function listBuyers(
   const names = await customerNames(
     admin,
     rows.map((row) => row.externalCustomerId),
+    { budgetMs: o.namesBudgetMs },
   );
   return {
     rows: rows.map((row) => ({ ...row, buyer: names.get(row.externalCustomerId)! })),
     hasNext,
     searchFailed: false,
     searchCut,
+    searchUnread,
   };
 }

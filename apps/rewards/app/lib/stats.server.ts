@@ -36,6 +36,7 @@ import { type OrderStatus, orderStatus } from "./order-status";
 import { payoutVersion } from "./payouts.server";
 import { monitoring } from "./telemetry.server";
 import { type Progress, type TierRow, progress, qualify, spendCounted, spendOf, tierSpend, tierTable } from "./tiers.server";
+import { UUID } from "./uuid";
 
 export type RecentReward = {
   orderId: string;
@@ -261,8 +262,6 @@ export async function homeState(conn: ConnectionContext, now: Date, cashbackEntr
 /** Buyers a Customers page shows. */
 export const CUSTOMER_PAGE_SIZE = 50;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export type CustomerRow = {
   id: string;
   /** The buyer's Shopify customer id, for their live name */
@@ -277,6 +276,9 @@ export type CustomerRow = {
   cashbackGiven: Decimal;
 };
 
+/** Where a Customers page ends: its last buyer, in the list's order. */
+export type CustomerCursor = { createdAt: Date; id: string };
+
 /**
  * One page of the Customers list (spec 4.4): the store's buyers, newest
  * first (by when RewardsPro first saw them, then id), CUSTOMER_PAGE_SIZE to a
@@ -286,11 +288,17 @@ export type CustomerRow = {
  * with those Shopify ids (a search's matches; an empty list keeps no one).
  * The page's buyers are read first and their numbers for them alone, so a
  * page costs the same however large the store. `now` is for the spend window.
+ *
+ * `after` reads the page after a buyer instead of page `page`: the buyers
+ * after its (createdAt, id) in the same order, so a buyer leaving the filter
+ * meanwhile moves no one else off the pages still to read (keyset pages,
+ * CONCURRENCY-5). `next` is the cursor for the following page, when there is
+ * one.
  */
 export async function customerRows(
   conn: ConnectionContext,
-  o: { tierId?: string; externalIds?: string[]; page: number; now?: Date },
-): Promise<{ rows: CustomerRow[]; hasNext: boolean }> {
+  o: { tierId?: string; externalIds?: string[]; page: number; after?: CustomerCursor; now?: Date },
+): Promise<{ rows: CustomerRow[]; hasNext: boolean; next?: CustomerCursor }> {
   const none = { rows: [], hasNext: false };
   if (o.tierId !== undefined && !UUID.test(o.tierId)) return none;
   if (o.externalIds !== undefined && o.externalIds.length === 0) return none;
@@ -302,11 +310,12 @@ export async function customerRows(
       connectionId: conn.connectionId,
       externalCustomerId: o.externalIds ? { in: o.externalIds } : { not: null },
       ...(o.tierId ? { tierId: o.tierId } : {}),
+      ...(o.after ? { OR: [{ createdAt: { lt: o.after.createdAt } }, { createdAt: o.after.createdAt, id: { lt: o.after.id } }] } : {}),
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    skip: (page - 1) * CUSTOMER_PAGE_SIZE,
+    skip: o.after ? 0 : (page - 1) * CUSTOMER_PAGE_SIZE,
     take: CUSTOMER_PAGE_SIZE + 1,
-    select: { id: true, externalCustomerId: true, tierId: true, tier: { select: { name: true } } },
+    select: { id: true, externalCustomerId: true, tierId: true, createdAt: true, tier: { select: { name: true } } },
   });
   const shown = buyers.slice(0, CUSTOMER_PAGE_SIZE);
   const ids = shown.map((buyer) => buyer.id);
@@ -336,6 +345,7 @@ export async function customerRows(
       cashbackGiven: givenOf.get(buyer.id) ?? new Money(0),
     })),
     hasNext: buyers.length > CUSTOMER_PAGE_SIZE,
+    ...(buyers.length > CUSTOMER_PAGE_SIZE ? { next: { createdAt: shown.at(-1)!.createdAt, id: shown.at(-1)!.id } } : {}),
   };
 }
 
@@ -412,6 +422,24 @@ export interface BuyerPanel {
   moreOrders: boolean;
 }
 
+/** Where a buyer is one of the store's and not erased: the buyer panel's, and its action's (A21-F5), one rule. */
+const storeBuyer = (conn: ConnectionContext, customerId: string) => ({
+  id: customerId,
+  merchantId: conn.merchantId,
+  connectionId: conn.connectionId,
+  externalCustomerId: { not: null },
+});
+
+/**
+ * The buyer's id when they are one of the store's and not erased, read
+ * alone: what an action on the buyer panel checks before it acts (A21-F5),
+ * without the panel's numbers. Null otherwise, and for no id at all.
+ */
+export async function ownBuyer(conn: ConnectionContext, customerId: string): Promise<{ id: string } | null> {
+  if (!UUID.test(customerId)) return null;
+  return prisma.customer.findFirst({ where: storeBuyer(conn, customerId), select: { id: true } });
+}
+
 /**
  * The buyer panel's facts (spec 4.4) for one of the store's buyers: tier and
  * since when, progress from the same spend that decides the tier, the newest
@@ -422,7 +450,7 @@ export interface BuyerPanel {
 export async function buyerPanel(conn: ConnectionContext, customerId: string, now: Date): Promise<BuyerPanel | null> {
   if (!UUID.test(customerId)) return null;
   const customer = await prisma.customer.findFirst({
-    where: { id: customerId, merchantId: conn.merchantId, connectionId: conn.connectionId, externalCustomerId: { not: null } },
+    where: storeBuyer(conn, customerId),
     select: { id: true, externalCustomerId: true, tierId: true, tierSince: true, lockedTierId: true },
   });
   if (!customer) return null;

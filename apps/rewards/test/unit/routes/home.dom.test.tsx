@@ -223,6 +223,16 @@ describe("Home", () => {
     expect(screen.getByText("Cashback is on. All checks pass.")).toBeTruthy();
   });
 
+  // docs Q2, Q3: an admin settings link opens in the admin, as the theme editor's does
+  it("opens Shopify's own settings from a banner in the admin, not a new tab", async () => {
+    stubAppBridge("available");
+    const data = homeData();
+    data.bannerFacts = { ...(data.bannerFacts as Record<string, unknown>), spendProblems: ["store-credit-off"] };
+    await renderHome(data);
+    expect(document.querySelector('s-banner s-link[href="shopify://admin/settings/customer_accounts"]')?.getAttribute("target")).toBe("_top");
+    expect(document.querySelector('s-banner s-link[href^="https://home-dom.myshopify.com/admin/themes"]')?.getAttribute("target")).toBe("_top");
+  });
+
   it("warns when the widget embed is off", async () => {
     stubAppBridge("available");
     await renderHome(homeData());

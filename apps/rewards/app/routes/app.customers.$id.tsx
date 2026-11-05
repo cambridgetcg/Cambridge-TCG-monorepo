@@ -1,15 +1,16 @@
 import { useState } from "react";
-import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { data, useFetcher, useLoaderData } from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { formatDay, historyLine, orderLine } from "~/admin/customer-history.server";
+import { notFoundBoundary } from "~/admin/errors";
 import { formatMoney } from "~/admin/format";
+import { privatePageHeaders } from "~/admin/headers";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
 import { BUYER_IN_SHOPIFY, LOCK, NO_TIER } from "~/admin/words";
 import type { ConnectionContext } from "~/lib/merchant.server";
-import { PANEL_LIMIT, buyerPanel } from "~/lib/stats.server";
+import { PANEL_LIMIT, buyerPanel, ownBuyer } from "~/lib/stats.server";
 import { TIER_ERRORS, lockTier } from "~/lib/tiers.server";
 import { balanceLines, liveBalance } from "~/shopify/live-balance.server";
 import { customerNames } from "~/shopify/names.server";
@@ -80,7 +81,9 @@ type ActionResult = { ok: true } | { ok: false; error: string };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const { conn } = await requireMerchant(request);
-  const panel = await panelOf(conn, params.id, new Date());
+  // The buyer is the store's: one light read, not the panel (A21-F5)
+  const buyer = await ownBuyer(conn, params.id ?? "");
+  if (!buyer) throw notFound();
   const form = await request.formData();
 
   switch (form.get("intent")) {
@@ -90,12 +93,12 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       if (typeof tierId !== "string" || tierId === "") {
         return data({ ok: false, error: "Unknown action." } satisfies ActionResult, { status: 400 });
       }
-      const locked = await lockTier(conn.merchantId, panel.id, tierId);
-      // The buyer is the store's (panelOf), so a refusal is the tier's
+      const locked = await lockTier(conn.merchantId, buyer.id, tierId);
+      // The buyer is the store's (ownBuyer), so a refusal is the tier's
       return locked.ok ? ({ ok: true } satisfies ActionResult) : ({ ok: false, error: TIER_ERRORS.gone } satisfies ActionResult);
     }
     case "automatic": {
-      const { ok } = await lockTier(conn.merchantId, panel.id, null);
+      const { ok } = await lockTier(conn.merchantId, buyer.id, null);
       if (!ok) throw notFound();
       return { ok: true } satisfies ActionResult;
     }
@@ -116,7 +119,7 @@ export default function Buyer() {
       <s-link slot="breadcrumb-actions" href="/app/customers">
         Customers
       </s-link>
-      <s-button slot="secondary-actions" href={d.adminUrl}>
+      <s-button slot="secondary-actions" href={d.adminUrl} target="_top">
         {BUYER_IN_SHOPIFY}
       </s-button>
 
@@ -278,6 +281,7 @@ export default function Buyer() {
   );
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export const headers = privatePageHeaders;
+
+// A 404 (not the store's, erased, or no such id) inside the admin, with the way back (A21 concern 4)
+export const ErrorBoundary = notFoundBoundary("This buyer isn't here.", { href: "/app/customers", label: "Customers" });

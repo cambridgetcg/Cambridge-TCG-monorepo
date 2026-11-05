@@ -231,7 +231,7 @@ async function addPayout(
     firstFailedAt?: Date;
     unconfirmedAt?: Date;
     claimedAt?: Date;
-    sentAt?: Date;
+    sentAt?: Date | null;
     lastError?: string;
     c?: ConnectionContext;
   } = {},
@@ -254,7 +254,7 @@ async function addPayout(
       shortfall: o.shortfall ?? null,
       unconfirmedAt: o.unconfirmedAt ?? null,
       claimedAt: o.claimedAt ?? null,
-      sentAt: o.sentAt ?? (state === "sent" ? new Date(Date.now() - DAY) : null),
+      sentAt: o.sentAt === undefined ? (state === "sent" ? new Date(Date.now() - DAY) : null) : o.sentAt,
       lastError: o.lastError ?? null,
       nextAttemptAt: new Date(Date.now() + DAY),
     },
@@ -507,6 +507,8 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
       await takeBack(7, "0.30", "pending");
       await takeBack(6, "0.20", "held");
       await takeBack(5, "0.15", "unconfirmed", { unconfirmedAt: new Date() });
+      // Claimed by a send that hasn't answered yet (A22 test gap)
+      await takeBack(4.5, "0.12", "sending", { claimedAt: new Date() });
       await takeBack(4, "0.10", "needs_look", { lookReason: "could_not_confirm" });
       // A refund before the credit was sent: the credit went out less, by the ledger's amount
       await takeBack(3, "0.40", "nothing_to_send");
@@ -515,13 +517,15 @@ describe.skipIf(!hasTestDatabase)("Orders", () => {
 
       const page = await loadPanel(order.id);
 
-      expect(page.refunds.map((refund) => refund.takenBack)).toEqual([null, "£0.40", "Needs a look", "Waiting", "Waiting", "Waiting", "None (closed)", "£1.00"]);
+      expect(page.refunds.map((refund) => refund.takenBack)).toEqual([null, "£0.40", "Needs a look", "Waiting", "Waiting", "Waiting", "Waiting", "None (closed)", "£1.00"]);
     });
 
     it("says where each payout stands, and never Not sent for one that may have arrived", async () => {
       const sentDay = new Date("2026-06-06T12:00:00Z");
       const cases: Array<[PayoutState, Parameters<typeof addPayout>[2], string]> = [
         ["sent", { sentAt: sentDay }, "Sent June 6, 2026"],
+        // Sent, with no day on record (A22 test gap)
+        ["sent", { sentAt: null }, "Sent"],
         ["sending", { claimedAt: new Date() }, "Not confirmed"],
         ["unconfirmed", { unconfirmedAt: new Date() }, "Not confirmed"],
         ["needs_look", { lookReason: "could_not_confirm" }, "Not confirmed"],
