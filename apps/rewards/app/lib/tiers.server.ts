@@ -143,6 +143,11 @@ async function readTiers(db: Db, merchantId: string, excludeTierId?: string): Pr
   return rows.map((t) => ({ ...t, minSpend: fromDb(t.minSpend), cashbackPercent: fromDb(t.cashbackPercent) }));
 }
 
+/** A merchant's tiers, read the one way the tier engine reads them (the app proxy shows these). */
+export function tiersOf(merchantId: string): Promise<TierRow[]> {
+  return readTiers(prisma, merchantId);
+}
+
 /**
  * Put a buyer in the tier they should hold: the tier they are locked to,
  * else the one their spend qualifies for. With no tiers at all the buyer

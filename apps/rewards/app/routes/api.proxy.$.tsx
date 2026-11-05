@@ -15,7 +15,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import prisma from "~/db.server";
 import { type ConnectionContext, findConnection } from "~/lib/merchant.server";
 import { fromDb, roundMoney } from "~/lib/money";
-import { type TierRow, progress, qualify, tierSpend } from "~/lib/tiers.server";
+import { type TierRow, progress, qualify, tierSpend, tiersOf } from "~/lib/tiers.server";
 import { liveBalance } from "~/shopify/live-balance.server";
 import { verifyProxyRequest, type VerifiedProxyRequest } from "~/shopify/proxy.server";
 import { customerAccountsVersion } from "~/shopify/shop-checks.server";
@@ -38,14 +38,6 @@ const THEME = {
 const CURRENCY_PARAM = /^[A-Za-z]{3}$/;
 
 const answer = (body: unknown, status = 200) => Response.json(body, { status, headers: HEADERS });
-
-async function readTiers(merchantId: string): Promise<TierRow[]> {
-  const rows = await prisma.tier.findMany({
-    where: { merchantId },
-    select: { id: true, name: true, minSpend: true, cashbackPercent: true, position: true },
-  });
-  return rows.map((t) => ({ ...t, minSpend: fromDb(t.minSpend), cashbackPercent: fromDb(t.cashbackPercent) }));
-}
 
 /** The signed-in buyer's membership: their tier, live balance and progress. */
 async function membership(conn: ConnectionContext, tiers: TierRow[], visitor: VerifiedProxyRequest & { customerId: string }, url: URL) {
@@ -99,7 +91,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   const conn = await findConnection(visitor.shop);
-  const tiers = conn ? await readTiers(conn.merchantId) : [];
+  const tiers = conn ? await tiersOf(conn.merchantId) : [];
   if (!conn || tiers.length === 0) return answer({ success: false, message: "Rewards are not set up yet" });
 
   const { customerId } = visitor;
