@@ -28,6 +28,11 @@ export const ON_ITS_WAY: ReadonlySet<PayoutState> = new Set(["pending", "sending
 /** A take-back Shopify confirmed without saying how much it took (A11-F4). */
 export const AMOUNT_UNKNOWN = "Amount unknown";
 
+/** A credit closed without sending (MONEY-2): what would have gone to the buyer, in the cashback's currency. */
+export function closedWithoutSending(asked: Decimal, currency: string): string {
+  return `Closed without sending ${formatMoney(asked, currency)}`;
+}
+
 /**
  * The spec's sentence for a take-back that took less than it asked (spec
  * 4.6, Ruling 65), in the cashback's currency; null when it took all of it.

@@ -9,6 +9,7 @@ const globals = globalThis as Record<symbol, unknown>;
 afterEach(() => {
   delete globals[REQUEST_CONTEXT];
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 /** A promise and the function that settles it. */
@@ -60,6 +61,20 @@ describe("waitUntil", () => {
     expect(logged).toHaveBeenCalledWith("[wait-until] Work after the response failed: Shopify did not answer");
     // Tests still hear of it (A13-F2)
     await expect(flushWaitUntil()).rejects.toThrow("Shopify did not answer");
+  });
+  // SECURITY-4: an instance that runs for hours must not keep every error it ever saw
+  it("keeps no failure outside the test runner, only the log line", async () => {
+    vi.stubEnv("VITEST", "");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const work = later();
+    waitUntil(work.promise);
+
+    work.reject(new Error("the database is browning out"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(logged).toHaveBeenCalledWith("[wait-until] Work after the response failed: the database is browning out");
+    vi.unstubAllEnvs();
+    await expect(flushWaitUntil()).resolves.toBeUndefined();
   });
 });
 

@@ -19,10 +19,11 @@ Exits non-zero (1) if any of:
 A project with "skipsBuilds" (its Ignored Build Step cancels the builds of
 pushes that don't touch it, which Vercel lists as CANCELED deployments)
 takes its state from the newest production deployment that is not
-CANCELED, and its age and drift (the deploy's time and sha) from the newest
-READY one, so skipped builds neither hide a failed one, nor reset the age,
-nor hide a wrongly skipped app commit. The others use the newest deployment
-for all three.
+CANCELED, and its drift (the deploy's time and sha) from the newest READY
+one, so skipped builds neither hide a failed one nor hide a wrongly skipped
+app commit. It has no age test: a quiet app deploys rarely, and its state,
+drift and health probe already show a stuck or failing project. The others
+use the newest deployment for all three, age included.
 
 Usage: VERCEL_TOKEN=... python3 deploy-health.py
 
@@ -167,7 +168,7 @@ def check_project(p: dict) -> dict:
     # the next hourly check will catch any that get stuck.
     if aged is None:
         out["issues"].append("no READY production deployment found")
-    elif out["deploy_age_h"] > MAX_DEPLOY_AGE_HOURS:
+    elif not skips and out["deploy_age_h"] > MAX_DEPLOY_AGE_HOURS:
         out["issues"].append(f"latest prod deploy is {out['deploy_age_h']:.0f}h old (> {MAX_DEPLOY_AGE_HOURS}h)")
 
     # 2. Drift: a commit touching this app exists on HEAD that postdates the

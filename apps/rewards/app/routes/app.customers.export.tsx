@@ -2,14 +2,15 @@ import type { LoaderFunctionArgs } from "react-router";
 
 import { filterTiers, listBuyers, readFilters } from "~/admin/customer-list.server";
 import { requireMerchant } from "~/admin/require-merchant.server";
-import { EXPORT_SEARCH_UNREAD, SEARCH_TOO_BROAD } from "~/admin/words";
+import { EXPORT_SEARCH_UNREAD, SEARCH_TOO_BROAD, TIER_WINDOW_LABEL } from "~/admin/words";
 import { currencyDecimals, roundMoney } from "~/lib/money";
 
 /**
  * The Customers page's CSV (spec 4.4): one line per buyer the list's
  * filters select, every page of them, as Buyer, Tier, Spend counted (over
- * the tier window) and Cashback given, both in the shop's currency, named
- * in their headers (TRUTH-15), as plain numbers. Names come live from
+ * the tier window, which its header names: MONEY-4) and Cashback given,
+ * both in the shop's currency, named in their headers (TRUTH-15), as plain
+ * numbers. Names come live from
  * Shopify (customerNames: first and last name only, so no email is ever in
  * the file), within EXPORT_NAMES_BUDGET_MS. Fetched by the page with its
  * session token, never stored.
@@ -66,7 +67,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const decimals = currencyDecimals(conn.currency);
   const amount = (value: Parameters<typeof roundMoney>[0]) => csvCell(roundMoney(value, conn.currency).toFixed(decimals), { number: true });
-  const header = ["Buyer", "Tier", `Spend counted (${conn.currency})`, `Cashback given (${conn.currency})`].map((cell) => csvCell(cell));
+  const spendHeader = `Spend counted, ${TIER_WINDOW_LABEL[conn.tierWindow].toLowerCase()} (${conn.currency})`;
+  const header = ["Buyer", "Tier", spendHeader, `Cashback given (${conn.currency})`].map((cell) => csvCell(cell));
   const lines = [header, ...rows.map((row) => [csvCell(row.buyer), csvCell(row.tierName ?? ""), amount(row.spend), amount(row.cashbackGiven)])];
   const body = `${BOM}${lines.map((cells) => cells.join(",")).join("\r\n")}\r\n`;
   // Today in the shop's time zone, as YYYY-MM-DD

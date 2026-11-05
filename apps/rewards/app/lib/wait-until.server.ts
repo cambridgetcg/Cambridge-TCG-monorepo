@@ -11,7 +11,9 @@
  *
  * Added here: the work's failure is logged instead of escaping as an
  * unhandled rejection (the hourly job is the backstop for anything it left
- * undone), and tests can wait for the work with flushWaitUntil.
+ * undone), and tests can wait for the work with flushWaitUntil. Failures are
+ * kept for flushWaitUntil only under the test runner (SECURITY-4): an
+ * instance that serves for hours would otherwise hold every error it saw.
  */
 
 const VERCEL_REQUEST_CONTEXT = Symbol.for("@vercel/request-context");
@@ -22,15 +24,17 @@ interface VercelRequestContext {
 
 /** The work still running, for flushWaitUntil. Each piece leaves the set once it settles. */
 const running = new Set<Promise<unknown>>();
-/** The errors of work that failed, oldest first, until flushWaitUntil reports them. */
+/** The errors of work that failed, oldest first, until flushWaitUntil reports them; test runs only. */
 const failures: unknown[] = [];
+/** Vitest sets VITEST in every test run; production never does. */
+const keepsFailures = () => Boolean(process.env.VITEST);
 
 export function waitUntil(promise: Promise<unknown>): void {
   running.add(promise);
   const settled = promise.then(
     () => undefined,
     (error: unknown) => {
-      failures.push(error);
+      if (keepsFailures()) failures.push(error);
       console.error(`[wait-until] Work after the response failed: ${error instanceof Error ? error.message : String(error)}`);
     },
   );

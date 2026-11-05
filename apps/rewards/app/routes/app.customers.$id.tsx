@@ -8,7 +8,7 @@ import { formatMoney } from "~/admin/format";
 import { privatePageHeaders } from "~/admin/headers";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
-import { BUYER_IN_SHOPIFY, LOCK, NO_TIER } from "~/admin/words";
+import { BUYER_IN_SHOPIFY, LOCK, NO_TIER, TIER_WINDOW_LABEL } from "~/admin/words";
 import type { ConnectionContext } from "~/lib/merchant.server";
 import { PANEL_LIMIT, buyerPanel, ownBuyer } from "~/lib/stats.server";
 import { TIER_ERRORS, lockTier } from "~/lib/tiers.server";
@@ -26,8 +26,6 @@ import { customerNames } from "~/shopify/names.server";
  * lock. Store credit is adjusted in Shopify's own customer page, which the
  * panel links to.
  */
-
-const WINDOWS = { rolling_12_months: "Last 12 months", lifetime: "All time" } as const;
 
 const notFound = () => new Response("Not found", { status: 404 });
 
@@ -59,7 +57,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     lockedTierId: panel.lockedTierId,
     tiers: panel.tiers.map((t) => ({ id: t.id, name: t.name, percent: t.cashbackPercent.toFixed() })),
     spend: money(panel.spend),
-    windowLabel: WINDOWS[conn.tierWindow],
+    windowLabel: TIER_WINDOW_LABEL[conn.tierWindow],
     progress: {
       percent: panel.progress.percent,
       isTop: panel.progress.isTop,
