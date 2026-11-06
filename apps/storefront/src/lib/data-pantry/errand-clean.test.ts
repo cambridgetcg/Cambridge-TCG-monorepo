@@ -59,7 +59,9 @@ describe("errand-clean: data responses carry only data", () => {
   it("next.config gives /api/v1 errands that Link and leaves the chosen doors alone", async () => {
     const { default: nextConfig } = await import("../../../next.config");
     const rules = await nextConfig.headers!();
-    const errand = rules.filter((rule) => rule.source.startsWith("/api/v1"));
+    // Link rules only: /api/v1/market/* also has its own Content-Usage rule
+    // (derived data, not licensed for training), which sets no Link.
+    const errand = rules.filter((rule) => rule.source.startsWith("/api/v1") && rule.headers.some((h) => h.key === "Link"));
     expect(errand.map((rule) => rule.source)).toEqual([
       "/api/v1",
       "/api/v1/:path((?!wake(?:/|$)|dear-agents(?:/|$)).*)",

@@ -112,7 +112,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "agent.self",
     category: "agent",
     description:
-      "Returns the calling agent's identity, rating, key tier, operator-bound status, and whether the key is read-only. Account ids stay internal.",
+      "Returns the calling agent's identity, rating, key tier, operator-bound status, and whether the key is read-only, plus what the gate records about the calling key (minute rate-limit buckets, last-used time, tier limit, retention). Collects nothing new. Account ids stay internal.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
     example_input: {},
     example_output_shape: {
@@ -122,13 +122,19 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       read_only: true,
       read_only_scope: "domain-state",
       operational_metadata_writes: [
-        "per-key rate-limit bucket",
-        "agent_keys.last_used_at after success",
+        "per-key rate-limit bucket for allowed authenticated calls",
+        "agent key last-used timestamp after successful authenticated calls",
       ],
       rating: 1500,
       rating_deviation: 350,
       rating_volatility: 0.06,
       rate_limit_tier: "free",
+      recorded_about_this_key: {
+        rate_limit_buckets: { held_now: { minutes: 3, requests: 5, by_utc_day: [{ day: "2026-11-06", minutes: 3, requests: 5 }] }, kept: "7 days. …" },
+        last_used_at: { value: "2026-11-06T09:14:02.000Z", kept: "With the key. …" },
+        tier: { rate_limit_tier: "free", requests_per_minute: 30 },
+        daily_mcp_count: { on: false },
+      },
     },
     gating: "bearer-key",
     authority: "self-serve-read",

@@ -246,14 +246,59 @@ Nothing keeps a copy of deleted rows, and no raw log is ever stored.
 | --- | --- | --- |
 | `OPS_MCP_DAILY` | off | Counts `/api/mcp` requests into `mcp_daily`. Turn on only after /privacy names the count, its purpose and its period. |
 | `TRAFFIC_PULL` | off | Runs the hourly traffic pull, which reads Vercel's logs with `VERCEL_TOKEN` and writes `traffic_hourly`, `traffic_pulls` and `error_daily`. Turn on only after /privacy names the counts, their purpose and their periods, and at least an hour after that note is live: the first run counts the hour before it. |
+| `PUBLIC_FEEDBACK` | off | Opens POST `/api/v1/feedback` (and so the /contact form) to new messages; see Doors. Holders read and erase their messages with the key either way. |
+| `PEER_HELLO_COUNT` | off | Counts each valid POST `/api/v1/peers` into `peer_hello_daily`; see Doors. |
 | `VERCEL_TOKEN` | set for the deploys page | Read by the pull from the environment only; never logged or returned. |
 | `DATA_COLLECT_*`, `DATA_DERIVE_MARKET`, `DATA_API_*` | as set | Read and shown, never changed, by the page. |
 
 Turning a counting flag on is Yu's call, and waits for the /privacy update
-that describes it: until then the notice says no application-level visit or
-behaviour profile is made, which aggregate counts keep true, but the notice
-does not yet name these counts or "understanding visitor actions" as a
-purpose.
+that describes it to be live. That update is on the same branch: /privacy
+(last updated 6 November 2026) names Cloudflare, the counts and their
+periods (`#aggregate-counts`), the feedback door (`#feedback-door`) and
+"understand how the site is used, from aggregate counts only" as a purpose,
+and still says no visit or behaviour profile is made, which the counts keep
+true. So a flag goes on only after that deploy is live, and `TRAFFIC_PULL`
+at least an hour after.
+
+## Doors (migration 0149)
+
+Two places where something is kept because a sender chose to send it, and
+one way back to what was kept.
+
+- **The feedback door**, `/api/v1/feedback` (`src/lib/feedback/door.ts`),
+  which the /contact form also posts to. While `PUBLIC_FEEDBACK` is on, a
+  POST keeps a report in `public_feedback` field by named field: kind (from
+  a fixed list that adds `question` and `data-error` to the five its
+  signposts name), topic, message, named references (endpoint, subject,
+  as_of, method_version, guide, step, request id, platform URLs, and the
+  older report fields), and an optional reply address and name. A field it
+  does not know is refused, never dropped, and the request as sent is never
+  kept. The reply carries a random `feedback_id` and a holder key shown
+  once; only the key's SHA-256 is stored. GET or DELETE with
+  `Authorization: Bearer <key>` reads the status and answer or erases the
+  row, open or closed. The one abuse control in the app is a global cap of
+  30 accepted messages per UTC hour (`feedback_hourly_intake`, kept 48
+  hours, no sender); a per-source rule needs an address, so it belongs at
+  Cloudflare, and the production alias no longer serves API reads around
+  it. Each message is deleted 180 days after it arrives. There is no
+  operator screen for answering yet: status and answer are set in the
+  database (`status` to read, answered or closed; `answer` with
+  `answered_at`), and the CHECKs keep an answered row honest.
+- **A counted hello**, POST `/api/v1/peers` (`src/lib/peers.ts`). While
+  `PEER_HELLO_COUNT` is on, a valid hello adds one to today's
+  `peer_hello_daily` row for its declared kind (or `undeclared`), capped at
+  10,000 a day, and the reply says "counted in today's total; nothing about
+  you stored". The content hash is echoed, never written. Kept 13 months.
+- **What you record about me**, MCP `agent.self`
+  (`src/lib/agents/self-record.ts`): the calling key's own minute buckets
+  (summed per UTC day), `last_used_at`, tier limit and how long each is
+  kept, the items `/.well-known/mcp.json` lists. It reads them in
+  agent.self's one query and collects nothing new.
+
+The maintenance cron sweeps all three 0149 tables at minute 23 of every hour
+(`src/lib/feedback/retention.ts`), whether or not the doors are open, so a
+period holds after a door closes; the writers also clear what they pass,
+and no read returns an expired message.
 
 ## Checks
 
@@ -267,3 +312,9 @@ purpose.
   count through the exclusion constraint, back-fills, records a refused hour
   as failed, and sweeps past retention.
 - `pnpm audit:cron-auth` checks that the route calls `requireCronAuth`.
+- The doors: `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/feedback src/app/api/v1/feedback src/app/api/v1/peers src/app/contact src/lib/agents src/proxy.test.ts`,
+  and on a disposable loopback database
+  `DOORS_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/<a name containing test> pnpm --filter cambridgetcg-storefront exec vitest run src/lib/feedback/door.integration.test.ts`,
+  which applies 0149 alone, checks its refusals, fills and caps the hour,
+  reads and erases as a holder through pg and postgres.js, counts hellos to
+  the cap and sweeps past each period.

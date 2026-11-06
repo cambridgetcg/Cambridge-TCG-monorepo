@@ -35,6 +35,7 @@ import { expireCancelRequests } from "@/lib/market/trade-cancels";
 import { runVacationSweep } from "@/lib/market/vacation";
 import { runValuationSnapshotSweep } from "@/lib/portfolio/valuation";
 import { releaseExpiredReservations } from "@/lib/stock/reservations";
+import { runDoorRetentionSweep } from "@/lib/feedback/retention";
 import { requireCronAuth } from "@/lib/cron-auth";
 
 // Documented development-only cron secret. Locally CRON_SECRET is usually
@@ -191,9 +192,14 @@ export async function GET(request: Request) {
     // Identity storage repair starts from DB references only; it never lists
     // the private bucket. Unlinked pending uploads remain lifecycle-owned.
     runVerificationStorageSweep(),
+    // The door tables (0149): feedback past 180 days, the hourly cap's
+    // counts past 48 hours, hello counts past 13 months. Self-gates to
+    // minute 23; runs whether or not the doors are open. Appended at the
+    // end to keep the positional destructuring aligned.
+    runDoorRetentionSweep(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, verificationStorageSweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, verificationStorageSweep, doorRetentionSweep] = results;
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {
@@ -374,8 +380,19 @@ export async function GET(request: Request) {
             ? { status: "fulfilled", ...verificationStorageSweep.value }
             : { status: "skipped" })
         : { status: "rejected" },
+    doorRetentionSweep:
+      doorRetentionSweep.status === "fulfilled"
+        ? (doorRetentionSweep.value.ranInWindow
+            ? { status: "fulfilled", ...doorRetentionSweep.value }
+            : { status: "skipped" })
+        : { status: "rejected" },
     durationMs: Date.now() - start,
   };
+
+  // Counts only; the error's name, never its message.
+  if (doorRetentionSweep.status === "rejected") {
+    console.error("[cron] door retention sweep failed:", doorRetentionSweep.reason instanceof Error ? doorRetentionSweep.reason.name : "UnknownError");
+  }
 
   if (market.status === "rejected") console.error("[cron] market maintenance failed:", market.reason);
   if (auctions.status === "rejected") console.error("[cron] auction maintenance failed:", auctions.reason);

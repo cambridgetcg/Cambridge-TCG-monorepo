@@ -25,16 +25,52 @@
 // from this file when no cookie is present *and* a 403 from
 // requireAdmin() if the cookie belongs to a non-admin. The proxy is
 // no longer the role gate — it's the first of two gates.
+//
+// The production alias (2026-11-06). cambridgetcg-storefront.vercel.app
+// reaches Vercel without Cloudflare, so API reads there skipped its
+// firewall and rate rules (5,615 of 8,143 /api/v1/prices requests on
+// 2026-11-05). Yu chose to stop the alias serving the API. A GET or HEAD
+// to /api/* on that host now answers 308 to the same path and query on
+// https://cambridgetcg.com. Other methods pass untouched, so a webhook
+// posting to the alias keeps working; /api/cron/* is never redirected;
+// per-deployment *.vercel.app hosts are not matched. next.config.ts
+// redirects cannot do this, as they cannot tell GET from POST.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAMES } from "@/lib/auth/cookies";
+
+/** The production alias. The matcher below repeats it as a literal,
+ * because matchers must be constants; proxy.test.ts checks they agree. */
+export const PRODUCTION_ALIAS_HOST = "cambridgetcg-storefront.vercel.app";
+const APEX_ORIGIN = "https://cambridgetcg.com";
+
+const under = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
+
+function onAliasApi(req: NextRequest): boolean {
+  const host = (req.headers.get("host") ?? "").split(":", 1)[0].toLowerCase();
+  return host === PRODUCTION_ALIAS_HOST && under(req.nextUrl.pathname, "/api");
+}
+
+/** 308 to the apex for a GET or HEAD to the alias's /api, outside /api/cron. */
+export function aliasApiRedirect(req: NextRequest): NextResponse | null {
+  if (req.method !== "GET" && req.method !== "HEAD") return null;
+  if (!onAliasApi(req) || under(req.nextUrl.pathname, "/api/cron")) return null;
+  const { pathname, search } = req.nextUrl;
+  return NextResponse.redirect(`${APEX_ORIGIN}${pathname}${search}`, 308);
+}
 
 function hasSessionCookie(req: NextRequest): boolean {
   return SESSION_COOKIE_NAMES.some((name) => req.cookies.has(name));
 }
 
 export default function proxy(req: NextRequest): NextResponse {
+  const toApex = aliasApiRedirect(req);
+  if (toApex) return toApex;
   const { pathname, search } = req.nextUrl;
+  // The alias matcher also brings the alias's other /api requests here (a
+  // webhook's POST, say); they pass as they would without this file. Only
+  // /api/admin keeps the cookie gate below, on every host.
+  if (onAliasApi(req) && !under(pathname, "/api/admin")) return NextResponse.next();
   const authed = hasSessionCookie(req);
 
   if (!authed) {
@@ -67,5 +103,10 @@ export const config = {
     "/admin/:path*",
     "/api/admin/:path*",
     "/account/:path*",
+    // The production alias's /api, outside /api/cron (aliasApiRedirect).
+    {
+      source: "/api/:path((?!cron(?:/|$)).*)",
+      has: [{ type: "host", value: "cambridgetcg-storefront.vercel.app" }],
+    },
   ],
 };

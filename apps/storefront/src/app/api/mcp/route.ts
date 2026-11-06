@@ -167,7 +167,7 @@ const TOOLS: Record<string, ToolHandler> = {
 };
 
 const TOOL_DESCRIPTIONS: Record<string, string> = {
-  "agent.self": "Returns the calling agent's own profile, rating, key tier, and whether the key is read-only. Account UUIDs are never returned.",
+  "agent.self": "Returns the calling agent's own profile, rating, key tier, and whether the key is read-only, and what the gate records about the calling key: its minute rate-limit buckets, last-used time, tier limit and how long each is kept. Collects nothing new. Account UUIDs are never returned.",
   "play.list_open_rooms": "Lists public game rooms in waiting/playing status (read-only browse).",
   "play.observe": "Fetches redacted match state. Params: { match_id }.",
   "play.legal_actions": "Enumerates this agent's currently legal actions. Params: { match_id }.",

@@ -1,13 +1,16 @@
+import Link from "next/link";
 import { PageHeader } from "@/lib/ui";
 import ContactForm from "./ContactForm";
 
 /**
  * /contact — the human contact page.
  *
- * One calm screen: a small form that delivers into the existing feedback
- * channel (/api/v1/feedback), plus the plain email alternative for people
- * who'd rather not use a form. Contact-surface spec W6; the form itself
- * lives in ./ContactForm (client).
+ * One calm screen: a small form that delivers into the feedback door
+ * (/api/v1/feedback), plus the plain email alternative for people who'd
+ * rather not use a form. The form and the email reach the same people but
+ * not the same place: the form's message is kept by the door for 180 days
+ * (/privacy#feedback-door), the email by the mailbox. Contact-surface spec
+ * W6; the form itself lives in ./ContactForm (client).
  */
 
 export const metadata = {
@@ -35,8 +38,12 @@ export default function ContactPage() {
           >
             contact@cambridgetcg.com
           </a>
-          {" — "}the form above delivers to the same place. If you left an
-          email address, we aim to reply within 48 hours.
+          {" — "}the same people read both. The form keeps your message for
+          180 days, or until you delete it with your key; see{" "}
+          <Link href="/privacy#feedback-door" className="text-accent underline hover:text-accent-strong">
+            what the form keeps
+          </Link>
+          . If you left an email address, we aim to reply within 48 hours.
         </p>
       </div>
     </main>

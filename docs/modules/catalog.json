@@ -257,7 +257,7 @@
       "id": "public-interfaces", "label": "Public interfaces and discovery",
       "purpose": "Expose data contracts, specifications, provenance and agent discovery, with a separate authored integration roadmap that does not claim runtime capability or source availability.",
       "evidence": ["apps/storefront/src/content/platform/index.ts", "apps/storefront/src/lib/contracts/standards.ts", "apps/storefront/src/lib/contracts/standards.test.tsx", "apps/storefront/src/app/roadmap/page.tsx", "apps/storefront/src/app/api/v1/roadmap/route.ts", "docs/plans/tcg-data-platform/README.md"],
-      "lib": ["agents", "calling-card", "contracts", "data-pantry", "http", "release", "universal", "youspeak"],
+      "lib": ["agents", "calling-card", "contracts", "data-pantry", "feedback", "http", "release", "universal", "youspeak"],
       "routes": [".well-known", "agents", "answering-rhymes", "api", "graph", "identify", "llms.txt", "manifest", "ontology", "patterns", "platform", "roadmap", "robots.txt", "schemas", "scrapers", "spec", "standards", "standards.json"]
     },
     {
