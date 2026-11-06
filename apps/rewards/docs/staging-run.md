@@ -78,7 +78,7 @@ All are far under 1,000, and the hand counts are safe upper bounds (Ruling 78). 
 - **Vercel-specific checks (OPERATIONS-10):** waitUntil on the real deployment, cron registration, the 300 s ceiling, the timing checks (an export at a few thousand buyers, a large tier delete, the nightly widget step), and a Sentry event carrying the right `shop` tag.
 - **The widget at phone width:** not run here; the storefront window didn't narrow, and K covered only the admin in the Shopify app. Gate C on rewardsprotesting checks it at 390 px, signed in and as a guest, with the cart drawer open and on a product page (switch.md).
 - **The widget's Dark look:** not run here. Gate C checks it on rewardsprotesting's live theme (switch.md).
-- **Lighthouse with the embed off and on:** the storefront is password-protected. The widget is 10.8 KB of JS and CSS against the 30 KB budget.
+- **Lighthouse with the embed off and on:** the storefront is password-protected. The widget is 12.3 KB of JS and CSS (12,250 bytes after the final review) against the 30 KB budget.
 - **The extension version diff:** checked when the production app's version is created (`rewardspro-theme-extension` updated, not created plus removed).
 - **Not exercised here:** a tipped order, orders edited before or after payment, uninstall and reinstall (J), and table paging with more than one page of buyers.
 - **Renewal lease timing:** see whether 1.5 s is enough on Vercel lhr1.

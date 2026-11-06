@@ -184,7 +184,7 @@ As the plan says:
 
 Add to the gates what staging left open. Each line says who does what; **Ai on Yu's yes** records every result with evidence in `gates.md`:
 
-- **Compliance with real data (I):** **Yu** sends a real customers/data_request and customers/redact from Shopify admin; **Ai on Yu's yes** checks the Home banner, the download and the erasure.
+- **Compliance with real data (I):** **Yu** sends a real customers/data_request and customers/redact from Shopify admin; **Ai on Yu's yes** checks the Home banner, the download and the erasure. Shopify sends customers/redact about 10 days after the request, or up to 6 months later for a customer who ordered recently, so use a test customer with no recent orders and start the redact about 10 days before this gate. On staging, the data request from cashbackpro's admin never reached the dev tunnel (docs/staging-run.md), so this is its first real run.
 - **A tax-exclusive order:** spec 6.3 rule 1 requires one; it needs a market or store whose prices exclude tax, which **Yu** sets up in Shopify admin. **Ai on Yu's yes** places the order and checks the base and a shipping-only refund (Rulings 11, 12).
 - **Ai on Yu's yes:** **a tipped order** (Ruling 26), and **orders edited before and after payment** (Ruling 25's known risk: if Shopify's refund for removed items carries no refund lines, the removal counts twice in spend).
 - **Uninstall and reinstall (J):** **Yu** uninstalls and reinstalls the app; **Ai on Yu's yes** runs check J on each. **Ai on Yu's yes:** **table paging** past one page of buyers.
