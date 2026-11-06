@@ -128,6 +128,13 @@ Push a commit touching `apps/rewards` to main (the B1 PR stays unmerged). Checks
 - The production deployment is READY. Read its build log once, to see the Output Directory change took.
 - `GET /api/health` answers `200 {"status":"ok","database":"ready"}`. Since F1 the probe reads one of the app's own tables (`cron_lock`), so a URL with the right host but the wrong schema or role answers 503 here instead of passing (READINESS-3).
 - A `POST` with a bad HMAC to each of the 11 released webhook URIs answers 401: `/webhooks/orders/paid`, `/webhooks/orders/refunded`, `/webhooks/orders/cancelled`, `/webhooks/app/uninstalled`, `/webhooks/app/scopes_update`, `/webhooks/compliance`, `/webhooks/orders/create`, `/webhooks/orders/fulfilled`, `/webhooks/customers/create`, `/webhooks/customers/update`, `/webhooks/products/update`.
+- A webhook signed with the released app's real secret answers 200. A bad HMAC answers 401 whatever secret Vercel holds, so only this proves `SHOPIFY_API_SECRET` is Rewards Pro's (client id `026ce3bf…`), not the staging app's. `products/update` is acknowledged without reading or writing anything:
+
+  ```sh
+  shopify app webhook trigger --client-id 026ce3bf073bed0e44ae8eab09d1ae3a --topic products/update --api-version 2026-10 --delivery-method http --address https://rewardspro-production.vercel.app/webhooks/products/update
+  ```
+
+  On 2026-11-06 the Dev Dashboard's draft app "rewardspro-production" (the staging app, whose name matches the Vercel project) was copied by mistake: this webhook answered 401 and the admin answered 401 Unauthorized.
 - `GET /api/proxy/membership` without a signature answers 400, never 404.
 - The project's `crons.definitions` (the same `/v9/projects` read) lists `/api/cron/payouts` (`30 * * * *`), `/api/cron/tiers` (`0 2 * * *`) and `/api/cron/housekeeping` (`0 3 * * *`) on the new deployment.
 
