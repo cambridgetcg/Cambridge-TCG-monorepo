@@ -1,9 +1,12 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 # Retired: deploy the released app (026ce3bf073bed0e44ae8eab09d1ae3a) from
-# apps/rewards/shopify.app.toml. This client_id matches no app, so the Shopify
-# CLI can't link or deploy this directory to it, while the old build, its tests
-# and Vercel's Instant Rollback keep working (apps/rewards/docs/switch.md, B1).
+# apps/rewards/shopify.app.toml. This client_id matches no app, so a Shopify CLI
+# command here fails instead of acting on Rewards Pro, and this package's CLI
+# scripts refuse to run. Never pass --client-id or --reset here, or link this
+# directory again: that would deploy the old scopes, webhooks and widget over
+# the released app. The old build, its tests and Vercel's Instant Rollback keep
+# working (apps/rewards/docs/switch.md, B1).
 client_id = "retired-deploy-from-apps-rewards"
 name = "Rewards Pro"
 application_url = "https://rewardspro-production.vercel.app"

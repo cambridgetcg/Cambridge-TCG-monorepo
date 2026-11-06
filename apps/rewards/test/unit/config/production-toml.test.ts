@@ -53,17 +53,20 @@ describe("the production toml", () => {
 
   it("subscribes on 2026-10 to exactly the topics the app handles", () => {
     expect(production.webhooks.api_version).toBe("2026-10");
-    const byUri = Object.fromEntries(
-      production.webhooks.subscriptions.map((s) => [s.uri, [...(s.topics ?? s.compliance_topics ?? [])].sort()]),
-    );
-    expect(byUri).toEqual({
-      "/webhooks/compliance": ["customers/data_request", "customers/redact", "shop/redact"],
-      "/webhooks/orders/paid": ["orders/paid"],
-      "/webhooks/orders/refunded": ["refunds/create"],
-      "/webhooks/orders/cancelled": ["orders/cancelled"],
-      "/webhooks/app/uninstalled": ["app/uninstalled"],
-      "/webhooks/app/scopes_update": ["app/scopes_update"],
-    });
+    const pairs = production.webhooks.subscriptions
+      .flatMap((s) => (s.topics ?? s.compliance_topics ?? []).map((topic) => `${topic} -> ${s.uri}`))
+      .sort();
+    expect(pairs).toEqual([
+      "app/scopes_update -> /webhooks/app/scopes_update",
+      "app/uninstalled -> /webhooks/app/uninstalled",
+      "customers/data_request -> /webhooks/compliance",
+      "customers/redact -> /webhooks/compliance",
+      "orders/cancelled -> /webhooks/orders/cancelled",
+      "orders/paid -> /webhooks/orders/paid",
+      "refunds/create -> /webhooks/orders/refunded",
+      "shop/redact -> /webhooks/compliance",
+    ]);
+    expect(production.webhooks.subscriptions).toHaveLength(6);
   });
 
   it.each(production.webhooks.subscriptions.map((s) => s.uri))("%s has a route", (uri) => {
