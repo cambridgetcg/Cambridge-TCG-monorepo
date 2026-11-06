@@ -45,6 +45,22 @@ REWARDS_DATABASE_URL=postgresql://rewards_app.<ref>:<pw>@aws-0-eu-west-2.pooler.
 | 9 | **Point-in-time recovery** and one rehearsed restore of schema `rewards` into a scratch project. Needed before the first real merchant, not for the dev-store switch. About $100 a month with Small compute. | Yu |
 | 10 | **Hand-over notes** to read once: Gate F reads as Decision 19 says (a short take-back is information, with no needs-a-look); rule 6's known bend (an order whose orders/paid failed every retry is judged when the sweep records it); Ruling 12 (a money-only refund on a tax-exclusive shop takes back a few percent too much); Ruling 38 (erasure closes an unconfirmed credit as never given); Ruling 72 (Help has no docs link until docs.rewardspro.io describes this app; it keeps contact@rewardspro.io). | Yu reads |
 
+### Where each row stands (2026-11-06)
+
+Yu answered the calls in chat on 2026-11-06. Ai read the Vercel and GitHub results back by name, never by value.
+
+- **Row 1:** done. The F1 fixes merged with #146.
+- **Row 2:** `SHOPIFY_API_SECRET` is Production only (read back: one entry, Production). It is still typed `encrypted`, not `sensitive`, and Vercel can't change an existing variable's type, so B2 step 2 deletes it and adds it again as sensitive.
+- **Row 3:** OK. `ENCRYPTION_SECRET` and `ENCRYPTION_SALT` are set in Production, typed sensitive.
+- **Row 4:** `SENTRY_DSN` is set. The Sentry alert "RewardsPro production: new, escalating or regressed issues" emails Yu. Sentry Crons wait until a real merchant arrives: until then a total stop of every cron is silent (accepted), and `REWARDS_SENTRY_CRON_MONITORS` stays unset at B2 step 2.
+- **Row 5:** done by Yu: the 15 orphaned names and the 2 repo Actions secrets are gone (read back: `VERCEL_TOKEN` is the only Actions secret).
+- **Row 6:** accepted. No log drain.
+- **Row 7:** yes, added right after B2 step 4 (Yu).
+- **Row 8:** yes. Yu re-enabled `health.yml` on 2026-11-06.
+- **Row 9:** later, before the first real merchant.
+- **Row 10:** for Yu to read.
+- **Data requests (B4):** accepted for now: they show only inside the app. An email to the shop owner comes when a real merchant arrives.
+
 ## B1: the production toml and the old-app guard (a PR, deploys nothing)
 
 As the plan says, plus two changes:
@@ -170,7 +186,7 @@ Credit the new app issued stays in Shopify; on the dev store that is test money.
    - the guest path reads the app metafield (`data-running`, `data-base-percent` on a guest page, with no proxy call);
    - Lighthouse (mobile) with the embed off and then on, on a store without a storefront password: no more than 10 points lower (spec 5);
    - **gate C on the live theme**, which staging did not run (WIDGET-1, WIDGET-2, WIDGET-7): at 390 px wide, signed in and as a guest, in Light and Dark, with the cart drawer open and on a product page. The launcher must sit under the drawer (its Check out takes the tap), every line of the panel must be readable, and the open panel must fit on screen and scroll. Add Shopify Inbox if it is installed, since its button sits in the same corner. Also check, in the theme editor, whether the embed's preview survives a settings change without a reload.
-5. **Ai on Yu's yes:** one PR removing the five ignored-topic routes and the released-URIs test's dependency on the old toml. The trimmed 2026-10 webhooks must land before 2027-01-16.
+5. **Ai on Yu's yes:** one PR removing the five ignored-topic routes and the old toml from two tests: the released-URIs test, and `production-toml.test.ts`'s comparison of `[auth]` and `[app_proxy]` (it keeps their literal values). The trimmed 2026-10 webhooks must land before 2027-01-16.
 
 ## B4: the two gates (phase 4)
 
@@ -198,7 +214,7 @@ Add to the gates what staging left open. Each line says who does what; **Ai on Y
 
 As the plan says, plus:
 
-- **Ai on Yu's yes:** B3 step 5 comes first, because `released-uris.test.ts` reads the old toml;
+- **Ai on Yu's yes:** B3 step 5 comes first, because `released-uris.test.ts` and `production-toml.test.ts` read the old toml;
 - **Ai on Yu's yes:** remove the root scripts (`dev:`, `build:` and `test:rewardspro`, the `rewardspro-api` scripts) and the `--filter '!rewardspro'` in `typecheck`;
 - **Ai on Yu's yes:** remove the `rewardspro` CI job, its `detect` filter and its `ci-status` needs, and `rewardspro-v2.yml`;
 - **Ai on Yu's yes:** write `apps/rewards`'s own DEPLOY.md and DATABASE.md (the connection strings above) before the old ones are deleted;

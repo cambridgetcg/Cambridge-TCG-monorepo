@@ -62,14 +62,13 @@ PROJECTS = [
         "appPath": "apps/wholesale",
     },
     {
-        # RewardsPro (spec 9.2). Both the old app and the rebuild answer
-        # /api/health: 200 only when the database answered, 503 otherwise.
-        # The project builds apps/rewardspro until the switch moves its root
-        # directory to apps/rewards; appPath follows it then.
+        # RewardsPro (spec 9.2). /api/health answers 200 only when the
+        # database answered, 503 otherwise. The project builds apps/rewards
+        # since the switch (apps/rewards/docs/switch.md).
         "name":        "rewardspro-production",
         "id":          "prj_olcLaLOcmg3jKh28LjW2dgh6mUHi",
         "domain":      "rewardspro-production.vercel.app",
-        "appPath":     "apps/rewardspro",
+        "appPath":     "apps/rewards",
         "probePath":   "/api/health",
         "skipsBuilds": True,
     },
