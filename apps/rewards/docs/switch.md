@@ -45,12 +45,28 @@ REWARDS_DATABASE_URL=postgresql://rewards_app.<ref>:<pw>@aws-0-eu-west-2.pooler.
 | 9 | **Point-in-time recovery** and one rehearsed restore of schema `rewards` into a scratch project. Needed before the first real merchant, not for the dev-store switch. About $100 a month with Small compute. | Yu |
 | 10 | **Hand-over notes** to read once: Gate F reads as Decision 19 says (a short take-back is information, with no needs-a-look); rule 6's known bend (an order whose orders/paid failed every retry is judged when the sweep records it); Ruling 12 (a money-only refund on a tax-exclusive shop takes back a few percent too much); Ruling 38 (erasure closes an unconfirmed credit as never given); Ruling 72 (Help has no docs link until docs.rewardspro.io describes this app; it keeps contact@rewardspro.io). | Yu reads |
 
+### Where each row stands (2026-11-06)
+
+Yu answered the calls in chat on 2026-11-06. Ai read the Vercel and GitHub results back by name, never by value.
+
+- **Row 1:** done. The F1 fixes merged with #146.
+- **Row 2:** done. `SHOPIFY_API_SECRET` is Production only and typed sensitive (read back: one entry). Vercel can't change an existing variable's type, so at B2 step 2 Yu deleted it and added it again. The first re-add copied the staging app's secret; step 4's real-secret webhook check caught it.
+- **Row 3:** OK. `ENCRYPTION_SECRET` and `ENCRYPTION_SALT` are set in Production, typed sensitive.
+- **Row 4:** `SENTRY_DSN` is set. The Sentry alert "RewardsPro production: new, escalating or regressed issues" emails Yu. Sentry Crons wait until a real merchant arrives: until then a total stop of every cron is silent (accepted), and `REWARDS_SENTRY_CRON_MONITORS` stays unset at B2 step 2.
+- **Row 5:** done by Yu: the 15 orphaned names and the 2 repo Actions secrets are gone (read back: `VERCEL_TOKEN` is the only Actions secret).
+- **Row 6:** accepted. No log drain.
+- **Row 7:** yes, added right after B2 step 4 (Yu).
+- **Row 8:** yes. Yu re-enabled `health.yml` on 2026-11-06.
+- **Row 9:** later, before the first real merchant.
+- **Row 10:** for Yu to read.
+- **Data requests (B4):** accepted for now: they show only inside the app. An email to the shop owner comes when a real merchant arrives.
+
 ## B1: the production toml and the old-app guard (a PR, deploys nothing)
 
 As the plan says, plus two changes:
 
 1. **Ai on Yu's yes:** write `apps/rewards/shopify.app.toml` and its test (`test/unit/config/production-toml.test.ts`) with the identity values from the plan's Global Constraints. The subscriptions are `orders/paid`, `refunds/create` (uri `/webhooks/orders/refunded`), `orders/cancelled`, `app/uninstalled`, `app/scopes_update` and compliance (`/webhooks/compliance`), on `api_version = "2026-10"`. `[auth] redirect_urls` and `[app_proxy]` equal `apps/rewardspro/shopify.app.toml`'s.
-2. **Ai on Yu's yes:** the old-directory guard: `apps/rewardspro/package.json`'s `deploy` and `shopify` scripts print "apps/rewardspro is retired: deploy from apps/rewards" and exit 1, and `apps/rewardspro/shopify.app.toml`'s `client_id` becomes `"retired-deploy-from-apps-rewards"` with a comment saying why. No old-app test reads that `client_id`, so the old suite and Instant Rollback keep working.
+2. **Ai on Yu's yes:** the old-directory guard: every `apps/rewardspro/package.json` script that runs the Shopify CLI (`dev`, `config:link`, `generate`, `deploy`, `config:use`, `env` and `shopify`) prints "apps/rewardspro is retired: deploy from apps/rewards" and exits 1, and `apps/rewardspro/shopify.app.toml`'s `client_id` becomes `"retired-deploy-from-apps-rewards"` with a comment saying why. No old-app test reads that `client_id`, so the old suite and Instant Rollback keep working.
 3. **Ai on Yu's yes (added):** in `.github/scripts/deploy-health.py`, the `rewardspro-production` entry's `appPath` becomes `apps/rewards` (OPERATIONS-10). Without it, the drift check watches the retired directory and misses a wrongly skipped rewards build.
 4. **Ai on Yu's yes:** open the PR, `chore(rewards): production config, not yet released`. **Merge it only at B2 step 6.**
 
@@ -100,6 +116,7 @@ Then Ai sends Yu one message with steps 1 to 6 and the rollback, and waits for h
 
 - `REWARDS_DATABASE_URL`, with the transaction-pooler shape above, Production only, typed sensitive.
 - `REWARDS_SENTRY_CRON_MONITORS=true`, if Yu said yes to Sentry Crons (before the sitting, row 4).
+- `SHOPIFY_API_SECRET`, if it is not yet typed sensitive: delete it and add it again, Production only, typed sensitive (Vercel can't change an existing variable's type). The value is **Rewards Pro's** client secret: the Dev Dashboard's app with client id `026ce3bf…`, Settings, Credentials. The draft app named "rewardspro-production", like the Vercel project, is the staging app; its secret makes every webhook and the admin answer 401.
 
 **Ai on Yu's yes:** `vercel env ls production` shows the names exist. Values are never printed.
 
@@ -173,6 +190,7 @@ Expected: one merchant, one connection, the import `running` or `done`, and the 
 3. **Ai on Yu's yes:** read the settings back, and read which crons are registered (`crons.definitions`, as in step 4).
 4. **Yu:** reinstall the old app on rewardsprotesting, because its old token died in step 5.
 5. **Yu:** before the next try, undo the Instant Rollback. After one, Vercel stops auto-promoting new production deployments until it is undone.
+6. **Ai on Yu's yes:** if the B1 PR was already merged (step 6), a PR putting `rewardspro-production`'s `appPath` in `.github/scripts/deploy-health.py` back to `apps/rewardspro`. Otherwise the hourly drift check watches `apps/rewards` while the project builds `apps/rewardspro`, and raises a false alarm on every rewards commit. The old directory's Shopify CLI guard can stay: rollback deploys nothing to Shopify.
 
 Credit the new app issued stays in Shopify; on the dev store that is test money.
 
@@ -194,7 +212,7 @@ Credit the new app issued stays in Shopify; on the dev store that is test money.
    - the guest path reads the app metafield (`data-running`, `data-base-percent` on a guest page, with no proxy call);
    - Lighthouse (mobile) with the embed off and then on, on a store without a storefront password: no more than 10 points lower (spec 5);
    - **gate C on the live theme**, which staging did not run (WIDGET-1, WIDGET-2, WIDGET-7): at 390 px wide, signed in and as a guest, in Light and Dark, with the cart drawer open and on a product page. The launcher must sit under the drawer (its Check out takes the tap), every line of the panel must be readable, and the open panel must fit on screen and scroll. Add Shopify Inbox if it is installed, since its button sits in the same corner. Also check, in the theme editor, whether the embed's preview survives a settings change without a reload.
-5. **Ai on Yu's yes:** one PR removing the five ignored-topic routes and the released-URIs test's dependency on the old toml. The trimmed 2026-10 webhooks must land before 2027-01-16.
+5. **Ai on Yu's yes:** one PR removing the five ignored-topic routes and the old toml from two tests: the released-URIs test, and `production-toml.test.ts`'s comparison of `[auth]` and `[app_proxy]` (it keeps their literal values). The trimmed 2026-10 webhooks must land before 2027-01-16.
 
 ## B4: the two gates (phase 4)
 
@@ -222,7 +240,7 @@ Add to the gates what staging left open. Each line says who does what; **Ai on Y
 
 As the plan says, plus:
 
-- **Ai on Yu's yes:** B3 step 5 comes first, because `released-uris.test.ts` reads the old toml;
+- **Ai on Yu's yes:** B3 step 5 comes first, because `released-uris.test.ts` and `production-toml.test.ts` read the old toml;
 - **Ai on Yu's yes:** remove the root scripts (`dev:`, `build:` and `test:rewardspro`, the `rewardspro-api` scripts) and the `--filter '!rewardspro'` in `typecheck`;
 - **Ai on Yu's yes:** remove the `rewardspro` CI job, its `detect` filter and its `ci-status` needs, and `rewardspro-v2.yml`;
 - **Ai on Yu's yes:** write `apps/rewards`'s own DEPLOY.md and DATABASE.md (the connection strings above) before the old ones are deleted;
@@ -242,7 +260,7 @@ From the final review's readiness lens, at e80bfecc, with F1's fixes. "Owner" me
 | 4 | Migrations and drift check | OK in CI; owner at B2 | B2 step 1. |
 | 5 | Previews: no production database, no production Shopify secret | Owner | Before the sitting, row 2. `REWARDS_DATABASE_URL` is Production only. |
 | 6a | Secrets: only the names the app reads | OK | Shared: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL`, `ENCRYPTION_SECRET`, `ENCRYPTION_SALT`, `CRON_SECRET`, `SENTRY_DSN`. Added at B2: `REWARDS_DATABASE_URL`, and `REWARDS_SENTRY_CRON_MONITORS` on Yu's yes. Read but unset, harmless: `SCOPES`, `SHOP_CUSTOM_DOMAIN`. |
-| 6b | Production secrets typed sensitive | Owner | `SHOPIFY_API_SECRET` with the split (row 5); `REWARDS_DATABASE_URL` added as sensitive. |
+| 6b | Production secrets typed sensitive | OK | Read back on 2026-11-06: `SHOPIFY_API_SECRET`, `REWARDS_DATABASE_URL`, `ENCRYPTION_SECRET`, `ENCRYPTION_SALT` and `CRON_SECRET` are sensitive. `SENTRY_DSN` stays encrypted: a DSN only lets a sender submit events, and Sentry treats it as public. |
 | 6c | Orphaned names deleted | Owner | Before the sitting, row 5; the old app's own names at B5. |
 | 7a | HMAC on every webhook route | OK | 11 of 11 released URIs; B2 step 4 checks each answers 401 to a bad HMAC. |
 | 7b | Webhooks answered within 5 s, measured | Open | B2 step 6, on lhr1. |
