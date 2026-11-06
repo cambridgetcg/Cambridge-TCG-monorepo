@@ -186,8 +186,18 @@ export class EncryptedPrismaSessionStorage extends PrismaSessionStorage<PrismaCl
 
   constructor(prisma: PrismaClient) {
     assertEncryptionConfigured();
-    super(prisma);
+    // One attempt: the check's result is not waited for (below)
+    super(prisma, { connectionRetries: 1 });
     this.db = prisma;
+    // The library checks for its table here, at module load, and every
+    // session call waits for that check. On Vercel its connection can stall
+    // while an idle instance is paused, which held the next request for the
+    // library's 5 s retry, and two failed checks left this instance refusing
+    // every call. The migrations create the table; if it were missing, the
+    // call's own query fails and is reported instead.
+    const library = this as unknown as { ready: Promise<boolean> };
+    library.ready.catch(() => undefined);
+    library.ready = Promise.resolve(true);
   }
 
   async storeSession(session: Session): Promise<boolean> {
