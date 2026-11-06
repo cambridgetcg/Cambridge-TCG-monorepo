@@ -9,8 +9,9 @@
  * it is on, the route answers before touching Vercel or the database. On,
  * a run reads the previous complete UTC hour of the storefront's request and
  * error logs with VERCEL_TOKEN (and any earlier hour of the last day no pull
- * has counted), keeps counts only, and sweeps the observability tables past
- * their retention. Without the token it answers 503 NOT_CONFIGURED; without
+ * has counted since counting started), keeps counts only, and sweeps the
+ * observability tables past their retention. The first run, and one after a
+ * gap, reads nothing: it marks where counting starts (report.started). Without the token it answers 503 NOT_CONFIGURED; without
  * migration 0148, 503 NOT_PROVISIONED; when an hour could not be read, 503
  * PULL_FAILED with what each hour did. The response and the log line carry
  * hours, statuses and counts, never a record.

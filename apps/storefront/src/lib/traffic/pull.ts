@@ -17,12 +17,20 @@
  *
  * Which hours: the previous complete hour, and any earlier one within
  * Vercel's log window (about 24 hours on the current plan) that no pull has
- * counted yet, oldest first, so a missed hour is rescued before it expires.
- * Never an hour before the earliest traffic_pulls row: the first run counts
- * only the hour before it, so turning the flag on does not reach back to
- * hours before it was on (or before the /privacy note that precedes it).
- * The run stops starting hours when its time budget runs low; the rest wait
- * for the next run.
+ * counted yet, so a missed hour is rescued before it expires. An hour on its
+ * last chance goes first, then the others oldest first, and an hour that
+ * already ran out of time budget goes last, so one heavy hour cannot hold up
+ * the hours after it. The run stops starting hours when its budget runs low;
+ * the rest wait for the next run.
+ *
+ * Never an hour from before counting started. A run with no pull before it,
+ * or more than RESTART_GAP_MS after the last one (the switch was off, or the
+ * runs stopped), is a start: it counts nothing and writes one skipped row
+ * (before-start) for the hour in progress, and later runs count only hours
+ * that begin after it. So turning the flag on, or back on, does not reach
+ * back to hours when it was off, or to before the /privacy note that names
+ * these counts. A pause shorter than the gap is filled in, as a missed run
+ * would be.
  *
  * Each counted hour is written once, in one transaction that starts with
  * its traffic_pulls row: 0148's exclusion constraint refuses a second
@@ -66,6 +74,11 @@ const MIN_HOUR_MS = 30_000;
 /** Failures that may pass by the next run: an hour that hit one is tried
  * again rather than kept short. */
 const TRANSIENT = /^(budget-exhausted|rate-limited|timeout|network|http-5\d\d)$/;
+/** A run this long after the last pull row starts afresh. Runs come hourly,
+ * and the run after a start may find nothing to count, so two hours apart
+ * is ordinary; two missed runs in a row, or the switch off for longer, are
+ * not. */
+export const RESTART_GAP_MS = 150 * 60_000;
 
 type RunQuery = (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] } | undefined>;
 type RunTransaction = <T>(work: (tx: RunQuery) => Promise<T>) => Promise<T>;
@@ -97,6 +110,10 @@ export type TrafficPullReport =
   | { ran: false; reason: "token-missing" | "not-provisioned" | "store-unavailable" }
   | {
     ran: true;
+    /** This run started counting (no pull before it, or none within
+     * RESTART_GAP_MS): it counted nothing and marked the hour in progress
+     * skipped. */
+    started: boolean;
     hours: HourReport[];
     /** Hours left uncounted for a later run (the budget ran low, or Vercel stopped answering). */
     pending: number;
@@ -117,11 +134,12 @@ export function pullableHours(now: number): number[] {
 /** The next run (an hour later) would no longer reach this hour. */
 export const lastChance = (hour: number, now: number) => hour < now + HOUR_MS - LOG_WINDOW_MS + WINDOW_MARGIN_MS;
 
-/** The counted pulls in the window, and the earliest pull of any kind (at
- * least one row, so a store with no pull says so). */
-export const COUNTED_PULLS_SQL = `SELECT f.first_start, p.window_start, p.window_end
-  FROM (SELECT min(window_start) AS first_start FROM traffic_pulls) AS f
-  LEFT JOIN traffic_pulls AS p ON p.status <> 'failed' AND p.window_end > $1::timestamptz AND p.window_start < $2::timestamptz`;
+/** Every pull row in the window, when the last pull of any kind ran, and
+ * where the latest start (skipped, before-start) ends (at least one row, so
+ * a store with no pull says so). */
+export const PULL_STATE_SQL = `SELECT s.last_pulled_at, s.counting_from, p.window_start, p.window_end, p.status, p.error_code
+  FROM (SELECT max(pulled_at) AS last_pulled_at, max(window_end) FILTER (WHERE status = 'skipped') AS counting_from FROM traffic_pulls) AS s
+  LEFT JOIN traffic_pulls AS p ON p.window_end > $1::timestamptz AND p.window_start < $2::timestamptz`;
 export const PULL_ROW_SQL = `INSERT INTO traffic_pulls (window_start, window_end, status, records, pages, error_code)
   VALUES ($1::timestamptz, $2::timestamptz, $3, $4, $5, $6)`;
 /** Rows an uncounted hour may still hold (an operator deleted its pull row
@@ -157,18 +175,28 @@ export async function runTrafficPull(deps: PullDeps = {}): Promise<TrafficPullRe
   const deadline = startedAt + (deps.budgetMs ?? TRAFFIC_PULL_BUDGET_MS);
 
   const candidates = pullableHours(startedAt);
-  let counted: { rows: Record<string, unknown>[] } | undefined;
+  let state: { rows: Record<string, unknown>[] } | undefined;
   try {
-    counted = await query(COUNTED_PULLS_SQL, [iso(candidates[0]!), iso(candidates.at(-1)! + HOUR_MS)]);
+    state = await query(PULL_STATE_SQL, [iso(candidates[0]!), iso(candidates.at(-1)! + HOUR_MS)]);
   } catch (error) {
     return { ran: false, reason: code(error) === "42P01" ? "not-provisioned" : "store-unavailable" };
   }
-  const rows = (counted?.rows ?? []).filter(row => row.window_start != null && row.window_end != null);
-  const covered = (hour: number) => rows.some(row =>
-    new Date(row.window_start as string | Date).getTime() <= hour && new Date(row.window_end as string | Date).getTime() >= hour + HOUR_MS);
-  const first = counted?.rows[0]?.first_start;
-  const floor = first == null ? candidates.at(-1)! : new Date(first as string | Date).getTime();
-  const todo = candidates.filter(hour => hour >= floor && !covered(hour));
+  const time = (value: unknown) => (value == null ? null : new Date(value as string | Date).getTime());
+  const lastPulledAt = time(state?.rows[0]?.last_pulled_at);
+
+  if (lastPulledAt === null || startedAt - lastPulledAt > RESTART_GAP_MS) {
+    await markStart(Math.floor(startedAt / HOUR_MS) * HOUR_MS, query);
+    return { ran: true, started: true, hours: [], pending: 0, stoppedBy: null, pruned: await prune(query) };
+  }
+
+  const rows = (state?.rows ?? []).filter(row => row.window_start != null && row.window_end != null)
+    .map(row => ({ start: time(row.window_start)!, end: time(row.window_end)!, status: String(row.status), code: row.error_code == null ? null : String(row.error_code) }));
+  const covering = (hour: number) => rows.filter(row => row.start <= hour && row.end >= hour + HOUR_MS);
+  const covered = (hour: number) => covering(hour).some(row => row.status !== "failed");
+  const outOfBudget = (hour: number) => covering(hour).some(row => row.code !== null && /^(errors-)?budget-exhausted$/.test(row.code));
+  const floor = time(state?.rows[0]?.counting_from) ?? -Infinity;
+  const order = (hour: number) => (lastChance(hour, startedAt) ? 0 : outOfBudget(hour) ? 2 : 1);
+  const todo = candidates.filter(hour => hour >= floor && !covered(hour)).sort((a, b) => order(a) - order(b) || a - b);
 
   const hours: HourReport[] = [];
   let stoppedBy: string | null = null;
@@ -179,10 +207,25 @@ export async function runTrafficPull(deps: PullDeps = {}): Promise<TrafficPullRe
     if (pulled.stop) { stoppedBy = pulled.stop.code; break; }
   }
 
-  let pruned: Record<string, number> | null = null;
-  try { pruned = await pruneObservability(query); }
-  catch (error) { console.error("[cron/traffic-pull] retention sweep failed", error instanceof Error ? error.name : "UnknownError"); }
-  return { ran: true, hours, pending: todo.length - hours.length, stoppedBy, pruned };
+  return { ran: true, started: false, hours, pending: todo.length - hours.length, stoppedBy, pruned: await prune(query) };
+}
+
+/** The skipped row a start writes for the hour in progress. Another run's
+ * row for the same hour (0148's exclusion constraint) does as well. */
+async function markStart(hour: number, query: RunQuery): Promise<void> {
+  try {
+    await query(PULL_ROW_SQL, [iso(hour), iso(hour + HOUR_MS), "skipped", 0, 0, "before-start"]);
+  } catch (error) {
+    if (code(error) !== "23P01") throw error;
+  }
+}
+
+async function prune(query: RunQuery): Promise<Record<string, number> | null> {
+  try { return await pruneObservability(query); }
+  catch (error) {
+    console.error("[cron/traffic-pull] retention sweep failed", error instanceof Error ? error.name : "UnknownError");
+    return null;
+  }
 }
 
 interface PulledHour {

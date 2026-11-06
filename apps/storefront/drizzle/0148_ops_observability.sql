@@ -11,8 +11,9 @@
 --
 -- Retention (src/lib/observability/retention.ts): traffic_hourly and
 -- traffic_pulls keep 35 days; mcp_daily, error_daily and ops_job_outcomes 13
--- months. The writers delete older rows as they write, and the monitor shows
--- any table holding a row past its period.
+-- months. The maintenance cron deletes older rows hourly, whichever flags are
+-- on, the writers also delete them as they write, and the monitor shows any
+-- table holding a row past its period.
 --
 -- Nothing is collected by this migration, and the collecting writers ship
 -- off: the MCP counter runs only while OPS_MCP_DAILY is exactly "on", and the
@@ -103,12 +104,14 @@ CREATE TABLE traffic_hourly (
 -- unknown, never as zero. records and pages are what the pull read; the
 -- error code is Cambridge's own. Two pulls that counted (ok or partial) never
 -- cover the same hour, so no hour is counted twice; a failed pull counted
--- nothing and may be retried.
+-- nothing and may be retried. skipped marks the hour in progress when
+-- counting starts or restarts after a gap (before-start): it began before
+-- counting was on, so no later run counts it or any hour before it.
 CREATE TABLE traffic_pulls (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   window_start timestamptz NOT NULL CHECK (date_trunc('hour', window_start, 'UTC') = window_start),
   window_end timestamptz NOT NULL CHECK (date_trunc('hour', window_end, 'UTC') = window_end),
-  status text NOT NULL CHECK (status IN ('ok', 'partial', 'failed')),
+  status text NOT NULL CHECK (status IN ('ok', 'partial', 'failed', 'skipped')),
   records integer NOT NULL CHECK (records >= 0),
   pages integer NOT NULL CHECK (pages >= 0),
   error_code text CHECK (error_code ~ '^[a-z0-9][a-z0-9-]{0,63}$'),
@@ -137,6 +140,6 @@ COMMENT ON TABLE mcp_daily IS
 COMMENT ON TABLE traffic_hourly IS
   'Requests that reached Vercel per UTC hour by host class, route template, RSC, declared actor class (classifier_version), status, cache result and firewall action. No IP, user agent, query, referrer, body or raw path. Kept 35 days.';
 COMMENT ON TABLE traffic_pulls IS
-  'The windows each traffic pull read and whether it counted them, so an uncounted hour reads as unknown. Counted windows never overlap. Kept 35 days.';
+  'The windows each traffic pull read and whether it counted them, so an uncounted hour reads as unknown; skipped marks where counting (re)started. Counted windows never overlap. Kept 35 days.';
 COMMENT ON TABLE error_daily IS
   'Runtime-log error lines per UTC day by tag (fixed list) and status. Never the line''s text. Kept 13 months.';

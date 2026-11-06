@@ -10,16 +10,19 @@ const { getMiddlewareMatchers } = pageStaticInfo as unknown as { getMiddlewareMa
 const { MiddlewareConfigInputSchema } = middlewareConfig as unknown as { MiddlewareConfigInputSchema: { safeParse: (input: unknown) => { success: boolean } } };
 
 // The production alias reaches Vercel without Cloudflare. A GET or HEAD to
-// its /api goes to the apex; every other method, /api/cron, the apex and
+// its /api, or any method to a door that keeps or counts what a caller
+// sends, goes to the apex, or is told the apex URL when it carries
+// Authorization; other methods elsewhere, /api/cron, the apex and
 // per-deployment hosts are served as before. The matcher is compiled with
 // Next's own functions, so this is the same decision the build makes.
 
 const ALIAS = PRODUCTION_ALIAS_HOST;
 const DEPLOYMENT = "cambridgetcg-storefront-abc123def-cambridgetcg.vercel.app";
 
-function request(method: string, host: string, path: string, cookie?: string): NextRequest {
+function request(method: string, host: string, path: string, cookie?: string, authorization?: string): NextRequest {
   const headers = new Headers({ host });
   if (cookie) headers.set("cookie", cookie);
+  if (authorization) headers.set("authorization", authorization);
   return new NextRequest(`https://${host}${path}`, { method, headers });
 }
 
@@ -69,6 +72,27 @@ describe("the production alias's /api", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
+  it.each(["/api/v1/feedback", "/api/v1/peers", "/api/mcp"])("sends every method to %s to the apex, so its caps stand behind Cloudflare", (path) => {
+    for (const method of ["POST", "DELETE", "PUT", "OPTIONS"]) {
+      const response = proxy(request(method, ALIAS, path));
+      expect(response.status, method).toBe(308);
+      expect(response.headers.get("location"), method).toBe(`https://cambridgetcg.com${path}`);
+    }
+  });
+
+  it("names the apex instead of redirecting a request that carries Authorization, which a redirect would drop", async () => {
+    for (const [method, path] of [["GET", "/api/v1/feedback"], ["DELETE", "/api/v1/feedback"], ["POST", "/api/mcp"], ["GET", "/api/v1/market/indices?game=one-piece"]] as const) {
+      const response = proxy(request(method, ALIAS, path, undefined, "Bearer fbk_example"));
+      expect(response.status, `${method} ${path}`).toBe(421);
+      expect(response.headers.get("location")).toBeNull();
+      const body = await response.json() as { error: { code: string; apex_url: string } };
+      expect(body.error).toMatchObject({ code: "MISDIRECTED", apex_url: `https://cambridgetcg.com${path}` });
+      expect(JSON.stringify(body)).not.toContain("fbk_example");
+    }
+    // A webhook's POST elsewhere is still served, header or not.
+    expect(proxy(request("POST", ALIAS, "/api/webhooks/stripe", undefined, "Bearer x")).headers.get("x-middleware-next")).toBe("1");
+  });
+
   it("never redirects /api/cron, on any method", () => {
     for (const method of ["GET", "HEAD", "POST"]) {
       const response = proxy(request(method, ALIAS, "/api/cron/traffic-pull"));
@@ -87,6 +111,7 @@ describe("every other host", () => {
     for (const host of ["cambridgetcg.com", DEPLOYMENT, "www.cambridgetcg.com"]) {
       expect(proxy(request("GET", host, "/api/admin/emails")).status, host).toBe(401);
     }
+    expect(matches("cambridgetcg.com", "/api/v1/feedback")).toBe(false);
   });
 
   it("keeps the cookie gate exactly as before", () => {

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CONTACT_TOPICS, validateFeedback } from "@/lib/feedback/door";
+import { CONTACT_TOPICS, HOLDER_KEY_PATTERN, validateFeedback } from "@/lib/feedback/door";
 import ContactForm from "./ContactForm";
 
 const source = readFileSync(new URL("./ContactForm.tsx", import.meta.url), "utf8");
@@ -24,11 +24,24 @@ describe("the /contact form, the human half of the feedback door", () => {
   });
 
   it("renders the form and the way back to an earlier message", () => {
-    const markup = renderToStaticMarkup(<ContactForm />);
+    const markup = renderToStaticMarkup(<ContactForm open />);
     expect(markup).toContain("Send message");
     expect(markup).toContain("Sent a message before?");
     expect(markup).toContain("Check for an answer");
     expect(markup).toContain("Delete my message");
     expect(markup).toMatch(/maxlength="4000"/i);
+  });
+
+  it("offers no form while the door is closed, and still opens an earlier message", () => {
+    const markup = renderToStaticMarkup(<ContactForm open={false} />);
+    expect(markup).not.toContain("Send message");
+    expect(markup).toContain("not taking messages");
+    expect(markup).toContain("Check for an answer");
+  });
+
+  it("shows a status only for a reply about the message, and checks a key's shape first", () => {
+    expect(source).toContain('json.data?.["@kind"] !== "feedback-status"');
+    const pattern = /const HOLDER_KEY = (\/.+\/);/.exec(source)?.[1];
+    expect(pattern).toBe(String(HOLDER_KEY_PATTERN));
   });
 });

@@ -119,6 +119,18 @@ describe.skipIf(!localUrl)("agent doors PostgreSQL integration, migration 0149 (
     await pool.query(`DELETE FROM public_feedback; DELETE FROM feedback_hourly_intake`);
   });
 
+  it("keeps the largest report the route reads, in a script of three bytes a character", async () => {
+    const wide = (length: number) => "誤".repeat(length);
+    const report = { kind: "data-error", endpoint: "/api/v1/market/indices", subject: "op-op01", observed: wide(2000), expected: wide(2000), observation: wide(1400) };
+    const bytes = Buffer.byteLength(JSON.stringify(report));
+    expect(bytes).toBeGreaterThan(16_000);
+    expect(bytes).toBeLessThan(16 * 1024);
+    const stored = await storeFeedback(submission(report), run);
+    expect(stored.ok).toBe(true);
+    expect((await pool.query(`SELECT octet_length(details::text) AS n FROM public_feedback`)).rows[0].n).toBeGreaterThan(12_288);
+    await pool.query(`DELETE FROM public_feedback; DELETE FROM feedback_hourly_intake`);
+  });
+
   it("writes and reads the same through postgres.js, as production does", async () => {
     const url = new URL(localUrl!);
     url.searchParams.set("search_path", schema);

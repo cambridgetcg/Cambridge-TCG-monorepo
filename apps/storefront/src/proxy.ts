@@ -29,12 +29,24 @@
 // The production alias (2026-11-06). cambridgetcg-storefront.vercel.app
 // reaches Vercel without Cloudflare, so API reads there skipped its
 // firewall and rate rules (5,615 of 8,143 /api/v1/prices requests on
-// 2026-11-05). Yu chose to stop the alias serving the API. A GET or HEAD
-// to /api/* on that host now answers 308 to the same path and query on
-// https://cambridgetcg.com. Other methods pass untouched, so a webhook
-// posting to the alias keeps working; /api/cron/* is never redirected;
-// per-deployment *.vercel.app hosts are not matched. next.config.ts
-// redirects cannot do this, as they cannot tell GET from POST.
+// 2026-11-05). Yu chose to stop the alias serving the API. On that host:
+//   - a GET or HEAD to /api/* answers 308 to the same path and query on
+//     https://cambridgetcg.com;
+//   - so does every method to the doors that keep or count what a caller
+//     sends (/api/v1/feedback, /api/v1/peers, /api/mcp), so their global
+//     caps and per-request writes stand behind Cloudflare's per-source
+//     rules. None had a caller on the alias: feedback answered 503 and
+//     peers stored nothing before 2026-11-06;
+//   - a request that would be redirected but carries Authorization answers
+//     421 naming the apex URL instead, since clients drop that header when
+//     they follow a redirect to another host and the apex would then answer
+//     as if no key were sent;
+//   - other methods to other paths pass untouched, so a webhook posting to
+//     the alias keeps working, and /api/cron/* is never touched.
+// Per-deployment *.vercel.app hosts are not matched (whether Vercel's
+// deployment protection keeps them from the public is not checked here).
+// next.config.ts redirects cannot do this, as they cannot tell GET from
+// POST.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAMES } from "@/lib/auth/cookies";
@@ -44,6 +56,9 @@ import { SESSION_COOKIE_NAMES } from "@/lib/auth/cookies";
 export const PRODUCTION_ALIAS_HOST = "cambridgetcg-storefront.vercel.app";
 const APEX_ORIGIN = "https://cambridgetcg.com";
 
+/** The doors whose every method the alias sends to the apex. */
+export const ALIAS_APEX_ONLY_DOORS = ["/api/v1/feedback", "/api/v1/peers", "/api/mcp"] as const;
+
 const under = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 
 function onAliasApi(req: NextRequest): boolean {
@@ -51,12 +66,22 @@ function onAliasApi(req: NextRequest): boolean {
   return host === PRODUCTION_ALIAS_HOST && under(req.nextUrl.pathname, "/api");
 }
 
-/** 308 to the apex for a GET or HEAD to the alias's /api, outside /api/cron. */
-export function aliasApiRedirect(req: NextRequest): NextResponse | null {
-  if (req.method !== "GET" && req.method !== "HEAD") return null;
-  if (!onAliasApi(req) || under(req.nextUrl.pathname, "/api/cron")) return null;
+/** The alias's answer for its /api outside /api/cron: 308 to the apex for a
+ * GET or HEAD, or any method to an apex-only door; 421 with the apex URL
+ * when such a request carries Authorization. Null: serve it as it is. */
+export function aliasApiAnswer(req: NextRequest): NextResponse | null {
   const { pathname, search } = req.nextUrl;
-  return NextResponse.redirect(`${APEX_ORIGIN}${pathname}${search}`, 308);
+  if (!onAliasApi(req) || under(pathname, "/api/cron")) return null;
+  const door = ALIAS_APEX_ONLY_DOORS.some((prefix) => under(pathname, prefix));
+  if (!door && req.method !== "GET" && req.method !== "HEAD") return null;
+  const apex = `${APEX_ORIGIN}${pathname}${search}`;
+  if (req.headers.has("authorization")) {
+    return NextResponse.json(
+      { error: { code: "MISDIRECTED", message: `This host does not serve the API. Send the same request, with its Authorization header, to ${apex}.`, apex_url: apex } },
+      { status: 421, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  return NextResponse.redirect(apex, 308);
 }
 
 function hasSessionCookie(req: NextRequest): boolean {
@@ -64,7 +89,7 @@ function hasSessionCookie(req: NextRequest): boolean {
 }
 
 export default function proxy(req: NextRequest): NextResponse {
-  const toApex = aliasApiRedirect(req);
+  const toApex = aliasApiAnswer(req);
   if (toApex) return toApex;
   const { pathname, search } = req.nextUrl;
   // The alias matcher also brings the alias's other /api requests here (a
@@ -103,7 +128,7 @@ export const config = {
     "/admin/:path*",
     "/api/admin/:path*",
     "/account/:path*",
-    // The production alias's /api, outside /api/cron (aliasApiRedirect).
+    // The production alias's /api, outside /api/cron (aliasApiAnswer).
     {
       source: "/api/:path((?!cron(?:/|$)).*)",
       has: [{ type: "host", value: "cambridgetcg-storefront.vercel.app" }],

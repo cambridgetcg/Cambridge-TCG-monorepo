@@ -113,6 +113,13 @@ describe("/api/v1/feedback while the door is open", () => {
     expect(body.error).toMatchObject({ code: "RATE_LIMITED", details: { cap_per_hour: 30 } });
   });
 
+  it("answers 400, not 503, when the store's check refuses a report, since a retry cannot pass", async () => {
+    mockQuery.mockRejectedValueOnce(Object.assign(new Error("violates check constraint"), { code: "23514" }));
+    const response = await POST(post({ kind: "question", message: "hi" }));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatchObject({ code: "INVALID_INPUT" });
+  });
+
   it("says when the store is not there, and keeps nothing", async () => {
     mockQuery.mockRejectedValueOnce(Object.assign(new Error("relation \"public_feedback\" does not exist"), { code: "42P01" }));
     const response = await POST(post({ kind: "question", message: "hi" }));

@@ -24,12 +24,16 @@
 -- The structured references a report can carry beside its message, each a
 -- named field the door knows (door.ts FEEDBACK_DETAIL_FIELDS): a step
 -- number from 1 to 999, otherwise a non-empty string of at most 2000
--- characters. No other key, no nesting, no arrays.
+-- characters. No other key, no nesting, no arrays. The whole is at most
+-- 20 KiB as text. The route reads at most 16 KiB, and the text of the fields
+-- a request carries is never more than a few bytes longer than the request
+-- (a space after each colon and comma), so whatever the door accepts fits,
+-- in any script.
 CREATE FUNCTION feedback_details_valid(details jsonb) RETURNS boolean
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
   SELECT CASE
     WHEN jsonb_typeof(details) IS DISTINCT FROM 'object' THEN false
-    WHEN octet_length(details::text) > 12288 THEN false
+    WHEN octet_length(details::text) > 20480 THEN false
     ELSE NOT EXISTS (
       SELECT 1 FROM jsonb_each(details) AS field(key, value)
        WHERE field.key NOT IN ('observed', 'expected', 'observation', 'use_case', 'endpoint', 'proposed_endpoint', 'guide_slug', 'step_number', 'request_id', 'subject', 'as_of', 'method_version', 'platform_name', 'platform_url', 'federation_endpoint')

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/lib/ui";
+import { feedbackDoorOpen } from "@/lib/feedback/door";
 import ContactForm from "./ContactForm";
 
 /**
@@ -9,8 +10,10 @@ import ContactForm from "./ContactForm";
  * (/api/v1/feedback), plus the plain email alternative for people who'd
  * rather not use a form. The form and the email reach the same people but
  * not the same place: the form's message is kept by the door for 180 days
- * (/privacy#feedback-door), the email by the mailbox. Contact-surface spec
- * W6; the form itself lives in ./ContactForm (client).
+ * (/privacy#feedback-door), the email by the mailbox. While PUBLIC_FEEDBACK
+ * is off the form is not offered and the page says email only; the page is
+ * built with the deployment's flags, as the switch needs a redeploy anyway.
+ * Contact-surface spec W6; the form itself lives in ./ContactForm (client).
  */
 
 export const metadata = {
@@ -20,6 +23,7 @@ export const metadata = {
 };
 
 export default function ContactPage() {
+  const open = feedbackDoorOpen();
   return (
     <main className="min-h-screen bg-page">
       <div className="max-w-2xl mx-auto px-4 py-12">
@@ -28,22 +32,28 @@ export default function ContactPage() {
           description="A question about an order, a trade-in, the site, or anything else — write below and a human will read it."
         />
 
-        <ContactForm />
+        <ContactForm open={open} />
 
         <p className="text-sm text-ink-muted mt-8 leading-relaxed">
-          Prefer plain email? Write to{" "}
+          {open ? "Prefer plain email? Write to " : "Write to "}
           <a
             href="mailto:contact@cambridgetcg.com"
             className="text-accent underline hover:text-accent-strong"
           >
             contact@cambridgetcg.com
           </a>
-          {" — "}the same people read both. The form keeps your message for
-          180 days, or until you delete it with your key; see{" "}
-          <Link href="/privacy#feedback-door" className="text-accent underline hover:text-accent-strong">
-            what the form keeps
-          </Link>
-          . If you left an email address, we aim to reply within 48 hours.
+          {open ? (
+            <>
+              {" — "}the same people read both. The form keeps your message for
+              180 days, or until you delete it with your key; see{" "}
+              <Link href="/privacy#feedback-door" className="text-accent underline hover:text-accent-strong">
+                what the form keeps
+              </Link>
+              . If you left an email address, we aim to reply within 48 hours.
+            </>
+          ) : (
+            <>. We aim to reply within 48 hours.</>
+          )}
         </p>
       </div>
     </main>

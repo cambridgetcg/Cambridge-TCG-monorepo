@@ -8,7 +8,7 @@ vi.mock("server-only", () => ({}));
 import { recordJobOutcome } from "./job-outcomes";
 import { recordMcpDaily } from "./mcp-daily";
 import { loadMonitor, type RunQuery } from "./monitor";
-import { pruneObservability } from "./retention";
+import { pruneObservability, runObservabilityRetentionSweep } from "./retention";
 
 // Explicit opt-in, like the other storefront integration tests: one
 // disposable loopback database, isolated schemas, never DATABASE_URL.
@@ -129,10 +129,25 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     expect(await pruneObservability(run)).toEqual({ ops_job_outcomes: 0, mcp_daily: 0, traffic_hourly: 0, traffic_pulls: 0, error_daily: 0 });
   });
 
-  it("adds one to the day's MCP row per request, in one statement", async () => {
+  it("sweeps every table hourly at minute 23 with no writer running, and finds nothing to sweep before 0148", async () => {
+    await pool.query(`INSERT INTO traffic_hourly VALUES (date_trunc('hour', now()) - interval '40 days', 'apex', '/', false, 'browser-like', 'ctcg.actor-class/v1', '2xx', 'miss', 'none', 5)`);
+    await pool.query(`INSERT INTO traffic_pulls (window_start, window_end, status, records, pages, error_code) VALUES (date_trunc('hour', now()) - interval '40 days', date_trunc('hour', now()) - interval '40 days' + interval '1 hour', 'skipped', 0, 0, 'before-start')`);
+    await pool.query(`INSERT INTO error_daily VALUES (current_date - 420, 'cron', 500, 2)`);
+    const at = (minute: number) => { const date = new Date(); date.setUTCMinutes(minute); return date; };
+    expect(await runObservabilityRetentionSweep(at(22), run)).toEqual({ ranInWindow: false });
+    expect(await runObservabilityRetentionSweep(at(23), run)).toEqual({ ranInWindow: true, provisioned: true,
+      deleted: { ops_job_outcomes: 0, mcp_daily: 0, traffic_hourly: 1, traffic_pulls: 1, error_daily: 1 } });
+    const bare = new Pool({ connectionString: localUrl, options: `-c search_path=public`, max: 1 });
+    try {
+      expect(await runObservabilityRetentionSweep(at(23), (sql, params) => bare.query(sql, params) as never)).toEqual({ ranInWindow: true, provisioned: false });
+    } finally { await bare.end(); }
+  });
+
+  it("adds each count to its day's MCP row, many rows in one statement", async () => {
     const words = { method: "tools/call", tool: "agent.self", authenticated: true, outcome: "ok" } as const;
-    for (let i = 0; i < 3; i += 1) expect(await recordMcpDaily(words, run)).toBe(true);
-    expect(await recordMcpDaily({ ...words, outcome: "rate-limited" }, run)).toBe(true);
+    const today = (await pool.query(`SELECT ((now() AT TIME ZONE 'UTC')::date)::text AS day`)).rows[0].day as string;
+    expect(await recordMcpDaily([{ day: today, ...words, count: 2 }], run)).toBe(true);
+    expect(await recordMcpDaily([{ day: today, ...words, count: 1 }, { day: today, ...words, outcome: "rate-limited", count: 1 }], run)).toBe(true);
     expect((await pool.query(`SELECT method, tool, authenticated, outcome, count FROM mcp_daily WHERE day = (now() AT TIME ZONE 'UTC')::date ORDER BY outcome`)).rows).toEqual([
       { ...words, count: 3 }, { ...words, outcome: "rate-limited", count: 1 },
     ]);

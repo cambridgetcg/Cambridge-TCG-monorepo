@@ -12,8 +12,9 @@ import { Button, Card, ErrorAlert, Field, Input, Select, Textarea } from "@/lib/
  * reference and a holder key shown once. The key stays in this page's
  * memory only: nothing is written to cookies or browser storage. With it the
  * sender can read our answer or delete the message here, now or later.
- * While the door is closed the POST answers 503 and the form shows that
- * message, which names the email address instead.
+ * While the door is closed (`open` false, read by the page from
+ * PUBLIC_FEEDBACK) the form is not offered and the page points to email; a
+ * key from an earlier message still reads and erases it.
  */
 
 const TOPICS = [
@@ -31,11 +32,15 @@ type Status =
   | { state: "error"; message: string };
 
 interface DoorReply {
-  data?: { feedback_id?: string; holder_key?: string; status?: string; answer?: { text: string; answered_at: string } | null; erased?: boolean };
+  data?: { "@kind"?: string; feedback_id?: string; holder_key?: string; status?: string; answer?: { text: string; answered_at: string } | null; erased?: boolean };
   error?: { message?: string };
 }
 
-export default function ContactForm() {
+/** A holder key's shape (lib/feedback/door.ts HOLDER_KEY_PATTERN, which
+ * imports node:crypto and so stays out of this client file). */
+const HOLDER_KEY = /^fbk_[A-Za-z0-9_-]{43}$/;
+
+export default function ContactForm({ open }: { open: boolean }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [topic, setTopic] = useState<string>(TOPICS[0].value);
@@ -107,6 +112,20 @@ export default function ContactForm() {
           )}
         </Card>
         {status.holderKey && <MessageKey initialKey={status.holderKey} />}
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="space-y-8">
+        <Card padding="lg">
+          <p className="text-sm text-ink-muted leading-relaxed">
+            The form is not taking messages at the moment. Please email us
+            instead: the address is below.
+          </p>
+        </Card>
+        <MessageKey />
       </div>
     );
   }
@@ -199,6 +218,15 @@ function MessageKey({ initialKey = "" }: { initialKey?: string }) {
   async function call(method: "GET" | "DELETE") {
     const holderKey = key.trim();
     if (!holderKey || result.state === "working") return;
+    if (!HOLDER_KEY.test(holderKey)) {
+      setResult({
+        state: "error",
+        message: holderKey.startsWith("fb_")
+          ? "That is your reference, for quoting in an email. The key starts with fbk_ and was shown beside it."
+          : "That is not a key from this form. The key starts with fbk_ and was shown when you sent your message.",
+      });
+      return;
+    }
     setResult({ state: "working" });
     try {
       const res = await fetch("/api/v1/feedback", {
@@ -215,7 +243,13 @@ function MessageKey({ initialKey = "" }: { initialKey?: string }) {
         setResult({ state: "erased" });
         return;
       }
-      setResult({ state: "status", status: json.data?.status ?? "received", answer: json.data?.answer ?? null });
+      // Only a message's status answers a key; anything else (the door's
+      // own description, say) is not about this message.
+      if (json.data?.["@kind"] !== "feedback-status") {
+        setResult({ state: "error", message: "That key did not open a message." });
+        return;
+      }
+      setResult({ state: "status", status: json.data.status ?? "received", answer: json.data.answer ?? null });
     } catch {
       setResult({ state: "error", message: "Could not reach the server. Check your connection and try again." });
     }

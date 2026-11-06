@@ -119,8 +119,9 @@ describe("/api/v1/peers counted hello", () => {
     expect(body.data).toMatchObject({
       stored: false,
       published: false,
-      hello: { counted: true, message: "counted in today's total; nothing about you stored", day: "2026-11-06", declared_kind: "agent", today_total: 3 },
+      hello: { counted: true, message: "counted in today's total; nothing about you stored", day: "2026-11-06", declared_kind: "agent" },
     });
+    expect(body.data.hello).not.toHaveProperty("today_total");
     expect(mockQuery).toHaveBeenCalledTimes(1);
     expect(mockQuery).toHaveBeenCalledWith(PEER_HELLO_UPSERT, ["agent"]);
     expect(JSON.stringify(mockQuery.mock.calls)).not.toContain(CONTENT_HASH);
@@ -132,13 +133,22 @@ describe("/api/v1/peers counted hello", () => {
     expect((await (await hello({ content_hash: CONTENT_HASH })).json()).data.hello).toMatchObject({ counted: true, declared_kind: "undeclared" });
     expect(mockQuery).toHaveBeenLastCalledWith(PEER_HELLO_UPSERT, ["undeclared"]);
 
-    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-    expect((await (await hello({ content_hash: CONTENT_HASH, declared_kind: "agent" })).json()).data.hello).toMatchObject({ counted: false, reason: "cap-reached" });
-
     mockQuery.mockRejectedValueOnce(new Error("too many connections"));
     const failed = await hello({ content_hash: CONTENT_HASH, declared_kind: "agent" });
     expect(failed.status).toBe(200);
     expect((await failed.json()).data.hello).toMatchObject({ counted: false, reason: "unavailable" });
+
+    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    expect((await (await hello({ content_hash: CONTENT_HASH, declared_kind: "agent" })).json()).data.hello).toMatchObject({ counted: false, reason: "cap-reached" });
+    // Once this instance has seen the cap, a flood past it writes nothing more today.
+    const calls = mockQuery.mock.calls.length;
+    for (let i = 0; i < 3; i++) {
+      expect((await (await hello({ content_hash: CONTENT_HASH, declared_kind: "agent" })).json()).data.hello).toMatchObject({ counted: false, reason: "cap-reached" });
+    }
+    expect(mockQuery.mock.calls.length).toBe(calls);
+    // Other kinds are still counted.
+    mockQuery.mockResolvedValueOnce({ rows: [{ day: "2026-11-06", count: 2 }], rowCount: 1 });
+    expect((await (await hello({ content_hash: CONTENT_HASH, declared_kind: "oracle" })).json()).data.hello).toMatchObject({ counted: true });
   });
 
   it("counts nothing for a hello it refuses", async () => {

@@ -147,6 +147,9 @@ describe("storage", () => {
     const missing = Object.assign(new Error("relation does not exist"), { code: "42P01" });
     expect(await storeFeedback(submission, async () => { throw missing; })).toEqual({ ok: false, reason: "not-provisioned" });
     expect(await storeFeedback(submission, async () => { throw new Error("busy"); })).toEqual({ ok: false, reason: "unavailable" });
+    // A CHECK saying no will say it again: refused, not unavailable.
+    const check = Object.assign(new Error("violates check constraint"), { code: "23514" });
+    expect(await storeFeedback(submission, async () => { throw check; })).toEqual({ ok: false, reason: "refused" });
   });
 
   it("finds a holder's row by the key's hash only, and erases it whole", async () => {

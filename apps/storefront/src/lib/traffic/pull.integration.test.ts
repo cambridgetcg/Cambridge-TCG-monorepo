@@ -6,7 +6,7 @@ import { createCompatDb } from "@cambridge-tcg/db/compat";
 
 vi.mock("server-only", () => ({}));
 import { readErrors, readTraffic, readTrafficCoverage, type RunQuery } from "@/lib/observability/monitor";
-import { COUNTED_PULLS_SQL, runTrafficPull } from "./pull";
+import { PULL_STATE_SQL, runTrafficPull } from "./pull";
 
 // Explicit opt-in, like the other storefront integration tests: one
 // disposable loopback database, an isolated schema, never DATABASE_URL.
@@ -75,7 +75,23 @@ describe.skipIf(!localUrl)("traffic pull PostgreSQL integration, migration 0148 
     if (admin) { await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`); await admin.end(); }
   });
 
+  it("on a first run counts nothing and marks the hour in progress, which no later pull may count", async () => {
+    const fetch = vercel({ [iso(hourStart(1))]: hourOf(1) });
+    expect(await runTrafficPull({ query: pgQuery, transaction: pgTransaction, fetch, token: "test-token-not-real" })).toMatchObject({ ran: true, started: true, hours: [] });
+    expect(fetch).not.toHaveBeenCalled();
+    expect((await pool.query(`SELECT window_start, status, records, error_code FROM traffic_pulls`)).rows)
+      .toEqual([{ window_start: new Date(hourStart(0)), status: "skipped", records: 0, error_code: "before-start" }]);
+    await expect(pool.query(`INSERT INTO traffic_pulls (window_start, window_end, status, records, pages) VALUES ($1, $2, 'ok', 1, 1)`, [iso(hourStart(0)), iso(hourStart(-1))]))
+      .rejects.toMatchObject({ code: "23P01" });
+    await expect(pool.query(`INSERT INTO traffic_pulls (window_start, window_end, status, records, pages) VALUES ($1, $2, 'skipped', 0, 0)`, [iso(hourStart(3)), iso(hourStart(2))]))
+      .rejects.toMatchObject({ code: "23514" });
+    expect(await readTrafficCoverage(pgQuery, new Date(hourStart(-1) + 60_000))).toMatchObject({ state: "known", data: { skipped: 1, ok: 0 } });
+    await pool.query(`DELETE FROM traffic_pulls`);
+  });
+
   it("counts the previous hour once, through the database's own checks, and the monitor reads it", async () => {
+    // Counting started two hours ago (its mark), and a run went an hour ago.
+    await pool.query(`INSERT INTO traffic_pulls (window_start, window_end, status, records, pages, error_code, pulled_at) VALUES ($1, $2, 'skipped', 0, 0, 'before-start', now() - interval '1 hour')`, [iso(hourStart(2)), iso(hourStart(1))]);
     const fetch = vercel({ [iso(hourStart(1))]: hourOf(1) });
     const report = await runTrafficPull({ query: pgQuery, transaction: pgTransaction, fetch, token: "test-token-not-real" });
     expect(report).toMatchObject({ ran: true, stoppedBy: null, hours: [{ hour: iso(hourStart(1)), status: "ok", records: 8, rows: 3, errors: 2 }] });
@@ -88,7 +104,8 @@ describe.skipIf(!localUrl)("traffic pull PostgreSQL integration, migration 0148 
     expect((await pool.query(`SELECT tag, status, count FROM error_daily ORDER BY tag`)).rows).toEqual([
       { tag: "fairness-audit", status: 200, count: 1 }, { tag: "wholesale", status: 200, count: 1 },
     ]);
-    expect((await pool.query(`SELECT status, records, pages, error_code FROM traffic_pulls`)).rows).toEqual([{ status: "ok", records: 8, pages: 2, error_code: null }]);
+    expect((await pool.query(`SELECT status, records, pages, error_code FROM traffic_pulls ORDER BY window_start`)).rows)
+      .toEqual([{ status: "skipped", records: 0, pages: 0, error_code: "before-start" }, { status: "ok", records: 8, pages: 2, error_code: null }]);
 
     // Again: the hour is counted, so Vercel is not asked and nothing doubles.
     const again = vercel({});
@@ -98,15 +115,18 @@ describe.skipIf(!localUrl)("traffic pull PostgreSQL integration, migration 0148 
 
     // A run that read the coverage before another run wrote it is refused by
     // 0148's exclusion constraint, and its transaction leaves nothing behind.
-    const stale: RunQuery = (sql, params) => sql === COUNTED_PULLS_SQL ? Promise.resolve({ rows: [{ first_start: new Date(hourStart(1)), window_start: null, window_end: null }] }) : pgQuery(sql, params);
+    const stale: RunQuery = async (sql, params) => {
+      const read = await pgQuery(sql, params);
+      return sql === PULL_STATE_SQL ? { rows: read.rows.filter(row => new Date(row.window_start as Date).getTime() !== hourStart(1)) } : read;
+    };
     expect(await runTrafficPull({ query: stale, transaction: pgTransaction, fetch: vercel({ [iso(hourStart(1))]: hourOf(1) }), token: "test-token-not-real" }))
       .toMatchObject({ hours: [{ status: "already-counted" }] });
     expect(await count(`SELECT sum(count)::int AS n FROM traffic_hourly`)).toBe(8);
     expect(await count(`SELECT sum(count)::int AS n FROM error_daily`)).toBe(2);
-    expect(await count(`SELECT count(*)::int AS n FROM traffic_pulls`)).toBe(1);
+    expect(await count(`SELECT count(*)::int AS n FROM traffic_pulls`)).toBe(2);
 
     const now = new Date();
-    expect(await readTrafficCoverage(pgQuery, now)).toMatchObject({ state: "known", data: { ok: 1, failed: 0, partial: 0 } });
+    expect(await readTrafficCoverage(pgQuery, now)).toMatchObject({ state: "known", data: { ok: 1, failed: 0, partial: 0, skipped: 1 } });
     expect(await readTraffic(pgQuery, now)).toMatchObject({ state: "known", data: { days: [{ requests: 8, rsc: 6, direct: 1, statuses: { "2xx": 7, "404": 1 } }] } });
     expect(await readErrors(pgQuery, now)).toMatchObject({ state: "known", data: expect.arrayContaining([expect.objectContaining({ tag: "wholesale", status: 200, count: 1 })]) });
     // No column holds what a record carried.
@@ -118,7 +138,8 @@ describe.skipIf(!localUrl)("traffic pull PostgreSQL integration, migration 0148 
   it("back-fills missed hours through postgres.js, records a refused one as failed, and sweeps past retention", async () => {
     await pool.query(`INSERT INTO traffic_hourly VALUES ($1, 'apex', '/', false, 'browser-like', 'ctcg.actor-class/v1', '2xx', 'miss', 'none', 4)`, [iso(hourStart(36 * 24))]);
     await pool.query(`INSERT INTO error_daily VALUES ((now() AT TIME ZONE 'UTC')::date - 400, 'wholesale', 503, 9)`);
-    // The first pull ran four hours ago and failed; hours 3 and 2 were never tried.
+    // Counting started five hours ago; the pull of hour 4 failed, and hours 3 and 2 were never tried.
+    await pool.query(`UPDATE traffic_pulls SET window_start = $1, window_end = $2, pulled_at = now() - interval '5 hours' WHERE status = 'skipped'`, [iso(hourStart(5)), iso(hourStart(4))]);
     await pool.query(`INSERT INTO traffic_pulls (window_start, window_end, status, records, pages, error_code) VALUES ($1, $2, 'failed', 0, 0, 'http-503')`, [iso(hourStart(4)), iso(hourStart(3))]);
 
     const url = new URL(localUrl!);
@@ -141,6 +162,6 @@ describe.skipIf(!localUrl)("traffic pull PostgreSQL integration, migration 0148 
     expect(await count(`SELECT count(DISTINCT hour)::int AS n FROM traffic_hourly`)).toBe(3);
     expect(await count(`SELECT sum(count)::int AS n FROM error_daily`)).toBe(6);
     expect(await count(`SELECT count(*)::int AS n FROM traffic_hourly WHERE hour < now() - interval '35 days'`)).toBe(0);
-    expect(await readTrafficCoverage(pgQuery, new Date())).toMatchObject({ state: "known", data: { ok: 3, failed: 1 } });
+    expect(await readTrafficCoverage(pgQuery, new Date())).toMatchObject({ state: "known", data: { ok: 3, failed: 1, skipped: 1 } });
   });
 });

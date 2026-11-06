@@ -31,8 +31,8 @@ import { DATA_COLLECT_FLAGS } from "@/lib/datafeed/collection-flags";
 import { MCP_DAILY_FLAG } from "@/lib/observability/mcp-daily";
 import { TRAFFIC_PULL_FLAG, trafficPullOn } from "@/lib/traffic/pull";
 import {
-  loadMonitor,
-  type BatchGroup, type ClassGroup, type CollectorLease, type DerivationDay, type DerivedCount, type ErrorCount,
+  MIN_HOLDERS, apiRouteView, loadMonitor, mcpView,
+  type BatchGroup, type ClassGroup, type CollectorLease, type CoverageDay, type DerivationDay, type DerivedCount, type ErrorCount,
   type JobOutcomeRow, type JobOutcomeTally, type McpTally, type NotFoundSpot, type RateBucketDay, type RetentionState,
   type RouteHits, type TrafficDay, type UsageMonth,
 } from "@/lib/observability/monitor";
@@ -49,6 +49,9 @@ export default async function Page() {
   await requireAdminPage();
   const data = await loadMonitor(sfQuery);
   const { collectors, derivation, api, agents, traffic, errors, retention } = data;
+  const routes = api.routes.state === "known" ? apiRouteView(api.routes.data, api.usage, new Date(data.readAt)) : null;
+  const mcp = agents.mcp.state === "known" ? mcpView(agents.mcp.data, agents.keys) : null;
+  const coverageDays = traffic.coverage.state === "known" ? new Map(traffic.coverage.data.days.map((day) => [day.day, day])) : null;
 
   return (
     <div className="max-w-6xl space-y-10">
@@ -186,7 +189,7 @@ export default async function Page() {
         id="api"
         title="3. Data API"
         source={<>The posture flags in this deployment (<code>DATA_API_READS</code>, <code>DATA_API_PLANS_PUBLISHED</code>, <code>DATA_API_CHECKOUT_INTAKE</code>); data_api_usage_months (0142); traffic_hourly (0148) for its routes.</>}
-        covers={<>Monthly requests summed over accounts, and how many accounts made any; no account is named. Route hits are what reached Vercel, for the hours a traffic pull counted (panel 5).</>}
+        covers={<>Monthly requests summed over accounts, and how many accounts made any; no account is named. Route hits are what reached Vercel in 35 days, by route and status, for the hours a traffic pull counted (panel 5); with no day or hour, and the key-gated routes&apos; answers to a holder withheld below {MIN_HOLDERS} holders, so no row describes one holder&apos;s use.</>}
       >
         <div className="flex flex-wrap gap-4">
           <Flag name="DATA_API_READS" on={api.posture.readsPublished} />
@@ -206,19 +209,21 @@ export default async function Page() {
             ]}
           />
         )}
-        {api.routes.state === "unknown" ? <Unknown reason={api.routes.reason} /> : (
-          <DataTable<RouteHits>
-            rows={api.routes.data}
-            rowKey={(row) => `${row.day}:${row.pathGroup}:${row.statusClass}`}
-            empty="No counted request to these routes in 35 days (see panel 5 for which hours were counted)."
-            minWidth={480}
-            columns={[
-              { key: "day", header: "Day", render: (row) => <span className="font-mono text-xs">{row.day}</span> },
-              { key: "group", header: "Route", render: (row) => <code className="text-xs">{row.pathGroup}</code> },
-              { key: "status", header: "Status", render: (row) => row.statusClass },
-              { key: "requests", header: "Requests", align: "right", render: (row) => n(row.requests) },
-            ]}
-          />
+        {api.routes.state === "unknown" ? <Unknown reason={api.routes.reason} /> : routes && (
+          <>
+            <DataTable<RouteHits>
+              rows={routes.rows}
+              rowKey={(row) => `${row.pathGroup}:${row.statusClass}`}
+              empty="No counted request to these routes in 35 days (see panel 5 for which hours were counted)."
+              minWidth={420}
+              columns={[
+                { key: "group", header: "Route", render: (row) => <code className="text-xs">{row.pathGroup}</code> },
+                { key: "status", header: "Status", render: (row) => row.statusClass },
+                { key: "requests", header: "Requests (35 d)", align: "right", render: (row) => n(row.requests) },
+              ]}
+            />
+            {routes.withheld && <p className="text-xs text-neutral-500">{routes.withheld}</p>}
+          </>
         )}
       </Panel>
 
@@ -227,13 +232,13 @@ export default async function Page() {
         id="agents"
         title="4. Agents"
         source={<>mcp_daily (0148), written while <code>{MCP_DAILY_FLAG}</code> is on; agent_keys and agent_rate_buckets (0090).</>}
-        covers={<>MCP requests for 30 days by method, tool, authentication and outcome, with no key beside a tool; key counts and when active keys were last used, in bands; the rate buckets&apos; 7 days. Other agent doors appear in traffic (panel 5) by route group.</>}
+        covers={<>MCP requests for 30 days by method, tool, authentication and outcome, with no key beside a tool, and the authenticated rows withheld while fewer than {MIN_HOLDERS} active keys were used in those 30 days; key counts and when active keys were last used, in bands; the rate buckets&apos; 7 days. Other agent doors appear in traffic (panel 5) by route group.</>}
       >
-        {agents.mcp.state === "unknown" ? <Unknown reason={agents.mcp.reason} /> : (
+        {agents.mcp.state === "unknown" ? <Unknown reason={agents.mcp.reason} /> : mcp && (
           <>
             <div className="flex flex-wrap gap-4"><Flag name={MCP_DAILY_FLAG} on={agents.mcp.data.on} /></div>
             <DataTable<McpTally>
-              rows={agents.mcp.data.tally}
+              rows={mcp.tally}
               rowKey={(row) => `${row.method}:${row.tool}:${row.authenticated}:${row.outcome}`}
               empty={agents.mcp.data.on ? "No MCP request counted in 30 days." : `Not counting: ${MCP_DAILY_FLAG} is off, so no request is counted (unknown, not zero).`}
               columns={[
@@ -244,6 +249,7 @@ export default async function Page() {
                 { key: "requests", header: "Requests (30 d)", align: "right", render: (row) => n(row.requests) },
               ]}
             />
+            {mcp.withheld && <p className="text-xs text-neutral-500">{mcp.withheld}</p>}
           </>
         )}
         {agents.keys.state === "unknown" ? <Unknown reason={agents.keys.reason} /> : (
@@ -277,7 +283,7 @@ export default async function Page() {
         id="traffic"
         title="5. Traffic"
         source={<>traffic_hourly and traffic_pulls (0148), filled hourly from Vercel&apos;s request logs while <code>{TRAFFIC_PULL_FLAG}</code> is on (<code>/api/cron/traffic-pull</code>, classifier ctcg.actor-class/v1).</>}
-        covers={<>The last 7 UTC days of counts, and 35 days of which hours were counted. Classes are what each request declared, never verified and never &quot;human&quot;; paths are route groups.</>}
+        covers={<>The last 7 UTC days of counts, each day beside how many of its hours were counted, and 35 days of which hours were counted. A day partly counted shows only its counted hours. Classes are what each request declared, never verified and never &quot;human&quot;; paths are route groups.</>}
       >
         <ActionBanner tone="info" title="Vercel-seen only">
           These are requests that reached Vercel. Pages Cloudflare answered from its own cache never appear, so page views are undercounted and the share
@@ -286,13 +292,29 @@ export default async function Page() {
         </ActionBanner>
         <div className="flex flex-wrap gap-4"><Flag name={TRAFFIC_PULL_FLAG} on={trafficPullOn()} /></div>
         {traffic.coverage.state === "unknown" ? <Unknown reason={traffic.coverage.reason} /> : (
-          <KpiGrid cols={5}>
-            <KpiCard label="Hours counted (35 d)" value={n(traffic.coverage.data.ok)} sub={`of ${n(traffic.coverage.data.hours)}`} urgency={traffic.coverage.data.ok ? "ok" : "neutral"} />
-            <KpiCard label="Partly counted" value={n(traffic.coverage.data.partial)} urgency={traffic.coverage.data.partial ? "warning" : "neutral"} />
-            <KpiCard label="Pull failed" value={n(traffic.coverage.data.failed)} urgency={traffic.coverage.data.failed ? "critical" : "neutral"} />
-            <KpiCard label="Unknown (no pull)" value={n(traffic.coverage.data.unknown)} urgency={traffic.coverage.data.unknown ? "warning" : "neutral"} />
-            <KpiCard label="Last pull" value={traffic.coverage.data.lastPullAt ? fmtDateTime(traffic.coverage.data.lastPullAt) : "never"} empty={!traffic.coverage.data.lastPullAt} />
-          </KpiGrid>
+          <>
+            <KpiGrid cols={6}>
+              <KpiCard label="Hours counted (35 d)" value={n(traffic.coverage.data.ok)} sub={`of ${n(traffic.coverage.data.hours)}`} urgency={traffic.coverage.data.ok ? "ok" : "neutral"} />
+              <KpiCard label="Partly counted" value={n(traffic.coverage.data.partial)} urgency={traffic.coverage.data.partial ? "warning" : "neutral"} />
+              <KpiCard label="Pull failed" value={n(traffic.coverage.data.failed)} urgency={traffic.coverage.data.failed ? "critical" : "neutral"} />
+              <KpiCard label="Skipped at a start" value={n(traffic.coverage.data.skipped)} sub="began before counting (re)started" />
+              <KpiCard label="Unknown (no pull)" value={n(traffic.coverage.data.unknown)} urgency={traffic.coverage.data.unknown ? "warning" : "neutral"} />
+              <KpiCard label="Last pull" value={traffic.coverage.data.lastPullAt ? fmtDateTime(traffic.coverage.data.lastPullAt) : "never"} empty={!traffic.coverage.data.lastPullAt} />
+            </KpiGrid>
+            <DataTable<CoverageDay>
+              rows={traffic.coverage.data.days.slice(0, 7)}
+              rowKey={(row) => row.day}
+              minWidth={560}
+              columns={[
+                { key: "day", header: "Hours by day (7 d)", render: (row) => <span className="font-mono text-xs">{row.day}</span> },
+                { key: "ok", header: "Counted", align: "right", render: (row) => `${n(row.ok)} of ${n(row.hours)}` },
+                { key: "partial", header: "Partly", align: "right", render: (row) => n(row.partial) },
+                { key: "failed", header: "Failed", align: "right", render: (row) => n(row.failed) },
+                { key: "skipped", header: "Skipped", align: "right", render: (row) => n(row.skipped) },
+                { key: "unknown", header: "No pull", align: "right", render: (row) => n(row.unknown) },
+              ]}
+            />
+          </>
         )}
         {traffic.counts.state === "unknown" ? <Unknown reason={traffic.counts.reason} /> : (
           <>
@@ -303,13 +325,14 @@ export default async function Page() {
               minWidth={760}
               columns={[
                 { key: "day", header: "Day", render: (row) => <span className="font-mono text-xs">{row.day}</span> },
+                { key: "hours", header: "Hours counted", align: "right", render: (row) => <HoursCounted day={coverageDays?.get(row.day)} /> },
                 { key: "requests", header: "Requests", align: "right", render: (row) => n(row.requests) },
                 { key: "rsc", header: "RSC share", align: "right", render: (row) => pct(row.rsc, row.requests) },
                 { key: "direct", header: "Direct to Vercel", align: "right", render: (row) => pct(row.direct, row.requests) },
                 { key: "statuses", header: "Status mix", render: (row) => <Pairs value={row.statuses} /> },
               ]}
             />
-            <ClassByDay rows={traffic.counts.data.classDays} />
+            <ClassByDay rows={traffic.counts.data.classDays} coverage={coverageDays} />
             <DataTable<ClassGroup>
               rows={traffic.counts.data.classGroups}
               rowKey={(row) => `${row.actorClass}:${row.pathGroup}`}
@@ -342,7 +365,7 @@ export default async function Page() {
         id="errors"
         title="6. Errors"
         source={<>error_daily (0148), filled by the hourly pull from Vercel&apos;s runtime logs while <code>{TRAFFIC_PULL_FLAG}</code> is on.</>}
-        covers={<>30 days by tag (a fixed list) and status, never the log line&apos;s text, for the hours the pull counted (panel 5). Runtime logs hold only invocations that printed something.</>}
+        covers={<>30 days by tag (a fixed list) and status, never the log line&apos;s text, for the hours the pull counted, shown beside each line (panel 5 has 35 days of them). Runtime logs hold only invocations that printed something.</>}
       >
         {errors.state === "unknown" ? <Unknown reason={errors.reason} /> : (
           <DataTable<ErrorCount>
@@ -352,6 +375,7 @@ export default async function Page() {
             minWidth={420}
             columns={[
               { key: "day", header: "Day", render: (row) => <span className="font-mono text-xs">{row.day}</span> },
+              { key: "hours", header: "Hours counted", align: "right", render: (row) => <HoursCounted day={coverageDays?.get(row.day)} /> },
               { key: "tag", header: "Tag", render: (row) => <code className="text-xs">{row.tag}</code> },
               { key: "status", header: "Status", render: (row) => (row.status ? String(row.status) : "none given") },
               { key: "count", header: "Lines", align: "right", render: (row) => n(row.count) },
@@ -365,7 +389,7 @@ export default async function Page() {
         id="retention"
         title="Retention"
         source={<>The five 0148 tables; periods from <code>src/lib/observability/retention.ts</code>.</>}
-        covers={<>Hourly rows are kept 35 days and daily rows 13 months; the writers delete older rows as they write. A row past its period means the sweep has not run.</>}
+        covers={<>Hourly rows are kept 35 days and daily rows 13 months. The maintenance cron sweeps them at minute 23 of every hour, whichever flags are on, and the writers delete older rows as they write. A row past its period means the sweep has not run.</>}
       >
         {retention.state === "unknown" ? <Unknown reason={retention.reason} /> : (
           <DataTable<RetentionState>
@@ -421,8 +445,21 @@ function JobOutcomes({ jobs, filter }: { jobs: Awaited<ReturnType<typeof loadMon
   );
 }
 
-/** Actor class by day: one row per class, one column per day. */
-function ClassByDay({ rows }: { rows: { day: string; actorClass: string; requests: number }[] }) {
+/** How many of a day's hours a pull counted: whole, partly or not at all.
+ * Without a coverage read, unknown. */
+function HoursCounted({ day }: { day: CoverageDay | undefined }) {
+  if (!day) return <span className="text-amber-400">unknown</span>;
+  const whole = day.ok === day.hours;
+  return (
+    <span className={whole ? "text-neutral-400" : "text-amber-400"} title={`${day.partial} partly, ${day.failed} failed, ${day.skipped} skipped, ${day.unknown} unknown`}>
+      {n(day.ok)}/{n(day.hours)}{day.partial ? ` +${n(day.partial)} partly` : ""}
+    </span>
+  );
+}
+
+/** Actor class by day: one row per class, one column per day, each day's
+ * header with how many of its hours were counted. */
+function ClassByDay({ rows, coverage }: { rows: { day: string; actorClass: string; requests: number }[]; coverage: Map<string, CoverageDay> | null }) {
   const days = [...new Set(rows.map((row) => row.day))].sort().reverse();
   const classes = [...new Set(rows.map((row) => row.actorClass))];
   const at = new Map(rows.map((row) => [`${row.actorClass}:${row.day}`, row.requests]));
@@ -436,7 +473,10 @@ function ClassByDay({ rows }: { rows: { day: string; actorClass: string; request
       minWidth={760}
       columns={[
         { key: "class", header: "Declared class", render: (row) => row.actorClass },
-        ...days.map((day) => ({ key: day, header: day.slice(5), align: "right" as const, render: (row: { actorClass: string }) => n(at.get(`${row.actorClass}:${day}`) ?? 0) })),
+        ...days.map((day) => {
+          const hours = coverage?.get(day);
+          return { key: day, header: `${day.slice(5)} (${hours ? `${hours.ok}/${hours.hours} h` : "? h"})`, align: "right" as const, render: (row: { actorClass: string }) => n(at.get(`${row.actorClass}:${day}`) ?? 0) };
+        }),
         { key: "total", header: "7 d", align: "right", render: (row) => n(row.total) },
       ]}
     />

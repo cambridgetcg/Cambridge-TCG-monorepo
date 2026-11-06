@@ -137,8 +137,9 @@ const nextConfig: NextConfig = {
   // Next.js compiles these into Vercel routing rules, so a redirect does
   // not invoke a function. A GET or HEAD to /api on the production alias
   // is redirected as well, by src/proxy.ts, since a redirect here cannot
-  // tell GET from POST. Yu chose this on 2026-11-05, with rate limits at
-  // Cloudflare, so API reads go through Cloudflare.
+  // tell GET from POST, and so is every method to the feedback, hello and
+  // MCP doors. Yu chose this on 2026-11-05, with rate limits at Cloudflare,
+  // so API reads and those doors' writes go through Cloudflare.
   async redirects() {
     return ["www.cambridgetcg.com", "cambridgetcg-storefront.vercel.app"].map((host) => ({
       source: "/:path((?!api(?:/|$)|_next/).*)",

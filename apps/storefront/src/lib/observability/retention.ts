@@ -5,7 +5,10 @@
  * notice and docs/operations/monitoring.md state these periods; the monitor
  * page reads them from here and shows any table holding a row past its period.
  *
- * Deletion runs with the writes: after each job outcome is recorded
+ * Deletion runs hourly from the maintenance cron at minute 23
+ * (runObservabilityRetentionSweep), whichever counting flags are on, so a
+ * period holds after every writer of a table has stopped. The writers also
+ * delete as they write: after each job outcome is recorded
  * (job-outcomes.ts), inside the MCP counter's own upsert (mcp-daily.ts), and
  * after each traffic pull. Nothing here keeps a copy of what it deletes.
  */
@@ -55,6 +58,25 @@ export async function pruneObservability(runQuery: RunQuery): Promise<Record<Obs
   const result = await runQuery(`WITH ${steps.join(", ")} SELECT ${counts.join(", ")}`);
   const row = result?.rows[0] ?? {};
   return Object.fromEntries(OBSERVABILITY_TABLES.map(table => [table, Number(row[table] ?? 0)])) as Record<ObservabilityTable, number>;
+}
+
+export type ObservabilityRetentionSweep =
+  | { ranInWindow: false }
+  | { ranInWindow: true; provisioned: false }
+  | { ranInWindow: true; provisioned: true; deleted: Record<ObservabilityTable, number> };
+
+/** The hourly sweep: runs in the maintenance cron's minute 23, beside the
+ * door tables' sweep. Throws what the database throws, except a missing
+ * table (before 0148). */
+export async function runObservabilityRetentionSweep(now = new Date(), run?: RunQuery): Promise<ObservabilityRetentionSweep> {
+  if (now.getUTCMinutes() !== 23) return { ranInWindow: false };
+  const runQuery = run ?? ((await import("@/lib/db")).query as RunQuery);
+  try {
+    return { ranInWindow: true, provisioned: true, deleted: await pruneObservability(runQuery) };
+  } catch (error) {
+    if (typeof error === "object" && error !== null && (error as { code?: unknown }).code === "42P01") return { ranInWindow: true, provisioned: false };
+    throw error;
+  }
 }
 
 /** "35 days" / "13 months", for copy. */

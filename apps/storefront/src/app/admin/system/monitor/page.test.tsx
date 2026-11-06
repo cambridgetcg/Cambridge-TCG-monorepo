@@ -66,7 +66,8 @@ describe("/admin/system/monitor behind the admin gate", () => {
       ["FROM ops_job_outcomes\n        WHERE started_at", [{ job: "collect/tcgplayer", outcome: "ran", runs: 24, last_at: now }]],
       ["ORDER BY as_of DESC, id DESC LIMIT 1", []],
       ["FROM data_api_usage_months", [{ month: `${day.slice(0, 7)}-01`, requests: "41", accounts: 1 }]],
-      ["FROM mcp_daily WHERE day >= $1::date\n        GROUP BY 1, 2, 3, 4", [{ method: "tools/call", tool: "agent.self", authenticated: true, outcome: "ok", requests: "31" }]],
+      ["FROM mcp_daily WHERE day >= $1::date\n        GROUP BY 1, 2, 3, 4", [{ method: "tools/call", tool: "agent.self", authenticated: true, outcome: "ok", requests: "31" }, { method: "tools/list", tool: "none", authenticated: false, outcome: "ok", requests: "4" }]],
+      ["path_group IN (", [{ path_group: "/api/v1/market/*", status_class: "2xx", requests: "777" }, { path_group: "/api/v1/market/*", status_class: "404", requests: "7" }]],
       ["FROM agent_keys", [{ keys: 4, active: 3, never: 1, last_hour: 1, last_day: 0, last_week: 1, last_month: 0, older: 0 }]],
       ["FROM agent_rate_buckets", [{ day, requests: "9", keys: 2, busiest: 7 }]],
       ["FROM traffic_pulls", [{ window_start: hour, window_end: new Date(Date.parse(hour) + 3_600_000).toISOString(), status: "ok", pulled_at: now }]],
@@ -80,9 +81,17 @@ describe("/admin/system/monitor behind the admin gate", () => {
     ];
     mocks.sfQuery.mockImplementation(async (sql: string) => ({ rows: answers.find(([needle]) => sql.includes(needle))?.[1] ?? [] }));
     const markup = renderToStaticMarkup(await MonitorPage());
-    for (const text of ["www.cardrush-pokemon.jp", "suspended", "1,236", "collect/tcgplayer", "refused:no-inputs", "cardmarket derivation-off", "tools/call", "agent.self",
+    for (const text of ["www.cardrush-pokemon.jp", "suspended", "1,236", "collect/tcgplayer", "refused:no-inputs", "cardmarket derivation-off", "tools/list",
       "browser-like-fleet", "/product/[sku]", "/market/[sku]", "25.0%", "fairness-audit", "80.0%", "5.0%"]) expect(markup).toContain(text);
     expect(markup).not.toContain(">Unknown<");
+    // With one data-API account and two keys used, what they did is withheld.
+    expect(markup).not.toContain("agent.self");
+    expect(markup).toContain("Authenticated calls by method, tool and outcome are withheld");
+    expect(markup).toContain("Other answers on key-gated routes are withheld");
+    expect(markup).not.toMatch(/>777</);
+    // A day's totals sit beside how many of its hours were counted.
+    expect(markup).toContain("Hours counted");
+    expect(markup).toMatch(/>1\/\d+</);
   });
 
   it("is reached through the gated paths and listed in the admin nav's system group", () => {

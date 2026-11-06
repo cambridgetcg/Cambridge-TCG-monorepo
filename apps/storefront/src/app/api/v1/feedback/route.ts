@@ -177,6 +177,14 @@ export async function POST(request?: Request): Promise<Response> {
       response.headers.set("Retry-After", String(retryAfter));
       return response;
     }
+    if (stored.reason === "refused") {
+      return errorResponse({
+        code: "INVALID_INPUT",
+        message: `The report does not fit what the door keeps, so sending it again will not work. Nothing was kept; shorten it, or email ${CONTACT}.`,
+        endpoint: ENDPOINT,
+        docs: ENDPOINT,
+      });
+    }
     return unavailable(stored.reason, `Nothing was kept. Email ${CONTACT} instead.`);
   }
 

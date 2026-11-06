@@ -239,6 +239,46 @@ export function readDataApiUsage(run: RunQuery): Promise<Known<UsageMonth[]>> {
 /** The data-API's own routes, as traffic counts them. */
 export const API_PATH_GROUPS = ["/api/v1/market/*", "/api/v1/member-prices", "/api/v1/plans", "/api/v1/account/*", "/api/data-api/*"] as const;
 
+/** Below this many holders, a count of what keys or signed-in accounts did
+ * (on a key-gated route, or by MCP tool) could describe one holder's use, so
+ * the page withholds it. No count names a holder; with one or two holders it
+ * would not need to. */
+export const MIN_HOLDERS = 5;
+
+/** The routes that serve only an admitted key or a signed-in account
+ * (/api/v1/plans is public), and those whose holders the data API's monthly
+ * counts cover: market reads and the key's own usage need a data-API key.
+ * Nothing counts member-price holders past a day, or checkout accounts at
+ * all, so their answers to a holder are never shown. */
+const GATED_PATH_GROUPS: readonly string[] = ["/api/v1/market/*", "/api/v1/member-prices", "/api/v1/account/*", "/api/data-api/*"];
+const HOLDERS_FROM_USAGE: readonly string[] = ["/api/v1/market/*", "/api/v1/account/*"];
+/** Answers a request gets without an admitted key or account: none or a
+ * wrong one (401), or the route not published (404). Nobody's use. */
+const NO_HOLDER_STATUSES: readonly string[] = ["401", "404"];
+
+export interface ApiRouteView { rows: RouteHits[]; withheld: string | null }
+
+/** The route hits the page may show: every public route's, the gated
+ * routes' 401s and 404s, and the gated routes' other answers only where at
+ * least MIN_HOLDERS accounts used the data API in each month the 35 days
+ * touch. */
+export function apiRouteView(hits: readonly RouteHits[], usage: Known<UsageMonth[]>, now: Date): ApiRouteView {
+  const months: string[] = [];
+  for (let at = new Date(now.getTime() - 35 * DAY_MS); at <= now; at = new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + 1, 1))) {
+    months.push(at.toISOString().slice(0, 7));
+  }
+  const accounts = (month: string) => (usage.state === "known" ? usage.data.find(row => row.month.startsWith(month))?.accounts ?? 0 : 0);
+  const fewest = Math.min(...months.map(accounts));
+  const shown = (row: RouteHits) => !GATED_PATH_GROUPS.includes(row.pathGroup) || NO_HOLDER_STATUSES.includes(row.statusClass)
+    || (HOLDERS_FROM_USAGE.includes(row.pathGroup) && fewest >= MIN_HOLDERS);
+  const rows = hits.filter(shown);
+  if (rows.length === hits.length) return { rows, withheld: null };
+  return {
+    rows,
+    withheld: `Other answers on key-gated routes are withheld, since they could describe one holder's use: in the quietest month these 35 days touch, ${usage.state === "known" ? `${fewest} account${fewest === 1 ? "" : "s"}` : "an unknown number of accounts"} used the data API (fewer than ${MIN_HOLDERS} hides them), and member-price and checkout holders are not counted at all. The monthly table above has the data API's totals.`,
+  };
+}
+
 // ── 4. Agents ────────────────────────────────────────────────────────────
 
 export interface McpTally { method: string; tool: string; authenticated: boolean; outcome: string; requests: number }
@@ -263,6 +303,23 @@ export function readMcpDaily(run: RunQuery, now: Date): Promise<Known<McpCounts>
 }
 
 export interface AgentKeyUse { keys: number; active: number; never: number; lastHour: number; lastDay: number; lastWeek: number; lastMonth: number; older: number }
+
+export interface McpView { tally: McpTally[]; withheld: string | null }
+
+/** The MCP counts the page may show: every unauthenticated row, and the
+ * authenticated ones by tool only where at least MIN_HOLDERS active keys were
+ * used in the 30 days (agent_keys.last_used_at, counted in bands). Below
+ * that, a tool's count could describe one key's calls. */
+export function mcpView(mcp: McpCounts, keys: Known<AgentKeyUse>): McpView {
+  const used = keys.state === "known" ? keys.data.lastHour + keys.data.lastDay + keys.data.lastWeek + keys.data.lastMonth : null;
+  if (used !== null && used >= MIN_HOLDERS) return { tally: mcp.tally, withheld: null };
+  const tally = mcp.tally.filter(row => !row.authenticated);
+  if (tally.length === mcp.tally.length) return { tally, withheld: null };
+  return {
+    tally,
+    withheld: `Authenticated calls by method, tool and outcome are withheld: ${used === null ? "an unknown number of" : used} active key${used === 1 ? " was" : "s were"} used in 30 days, fewer than ${MIN_HOLDERS}, so they could describe one key's calls.`,
+  };
+}
 
 /** agent_keys (0090): how many, and when the active ones were last used, in
  * bands. Counts only: no key, prefix, name or agent beside a time. */
@@ -298,13 +355,15 @@ export function readAgentRateBuckets(run: RunQuery): Promise<Known<RateBucketDay
 // ── 5. Traffic ───────────────────────────────────────────────────────────
 
 export type HourCoverage = TrafficPullStatus | "unknown";
-export interface CoverageDay { day: string; ok: number; partial: number; failed: number; unknown: number }
-export interface TrafficCoverage { hours: number; ok: number; partial: number; failed: number; unknown: number; days: CoverageDay[]; lastPullAt: string | null }
+export interface CoverageDay { day: string; hours: number; ok: number; partial: number; failed: number; skipped: number; unknown: number }
+export interface TrafficCoverage { hours: number; ok: number; partial: number; failed: number; skipped: number; unknown: number; days: CoverageDay[]; lastPullAt: string | null }
 
 /** Which of the last 35 days' whole hours a traffic pull counted
- * (traffic_pulls, 0148). An hour no pull covered is unknown, never zero; an
- * hour a failed pull covered is failed, and one an ok pull covered is ok,
- * whatever else covered it. The current hour is not yet pullable. */
+ * (traffic_pulls, 0148), in total and per UTC day. An hour no pull covered
+ * is unknown, never zero; an hour a failed pull covered is failed, one a
+ * start marked is skipped (it began before counting started), and one an ok
+ * pull covered is ok, whatever else covered it. The current hour is not yet
+ * pullable. */
 export function readTrafficCoverage(run: RunQuery, now: Date): Promise<Known<TrafficCoverage>> {
   return known("traffic_pulls", "0148", async () => {
     const result = await run(`SELECT window_start, window_end, status, pulled_at FROM traffic_pulls WHERE window_end > now() - interval '35 days' ORDER BY window_start`);
@@ -312,7 +371,7 @@ export function readTrafficCoverage(run: RunQuery, now: Date): Promise<Known<Tra
   });
 }
 
-const RANK: Record<HourCoverage, number> = { unknown: 0, failed: 1, partial: 2, ok: 3 };
+const RANK: Record<HourCoverage, number> = { unknown: 0, failed: 1, skipped: 2, partial: 3, ok: 4 };
 export function coverage(pulls: readonly { start: string; end: string; status: TrafficPullStatus; pulledAt?: string | null }[], now: Date): TrafficCoverage {
   const last = Math.floor(now.getTime() / HOUR_MS) * HOUR_MS; // the current hour starts here, not counted yet
   const first = last - 35 * DAY_MS;
@@ -325,11 +384,11 @@ export function coverage(pulls: readonly { start: string; end: string; status: T
     }
   }
   const days = new Map<string, CoverageDay>();
-  const totals = { ok: 0, partial: 0, failed: 0, unknown: 0 };
+  const totals = { ok: 0, partial: 0, failed: 0, skipped: 0, unknown: 0 };
   for (const [at, state] of hours) {
     const day = new Date(at).toISOString().slice(0, 10);
-    const entry = days.get(day) ?? { day, ok: 0, partial: 0, failed: 0, unknown: 0 };
-    entry[state] += 1; totals[state] += 1;
+    const entry = days.get(day) ?? { day, hours: 0, ok: 0, partial: 0, failed: 0, skipped: 0, unknown: 0 };
+    entry.hours += 1; entry[state] += 1; totals[state] += 1;
     days.set(day, entry);
   }
   const pulledAt = pulls.map(pull => pull.pulledAt).filter((value): value is string => typeof value === "string").sort().at(-1) ?? null;
@@ -376,15 +435,17 @@ export function readTraffic(run: RunQuery, now: Date): Promise<Known<Traffic>> {
   });
 }
 
-export interface RouteHits { day: string; pathGroup: string; statusClass: string; requests: number }
+export interface RouteHits { pathGroup: string; statusClass: string; requests: number }
 
-/** The data-API's routes in traffic_hourly over the last 35 days. */
+/** The data-API's routes in traffic_hourly, totalled over the last 35 days
+ * by route and status: no day or hour, which with few holders would be one
+ * holder's pattern of use (see apiRouteView for what the page shows). */
 export function readApiRouteHits(run: RunQuery): Promise<Known<RouteHits[]>> {
   const groups = API_PATH_GROUPS.map(group => `'${group.replaceAll("'", "''")}'`).join(", ");
   return known("traffic_hourly", "0148", async () => (await run(
-    `SELECT (hour AT TIME ZONE 'UTC')::date::text AS day, path_group, status_class, sum(count)::bigint AS requests FROM traffic_hourly
-      WHERE path_group IN (${groups}) AND hour >= now() - interval '35 days' GROUP BY 1, 2, 3 ORDER BY 1 DESC, 2, 3`,
-  )).rows.map(row => ({ day: text(row.day), pathGroup: text(row.path_group), statusClass: text(row.status_class), requests: num(row.requests) })));
+    `SELECT path_group, status_class, sum(count)::bigint AS requests FROM traffic_hourly
+      WHERE path_group IN (${groups}) AND hour >= now() - interval '35 days' GROUP BY 1, 2 ORDER BY 1, 2`,
+  )).rows.map(row => ({ pathGroup: text(row.path_group), statusClass: text(row.status_class), requests: num(row.requests) })));
 }
 
 // ── 6. Errors ────────────────────────────────────────────────────────────

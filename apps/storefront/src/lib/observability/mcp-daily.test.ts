@@ -1,13 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  MCP_DAILY_NOTE, MCP_DAILY_UPSERT, countMcpRequest, mcpDailyOn, mcpDailyWrites, mcpMethodAndTool, mcpOutcome, recordMcpDaily, unseenMcpRequest,
+  MCP_DAILY_NOTE, MCP_DAILY_UPSERT, countMcpRequest, flushMcpDaily, mcpDailyOn, mcpDailyWrites, mcpMethodAndTool, mcpOutcome, recordMcpDaily, unseenMcpRequest,
 } from "./mcp-daily";
-import { pruneObservability, retentionCutoffSql } from "./retention";
+import { pruneObservability, retentionCutoffSql, runObservabilityRetentionSweep } from "./retention";
 
 const tools = new Set(["agent.self", "mcp.list_tools", "deck.save"]);
 const isTool = (name: string) => tools.has(name);
 
-afterEach(() => vi.unstubAllEnvs());
+// Counts wait in the module between requests; each test starts with none.
+afterEach(async () => { vi.unstubAllEnvs(); await flushMcpDaily(async () => ({ rows: [] })); });
 
 describe("MCP daily count words", () => {
   it("is on only for exactly on", () => {
@@ -49,15 +50,51 @@ describe("countMcpRequest", () => {
     vi.stubEnv("OPS_MCP_DAILY", "on");
     expect(() => countMcpRequest(unseenMcpRequest(), 400, () => { throw new Error("`after` was called outside a request scope"); })).not.toThrow();
     const run = vi.fn().mockRejectedValue(Object.assign(new Error("relation does not exist"), { code: "42P01" }));
-    expect(await recordMcpDaily({ method: "initialize", tool: "none", authenticated: false, outcome: "ok" }, run)).toBe(false);
+    // The uncounted request left nothing waiting to be written.
+    await flushMcpDaily(run);
+    expect(run).not.toHaveBeenCalled();
+    const row = { day: "2026-11-06", method: "initialize", tool: "none", authenticated: false, outcome: "ok", count: 1 } as const;
+    expect(await recordMcpDaily([row], run)).toBe(false);
     run.mockResolvedValue({ rows: [] });
-    expect(await recordMcpDaily({ method: "initialize", tool: "none", authenticated: false, outcome: "ok" }, run)).toBe(true);
-    expect(run.mock.calls.at(-1)).toEqual([MCP_DAILY_UPSERT, ["initialize", "none", false, "ok"]]);
+    expect(await recordMcpDaily([row], run)).toBe(true);
+    expect(run.mock.calls.at(-1)).toEqual([MCP_DAILY_UPSERT, [JSON.stringify([row])]]);
   });
 
-  it("writes one statement that prunes past 13 months and adds one to today's row, with no key column", () => {
+  it("holds an instance to one counting statement at a time, however many requests it answers", async () => {
+    vi.stubEnv("OPS_MCP_DAILY", "on");
+    const now = new Date("2026-11-06T10:00:00Z");
+    let release: () => void = () => undefined;
+    const statements: unknown[][] = [];
+    const run = vi.fn(async (_sql: string, params?: unknown[]) => {
+      statements.push(JSON.parse(String(params![0])));
+      if (statements.length === 1) await new Promise<void>((resolve) => { release = resolve; });
+      return { rows: [] };
+    });
+    const tasks: (() => Promise<unknown>)[] = [];
+    const schedule = (task: () => Promise<unknown>) => { tasks.push(task); };
+    countMcpRequest({ method: "tools/list", tool: "none", authenticated: false }, 200, schedule, now);
+    const first = flushMcpDaily(run);
+    // A flood while the first write runs: it joins the next statement.
+    for (let i = 0; i < 50; i += 1) countMcpRequest({ method: "invalid", tool: "none", authenticated: false }, 400, schedule, now);
+    countMcpRequest({ method: "tools/list", tool: "none", authenticated: false }, 200, schedule, now);
+    expect(flushMcpDaily(run)).toBe(first);
+    expect(run).toHaveBeenCalledTimes(1);
+    release();
+    await first;
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(statements).toEqual([
+      [{ day: "2026-11-06", method: "tools/list", tool: "none", authenticated: false, outcome: "ok", count: 1 }],
+      [{ day: "2026-11-06", method: "invalid", tool: "none", authenticated: false, outcome: "invalid-request", count: 50 },
+        { day: "2026-11-06", method: "tools/list", tool: "none", authenticated: false, outcome: "ok", count: 1 }],
+    ]);
+    // Every scheduled task finds nothing left to write.
+    for (const task of tasks) await task();
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it("writes one statement that prunes past 13 months and adds each count to its day's row, with no key column", () => {
     expect(MCP_DAILY_UPSERT).toContain(`DELETE FROM mcp_daily WHERE day < ${retentionCutoffSql("mcp_daily")}`);
-    expect(MCP_DAILY_UPSERT).toContain("ON CONFLICT (day, method, tool, authenticated, outcome) DO UPDATE SET count = mcp_daily.count + 1");
+    expect(MCP_DAILY_UPSERT).toContain("ON CONFLICT (day, method, tool, authenticated, outcome) DO UPDATE SET count = mcp_daily.count + EXCLUDED.count");
     expect(MCP_DAILY_UPSERT).not.toMatch(/key|agent|user/i);
   });
 
@@ -78,5 +115,21 @@ describe("pruneObservability", () => {
     expect(sql).toContain("DELETE FROM ops_job_outcomes WHERE started_at < now() - interval '13 months'");
     expect(sql).toContain("DELETE FROM error_daily WHERE day < ((now() AT TIME ZONE 'UTC')::date - interval '13 months')::date");
     expect(run).toHaveBeenCalledOnce();
+  });
+});
+
+describe("runObservabilityRetentionSweep", () => {
+  const at = (minute: number) => new Date(`2026-11-06T10:${String(minute).padStart(2, "0")}:00Z`);
+  it("runs at minute 23 only, whichever flags are on, and says what went", async () => {
+    const run = vi.fn().mockResolvedValue({ rows: [{ ops_job_outcomes: 0, mcp_daily: 1, traffic_hourly: 3, traffic_pulls: 1, error_daily: 0 }] });
+    expect(await runObservabilityRetentionSweep(at(22), run)).toEqual({ ranInWindow: false });
+    expect(run).not.toHaveBeenCalled();
+    expect(await runObservabilityRetentionSweep(at(23), run)).toEqual({ ranInWindow: true, provisioned: true, deleted: { ops_job_outcomes: 0, mcp_daily: 1, traffic_hourly: 3, traffic_pulls: 1, error_daily: 0 } });
+  });
+
+  it("finds nothing to sweep before 0148, and lets other errors through", async () => {
+    const missing = vi.fn().mockRejectedValue(Object.assign(new Error("relation does not exist"), { code: "42P01" }));
+    expect(await runObservabilityRetentionSweep(at(23), missing)).toEqual({ ranInWindow: true, provisioned: false });
+    await expect(runObservabilityRetentionSweep(at(23), vi.fn().mockRejectedValue(new Error("busy")))).rejects.toThrow("busy");
   });
 });

@@ -367,9 +367,12 @@ export default function PrivacyPage() {
                 page data or not, a declared client class from a fixed,
                 versioned list (such as search crawler or browser-like: the
                 class is what the user agent or the path declares, never
-                verified), status, cache result and firewall action, with a
-                record of which hours were counted; runtime error lines per UTC
-                day by a fixed tag and
+                verified; a browser-style user agent is classed as a fleet when
+                the same string arrived from five or more countries in that
+                hour, which is worked out in memory while the hour is counted),
+                status, cache result and firewall action, with a record of
+                which hours were counted; runtime error lines per UTC day by a
+                fixed tag and
                 status, never their text; requests to the MCP gate per UTC day by
                 method, tool, whether the request authenticated and how it was
                 answered, with no key, agent or account id; hellos to{" "}
@@ -381,7 +384,11 @@ export default function PrivacyPage() {
                 dropped; no IP address is asked for. No count holds an IP address
                 (hashed or not), a user agent, query string, referrer, request
                 body or raw path, or a visitor, session, device, account or key
-                identifier, and no count can be joined to another request. They
+                identifier, and no count can be joined to another request. While
+                only a few keys or accounts use a route that needs one, or an
+                MCP tool, the counts for it can still describe their use, so
+                the internal operations page shows those counts only once at
+                least five keys or accounts are counted. They
                 use no cookie, browser storage, beacon or analytics script, and
                 counting never changes how a request is answered. The traffic,
                 MCP and hello counters each ship switched off and are switched on
@@ -399,6 +406,20 @@ export default function PrivacyPage() {
                 calls in each minute for rate limiting. The MCP tool{" "}
                 <code className="text-ink">agent.self</code> shows a key what is
                 kept about it.
+              </li>
+              <li>
+                <strong className="text-ink">Member data keys:</strong> when
+                you create a price-read key on your account&apos;s data page,
+                Cambridge TCG keeps, with your account, a SHA-256 of the key,
+                its first characters, name and scope, and when it was created,
+                expires (at most 90 days later) and was revoked. For rate
+                limiting it keeps a count of each key&apos;s requests in each
+                minute, one for the member price feed and one for the data API,
+                and for the data API&apos;s monthly limit a count of your
+                account&apos;s accepted requests in each calendar month (UTC).
+                None of these holds a path, query, IP address or which prices
+                were read. The internal operations page shows the monthly counts
+                summed over accounts, with how many accounts made any.
               </li>
               <li id="prism-signals-telegram" className="scroll-mt-24">
                 <strong className="text-ink">
@@ -1498,11 +1519,11 @@ export default function PrivacyPage() {
               <li>
                 <strong className="text-ink">Aggregate counts:</strong> hourly
                 request counts, and the record of which hours were counted, 35
-                days; daily error, MCP, job-run and hello counts 13 months. Hello
-                counts are also swept hourly. The others are deleted as their
-                own counters and jobs write; while every writer of a table is
-                off, deletion waits for its next write, and the operations
-                monitor shows any row kept past its period.
+                days; daily error, MCP, job-run and hello counts 13 months. An
+                hourly sweep deletes older rows whether or not any counter is
+                switched on, the counters and jobs also delete them as they
+                write, and the operations monitor shows any row kept past its
+                period.
               </li>
               <li>
                 <strong className="text-ink">Agent keys:</strong> a key and its
@@ -1510,6 +1531,15 @@ export default function PrivacyPage() {
                 record, and deleting the agent or its operator&apos;s account
                 deletes it. The minute counts are kept 7 days; older ones are
                 deleted the next time any key makes an allowed call.
+              </li>
+              <li>
+                <strong className="text-ink">Member data keys:</strong> a key&apos;s
+                record stays with your account after it expires or is revoked,
+                and deleting the account deletes it with its counts. Minute
+                counts older than a day are deleted, up to 100 at a time, when
+                a later request with a valid key runs, so there is no set time
+                by which every one is gone. The data API&apos;s monthly counts
+                are currently kept with the account and not deleted earlier.
               </li>
               <li>
                 <strong className="text-ink">

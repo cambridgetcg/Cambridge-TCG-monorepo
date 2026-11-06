@@ -257,6 +257,15 @@ describe("storefront privacy notice contract", () => {
     expect(compactPage).not.toContain("Agent feedback and carried state:</strong>{\" \"} public write paths are paused");
   });
 
+  it("names the member-key counters and how a class is worked out, and sweeps whatever is switched on", () => {
+    expect(compactPage).toContain("<strong className=\"text-ink\">Member data keys:</strong>");
+    expect(compactPage).toContain("a count of your account&apos;s accepted requests in each calendar month (UTC)");
+    expect(compactPage).toContain("The data API&apos;s monthly counts are currently kept with the account and not deleted earlier");
+    expect(compactPage).toContain("the same string arrived from five or more countries in that hour");
+    expect(compactPage).toContain("shows those counts only once at least five keys or accounts are counted");
+    expect(compactPage).toContain("An hourly sweep deletes older rows whether or not any counter is switched on");
+  });
+
   it("states the retention periods the code enforces", async () => {
     const { OBSERVABILITY_RETENTION } = await import("@/lib/observability/retention");
     const door = await import("@/lib/feedback/door");

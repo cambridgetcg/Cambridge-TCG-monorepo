@@ -112,8 +112,10 @@ export const CACHE_RESULTS = ["hit", "miss", "bypass", "stale", "prerender", "re
 export const WAF_ACTIONS = ["none", "log", "challenge", "deny", "bypass", "rate-limit", "other"] as const;
 
 /** Whether an hour's pull counted everything (ok), some of it (partial), or
- * nothing (failed). An hour with no pull row is unknown, never zero. */
-export const TRAFFIC_PULL_STATUSES = ["ok", "partial", "failed"] as const;
+ * nothing (failed), or whether the hour was left uncounted on purpose
+ * because it began before counting started or restarted (skipped). An hour
+ * with no pull row is unknown, never zero. */
+export const TRAFFIC_PULL_STATUSES = ["ok", "partial", "failed", "skipped"] as const;
 
 /** Runtime-log error tags: the bracketed prefix a log line starts with (or a
  * fixed pattern for the few untagged ones), never the line's text. "other"

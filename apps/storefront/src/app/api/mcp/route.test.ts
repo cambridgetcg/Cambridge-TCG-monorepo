@@ -160,10 +160,12 @@ describe("MCP initialize", () => {
 
 describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
   afterEach(() => vi.unstubAllEnvs());
-  /** Runs the after() tasks and returns each upsert's words. */
+  /** Runs the after() tasks and returns the words each upsert counted, in order. */
   async function counted() {
     for (const task of afterTasks.splice(0)) await task();
-    return vi.mocked(query).mock.calls.filter(([sql]) => String(sql).includes("INSERT INTO mcp_daily")).map(([, params]) => params);
+    return vi.mocked(query).mock.calls.filter(([sql]) => String(sql).includes("INSERT INTO mcp_daily"))
+      .flatMap(([, params]) => (JSON.parse(String((params as unknown[])[0])) as { method: string; tool: string; authenticated: boolean; outcome: string; count: number }[])
+        .flatMap((row) => Array.from({ length: row.count }, () => [row.method, row.tool, row.authenticated, row.outcome])));
   }
   const raw = (body: string, authorization = "Bearer token") => new Request("https://cambridgetcg.example/api/mcp", {
     method: "POST", headers: { authorization, "content-type": "application/json" }, body,
@@ -206,8 +208,10 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
       ["other", "none", true, "not-found"],
       ["invalid", "none", false, "invalid-request"],
     ]);
-    // One statement a request, and nothing of the caller's own: no key or
-    // agent id, no handle, no unknown name.
+    // The requests answered before the first write went in one statement,
+    // with nothing of the caller's own: no key or agent id, no handle, no
+    // unknown name.
+    expect(vi.mocked(query).mock.calls.filter(([sql]) => String(sql).includes("INSERT INTO mcp_daily"))).toHaveLength(1);
     const statements = JSON.stringify(vi.mocked(query).mock.calls);
     for (const leak of ["key-1", "agent-1", "agent-one", "user-1", "secret.probe-name", "made-up/method"]) expect(statements).not.toContain(leak);
     expect(vi.mocked(query).mock.calls.every(([sql]) => String(sql).includes("INSERT INTO mcp_daily"))).toBe(true);

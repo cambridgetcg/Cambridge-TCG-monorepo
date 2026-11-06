@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-import { coverage, loadMonitor, readDerivation, readJobOutcomes, readTraffic, utcDays, type RunQuery } from "./monitor";
+import {
+  apiRouteView, coverage, loadMonitor, mcpView, readApiRouteHits, readDerivation, readJobOutcomes, readTraffic, utcDays,
+  type AgentKeyUse, type McpCounts, type RunQuery,
+} from "./monitor";
 
 const NOW = new Date("2026-11-06T09:30:00.000Z");
 const missing = (table: string) => Object.assign(new Error(`relation "${table}" does not exist`), { code: "42P01" });
@@ -93,6 +96,51 @@ describe("monitor readers", () => {
   });
 });
 
+describe("counts a few holders could be pinned on", () => {
+  const hits = [
+    { pathGroup: "/api/v1/market/*", statusClass: "2xx", requests: 840 },
+    { pathGroup: "/api/v1/market/*", statusClass: "404", requests: 12 },
+    { pathGroup: "/api/v1/member-prices", statusClass: "2xx", requests: 30 },
+    { pathGroup: "/api/v1/member-prices", statusClass: "401", requests: 4 },
+    { pathGroup: "/api/v1/plans", statusClass: "2xx", requests: 9 },
+  ];
+  const usage = (accounts: number) => ({ state: "known" as const, data: [{ month: "2026-11-01", requests: 900, accounts }, { month: "2026-10-01", requests: 400, accounts }] });
+
+  it("totals the data-API routes over 35 days by route and status, with no day or hour", async () => {
+    const run = vi.fn<RunQuery>(async () => ({ rows: [{ path_group: "/api/v1/market/*", status_class: "2xx", requests: "840" }] }));
+    expect(await readApiRouteHits(run)).toEqual({ state: "known", data: [{ pathGroup: "/api/v1/market/*", statusClass: "2xx", requests: 840 }] });
+    expect(run.mock.calls[0]![0]).not.toMatch(/AS day|hour AT TIME ZONE/);
+  });
+
+  it("shows a key-gated route's answers to holders only once five accounts used the data API in each month", () => {
+    const few = apiRouteView(hits, usage(1), NOW);
+    expect(few.rows.map((row) => `${row.pathGroup} ${row.statusClass}`)).toEqual(["/api/v1/market/* 404", "/api/v1/member-prices 401", "/api/v1/plans 2xx"]);
+    expect(few.withheld).toContain("1 account used the data API");
+    // 35 days back from 2 March reach into January: every month between counts.
+    const march = new Date("2026-03-02T09:00:00Z");
+    const quiet = { state: "known" as const, data: [{ month: "2026-03-01", requests: 9, accounts: 6 }, { month: "2026-01-01", requests: 9, accounts: 6 }, { month: "2026-02-01", requests: 9, accounts: 2 }] };
+    expect(apiRouteView(hits, quiet, march).withheld).toContain("2 accounts used the data API");
+    const many = apiRouteView(hits, usage(5), NOW);
+    // Member-price keys are not counted past a day, so their served counts stay withheld.
+    expect(many.rows.map((row) => `${row.pathGroup} ${row.statusClass}`)).toEqual(["/api/v1/market/* 2xx", "/api/v1/market/* 404", "/api/v1/member-prices 401", "/api/v1/plans 2xx"]);
+    // A month with no row is a month with no account.
+    expect(apiRouteView(hits, { state: "known", data: [{ month: "2026-11-01", requests: 900, accounts: 9 }] }, NOW).rows).not.toContainEqual(hits[0]);
+    expect(apiRouteView(hits, { state: "unknown", reason: "x" }, NOW).withheld).toContain("an unknown number of accounts");
+    expect(apiRouteView([hits[1]!, hits[4]!], usage(1), NOW)).toEqual({ rows: [hits[1], hits[4]], withheld: null });
+  });
+
+  it("shows authenticated MCP rows by tool only once five active keys were used in 30 days", () => {
+    const mcp: McpCounts = { on: true, days: [], tally: [
+      { method: "tools/call", tool: "agent.self", authenticated: true, outcome: "ok", requests: 31 },
+      { method: "initialize", tool: "none", authenticated: false, outcome: "ok", requests: 9 },
+    ] };
+    const keys = (used: number): { state: "known"; data: AgentKeyUse } => ({ state: "known", data: { keys: 9, active: 9, never: 0, lastHour: used, lastDay: 0, lastWeek: 0, lastMonth: 0, older: 9 - used } });
+    expect(mcpView(mcp, keys(1))).toEqual({ tally: [mcp.tally[1]], withheld: expect.stringContaining("1 active key was used in 30 days") });
+    expect(mcpView(mcp, { state: "unknown", reason: "x" }).tally).toEqual([mcp.tally[1]]);
+    expect(mcpView(mcp, keys(5))).toEqual({ tally: mcp.tally, withheld: null });
+  });
+});
+
 describe("traffic coverage", () => {
   it("counts every whole hour of 35 days, unknown unless a pull covered it, the best pull winning", () => {
     const at = (iso: string) => new Date(iso).toISOString();
@@ -101,12 +149,16 @@ describe("traffic coverage", () => {
       { start: at("2026-11-06T06:00Z"), end: at("2026-11-06T07:00Z"), status: "ok", pulledAt: at("2026-11-06T07:05Z") },
       { start: at("2026-11-06T07:00Z"), end: at("2026-11-06T08:00Z"), status: "partial" },
       { start: at("2026-11-06T08:00Z"), end: at("2026-11-06T09:00Z"), status: "failed", pulledAt: at("2026-11-06T09:05Z") },
+      // A start's marker: the hour began before counting started.
+      { start: at("2026-11-06T02:00Z"), end: at("2026-11-06T03:00Z"), status: "skipped" },
       // The current hour (09:00 to 10:00) is not pullable yet, and a window outside 35 days is ignored.
       { start: at("2026-11-06T09:00Z"), end: at("2026-11-06T10:00Z"), status: "ok" },
       { start: at("2026-09-01T00:00Z"), end: at("2026-09-01T01:00Z"), status: "ok" },
     ], NOW);
-    expect(read).toMatchObject({ hours: 35 * 24, ok: 1, partial: 1, failed: 1, unknown: 35 * 24 - 3, lastPullAt: "2026-11-06T09:05:00.000Z" });
-    expect(read.days[0]).toEqual({ day: "2026-11-06", ok: 1, partial: 1, failed: 1, unknown: 6 });
+    expect(read).toMatchObject({ hours: 35 * 24, ok: 1, partial: 1, failed: 1, skipped: 1, unknown: 35 * 24 - 4, lastPullAt: "2026-11-06T09:05:00.000Z" });
+    // Each day says how many of its hours exist yet and what became of them.
+    expect(read.days[0]).toEqual({ day: "2026-11-06", hours: 9, ok: 1, partial: 1, failed: 1, skipped: 1, unknown: 5 });
+    expect(read.days[1]).toEqual({ day: "2026-11-05", hours: 24, ok: 0, partial: 0, failed: 0, skipped: 0, unknown: 24 });
     expect(coverage([], NOW)).toMatchObject({ ok: 0, unknown: 840, lastPullAt: null });
   });
 

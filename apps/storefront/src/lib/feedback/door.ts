@@ -287,7 +287,10 @@ const iso = (value: unknown) => (value instanceof Date ? value : new Date(String
 
 export type StoreResult =
   | { ok: true; feedbackId: string; holderKey: string; receivedAt: string; expiresAt: string }
-  | { ok: false; reason: "capped" | DoorUnavailable };
+  /** refused: a 0149 CHECK said no (23514). validateFeedback and the 16 KiB
+   * read are meant to make that impossible; if it happens, sending the same
+   * report again cannot succeed, so it is not called unavailable. */
+  | { ok: false; reason: "capped" | "refused" | DoorUnavailable };
 
 export async function storeFeedback(submission: FeedbackSubmission, run?: RunQuery): Promise<StoreResult> {
   const feedbackId = newFeedbackId();
@@ -301,6 +304,7 @@ export async function storeFeedback(submission: FeedbackSubmission, run?: RunQue
     if (!row) return { ok: false, reason: "capped" };
     return { ok: true, feedbackId, holderKey, receivedAt: iso(row.received_at), expiresAt: iso(row.expires_at) };
   } catch (error) {
+    if (typeof error === "object" && error !== null && (error as { code?: unknown }).code === "23514") return { ok: false, reason: "refused" };
     return { ok: false, reason: unavailable(error) };
   }
 }

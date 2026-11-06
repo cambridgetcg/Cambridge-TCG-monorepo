@@ -96,7 +96,9 @@ function helloCountTerms(on: boolean) {
 function helloReply(hello: PeerHelloCount | null) {
   if (!hello) return { counted: false, reason: "counting-off", message: "Not counted: hello counting is off here. Nothing about you stored." };
   if (hello.counted) {
-    return { counted: true, message: "counted in today's total; nothing about you stored", day: hello.day, declared_kind: hello.declaredKind, today_total: hello.todayTotal };
+    // Not the total: at a few hellos a day it would tell one caller when
+    // another said hello, and which kind they declared.
+    return { counted: true, message: "counted in today's total; nothing about you stored", day: hello.day, declared_kind: hello.declaredKind };
   }
   return hello.reason === "cap-reached"
     ? { counted: false, reason: hello.reason, message: `Not counted: today's total for this kind has reached its cap of ${PEER_HELLO_DAILY_CAP}. Nothing about you stored.` }

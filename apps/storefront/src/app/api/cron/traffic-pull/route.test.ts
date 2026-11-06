@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { query, transaction } from "@/lib/db";
-import { TRAFFIC_PULL_BUDGET_MS } from "@/lib/traffic/pull";
+import { PULL_ROW_SQL, PULL_STATE_SQL, TRAFFIC_PULL_BUDGET_MS } from "@/lib/traffic/pull";
 import { GET, maxDuration } from "./route";
 
 vi.mock("server-only", () => ({}));
@@ -12,6 +12,10 @@ const network = vi.fn<typeof fetch>();
 const call = (authorization = "Bearer test-cron-secret") =>
   GET(new Request("https://cambridgetcg.example/api/cron/traffic-pull", { headers: { authorization } }));
 const page = (events: Record<string, unknown>[]) => new Response(JSON.stringify({ events, pagination: { hasMore: false, nextCursor: null } }), { status: 200 });
+/** A store whose last pull ran an hour ago and counted nothing in the window. */
+const counting = () => vi.mocked(query).mockImplementation((async (sql: string) => (sql === PULL_STATE_SQL
+  ? { rows: [{ last_pulled_at: new Date(Date.now() - 3_600_000), counting_from: null, window_start: null, window_end: null, status: null, error_code: null }] }
+  : { rows: [], rowCount: 0 })) as never);
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -67,9 +71,20 @@ describe("traffic pull cron", () => {
     expect(network).not.toHaveBeenCalled();
   });
 
-  it("on, counts the uncounted hours and sends the token only to Vercel", async () => {
+  it("on its first run counts nothing, marks where counting starts, and asks Vercel nothing", async () => {
     process.env.TRAFFIC_PULL = "on";
     vi.mocked(query).mockResolvedValue({ rows: [], rowCount: 0 } as never);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const response = await call();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, ran: true, report: { started: true, hours: [], pending: 0 } });
+    expect(network).not.toHaveBeenCalled();
+    expect(vi.mocked(query).mock.calls.find(([sql]) => sql === PULL_ROW_SQL)?.[1]).toEqual([expect.any(String), expect.any(String), "skipped", 0, 0, "before-start"]);
+  });
+
+  it("on, counts the uncounted hours and sends the token only to Vercel", async () => {
+    process.env.TRAFFIC_PULL = "on";
+    counting();
     network.mockImplementation(async (_url, init) => JSON.parse(String(init!.body)).event === "vercel.log" ? page([])
       : page([{ requestId: "r1", requestHostname: "cambridgetcg.com", requestPath: "/api/cron/maintenance", httpStatus: 200, clientUserAgent: "vercel-cron/1.0" }]));
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -77,9 +92,10 @@ describe("traffic pull cron", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toMatchObject({ ok: true, ran: true, report: { stoppedBy: null, pending: 0 } });
-    // A first run (no pull row yet) counts the previous hour only: its requests, then its error lines.
-    expect(body.report.hours).toEqual([expect.objectContaining({ status: "ok", records: 1, rows: 1 })]);
-    expect(network).toHaveBeenCalledTimes(2);
+    // Each uncounted hour since the last pull: its requests, then its error lines.
+    expect(body.report.hours.length).toBeGreaterThan(0);
+    expect(body.report.hours.every((hour: { status: string; records: number }) => hour.status === "ok" && hour.records === 1)).toBe(true);
+    expect(network).toHaveBeenCalledTimes(2 * body.report.hours.length);
     for (const [url, init] of network.mock.calls) {
       expect(String(url)).toMatch(/^https:\/\/api\.vercel\.com\/v1\/observability\/events\?teamId=/);
       expect(new Headers(init!.headers).get("authorization")).toBe("Bearer test-token-not-real");
@@ -91,13 +107,13 @@ describe("traffic pull cron", () => {
 
   it("answers 503 PULL_FAILED when Vercel refuses the token, and says which hour", async () => {
     process.env.TRAFFIC_PULL = "on";
-    vi.mocked(query).mockResolvedValue({ rows: [], rowCount: 0 } as never);
+    counting();
     network.mockResolvedValue(new Response("", { status: 403 }));
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const response = await call();
     expect(response.status).toBe(503);
     const body = await response.json();
-    expect(body).toMatchObject({ ok: false, ran: true, error: { code: "PULL_FAILED" }, report: { stoppedBy: "token-refused", pending: 0 } });
+    expect(body).toMatchObject({ ok: false, ran: true, error: { code: "PULL_FAILED" }, report: { stoppedBy: "token-refused" } });
     expect(body.report.hours).toEqual([expect.objectContaining({ status: "failed", code: "token-refused" })]);
     expect(network).toHaveBeenCalledTimes(1);
     expect(error.mock.calls.flat().join(" ")).not.toContain("test-token-not-real");
