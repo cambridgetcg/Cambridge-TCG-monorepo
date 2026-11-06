@@ -51,7 +51,7 @@ As the plan says, plus two changes:
 
 1. **Ai on Yu's yes:** write `apps/rewards/shopify.app.toml` and its test (`test/unit/config/production-toml.test.ts`) with the identity values from the plan's Global Constraints. The subscriptions are `orders/paid`, `refunds/create` (uri `/webhooks/orders/refunded`), `orders/cancelled`, `app/uninstalled`, `app/scopes_update` and compliance (`/webhooks/compliance`), on `api_version = "2026-10"`. `[auth] redirect_urls` and `[app_proxy]` equal `apps/rewardspro/shopify.app.toml`'s.
 2. **Ai on Yu's yes:** the old-directory guard: `apps/rewardspro/package.json`'s `deploy` and `shopify` scripts print "apps/rewardspro is retired: deploy from apps/rewards" and exit 1, and `apps/rewardspro/shopify.app.toml`'s `client_id` becomes `"retired-deploy-from-apps-rewards"` with a comment saying why. No old-app test reads that `client_id`, so the old suite and Instant Rollback keep working.
-3. **Added:** in `.github/scripts/deploy-health.py`, the `rewardspro-production` entry's `appPath` becomes `apps/rewards` (OPERATIONS-10). Without it, the drift check watches the retired directory and misses a wrongly skipped rewards build.
+3. **Ai on Yu's yes (added):** in `.github/scripts/deploy-health.py`, the `rewardspro-production` entry's `appPath` becomes `apps/rewards` (OPERATIONS-10). Without it, the drift check watches the retired directory and misses a wrongly skipped rewards build.
 4. **Ai on Yu's yes:** open the PR, `chore(rewards): production config, not yet released`. **Merge it only at B2 step 6.**
 
 ## B2: the switch (phase 2: one sitting, zero Shopify changes)
@@ -144,7 +144,13 @@ Expected: one merchant, one connection, the import `running` or `done`, and the 
 
 ### Rollback
 
-Vercel Instant Rollback to the last old-app deployment (683e30b9 today), then Root Directory back to `apps/rewardspro`, the Output Directory and region as they were. After an Instant Rollback, Vercel stops auto-promoting new production deployments until the rollback is undone, so undo it before the next try. Read back which crons are registered. The old app on rewardsprotesting then needs a reinstall, because its old token died in step 5. Credit the new app issued stays in Shopify; on the dev store that is test money.
+1. **Yu:** Vercel Instant Rollback to the last old-app deployment (683e30b9 today).
+2. **Yu:** in the project settings, Root Directory back to `apps/rewardspro`, and the Output Directory (`build`), the Framework, Node and the default region (`iad1`) as they were.
+3. **Ai on Yu's yes:** read the settings back, and read which crons are registered (`crons.definitions`, as in step 4).
+4. **Yu:** reinstall the old app on rewardsprotesting, because its old token died in step 5.
+5. **Yu:** before the next try, undo the Instant Rollback. After one, Vercel stops auto-promoting new production deployments until it is undone.
+
+Credit the new app issued stays in Shopify; on the dev store that is test money.
 
 ## Between phase 2 and phase 3: the known windows
 
@@ -168,17 +174,23 @@ Vercel Instant Rollback to the last old-app deployment (683e30b9 today), then Ro
 
 ## B4: the two gates (phase 4)
 
-As the plan says: CI green on main for the `rewards` job; spec 9.1 checks A to P on rewardsprotesting (F read as Decision 19 says, N on `different-currency-test`, with Yu's install there or his ok to run N on the staging app), recorded with evidence in `apps/rewards/docs/gates.md`; every spec 9.2 item ok or accepted by Yu (the checklist below); a report to Yu in at most 8 lines.
+As the plan says:
 
-Add to the gates what staging left open:
+- **Ai on Yu's yes:** confirm CI is green on main for the `rewards` job.
+- **Ai on Yu's yes:** run spec 9.1 checks A to P on rewardsprotesting (F read as Decision 19 says), and record each with evidence in `apps/rewards/docs/gates.md`.
+- **Yu:** for check N on `different-currency-test`, install the app there, or give his ok to run N on the staging app.
+- **Yu:** every spec 9.2 item that is not ok (the checklist below): do its owner step, or accept it in chat. **Ai on Yu's yes** reads back the ones marked readback.
+- **Ai on Yu's yes:** send Yu the report, in at most 8 lines.
 
-- **Compliance with real data (I):** a real customers/data_request and customers/redact: the Home banner, the download, the erasure.
-- **A tax-exclusive order:** spec 6.3 rule 1 requires one; it needs a market or store whose prices exclude tax. Check the base and a shipping-only refund (Rulings 11, 12).
-- **A tipped order** (Ruling 26), and **orders edited before and after payment** (Ruling 25's known risk: if Shopify's refund for removed items carries no refund lines, the removal counts twice in spend).
-- **Uninstall and reinstall (J)**, and **table paging** past one page of buyers.
-- **Multi-currency (N):** presentment issuance and the buyer panel's per-currency balance lines (Ruling 66) are proved only in tests so far.
+Add to the gates what staging left open. Each line says who does what; **Ai on Yu's yes** records every result with evidence in `gates.md`:
 
-Keep in Yu's B4 message: the two frozen paid charges (Decision 20: Yu cancels each with the Partner API `appSubscriptionCancel(appId, shopId, prorate: false)`, or asks Partner Support), `read_all_orders` if the import fell back to 60 days, protected customer data (the app reads only first and last names; it needs email only for Shopify's search to match emails, so phone and address can be dropped from the approval), and Ruling 72 (no docs link).
+- **Compliance with real data (I):** **Yu** sends a real customers/data_request and customers/redact from Shopify admin; **Ai on Yu's yes** checks the Home banner, the download and the erasure.
+- **A tax-exclusive order:** spec 6.3 rule 1 requires one; it needs a market or store whose prices exclude tax, which **Yu** sets up in Shopify admin. **Ai on Yu's yes** places the order and checks the base and a shipping-only refund (Rulings 11, 12).
+- **Ai on Yu's yes:** **a tipped order** (Ruling 26), and **orders edited before and after payment** (Ruling 25's known risk: if Shopify's refund for removed items carries no refund lines, the removal counts twice in spend).
+- **Uninstall and reinstall (J):** **Yu** uninstalls and reinstalls the app; **Ai on Yu's yes** runs check J on each. **Ai on Yu's yes:** **table paging** past one page of buyers.
+- **Ai on Yu's yes: multi-currency (N)**, on the store Yu chose above. Presentment issuance and the buyer panel's per-currency balance lines (Ruling 66) are proved only in tests so far.
+
+**Ai on Yu's yes:** keep in Yu's B4 message: the two frozen paid charges (Decision 20: Yu cancels each with the Partner API `appSubscriptionCancel(appId, shopId, prorate: false)`, or asks Partner Support), `read_all_orders` if the import fell back to 60 days, protected customer data (the app reads only first and last names; it needs email only for Shopify's search to match emails, so phone and address can be dropped from the approval), and Ruling 72 (no docs link).
 
 **Data requests (Yu's call):** a customers/data_request shows only inside the app (Home's banner, Settings, Customer data requests). A merchant who doesn't open the app within 30 days misses the due date, and after 45 days the request can't be downloaded. Accept that, or ask for an email to the shop owner. A compliance delivery that exhausts Shopify's retries: housekeeping now erases a store uninstalled more than 30 days ago (Ruling 86), but a lost customers/redact can't be backstopped, because its customer id is only in the payload; read it from the Partner Dashboard's webhook delivery log and redact by hand.
 
@@ -186,10 +198,10 @@ Keep in Yu's B4 message: the two frozen paid charges (Decision 20: Yu cancels ea
 
 As the plan says, plus:
 
-- the root scripts (`dev:`, `build:` and `test:rewardspro`, the `rewardspro-api` scripts) and the `--filter '!rewardspro'` in `typecheck`;
-- the `rewardspro` CI job, its `detect` filter and its `ci-status` needs, and `rewardspro-v2.yml`;
-- `apps/rewards` gets its own DEPLOY.md and DATABASE.md (the connection strings above) before the old ones are deleted;
-- B3 step 5 comes first, because `released-uris.test.ts` reads the old toml;
+- **Ai on Yu's yes:** B3 step 5 comes first, because `released-uris.test.ts` reads the old toml;
+- **Ai on Yu's yes:** remove the root scripts (`dev:`, `build:` and `test:rewardspro`, the `rewardspro-api` scripts) and the `--filter '!rewardspro'` in `typecheck`;
+- **Ai on Yu's yes:** remove the `rewardspro` CI job, its `detect` filter and its `ci-status` needs, and `rewardspro-v2.yml`;
+- **Ai on Yu's yes:** write `apps/rewards`'s own DEPLOY.md and DATABASE.md (the connection strings above) before the old ones are deleted;
 - **Yu:** delete the old app's own env names (`DATABASE_URL` ×2, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_REGION` ×3 each, `GITBOOK_API_KEY`, `GITBOOK_ORG_ID`, `GITBOOK_SITE_ID`, `SENDGRID_API_KEY`) and revoke those keys at their providers;
 - **Yu:** dump, then drop, schema `rewardspro` and its role, within 30 days of the switch. Both are irreversible.
 
