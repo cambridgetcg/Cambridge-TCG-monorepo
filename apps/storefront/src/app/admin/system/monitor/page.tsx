@@ -29,6 +29,7 @@ import {
 } from "@/lib/admin/ui";
 import { DATA_COLLECT_FLAGS } from "@/lib/datafeed/collection-flags";
 import { MCP_DAILY_FLAG } from "@/lib/observability/mcp-daily";
+import { TRAFFIC_PULL_FLAG, trafficPullOn } from "@/lib/traffic/pull";
 import {
   loadMonitor,
   type BatchGroup, type ClassGroup, type CollectorLease, type DerivationDay, type DerivedCount, type ErrorCount,
@@ -275,7 +276,7 @@ export default async function Page() {
       <Panel
         id="traffic"
         title="5. Traffic"
-        source={<>traffic_hourly and traffic_pulls (0148), filled hourly from Vercel&apos;s request logs.</>}
+        source={<>traffic_hourly and traffic_pulls (0148), filled hourly from Vercel&apos;s request logs while <code>{TRAFFIC_PULL_FLAG}</code> is on (<code>/api/cron/traffic-pull</code>, classifier ctcg.actor-class/v1).</>}
         covers={<>The last 7 UTC days of counts, and 35 days of which hours were counted. Classes are what each request declared, never verified and never &quot;human&quot;; paths are route groups.</>}
       >
         <ActionBanner tone="info" title="Vercel-seen only">
@@ -283,6 +284,7 @@ export default async function Page() {
           of visitors who carry no cookie is unknown. The <code className="text-xs">*.vercel.app</code> hosts reach Vercel without Cloudflare (&quot;direct&quot; below).
           No IP address is available, so no user agent&apos;s claim is checked.
         </ActionBanner>
+        <div className="flex flex-wrap gap-4"><Flag name={TRAFFIC_PULL_FLAG} on={trafficPullOn()} /></div>
         {traffic.coverage.state === "unknown" ? <Unknown reason={traffic.coverage.reason} /> : (
           <KpiGrid cols={5}>
             <KpiCard label="Hours counted (35 d)" value={n(traffic.coverage.data.ok)} sub={`of ${n(traffic.coverage.data.hours)}`} urgency={traffic.coverage.data.ok ? "ok" : "neutral"} />
@@ -339,7 +341,7 @@ export default async function Page() {
       <Panel
         id="errors"
         title="6. Errors"
-        source={<>error_daily (0148), filled by the hourly pull from Vercel&apos;s runtime logs.</>}
+        source={<>error_daily (0148), filled by the hourly pull from Vercel&apos;s runtime logs while <code>{TRAFFIC_PULL_FLAG}</code> is on.</>}
         covers={<>30 days by tag (a fixed list) and status, never the log line&apos;s text, for the hours the pull counted (panel 5). Runtime logs hold only invocations that printed something.</>}
       >
         {errors.state === "unknown" ? <Unknown reason={errors.reason} /> : (

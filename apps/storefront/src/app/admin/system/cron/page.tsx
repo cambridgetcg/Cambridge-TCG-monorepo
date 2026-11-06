@@ -3,8 +3,9 @@
  *
  * Run history is kept for the four price jobs only (collect/cardmarket,
  * collect/cardrush, collect/tcgplayer, derive/market: ops_job_outcomes,
- * migration 0148), shown on /admin/system/monitor. For every other cron,
- * Vercel handles execution and its dashboard has the run logs. This page
+ * migration 0148), shown on /admin/system/monitor; the hourly traffic pull
+ * records the hours it covered in traffic_pulls, shown there too. For every
+ * other cron, Vercel handles execution and its dashboard has the run logs. This page
  * surfaces:
  *   1. The static cron list from each app's vercel.json — what's *scheduled*
  *   2. email_queue stats — the maintenance sweep's persistent output
@@ -53,6 +54,7 @@ function describeSchedule(s: string): string {
     "0 0 * * 1": "weekly Mon 00:00 UTC",
     "15 * * * *": "hourly at :15 UTC",
     "5 * * * *":  "hourly at :05 UTC",
+    "7 * * * *":  "hourly at :07 UTC",
   };
   return map[s] ?? s;
 }

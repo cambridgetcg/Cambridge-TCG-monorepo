@@ -18,6 +18,7 @@ Operate the service, review evidence and trust decisions, apply privacy controls
 - [fraud](../../../apps/storefront/src/lib/fraud)
 - [observability](../../../apps/storefront/src/lib/observability)
 - [privacy](../../../apps/storefront/src/lib/privacy)
+- [traffic](../../../apps/storefront/src/lib/traffic)
 - [trust](../../../apps/storefront/src/lib/trust)
 - [verification](../../../apps/storefront/src/lib/verification)
 

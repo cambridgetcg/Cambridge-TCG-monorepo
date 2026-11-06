@@ -263,7 +263,7 @@
     {
       "id": "safety-and-operations", "label": "Trust, privacy and operations",
       "purpose": "Operate the service, review evidence and trust decisions, apply privacy controls and maintain verification tools.",
-      "lib": ["admin", "audits", "evidence", "fraud", "observability", "privacy", "trust", "verification"],
+      "lib": ["admin", "audits", "evidence", "fraud", "observability", "privacy", "traffic", "trust", "verification"],
       "routes": ["admin", "legal", "privacy", "terms"]
     },
     {

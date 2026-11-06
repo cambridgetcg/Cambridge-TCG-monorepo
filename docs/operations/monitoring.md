@@ -1,12 +1,14 @@
 # The monitor: what it reads, what it cannot see
 
-**Status:** written 2026-11-06 by an agent (Claude Code). It describes the
+**Status:** written 2026-11-06 by agents (Claude Code). It describes the
 code on the branch that adds migration 0148; nothing here has run against
-production. Yu asked on 2026-11-05 for "an internal monitoring and analytics
+production, and the Vercel endpoint below has not been called from this
+code. Yu asked on 2026-11-05 for "an internal monitoring and analytics
 page for understanding visitor actions", and chose hourly Vercel logs for
-traffic. This change builds the data layer and the page. The hourly traffic
-pull that fills `traffic_hourly`, `traffic_pulls` and `error_daily` is a
-separate change; until it lands, those panels read "unknown".
+traffic, read with the existing `VERCEL_TOKEN`. The branch builds the data
+layer, the page and the hourly traffic pull that fills `traffic_hourly`,
+`traffic_pulls` and `error_daily`; until `TRAFFIC_PULL` is on, those panels
+read "unknown".
 
 `/admin/system/monitor` (source: `apps/storefront/src/app/admin/system/monitor/`)
 is behind the admin gate: `proxy.ts` sends a visitor without a session
@@ -89,7 +91,143 @@ why. It never shows that as zero.
   kept. While it is on, the gate's published operational-metadata lists
   (`GET /api/mcp`, `/.well-known/mcp.json`, `/.well-known/mcp-config.json`)
   name the counter; while it is off they do not.
-- **Traffic and errors**: the hourly pull, in its own change.
+- **Traffic and errors** (`src/lib/traffic/pull.ts`, route
+  `/api/cron/traffic-pull`, hourly at :07 in `vercel.json`). Off unless
+  `TRAFFIC_PULL` is exactly `on`; off, the route answers before touching
+  Vercel or the database. On, each run:
+  - picks the hours to read: the previous complete UTC hour, and any earlier
+    hour within Vercel's log window (about 24 hours on the current plan, less
+    a 15-minute margin) that no pull has counted, oldest first. It never
+    reads an hour before the earliest `traffic_pulls` row, so the first run
+    counts only the hour before it;
+  - for each hour, reads the CDN request records, then the error-level
+    runtime lines (the endpoint below), and classifies each record in memory
+    (`src/lib/traffic/classify.ts`, next section);
+  - writes a counted hour in one transaction that starts with its
+    `traffic_pulls` row, so 0148's exclusion constraint refuses a second
+    count of the same hour (a repeated or overlapping run gets
+    `already-counted`); `traffic_hourly` is replaced for that hour and
+    `error_daily` adds to its UTC day;
+  - drops every record with the hour. No IP address is asked for. The user
+    agent, path, route, host, country, request id and log text are read in
+    memory only; a request id is held for the hour to count a record once
+    (paging can repeat one at a page boundary) and to give an error line the
+    status of the request it came from. No request is joined to another;
+  - stops starting hours at 240 s (the route's `maxDuration` is 300 s), and
+    sweeps every observability table past its retention.
+
+  How an hour ends, in `traffic_pulls`:
+
+  | Status | When | Counts kept |
+  | --- | --- | --- |
+  | `ok` | Requests and error lines read whole | All |
+  | `partial` `stream-gap` | Vercel reported an interval it left out | What was read |
+  | `partial` `errors-<code>` | Requests whole, error lines not, for a reason that would not pass (a 402, a rejected query), or on the hour's last chance | Traffic whole; errors as read |
+  | `partial` `<code>` | The request read stopped short on the hour's last chance (the next run would find it outside Vercel's window) | What was read |
+  | `partial` `no-records` | No request record at all, on the last chance | None |
+  | `failed` `<code>` | Otherwise: the read stopped short, or found no record (`no-records`: Vercel's cron alone calls the site every minute, so none means the read went wrong) | None; the next run tries again |
+
+  Codes: `budget-exhausted`, `rate-limited` (a 429 whose Retry-After is over
+  20 s, or a third), `http-5xx` (after two retries), `timeout`, `network`,
+  `token-refused` (401/403), `plan-required` (402), `outside-retention`,
+  `query-rejected` (another 400), `invalid-response`, `page-cap` (200 pages),
+  `record-too-large`. A refused token, a rate limit, Vercel failing or the
+  budget stop the run; the hours left wait for the next run, unknown until
+  then. To count a counted hour again (within Vercel's window), delete its
+  `traffic_pulls` row: the next run replaces the hour's `traffic_hourly`
+  rows, but adds its error lines to `error_daily` again.
+
+## The traffic classifier (`ctcg.actor-class/v1`)
+
+`src/lib/traffic/classify.ts`, ported from the classifier the 2026-11-05
+traffic study used (`classify.py`, kept with the study, not in this
+repository) onto 0148's words. Every class is what a request declared: the
+logs carry no IP address, so no claim is checked, bot names are spoofed, and
+no class says "human". First match wins:
+
+1. **The path:** `/.env*`, `/.git`, other secret dotfiles, key and script
+   files (`.pem`, `.key`, `.php`, `.sql`…), PHP admin pages and `/api/fs` are
+   `probe`, whatever name the request gives.
+2. **Cambridge's own clients:** `vercel-cron/` is `cron-self`;
+   `kingdom-pulse` and `kingdom-door-check` are `own-monitor`.
+3. **Declared names**, a fixed table: `search-crawler`, `ai-training-crawler`,
+   `ai-search`, `ai-user-fetch`, `seo-crawler`, `social-preview`,
+   `headless-declared`, `scanner`, `mcp-client`, `library`. Calls that are
+   judgements: Amazonbot and Bytespider count as `ai-training-crawler`,
+   `claude-code` as `ai-user-fetch`, OAI-AdsBot and TikTokSpider as
+   `other-crawler`.
+4. **`declared-agent`:** the form robots.txt asks for,
+   `<project>/<version> (<contact>)` with an email address or URL. The
+   contact is not kept.
+5. **`other-crawler`:** any other name saying bot, crawler or spider (a
+   browser-style string only when it names its bot as crawlers do, so a phone
+   model with BOT in its name stays a browser).
+6. **Browser-style strings** (`Mozilla/` with Chrome, Safari, Firefox or
+   Edg): `browser-like-fleet` when the same string came from at least 5
+   countries within the hour, otherwise `browser-like`. In the study's 24
+   hours, 93% of browser-style requests came from strings seen in 5 or more
+   countries in one hour; one person's browser is in one place.
+7. **`unknown`**, including an empty user agent.
+
+Paths become 0148's route groups (segment by segment, so `/agentsfoo` is not
+`/agents`); RSC page-data fetches are those whose Vercel route ends `.rsc`.
+Hosts: `cambridgetcg.com` is `apex`, `www.` is `www`,
+`cambridgetcg-storefront.vercel.app` is `prod-alias`, a deployment's own
+`cambridgetcg-storefront-….vercel.app` is `deploy-url`. Vercel's cache result
+is lowercased; its firewall action `allow` counts as `none`. Runtime lines
+count by their leading `[tag]` from 0148's list (`[cron/reconcile-stripe]`
+counts as `cron`; `[auth][error]` as `auth`); a line about the database
+running out of connections counts as `db-connections` whatever its tag. On
+the study's 24 hours the port gave the same route-group totals as the study
+and about 215 `traffic_hourly` rows per hour (about 185,000 at 35 days).
+
+## The Vercel endpoint the pull reads (undocumented by Vercel)
+
+Vercel's public REST reference does not document this endpoint. It is the
+one the Vercel CLI calls for `vercel logs` and `vercel logs requests`, read
+from the installed CLI's source (`vercel@64.5.0`, `dist/commands-bulk.js`
+and `dist/chunks/chunk-MYHJNSCW.js`), not from a live call. Its shape can
+change without notice; a change shows on the monitor as failed hours.
+
+- `POST https://api.vercel.com/v1/observability/events?teamId=<team id>`,
+  `Authorization: Bearer <VERCEL_TOKEN>`. The CLI also sends
+  `x-vercel-observability-query-reason` (`cli/logs-requests`,
+  `cli/logs-runtime`); the pull sends
+  `cambridgetcg-storefront/traffic-pull/<requests|runtime>`. Whether Vercel
+  requires a value it knows is unknown.
+- Body: `event`, `scope` (`ownerId`: the team id; `projectIds`: the
+  storefront's project id), `timeRange` (`start`, `end`, ISO 8601),
+  `select` (field names), `order` (the CLI always sends `desc`), `limit`
+  (at most 1,000 a page), optional `filter` (a KQL-like expression) and
+  `cursor`.
+- Request records: `event: "vercel.proxy_response"`, filter
+  `(environment:"production") AND (NOT pathType:"background_func")` (the CLI
+  always excludes background functions). The pull selects `requestId`,
+  `requestHostname`, `requestPath`, `route`, `httpStatus`, `cacheResult`,
+  `wafAction`, `clientUserAgent` and `clientIpCountry`; the CLI also selects
+  `projectId`, `deploymentId`, `environment`, `requestMethod`, `pathType`,
+  `edgeNetworkRegion` and `service`. The firewall view in the same CLI can
+  group by `clientIp`, ASN and JA4; the pull never asks for them.
+- Runtime lines: `event: "vercel.log"`, filter
+  `(environment:"production") AND (level:(error OR fatal))`; the pull
+  selects `requestId`, `level` and `message`.
+- Each record carries `timestamp` without being selected. The pull counts a
+  record only if its timestamp is inside the hour, so a record on the
+  boundary is counted once whichever way Vercel treats `end`.
+- Response: `{ events, pagination: { hasMore, nextCursor }, meta: {
+  excludedIntervals? } }`. Paging: send `nextCursor` back as `cursor` while
+  `hasMore` is true and the cursor changes. The CLI's help says paging is
+  best-effort: records sharing a timestamp at a page boundary can repeat or
+  be skipped (the study removed 13 repeats in 255,652 lines). The pull drops
+  repeats by `requestId`; a skipped record cannot be seen.
+- Errors as the CLI reads them: 413 with code `result_too_large` (halve the
+  page size and try again), 402 (the plan does not serve the window: "CDN
+  request logs require Observability Plus" beyond a day), 400 mentioning
+  retention or the time range (outside what Vercel keeps), 403, 429.
+- Retention measured on 2026-11-05: about 24 hours for both kinds on the Pro
+  plan. Whether the token in `VERCEL_TOKEN` (made for the deploys page) may
+  read logs is unknown until the first run; a refusal shows as
+  `token-refused`.
 
 ## Retention
 
@@ -107,7 +245,8 @@ Nothing keeps a copy of deleted rows, and no raw log is ever stored.
 | Flag | Default | Effect |
 | --- | --- | --- |
 | `OPS_MCP_DAILY` | off | Counts `/api/mcp` requests into `mcp_daily`. Turn on only after /privacy names the count, its purpose and its period. |
-| traffic pull flag | off | In the pull's own change. |
+| `TRAFFIC_PULL` | off | Runs the hourly traffic pull, which reads Vercel's logs with `VERCEL_TOKEN` and writes `traffic_hourly`, `traffic_pulls` and `error_daily`. Turn on only after /privacy names the counts, their purpose and their periods, and at least an hour after that note is live: the first run counts the hour before it. |
+| `VERCEL_TOKEN` | set for the deploys page | Read by the pull from the environment only; never logged or returned. |
 | `DATA_COLLECT_*`, `DATA_DERIVE_MARKET`, `DATA_API_*` | as set | Read and shown, never changed, by the page. |
 
 Turning a counting flag on is Yu's call, and waits for the /privacy update
@@ -118,8 +257,13 @@ purpose.
 
 ## Checks
 
-- `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/observability src/app/admin/system/monitor src/app/api/mcp src/app/api/cron`
+- `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/observability src/lib/traffic src/app/admin/system/monitor src/app/api/mcp src/app/api/cron`
 - The integration test applies 0148 and the migrations it reads beside on a
   disposable loopback database, and reads every panel through both pg and
   postgres.js (the page's driver):
-  `OPS_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/<a name containing test> pnpm --filter cambridgetcg-storefront exec vitest run src/lib/observability/observability.integration.test.ts`
+  `OPS_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/<a name containing test> pnpm --filter cambridgetcg-storefront exec vitest run src/lib/observability/observability.integration.test.ts src/lib/traffic/pull.integration.test.ts`.
+  The traffic one runs the pull against a mocked Vercel and the real 0148
+  schema, through pg and postgres.js: counts an hour once, refuses a second
+  count through the exclusion constraint, back-fills, records a refused hour
+  as failed, and sweeps past retention.
+- `pnpm audit:cron-auth` checks that the route calls `requireCronAuth`.
