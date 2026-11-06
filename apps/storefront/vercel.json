@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/derive/market",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/traffic-pull",
+      "schedule": "7 * * * *"
     }
   ]
 }

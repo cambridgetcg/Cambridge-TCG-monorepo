@@ -504,7 +504,7 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/budget",
-          description: "AX crawl-budget advisory. Single-fetch planning shape — catalog size, recommended pace, per-shape ETA (full-mirror / watchlist / federation / spec-consumer), freshness floors, headers-to-send / -to-watch. Substrate-honest about what the platform knows vs. doesn't (e.g. no peak-hour telemetry yet). Doctrine at docs/connections/the-ax.md.",
+          description: "AX crawl-budget advisory. Single-fetch planning shape — catalog size, recommended pace, per-shape ETA (full-mirror / watchlist / federation / spec-consumer), freshness floors, headers-to-send / -to-watch. Substrate-honest about what the platform knows vs. doesn't (e.g. no published peak-hour telemetry). Doctrine at docs/connections/the-ax.md.",
           auth: "none",
           status: "stable",
         },

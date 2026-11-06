@@ -29,14 +29,15 @@ export default function PrivacyPage() {
           Privacy notice
         </h1>
         <p className="text-sm text-ink-faint mb-4">
-          Last updated 3 September 2026.
+          Last updated 6 November 2026.
         </p>
         <p className="text-sm text-ink-muted leading-relaxed mb-8">
           This notice explains what Cambridge TCG does with personal data on
           this website, including account, marketplace, community, optional
           verification, testnet-wallet, PRISM Signals closed-beta-interest,
-          Stripe-sandbox and Telegram-preview features. It also explains which
-          choices make information public.
+          Stripe-sandbox and Telegram-preview features, the feedback door and
+          contact form, and the aggregate counts we keep to understand how the
+          site is used. It also explains which choices make information public.
         </p>
 
         <Callout tone="note" title="At a glance">
@@ -65,6 +66,12 @@ export default function PrivacyPage() {
               Automated rules can affect limits, routes, inspection and payout
               timing. You can ask for an explanation and human review when a
               rule blocks or materially changes a service.
+            </li>
+            <li>
+              To understand how the site is used we keep aggregate counts only,
+              such as requests per hour by route group, declared kind of client
+              and status. They hold no IP address, user agent, cookie or other
+              identifier, so they build no profile of anyone.
             </li>
             <li>
               We do not sell personal data or run advertising trackers. Email
@@ -128,6 +135,16 @@ export default function PrivacyPage() {
             <li>
               <a className="text-accent underline" href="#prism-signals-stripe-sandbox">
                 PRISM Stripe sandbox
+              </a>
+            </li>
+            <li>
+              <a className="text-accent underline" href="#feedback-door">
+                Feedback and contact messages
+              </a>
+            </li>
+            <li>
+              <a className="text-accent underline" href="#aggregate-counts">
+                Aggregate counts of site use
               </a>
             </li>
             <li>
@@ -311,9 +328,98 @@ export default function PrivacyPage() {
                 </strong>{" "}
                 IP address, User-Agent/browser description, request time, route,
                 response and rate-limit or security events may be processed in
-                infrastructure, access and security logs. Cambridge TCG does not
+                infrastructure, access and security logs, by Cloudflare in front
+                of the site and by Vercel, which hosts it. Cambridge TCG does not
                 create an application-level analytics profile from ordinary page
-                visits, but hosting and security logs can still exist.
+                visits, but hosting and security logs can still exist. An hourly
+                job reads Vercel&apos;s request and error logs and keeps only the
+                aggregate counts described below; operators can also read the
+                logs to diagnose a problem.
+              </li>
+              <li id="feedback-door" className="scroll-mt-24">
+                <strong className="text-ink">
+                  Optional feedback and contact messages:
+                </strong>{" "}
+                if you send a message through the contact form or to{" "}
+                <code className="text-ink">/api/v1/feedback</code>, Cambridge TCG
+                keeps the kind of report, the topic, your message, any named
+                references you include (such as an endpoint, a card or series
+                key, a date, a guide or a platform address) and, only if you give
+                them, a name and an email address or web address to reply to. We
+                also keep our status and answer, the times, and a SHA-256
+                fingerprint of the holder key shown to you once. We do not keep
+                the request as it was sent, your IP address, user agent or
+                cookies, or any account or session, even when you are signed in.
+                With the key you can read our answer or delete the message at
+                any time, including after the door stops taking new messages.
+                The door takes messages only while it is switched on, and a cap
+                on messages per hour counts accepted messages with no sender
+                beside it. The notice version for this door is
+                feedback-door/2026-11-06.
+              </li>
+              <li id="aggregate-counts" className="scroll-mt-24">
+                <strong className="text-ink">
+                  Aggregate counts of site use:
+                </strong>{" "}
+                Cambridge TCG keeps counts, not records of visits. They are
+                requests per UTC hour from Vercel&apos;s request logs, by type of
+                host, route group (such as a card page, never the actual path),
+                page data or not, a declared client class from a fixed,
+                versioned list (such as search crawler or browser-like: the
+                class is what the user agent or the path declares, never
+                verified; a browser-style user agent is classed as a fleet when
+                the same string arrived from five or more countries in that
+                hour, which is worked out in memory while the hour is counted),
+                status, cache result and firewall action, with a record of
+                which hours were counted; runtime error lines per UTC day by a
+                fixed tag and
+                status, never their text; requests to the MCP gate per UTC day by
+                method, tool, whether the request authenticated and how it was
+                answered, with no key, agent or account id; hellos to{" "}
+                <code className="text-ink">/api/v1/peers</code> per UTC day by the
+                kind the caller declared; and what each of Cambridge&apos;s own
+                price-collection and derivation jobs did on each run. The user
+                agent, path, country, request id and any error text of each log
+                record are read in memory while its hour is counted and then
+                dropped; no IP address is asked for. No count holds an IP address
+                (hashed or not), a user agent, query string, referrer, request
+                body or raw path, or a visitor, session, device, account or key
+                identifier, and no count can be joined to another request. While
+                only a few keys or accounts use a route that needs one, or an
+                MCP tool, the counts for it can still describe their use, so
+                the internal operations page shows those counts only once at
+                least five keys or accounts are counted. They
+                use no cookie, browser storage, beacon or analytics script, and
+                counting never changes how a request is answered. The traffic,
+                MCP and hello counters each ship switched off and are switched on
+                only after this notice names them; the job records are about
+                Cambridge&apos;s own jobs, not about visitors. Pages Cloudflare
+                answers from its own cache never reach Vercel&apos;s logs, so the
+                counts are incomplete by design.
+              </li>
+              <li>
+                <strong className="text-ink">Agent keys:</strong> when an
+                operator creates an agent on the account agents page, Cambridge
+                TCG keeps the agent&apos;s profile and, for each key, a SHA-256 of
+                the key, its first characters, name and tier, and when it was
+                created, revoked and last used, plus a count of the key&apos;s
+                calls in each minute for rate limiting. The MCP tool{" "}
+                <code className="text-ink">agent.self</code> shows a key what is
+                kept about it.
+              </li>
+              <li>
+                <strong className="text-ink">Member data keys:</strong> when
+                you create a price-read key on your account&apos;s data page,
+                Cambridge TCG keeps, with your account, a SHA-256 of the key,
+                its first characters, name and scope, and when it was created,
+                expires (at most 90 days later) and was revoked. For rate
+                limiting it keeps a count of each key&apos;s requests in each
+                minute, one for the member price feed and one for the data API,
+                and for the data API&apos;s monthly limit a count of your
+                account&apos;s accepted requests in each calendar month (UTC).
+                None of these holds a path, query, IP address or which prices
+                were read. The internal operations page shows the monthly counts
+                summed over accounts, with how many accounts made any.
               </li>
               <li id="prism-signals-telegram" className="scroll-mt-24">
                 <strong className="text-ink">
@@ -578,6 +684,40 @@ export default function PrivacyPage() {
                   </tr>
                   <tr className="border-b border-border-subtle">
                     <td className="py-3 pr-4">
+                      Understand how the site is used, from aggregate counts
+                      only: which routes and kinds of client load the service,
+                      where errors and missing pages gather, how the MCP gate
+                      and agent doors are used, and whether Cambridge&apos;s own
+                      jobs ran.
+                    </td>
+                    <td className="py-3">
+                      <strong className="text-ink">Legitimate interests</strong>{" "}
+                      in running, sizing and improving a public data service
+                      and its agent doors. The counts are made in memory from
+                      hosting logs and the gate&apos;s own answers and keep no
+                      identifier, so no profile is built and no request can be
+                      joined to another. You can object; a count cannot be
+                      traced back to a person, so there is nothing of yours in
+                      it to remove.
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border-subtle">
+                    <td className="py-3 pr-4">
+                      Receive and answer a message you send through the
+                      feedback door or contact form, let you read or delete it
+                      with its key, and cap how many messages the door takes
+                      each hour.
+                    </td>
+                    <td className="py-3">
+                      <strong className="text-ink">Legitimate interests</strong>{" "}
+                      in answering the message you chose to send and in keeping
+                      the door usable; and{" "}
+                      <strong className="text-ink">contract</strong> where the
+                      message is about your order or account.
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border-subtle">
+                    <td className="py-3 pr-4">
                       Publish a profile, review, milestone activity or
                       collective-directory listing you separately switch on.
                     </td>
@@ -644,7 +784,9 @@ export default function PrivacyPage() {
             <p className="mt-4">
               Our legitimate interests are service and transaction security,
               fraud and abuse prevention, dispute handling, moderation,
-              reliability, record integrity and the defence of legal claims. We
+              reliability, record integrity, the defence of legal claims,
+              understanding from aggregate counts how the service is used, and
+              answering the messages people choose to send. We
               consider whether those interests can be achieved with less data
               and the likely effect on people. You can object; we will reassess
               the balance unless the law requires the processing or compelling
@@ -904,6 +1046,13 @@ export default function PrivacyPage() {
                 cookies on the storefront.
               </li>
               <li>
+                We do not build a visit or behaviour profile of anyone. The
+                aggregate counts keep no IP address, user agent, query string,
+                referrer, request body, raw path or visitor, session, device,
+                account or key identifier, and use no cookie, browser storage,
+                beacon or third-party analytics script.
+              </li>
+              <li>
                 We do not retain a wallet seed phrase, private key, balance or
                 submitted signature.
               </li>
@@ -954,9 +1103,25 @@ export default function PrivacyPage() {
                 and message content when it is used instead.
               </li>
               <li>
+                <strong className="text-ink">Cloudflare</strong> sits in front of
+                cambridgetcg.com and www.cambridgetcg.com as a proxy, cache and
+                firewall. Every request to those addresses passes through it, so
+                it processes the IP address, user agent and other request
+                metadata, and it can answer a cached page without passing the
+                request on. See Cloudflare&rsquo;s{" "}
+                <a
+                  href="https://www.cloudflare.com/privacypolicy/"
+                  className="text-accent underline"
+                >
+                  privacy policy
+                </a>
+                .
+              </li>
+              <li>
                 <strong className="text-ink">Vercel</strong> hosts the web
                 application and processes ordinary network, access and security
-                request metadata.
+                request metadata. Its request and error logs are the source of
+                the aggregate counts described above.
               </li>
               <li>
                 <strong className="text-ink">Cambridge TCG&apos;s authorised
@@ -1024,8 +1189,9 @@ export default function PrivacyPage() {
             <p>
               Suppliers and infrastructure may process data outside the United
               Kingdom. In particular, some Cambridge database and object storage
-              currently uses AWS in the United States, while Google, AWS, Vercel
-              and Stripe operate international services and subprocessors. Their
+              currently uses AWS in the United States, while Google, AWS,
+              Cloudflare, Vercel and Stripe operate international services and
+              subprocessors. Their
               provider terms state that a recognised mechanism applies where UK
               restricted-transfer rules require one, such as UK adequacy
               regulations, the UK International Data Transfer Agreement or UK
@@ -1046,6 +1212,12 @@ export default function PrivacyPage() {
                 className="text-accent underline"
               >
                 Vercel DPA
+              </a>,{" "}
+              <a
+                href="https://www.cloudflare.com/privacypolicy/"
+                className="text-accent underline"
+              >
+                Cloudflare privacy policy
               </a>,{" "}
               <a
                 href="https://telegram.org/privacy"
@@ -1168,7 +1340,9 @@ export default function PrivacyPage() {
               No storefront marketing, advertising or third-party analytics
               cookie is currently set, so there is no marketing-cookie consent
               banner. Infrastructure request logs are separate from cookies and
-              are described above.
+              are described above. The aggregate counts and the feedback door
+              set no cookie and use no browser storage; the contact form holds a
+              message&apos;s key in the open page&apos;s memory only.
             </p>
           </section>
 
@@ -1334,6 +1508,41 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong className="text-ink">
+                  Feedback and contact messages:
+                </strong>{" "}
+                deleted, with our answer and any reply address, 180 days after
+                they arrive, or at once when you delete them with the key. An
+                hourly sweep runs whether or not the door is taking messages,
+                and an expired message is never shown. The hourly cap&apos;s
+                counts are kept 48 hours.
+              </li>
+              <li>
+                <strong className="text-ink">Aggregate counts:</strong> hourly
+                request counts, and the record of which hours were counted, 35
+                days; daily error, MCP, job-run and hello counts 13 months. An
+                hourly sweep deletes older rows whether or not any counter is
+                switched on, the counters and jobs also delete them as they
+                write, and the operations monitor shows any row kept past its
+                period.
+              </li>
+              <li>
+                <strong className="text-ink">Agent keys:</strong> a key and its
+                last-used time stay with the agent; revoking a key keeps the
+                record, and deleting the agent or its operator&apos;s account
+                deletes it. The minute counts are kept 7 days; older ones are
+                deleted the next time any key makes an allowed call.
+              </li>
+              <li>
+                <strong className="text-ink">Member data keys:</strong> a key&apos;s
+                record stays with your account after it expires or is revoked,
+                and deleting the account deletes it with its counts. Minute
+                counts older than a day are deleted, up to 100 at a time, when
+                a later request with a valid key runs, so there is no set time
+                by which every one is gone. The data API&apos;s monthly counts
+                are currently kept with the account and not deleted earlier.
+              </li>
+              <li>
+                <strong className="text-ink">
                   Infrastructure and security logs:
                 </strong>{" "}
                 periods vary by provider and log type. The retention decision
@@ -1342,7 +1551,9 @@ export default function PrivacyPage() {
                 event, meet a provider/security requirement, or establish,
                 exercise or defend a legal claim. The exact live periods have
                 not yet been consolidated into this notice; contact us for the
-                current period relevant to a specific request.
+                current period relevant to a specific request. When checked in
+                November 2026, Vercel kept the request logs the hourly counts
+                are made from for about one day on the current plan.
               </li>
             </ul>
           </section>
@@ -1445,10 +1656,13 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong className="text-ink">
-                  Agent feedback and carried state:
+                  Legacy agent feedback and carried state:
                 </strong>{" "}
-                public write paths are paused. New POSTs stop before body or
-                database reads. Older internal rows await a separately reviewed
+                the agent-feedback table used in July 2026 kept whole request
+                bodies. Nothing writes it now; the feedback door described above
+                keeps named fields in a separate table. The carried-state write
+                path is paused, and new POSTs to it stop before body or database
+                reads. Older internal rows of both await a separately reviewed
                 cleanup.
               </li>
               <li>

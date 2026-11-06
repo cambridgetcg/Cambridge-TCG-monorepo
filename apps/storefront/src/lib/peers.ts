@@ -27,10 +27,14 @@
  *     apps/storefront/drizzle/0103_peers_guestbook.sql records the
  *     legacy schema as it exists.
  *
+ *   • A hello can be counted, which is not storage of the hello: see
+ *     "Counted hello" below.
+ *
  * Companion: docs/connections/the-fellowship.md (story-as-wire).
  */
 
 import { query } from "@/lib/db";
+import { OBSERVABILITY_RETENTION } from "@/lib/observability/retention";
 
 export const SHA256_CONTENT_HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
 export const SHA256_CONTENT_HASH_SQL_PATTERN = "^sha256:[0-9a-f]{64}$";
@@ -109,6 +113,74 @@ export function validatePeerArrivalSubmission(input: {
       declared_kind: declaredKind.value,
     },
   };
+}
+
+// ── Counted hello ───────────────────────────────────────────────────────
+//
+// A hello on POST /api/v1/peers adds one to today's count for the kind the
+// caller declared (peer_hello_daily, migration 0149): a UTC day, a word from
+// PEER_HELLO_KINDS and a number, and nothing about the caller. The
+// content_hash is validated and echoed, never written. A count stops at
+// PEER_HELLO_DAILY_CAP, so a flood moves it no further, and once an
+// instance has seen a kind's count reach the cap it skips the database for
+// that kind until the UTC day turns, so a flood past the cap writes
+// nothing. The reply says whether the hello was counted, never the total,
+// which at a few hellos a day would tell a caller when someone else said
+// hello. Off unless PEER_HELLO_COUNT is exactly "on", which waits for the
+// /privacy note that names it. Rows past 13 months go with each count and
+// with the hourly sweep (lib/feedback/retention.ts).
+
+export const PEER_HELLO_FLAG = "PEER_HELLO_COUNT";
+export const PEER_HELLO_DAILY_CAP = 10_000;
+export const PEER_HELLO_KINDS = [...PEER_DECLARED_KINDS, "undeclared"] as const;
+export type PeerHelloKind = (typeof PEER_HELLO_KINDS)[number];
+export const PEER_HELLO_RETENTION_MONTHS = OBSERVABILITY_RETENTION.daily.months;
+
+export function peerHelloCountOn(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return env[PEER_HELLO_FLAG] === "on";
+}
+
+/** Rows past retention, as SQL over now(). */
+export const PEER_HELLO_EXPIRED_SQL = `day < ((now() AT TIME ZONE 'UTC')::date - interval '${PEER_HELLO_RETENTION_MONTHS} months')::date`;
+
+/** One statement: today's count for the kind gains one unless it is at the
+ * cap (then no row comes back), and rows past retention go. */
+export const PEER_HELLO_UPSERT = `WITH expired AS (
+    DELETE FROM peer_hello_daily WHERE ${PEER_HELLO_EXPIRED_SQL}
+  )
+  INSERT INTO peer_hello_daily (day, declared_kind, count)
+  VALUES ((now() AT TIME ZONE 'UTC')::date, $1, 1)
+  ON CONFLICT (day, declared_kind) DO UPDATE SET count = peer_hello_daily.count + 1
+    WHERE peer_hello_daily.count < ${PEER_HELLO_DAILY_CAP}
+  RETURNING day::text AS day, count`;
+
+export type PeerHelloCount =
+  | { counted: true; day: string; declaredKind: PeerHelloKind; todayTotal: number }
+  | { counted: false; reason: "cap-reached" | "unavailable" };
+
+type RunQuery = (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
+
+/** "<UTC day> <kind>" for each kind this instance has seen at the cap. */
+const cappedToday = new Set<string>();
+
+/** Counts one hello under its declared kind. A failed write is answered as
+ * not counted, never as an error: the witness still stands. todayTotal is
+ * for the caller's own checks; the route does not publish it. */
+export async function countPeerHello(declaredKind: PeerDeclaredKind | null, run: RunQuery = query as RunQuery, now = new Date()): Promise<PeerHelloCount> {
+  const kind: PeerHelloKind = declaredKind ?? "undeclared";
+  const today = now.toISOString().slice(0, 10);
+  if (cappedToday.has(`${today} ${kind}`)) return { counted: false, reason: "cap-reached" };
+  try {
+    const row = (await run(PEER_HELLO_UPSERT, [kind])).rows[0];
+    if (!row) {
+      for (const entry of cappedToday) if (!entry.startsWith(`${today} `)) cappedToday.delete(entry);
+      cappedToday.add(`${today} ${kind}`);
+      return { counted: false, reason: "cap-reached" };
+    }
+    return { counted: true, day: String(row.day), declaredKind: kind, todayTotal: Number(row.count) };
+  } catch {
+    return { counted: false, reason: "unavailable" };
+  }
 }
 
 export interface ValidGuestbookSubmission extends ValidPeerArrivalSubmission {
