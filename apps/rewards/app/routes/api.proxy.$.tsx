@@ -40,7 +40,19 @@ const THEME = {
 
 const CURRENCY_PARAM = /^[A-Za-z]{3}$/;
 
-const answer = (body: unknown, status = 200) => Response.json(body, { status, headers: HEADERS });
+/** A signed-in buyer's answer, the shape the released widget reads (Decision 9). */
+export type MembershipAnswer = Awaited<ReturnType<typeof membership>>;
+
+/**
+ * Every JSON answer to `GET membership`. The widget's DOM tests type their
+ * fixtures against it, so a key renamed here fails their typecheck.
+ */
+export type ProxyAnswer =
+  | MembershipAnswer
+  | { success: false; requiresLogin: true; message: string; running: boolean }
+  | { success: false; message: string };
+
+const answer = (body: ProxyAnswer, status = 200) => Response.json(body, { status, headers: HEADERS });
 
 /** The signed-in buyer's membership: their tier, live balance and progress. */
 async function membership(conn: ConnectionContext, tiers: TierRow[], visitor: VerifiedProxyRequest & { customerId: string }, url: URL) {
@@ -60,11 +72,17 @@ async function membership(conn: ConnectionContext, tiers: TierRow[], visitor: Ve
   const spend = customer ? await tierSpend(customer.id, conn.tierWindow, new Date()) : fromDb(0);
   const locked = tiers.find((t) => t.id === customer?.lockedTierId);
   const tier = locked ?? tiers.find((t) => t.id === customer?.tierId) ?? qualify(spend, tiers);
-  const next = progress(spend, tier.id, tiers);
+  const toNext = progress(spend, tier.id, tiers);
+  // Only progress the buyer can make (MONEY-1, as the buyer panel's TRUTH-11
+  // and A21-F2): a locked buyer's spend moves nothing, and a buyer whose spend
+  // already qualifies above the held tier moves at the next tier pass, not by
+  // spending more. Both widgets draw no progress line without a next tier.
+  const stuck = !toNext.isTop && (locked !== undefined || qualify(spend, tiers).minSpend.gt(tier.minSpend));
+  const next = stuck ? { ...toNext, nextTierName: null, nextTierPercent: null, nextTierMin: null, amountRemaining: fromDb(0) } : toNext;
   const shown = (v: Parameters<typeof roundMoney>[0]) => roundMoney(v, conn.currency).toNumber();
 
   return {
-    success: true,
+    success: true as const,
     membership: {
       tier: { id: tier.id, name: tier.name, cashbackPercent: tier.cashbackPercent.toNumber() },
       tierSource: locked ? "MANUAL_OVERRIDE" : "SPENDING_BASED",
@@ -90,7 +108,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const visitor = await verifyProxyRequest(request);
   if (visitor instanceof Response) return visitor;
   if (params["*"] !== "membership") {
-    return Response.json({ success: false, message: "Not found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ success: false, message: "Not found" } satisfies ProxyAnswer, { status: 404, headers: { "Cache-Control": "no-store" } });
   }
 
   const conn = await findConnection(visitor.shop);

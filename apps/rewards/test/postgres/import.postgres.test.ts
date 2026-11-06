@@ -4,7 +4,7 @@ import { Session } from "@shopify/shopify-app-react-router/server";
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import { graphql, http, HttpResponse } from "msw";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import prisma from "~/db.server";
+import prisma, { createPrismaClient } from "~/db.server";
 import { awaitsImport } from "~/lib/import.server";
 import { type ConnectionContext, findConnection, markUninstalled, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
@@ -16,6 +16,7 @@ import { flushWaitUntil } from "~/lib/wait-until.server";
 import { tierSpend } from "~/lib/tiers.server";
 import { parseBulkLines } from "~/shopify/bulk-file";
 import { pollImport, pollRunningImports } from "~/shopify/bulk-import.server";
+import { EncryptedPrismaSessionStorage } from "~/shopify/session-storage.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { onAppOpened } from "~/shopify/install.server";
 import { factsFromOrderNode } from "~/shopify/order-source.server";
@@ -713,6 +714,31 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
         importOperationId: "gid://shopify/BulkOperation/77",
         importAttempts: 1,
       });
+    });
+
+    // Ruling 85: no second renewal beside a running one; the store is polled next run
+    it("skips a store whose token another call is still renewing, as no failure", async () => {
+      await firstOpen();
+      const { sessionStorage } = await import("~/shopify.server");
+      await sessionStorage.storeSession(
+        new Session({ ...session.toObject(), expires: new Date(Date.now() - 60_000), refreshToken: "refresh", refreshTokenExpires: new Date(Date.now() + 30 * 86_400_000) }),
+      );
+      const holder = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+      try {
+        await new EncryptedPrismaSessionStorage(holder).loadSession(`offline_${SHOP}`);
+        const asked = mockShopifyForCron({});
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        await expect(pollRunningImports(FAR())).resolves.toEqual({ polled: 0, failed: 0 });
+
+        expect(asked).toEqual([]);
+        expect(warn.mock.calls.map((args) => args.join(" "))).toContain(
+          `[import] Another renewal of ${SHOP}'s token is running; its past-orders import is polled next run`,
+        );
+        warn.mockRestore();
+      } finally {
+        await holder.$disconnect();
+      }
     });
 
     it("counts a poll that fails as a problem of the hourly run (A17-F3)", async () => {

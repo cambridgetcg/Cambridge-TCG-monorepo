@@ -1,6 +1,6 @@
-import type { NoCashbackReason, PayoutDirection, PayoutState } from "@prisma/client";
+import type { NoCashbackReason, PayoutDirection, PayoutState, TierWindow } from "@prisma/client";
 import type { Decimal } from "decimal.js";
-import { AMOUNT_UNKNOWN, ON_ITS_WAY, STATUS_LABEL, type StatusKey, takeBackShort } from "~/lib/status";
+import { AMOUNT_UNKNOWN, ON_ITS_WAY, STATUS_LABEL, type StatusKey, closedWithoutSending, takeBackShort } from "~/lib/status";
 import { formatMoney } from "./format";
 
 /**
@@ -11,7 +11,7 @@ import { formatMoney } from "./format";
  * engine's (lib/status.ts, M3a-F6), re-exported here.
  */
 
-export { AMOUNT_UNKNOWN, STATUS_LABEL, type StatusKey, takeBackShort };
+export { AMOUNT_UNKNOWN, STATUS_LABEL, type StatusKey, closedWithoutSending, takeBackShort };
 
 /** A buyer erased by customers/redact: there is no one left to name. */
 export const ERASED_BUYER = "Erased buyer";
@@ -29,6 +29,9 @@ export const SEARCH_UNREAD = "Shopify couldn't read all of this search, so some 
 export const EXPORT_SEARCH_UNREAD = "Shopify couldn't read all of this search, so the file could miss buyers. Try other words, or export without a search.";
 /** Any page, for an error that isn't one of the app's own answers (BOUNDARY-3). */
 export const SOMETHING_WRONG = "Something went wrong. Reload the page.";
+
+/** The tier window's name: what "Spend counted" covers, on every page and in the CSV (MONEY-4). */
+export const TIER_WINDOW_LABEL: Record<TierWindow, string> = { rolling_12_months: "Last 12 months", lifetime: "All time" };
 
 export type BadgeTone = "success" | "warning" | "neutral" | "info";
 
@@ -74,7 +77,10 @@ export function payoutStatus(payout: { direction: PayoutDirection; state: Payout
  * A cashback or take-back on Home's Recent rewards: its amount, status and
  * what happened. A sent take-back shows what it really took (its
  * debitedAmount; AMOUNT_UNKNOWN when Shopify never said), so the line agrees
- * with the ledger, which nets the shortfall back (Ruling 35, Ruling 65).
+ * with the ledger, which nets the shortfall back (Ruling 35, Ruling 65). A
+ * closed payout moved nothing, and its `close:` entry nets the ledger to 0
+ * (MONEY-2): a closed take-back reads 0, as the zero take does, and a closed
+ * credit reads 0 with what it didn't send.
  */
 export function rewardLine(entry: {
   kind: "cashback" | "reversal";
@@ -93,6 +99,10 @@ export function rewardLine(entry: {
       ...words,
       detail: takeBackShort(taken, payout.amount, entry.currency),
     };
+  }
+  if (payout?.state === "closed") {
+    const zero = formatMoney(0, entry.currency);
+    return { amount: zero, ...words, detail: payout.direction === "credit" ? closedWithoutSending(payout.amount, entry.currency) : null };
   }
   return { amount: formatMoney(entry.amount, entry.currency), ...words, detail: null };
 }

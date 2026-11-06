@@ -131,11 +131,33 @@ describe("rewardLine (Home's Recent rewards)", () => {
     expect(rewardLine({ ...reversal, payout: sentDebit(null) })).toEqual({ amount: AMOUNT_UNKNOWN, status: "Taken back", tone: "neutral", detail: null });
   });
 
-  it("shows a take-back not sent yet, or closed, at its ledger amount", () => {
+  it("shows a take-back not sent yet at its ledger amount", () => {
     const reversal = { kind: "reversal" as const, amount: new Money("-0.50"), currency: "GBP" };
     const pending = { direction: "debit" as const, state: "pending" as const, amount: new Money("0.50"), debitedAmount: null };
     expect(rewardLine({ ...reversal, payout: pending })).toEqual({ amount: "-£0.50", status: "Waiting", tone: "info", detail: null });
-    expect(rewardLine({ ...reversal, payout: { ...pending, state: "closed" } })).toMatchObject({ status: "Not taken back" });
+  });
+
+  // MONEY-2 (Ruling 65): a closed payout moved nothing, and its close: entry nets the ledger to 0
+  it("shows a closed take-back at £0.00, as the zero take", () => {
+    const reversal = { kind: "reversal" as const, amount: new Money("-1.00"), currency: "GBP" };
+    const closed = { direction: "debit" as const, state: "closed" as const, amount: new Money("1.00"), debitedAmount: null };
+    expect(rewardLine({ ...reversal, payout: closed })).toEqual({ amount: "£0.00", status: "Not taken back", tone: "neutral", detail: null });
+  });
+
+  it("shows a credit closed without sending at £0.00, saying what wasn't sent", () => {
+    const cashback = { kind: "cashback" as const, amount: new Money("10.00"), currency: "GBP" };
+    const closed = { direction: "credit" as const, state: "closed" as const, amount: new Money("10.00"), debitedAmount: null };
+    expect(rewardLine({ ...cashback, payout: closed })).toEqual({
+      amount: "£0.00",
+      status: "No cashback",
+      tone: "neutral",
+      detail: "Closed without sending £10.00",
+    });
+    // In the cashback's own currency, at its minor unit
+    expect(rewardLine({ ...cashback, currency: "JPY", amount: new Money("62"), payout: { ...closed, amount: new Money("62") } })).toMatchObject({
+      amount: "¥0",
+      detail: "Closed without sending ¥62",
+    });
   });
 
   it("is Unknown for an entry with no payout", () => {

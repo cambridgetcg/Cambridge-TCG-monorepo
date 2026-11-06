@@ -532,8 +532,8 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
       const body = await response.text();
       const lines = body.split("\r\n");
       expect(lines.at(-1)).toBe("");
-      // TRUTH-15: the money columns name the shop's currency
-      expect(lines[0]).toBe('"Buyer","Tier","Spend counted (GBP)","Cashback given (GBP)"');
+      // TRUTH-15: the money columns name the shop's currency; MONEY-4: the spend column its window
+      expect(lines[0]).toBe('"Buyer","Tier","Spend counted, last 12 months (GBP)","Cashback given (GBP)"');
       // Newest first: the 50 unnamed buyers, then the named ones from the last
       expect(lines.slice(1, -1)).toHaveLength(60);
       expect(lines.slice(1, 51).every((line) => /^"Customer ····\d{4}","Bronze","0\.00","0\.00"$/.test(line))).toBe(true);
@@ -552,6 +552,16 @@ describe.skipIf(!hasTestDatabase)("Customers", () => {
         `"Tab","'\tTabbed","0.00","0.00"`,
       ]);
       expect(body).not.toContain("@example.com");
+    });
+
+    // MONEY-4: two exports either side of a window change carry different figures under different headers
+    it("names the spend column's window: all time once the merchant counts all time", async () => {
+      await addBuyer({ tierId: bronze.id });
+      await prisma.merchant.update({ where: { id: conn.merchantId }, data: { tierWindow: "lifetime" } });
+
+      const lines = (await (await exportCsv("")).text()).split("\r\n");
+
+      expect(lines[0]).toBe('"Buyer","Tier","Spend counted, all time (GBP)","Cashback given (GBP)"');
     });
 
     it("exports what the list shows: the tier filter and the search", async () => {

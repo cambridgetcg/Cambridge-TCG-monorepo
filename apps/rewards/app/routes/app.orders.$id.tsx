@@ -76,7 +76,8 @@ const CHANGED = "This payment has changed since the page loaded. Reload the page
  */
 async function sendAnswered(connectionId: string, payoutIds: string[]): Promise<void> {
   const way = await railFor(connectionId);
-  if (!way) return;
+  // No usable session, or another renewal of its token running: the hourly job sends it
+  if (!way || way === "busy") return;
   for (const id of payoutIds) {
     try {
       await sendPayout(id, way.rail);

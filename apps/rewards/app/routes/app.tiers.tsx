@@ -6,6 +6,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { formatMoney } from "~/admin/format";
 import { PASS_FOLLOW_MS, usePolling } from "~/admin/polling";
 import { requireMerchant } from "~/admin/require-merchant.server";
+import { TIER_WINDOW_LABEL } from "~/admin/words";
 import type { ConnectionContext } from "~/lib/merchant.server";
 import {
   TIER_ERRORS,
@@ -43,7 +44,6 @@ import { syncWidgetConfig } from "~/shopify/widget-config.server";
 const DELETE_MODAL = "delete-tier";
 /** How often the page reloads its data while buyers are moving to their new tiers. */
 const MOVING_POLL_MS = 10_000;
-const WINDOWS: Record<TierWindow, string> = { rolling_12_months: "Last 12 months", lifetime: "All time" };
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -421,9 +421,9 @@ export default function Tiers() {
               if (!windowBusy && chosen && chosen !== tierWindow) windowFetcher.submit({ intent: "window", tierWindow: chosen }, { method: "post" });
             }}
           >
-            {(Object.keys(WINDOWS) as TierWindow[]).map((key) => (
+            {(Object.keys(TIER_WINDOW_LABEL) as TierWindow[]).map((key) => (
               <s-choice key={key} value={key} selected={key === tierWindow}>
-                {WINDOWS[key]}
+                {TIER_WINDOW_LABEL[key]}
               </s-choice>
             ))}
           </s-choice-list>

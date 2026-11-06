@@ -13,7 +13,9 @@
  * bridge (scripts/lib/postgres-tls-bridge.ts) whose upstream TLS is
  * verified against the bundled Supabase root CA with hostname checking,
  * using the app's own settings (app/db/database-connection.server.ts).
- * Loopback URLs (local development, CI) are passed through unchanged.
+ * Loopback URLs (local development, CI) are passed through unchanged. A
+ * remote URL must name schema `rewards` and role `rewards_app` (or
+ * `rewards_app.<ref>`), or nothing runs (scripts/lib/migration-url.ts).
  *
  * Prisma sees REWARDS_DATABASE_URL and REWARDS_DIRECT_URL both pointed at
  * REWARDS_DIRECT_URL's database: migrations use the session-mode connection
@@ -24,6 +26,7 @@ import { createRequire } from "node:module";
 import type { AddressInfo, Server } from "node:net";
 import type { ConnectionOptions } from "node:tls";
 import { databaseConnectionConfig } from "../app/db/database-connection.server";
+import { migrationUrlProblem } from "./lib/migration-url";
 import { bridgedUrl, startVerifiedBridge } from "./lib/postgres-tls-bridge";
 
 const LOG_PREFIX = "[prisma-tls]";
@@ -38,6 +41,12 @@ async function main(args: string[]): Promise<number> {
     // Prisma's schema engine needs a session; through the transaction pooler
     // (REWARDS_DATABASE_URL, port 6543) it stalls instead of failing.
     console.error(`${LOG_PREFIX} REWARDS_DIRECT_URL must be the session-mode connection (port 5432), not the pgbouncer=true pooler URL`);
+    return 1;
+  }
+  // A remote URL must name schema rewards and role rewards_app (READINESS-1)
+  const problem = migrationUrlProblem(directUrl);
+  if (problem) {
+    console.error(`${LOG_PREFIX} ${problem}`);
     return 1;
   }
   const { pool } = databaseConnectionConfig(directUrl);

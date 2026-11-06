@@ -95,5 +95,10 @@ export interface OrderSource {
   recentlyUpdatedOrders(since: Date, o?: ReadOptions): Promise<UpdatedOrder[]>;
 }
 
-/** The rail and order source for one store connection, or null when the store can't be reached (no usable session). */
-export type RailFor = (connectionId: string) => Promise<{ rail: PayoutRail; orders: OrderSource } | null>;
+/**
+ * The rail and order source for one store connection; null when the store
+ * can't be reached (no usable session); "busy" while another renewal of its
+ * token runs (Ruling 85), when the caller leaves the store for its next run
+ * without counting a problem (F1-F3).
+ */
+export type RailFor = (connectionId: string) => Promise<{ rail: PayoutRail; orders: OrderSource } | "busy" | null>;

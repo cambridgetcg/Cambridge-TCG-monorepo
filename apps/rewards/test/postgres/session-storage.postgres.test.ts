@@ -1,10 +1,27 @@
+import crypto from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { Session, SessionNotFoundError } from "@shopify/shopify-app-react-router/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { graphql, http, HttpResponse } from "msw";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma, { createPrismaClient } from "~/db.server";
+import { ensureMerchant, findConnection } from "~/lib/merchant.server";
+import { monitoring } from "~/lib/telemetry.server";
 import { decrypt, encrypt } from "~/shopify/encryption.server";
-import { EncryptedPrismaSessionStorage, RENEWAL_POLL_MS, RENEWAL_WAIT_MS, oneRenewalCall } from "~/shopify/session-storage.server";
+import { RewardsTokenPing } from "~/shopify/graphql";
+import {
+  ADMIN_RENEWAL_WAIT_MS,
+  EncryptedPrismaSessionStorage,
+  LIBRARY_RENEWAL_MS,
+  RENEWAL_POLL_MS,
+  RENEWAL_WAIT_MS,
+  RENEWAL_WINDOW_MS,
+  RenewalBusyError,
+  oneRenewalCall,
+} from "~/shopify/session-storage.server";
+import { signedProxyRequest } from "../helpers/app-proxy";
+import { server } from "../setup";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
+import { adminGraphqlUrl, signedWebhook } from "./helpers/shopify";
 
 const SHOP = "session-test.myshopify.com";
 const ID = `offline_${SHOP}`;
@@ -254,26 +271,149 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       expect(await leases()).toEqual([]);
     });
 
-    it("with the holder gone, the other goes on without the lease after 1.5 s, logging the shop only", async () => {
+    // Ruling 85 (SECURITY-1): a second renewal beside a slow one could store a retired token pair
+    it("with the holder slower than the wait, a waiter whose token is still valid uses it after 1.5 s, unstored, past the library's check", async () => {
       const gone = anotherInstance();
       const other = anotherInstance();
-      await gone.storeSession(expiringIn(4, "shpat_about_to_expire"));
+      const stored = expiringIn(4, "shpat_about_to_expire");
+      await gone.storeSession(stored);
       await gone.loadSession(ID);
       const [held] = await leases();
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const sentry = vi.spyOn(monitoring, "captureMessage").mockReturnValue(true);
 
       const start = Date.now();
-      const loaded = await other.loadSession(ID);
+      const loaded = await oneRenewalCall(() => other.loadSession(ID), "background")();
 
       expect(Date.now() - start).toBeGreaterThanOrEqual(RENEWAL_WAIT_MS);
       expect(Date.now() - start).toBeLessThan(RENEWAL_WAIT_MS + RENEWAL_POLL_MS + MARGIN_MS);
       expect(loaded?.accessToken).toBe("shpat_about_to_expire");
+      // Past the library's 5-minute check, so the call renews nothing
+      expect(loaded!.expires!.getTime()).toBeGreaterThan(Date.now() + LIBRARY_RENEWAL_MS);
+      // An in-memory copy: the row keeps the token's real expiry
+      await expect(prisma.session.findUniqueOrThrow({ where: { id: ID } })).resolves.toMatchObject({ expires: stored.expires });
+      // Logged and sent to Sentry by shop only, saying the holder's session was inside the library's 5 minutes
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn.mock.calls[0].join(" ")).toContain(SHOP);
       expect(warn.mock.calls[0].join(" ")).not.toContain("shpat_");
+      expect(sentry).toHaveBeenCalledTimes(1);
+      expect(sentry).toHaveBeenCalledWith(warn.mock.calls[0][0], "warning", { tags: { shop: SHOP, "session.renewal": "still-valid" } });
+      expect(sentry.mock.calls[0][0]).toContain("inside the library's 5 minutes");
       // Going on without the lease, it releases nothing of the holder's when it stores
       await other.storeSession(expiringIn(60, "shpat_renewed_without_lease"));
       expect(await leases()).toEqual([held]);
+    });
+
+    it("the library's invalidation of such a copy stores the token's real expiry, never the moved one", async () => {
+      const gone = anotherInstance();
+      const other = anotherInstance();
+      const stored = expiringIn(4, "shpat_about_to_expire");
+      await gone.storeSession(stored);
+      await gone.loadSession(ID);
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const copy = (await oneRenewalCall(() => other.loadSession(ID), "background")())!;
+      expect(copy.expires!.getTime()).toBeGreaterThan(stored.expires!.getTime());
+
+      // invalidateAccessToken after an Admin 401: the same object, its access token removed
+      copy.accessToken = undefined;
+      await expect(other.storeSession(copy)).resolves.toBe(true);
+
+      await expect(prisma.session.findUniqueOrThrow({ where: { id: ID } })).resolves.toMatchObject({ accessToken: "", expires: stored.expires });
+    });
+
+    it("with the holder slower than the wait and the token expired, a background waiter answers try-later and renews nothing", async () => {
+      const holder = anotherInstance();
+      await holder.storeSession(expiringIn(-1, "shpat_expired"));
+      await holder.loadSession(ID);
+      const [held] = await leases();
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const sentry = vi.spyOn(monitoring, "captureMessage").mockReturnValue(true);
+
+      const start = Date.now();
+      await expect(oneRenewalCall(() => anotherInstance().loadSession(ID), "background")()).rejects.toBeInstanceOf(RenewalBusyError);
+
+      expect(Date.now() - start).toBeGreaterThanOrEqual(RENEWAL_WAIT_MS);
+      expect(Date.now() - start).toBeLessThan(RENEWAL_WAIT_MS + RENEWAL_POLL_MS + MARGIN_MS);
+      expect(sentry).toHaveBeenCalledWith(expect.stringContaining(SHOP), "warning", { tags: { shop: SHOP, "session.renewal": "try-later" } });
+      // The holder's lease is untouched, and the row too
+      expect(await leases()).toEqual([held]);
+      await expect(prisma.session.findUniqueOrThrow({ where: { id: ID } })).resolves.toMatchObject({ refreshToken: expect.any(String) });
+    });
+
+    it("an admin waiter with the token expired waits past 1.5 s for the holder's renewal", async () => {
+      const holder = anotherInstance();
+      await holder.storeSession(expiringIn(-1, "shpat_expired"));
+      await holder.loadSession(ID);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const waiting = oneRenewalCall(() => anotherInstance().loadSession(ID), "admin")();
+      await pause(RENEWAL_WAIT_MS + 1500);
+      await holder.storeSession(expiringIn(60, "shpat_renewed"));
+
+      // Not the expired token, which it would have exchanged itself beside the holder's renewal
+      await expect(waiting).resolves.toMatchObject({ accessToken: "shpat_renewed" });
+      expect(warn).not.toHaveBeenCalled();
+      expect(await leases()).toEqual([]);
+    });
+
+    it("an admin waiter with the token expired renews it itself once about 8 s have passed without the holder", async () => {
+      const holder = anotherInstance();
+      await holder.storeSession(expiringIn(-1, "shpat_expired"));
+      await holder.loadSession(ID);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const sentry = vi.spyOn(monitoring, "captureMessage").mockReturnValue(true);
+
+      const start = Date.now();
+      const loaded = await oneRenewalCall(() => anotherInstance().loadSession(ID), "admin")();
+
+      expect(Date.now() - start).toBeGreaterThanOrEqual(ADMIN_RENEWAL_WAIT_MS);
+      expect(Date.now() - start).toBeLessThan(ADMIN_RENEWAL_WAIT_MS + RENEWAL_POLL_MS + MARGIN_MS);
+      // Due, so the library's exchange renews it
+      expect(loaded?.accessToken).toBe("shpat_expired");
+      expect(loaded!.expires!.getTime()).toBeLessThan(Date.now());
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(sentry).toHaveBeenCalledWith(expect.stringContaining(SHOP), "warning", { tags: { shop: SHOP, "session.renewal": "renewing-anyway" } });
+    }, 20_000);
+
+    it("the lease window is the library's 5 minutes plus a margin for the wait and a decrypt", async () => {
+      expect(RENEWAL_WINDOW_MS - LIBRARY_RENEWAL_MS).toBeGreaterThanOrEqual(RENEWAL_WAIT_MS);
+      expect(RENEWAL_WINDOW_MS - LIBRARY_RENEWAL_MS).toBeLessThanOrEqual(15_000);
+      const storage = anotherInstance();
+      // 5 min 30 s left: the library renews nothing yet, and no call queues on a lease
+      await storage.storeSession(expiringIn(5.5, "shpat_not_yet_due"));
+      await storage.loadSession(ID);
+      expect(await leases()).toEqual([]);
+    });
+
+    // BOUNDARY-1 fix 1, now as defence in depth (Ruling 85): last write no longer wins
+    it("storeSession refuses an offline session that expires before the stored one, unless the stored token is empty", async () => {
+      // Two instances, as an exchange and a slow refresh racing would be
+      const exchanged = anotherInstance();
+      const slowRefresh = anotherInstance();
+      const newer = expiringIn(60, "shpat_exchanged");
+      await exchanged.storeSession(newer);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      // Issued first, stored last: refused
+      await expect(slowRefresh.storeSession(expiringIn(59, "shpat_retired"))).resolves.toBe(false);
+      const kept = await prisma.session.findUniqueOrThrow({ where: { id: ID } });
+      expect(decrypt(kept.accessToken)).toBe("shpat_exchanged");
+      expect(kept.expires).toEqual(newer.expires);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0].join(" ")).toContain(SHOP);
+      expect(warn.mock.calls[0].join(" ")).not.toContain("shpat_");
+
+      // A later expiry, or the same one, is stored
+      const later = expiringIn(61, "shpat_later");
+      await expect(slowRefresh.storeSession(later)).resolves.toBe(true);
+      await expect(exchanged.storeSession(new Session({ ...later.toObject(), accessToken: "shpat_same_expiry" }))).resolves.toBe(true);
+      expect(decrypt((await prisma.session.findUniqueOrThrow({ where: { id: ID } })).accessToken)).toBe("shpat_same_expiry");
+
+      // Once the library has invalidated the stored token, any expiry is stored
+      const invalidated = new Session({ ...later.toObject(), accessToken: undefined });
+      await expect(exchanged.storeSession(invalidated)).resolves.toBe(true);
+      await expect(slowRefresh.storeSession(expiringIn(30, "shpat_after_invalidation"))).resolves.toBe(true);
+      expect(decrypt((await prisma.session.findUniqueOrThrow({ where: { id: ID } })).accessToken)).toBe("shpat_after_invalidation");
     });
 
     it("a session outside the renewal window takes no lease, and never waits for one", async () => {
@@ -333,14 +473,14 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
         await storage.loadSession(ID);
         await renewed;
         await storage.storeSession(expiringIn(60, "shpat_renewed"));
-      })();
+      }, "background")();
       await vi.waitFor(async () => expect(await leases()).toHaveLength(1), { interval: 20 });
       const [held] = await leases();
-      // Waits 1.5 s, goes on without the lease and stores: the holder's lease stays
+      // Waits 1.5 s, goes on with the still-valid token, without the lease, and stores: the holder's lease stays
       await oneRenewalCall(async () => {
         await storage.loadSession(ID);
         await storage.storeSession(expiringIn(60, "shpat_renewed_without_lease"));
-      })();
+      }, "background")();
       expect(await leases()).toEqual([held]);
       expect(warn).toHaveBeenCalledTimes(1);
 
@@ -351,13 +491,13 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
 
     it("a call that needed no renewal gives its lease back when it ends; one whose renewal threw leaves it to run out", async () => {
       const storage = anotherInstance();
-      // Due here (6 minutes), but the library renews only within 5
-      await storage.storeSession(expiringIn(5.5, "shpat_not_yet_renewed"));
+      // Due here (5 minutes 10 s), but the library renews only within 5
+      await storage.storeSession(expiringIn((LIBRARY_RENEWAL_MS + 5_000) / 60_000, "shpat_not_yet_renewed"));
 
       await oneRenewalCall(async () => {
         await storage.loadSession(ID);
         expect(await leases()).toHaveLength(1);
-      })();
+      }, "background")();
       expect(await leases()).toEqual([]);
 
       const refused = new Error("Shopify refused the refresh");
@@ -365,7 +505,7 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
         oneRenewalCall(async () => {
           await storage.loadSession(ID);
           throw refused;
-        })(),
+        }, "background")(),
       ).rejects.toBe(refused);
       const [left] = await leases();
       expect(left.expiresAt.getTime()).toBeGreaterThan(Date.now());
@@ -381,7 +521,7 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
           await expect(storage.loadSession(ID)).resolves.toBeUndefined();
           expect(await leases()).toHaveLength(1);
           throw missing;
-        })(),
+        }, "background")(),
       ).rejects.toBe(missing);
 
       expect(await leases()).toEqual([]);
@@ -432,6 +572,146 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       expect(Date.now() - start).toBeLessThan(400 + RENEWAL_POLL_MS + MARGIN_MS);
       expect(warn).not.toHaveBeenCalled();
       expect(await leases()).toEqual([]);
+    });
+  });
+
+  /**
+   * Ruling 85 through the library itself: the app's own entry points
+   * (~/shopify.server) on the test database, with a slow renewal of the
+   * store's token in flight on another instance (a second client holding the
+   * lease), and Shopify's token endpoint, which both the refresh and the
+   * token exchange call, counting what it is asked.
+   */
+  describe("a renewal wait that runs out, through the library", () => {
+    let app: typeof import("~/shopify.server");
+    const clients: PrismaClient[] = [];
+    const slowHolder = async () => {
+      const client = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+      clients.push(client);
+      await new EncryptedPrismaSessionStorage(client).loadSession(ID);
+      expect(await prisma.cronLock.count({ where: { jobName: `session-renewal:${SHOP}` } })).toBe(1);
+    };
+    const seed = (minutes: number, token: string) =>
+      app.sessionStorage.storeSession(new Session({ ...expiringOfflineSession().toObject(), accessToken: token, expires: new Date(Date.now() + minutes * 60_000) }));
+    /** Shopify's token endpoint and RewardsTokenPing for SHOP: how often the token was renewed, and the token each ping carried. */
+    function shopify() {
+      const seen = { renewals: 0, pings: [] as Array<string | null> };
+      server.use(
+        http.post(`https://${SHOP}/admin/oauth/access_token`, () => {
+          seen.renewals++;
+          return HttpResponse.json({
+            access_token: "shpat_renewed_beside_the_holder",
+            expires_in: 3600,
+            refresh_token: "refresh-renewed-beside-the-holder",
+            refresh_token_expires_in: 90 * 24 * 3600,
+            scope: "read_customers,read_orders",
+          });
+        }),
+        graphql.link(adminGraphqlUrl(SHOP)).query("RewardsTokenPing", ({ request }) => {
+          seen.pings.push(request.headers.get("X-Shopify-Access-Token"));
+          return HttpResponse.json({ data: { shop: { id: "gid://shopify/Shop/1" } } });
+        }),
+      );
+      return seen;
+    }
+    /** An App Bridge session token for SHOP's admin, signed with the app's secret as Shopify signs it. */
+    function sessionToken(): string {
+      const part = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+      const now = Math.floor(Date.now() / 1000);
+      const unsigned = `${part({ alg: "HS256", typ: "JWT" })}.${part({
+        iss: `https://${SHOP}/admin`,
+        dest: `https://${SHOP}`,
+        aud: process.env.SHOPIFY_API_KEY,
+        sub: "42",
+        exp: now + 60,
+        nbf: now - 5,
+        iat: now - 5,
+        jti: crypto.randomUUID(),
+        sid: crypto.randomUUID(),
+      })}`;
+      return `${unsigned}.${crypto.createHmac("sha256", process.env.SHOPIFY_API_SECRET!).update(unsigned).digest("base64url")}`;
+    }
+
+    beforeAll(async () => {
+      // ~/shopify.server checks the Session table as it loads; the library logs its version and each exchange
+      vi.spyOn(console, "log").mockImplementation(() => {});
+      process.env.SHOPIFY_API_KEY = "test-api-key";
+      app = await import("~/shopify.server");
+    });
+
+    beforeEach(() => {
+      vi.spyOn(console, "log").mockImplementation(() => {});
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.spyOn(monitoring, "captureMessage").mockReturnValue(true);
+    });
+
+    afterEach(async () => {
+      await Promise.all(clients.splice(0).map((client) => client.$disconnect()));
+    });
+
+    afterAll(() => {
+      delete process.env.SHOPIFY_API_KEY;
+    });
+
+    it("a background call (unauthenticated.admin) goes on with the still-valid token and refreshes nothing", async () => {
+      await seed(4, "shpat_still_valid");
+      await slowHolder();
+      const seen = shopify();
+
+      const { admin } = await app.unauthenticated.admin(SHOP);
+      await admin.graphql(RewardsTokenPing);
+
+      expect(seen.renewals).toBe(0);
+      expect(seen.pings).toEqual(["shpat_still_valid"]);
+    });
+
+    it("the admin (authenticate.admin) goes on with the still-valid token and exchanges nothing", async () => {
+      await seed(4, "shpat_still_valid");
+      await slowHolder();
+      const seen = shopify();
+
+      const request = new Request(`https://test.example.com/app/orders?shop=${SHOP}`, { headers: { Authorization: `Bearer ${sessionToken()}` } });
+      const { admin, session } = await app.authenticate.admin(request);
+      await admin.graphql(RewardsTokenPing);
+
+      expect(session.accessToken).toBe("shpat_still_valid");
+      expect(seen.renewals).toBe(0);
+      expect(seen.pings).toEqual(["shpat_still_valid"]);
+    });
+
+    it("with the token expired, a webhook answers 503 for Shopify to deliver again, and refreshes nothing", async () => {
+      await seed(-1, "shpat_expired");
+      await slowHolder();
+      const seen = shopify();
+
+      const thrown = await app.authenticate.webhook(signedWebhook("orders/paid", SHOP, { id: 1 })).then(
+        () => null,
+        (error: unknown) => error,
+      );
+
+      expect(thrown).toBeInstanceOf(Response);
+      expect((thrown as Response).status).toBe(503);
+      expect(seen.renewals).toBe(0);
+    });
+
+    it("with the token expired, the jobs' railFor and the proxy get no client, and refresh nothing", async () => {
+      await ensureMerchant({ shop: SHOP, name: "Session", currency: "GBP", timezone: "Europe/London" });
+      const conn = (await findConnection(SHOP))!;
+      await seed(-1, "shpat_expired");
+      await slowHolder();
+      const seen = shopify();
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { railFor } = await import("~/shopify/rail-for.server");
+      const { verifyProxyRequest } = await import("~/shopify/proxy.server");
+
+      // Busy, not unreachable: the job leaves the store for its next run (F1-F3)
+      await expect(railFor(conn.connectionId)).resolves.toBe("busy");
+      const visitor = await verifyProxyRequest(signedProxyRequest("membership", SHOP, "123"));
+
+      // The proxy still answers for the signed buyer, with no balance read
+      expect(visitor).toEqual({ shop: SHOP, customerId: "123", admin: undefined });
+      expect(seen.renewals).toBe(0);
+      expect(errors).not.toHaveBeenCalled();
     });
   });
 });

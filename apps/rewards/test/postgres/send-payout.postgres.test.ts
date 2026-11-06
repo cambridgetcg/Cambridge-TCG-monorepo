@@ -11,6 +11,7 @@ import type { PayoutRail, RailAnswer } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
 import { recordRefund } from "~/lib/refunds.server";
 import { hasTestDatabase, resetDatabase, waitForLockWaitOr } from "./helpers/database";
+import { noIds } from "./helpers/ids";
 
 const SHOP = "send-payout-test.myshopify.com";
 const BUYER = "7001";
@@ -552,7 +553,7 @@ describe.skipIf(!hasTestDatabase)("sendPayout", () => {
       const [line] = warn.mock.calls[0] as [string];
       expect(line).toContain(payoutId);
       expect(line).toContain("applied");
-      expect(line).not.toContain(BUYER);
+      expect(noIds(line)).not.toContain(BUYER);
     } finally {
       warn.mockRestore();
     }

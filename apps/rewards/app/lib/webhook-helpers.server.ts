@@ -36,7 +36,9 @@ export function webhookFailed(topic: string, what: string, error: unknown): Resp
  * token refresh, is logged and reported with the `webhook.topic` tag, then
  * thrown on, so the delivery is still answered with it: React Router never
  * hands a thrown Response to the server's error handler (M2b-F4). A 4xx (a
- * delivery Shopify did not sign) is a designed answer, thrown on unreported.
+ * delivery Shopify did not sign) and a 503 (another renewal of the store's
+ * token is running, so Shopify is to deliver it again: Ruling 85, reported
+ * by the session storage itself) are designed answers, thrown on unreported.
  * A verified delivery's store names every failure it reports (OPERATIONS-8).
  */
 export async function authenticatedWebhook<T extends { shop: string }>(topic: string, authenticate: () => Promise<T>): Promise<T> {
@@ -45,7 +47,7 @@ export async function authenticatedWebhook<T extends { shop: string }>(topic: st
     monitoring.tagShop(delivery.shop);
     return delivery;
   } catch (error) {
-    if (error instanceof Response && error.status >= 500) {
+    if (error instanceof Response && error.status >= 500 && error.status !== 503) {
       console.error(`[${topic}] Authenticating the delivery answered HTTP ${error.status}; Shopify will deliver it again`);
       monitoring.captureException(new Error(`authenticate.webhook answered HTTP ${error.status}`), { tags: { "webhook.topic": topic } });
     }

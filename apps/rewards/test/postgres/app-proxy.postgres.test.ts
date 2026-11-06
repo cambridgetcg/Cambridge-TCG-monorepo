@@ -345,6 +345,51 @@ describe.skipIf(!hasTestDatabase)("app proxy on Postgres", () => {
     expect(body.tierProgress).toMatchObject({ isMaxTier: true, currentSpending: 0 });
   });
 
+  /** No way to the next tier: what both widgets read as "draw no progress line" (MONEY-1). */
+  const noNextTier = { nextTierName: null, nextTierTarget: null, nextTierCashbackPercent: null, amountRemaining: 0, isMaxTier: false };
+
+  // MONEY-1: spend decides nothing for a locked buyer, so no target is shown that spending can't reach
+  it("a buyer locked below the top tier is shown no way to the next one, whatever their spend", async () => {
+    await seedShop();
+    const buyer = freshBuyer();
+    const { id } = await addBuyer(buyer);
+    expect(await lockTier(conn.merchantId, id, tiers.silver.id)).toEqual({ ok: true });
+    answerShopify({});
+
+    // Below Gold's minimum: "£380.00 more to reach Gold" would never come true
+    await addOrder(id, "120.00", 10);
+    const below = await (await membership(buyer)).json();
+    expect(below.membership).toMatchObject({ tier: { name: "Silver" }, tierSource: "MANUAL_OVERRIDE" });
+    expect(below.tierProgress).toMatchObject({ ...noNextTier, currentSpending: 120 });
+    expect(typeof below.tierProgress.progressPercent).toBe("number");
+
+    // Above Gold's minimum: "£0.00 more to reach Gold", for as long as the lock lasts
+    await addOrder(id, "480.00", 5);
+    const above = await (await membership(buyer)).json();
+    expect(above.membership.tier.name).toBe("Silver");
+    expect(above.tierProgress).toMatchObject({ ...noNextTier, currentSpending: 600 });
+  });
+
+  // MONEY-1: the buyer's spend qualifies for a higher tier than the one held, until the tier pass reaches them
+  it("a buyer the tier pass hasn't moved up yet is shown no way to a tier their spend already reached", async () => {
+    await seedShop();
+    const buyer = freshBuyer();
+    const { id } = await addBuyer(buyer);
+    // Held: Bronze. Spend: £150, which qualifies for Silver; no pass has run
+    await addOrder(id, "150.00", 10);
+    answerShopify({});
+
+    const stale = await (await membership(buyer)).json();
+    expect(stale.membership).toMatchObject({ tier: { name: "Bronze", cashbackPercent: 5 }, tierSource: "SPENDING_BASED" });
+    expect(stale.tierProgress).toMatchObject({ ...noNextTier, currentSpending: 150 });
+
+    // Once placed, the way to Gold shows again
+    await resolveTier(id);
+    const placed = await (await membership(buyer)).json();
+    expect(placed.membership.tier.name).toBe("Silver");
+    expect(placed.tierProgress).toMatchObject({ nextTierName: "Gold", amountRemaining: 350, nextTierTarget: 500 });
+  });
+
   it("?currency= picks which of the buyer's own balances to show", async () => {
     await seedShop();
     const buyer = freshBuyer();

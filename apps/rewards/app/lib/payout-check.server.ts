@@ -72,6 +72,8 @@ export interface PayoutCheckResult {
   cancelledSwept: number;
   /** Active stores the sweep did not finish before the deadline. */
   unfinished: number;
+  /** Stores left for the next run because another renewal of their token was running (Ruling 85, F1-F3): no problem. */
+  busy: number;
   /** Stores, payouts, orders and refunds that failed, and stores left unswept. */
   problems: number;
   firstProblem?: unknown;
@@ -97,21 +99,23 @@ type RecordedOrder = { externalOrderId: string; cancelledAt: Date | null; refund
 
 export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline: number }): Promise<PayoutCheckResult> {
   const { now } = o;
-  const result: PayoutCheckResult = { settled: 0, sent: 0, needsLook: 0, swept: 0, refundsSwept: 0, cancelledSwept: 0, unfinished: 0, problems: 0 };
+  const result: PayoutCheckResult = { settled: 0, sent: 0, needsLook: 0, swept: 0, refundsSwept: 0, cancelledSwept: 0, unfinished: 0, busy: 0, problems: 0 };
   const problem = (error: unknown) => {
     if (result.problems === 0) result.firstProblem = error;
     result.problems++;
   };
   const outOfTime = () => Date.now() >= o.deadline;
 
-  // One railFor per store per run; a store it can't reach is one problem.
-  const stores = new Map<string, Promise<Store | null>>();
-  const storeFor = (connectionId: string): Promise<Store | null> => {
+  // One railFor per store per run; a store it can't reach is one problem, and
+  // a store whose token another renewal holds is skipped until the next run.
+  const stores = new Map<string, Promise<Store | "busy" | null>>();
+  const storeFor = (connectionId: string): Promise<Store | "busy" | null> => {
     let store = stores.get(connectionId);
     if (!store) {
       store = o.railFor(connectionId).then(
         (found) => {
-          if (!found) problem(new Error(`The store of connection ${connectionId} could not be reached`));
+          if (found === "busy") result.busy++;
+          else if (!found) problem(new Error(`The store of connection ${connectionId} could not be reached`));
           return found;
         },
         (error: unknown) => {
@@ -158,6 +162,8 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
   for (const payout of unclear) {
     if (outOfTime()) break;
     const reachable = await storeFor(payout.ledgerEntry.connectionId);
+    // Its token is being renewed: settled next run, with no attempt spent
+    if (reachable === "busy") continue;
     // A credit reads the buyer's history; past the cap it waits for the next run, unchecked.
     const readsHistory = payout.direction === "credit" && reachable !== null;
     if (readsHistory && historyReads >= MAX_HISTORY_READS) continue;
@@ -187,6 +193,8 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
   for (const payout of due) {
     if (outOfTime()) break;
     const store = await storeFor(payout.ledgerEntry.connectionId);
+    // Its token is being renewed: sent next run, with no attempt spent
+    if (store === "busy") continue;
     try {
       // The claim carries the true time of the send, which the history judge reads.
       await tallySend(payout.id, await sendPayout(payout.id, store?.rail ?? unreachableRail(), new Date()));
@@ -211,7 +219,8 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
       break;
     }
     const store = await storeFor(connection.id);
-    if (!store) continue;
+    // Unreachable (a problem counted above) or busy (next run): not stamped as swept
+    if (!store || store === "busy") continue;
     const finished = await sweepStore(sweep, connection, store);
     if (finished) await prisma.connection.update({ where: { id: connection.id }, data: { lastSweptAt: new Date() } });
     else {

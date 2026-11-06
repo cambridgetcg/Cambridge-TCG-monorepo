@@ -9,6 +9,7 @@ import { flushWaitUntil } from "~/lib/wait-until.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { syncWidgetConfig } from "~/shopify/widget-config.server";
 import { failNextCall, hasTestDatabase, resetDatabase, restoreFailedCalls } from "./helpers/database";
+import { noIds } from "./helpers/ids";
 
 /**
  * Home (spec 4.3): its numbers from the ledger and the orders, in the shop's
@@ -489,7 +490,7 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       expect(capture).toHaveBeenCalledWith(expect.stringContaining("no payout"), "error", { tags: { "ledger.invariant": "entry-without-payout" }, extra: { ledgerEntryId: orphan.id } });
       // No buyer detail goes with it
       const reported = JSON.stringify([errors.mock.calls, capture.mock.calls]);
-      expect(reported).not.toContain("7001");
+      expect(noIds(reported)).not.toContain("7001");
       expect(reported).not.toContain(buyer.id);
       errors.mockRestore();
       capture.mockRestore();

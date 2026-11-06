@@ -29,6 +29,7 @@ import { SessionNotFoundError } from "@shopify/shopify-app-react-router/server";
 import { isCanonicalShop } from "~/lib/shop-domain";
 import { authenticate, unauthenticated } from "~/shopify.server";
 import type { GraphqlClient } from "./graphql";
+import { RenewalBusyError } from "./renewal-busy";
 
 export interface VerifiedProxyRequest {
   shop: string;
@@ -93,12 +94,16 @@ function buyerOf(params: URLSearchParams): string | null {
   return id;
 }
 
-/** The store's Admin API client through its offline session, refreshed if due; undefined without one. */
+/**
+ * The store's Admin API client through its offline session, refreshed if
+ * due; undefined without one, or while another renewal of its token runs
+ * (Ruling 85: the balance then reads as unknown).
+ */
 async function adminFor(shop: string): Promise<GraphqlClient | undefined> {
   try {
     return (await unauthenticated.admin(shop)).admin;
   } catch (error) {
-    if (error instanceof SessionNotFoundError) return undefined;
+    if (error instanceof SessionNotFoundError || error instanceof RenewalBusyError) return undefined;
     throw error;
   }
 }
@@ -167,16 +172,22 @@ export async function verifyProxyRequest(request: Request): Promise<VerifiedProx
     const { admin } = await authenticate.public.appProxy(request);
     verified = { shop: params.get("shop") ?? "", customerId: buyerOf(params), admin };
   } catch (error) {
-    if (!(error instanceof Response)) throw error;
-    if (error.status !== 400) return error;
-    const secret = process.env.SHOPIFY_API_SECRET;
-    if (!secret || !proxyQueryVerified(asSigned(params), secret)) return badRequest();
-    const shops = params.getAll("shop");
-    if (shops.some((shop) => shop !== shops[0])) return badRequest();
-    const shop = shops[0] ?? "";
-    // Before any session is looked up for it
-    if (!isCanonicalShop(shop)) return badRequest();
-    verified = { shop, customerId: buyerOf(params), admin: await adminFor(shop) };
+    if (error instanceof RenewalBusyError) {
+      // Signed (the library checks the signature first), but another renewal
+      // of the store's token runs: no Admin client this time (Ruling 85)
+      verified = { shop: params.get("shop") ?? "", customerId: buyerOf(params), admin: undefined };
+    } else {
+      if (!(error instanceof Response)) throw error;
+      if (error.status !== 400) return error;
+      const secret = process.env.SHOPIFY_API_SECRET;
+      if (!secret || !proxyQueryVerified(asSigned(params), secret)) return badRequest();
+      const shops = params.getAll("shop");
+      if (shops.some((shop) => shop !== shops[0])) return badRequest();
+      const shop = shops[0] ?? "";
+      // Before any session is looked up for it
+      if (!isCanonicalShop(shop)) return badRequest();
+      verified = { shop, customerId: buyerOf(params), admin: await adminFor(shop) };
+    }
   }
   // Signed by Shopify, so always a *.myshopify.com domain; never a store no connection could have
   if (!isCanonicalShop(verified.shop)) return badRequest();

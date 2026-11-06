@@ -1,8 +1,10 @@
 import { Session } from "@shopify/shopify-app-react-router/server";
 import { graphql, http, HttpResponse } from "msw";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import prisma from "~/db.server";
+import prisma, { createPrismaClient } from "~/db.server";
 import { ensureMerchant, findConnection } from "~/lib/merchant.server";
+import { monitoring } from "~/lib/telemetry.server";
+import { EncryptedPrismaSessionStorage } from "~/shopify/session-storage.server";
 import { server } from "../setup";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
 import { adminGraphqlUrl } from "./helpers/shopify";
@@ -443,6 +445,79 @@ describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
     expect(new Set([first, second, third])).toEqual(new Set(shops));
     // Then the changed one, now the longest ago
     await expect(nightly()).resolves.toEqual([first]);
+  });
+
+  // Ruling 85: a store whose token another call is renewing is left for the next run, as no problem
+  it("skips a store whose token another call is still renewing, as no problem, and reaches the next", async () => {
+    await seedStore(SHOP);
+    await seedStore(QUIET_SHOP);
+    // SHOP's token has expired and its refresh token runs out soon; a slow renewal of it holds the lease on another instance
+    await prisma.session.delete({ where: { id: `offline_${SHOP}` } });
+    await storeOfflineSession(SHOP, { expires: new Date(Date.now() - MINUTE), refreshTokenExpires: new Date(Date.now() + 2 * DAY) });
+    const holder = createPrismaClient(process.env.REWARDS_DATABASE_URL);
+    try {
+      await new EncryptedPrismaSessionStorage(holder).loadSession(`offline_${SHOP}`);
+      const seen = mockTokenRefresh(SHOP);
+      const written = mockWidgetConfig(QUIET_SHOP);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.spyOn(monitoring, "captureMessage").mockReturnValue(true);
+
+      await expect(run()).resolves.toMatchObject({ status: 200, body: { tokensChecked: 1, widgetsChecked: 2, busySkips: 2, problems: 0 } });
+
+      // Neither a refresh nor a write beside the running renewal
+      expect(seen.refreshes).toEqual([]);
+      expect(written).toHaveLength(1);
+      expect(warn.mock.calls.map((args) => args.join(" ")).filter((line) => line.startsWith("[housekeeping]"))).toEqual([
+        `[housekeeping] Another renewal of ${SHOP}'s token is running; its token check waits for the next run`,
+        `[housekeeping] Another renewal of ${SHOP}'s token is running; its widget settings wait for the next run`,
+      ]);
+      await expect(prisma.cronRun.count({ where: { job: "housekeeping", outcome: "succeeded" } })).resolves.toBe(1);
+    } finally {
+      await holder.$disconnect();
+    }
+  });
+
+  // Ruling 86 (SECURITY-3): the erasure a lost shop/redact owed is done anyway
+  it("erases a store uninstalled more than 30 days ago, never one uninstalled 29 days ago or an active one", async () => {
+    const OLD = "housekeeping-left-31.myshopify.com";
+    const RECENT = "housekeeping-left-29.myshopify.com";
+    for (const [shop, days] of [
+      [OLD, 31],
+      [RECENT, 29],
+    ] as const) {
+      const conn = await seedStore(shop);
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { status: "uninstalled", uninstalledAt: new Date(Date.now() - days * DAY) } });
+      await prisma.session.deleteMany({ where: { shop } });
+    }
+    // Active again after an uninstall long ago (Ruling 41)
+    const active = await seedStore(SHOP);
+    await prisma.connection.update({ where: { id: active.connectionId }, data: { uninstalledAt: new Date(Date.now() - 90 * DAY) } });
+    mockWidgetConfig(SHOP);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await expect(run()).resolves.toMatchObject({ status: 200, body: { storesErased: 1, erasuresLeft: 0, problems: 0 } });
+
+    const left = await prisma.connection.findMany({ select: { externalAccountId: true } });
+    expect(left.map((c) => c.externalAccountId).sort()).toEqual([RECENT, SHOP].sort());
+    await expect(prisma.merchant.count()).resolves.toBe(2);
+    await expect(prisma.tier.count()).resolves.toBe(2);
+    await expect(prisma.cronRun.count({ where: { job: "housekeeping", outcome: "succeeded" } })).resolves.toBe(1);
+  });
+
+  it("leaves an owed erasure for the next run once its 240 s budget has passed, and counts it", async () => {
+    const OLD = "housekeeping-left-31.myshopify.com";
+    await ensureMerchant({ shop: OLD, name: OLD, currency: "GBP", timezone: "Europe/London" });
+    await prisma.connection.updateMany({ where: { externalAccountId: OLD }, data: { status: "uninstalled", uninstalledAt: new Date(Date.now() - 31 * DAY) } });
+
+    const result = await withDeadline((cut) => {
+      cut();
+      return run();
+    });
+
+    expect(result).toMatchObject({ status: 200, body: { storesErased: 0, erasuresLeft: 1, problems: 0 } });
+    await expect(prisma.connection.count()).resolves.toBe(1);
+    const partial = await prisma.cronRun.findUniqueOrThrow({ where: { job_outcome: { job: "housekeeping", outcome: "partial" } } });
+    expect(partial.errorMessage).toBe("1 failed; first: Error: 1 uninstalled stores were not erased before the deadline");
   });
 
   it("expires privacy reports past their time, and clears expired locks", async () => {
