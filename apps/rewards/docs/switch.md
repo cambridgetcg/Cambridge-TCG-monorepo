@@ -103,6 +103,14 @@ Then Ai sends Yu one message with steps 1 to 6 and the rollback, and waits for h
 
 **Ai on Yu's yes:** `vercel env ls production` shows the names exist. Values are never printed.
 
+Build the URL in the terminal rather than typing it into Vercel, so the password goes in exactly as the migrations used it:
+
+```sh
+read -rs PW; printf '%s' "postgresql://rewards_app.<ref>:$PW@aws-0-eu-west-2.pooler.supabase.com:6543/postgres?schema=rewards&connection_limit=3" | pbcopy; unset PW
+```
+
+Paste it as the value, then clear the clipboard with `pbcopy < /dev/null`. On 2026-11-06 a stray character in the typed value made step 4's health check answer 503, and the log read "Authentication failed … credentials for `rewards_app` are not valid". A fixed value reaches only a new deployment, and a redeploy of the same commit is skipped by `scripts/vercel-ignore-build.sh` (nothing changed since the last good deployment), so the fix needs a new commit touching `apps/rewards`.
+
 ### Step 3 (Yu): change the Vercel project `rewardspro-production`
 
 - Root Directory `apps/rewards`.
