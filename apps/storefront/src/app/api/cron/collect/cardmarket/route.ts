@@ -16,13 +16,17 @@
  * ran:false, "host-backing-off"; one suspended after three refused runs in a
  * row answers 503 HOST_SUSPENDED until a person clears it (migration 0146).
  * Authentication authorizes the request only; permission is the policy's
- * evidence version and the release row the writer re-checks.
+ * evidence version and the release row the writer re-checks. Each enabled run
+ * then records its outcome in ops_job_outcomes (migration 0148), never
+ * failing the run; a disabled one records nothing.
  */
 
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/lib/cron-auth";
 import { collectionOn } from "@/lib/datafeed/collection-flags";
 import { CARDMARKET_EVIDENCE_VERSION } from "@cambridge-tcg/data-ingest/member-prices";
+import { cardmarketJobOutcome, recordedRun } from "@/lib/observability/job-outcomes";
+import type { collectCardmarketMemberPrices as Collect } from "@/lib/datafeed/cardmarket-collector";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -39,10 +43,14 @@ export async function GET(request: Request) {
   if (!collectionOn("cardmarket")) {
     return NextResponse.json({ ok: true, ran: false, reason: "disabled" }, { headers: NO_STORE });
   }
+  return recordedRun("collect/cardmarket", collect, cardmarketJobOutcome);
+}
 
+async function collect(observe: (summary: Awaited<ReturnType<typeof Collect>>) => void) {
   try {
     const { collectCardmarketMemberPrices } = await import("@/lib/datafeed/cardmarket-collector");
     const summary = await collectCardmarketMemberPrices(CARDMARKET_EVIDENCE_VERSION);
+    observe(summary);
     if (!summary.ran) {
       console.log("[cron/collect/cardmarket]", JSON.stringify(summary));
       if (summary.reason === "host-suspended" || summary.reason === "host-backing-off") {

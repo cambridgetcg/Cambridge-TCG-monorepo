@@ -19,6 +19,7 @@ import {
   postedFrom,
 } from "@/lib/siblings";
 import { REPOSITORY_VISIBILITY, repoDocRef } from "@/lib/repository";
+import { mcpDailyWrites } from "@/lib/observability/mcp-daily";
 
 const MCP = {
   protocol_version: "2024-11-05",
@@ -81,6 +82,8 @@ const MCP = {
     operational_metadata_writes: [
       "per-key rate-limit bucket for allowed authenticated calls",
       "agent key last-used timestamp after successful authenticated calls",
+      // Only while the daily MCP count is on (lib/observability/mcp-daily.ts).
+      ...mcpDailyWrites(),
     ],
     note:
       "Read-only tools do not change participant or domain state; authenticated use can still write bounded security and operations metadata.",

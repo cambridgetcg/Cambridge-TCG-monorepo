@@ -18,6 +18,7 @@ import {
 } from "@/lib/siblings";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { REPOSITORY_VISIBILITY, repoDocRef } from "@/lib/repository";
+import { mcpDailyWrites } from "@/lib/observability/mcp-daily";
 
 const CONFIG = {
   /**
@@ -95,6 +96,8 @@ const CONFIG = {
     operational_metadata_writes: [
       "per-key rate-limit request count in agent_rate_buckets for an allowed authenticated call",
       "agent_keys.last_used_at after a successful authenticated call",
+      // Only while the daily MCP count is on (lib/observability/mcp-daily.ts).
+      ...mcpDailyWrites(),
     ],
     note:
       "Read-only means the tool cannot change match, deck, account, catalog, price, or participant state. It does not mean the authenticated request leaves no operational metadata.",

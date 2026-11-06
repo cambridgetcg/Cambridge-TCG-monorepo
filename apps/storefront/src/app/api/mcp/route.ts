@@ -59,6 +59,13 @@ import {
 } from "@/lib/agents/coverage-hunt-tools";
 import { REPOSITORY_NOTE } from "@/lib/repository";
 import type { AgentActor } from "@/lib/agents/auth";
+import {
+  countMcpRequest,
+  mcpDailyWrites,
+  mcpMethodAndTool,
+  unseenMcpRequest,
+  type McpRequestSeen,
+} from "@/lib/observability/mcp-daily";
 
 interface JsonRpcRequest {
   jsonrpc?: "2.0";
@@ -362,7 +369,9 @@ function wrapMcpContent(result: unknown): { content: Array<{ type: "text"; text:
   return { content: [{ type: "text", text }], isError: false };
 }
 
-async function handlePost(request: Request) {
+/** `seen` collects the words the daily count records (method, tool, whether
+ *  the bearer resolved); it never holds the key, the agent or the body. */
+async function handlePost(request: Request, seen: McpRequestSeen) {
   const declaredLength = request.headers.get("content-length");
   if (declaredLength !== null) {
     const parsedLength = Number(declaredLength);
@@ -412,6 +421,7 @@ async function handlePost(request: Request) {
 
   const method = body.method;
   const params = body.params ?? {};
+  Object.assign(seen, mcpMethodAndTool(method, params.name, (name) => Object.hasOwn(TOOLS, name)));
 
   // ── MCP-spec discovery + lifecycle (no auth) ──────────────────────────
   // The methods below are MCP-spec aliases that compose with the
@@ -486,12 +496,14 @@ async function handlePost(request: Request) {
 
   const auth = await resolveAgentBearer(request.headers.get("authorization"));
   if (!auth.ok) {
+    seen.outcome = "unauthenticated";
     return NextResponse.json(
       rpcError(body.id, ERR_UNAUTHENTICATED, auth.error),
       { status: auth.status },
     );
   }
   const actor = auth.actor;
+  seen.authenticated = true;
 
   // ── tools/call (MCP-spec) — unwrap to dotted-name dispatch ────────────
   // `tools/call` carries `{name: "<dotted-name>", arguments: {...}}`. The
@@ -561,6 +573,7 @@ async function handlePost(request: Request) {
     });
   } catch (err) {
     if (err instanceof ToolError) {
+      seen.outcome = err.status === 403 ? "forbidden" : "tool-error";
       // MCP spec says tool errors should be reported via `{isError: true,
       // content: [...]}` in the result rather than JSON-RPC error. We follow
       // that for `tools/call`; native dotted dispatch keeps the existing
@@ -586,8 +599,12 @@ async function handlePost(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const response = await handlePost(request);
+  const seen = unseenMcpRequest();
+  const response = await handlePost(request, seen);
   response.headers.set("Cache-Control", "private, no-store");
+  // Counted after the response, only while OPS_MCP_DAILY is on
+  // (lib/observability/mcp-daily.ts); it never changes this answer.
+  countMcpRequest(seen, response.status);
   return response;
 }
 
@@ -627,6 +644,7 @@ export async function GET() {
       operational_metadata_writes: [
         "per-key rate-limit bucket for an allowed authenticated call",
         "agent_keys.last_used_at after a successful authenticated call",
+        ...mcpDailyWrites(),
       ],
     },
     stdio_bridge: {

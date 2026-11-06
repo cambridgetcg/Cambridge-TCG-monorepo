@@ -5,6 +5,16 @@ import { GET, maxDuration } from "./route";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ query: vi.fn(), transaction: vi.fn() }));
+const ops = vi.hoisted(() => ({ record: vi.fn() }));
+// The outcome row (lib/observability/job-outcomes.ts) goes to its own port, so
+// the statements this file counts on the database stay exactly the job's own.
+vi.mock("@/lib/observability/job-outcomes", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/observability/job-outcomes")>();
+  return { ...actual, recordedRun: ((job, work, outcomeOf) => actual.recordedRun(job, work, outcomeOf, ops.record)) as typeof actual.recordedRun };
+});
+/** Each ops_job_outcomes row the route wrote: job, HTTP status, outcome, counts. */
+const outcomes = () => ops.record.mock.calls.filter(([sql]) => String(sql).startsWith("INSERT INTO ops_job_outcomes"))
+  .map(([, params]) => ({ job: params[0], status: params[3], outcome: params[4], counts: JSON.parse(params[5]) }));
 
 const env = { secret: process.env.CRON_SECRET, flag: process.env.DATA_COLLECT_TCGPLAYER };
 const network = vi.fn<typeof fetch>();
@@ -131,6 +141,23 @@ describe("TCGplayer collector cron", () => {
     expect(await response.json()).toEqual({ ok: true, ran: false, reason });
     expect(network).not.toHaveBeenCalled();
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("records each enabled run's outcome after it, never a disabled one", async () => {
+    expect((await call()).status).toBe(200);
+    expect(ops.record).not.toHaveBeenCalled();
+    process.env.DATA_COLLECT_TCGPLAYER = "on";
+    vi.mocked(query).mockImplementation(leased);
+    network.mockResolvedValue(new Response("Too many requests", { status: 429, headers: { "retry-after": "60" } }));
+    expect((await call()).status).toBe(503);
+    vi.mocked(query).mockResolvedValue({ rows: [], rowCount: 0 } as never);
+    expect((await call()).status).toBe(200);
+    expect(outcomes()).toEqual([
+      { job: "collect/tcgplayer", status: 503, outcome: "unavailable:robots-http-429", counts: expect.objectContaining({ stoppedBy: "source-unavailable", requests: 1, setsWritten: 0, unavailableStatus: 429 }) },
+      { job: "collect/tcgplayer", status: 200, outcome: "refused:release-revoked-or-unreviewed", counts: expect.objectContaining({ requests: 0, setsWritten: 0 }) },
+    ]);
+    // TCGplayer's URL is not kept with the outcome.
+    expect(JSON.stringify(outcomes())).not.toContain("tcgplayer.com");
   });
 
   it("never runs unleased: a store without the lease table answers 503", async () => {

@@ -34,6 +34,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/emails",                label: "Emails",       group: "system" },
   { href: "/admin/og",                    label: "OG Cards",     group: "system" },
   { href: "/admin/emergency",             label: "Emergency",    group: "system" },
+  { href: "/admin/system/monitor",        label: "Monitor",      group: "system" },
 ];
 
 interface AdminShellProps {
