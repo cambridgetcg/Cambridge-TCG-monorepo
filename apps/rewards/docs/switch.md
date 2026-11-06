@@ -60,6 +60,15 @@ As the plan says, plus two changes:
 
 **Ai on Yu's yes**, read-only: count the shops that have the old app installed. If any shop other than rewardsprotesting exists, stop. A carry-over script then moves its customers, tiers and ledger, and normalises its tiers (Ruling 62): whole-number percents and minimums (rounded, or refused with Yu's word), duplicate minimums merged (the unique index on `tier (merchant_id, min_spend)`), and the lowest minimum set to 0. No such script exists today; it is needed only in that case. With a real merchant, also revisit the phase 2 to 3 window below (WIDGET-4).
 
+**Result (2026-11-06):** the Dev Dashboard lists 11 installs of the released app.
+
+- Four are our own development stores, holding test data only: rewardsprotesting, teststore12062025, themetester222 and different-currency-test.
+- Seven are stores that are frozen or closed, where the app can't run.
+
+Yu agreed in chat to switch without a carry-over script. A store that reopens and opens the app starts fresh: its 12-month import rebuilds tier spend, and the credit its buyers earned stays in Shopify. Only the old app's history and settings for that store stay behind in schema `rewardspro`, which B5 dumps before dropping it.
+
+The dashboard also warns that from 2027-01-01 the app can't take new installs while it uses non-expiring offline tokens. The new app's expiring tokens clear that.
+
 Then Ai sends Yu one message with steps 1 to 6 and the rollback, and waits for his yes.
 
 ### Step 1 (Yu): create the schema and the role, and migrate
