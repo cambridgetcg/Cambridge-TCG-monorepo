@@ -95,6 +95,31 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-11-06 ─────────────────────────────────────────────────────────
+  {
+    id: "production-alias-api-to-apex",
+    date: "2026-11-06",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "cambridgetcg-storefront.vercel.app/api/*",
+    summary:
+      "The production alias no longer serves API reads: a GET or HEAD to /api/* there answers 308 to the same path on https://cambridgetcg.com, and so does every method to /api/v1/feedback, /api/v1/peers and /api/mcp.",
+    detail:
+      "Yu chose this on 2026-11-05 so that API traffic passes Cloudflare's firewall and rate rules. A request that would be redirected but carries Authorization answers 421 with the apex URL instead, because clients drop that header on a cross-host redirect. Other POSTs (webhooks) and /api/cron/* are unchanged, as are per-deployment hosts. Callers that used the alias should call https://cambridgetcg.com.",
+    related_urls: ["/api/v1/status"],
+  },
+  {
+    id: "agent-doors-opt-in",
+    date: "2026-11-06",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/feedback, /api/v1/peers, /api/mcp (agent.self), /robots.txt, /privacy",
+    summary:
+      "Doors an agent may use if it wants to: a feedback door with a holder key to read the answer or erase the message, a counted hello on /api/v1/peers that stores nothing about the caller, and agent.self listing what is recorded about the calling key.",
+    detail:
+      "The feedback door and the counted hello ship switched off and open only after /privacy names them (it now does, with Cloudflare as a recipient and the aggregate counts the internal monitor keeps). agent.self's recorded_about_this_key is live and collects nothing new. robots.txt now lists each group's disallows before Allow: /, so first-match parsers honour them, and Disallow: /login covers /login itself.",
+    related_urls: ["/privacy#feedback-door", "/privacy#aggregate-counts", "/.well-known/mcp.json"],
+  },
   // ── 2026-10-30 ─────────────────────────────────────────────────────────
   {
     id: "tcgplayer-pokemon-line",
