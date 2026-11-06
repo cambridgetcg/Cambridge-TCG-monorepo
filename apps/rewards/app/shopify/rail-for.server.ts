@@ -13,8 +13,8 @@ import { createStoreCreditRail } from "./store-credit-rail.server";
 /**
  * The rail and order source for an active connection; null for one that is
  * unknown or uninstalled, whose store has no usable session (none stored,
- * or its token could not be refreshed), or while another renewal of its
- * token runs (Ruling 85: the job reaches it next run), logged by shop domain.
+ * or its token could not be refreshed), logged by shop domain; "busy" while
+ * another renewal of its token runs (Ruling 85: the job reaches it next run).
  */
 export const railFor: RailFor = async (connectionId) => {
   const connection = await prisma.connection.findUnique({
@@ -29,7 +29,7 @@ export const railFor: RailFor = async (connectionId) => {
   } catch (error) {
     if (error instanceof RenewalBusyError) {
       console.warn(`[rail-for] Another renewal of ${shop}'s token is running; the store is reached next run`);
-      return null;
+      return "busy";
     }
     // A thrown Response is the library's answer to a refresh that failed
     const reason = error instanceof Response ? `HTTP ${error.status}` : error instanceof Error ? `${error.name}: ${error.message}` : String(error);

@@ -469,6 +469,19 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
       expect(waiting.lastError).toMatch(/could not be reached/);
       vi.mocked(console.error).mockRestore();
     });
+
+    // F1-F3 (Ruling 85): another renewal of its token is running, so the store waits for the next run
+    it("leaves a store whose token is being renewed for the next run, with no attempt spent and no problem", async () => {
+      const conn = await runningShop();
+      const due = await pendingCredit(conn, 5001, { minutesAgo: 10 });
+
+      const result = await runPayoutCheck({ now: new Date(), railFor: async () => "busy", deadline: Date.now() + 60_000 });
+
+      expect(result).toMatchObject({ sent: 0, busy: 1, problems: 0 });
+      await expect(payout(due)).resolves.toMatchObject({ state: "pending", attempts: 0, lastError: null });
+      // Not stamped as swept, so it goes first next run
+      await expect(prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId } })).resolves.toMatchObject({ lastSweptAt: null });
+    });
   });
 
   describe("the missed-order sweep (rule 13)", () => {

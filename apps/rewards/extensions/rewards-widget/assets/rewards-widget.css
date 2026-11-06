@@ -65,12 +65,24 @@
   text-transform: none;
   cursor: pointer;
 }
+/* A theme's button:hover or button:focus background can't repaint the launcher under its text (F1-F6) */
+.rw-button:hover,
+.rw-button:focus {
+  border-color: var(--rw-edge);
+  background: var(--rw-bg);
+}
 /* Two tones beside the widget's edge, so the ring shows on any page (WIDGET-5) */
 .rw-button:focus-visible,
 .rw-panel .rw-cta:focus-visible {
   outline: 2px solid var(--rw-text);
   outline-offset: 0;
+}
+.rw-button:focus-visible {
   box-shadow: 0 0 0 4px var(--rw-bg), 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+/* The sign-in link has no shadow, so its ring adds none (F1-F5) */
+.rw-panel .rw-cta:focus-visible {
+  box-shadow: 0 0 0 4px var(--rw-bg);
 }
 .rw-dot {
   width: 10px;

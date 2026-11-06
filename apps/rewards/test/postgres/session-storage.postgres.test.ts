@@ -704,7 +704,8 @@ describe.skipIf(!hasTestDatabase)("EncryptedPrismaSessionStorage on Postgres", (
       const { railFor } = await import("~/shopify/rail-for.server");
       const { verifyProxyRequest } = await import("~/shopify/proxy.server");
 
-      await expect(railFor(conn.connectionId)).resolves.toBeNull();
+      // Busy, not unreachable: the job leaves the store for its next run (F1-F3)
+      await expect(railFor(conn.connectionId)).resolves.toBe("busy");
       const visitor = await verifyProxyRequest(signedProxyRequest("membership", SHOP, "123"));
 
       // The proxy still answers for the signed buyer, with no balance read
