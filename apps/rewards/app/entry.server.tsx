@@ -33,7 +33,7 @@ if (process.env.SENTRY_DSN && !Sentry.isInitialized()) {
 }
 
 // Loader, action and render errors reach Sentry (through beforeSend) and the log.
-export const handleError = Sentry.createSentryHandleError({ logErrors: true });
+export { handleError } from "./handle-error.server";
 
 export const streamTimeout = 5000;
 
