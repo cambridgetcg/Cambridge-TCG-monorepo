@@ -22,6 +22,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/bounty/redemptions",    label: "Redemptions",  group: "ops" },
   { href: "/admin/auctions",              label: "Auctions",     group: "ops" },
   { href: "/admin/verifications",         label: "Verifications", group: "ops" },
+  { href: "/admin/feedback",              label: "Feedback",     group: "ops" },
 
   { href: "/admin/payouts",               label: "Payouts",      group: "money" },
   { href: "/admin/disputes",              label: "Disputes",     group: "money" },

@@ -280,10 +280,12 @@ one way back to what was kept.
   30 accepted messages per UTC hour (`feedback_hourly_intake`, kept 48
   hours, no sender); a per-source rule needs an address, so it belongs at
   Cloudflare, and the production alias no longer serves API reads around
-  it. Each message is deleted 180 days after it arrives. There is no
-  operator screen for answering yet: status and answer are set in the
-  database (`status` to read, answered or closed; `answer` with
-  `answered_at`), and the CHECKs keep an answered row honest.
+  it. Each message is deleted 180 days after it arrives. Admins read and
+  answer at `/admin/feedback` (in the admin nav under ops): mark read,
+  answer (which the holder reads with the key), close or delete. Each change
+  goes through `adminAction`, whose log keeps the verb and the
+  `feedback_id`, never the message or the answer, since that log outlives
+  the row.
 - **A counted hello**, POST `/api/v1/peers` (`src/lib/peers.ts`). While
   `PEER_HELLO_COUNT` is on, a valid hello adds one to today's
   `peer_hello_daily` row for its declared kind (or `undeclared`), capped at
@@ -312,7 +314,7 @@ and no read returns an expired message.
   count through the exclusion constraint, back-fills, records a refused hour
   as failed, and sweeps past retention.
 - `pnpm audit:cron-auth` checks that the route calls `requireCronAuth`.
-- The doors: `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/feedback src/app/api/v1/feedback src/app/api/v1/peers src/app/contact src/lib/agents src/proxy.test.ts`,
+- The doors: `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/feedback src/app/api/v1/feedback src/app/api/v1/peers src/app/contact src/app/admin/feedback src/lib/agents src/proxy.test.ts`,
   and on a disposable loopback database
   `DOORS_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/<a name containing test> pnpm --filter cambridgetcg-storefront exec vitest run src/lib/feedback/door.integration.test.ts`,
   which applies 0149 alone, checks its refusals, fills and caps the hour,

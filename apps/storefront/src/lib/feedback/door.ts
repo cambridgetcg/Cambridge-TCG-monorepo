@@ -357,3 +357,46 @@ export async function eraseFeedbackForHolder(key: string, run?: RunQuery): Promi
 
 /** Seconds until the next UTC hour, when the cap resets. */
 export const secondsToNextHour = (now = Date.now()) => Math.max(1, Math.ceil((3_600_000 - (now % 3_600_000)) / 1000));
+
+// ── Operator ────────────────────────────────────────────────────────────
+//
+// The other half of the door (/admin/feedback): an admin reads what is held
+// and writes the answer the holder reads with the key. The admin page
+// passes these to adminAction, whose governance log records the feedback_id
+// and the verb, never the message or the answer.
+
+export const FEEDBACK_ID_PATTERN = /^fb_[0-9a-f]{24}$/;
+export const FEEDBACK_OPERATOR_STATUSES = ["read", "closed"] as const;
+export type FeedbackOperatorStatus = (typeof FEEDBACK_OPERATOR_STATUSES)[number];
+
+export const FEEDBACK_OPERATOR_LIST_SQL = `SELECT feedback_id, kind, topic, message, details, reply_to, reply_name, status, answer, answered_at, received_at, expires_at
+  FROM public_feedback WHERE expires_at > now()
+  ORDER BY (status IN ('received', 'read')) DESC, received_at DESC LIMIT 100`;
+export const FEEDBACK_ANSWER_SQL = `UPDATE public_feedback SET status = 'answered', answer = $2, answered_at = now()
+  WHERE feedback_id = $1 AND expires_at > now() RETURNING feedback_id`;
+export const FEEDBACK_STATUS_SQL = `UPDATE public_feedback SET status = $2
+  WHERE feedback_id = $1 AND expires_at > now() RETURNING feedback_id`;
+export const FEEDBACK_OPERATOR_DELETE_SQL = `DELETE FROM public_feedback WHERE feedback_id = $1 RETURNING feedback_id`;
+
+export async function listFeedbackForOperator(run?: RunQuery): Promise<{ ok: true; rows: HolderView[] } | { ok: false; reason: DoorUnavailable }> {
+  try {
+    const result = await (await runner(run))(FEEDBACK_OPERATOR_LIST_SQL);
+    return { ok: true, rows: result.rows.map(holderView) };
+  } catch (error) {
+    return { ok: false, reason: unavailable(error) };
+  }
+}
+
+/** The answer the holder will read, checked like the sender's own words. */
+export function validateAnswer(feedbackId: unknown, answer: unknown): Validated<{ feedbackId: string; answer: string }> {
+  if (typeof feedbackId !== "string" || !FEEDBACK_ID_PATTERN.test(feedbackId)) return { ok: false, field: "feedback_id", error: "Not a feedback id." };
+  const text = words("answer", answer, FEEDBACK_MESSAGE_MAX, true);
+  if (!text.ok) return text;
+  if (!text.value) return { ok: false, field: "answer", error: "Write an answer first." };
+  return { ok: true, value: { feedbackId, answer: text.value } };
+}
+
+/** Runs one operator change; false when no unexpired row has the id. */
+export async function changeFeedback(sql: string, params: unknown[], run?: RunQuery): Promise<boolean> {
+  return ((await (await runner(run))(sql, params)).rows.length) > 0;
+}

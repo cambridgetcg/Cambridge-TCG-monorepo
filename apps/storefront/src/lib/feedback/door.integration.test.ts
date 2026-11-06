@@ -5,7 +5,10 @@ import { Pool } from "pg";
 import { createCompatDb } from "@cambridge-tcg/db/compat";
 
 vi.mock("@/lib/db", () => ({ query: vi.fn() }));
-import { FEEDBACK_HOURLY_CAP, eraseFeedbackForHolder, readFeedbackForHolder, storeFeedback, validateFeedback } from "./door";
+import {
+  FEEDBACK_ANSWER_SQL, FEEDBACK_HOURLY_CAP, FEEDBACK_OPERATOR_DELETE_SQL, FEEDBACK_STATUS_SQL, changeFeedback, eraseFeedbackForHolder,
+  listFeedbackForOperator, readFeedbackForHolder, storeFeedback, validateFeedback,
+} from "./door";
 import { runDoorRetentionSweep } from "./retention";
 import { countPeerHello } from "@/lib/peers";
 
@@ -93,14 +96,21 @@ describe.skipIf(!localUrl)("agent doors PostgreSQL integration, migration 0149 (
       held: { message: "index missing", details: { endpoint: "/api/v1/market/indices", subject: "op-op01", as_of: "2026-11-05", step_number: 2 }, reply_to: "ada@example.com" } } });
     expect(Date.parse(first.expiresAt) - Date.parse(first.receivedAt)).toBeGreaterThan(179 * 86_400_000);
 
-    await pool.query(`UPDATE public_feedback SET status = 'answered', answer = 'Fixed in the next derivation.', answered_at = now() WHERE feedback_id = $1`, [first.feedbackId]);
+    // The operator's half: read, answer, close; the holder sees each.
+    expect(await changeFeedback(FEEDBACK_STATUS_SQL, [first.feedbackId, "read"], run)).toBe(true);
+    expect(await changeFeedback(FEEDBACK_ANSWER_SQL, [first.feedbackId, "Fixed in the next derivation."], run)).toBe(true);
     expect((await readFeedbackForHolder(first.holderKey, run)) as unknown).toMatchObject({ ok: true, view: { status: "answered", answer: { text: "Fixed in the next derivation." } } });
+    expect(await changeFeedback(FEEDBACK_STATUS_SQL, [first.feedbackId, "closed"], run)).toBe(true);
+    expect(await changeFeedback(FEEDBACK_ANSWER_SQL, ["fb_ffffffffffffffffffffffff", "nobody"], run)).toBe(false);
+    expect(await listFeedbackForOperator(run)).toMatchObject({ ok: true, rows: [{ feedback_id: first.feedbackId, status: "closed", answer: { text: "Fixed in the next derivation." } }] });
 
     for (let n = 2; n <= FEEDBACK_HOURLY_CAP; n++) expect((await storeFeedback(submission({ kind: "question", message: `hello ${n}` }), run)).ok).toBe(true);
     expect(await storeFeedback(submission({ kind: "question", message: "one too many" }), run)).toEqual({ ok: false, reason: "capped" });
     expect((await pool.query(`SELECT count(*)::int AS n FROM public_feedback`)).rows[0].n).toBe(FEEDBACK_HOURLY_CAP);
     expect((await pool.query(`SELECT accepted FROM feedback_hourly_intake`)).rows).toEqual([{ accepted: FEEDBACK_HOURLY_CAP }]);
 
+    const second = (await listFeedbackForOperator(run)) as { ok: true; rows: { feedback_id: string }[] };
+    expect(await changeFeedback(FEEDBACK_OPERATOR_DELETE_SQL, [second.rows.find(r => r.feedback_id !== first.feedbackId)!.feedback_id], run)).toBe(true);
     expect(await eraseFeedbackForHolder(first.holderKey, run)).toEqual({ ok: true, erased: first.feedbackId });
     expect(await readFeedbackForHolder(first.holderKey, run)).toEqual({ ok: true, view: null });
     expect(await eraseFeedbackForHolder(first.holderKey, run)).toEqual({ ok: true, erased: null });
