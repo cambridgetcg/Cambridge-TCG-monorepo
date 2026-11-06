@@ -801,17 +801,30 @@ export interface MultiSourcePriceResponse {
 }
 
 /**
+ * The wholesale sources route's answer (a 503) while no price source is
+ * cleared for publication. It is policy, not an outage.
+ */
+export const PRICE_SOURCES_WITHHELD_STATUS = "publication_withheld_pending_field_level_rights";
+
+export interface PriceSourcesWithheld {
+  withheld: true;
+  note: string | null;
+}
+
+/**
  * Fetch the multi-source price view for one card on its latest snapshot
  * day (or a caller-specified date). Drives the kingdom-090 price-search
  * composer's `prices_today` block. Returns null on 404 (card or snapshot
  * missing); falcon-degrade-to-null on transport failure so the composer
  * can render a substrate-honest "no source rows yet" state instead of
- * fabricating prices.
+ * fabricating prices. The publication-withheld policy answer comes back
+ * as its own state, so it is neither logged as an error nor reported as
+ * missing data.
  */
 export async function fetchPriceSources(opts: {
   sku: string;
   date?: string;
-}): Promise<MultiSourcePriceResponse | null> {
+}): Promise<MultiSourcePriceResponse | PriceSourcesWithheld | null> {
   const u = new URL(
     WHOLESALE_URL + "/api/v1/prices/" + encodeURIComponent(opts.sku) + "/sources",
   );
@@ -827,6 +840,12 @@ export async function fetchPriceSources(opts: {
     return null;
   }
   if (res.status === 404) return null;
+  if (res.status === 503) {
+    const body = (await res.json().catch(() => null)) as { status?: unknown; note?: unknown } | null;
+    if (body?.status === PRICE_SOURCES_WITHHELD_STATUS) {
+      return { withheld: true, note: typeof body.note === "string" ? body.note : null };
+    }
+  }
   if (!res.ok) {
     console.error("[wholesale] price-sources error", res.status);
     return null;
