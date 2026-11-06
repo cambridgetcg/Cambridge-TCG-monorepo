@@ -76,6 +76,15 @@ As the plan says, plus two changes:
 
 **Ai on Yu's yes**, read-only: count the shops that have the old app installed. If any shop other than rewardsprotesting exists, stop. A carry-over script then moves its customers, tiers and ledger, and normalises its tiers (Ruling 62): whole-number percents and minimums (rounded, or refused with Yu's word), duplicate minimums merged (the unique index on `tier (merchant_id, min_spend)`), and the lowest minimum set to 0. No such script exists today; it is needed only in that case. With a real merchant, also revisit the phase 2 to 3 window below (WIDGET-4).
 
+**Result (2026-11-06):** the Dev Dashboard lists 11 installs of the released app.
+
+- Four are our own development stores, holding test data only: rewardsprotesting, teststore12062025, themetester222 and different-currency-test.
+- Seven are stores that are frozen or closed, where the app can't run.
+
+Yu agreed in chat to switch without a carry-over script. A store that reopens and opens the app starts fresh: its 12-month import rebuilds tier spend, and the credit its buyers earned stays in Shopify. Only the old app's history and settings for that store stay behind in schema `rewardspro`, which B5 dumps before dropping it.
+
+The dashboard also warns that from 2027-01-01 the app can't take new installs while it uses non-expiring offline tokens. The new app's expiring tokens clear that.
+
 Then Ai sends Yu one message with steps 1 to 6 and the rollback, and waits for his yes.
 
 ### Step 1 (Yu): create the schema and the role, and migrate
@@ -110,6 +119,14 @@ Then Ai sends Yu one message with steps 1 to 6 and the rollback, and waits for h
 
 **Ai on Yu's yes:** `vercel env ls production` shows the names exist. Values are never printed.
 
+Build the URL in the terminal rather than typing it into Vercel, so the password goes in exactly as the migrations used it:
+
+```sh
+read -rs PW; printf '%s' "postgresql://rewards_app.<ref>:$PW@aws-0-eu-west-2.pooler.supabase.com:6543/postgres?schema=rewards&connection_limit=3" | pbcopy; unset PW
+```
+
+Paste it as the value, then clear the clipboard with `pbcopy < /dev/null`. On 2026-11-06 a stray character in the typed value made step 4's health check answer 503, and the log read "Authentication failed … credentials for `rewards_app` are not valid". A fixed value reaches only a new deployment, and a redeploy of the same commit is skipped by `scripts/vercel-ignore-build.sh` (nothing changed since the last good deployment), so the fix needs a new commit touching `apps/rewards`.
+
 ### Step 3 (Yu): change the Vercel project `rewardspro-production`
 
 - Root Directory `apps/rewards`.
@@ -127,6 +144,13 @@ Push a commit touching `apps/rewards` to main (the B1 PR stays unmerged). Checks
 - The production deployment is READY. Read its build log once, to see the Output Directory change took.
 - `GET /api/health` answers `200 {"status":"ok","database":"ready"}`. Since F1 the probe reads one of the app's own tables (`cron_lock`), so a URL with the right host but the wrong schema or role answers 503 here instead of passing (READINESS-3).
 - A `POST` with a bad HMAC to each of the 11 released webhook URIs answers 401: `/webhooks/orders/paid`, `/webhooks/orders/refunded`, `/webhooks/orders/cancelled`, `/webhooks/app/uninstalled`, `/webhooks/app/scopes_update`, `/webhooks/compliance`, `/webhooks/orders/create`, `/webhooks/orders/fulfilled`, `/webhooks/customers/create`, `/webhooks/customers/update`, `/webhooks/products/update`.
+- A webhook signed with the released app's real secret answers 200. A bad HMAC answers 401 whatever secret Vercel holds, so only this proves `SHOPIFY_API_SECRET` is Rewards Pro's (client id `026ce3bf…`), not the staging app's. `products/update` is acknowledged without reading or writing anything:
+
+  ```sh
+  shopify app webhook trigger --client-id 026ce3bf073bed0e44ae8eab09d1ae3a --topic products/update --api-version 2026-10 --delivery-method http --address https://rewardspro-production.vercel.app/webhooks/products/update
+  ```
+
+  On 2026-11-06 the Dev Dashboard's draft app "rewardspro-production" (the staging app, whose name matches the Vercel project) was copied by mistake: this webhook answered 401 and the admin answered 401 Unauthorized.
 - `GET /api/proxy/membership` without a signature answers 400, never 404.
 - The project's `crons.definitions` (the same `/v9/projects` read) lists `/api/cron/payouts` (`30 * * * *`), `/api/cron/tiers` (`0 2 * * *`) and `/api/cron/housekeeping` (`0 3 * * *`) on the new deployment.
 
