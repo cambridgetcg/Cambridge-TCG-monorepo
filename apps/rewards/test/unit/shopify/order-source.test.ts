@@ -131,6 +131,8 @@ function editedUsd(
   o: {
     removed?: number;
     quantity?: number;
+    /** The line's original total, when not $20 a unit. */
+    total?: string;
     paidAt?: string;
     payments?: Array<{ at: string; amount: string }>;
     added?: Array<{ id: string; amount: string; giftCard?: boolean }>;
@@ -142,7 +144,10 @@ function editedUsd(
   Object.assign(line, {
     quantity,
     currentQuantity: quantity - (o.removed ?? 1),
-    originalTotalSet: { shopMoney: { amount: `${20 * quantity}.0`, currencyCode: "USD" }, presentmentMoney: { amount: `${20 * quantity}.0`, currencyCode: "USD" } },
+    originalTotalSet: {
+      shopMoney: { amount: o.total ?? `${20 * quantity}.0`, currencyCode: "USD" },
+      presentmentMoney: { amount: o.total ?? `${20 * quantity}.0`, currencyCode: "USD" },
+    },
   });
   if (o.paidAt) Object.assign(order.data.order.transactions[0], { processedAt: o.paidAt });
   if (o.payments) {
@@ -531,6 +536,22 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
       expect(values(f)).toEqual(["20.00", "0.00", "5.00"]);
     });
 
+    it("rounds what's owed down as refunds are, so paying it back in full leaves nothing owed", async () => {
+      // $25 for 3 units: a unit is $8.333…; the owed $8.33 refunded, then $5 goodwill counts in full
+      const refunds = [
+        removalRefund("gid://shopify/Refund/7101", "2026-11-04T10:00:00Z", LINE),
+        moneyRefund("gid://shopify/Refund/7102", "8.33", "2026-11-04T11:00:00Z"),
+        moneyRefund("gid://shopify/Refund/7103", "5.0", "2026-11-04T12:00:00Z"),
+      ];
+      const order = editedUsd(["gid://shopify/Refund/7101", "gid://shopify/Refund/7102", "gid://shopify/Refund/7103"], {
+        quantity: 3,
+        total: "25.0",
+        payments: [{ at: "2026-11-04T09:00:00Z", amount: "25.0" }],
+      });
+      const { facts: f } = await readOrder(order, refunds);
+      expect(values(f)).toEqual(["8.33", "0.00", "5.00"]);
+    });
+
     it("lets an item refund's money beyond its items pay back what's owed, so later money counts", async () => {
       // $20 × 4: an edit removes one unit, then one unit is refunded with $40 (it and the $20 owed), then $5
       const refunds = [
@@ -696,6 +717,22 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
 
     await expect(createShopifyOrderSource(client).readOrder("gid://shopify/Order/5001")).rejects.toThrow(/20 refunds/);
     expect(asked(client).map((a) => a.document)).toEqual(["order"]);
+  });
+
+  it("sends no tender follow-up from readRefund either, for an order whose 20 refunds already make the read fail", async () => {
+    const both = clone(plain) as { data: { order: { refunds: Array<{ id: string }>; transactions: unknown[] } } };
+    both.data.order.refunds = Array.from({ length: 20 }, (_, i) => ({ id: `gid://shopify/Refund/${i + 1}` }));
+    both.data.order.transactions = Array.from({ length: 20 }, () => clone(plain.data.order.transactions[0]));
+    const refund = moneyRefund("gid://shopify/Refund/1", "1.0");
+    Object.assign((refund.data.refund as { order: { id: string } }).order, { id: "gid://shopify/Order/5001" });
+    const client = shopify((query) => {
+      if (query === RewardsOrderTransactions) throw new Error("the follow-up was sent");
+      if (query === RewardsRefundFacts) return refund;
+      return both;
+    });
+
+    await expect(createShopifyOrderSource(client).readRefund("gid://shopify/Refund/1")).rejects.toThrow(/20 refunds/);
+    expect(asked(client).map((a) => a.document)).toEqual(["refund", "order"]);
   });
 });
 

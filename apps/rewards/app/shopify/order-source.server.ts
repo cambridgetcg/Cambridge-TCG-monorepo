@@ -422,13 +422,16 @@ function atLeastZero(value: MoneyPair): MoneyPair {
  * (restockType CANCEL, no money moved), and the money the buyer is owed for
  * them as a later refund with no items (production, 2026-11-07). The removal
  * is valued by its items. What it leaves owed is what the order held then
- * (its payments by that time, less the money refunded before and the gift
- * cards it sold) beyond the
- * product value the buyer keeps after it and beyond what was already owed,
- * at most the removed items' value: nothing for an edit before payment or
- * after a deposit, nothing for a swap the buyer kept paying for. Money that
- * later pays it back, in a refund with no items or beyond an item refund's
- * own items, is worth nothing up to what is owed, so one removal counts once.
+ * (its payments by that time, less the money refunded before, the gift cards
+ * it sold and its tips) beyond the product value the buyer keeps after it and
+ * beyond what was already owed, at most the removed items' value, rounded
+ * down: nothing for an edit before payment or after a deposit, and for a swap
+ * the buyer kept paying for only the shipping and tax the order holds, which
+ * count as held. Money that later pays it back, in a refund with no items or
+ * beyond an item refund's own items, is worth nothing up to what is owed, so
+ * one removal counts once. The product value kept is the order's when read,
+ * so lines an edit added after the removal can make a later read value it
+ * differently; a refund already recorded keeps its value.
  *
  * A refund of items completes the order when, after it, every line with a
  * value has had all its units refunded or removed by an edit (Ruling 34);
@@ -466,9 +469,11 @@ function refundsOf(order: ParsedOrder, productValue: MoneyPair, refundNodes: Rec
     } else {
       const itemValue = sum(items.map(({ line, quantity }) => shareOf(line.value, quantity, line.quantity)));
       if (!moved && items.every((item) => item.restockType === "CANCEL")) {
-        const held = minus(minus(sum(order.payments.filter((p) => p.at <= at).map((p) => p.money)), refundedMoney), order.giftCards);
+        const payments = sum(order.payments.filter((p) => p.at <= at).map((p) => p.money));
+        const held = minus(minus(minus(payments, refundedMoney), order.giftCards), order.tip);
         const keptAfter = minus(minus(productValue, refunded), itemValue);
-        owed = plus(owed, least(itemValue, atLeastZero(minus(minus(held, keptAfter), owed))));
+        // Rounded down as refunds are, so money that pays it back in full leaves nothing owed
+        owed = plus(owed, floorPair(least(itemValue, atLeastZero(minus(minus(held, keptAfter), owed))), order));
       } else {
         owed = minus(owed, least(owed, atLeastZero(minus(money, itemValue))));
       }
@@ -716,11 +721,10 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
       const orderGid = text(rec(refund.order, "the refund's order").id, "the refund's order id");
       const read = await orderNode(ask, orderGid);
       if (!read) throw new OrderReadError("The refund's order could not be read");
+      // Before any call is sent: a throw here must not leave one unawaited
+      const otherIds = refundIds(read.node).filter((id) => id !== refundGid);
       const inTurn = oneBucket();
-      const [transactions, others] = await Promise.all([
-        transactionsOf(ask, inTurn, orderGid, read.node),
-        refundNodes(ask, inTurn, refundIds(read.node).filter((id) => id !== refundGid)),
-      ]);
+      const [transactions, others] = await Promise.all([transactionsOf(ask, inTurn, orderGid, read.node), refundNodes(ask, inTurn, otherIds)]);
       // Every tender, as readOrder reads them: what the order held decides an edit's removal (refundsOf)
       const order = parseOrderNode({ ...read.node, transactions }, read.shopCurrency);
       const all = [...others, refund];
