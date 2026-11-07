@@ -11,6 +11,8 @@ const UNINSTALLED = { id: 1, domain: SHOP, myshopify_domain: SHOP };
 const SHOP_REDACT = { shop_id: 1, shop_domain: SHOP };
 const CUSTOMERS_REDACT = { shop_id: 1, shop_domain: SHOP, customer: { id: 7 }, orders_to_redact: [11] };
 const DATA_REQUEST = { shop_id: 1, shop_domain: SHOP, customer: { id: 7 }, orders_requested: [11], data_request: { id: 9 } };
+/** A data request as Shopify really sends it (production, 2026-11-07): no `data_request` field, unlike its docs' example. */
+const SENT_DATA_REQUEST = { shop_id: 1, shop_domain: SHOP, customer: { id: 7 }, orders_requested: [11] };
 
 const sign = (body: string, secret = SECRET) => crypto.createHmac("sha256", secret).update(body, "utf8").digest("base64");
 
@@ -106,6 +108,13 @@ describe("verifyShopifyWebhook", () => {
       await expect(as("customers/data_request", CUSTOMERS_REDACT)).resolves.toBeNull();
       await expect(as("customers/data_request", SHOP_REDACT)).resolves.toBeNull();
       await expect(as("app/uninstalled", SHOP_REDACT)).resolves.toBeNull();
+    });
+
+    it("accepts a data request as Shopify sends it, without a data_request field", async () => {
+      await expect(as("customers/data_request", SENT_DATA_REQUEST)).resolves.toMatchObject({ topic: "CUSTOMERS_DATA_REQUEST", payload: SENT_DATA_REQUEST });
+      // and still refuses it relabelled: as a buyer redaction, or as the store's
+      await expect(as("customers/redact", SENT_DATA_REQUEST)).resolves.toBeNull();
+      await expect(as("shop/redact", SENT_DATA_REQUEST)).resolves.toBeNull();
     });
 
     it("accepts a buyer redaction or data request whose customer has no id: the route decides", async () => {
