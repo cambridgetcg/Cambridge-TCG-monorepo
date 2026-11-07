@@ -246,6 +246,8 @@ Credit the new app issued stays in Shopify; on the dev store that is test money.
 
 ## B4: the two gates (phase 4)
 
+The results, and what is still open, are in [gates.md](gates.md) (run on 2026-11-07).
+
 As the plan says:
 
 - **Ai on Yu's yes:** confirm CI is green on main for the `rewards` job.
@@ -288,14 +290,14 @@ From the final review's readiness lens, at e80bfecc, with F1's fixes. "Owner" me
 | 1 | Region lhr1 and Node 24 in `vercel.json` and code | OK | `regions: ["lhr1"]`, engines `24.x`, `.nvmrc` 24, CI on Node 24. |
 | 1b | Region and Node as the project default | OK | Read back at B2 step 3: `lhr1`, Node 24.x. |
 | 2 | Schema and role isolated, not exposed via the Data API | OK | B2 step 1: `false, false` for `anon` and `authenticated`, and the health probe reads the app's own table as `rewards_app`. |
-| 3 | Pool settings | OK; one open | Max 3, idle 5 s, connect 10 s, `attachDatabasePool`, pinned CA; since #150 no query at module load. Open: a burst of webhooks against 3 connections (B4). |
+| 3 | Pool settings | OK | Max 3, idle 5 s, connect 10 s, `attachDatabasePool`, pinned CA; since #150 no query at module load. B4: a burst of 15 signed deliveries, all that arrived answered 200 with no pool error ([gates.md](gates.md)). |
 | 4 | Migrations and drift check | OK | B2 step 1: nine migrations, no drift. |
 | 5 | Previews: no production database, no production Shopify secret | Owner | Before the sitting, row 2. `REWARDS_DATABASE_URL` is Production only. |
 | 6a | Secrets: only the names the app reads | OK | Shared: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL`, `ENCRYPTION_SECRET`, `ENCRYPTION_SALT`, `CRON_SECRET`, `SENTRY_DSN`. Added at B2: `REWARDS_DATABASE_URL`, and `REWARDS_SENTRY_CRON_MONITORS` on Yu's yes. Read but unset, harmless: `SCOPES`, `SHOP_CUSTOM_DOMAIN`. |
 | 6b | Production secrets typed sensitive | OK | Read back on 2026-11-06: `SHOPIFY_API_SECRET`, `REWARDS_DATABASE_URL`, `ENCRYPTION_SECRET`, `ENCRYPTION_SALT` and `CRON_SECRET` are sensitive. `SENTRY_DSN` stays encrypted: a DSN only lets a sender submit events, and Sentry treats it as public. |
 | 6c | Orphaned names deleted | Owner | Before the sitting, row 5; the old app's own names at B5. |
 | 7a | HMAC on every webhook route | OK | 6 of 6 URIs of the released version `rewardspromembership-217`; B2 step 4 checks each answers 401 to a bad HMAC. The five ignored-topic routes were removed in B3 step 5. |
-| 7b | Webhooks answered within 5 s, measured | OK; one open | `orders/paid` 822 ms and `app/scopes_update` 344 ms on lhr1 (Dev Dashboard); the 5 s wait after an idle pause is fixed by #150. Open: a delivery that renews the token first (B4). |
+| 7b | Webhooks answered within 5 s, measured | OK | `orders/paid` 822 ms and `app/scopes_update` 344 ms on lhr1 (Dev Dashboard); the 5 s wait after an idle pause is fixed by #150. B4: an `orders/paid` that renewed the token first answered in 1,275 ms ([gates.md](gates.md)). |
 | 7c | Webhooks idempotent by natural keys | OK | Unique keys on order, refund, ledger entry and payout. |
 | 8 | App proxy: signature, identity, rate limit | OK | The released widget, then the new one, against the new proxy on rewardsprotesting; unsigned calls answer 400. |
 | 9 | Tokens: expiring, encrypted including refresh, refresh proven | OK | B2 step 5 (refresh token to 2027-02-04), and the first renewal at the 15:30 cron with no overlap warning. |
