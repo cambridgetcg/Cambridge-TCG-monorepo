@@ -1,8 +1,7 @@
 /**
  * The app's own check of a Shopify webhook delivery, for the routes that
  * never call Shopify (plan Decision 11, Ruling 42): app/uninstalled, the
- * three compliance topics, orders/cancelled, app/scopes_update and the
- * ignored topics.
+ * three compliance topics, orders/cancelled and app/scopes_update.
  *
  * authenticate.webhook loads the store's offline session and refreshes an
  * expired token before the route runs, and a refresh Shopify refuses (as it
@@ -20,7 +19,6 @@
  * another topic.
  */
 import crypto from "node:crypto";
-import type { ActionFunctionArgs } from "react-router";
 import { isCanonicalShop } from "~/lib/shop-domain";
 import { monitoring } from "~/lib/telemetry.server";
 
@@ -98,18 +96,6 @@ export async function verifyShopifyWebhook(request: Request): Promise<VerifiedWe
   if (!boundToBody(name, shop, payload)) return null;
   monitoring.tagShop(shop);
   return { topic: name, shop, webhookId, payload };
-}
-
-/**
- * The action of a route for a topic the released app subscribed to and the
- * rebuild ignores (spec 7, until the trimmed release B3): the delivery is
- * verified (401 when Shopify didn't sign it) and answered 200, so Shopify
- * stops sending it again. Nothing is read or written, and no session is
- * loaded (Ruling 42).
- */
-export async function acknowledgeIgnoredTopic({ request }: ActionFunctionArgs): Promise<Response> {
-  const webhook = await verifyShopifyWebhook(request);
-  return new Response(null, { status: webhook ? 200 : 401 });
 }
 
 /**

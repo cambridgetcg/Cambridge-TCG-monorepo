@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parse } from "smol-toml";
 import { describe, expect, it } from "vitest";
@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
  * The released app's config (plan task B1). It keeps the released app's
  * identity, so `shopify app deploy` from apps/rewards updates Rewards Pro in
  * place, and carries the trimmed scopes and 2026-10 webhooks the staging run
- * proved. Nothing reads it until the trimmed release (switch.md, B3).
+ * proved. Released as rewardspromembership-217 on 2026-11-07 (switch.md, B3).
  */
 
 const file = (path: string) => fileURLToPath(new URL(path, import.meta.url));
@@ -30,7 +30,6 @@ type Toml = {
 
 const production = readToml("../../../shopify.app.toml");
 const staging = readToml("../../../shopify.app.staging.toml");
-const released = readToml("../../../../rewardspro/shopify.app.toml");
 const routes = file("../../../app/routes/");
 
 const routeFile = (uri: string) => ["tsx", "ts"].map((ext) => `${uri.replace(/^\//, "").replaceAll("/", ".")}.${ext}`);
@@ -73,6 +72,12 @@ describe("the production toml", () => {
     expect(routeFile(uri).some((name) => existsSync(`${routes}${name}`)), `${routeFile(uri)[0]} in app/routes`).toBe(true);
   });
 
+  it("has no webhook route Shopify no longer sends to", () => {
+    const subscribed = new Set(production.webhooks.subscriptions.flatMap((s) => routeFile(s.uri)));
+    const webhookRoutes = readdirSync(routes).filter((name) => name.startsWith("webhooks."));
+    expect(webhookRoutes.filter((name) => !subscribed.has(name))).toEqual([]);
+  });
+
   it("asks for the scopes the staging run proved, and no others", () => {
     const scopes = (toml: Toml) => toml.access_scopes.scopes.split(",").sort();
     expect(scopes(production)).toEqual(
@@ -95,8 +100,6 @@ describe("the production toml", () => {
       subpath: "rewardspro",
       prefix: "apps",
     });
-    expect(production.auth).toEqual(released.auth);
-    expect(production.app_proxy).toEqual(released.app_proxy);
   });
 
   it("is never the config `pnpm dev` runs", () => {

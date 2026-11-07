@@ -12,7 +12,7 @@ import { handleError } from "~/handle-error.server";
  * 4xx by React Router and is the caller's mistake, not a fault: not reported.
  */
 
-const args = { request: new Request("https://app.test/webhooks/products/update") } as Parameters<typeof handleError>[1];
+const args = { request: new Request("https://app.test/webhooks/orders/paid") } as Parameters<typeof handleError>[1];
 // The shape of React Router's internal ErrorResponse (isRouteErrorResponse)
 const routerError = (status: number) => ({ status, statusText: "Bad Request", internal: true, data: "no loader" });
 

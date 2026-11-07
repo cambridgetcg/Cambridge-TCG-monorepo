@@ -55,11 +55,39 @@ Yu answered the calls in chat on 2026-11-06. Ai read the Vercel and GitHub resul
 - **Row 4:** `SENTRY_DSN` is set. The Sentry alert "RewardsPro production: new, escalating or regressed issues" emails Yu. Sentry Crons wait until a real merchant arrives: until then a total stop of every cron is silent (accepted), and `REWARDS_SENTRY_CRON_MONITORS` stays unset at B2 step 2.
 - **Row 5:** done by Yu: the 15 orphaned names and the 2 repo Actions secrets are gone (read back: `VERCEL_TOKEN` is the only Actions secret).
 - **Row 6:** accepted. No log drain.
-- **Row 7:** yes, added right after B2 step 4 (Yu).
-- **Row 8:** yes. Yu re-enabled `health.yml` on 2026-11-06.
+- **Row 7:** done on 2026-11-06, right after B2 step 4: ruleset `main: CI status` (id 26716067) requires the `CI status` check from GitHub Actions on the default branch, with no bypass.
+- **Row 8:** done. Yu re-enabled `health.yml` on 2026-11-06. Its schedule did not fire that day (a run was started by hand, green) and fires again from 2026-11-07.
 - **Row 9:** later, before the first real merchant.
 - **Row 10:** for Yu to read.
 - **Data requests (B4):** accepted for now: they show only inside the app. An email to the shop owner comes when a real merchant arrives.
+
+## The switch record (2026-11-06 and 2026-11-07)
+
+What happened, with evidence, so a later session or reviewer can trust each step without redoing it.
+
+- **B1:** PR #147, merged at B2 step 6 (8530bfc7) after a review whose five confirmed findings were fixed in it.
+- **B2 pre-check:** 11 installs, none a live merchant (the result under Pre-check). No carry-over script.
+- **B2 step 1 (Yu):** nine migrations applied to schema `rewards`, TLS verified against the bundled CA, `migrate:drift` "No difference detected". The Data API can't see the schema (`false, false`).
+- **B2 steps 2 and 3:** read back by name and type: `REWARDS_DATABASE_URL` and `SHOPIFY_API_SECRET` sensitive, Production only; Root Directory `apps/rewards`, React Router, Node 24.x, no Output Directory override, `lhr1`.
+- **B2 step 4:** the deploy commit 3eac13e5 built `apps/rewards` and answered every check except health, then two value mistakes were found and fixed, each needing a new commit because a same-commit redeploy is skipped:
+  - `/api/health` answered 503: "Authentication failed … `rewards_app`". The typed `REWARDS_DATABASE_URL` carried a stray character. Rebuilt with the value built in the terminal (109ff067): 200.
+  - The admin answered 401 Unauthorized: `SHOPIFY_API_SECRET` held the staging app's secret (the draft app named like the Vercel project). Re-entered from Rewards Pro's Credentials (c730afaf); the real-secret webhook check, added to step 4, answered 200.
+- **B2 step 5 (Yu):** one merchant, one connection, the import with a 365-day horizon, and an offline session with a refresh token to 2027-02-04.
+- **B2 step 6:**
+  - Test order #1010 (£222.00, marked paid): `orders/paid` answered 200 in 822 ms, and Shopify shows "Rewards Pro credited this customer £11.10 GBP" within the same second (5%, the after-response send landed).
+  - Crons on Vercel: payouts hourly from 14:30, tiers at 02:00 and housekeeping at 03:00 on 2026-11-07, all 200.
+  - The token renewed from its refresh token after its first hour (the 15:30 cron); Sentry shows no renewal-overlap warning.
+  - The released widget's proxy call reached the app only after the store's proxy path was set back from `/apps/rewardspro-1` to `/apps/rewardspro` (Yu): an earlier install of the draft app had taken the path on this store (WIDGET-6, below).
+  - Sentry receives production events with the release tag. The `shop` tag waits for the first store-scoped event (B4).
+  - Found and fixed on the way: #150 (the session library's startup table check held the first request after an idle pause for 5 s, and two failed checks made an instance refuse every session call) and #152 (React Router's 4xx answers, such as a GET on a POST-only webhook route, no longer reach Sentry).
+- **B3:**
+  - What the old app left on rewardsprotesting: three tier membership products, deleted by Yu. No purchase options, no `rewardspro.customer_id` definition, no `rewardspro` metafield values.
+  - Version `rewardspromembership-217` (74a0be5a), released by Yu on 2026-11-07: the theme extension kept uid `de76c331-60b3-32cf-27d1-40ec03d229db8af03050`, the released version's own, so it updated in place and the embed stayed on.
+  - A release that reduces scopes takes effect when the merchant next opens the app: then 8 scopes (the 6 configured and the 2 they imply, down from 19), and `app/scopes_update` arrived on API version 2026-10, answered 200 in 344 ms.
+  - The embed's saved guest fields are the released block's shipped defaults, so the new copy shows (Ruling 83). A disabled embed from the draft app stays in the theme's settings, harmless.
+  - Gate C on Yu's iPhone: signed in, as a guest and in Dark. This store's Dawn uses a cart page, not a drawer; Check out stays clear of the launcher. A guest page makes no proxy call.
+  - Step 5: the PR removing the five ignored-topic routes and the old toml from the tests.
+- **Seen, not ours:** around 10:43 on 2026-11-07 something requested the old app's routes (`/api/cron/session-health`, `/api/admin/tier-health`) and the proxy without a signature; all were refused. A monitor that still knows the old app's addresses; point it at `/api/health`.
 
 ## B1: the production toml and the old-app guard (a PR, deploys nothing)
 
@@ -197,7 +225,7 @@ Credit the new app issued stays in Shopify; on the dev store that is test money.
 ## Between phase 2 and phase 3: the known windows
 
 - **The released widget shows £0.00 for an unknown balance (MONEY-3, WIDGET-4).** The new proxy answers `storeCredit: null` when Shopify can't say: a read over 2.5 s, the 10 s back-off after a slow read or a low API budget, credit only in another currency, or a renewal of the store's token running. The released widget, still live until phase 3, formats that as £0.00. The new widget says "Your store credit shows at checkout" instead. On the dev store this is accepted: keep phase 3 close behind phase 2, and don't read £0.00 in that window as a fault. If a real merchant appears before the switch, answer requests without `?currency=` (the released widget's) with `success: false` instead.
-- **The proxy path must stay `/apps/rewardspro` (WIDGET-6).** Both widgets call `/apps/rewardspro/membership`; Liquid has no object for the proxy path. If the app proxy's URL is customised in Shopify's admin, or Shopify gives another subpath, a signed-in buyer's widget stays hidden while Home still says the embed is on. Leave the proxy URL as it is.
+- **The proxy path must stay `/apps/rewardspro` (WIDGET-6).** Both widgets call `/apps/rewardspro/membership`; Liquid has no object for the proxy path. A store can hold another path already: on rewardsprotesting it was `/apps/rewardspro-1` after a draft app's install, and every signed-in widget call answered 404 from Shopify. Check it in the store's Settings, Apps, Rewards Pro (the URL above Customize URL). If the app proxy's URL is customised in Shopify's admin, or Shopify gives another subpath, a signed-in buyer's widget stays hidden while Home still says the embed is on. Leave the proxy URL as it is.
 - **Compliance webhooks reach only schema `rewards`,** while schema `rewardspro` still holds the dev store's old data. Drop it within 30 days of the switch (B5), so a redact received meanwhile is honoured for the old copy too.
 
 ## B3: the trimmed Shopify release (phase 3)
@@ -212,7 +240,7 @@ Credit the new app issued stays in Shopify; on the dev store that is test money.
    - the guest path reads the app metafield (`data-running`, `data-base-percent` on a guest page, with no proxy call);
    - Lighthouse (mobile) with the embed off and then on, on a store without a storefront password: no more than 10 points lower (spec 5);
    - **gate C on the live theme**, which staging did not run (WIDGET-1, WIDGET-2, WIDGET-7): at 390 px wide, signed in and as a guest, in Light and Dark, with the cart drawer open and on a product page. The launcher must sit under the drawer (its Check out takes the tap), every line of the panel must be readable, and the open panel must fit on screen and scroll. Add Shopify Inbox if it is installed, since its button sits in the same corner. Also check, in the theme editor, whether the embed's preview survives a settings change without a reload.
-5. **Ai on Yu's yes:** one PR removing the five ignored-topic routes and the old toml from two tests: the released-URIs test, and `production-toml.test.ts`'s comparison of `[auth]` and `[app_proxy]` (it keeps their literal values). The trimmed 2026-10 webhooks must land before 2027-01-16.
+5. **Ai on Yu's yes (done after the release, 2026-11-07):** one PR removing the five ignored-topic routes and the old toml from two tests: the released-URIs test, and `production-toml.test.ts`'s comparison of `[auth]` and `[app_proxy]` (it keeps their literal values). The trimmed 2026-10 webhooks must land before 2027-01-16.
 
 ## B4: the two gates (phase 4)
 
@@ -240,7 +268,7 @@ Add to the gates what staging left open. Each line says who does what; **Ai on Y
 
 As the plan says, plus:
 
-- **Ai on Yu's yes:** B3 step 5 comes first, because `released-uris.test.ts` and `production-toml.test.ts` read the old toml;
+- B3 step 5 is done, so no test reads the old toml any more;
 - **Ai on Yu's yes:** remove the root scripts (`dev:`, `build:` and `test:rewardspro`, the `rewardspro-api` scripts) and the `--filter '!rewardspro'` in `typecheck`;
 - **Ai on Yu's yes:** remove the `rewardspro` CI job, its `detect` filter and its `ci-status` needs, and `rewardspro-v2.yml`;
 - **Ai on Yu's yes:** write `apps/rewards`'s own DEPLOY.md and DATABASE.md (the connection strings above) before the old ones are deleted;
@@ -254,21 +282,21 @@ From the final review's readiness lens, at e80bfecc, with F1's fixes. "Owner" me
 | # | Item | Status | What is needed |
 |---|---|---|---|
 | 1 | Region lhr1 and Node 24 in `vercel.json` and code | OK | `regions: ["lhr1"]`, engines `24.x`, `.nvmrc` 24, CI on Node 24. |
-| 1b | Region and Node as the project default | Owner | B2 step 3. |
-| 2 | Schema and role isolated, not exposed via the Data API | Owner, then readback | B2 step 1. Since F1, `prisma-tls.ts` refuses a URL of the wrong shape. |
-| 3 | Pool settings | OK; one open | Max 3, idle 5 s, connect 10 s, `attachDatabasePool`, pinned CA. Open: a burst of webhooks against 3 connections, at B2 step 6. |
-| 4 | Migrations and drift check | OK in CI; owner at B2 | B2 step 1. |
+| 1b | Region and Node as the project default | OK | Read back at B2 step 3: `lhr1`, Node 24.x. |
+| 2 | Schema and role isolated, not exposed via the Data API | OK | B2 step 1: `false, false` for `anon` and `authenticated`, and the health probe reads the app's own table as `rewards_app`. |
+| 3 | Pool settings | OK; one open | Max 3, idle 5 s, connect 10 s, `attachDatabasePool`, pinned CA; since #150 no query at module load. Open: a burst of webhooks against 3 connections (B4). |
+| 4 | Migrations and drift check | OK | B2 step 1: nine migrations, no drift. |
 | 5 | Previews: no production database, no production Shopify secret | Owner | Before the sitting, row 2. `REWARDS_DATABASE_URL` is Production only. |
 | 6a | Secrets: only the names the app reads | OK | Shared: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL`, `ENCRYPTION_SECRET`, `ENCRYPTION_SALT`, `CRON_SECRET`, `SENTRY_DSN`. Added at B2: `REWARDS_DATABASE_URL`, and `REWARDS_SENTRY_CRON_MONITORS` on Yu's yes. Read but unset, harmless: `SCOPES`, `SHOP_CUSTOM_DOMAIN`. |
 | 6b | Production secrets typed sensitive | OK | Read back on 2026-11-06: `SHOPIFY_API_SECRET`, `REWARDS_DATABASE_URL`, `ENCRYPTION_SECRET`, `ENCRYPTION_SALT` and `CRON_SECRET` are sensitive. `SENTRY_DSN` stays encrypted: a DSN only lets a sender submit events, and Sentry treats it as public. |
 | 6c | Orphaned names deleted | Owner | Before the sitting, row 5; the old app's own names at B5. |
 | 7a | HMAC on every webhook route | OK | 11 of 11 released URIs; B2 step 4 checks each answers 401 to a bad HMAC. |
-| 7b | Webhooks answered within 5 s, measured | Open | B2 step 6, on lhr1. |
+| 7b | Webhooks answered within 5 s, measured | OK | `orders/paid` 822 ms and `app/scopes_update` 344 ms on lhr1 (Dev Dashboard). The 5 s wait after an idle pause is fixed by #150. |
 | 7c | Webhooks idempotent by natural keys | OK | Unique keys on order, refund, ledger entry and payout. |
-| 8 | App proxy: signature, identity, rate limit | OK; one open | The released widget against the new proxy on rewardsprotesting, at B2 step 6. |
-| 9 | Tokens: expiring, encrypted including refresh, refresh proven | OK on staging; open on production | B2 step 5 (a refresh token about 90 days out) and step 6 (the renewal lease on lhr1, Ruling 85). |
+| 8 | App proxy: signature, identity, rate limit | OK | The released widget, then the new one, against the new proxy on rewardsprotesting; unsigned calls answer 400. |
+| 9 | Tokens: expiring, encrypted including refresh, refresh proven | OK | B2 step 5 (refresh token to 2027-02-04), and the first renewal at the 15:30 cron with no overlap warning. |
 | 10a | Sentry on cron failures and stops | Owner | Before the sitting, row 4. |
-| 10b | `/api/health` in the hourly deploy-health check | OK in code; owner | `appPath` flips in B1; re-enabling `health.yml` is Yu's call (row 8). |
+| 10b | `/api/health` in the hourly deploy-health check | OK | `appPath` is `apps/rewards` (#147) and `health.yml` runs hourly again. |
 | 11 | Buyer ids in Vercel's request logs | Owner | Before the sitting, row 6. |
-| 12 | `CI status` required on main | Owner | Before the sitting, row 7. |
+| 12 | `CI status` required on main | OK | Ruleset 26716067. |
 | 13 | Point-in-time recovery and one rehearsed restore | Owner, before the first real merchant | Before the sitting, row 9. |
