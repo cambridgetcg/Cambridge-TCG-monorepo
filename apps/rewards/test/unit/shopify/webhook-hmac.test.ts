@@ -163,6 +163,61 @@ describe("verifyShopifyWebhook", () => {
   });
 });
 
+describe("a refused delivery says why, without its values", () => {
+  // Every refusal answers 401; on production (2026-11-06) the refused
+  // compliance deliveries left no trace of which check failed
+  const warned = () => vi.mocked(console.warn).mock.calls.map((call) => call.join(" "));
+  const PRIVATE = { ...DATA_REQUEST, customer: { id: 7, email: "buyer@example.com", phone: "555-0100" } };
+  const as = (topic: string, payload: unknown, o: { shop?: string; hmac?: string } = {}) => {
+    const body = JSON.stringify(payload);
+    return verifyShopifyWebhook(
+      delivery({ body, headers: { "X-Shopify-Topic": topic, "X-Shopify-Shop-Domain": o.shop ?? SHOP, "X-Shopify-Hmac-Sha256": o.hmac ?? sign(body) } }),
+    );
+  };
+
+  it("names a signature that doesn't match", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(as("customers/data_request", PRIVATE, { hmac: sign("{}") })).resolves.toBeNull();
+    expect(warned()).toEqual([`[webhook] refused customers/data_request from ${SHOP}: the signature doesn't match`]);
+  });
+
+  it("names a body whose shop isn't the header's, with the body's field names only", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(as("customers/data_request", { ...PRIVATE, shop_domain: "other.myshopify.com" })).resolves.toBeNull();
+    expect(warned()).toEqual([
+      `[webhook] refused customers/data_request from ${SHOP}: the body's shop_domain isn't the header's shop (body fields: customer, data_request, orders_requested, shop_domain, shop_id)`,
+    ]);
+    expect(warned().join(" ")).not.toMatch(/buyer@example\.com|555-0100|other\.myshopify/);
+  });
+
+  it("names a body without the topic's fields", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const withoutOrders: Record<string, unknown> = { ...PRIVATE };
+    delete withoutOrders.orders_requested;
+    await expect(as("customers/data_request", withoutOrders)).resolves.toBeNull();
+    expect(warned()).toEqual([
+      `[webhook] refused customers/data_request from ${SHOP}: the body hasn't the topic's fields (body fields: customer, data_request, shop_domain, shop_id)`,
+    ]);
+  });
+
+  it("names a missing header and a body that isn't JSON", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(verifyShopifyWebhook(delivery({ headers: { "X-Shopify-Webhook-Id": null } }))).resolves.toBeNull();
+    const body = "not json";
+    await expect(verifyShopifyWebhook(delivery({ body, headers: { "X-Shopify-Hmac-Sha256": sign(body) } }))).resolves.toBeNull();
+    expect(warned()).toEqual([
+      `[webhook] refused app/uninstalled from ${SHOP}: a header is missing (X-Shopify-Webhook-Id)`,
+      `[webhook] refused app/uninstalled from ${SHOP}: the body isn't JSON`,
+    ]);
+  });
+
+  it("logs header values only in a safe shape", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(verifyShopifyWebhook(delivery({ headers: { "X-Shopify-Topic": "forged line <x> [y]", "X-Shopify-Hmac-Sha256": "bad" } }))).resolves.toBeNull();
+    expect(warned()).toEqual([`[webhook] refused forged?line??x???y? from ${SHOP}: the signature doesn't match`]);
+  });
+});
+
 describe("triggeredAtOf", () => {
   const received = new Date("2026-11-05T12:00:00Z");
   const at = (value: string | null) => triggeredAtOf(delivery({ headers: { "X-Shopify-Triggered-At": value } }), received);
