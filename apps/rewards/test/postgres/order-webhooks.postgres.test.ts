@@ -40,7 +40,6 @@ type Routes = {
   refunded: typeof import("~/routes/webhooks.orders.refunded");
   cancelled: typeof import("~/routes/webhooks.orders.cancelled");
   scopesUpdate: typeof import("~/routes/webhooks.app.scopes_update");
-  ignored: Array<[string, { action: (args: never) => Promise<Response> }]>;
 };
 
 const SHOP = "order-webhooks.myshopify.com";
@@ -129,13 +128,6 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
       refunded: await import("~/routes/webhooks.orders.refunded"),
       cancelled: await import("~/routes/webhooks.orders.cancelled"),
       scopesUpdate: await import("~/routes/webhooks.app.scopes_update"),
-      ignored: [
-        ["orders/create", await import("~/routes/webhooks.orders.create")],
-        ["orders/fulfilled", await import("~/routes/webhooks.orders.fulfilled")],
-        ["customers/create", await import("~/routes/webhooks.customers.create")],
-        ["customers/update", await import("~/routes/webhooks.customers.update")],
-        ["products/update", await import("~/routes/webhooks.products.update")],
-      ],
     };
   });
 
@@ -676,30 +668,16 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
         scope: "read_orders,read_customers",
       });
     });
-
-    it("the ignored topics are verified and answered 200, and write nothing", async () => {
-      await seedShop();
-      for (const [topic, route] of routes.ignored) {
-        await expect(route.action(args(signedWebhook(topic, SHOP, { id: 1 }))), topic).resolves.toMatchObject({ status: 200 });
-        const unsigned = signedWebhook(topic, SHOP, { id: 1 });
-        unsigned.headers.set("X-Shopify-Hmac-Sha256", "not-a-signature");
-        await expect(route.action(args(unsigned)), topic).resolves.toMatchObject({ status: 401 });
-      }
-      await expect(prisma.order.count()).resolves.toBe(0);
-    });
   });
 
   // Ruling 42: a route that never calls Shopify loads no session, so a refresh Shopify refuses can't fail it
   describe("routes that never call Shopify, while the store's refresh would be refused", () => {
-    it("an ignored topic and orders/cancelled answer 200 and start no refresh", async () => {
+    it("orders/cancelled answers 200 and starts no refresh", async () => {
       const conn = await seedShop({ session: false });
       const asked = await seedExpiredSessionWhoseRefreshIsRefused(SHOP);
       // Recorded before the token expired
       await recordOrder(conn, factsFromOrderNode(plainOrder().data.order, "GBP", { refunds: [] }), "live");
 
-      for (const [topic, route] of routes.ignored) {
-        await expect(route.action(args(signedWebhook(topic, SHOP, { id: 1 }))), topic).resolves.toMatchObject({ status: 200 });
-      }
       expect((await deliverCancelled(orderPayload(ORDER, { cancelled_at: "2026-11-03T09:00:00Z" }))).status).toBe(200);
 
       await expect(prisma.order.findFirstOrThrow()).resolves.toMatchObject({ cancelledAt: new Date("2026-11-03T09:00:00Z") });

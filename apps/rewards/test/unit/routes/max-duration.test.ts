@@ -22,7 +22,7 @@ describe("the 300 s ceiling", () => {
       "api.cron.payouts.tsx",
       "api.cron.tiers.tsx",
     ]);
-    expect(ceilinged.filter((file) => file.startsWith("webhooks.")).length).toBe(11);
+    expect(ceilinged.filter((file) => file.startsWith("webhooks.")).length).toBe(6);
     expect(ceilinged).toContain("app.customers.export.tsx");
   });
 
