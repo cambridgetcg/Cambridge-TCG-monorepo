@@ -22,7 +22,7 @@ import {
 import { PASS_FOLLOW_MS, usePolling } from "~/admin/polling";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { TierChip } from "~/admin/TierChip";
-import { ERASED_BUYER, rewardLine } from "~/admin/words";
+import { CASHBACK_BASE, ERASED_BUYER, rewardLine } from "~/admin/words";
 import { type ConnectionContext, dismissImportOutcome, markSetupCompleted, recordReviewPrompt, setRunning } from "~/lib/merchant.server";
 import { homeState, homeStats } from "~/lib/stats.server";
 import { parseBaseRate, requestTierPass, setBaseRate } from "~/lib/tiers.server";
@@ -377,6 +377,7 @@ export default function Home() {
                               max={100}
                               step={1}
                               value={rate}
+                              details={`Everyone starts at this rate. ${CASHBACK_BASE}`}
                               error={rateError ?? undefined}
                               onInput={(event) => setRate(event.currentTarget.value)}
                             />
@@ -411,7 +412,9 @@ export default function Home() {
                     </>
                   )}
                   {d.setup.importState === "running" ? (
-                    <s-text color="subdued">Bringing in your last {months} of orders so buyers start in the right tier</s-text>
+                    <s-text color="subdued">
+                      Bringing in your last {months} of orders so buyers start in the right tier. These orders earn no cashback.
+                    </s-text>
                   ) : null}
                   {showImportOutcome ? (
                     <s-stack direction="inline" justifyContent="space-between" alignItems="start" gap="small-200" data-import-outcome="">

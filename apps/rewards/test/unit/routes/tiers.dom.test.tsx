@@ -101,7 +101,7 @@ describe("Tiers page", () => {
   it("says what cashback is paid on", async () => {
     await renderTiers();
     expect(document.body.textContent).toContain(
-      "Cashback is paid on the product price after discounts. Shipping, and anything paid with store credit or gift cards, earns nothing.",
+      "Cashback is paid on the product price after discounts, less anything paid with store credit or gift cards. Shipping, duties, tips and gift cards bought earn nothing.",
     );
   });
 

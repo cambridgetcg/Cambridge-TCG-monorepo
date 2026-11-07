@@ -263,7 +263,9 @@ describe("Home", () => {
     it("shows its progress while it runs, and follows it", async () => {
       stubAppBridge("active");
       await renderHome(homeData({ importState: "running" }));
-      expect(card()?.textContent).toContain("Bringing in your last 12 months of orders so buyers start in the right tier");
+      expect(card()?.textContent).toContain(
+        "Bringing in your last 12 months of orders so buyers start in the right tier. These orders earn no cashback.",
+      );
       // For as long as it runs (plan Decision 13)
       expect(usePolling).toHaveBeenLastCalledWith(true, expect.any(Number), { forMs: undefined, restartKey: "running" });
     });
@@ -298,14 +300,14 @@ describe("Home", () => {
     it("says what the switch does, matching it", async () => {
       stubAppBridge("active");
       await renderHome(homeData({ running: true }));
-      expect(screen.getByText("On: every paid order earns cashback as store credit.")).toBeTruthy();
+      expect(screen.getByText("On: paid orders earn cashback as store credit, at the rate of the buyer's tier before the order counts. Some earn nothing, such as test orders, orders with no customer attached and orders placed before RewardsPro was installed.")).toBeTruthy();
       expect(screen.queryByText("Off: orders still count toward tiers but earn no cashback.")).toBeNull();
       expect([...document.querySelectorAll("s-switch")].map((toggle) => toggle.hasAttribute("checked"))).toEqual([true, true]);
       cleanup();
 
       await renderHome(homeData({ running: false }));
       expect(screen.getByText("Off: orders still count toward tiers but earn no cashback.")).toBeTruthy();
-      expect(screen.queryByText("On: every paid order earns cashback as store credit.")).toBeNull();
+      expect(screen.queryByText("On: paid orders earn cashback as store credit, at the rate of the buyer's tier before the order counts. Some earn nothing, such as test orders, orders with no customer attached and orders placed before RewardsPro was installed.")).toBeNull();
       expect([...document.querySelectorAll("s-switch")].map((toggle) => toggle.hasAttribute("checked"))).toEqual([false, false]);
     });
 
@@ -468,6 +470,10 @@ describe("Home's controls", () => {
     const posted: Posted[] = [];
     await renderHome(homeData({ running: false, hasTiers: false }), posted);
     const field = document.querySelector('s-number-field[name="percent"]')!;
+    // What the rate is paid on (words.ts CASHBACK_BASE), as order-facts.ts cashbackBase works it out
+    expect(field.getAttribute("details")).toBe(
+      "Everyone starts at this rate. Cashback is paid on the product price after discounts, less anything paid with store credit or gift cards. Shipping, duties, tips and gift cards bought earn nothing.",
+    );
 
     await act(async () => {
       Object.defineProperty(field, "value", { value: "6", configurable: true, writable: true });

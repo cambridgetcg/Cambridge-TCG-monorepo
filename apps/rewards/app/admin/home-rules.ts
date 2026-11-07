@@ -46,7 +46,9 @@ export function reviewWasShown(code: string): boolean {
 
 /** The sentence beside the switch. */
 export function runningSentence(running: boolean): string {
-  return running ? "On: every paid order earns cashback as store credit." : "Off: orders still count toward tiers but earn no cashback.";
+  return running
+    ? "On: paid orders earn cashback as store credit, at the rate of the buyer's tier before the order counts. Some earn nothing, such as test orders, orders with no customer attached and orders placed before RewardsPro was installed."
+    : "Off: orders still count toward tiers but earn no cashback.";
 }
 
 export interface RunningChecks {
