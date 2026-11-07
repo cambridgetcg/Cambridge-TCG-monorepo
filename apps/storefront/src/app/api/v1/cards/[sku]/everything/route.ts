@@ -298,13 +298,16 @@ export async function GET(
   }
   // Source prices use the actual storage key, not a normalized-identity join.
   let priceSourceIdentityMismatch = false;
-  if (priceSources && priceSources.sku !== card.sku) {
+  if (priceSources && !("withheld" in priceSources) && priceSources.sku !== card.sku) {
     priceSources = await fetchPriceSources({ sku: card.sku });
-    if (priceSources && priceSources.sku !== card.sku) {
+    if (priceSources && !("withheld" in priceSources) && priceSources.sku !== card.sku) {
       priceSourceIdentityMismatch = true;
       priceSources = null;
     }
   }
+  // Wholesale withholds every source until one is cleared for publication.
+  const priceSourcesWithheld = priceSources && "withheld" in priceSources ? priceSources : null;
+  const sourceView = priceSources && !("withheld" in priceSources) ? priceSources : null;
   siblingResponse ??= await getSiblingCandidates();
   const siblingItems = siblingResponse.items;
   const siblingsErrored = siblingResponse.source === "unavailable";
@@ -366,7 +369,7 @@ export async function GET(
     });
 
   // ── prices_today block ────────────────────────────────────────────
-  const sourcePriceRows = priceSources?.prices ?? [];
+  const sourcePriceRows = sourceView?.prices ?? [];
   const blockedTcgplayerRows =
     sourcePriceRows.filter((row) => row.source === "tcgplayer").length;
   const withheldRightsRows = sourcePriceRows.filter(
@@ -389,14 +392,16 @@ export async function GET(
       : []),
   ];
   const pricesToday = {
-    snapshot_date: priceSources?.snapshot_date ?? null,
+    snapshot_date: sourceView?.snapshot_date ?? null,
     rows: pricesTodayRows,
     // Agreement values are computed from the source rows. Withhold them too
     // whenever any contributing row is not publishable on this anonymous door.
-    agreement: withheldSourceRows > 0 ? null : (priceSources?.agreement ?? null),
-    note: withholdingNotes.length > 0
+    agreement: withheldSourceRows > 0 ? null : (sourceView?.agreement ?? null),
+    note: priceSourcesWithheld
+      ? (priceSourcesWithheld.note ?? "Source prices are withheld: no stored source row is currently cleared for publication.")
+      : withholdingNotes.length > 0
       ? withholdingNotes.join(" ")
-      : (priceSources?.note ?? (
+      : (sourceView?.note ?? (
         pricesTodayRows.length === 0
         ? "No source rows yet. Either this card hasn't been scraped, or no source has reported a price for it on any snapshot date."
         : ""
@@ -442,7 +447,9 @@ export async function GET(
     siblings_truncated: siblingResponse.truncated,
     falcon_calls: {
       card: "ok",
-      price_sources: priceSourceIdentityMismatch ? "error" : priceSources ? "ok" : "absent",
+      price_sources: priceSourceIdentityMismatch
+        ? "error"
+        : priceSourcesWithheld ? "blocked" : sourceView ? "ok" : "absent",
       cardrush_history: "blocked",
       tcgplayer_history: "blocked",
       // A successful sibling query with zero rows is 'ok', not 'absent'.
