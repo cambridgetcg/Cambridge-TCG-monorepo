@@ -51,7 +51,8 @@ const BOUND_TOPICS: Record<string, { domain: string; shaped: (payload: Payload) 
   APP_UNINSTALLED: { domain: "myshopify_domain", shaped: () => true },
   SHOP_REDACT: { domain: "shop_domain", shaped: (p) => has(p, "shop_id") && !has(p, "customer") },
   CUSTOMERS_REDACT: { domain: "shop_domain", shaped: (p) => has(p, "customer") && has(p, "orders_to_redact") },
-  CUSTOMERS_DATA_REQUEST: { domain: "shop_domain", shaped: (p) => has(p, "data_request") && has(p, "orders_requested") },
+  // Shopify's real data request has no `data_request` field, unlike its docs' example (production, 2026-11-07)
+  CUSTOMERS_DATA_REQUEST: { domain: "shop_domain", shaped: (p) => has(p, "orders_requested") },
 };
 
 /** A header value or field name fit for a log line: anything but letters, digits, `_./-` becomes "?". */
