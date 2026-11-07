@@ -75,7 +75,7 @@ What happened, with evidence, so a later session or reviewer can trust each step
 - **B2 step 5 (Yu):** one merchant, one connection, the import with a 365-day horizon, and an offline session with a refresh token to 2027-02-04.
 - **B2 step 6:**
   - Test order #1010 (£222.00, marked paid): `orders/paid` answered 200 in 822 ms, and Shopify shows "Rewards Pro credited this customer £11.10 GBP" within the same second (5%, the after-response send landed).
-  - Crons on Vercel: payouts hourly from 14:30, tiers at 02:00 and housekeeping at 03:00 on 2026-11-07, all 200.
+  - Crons on Vercel: payouts hourly from 14:30, tiers at 02:00 (137 ms) and housekeeping at 03:00 (346 ms, its nightly widget step included, for the one store) on 2026-11-07, all 200. The widget step at many stores is timed at B4 with the other timings.
   - The token renewed from its refresh token after its first hour (the 15:30 cron); Sentry shows no renewal-overlap warning.
   - The released widget's proxy call reached the app only after the store's proxy path was set back from `/apps/rewardspro-1` to `/apps/rewardspro` (Yu): an earlier install of the draft app had taken the path on this store (WIDGET-6, below).
   - Sentry receives production events with the release tag. The `shop` tag waits for the first store-scoped event (B4).
@@ -256,7 +256,7 @@ As the plan says:
 
 Add to the gates what staging left open. Each line says who does what; **Ai on Yu's yes** records every result with evidence in `gates.md`:
 
-- **Carried from B2 step 6 and B3 (the switch record):** **Ai on Yu's yes:** the `shop` tag on the first store-scoped Sentry event; an `orders/paid` delivery that renews the store's token first, answered within 5 s (row 7b); a burst of webhooks against the pool of 3 (row 3); an export at a few thousand buyers and a large tier delete, timed; whether the theme editor's preview survives a settings change without a reload. **Yu:** a store without a storefront password for Lighthouse with the embed off and on (spec 5).
+- **Carried from B2 step 6 and B3 (the switch record):** **Ai on Yu's yes:** the `shop` tag on the first store-scoped Sentry event; an `orders/paid` delivery that renews the store's token first, answered within 5 s (row 7b); a burst of webhooks against the pool of 3 (row 3); an export at a few thousand buyers, a large tier delete and the nightly widget step across many stores, timed; whether the theme editor's preview survives a settings change without a reload. **Yu:** a store without a storefront password for Lighthouse with the embed off and on (spec 5).
 
 - **Compliance with real data (I):** **Yu** sends a real customers/data_request and customers/redact from Shopify admin; **Ai on Yu's yes** checks the Home banner, the download and the erasure. Shopify sends customers/redact about 10 days after the request, or up to 6 months later for a customer who ordered recently, so use a test customer with no recent orders and start the redact about 10 days before this gate. On staging, the data request from cashbackpro's admin never reached the dev tunnel (docs/staging-run.md), so this is its first real run.
 - **A tax-exclusive order:** spec 6.3 rule 1 requires one; it needs a market or store whose prices exclude tax, which **Yu** sets up in Shopify admin. **Ai on Yu's yes** places the order and checks the base and a shipping-only refund (Rulings 11, 12).
