@@ -14,6 +14,9 @@
 # is not a merge builds, because a push of 10 or more commits can hide an app
 # change in its first commits. Anything else uncertain (no previous
 # deployment, a preview, a clone of one commit) builds.
+#
+# marketing/ (the brand kernel and kit) is not part of the build, so changes
+# there alone don't deploy.
 set -u
 
 base="${VERCEL_GIT_PREVIOUS_SHA:-}"
@@ -36,7 +39,7 @@ if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
   echo "Could not fetch the previous deployment commit: comparing with the oldest commit in this clone"
 fi
 
-if git diff --quiet "$base" HEAD -- . \
+if git diff --quiet "$base" HEAD -- . ':(exclude)marketing' \
   ../../package.json ../../pnpm-lock.yaml ../../pnpm-workspace.yaml ../../.npmrc; then
   echo "No changes to apps/rewardspro or workspace install files since ${base}: skipping"
   exit 0
