@@ -1,0 +1,1300 @@
+{
+  "schema": "rewardspro-social-profiles/1",
+  "date": "2026-11-07",
+  "revision": "v2, 2026-11-07: verifier findings applied (see profiles.md); v3, 2026-11-07: optional purpose line PU0 (the owner's term 'loyal customers', business register; approvals.jsonl rp-term-loyal-customers)",
+  "companion_files": [
+    "profiles.md",
+    "SETUP.md",
+    "STRATEGY.md"
+  ],
+  "status": "PROPOSAL for the owner, 2026-11-07. Nothing is created, posted or decided. Texts become usable only when every listed claim id is 'verified' in claims.toml and the stage in STRATEGY.md §2 holds.",
+  "made_by": "profiles maker (agent), from STRATEGY.md §3, §3.1, §3.2, §4, §6, §7, §13 and the phase-1 platforms note",
+  "counted_with": "node Intl.Segmenter; chars = Unicode code points; all texts are plain ASCII, so chars = graphemes = UTF-16 units = UTF-8 bytes",
+  "stages": {
+    "S0": "accounts held; claim-free bios; no links; no posts",
+    "S1": "listing clean; the owner's optional Community help",
+    "S2": "posting opens; set B bios and links",
+    "S3": "design-partner outreach"
+  },
+  "rules": [
+    "Display name exactly 'RewardsPro' everywhere",
+    "No 'shopify', 'shopi', 'official', 'app store' or 'hq' in a name, handle, URL slug, UTM value or hashtag",
+    "'Free' only in a field that also says 'you fund the cashback'; at 300+ characters also Shopify's fee sentence",
+    "Claim ids in brackets are never pasted",
+    "contact@rewardspro.io only once rp-contact-delivers is verified",
+    "No first-person text for a brand account; rp-maker is the company only"
+  ],
+  "claim_ids_requested": {
+    "rp-post-cadence": "process row for 'We post here rarely: when the app changes or when we can show how it works.' (like rp-ai-drafted). Added to claims.toml 2026-11-07 as proposed, channel social-profile only",
+    "rp-ai-drafted-video": "variant of rp-ai-drafted naming video titles, descriptions and captions (the V1 captions are agent-drafted text)",
+    "rp-ai-drafted-profile": "variant of rp-ai-drafted for a profile's own text at S0, when nothing is posted (STRATEGY D5)",
+    "rp-maker-also-sells": "status row: Cambridge TCG Limited also sells trading cards (design README:117 'what else they sell, disclosed'); needs evidence and the owner's decision",
+    "rp-purpose": "intent row proposed in MESSAGING.md §7 ('RewardsPro is made for rewarding a shop's loyal customers.'); PU0 needs it with channel social-profile"
+  },
+  "alt_texts": {
+    "avatar": "The RewardsPro R mark, navy with a teal block, on a white square tile.",
+    "banner_dark": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a near-black ground. No other text.",
+    "banner_navy": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a navy ground. No other text.",
+    "avatar_chars": 70,
+    "banner_dark_chars": 134,
+    "banner_navy_chars": 128,
+    "source": {
+      "avatar": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_avatar_tile_{400x400,1024x1024}_20261107_v01.meta.json alt_text (the kit's avatar files have no sidecar; the 1024 tile is the same file, the 400 tile the same image resampled)",
+      "banner_dark": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_{header,linkedin-cover,youtube-banner}_dark_*.meta.json alt_text",
+      "banner_navy": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_{header,linkedin-cover,youtube-banner}_navy_*.meta.json alt_text"
+    }
+  },
+  "combos_chars": {
+    "A0 + AI0": 233,
+    "A0c + AI0": 266,
+    "YT0 + AI0": 199,
+    "YT0c + AI0": 232,
+    "L1 + MK1": 1218,
+    "L1W + MK1": 1389,
+    "YT1 + MK1": 495,
+    "A0 + PU0": 205,
+    "A0c + PU0": 238,
+    "YT0 + PU0": 171,
+    "YT0c + PU0": 204,
+    "L1 + PU0": 1213,
+    "L1W + PU0": 1384,
+    "YT1 + PU0": 490
+  },
+  "platforms": [
+    {
+      "platform": "LinkedIn Company Page",
+      "role": "primary",
+      "stage_to_create": "S0 only if the create form accepts no website (Website is probably required [I]); otherwise S2",
+      "handle": {
+        "value": "linkedin.com/company/rewardsproapp",
+        "fallbacks": [
+          "linkedin.com/company/rewardspro (only if the form offers it and the owner prefers)",
+          "linkedin.com/company/rewardspro-io"
+        ],
+        "availability": [
+          {
+            "handle": "rewardsproapp / rewardspro / rewardspro-io",
+            "result": "unknown",
+            "method": "logged-out GETs return Cloudflare 403 for real and nonsense slugs alike",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note)",
+            "reliability": "unreliable; only the Page-creation form shows it"
+          }
+        ],
+        "rules": "lowercase letters, digits, hyphens (linkedin.com/help/linkedin/answer/a553289, read 2026-11-07)"
+      },
+      "preconditions": [
+        "a personal LinkedIn profile with 'enough connections to create a Page' (a553289 [V]; the number is not stated [U])",
+        "desktop or iOS; Android can't create Pages (a543852 [V])"
+      ],
+      "form": {
+        "desktop": "'Page identity, Company or Institution details, and Profile details' (a543852 [V])",
+        "ios": "'Company name, LinkedIn public URL, Website, Industry, Company size, Company type, and Tagline (optional)' (a543852 [V]); only Tagline is marked optional, so Website is probably required [I]"
+      },
+      "display_name": "RewardsPro",
+      "display_name_chars": 10,
+      "display_name_limit": {
+        "value": null,
+        "reliability": "U (100 widely quoted, not read on a LinkedIn page)"
+      },
+      "bio_pre_g0": {
+        "tagline": {
+          "id": "T0",
+          "text": "An app for Shopify stores, made by Cambridge TCG Limited, London.",
+          "chars": 65,
+          "graphemes": 65,
+          "utf16_units": 65,
+          "utf8_bytes": 65,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        },
+        "about": {
+          "id": "A0",
+          "text": "RewardsPro is an app for Shopify stores, listed on the Shopify App Store. It is made by Cambridge TCG Limited, a UK company in London. Nothing is posted here yet.",
+          "chars": 162,
+          "graphemes": 162,
+          "utf16_units": 162,
+          "utf8_bytes": 162,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        },
+        "about_after_contact_check": {
+          "id": "A0c",
+          "text": "RewardsPro is an app for Shopify stores, listed on the Shopify App Store. It is made by Cambridge TCG Limited, a UK company in London. Nothing is posted here yet. Questions: contact@rewardspro.io",
+          "chars": 195,
+          "graphemes": 195,
+          "utf16_units": 195,
+          "utf8_bytes": 195,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store",
+            "rp-contact-delivers"
+          ],
+          "needs": "the owner's outside-address test, recorded as evidence on rp-contact-delivers, and that row verified with a second session (STRATEGY §3.2, §13 step 10)"
+        }
+      },
+      "bio_post_g0": {
+        "tagline": {
+          "id": "T1",
+          "text": "Cashback as Shopify store credit, with VIP tiers. You fund the cashback.",
+          "chars": 72,
+          "graphemes": 72,
+          "utf16_units": 72,
+          "utf8_bytes": 72,
+          "claim_ids": [
+            "rp-store-credit",
+            "rp-vip-tiers",
+            "rp-merchant-funds"
+          ]
+        },
+        "tagline_option_d4": {
+          "id": "T1F",
+          "text": "Cashback as Shopify store credit, with VIP tiers. Free app; you fund the cashback.",
+          "chars": 82,
+          "graphemes": 82,
+          "utf16_units": 82,
+          "utf8_bytes": 82,
+          "claim_ids": [
+            "rp-store-credit",
+            "rp-vip-tiers",
+            "rp-free",
+            "rp-merchant-funds"
+          ],
+          "needs": "only if the owner picks it under D4, knowing the residual risk: a tagline is often seen alone, without Shopify's fee sentence (design README 'the total price, shown'; CAP 3.23-3.26)"
+        },
+        "about": {
+          "id": "L1",
+          "text": "RewardsPro is an app for Shopify stores. With cashback switched on, it adds cashback to a customer's Shopify store credit when their order is paid, at their tier's rate. You set tiers by spend, counted over the last 12 months or all time, and customers move between tiers as their spend changes. A refund takes back its share of the cashback, from store credit the customer still holds.\n\nCashback is paid on the product price after discounts. Shipping, and anything paid with store credit or gift cards, earns nothing.\n\nCustomers spend store credit at checkout when signed in with Shopify's new customer accounts or with Shop Pay. Store credit isn't available for legacy customer accounts, and Shopify applies the full balance.\n\nRewardsPro is free, with no paid plans. You fund the cashback you give. For stores created on or after 12 May 2025, Shopify charges its own third-party transaction fee on the part of an order paid with store credit.\n\nWe post here rarely: when the app changes or when we can show how it works. Posts are drafted with AI help and checked by a person before we post them.\n\nMade by Cambridge TCG Limited, London. Questions: contact@rewardspro.io",
+          "chars": 1170,
+          "graphemes": 1170,
+          "utf16_units": 1170,
+          "utf8_bytes": 1170,
+          "claim_ids": [
+            "rp-on-app-store",
+            "rp-paid-trigger",
+            "rp-store-credit",
+            "rp-vip-tiers",
+            "rp-tier-window",
+            "rp-refund-takeback",
+            "rp-cashback-base",
+            "sh-sc-signin-legacy",
+            "sh-sc-full",
+            "rp-free",
+            "rp-merchant-funds",
+            "sh-sc-fee",
+            "rp-post-cadence",
+            "rp-ai-drafted",
+            "rp-maker",
+            "rp-contact-delivers"
+          ],
+          "needs": "D8 widened to PPA 5.3 vs Part C s.3: whether paragraphs 3 and 4 (Shopify's store-credit rules, its fee, Shop Pay) count as notifying compatibility"
+        },
+        "about_with_widget_paragraph": {
+          "id": "L1W",
+          "text": "RewardsPro is an app for Shopify stores. With cashback switched on, it adds cashback to a customer's Shopify store credit when their order is paid, at their tier's rate. You set tiers by spend, counted over the last 12 months or all time, and customers move between tiers as their spend changes. A refund takes back its share of the cashback, from store credit the customer still holds.\n\nCashback is paid on the product price after discounts. Shipping, and anything paid with store credit or gift cards, earns nothing.\n\nCustomers spend store credit at checkout when signed in with Shopify's new customer accounts or with Shop Pay. Store credit isn't available for legacy customer accounts, and Shopify applies the full balance.\n\nRewardsPro is free, with no paid plans. You fund the cashback you give. For stores created on or after 12 May 2025, Shopify charges its own third-party transaction fee on the part of an order paid with store credit.\n\nA widget you turn on in your theme editor shows signed-in customers their tier, cashback rate, store credit and progress; guests see your base rate and a sign-in prompt.\n\nWe post here rarely: when the app changes or when we can show how it works. Posts are drafted with AI help and checked by a person before we post them.\n\nMade by Cambridge TCG Limited, London. Questions: contact@rewardspro.io",
+          "chars": 1341,
+          "graphemes": 1341,
+          "utf16_units": 1341,
+          "utf8_bytes": 1341,
+          "claim_ids": [
+            "rp-on-app-store",
+            "rp-paid-trigger",
+            "rp-store-credit",
+            "rp-vip-tiers",
+            "rp-tier-window",
+            "rp-refund-takeback",
+            "rp-cashback-base",
+            "sh-sc-signin-legacy",
+            "sh-sc-full",
+            "rp-free",
+            "rp-merchant-funds",
+            "sh-sc-fee",
+            "rp-widget",
+            "rp-post-cadence",
+            "rp-ai-drafted",
+            "rp-maker",
+            "rp-contact-delivers"
+          ],
+          "needs": "rp-widget verified (B3 plus gate C at 390 px, light and dark); and D8 widened to PPA 5.3 vs Part C s.3: whether paragraphs 3 and 4 (Shopify's store-credit rules, its fee, Shop Pay) count as notifying compatibility"
+        }
+      },
+      "limits": {
+        "tagline": {
+          "value": 120,
+          "reliability": "S (LinkedIn Learning, old); tagline is optional in the iOS form (a543852, read 2026-11-07)"
+        },
+        "about": {
+          "value": 2000,
+          "reliability": "S"
+        }
+      },
+      "website": {
+        "pre_g0": null,
+        "post_g0": "https://rewardspro.io/?utm_source=linkedin&utm_medium=social&utm_campaign=profile",
+        "note": "If the create form insists on a website, stop and create the Page at S2 (STRATEGY §3)."
+      },
+      "fields": {
+        "industry": "Software Development (I: label in LinkedIn's picker; the owner picks the closest)",
+        "company_size": "the true size of Cambridge TCG Limited (the owner's word; agents do not know it)",
+        "company_type": "Privately held (I: fits a UK private limited company; the owner confirms)",
+        "location": "PROPOSAL: empty by default. 'London, United Kingdom' (city and country only, no street address) only if the owner checks that LinkedIn doesn't label it a headquarters or offer directions [I]: London is a serviced registered office, never to be implied as an office open to visitors (claims.toml rp-maker uncertainties)",
+        "custom_button": "none before S2; at S2 optional 'Visit website' to the UTM link",
+        "messaging": "off",
+        "verification": "unlikely to be offered under this plan: eligibility 'may be based on ... posting regularly ... as well as having an established commercial relationship with LinkedIn ... Ads, Jobs, or a Premium Company Page subscription' (a7174627 [V]); the site must 'accurately represent the organization'. Only if the Verification controls option appears"
+      },
+      "avatar": {
+        "file": "apps/rewardspro/marketing/kit/social/avatar-400.png",
+        "px": "400x400",
+        "bytes": 2953,
+        "opaque": true,
+        "made_by": "kit (#83), never edited here",
+        "alternative": {
+          "file": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_avatar_tile_400x400_20261107_v01.png",
+          "bytes": 2779,
+          "note": "the kit's own 400 px cut with its PNG text chunks stripped (the kit file's Description chunk names the internal generator); decoded pixels identical to kit/social/avatar-400.png (sharp, 2026-11-07). Upload one of the two, not both. Default: the kit's, as STRATEGY §3 names it; the stripped copy is the banners maker's suggestion, the owner's call."
+        },
+        "use": "Page logo; LinkedIn recommends 400x400, PNG or JPEG <=3 MB (a563309 [V])"
+      },
+      "banner": {
+        "asset_id": "A3",
+        "px": "1512x256",
+        "cap": "<=3 MB, PNG or JPEG [V a563309]",
+        "safe_area": "key content centred, away from the edges and the lower right",
+        "logo_bbox_dark": "x 502-1009, y 78-177 (centred; re-measured 2026-11-07 after the banners fix pass enlarged the lockup to 100 px)",
+        "default": {
+          "variant": "dark",
+          "file": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_linkedin-cover_dark_1512x256_20261107_v01.png",
+          "bytes": 13479,
+          "background": "#09110f",
+          "alt_text": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a near-black ground. No other text."
+        },
+        "alternative": {
+          "variant": "navy",
+          "file": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_linkedin-cover_navy_1512x256_20261107_v01.png",
+          "bytes": 13373,
+          "background": "#1a3e5c",
+          "alt_text": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a navy ground. No other text.",
+          "note": "Navy alternative: the kit's reversed lockup was made for the dark ground #09110F; on navy #1A3E5C its R shape #658AAD measures 3.07:1 and APCA Lc -29.34, just under the kit's own bar for a mark on a dark ground (3:1 and Lc 30, kit/BRAND.md). Logos are exempt from WCAG; the owner's call (navy sidecar notes)."
+        },
+        "choice": "dark (the banners maker's default) or navy (STRATEGY §7 A2 says 'on navy'): the owner's call; one variant for every banner",
+        "made_by": "banners maker (social/assets/render.mjs); 1500x500, 1512x256 and 2560x1440, opaque, measured with sips and stat 2026-11-07"
+      },
+      "pinned_post": {
+        "pre_g0": null,
+        "post_g0": "M1 (STRATEGY §6.2), pinned in the S2 week"
+      },
+      "alt_text": {
+        "avatar": "The RewardsPro R mark, navy with a teal block, on a white square tile.",
+        "banner": "the chosen variant's sidecar alt_text (alt_texts.banner_dark or banner_navy)",
+        "where_used": "kept in the asset sidecars; LinkedIn's Page logo and cover take no alt text as far as read [U]"
+      },
+      "source_urls": [
+        "https://www.linkedin.com/help/linkedin/answer/a543852",
+        "https://www.linkedin.com/help/linkedin/answer/a553289",
+        "https://www.linkedin.com/help/linkedin/answer/a563309",
+        "https://www.linkedin.com/help/linkedin/answer/a7174627"
+      ]
+    },
+    {
+      "platform": "YouTube",
+      "role": "secondary",
+      "stage_to_create": "S0 (no uploads until S2)",
+      "handle": {
+        "value": "@rewardsproapp",
+        "fallbacks": [
+          "@rewardspro_io",
+          "@getrewardspro"
+        ],
+        "availability": [
+          {
+            "handle": "@rewardsproapp",
+            "result": "HTTP 404 (free at probe time)",
+            "method": "GET youtube.com/@h with a consent cookie, generic UA",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker)",
+            "reliability": "good signal; YouTube's handle picker is final"
+          },
+          {
+            "handle": "@rewardspro_io",
+            "result": "HTTP 404",
+            "method": "same",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker)",
+            "reliability": "as above"
+          },
+          {
+            "handle": "@getrewardspro",
+            "result": "HTTP 404",
+            "method": "same",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker)",
+            "reliability": "as above"
+          },
+          {
+            "handle": "@rewardspro",
+            "result": "HTTP 200: taken by an unrelated Portuguese game-cheat channel (its name is quoted in the phase-1 platforms note)",
+            "method": "same",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker)",
+            "reliability": "high"
+          }
+        ],
+        "rules": "3-30 characters; letters and digits; _ - . allowed except at the start or end; change twice per 14 days (support.google.com/youtube/answer/11585688)"
+      },
+      "display_name": "RewardsPro",
+      "display_name_chars": 10,
+      "display_name_limit": {
+        "value": null,
+        "reliability": "U; name changeable twice per 14 days (answer 2657964, read 2026-11-07)"
+      },
+      "bio_pre_g0": {
+        "description": {
+          "id": "YT0",
+          "text": "RewardsPro's channel, run by Cambridge TCG Limited, London. RewardsPro is an app for Shopify stores. Nothing is posted here yet.",
+          "chars": 128,
+          "graphemes": 128,
+          "utf16_units": 128,
+          "utf8_bytes": 128,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        },
+        "description_after_contact_check": {
+          "id": "YT0c",
+          "text": "RewardsPro's channel, run by Cambridge TCG Limited, London. RewardsPro is an app for Shopify stores. Nothing is posted here yet. Questions: contact@rewardspro.io",
+          "chars": 161,
+          "graphemes": 161,
+          "utf16_units": 161,
+          "utf8_bytes": 161,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store",
+            "rp-contact-delivers"
+          ],
+          "needs": "the owner's outside-address test, recorded as evidence on rp-contact-delivers, and that row verified with a second session (STRATEGY §3.2, §13 step 10)"
+        }
+      },
+      "bio_post_g0": {
+        "description": {
+          "id": "YT1",
+          "text": "RewardsPro is an app for Shopify stores, made by Cambridge TCG Limited, London. With cashback switched on, it adds cashback to a customer's Shopify store credit when their order is paid, at their tier's rate. A refund takes back its share of the cashback, from store credit the customer still holds. Video titles, descriptions and captions here are drafted with AI help and checked by a person before we post them. Questions: contact@rewardspro.io",
+          "chars": 447,
+          "graphemes": 447,
+          "utf16_units": 447,
+          "utf8_bytes": 447,
+          "claim_ids": [
+            "rp-on-app-store",
+            "rp-maker",
+            "rp-paid-trigger",
+            "rp-store-credit",
+            "rp-vip-tiers",
+            "rp-refund-takeback",
+            "rp-ai-drafted-video",
+            "rp-contact-delivers"
+          ]
+        }
+      },
+      "limits": {
+        "description": {
+          "value": null,
+          "reliability": "U (1,000 widely quoted; answer 2657964 states no limit, read 2026-11-07)"
+        },
+        "links": {
+          "value": 14,
+          "reliability": "V answer 2657964"
+        }
+      },
+      "website": {
+        "pre_g0": null,
+        "post_g0": "https://rewardspro.io/?utm_source=youtube&utm_medium=social&utm_campaign=profile",
+        "link_title": "rewardspro.io",
+        "link_title_chars": 13,
+        "note": "'Under Links, click Add link and enter the title and URL of your site' (2657964 [V]). Contact info email only after the contact check."
+      },
+      "fields": {
+        "country": "United Kingdom (I: Advanced settings)",
+        "audience": "not made for kids",
+        "contact_email": "contact@rewardspro.io only after rp-contact-delivers is verified",
+        "ai_use_at_upload": "the 'AI use' setting, under Attributes in the upload flow: 'select Yes if your content meets the disclosure requirements or No if not' (14328491 [V]); disclosure is for realistic AI-generated or altered content. V1 is a real screen recording with AI-drafted text only, so No [I: the exact Studio label until the owner sees it]"
+      },
+      "avatar": {
+        "file": "apps/rewardspro/marketing/kit/social/avatar-1024.png",
+        "px": "1024x1024",
+        "bytes": 8884,
+        "opaque": true,
+        "made_by": "kit (#83), never edited here",
+        "same_as": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_avatar_tile_1024x1024_20261107_v01.png (same decoded pixels, sharp 2026-11-07; not byte-identical: the social copy, 8,710 bytes, has the kit file's PNG text chunks stripped)",
+        "use": "channel picture; 'Image size should not exceed 15 MB. Image that renders at 98 x 98 px.' (answer 10456525 [V])"
+      },
+      "banner": {
+        "asset_id": "A4",
+        "px": "2560x1440",
+        "cap": "<=6 MB [V 10456525]",
+        "safe_area": "inside the centred safe band, about 1544x423 at 2560x1440 [I: scaled from 1235x338 at 2048x1152, V 10456525], i.e. about x 508-2052, y 509-931",
+        "logo_bbox_dark": "x 772-1786, y 620-819 (inside the safe band)",
+        "default": {
+          "variant": "dark",
+          "file": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_youtube-banner_dark_2560x1440_20261107_v01.png",
+          "bytes": 36332,
+          "background": "#09110f",
+          "alt_text": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a near-black ground. No other text."
+        },
+        "alternative": {
+          "variant": "navy",
+          "file": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_youtube-banner_navy_2560x1440_20261107_v01.png",
+          "bytes": 36236,
+          "background": "#1a3e5c",
+          "alt_text": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a navy ground. No other text.",
+          "note": "Navy alternative: the kit's reversed lockup was made for the dark ground #09110F; on navy #1A3E5C its R shape #658AAD measures 3.07:1 and APCA Lc -29.34, just under the kit's own bar for a mark on a dark ground (3:1 and Lc 30, kit/BRAND.md). Logos are exempt from WCAG; the owner's call (navy sidecar notes)."
+        },
+        "choice": "dark (the banners maker's default) or navy (STRATEGY §7 A2 says 'on navy'): the owner's call; one variant for every banner",
+        "made_by": "banners maker (social/assets/render.mjs); 1500x500, 1512x256 and 2560x1440, opaque, measured with sips and stat 2026-11-07"
+      },
+      "pinned_post": {
+        "pre_g0": null,
+        "post_g0": "V1 as the featured video for visitors (STRATEGY §7 A11), in the S2 week"
+      },
+      "alt_text": {
+        "avatar": "The RewardsPro R mark, navy with a teal block, on a white square tile.",
+        "banner": "the chosen variant's sidecar alt_text",
+        "where_used": "sidecars only; YouTube takes no alt text for channel art [U]"
+      },
+      "source_urls": [
+        "https://support.google.com/youtube/answer/11585688",
+        "https://support.google.com/youtube/answer/2657964",
+        "https://support.google.com/youtube/answer/10456525",
+        "https://support.google.com/youtube/answer/14328491"
+      ]
+    },
+    {
+      "platform": "Shopify Community",
+      "role": "secondary (optional)",
+      "stage_to_create": "S1 (optional; the owner's own existing personal account, no brand account)",
+      "handle": {
+        "value": "the owner's own username (agents do not propose one)",
+        "fallbacks": [],
+        "availability": [
+          {
+            "handle": "rewardspro / rewardsproapp",
+            "result": "404 on community.shopify.com and .dev (not to be used: a brand account is not planned)",
+            "method": "Discourse /u/<h>.json with controls",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note)",
+            "reliability": "high"
+          }
+        ],
+        "rules": "Discourse username 3-20; 'Each person is permitted one account'; promotion only on Ask & Offer with disclosure; contact details in the bio only; 'Posting generic, templated, or AI-generated messages' is not allowed and 'AI-generated content is highly discouraged and will be removed' (community.shopify.com/guidelines, read 2026-11-07)"
+      },
+      "display_name": "the owner's own",
+      "display_name_chars": null,
+      "display_name_limit": {
+        "value": 20,
+        "reliability": "O (site settings max_username_length 20)"
+      },
+      "bio_pre_g0": null,
+      "bio_post_g0": null,
+      "owner_writes_it": {
+        "rule": "No paste text. The owner writes the bio in their own words, or leaves it as it is. Agents draft none of it, and nothing shaped like a reply.",
+        "facts_the_owner_may_mention": [
+          "the company: Cambridge TCG Limited (UK) [rp-maker, company only]",
+          "after rp-contact-delivers is verified: contact@rewardspro.io"
+        ],
+        "not_offered": [
+          "a first-person maker line ('I make RewardsPro'): it ties a person to the company, which rp-maker's scope excludes ('The company only, never a person'); it needs a person-scoped claim row and the owner's approval of that personal link",
+          "any product description (for example cashback as store credit): product talk belongs in a disclosed Ask & Offer post, from S2, in the owner's words"
+        ],
+        "disclosure": "If the owner mentions RewardsPro, STRATEGY §4 has the interest come first ('Ad · I make RewardsPro, ...' as an example of shape, not text to paste)."
+      },
+      "limits": {
+        "bio": {
+          "value": null,
+          "reliability": "U (Discourse profile 'About me')"
+        }
+      },
+      "website": {
+        "pre_g0": null,
+        "post_g0": "optional, the owner's choice: rewardspro.io in the profile website field, no UTM needed",
+        "note": "Never a link in replies."
+      },
+      "fields": {},
+      "avatar": {
+        "file": "the owner's own picture, or none (PROPOSAL: not the RewardsPro mark, so the account doesn't read as a brand account)"
+      },
+      "banner": null,
+      "pinned_post": {
+        "pre_g0": null,
+        "post_g0": null
+      },
+      "alt_text": {},
+      "source_urls": [
+        "https://community.shopify.com/guidelines"
+      ]
+    },
+    {
+      "platform": "Bluesky",
+      "role": "reserve-only",
+      "stage_to_create": "S0; domain handle after the KINGDOM TXT records are removed",
+      "handle": {
+        "value": "@rewardspro.io (domain handle)",
+        "created_as": "rewardsproapp.bsky.social",
+        "fallbacks": [
+          "getrewardspro.bsky.social",
+          "rewardspro-io.bsky.social"
+        ],
+        "availability": [
+          {
+            "handle": "rewardsproapp.bsky.social",
+            "result": "Unable to resolve handle (free)",
+            "method": "public.api.bsky.app com.atproto.identity.resolveHandle",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker); 2026-11-07T12:28Z (re-probe, profiles fix; control bsky.app resolved)",
+            "reliability": "high (public API)"
+          },
+          {
+            "handle": "rewardspro.io",
+            "result": "Unable to resolve handle; dig TXT _atproto.rewardspro.io empty",
+            "method": "resolveHandle plus dig",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker); 2026-11-07T12:28Z (re-probe, profiles fix; control bsky.app resolved) (resolveHandle only)",
+            "reliability": "high"
+          },
+          {
+            "handle": "getrewardspro.bsky.social",
+            "result": "free",
+            "method": "resolveHandle",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker); 2026-11-07T12:28Z (re-probe, profiles fix; control bsky.app resolved)",
+            "reliability": "high"
+          },
+          {
+            "handle": "rewardspro-io.bsky.social",
+            "result": "free",
+            "method": "resolveHandle",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T12:28Z (re-probe, profiles fix; control bsky.app resolved)",
+            "reliability": "high"
+          }
+        ],
+        "rules": ".bsky.social: 3-18 characters before the suffix, a-z 0-9 hyphen (PDS source); no underscores"
+      },
+      "display_name": "RewardsPro",
+      "display_name_chars": 10,
+      "display_name_limit": {
+        "value": 64,
+        "unit": "graphemes",
+        "reliability": "D-src (app.bsky.actor.profile lexicon)"
+      },
+      "bio_pre_g0": {
+        "bio": {
+          "id": "R0",
+          "text": "RewardsPro, an app for Shopify stores, made by Cambridge TCG Limited, London. We don't post here.",
+          "chars": 97,
+          "graphemes": 97,
+          "utf16_units": 97,
+          "utf8_bytes": 97,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        }
+      },
+      "bio_post_g0": {
+        "bio": {
+          "id": "R1",
+          "text": "RewardsPro, an app for Shopify stores, made by Cambridge TCG Limited, London. We don't post here. Updates and contact: rewardspro.io",
+          "chars": 132,
+          "graphemes": 132,
+          "utf16_units": 132,
+          "utf8_bytes": 132,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        }
+      },
+      "limits": {
+        "bio": {
+          "value": 256,
+          "unit": "graphemes",
+          "reliability": "D-src"
+        }
+      },
+      "website": {
+        "pre_g0": null,
+        "post_g0": "optional, the owner's choice: https://rewardspro.io/?utm_source=bluesky&utm_medium=social&utm_campaign=profile if the released app offers a profile links field [U]; otherwise none, and R1 names rewardspro.io in the bio text (untagged)",
+        "note": "The lexicon on main has 'links' ('Links shown on the profile', up to 10) and a deprecated 'website' [D-src]; whether the released app shows them is [U]. Leaving the link out is a choice: Bluesky visits then can't be told apart. No posts, ever, unless the owner changes the plan."
+      },
+      "fields": {
+        "chat": "nobody can start a chat"
+      },
+      "avatar": {
+        "file": "apps/rewardspro/marketing/kit/social/avatar-1024.png",
+        "px": "1024x1024",
+        "bytes": 8884,
+        "opaque": true,
+        "made_by": "kit (#83), never edited here",
+        "same_as": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_avatar_tile_1024x1024_20261107_v01.png (same decoded pixels, sharp 2026-11-07; not byte-identical: the social copy, 8,710 bytes, has the kit file's PNG text chunks stripped)",
+        "use": "profile picture; PNG or JPEG <=1,000,000 bytes (lexicon)"
+      },
+      "banner": {
+        "asset_id": "A2",
+        "px": "1500x500",
+        "cap": "<=1,000,000 bytes (Bluesky lexicon maxSize [D-src]); X allows 2 MB [V-arch]",
+        "safe_area": "X: top and bottom 60 px may crop [V-arch]; lower-left avatar zone [I]",
+        "logo_bbox_dark": "x 445-1054, y 190-309 (clear of the top and bottom 60 px and of the lower left)",
+        "default": {
+          "variant": "dark",
+          "file": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_header_dark_1500x500_20261107_v01.png",
+          "bytes": 17190,
+          "background": "#09110f",
+          "alt_text": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a near-black ground. No other text."
+        },
+        "alternative": {
+          "variant": "navy",
+          "file": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_header_navy_1500x500_20261107_v01.png",
+          "bytes": 17091,
+          "background": "#1a3e5c",
+          "alt_text": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a navy ground. No other text.",
+          "note": "Navy alternative: the kit's reversed lockup was made for the dark ground #09110F; on navy #1A3E5C its R shape #658AAD measures 3.07:1 and APCA Lc -29.34, just under the kit's own bar for a mark on a dark ground (3:1 and Lc 30, kit/BRAND.md). Logos are exempt from WCAG; the owner's call (navy sidecar notes)."
+        },
+        "choice": "dark (the banners maker's default) or navy (STRATEGY §7 A2 says 'on navy'): the owner's call; one variant for every banner",
+        "made_by": "banners maker (social/assets/render.mjs); 1500x500, 1512x256 and 2560x1440, opaque, measured with sips and stat 2026-11-07"
+      },
+      "pinned_post": {
+        "pre_g0": null,
+        "post_g0": null
+      },
+      "alt_text": {
+        "avatar": "The RewardsPro R mark, navy with a teal block, on a white square tile.",
+        "banner": "the chosen variant's sidecar alt_text",
+        "where_used": "sidecars only; Bluesky takes no alt text for profile images [I]"
+      },
+      "source_urls": [
+        "https://atproto.com/specs/handle",
+        "https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial",
+        "https://github.com/bluesky-social/atproto/blob/main/lexicons/app/bsky/actor/profile.json"
+      ]
+    },
+    {
+      "platform": "X",
+      "role": "reserve-only",
+      "stage_to_create": "S0",
+      "handle": {
+        "value": "@rewardsproapp",
+        "fallbacks": [
+          "@rewardspro_io",
+          "@getrewardspro"
+        ],
+        "availability": [
+          {
+            "handle": "@rewardsproapp",
+            "result": "404 'User Profile Not Found'",
+            "method": "GET x.com/<h>, generic UA; a nonsense control also 404, the taken @RewardsPro 200",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker)",
+            "reliability": "medium-high: suspended or deactivated names also 404 and 'are not immediately available'; the sign-up form decides"
+          },
+          {
+            "handle": "@rewardspro_io",
+            "result": "404",
+            "method": "same",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker)",
+            "reliability": "as above"
+          },
+          {
+            "handle": "@getrewardspro",
+            "result": "404",
+            "method": "same",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker)",
+            "reliability": "as above"
+          },
+          {
+            "handle": "@RewardsPro",
+            "result": "taken: 'Pro Rewards (@RewardsPro)'",
+            "method": "same",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker)",
+            "reliability": "high; X does not release inactive usernames"
+          }
+        ],
+        "rules": "<=15 characters; A-Z 0-9 _ (help.x.com x-username-rules, Wayback 2026-09-19)"
+      },
+      "display_name": "RewardsPro",
+      "display_name_chars": 10,
+      "display_name_limit": {
+        "value": 50,
+        "reliability": "V-arch (x-username-rules)"
+      },
+      "bio_pre_g0": {
+        "bio": {
+          "id": "R0",
+          "text": "RewardsPro, an app for Shopify stores, made by Cambridge TCG Limited, London. We don't post here.",
+          "chars": 97,
+          "graphemes": 97,
+          "utf16_units": 97,
+          "utf8_bytes": 97,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        }
+      },
+      "bio_post_g0": {
+        "bio": {
+          "id": "R1",
+          "text": "RewardsPro, an app for Shopify stores, made by Cambridge TCG Limited, London. We don't post here. Updates and contact: rewardspro.io",
+          "chars": 132,
+          "graphemes": 132,
+          "utf16_units": 132,
+          "utf8_bytes": 132,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        }
+      },
+      "limits": {
+        "bio": {
+          "value": 160,
+          "reliability": "V-arch (how-to-customize-your-profile, Wayback 2026-09-25)"
+        }
+      },
+      "website": {
+        "pre_g0": null,
+        "post_g0": "https://rewardspro.io/?utm_source=x&utm_medium=social&utm_campaign=profile",
+        "note": "If X counts the bio's rewardspro.io as a 23-character link, R1 becomes 142, still under 160 [I]."
+      },
+      "fields": {
+        "location": "London, UK (optional; 10 characters; X's location limit not read [U])",
+        "birth_date": "the operator's own, visibility 'only you'; never written in any file",
+        "direct_messages": "off / nobody"
+      },
+      "keep_alive": "X's inactive-account page returned HTTP 403 to a logged-out fetch at 2026-11-07T12:25Z [U]; from prior knowledge, X has asked accounts to log in at least every 30 days [I]. Agents read the page (read-only) before the account is made; the owner logs in on that cadence",
+      "squatting_note": "X: 'Username squatting is prohibited by the X Rules. Please note that if an account has had no updates, no profile image, and there is no intent to mislead, it typically means there's no name-squatting or impersonation.' (help.x.com x-username-squatting, Wayback 20260331203759, read 2026-11-07). Hence R0 no longer says 'Reserved name'.",
+      "avatar": {
+        "file": "apps/rewardspro/marketing/kit/social/avatar-400.png",
+        "px": "400x400",
+        "bytes": 2953,
+        "opaque": true,
+        "made_by": "kit (#83), never edited here",
+        "alternative": {
+          "file": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_avatar_tile_400x400_20261107_v01.png",
+          "bytes": 2779,
+          "note": "the kit's own 400 px cut with its PNG text chunks stripped (the kit file's Description chunk names the internal generator); decoded pixels identical to kit/social/avatar-400.png (sharp, 2026-11-07). Upload one of the two, not both. Default: the kit's, as STRATEGY §3 names it; the stripped copy is the banners maker's suggestion, the owner's call."
+        },
+        "use": "profile photo; 'Use JPEG, GIF, or PNG files under 2MB with recommended dimensions of 400x400 pixels.' (help.x.com common-issues-when-uploading-profile-photo, Wayback)"
+      },
+      "banner": {
+        "asset_id": "A2",
+        "px": "1500x500",
+        "cap": "<=1,000,000 bytes (Bluesky lexicon maxSize [D-src]); X allows 2 MB [V-arch]",
+        "safe_area": "X: top and bottom 60 px may crop [V-arch]; lower-left avatar zone [I]",
+        "logo_bbox_dark": "x 445-1054, y 190-309 (clear of the top and bottom 60 px and of the lower left)",
+        "default": {
+          "variant": "dark",
+          "file": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_header_dark_1500x500_20261107_v01.png",
+          "bytes": 17190,
+          "background": "#09110f",
+          "alt_text": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a near-black ground. No other text."
+        },
+        "alternative": {
+          "variant": "navy",
+          "file": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_header_navy_1500x500_20261107_v01.png",
+          "bytes": 17091,
+          "background": "#1a3e5c",
+          "alt_text": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a navy ground. No other text.",
+          "note": "Navy alternative: the kit's reversed lockup was made for the dark ground #09110F; on navy #1A3E5C its R shape #658AAD measures 3.07:1 and APCA Lc -29.34, just under the kit's own bar for a mark on a dark ground (3:1 and Lc 30, kit/BRAND.md). Logos are exempt from WCAG; the owner's call (navy sidecar notes)."
+        },
+        "choice": "dark (the banners maker's default) or navy (STRATEGY §7 A2 says 'on navy'): the owner's call; one variant for every banner",
+        "made_by": "banners maker (social/assets/render.mjs); 1500x500, 1512x256 and 2560x1440, opaque, measured with sips and stat 2026-11-07"
+      },
+      "pinned_post": {
+        "pre_g0": null,
+        "post_g0": null
+      },
+      "alt_text": {
+        "avatar": "The RewardsPro R mark, navy with a teal block, on a white square tile.",
+        "banner": "the chosen variant's sidecar alt_text",
+        "where_used": "sidecars only; X takes no alt text for profile images [I]"
+      },
+      "source_urls": [
+        "https://help.x.com/en/managing-your-account/x-username-rules",
+        "https://help.x.com/en/managing-your-account/how-to-customize-your-profile",
+        "https://help.x.com/en/managing-your-account/common-issues-when-uploading-profile-photo",
+        "https://help.x.com/en/rules-and-policies/x-username-squatting"
+      ]
+    },
+    {
+      "platform": "Instagram (Threads follows it)",
+      "role": "reserve-only (conditional)",
+      "stage_to_create": "only if the owner holds @rewardspro.io, or wants @rewardsproapp to hold the name",
+      "handle": {
+        "value": "@rewardspro.io if it is the owner's; otherwise none (optional @rewardsproapp)",
+        "fallbacks": [
+          "@rewardsproapp"
+        ],
+        "availability": [
+          {
+            "handle": "@rewardspro.io",
+            "result": "exists: 2 posts; its display name and bio use two banned spellings and retired paid wording (quoted in the phase-1 platforms note, §1.1); owner unknown",
+            "method": "headless Chrome render, logged out",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note)",
+            "reliability": "medium-high for existence"
+          },
+          {
+            "handle": "@rewardsproapp",
+            "result": "'Profile isn't available' (same as a nonsense control)",
+            "method": "headless Chrome render",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note)",
+            "reliability": "medium: also covers restricted or deactivated accounts"
+          }
+        ],
+        "rules": "<=30; letters, digits, . and _ [S]"
+      },
+      "display_name": "RewardsPro",
+      "display_name_chars": 10,
+      "display_name_limit": {
+        "value": null,
+        "reliability": "U"
+      },
+      "bio_pre_g0": {
+        "bio": {
+          "id": "R0",
+          "text": "RewardsPro, an app for Shopify stores, made by Cambridge TCG Limited, London. We don't post here.",
+          "chars": 97,
+          "graphemes": 97,
+          "utf16_units": 97,
+          "utf8_bytes": 97,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        }
+      },
+      "bio_post_g0": {
+        "bio": {
+          "id": "R1",
+          "text": "RewardsPro, an app for Shopify stores, made by Cambridge TCG Limited, London. We don't post here. Updates and contact: rewardspro.io",
+          "chars": 132,
+          "graphemes": 132,
+          "utf16_units": 132,
+          "utf8_bytes": 132,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        }
+      },
+      "limits": {
+        "bio": {
+          "value": 150,
+          "reliability": "S (snippet of Instagram help)"
+        }
+      },
+      "website": {
+        "pre_g0": null,
+        "post_g0": "https://rewardspro.io/?utm_source=instagram&utm_medium=social&utm_campaign=profile",
+        "note": "Threads takes the Instagram name; check its bio matches."
+      },
+      "fields": {
+        "order": "first archive the 2 old posts (reversible) or deactivate the account; check any Threads profile for posts and archive or delete them; only then set the bio to R0 ('We don't post here.' is false while posts show)"
+      },
+      "avatar": {
+        "file": "apps/rewardspro/marketing/kit/social/avatar-1024.png",
+        "px": "1024x1024",
+        "bytes": 8884,
+        "opaque": true,
+        "made_by": "kit (#83), never edited here",
+        "same_as": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_avatar_tile_1024x1024_20261107_v01.png (same decoded pixels, sharp 2026-11-07; not byte-identical: the social copy, 8,710 bytes, has the kit file's PNG text chunks stripped)",
+        "use": "profile picture; Instagram crops to a circle"
+      },
+      "banner": null,
+      "pinned_post": {
+        "pre_g0": null,
+        "post_g0": null
+      },
+      "alt_text": {
+        "avatar": "The RewardsPro R mark, navy with a teal block, on a white square tile."
+      },
+      "source_urls": [
+        "https://www.instagram.com/rewardspro.io/"
+      ]
+    },
+    {
+      "platform": "TikTok",
+      "role": "skip (conditional: only if @rewardspro is the owner's)",
+      "stage_to_create": "never by default",
+      "handle": {
+        "value": "@rewardspro only if it is the owner's",
+        "fallbacks": [],
+        "availability": [
+          {
+            "handle": "@rewardspro",
+            "result": "exists (statusCode 0): created 2026-10-28, 0 videos, owner unknown",
+            "method": "GET tiktok.com/@h, embedded user-detail JSON; control @tiktok statusCode 0",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker)",
+            "reliability": "medium-high"
+          },
+          {
+            "handle": "@rewardsproapp",
+            "result": "statusCode 10221 (not found)",
+            "method": "same",
+            "checked": "2026-11-07T10:41/10:59Z (phase-1 platforms note); 2026-11-07T11:46Z (re-probe, profiles maker)",
+            "reliability": "medium-high"
+          }
+        ],
+        "rules": "letters, digits, _ and .; change once per 30 days [S]"
+      },
+      "display_name": "RewardsPro",
+      "display_name_chars": 10,
+      "display_name_limit": {
+        "value": null,
+        "reliability": "U"
+      },
+      "bio_pre_g0": {
+        "bio": {
+          "id": "TK0",
+          "text": "RewardsPro: an app for Shopify stores by Cambridge TCG Limited. No posts here.",
+          "chars": 78,
+          "graphemes": 78,
+          "utf16_units": 78,
+          "utf8_bytes": 78,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        }
+      },
+      "bio_post_g0": {
+        "bio": {
+          "id": "TK0",
+          "text": "RewardsPro: an app for Shopify stores by Cambridge TCG Limited. No posts here.",
+          "chars": 78,
+          "graphemes": 78,
+          "utf16_units": 78,
+          "utf8_bytes": 78,
+          "claim_ids": [
+            "rp-maker",
+            "rp-on-app-store"
+          ]
+        }
+      },
+      "limits": {
+        "bio": {
+          "value": 80,
+          "reliability": "U (80, or 160 in some reports); R0 at 97 would not fit 80, hence TK0"
+        }
+      },
+      "website": {
+        "pre_g0": null,
+        "post_g0": null,
+        "note": "Dormant; no link."
+      },
+      "fields": {},
+      "avatar": {
+        "file": "apps/rewardspro/marketing/kit/social/avatar-1024.png",
+        "px": "1024x1024",
+        "bytes": 8884,
+        "opaque": true,
+        "made_by": "kit (#83), never edited here",
+        "same_as": "apps/rewardspro/marketing/social/assets/png/rewardspro_social_avatar_tile_1024x1024_20261107_v01.png (same decoded pixels, sharp 2026-11-07; not byte-identical: the social copy, 8,710 bytes, has the kit file's PNG text chunks stripped)"
+      },
+      "banner": null,
+      "pinned_post": {
+        "pre_g0": null,
+        "post_g0": null
+      },
+      "alt_text": {
+        "avatar": "The RewardsPro R mark, navy with a teal block, on a white square tile."
+      },
+      "source_urls": [
+        "https://www.tiktok.com/@rewardspro"
+      ]
+    }
+  ],
+  "surfaces": [
+    {
+      "surface": "Shopify App Store listing",
+      "role": "primary (a surface, not social)",
+      "url": "https://apps.shopify.com/rewards-pro",
+      "profile_fields": "Developer website/social link fields: whether the listing form offers them is [U]. At S2 only: rewardspro.io (no UTM needed). Listing copy belongs to the listing pack, not this file."
+    },
+    {
+      "surface": "rewardspro.io",
+      "role": "primary (owned surface)",
+      "url": "https://rewardspro.io",
+      "profile_fields": "At S2, in the rewritten site (a landing PR; the owner merges and deploys): footer links to the LinkedIn Page and YouTube channel; JSON-LD sameAs listing LinkedIn, YouTube, X and Bluesky. Never GitHub, docs.rewardspro.io or KINGDOM sites."
+    }
+  ],
+  "texts": {
+    "R0": {
+      "set": "pre_g0",
+      "text": "RewardsPro, an app for Shopify stores, made by Cambridge TCG Limited, London. We don't post here.",
+      "chars": 97,
+      "graphemes": 97,
+      "utf16_units": 97,
+      "utf8_bytes": 97,
+      "shopify_mentions": 1,
+      "claim_ids": [
+        "rp-maker",
+        "rp-on-app-store"
+      ]
+    },
+    "T0": {
+      "set": "pre_g0",
+      "text": "An app for Shopify stores, made by Cambridge TCG Limited, London.",
+      "chars": 65,
+      "graphemes": 65,
+      "utf16_units": 65,
+      "utf8_bytes": 65,
+      "shopify_mentions": 1,
+      "claim_ids": [
+        "rp-maker",
+        "rp-on-app-store"
+      ]
+    },
+    "A0": {
+      "set": "pre_g0",
+      "text": "RewardsPro is an app for Shopify stores, listed on the Shopify App Store. It is made by Cambridge TCG Limited, a UK company in London. Nothing is posted here yet.",
+      "chars": 162,
+      "graphemes": 162,
+      "utf16_units": 162,
+      "utf8_bytes": 162,
+      "shopify_mentions": 2,
+      "claim_ids": [
+        "rp-maker",
+        "rp-on-app-store"
+      ]
+    },
+    "YT0": {
+      "set": "pre_g0",
+      "text": "RewardsPro's channel, run by Cambridge TCG Limited, London. RewardsPro is an app for Shopify stores. Nothing is posted here yet.",
+      "chars": 128,
+      "graphemes": 128,
+      "utf16_units": 128,
+      "utf8_bytes": 128,
+      "shopify_mentions": 1,
+      "claim_ids": [
+        "rp-maker",
+        "rp-on-app-store"
+      ]
+    },
+    "TK0": {
+      "set": "pre_g0",
+      "text": "RewardsPro: an app for Shopify stores by Cambridge TCG Limited. No posts here.",
+      "chars": 78,
+      "graphemes": 78,
+      "utf16_units": 78,
+      "utf8_bytes": 78,
+      "shopify_mentions": 1,
+      "claim_ids": [
+        "rp-maker",
+        "rp-on-app-store"
+      ]
+    },
+    "AI0": {
+      "set": "pre_g0",
+      "text": "The text on this page is drafted with AI help and checked by a person.",
+      "chars": 70,
+      "graphemes": 70,
+      "utf16_units": 70,
+      "utf8_bytes": 70,
+      "shopify_mentions": 0,
+      "claim_ids": [
+        "rp-ai-drafted-profile"
+      ],
+      "claim_ids_without_a_row": [
+        "rp-ai-drafted-profile"
+      ],
+      "needs": "optional; the owner's D5 and a claim row (rp-ai-drafted-profile). Appended to A0/A0c and YT0/YT0c if chosen"
+    },
+    "PU0": {
+      "set": "pre_g0",
+      "text": "It is built for rewarding loyal customers.",
+      "chars": 42,
+      "graphemes": 42,
+      "utf16_units": 42,
+      "utf8_bytes": 42,
+      "shopify_mentions": 0,
+      "claim_ids": [
+        "rp-purpose"
+      ],
+      "claim_ids_without_a_row": [
+        "rp-purpose"
+      ],
+      "needs": "optional; the owner's choice with the umbrella line (MESSAGING.md O1) and a claim row (rp-purpose, channel social-profile). Inserted after 'RewardsPro is an app for Shopify stores...' in A0/A0c, YT0/YT0c, L1/L1W and YT1 if chosen"
+    },
+    "R1": {
+      "set": "post_g0",
+      "text": "RewardsPro, an app for Shopify stores, made by Cambridge TCG Limited, London. We don't post here. Updates and contact: rewardspro.io",
+      "chars": 132,
+      "graphemes": 132,
+      "utf16_units": 132,
+      "utf8_bytes": 132,
+      "shopify_mentions": 1,
+      "claim_ids": [
+        "rp-maker",
+        "rp-on-app-store"
+      ]
+    },
+    "T1": {
+      "set": "post_g0",
+      "text": "Cashback as Shopify store credit, with VIP tiers. You fund the cashback.",
+      "chars": 72,
+      "graphemes": 72,
+      "utf16_units": 72,
+      "utf8_bytes": 72,
+      "shopify_mentions": 1,
+      "claim_ids": [
+        "rp-store-credit",
+        "rp-vip-tiers",
+        "rp-merchant-funds"
+      ]
+    },
+    "T1F": {
+      "set": "post_g0",
+      "text": "Cashback as Shopify store credit, with VIP tiers. Free app; you fund the cashback.",
+      "chars": 82,
+      "graphemes": 82,
+      "utf16_units": 82,
+      "utf8_bytes": 82,
+      "shopify_mentions": 1,
+      "claim_ids": [
+        "rp-store-credit",
+        "rp-vip-tiers",
+        "rp-free",
+        "rp-merchant-funds"
+      ],
+      "needs": "only if the owner picks it under D4, knowing the residual risk: a tagline is often seen alone, without Shopify's fee sentence (design README 'the total price, shown'; CAP 3.23-3.26)"
+    },
+    "L1": {
+      "set": "post_g0",
+      "text": "RewardsPro is an app for Shopify stores. With cashback switched on, it adds cashback to a customer's Shopify store credit when their order is paid, at their tier's rate. You set tiers by spend, counted over the last 12 months or all time, and customers move between tiers as their spend changes. A refund takes back its share of the cashback, from store credit the customer still holds.\n\nCashback is paid on the product price after discounts. Shipping, and anything paid with store credit or gift cards, earns nothing.\n\nCustomers spend store credit at checkout when signed in with Shopify's new customer accounts or with Shop Pay. Store credit isn't available for legacy customer accounts, and Shopify applies the full balance.\n\nRewardsPro is free, with no paid plans. You fund the cashback you give. For stores created on or after 12 May 2025, Shopify charges its own third-party transaction fee on the part of an order paid with store credit.\n\nWe post here rarely: when the app changes or when we can show how it works. Posts are drafted with AI help and checked by a person before we post them.\n\nMade by Cambridge TCG Limited, London. Questions: contact@rewardspro.io",
+      "chars": 1170,
+      "graphemes": 1170,
+      "utf16_units": 1170,
+      "utf8_bytes": 1170,
+      "shopify_mentions": 6,
+      "claim_ids": [
+        "rp-on-app-store",
+        "rp-paid-trigger",
+        "rp-store-credit",
+        "rp-vip-tiers",
+        "rp-tier-window",
+        "rp-refund-takeback",
+        "rp-cashback-base",
+        "sh-sc-signin-legacy",
+        "sh-sc-full",
+        "rp-free",
+        "rp-merchant-funds",
+        "sh-sc-fee",
+        "rp-post-cadence",
+        "rp-ai-drafted",
+        "rp-maker",
+        "rp-contact-delivers"
+      ],
+      "claim_ids_without_a_row": [
+        "rp-post-cadence"
+      ],
+      "needs": "D8 widened to PPA 5.3 vs Part C s.3: whether paragraphs 3 and 4 (Shopify's store-credit rules, its fee, Shop Pay) count as notifying compatibility"
+    },
+    "L1W": {
+      "set": "post_g0",
+      "text": "RewardsPro is an app for Shopify stores. With cashback switched on, it adds cashback to a customer's Shopify store credit when their order is paid, at their tier's rate. You set tiers by spend, counted over the last 12 months or all time, and customers move between tiers as their spend changes. A refund takes back its share of the cashback, from store credit the customer still holds.\n\nCashback is paid on the product price after discounts. Shipping, and anything paid with store credit or gift cards, earns nothing.\n\nCustomers spend store credit at checkout when signed in with Shopify's new customer accounts or with Shop Pay. Store credit isn't available for legacy customer accounts, and Shopify applies the full balance.\n\nRewardsPro is free, with no paid plans. You fund the cashback you give. For stores created on or after 12 May 2025, Shopify charges its own third-party transaction fee on the part of an order paid with store credit.\n\nA widget you turn on in your theme editor shows signed-in customers their tier, cashback rate, store credit and progress; guests see your base rate and a sign-in prompt.\n\nWe post here rarely: when the app changes or when we can show how it works. Posts are drafted with AI help and checked by a person before we post them.\n\nMade by Cambridge TCG Limited, London. Questions: contact@rewardspro.io",
+      "chars": 1341,
+      "graphemes": 1341,
+      "utf16_units": 1341,
+      "utf8_bytes": 1341,
+      "shopify_mentions": 6,
+      "claim_ids": [
+        "rp-on-app-store",
+        "rp-paid-trigger",
+        "rp-store-credit",
+        "rp-vip-tiers",
+        "rp-tier-window",
+        "rp-refund-takeback",
+        "rp-cashback-base",
+        "sh-sc-signin-legacy",
+        "sh-sc-full",
+        "rp-free",
+        "rp-merchant-funds",
+        "sh-sc-fee",
+        "rp-widget",
+        "rp-post-cadence",
+        "rp-ai-drafted",
+        "rp-maker",
+        "rp-contact-delivers"
+      ],
+      "claim_ids_without_a_row": [
+        "rp-post-cadence"
+      ],
+      "needs": "rp-widget verified (B3 plus gate C at 390 px, light and dark); and D8 widened to PPA 5.3 vs Part C s.3: whether paragraphs 3 and 4 (Shopify's store-credit rules, its fee, Shop Pay) count as notifying compatibility"
+    },
+    "YT1": {
+      "set": "post_g0",
+      "text": "RewardsPro is an app for Shopify stores, made by Cambridge TCG Limited, London. With cashback switched on, it adds cashback to a customer's Shopify store credit when their order is paid, at their tier's rate. A refund takes back its share of the cashback, from store credit the customer still holds. Video titles, descriptions and captions here are drafted with AI help and checked by a person before we post them. Questions: contact@rewardspro.io",
+      "chars": 447,
+      "graphemes": 447,
+      "utf16_units": 447,
+      "utf8_bytes": 447,
+      "shopify_mentions": 2,
+      "claim_ids": [
+        "rp-on-app-store",
+        "rp-maker",
+        "rp-paid-trigger",
+        "rp-store-credit",
+        "rp-vip-tiers",
+        "rp-refund-takeback",
+        "rp-ai-drafted-video",
+        "rp-contact-delivers"
+      ],
+      "claim_ids_without_a_row": [
+        "rp-ai-drafted-video"
+      ]
+    },
+    "MK1": {
+      "set": "post_g0",
+      "text": "Cambridge TCG Limited also sells trading cards.",
+      "chars": 47,
+      "graphemes": 47,
+      "utf16_units": 47,
+      "utf8_bytes": 47,
+      "shopify_mentions": 0,
+      "claim_ids": [
+        "rp-maker-also-sells"
+      ],
+      "claim_ids_without_a_row": [
+        "rp-maker-also-sells"
+      ],
+      "needs": "optional; the owner's decision on design README:117 ('who makes it, and what else they sell, disclosed') vs STRATEGY §5 H4 ('then never say it'). Joins the maker line of L1/L1W and YT1 if chosen; at the latest before any outreach to card shops (D10)"
+    },
+    "A0c": {
+      "set": "pre_g0",
+      "text": "RewardsPro is an app for Shopify stores, listed on the Shopify App Store. It is made by Cambridge TCG Limited, a UK company in London. Nothing is posted here yet. Questions: contact@rewardspro.io",
+      "chars": 195,
+      "graphemes": 195,
+      "utf16_units": 195,
+      "utf8_bytes": 195,
+      "shopify_mentions": 2,
+      "claim_ids": [
+        "rp-maker",
+        "rp-on-app-store",
+        "rp-contact-delivers"
+      ],
+      "needs": "the owner's outside-address test, recorded as evidence on rp-contact-delivers, and that row verified with a second session (STRATEGY §3.2, §13 step 10)"
+    },
+    "YT0c": {
+      "set": "pre_g0",
+      "text": "RewardsPro's channel, run by Cambridge TCG Limited, London. RewardsPro is an app for Shopify stores. Nothing is posted here yet. Questions: contact@rewardspro.io",
+      "chars": 161,
+      "graphemes": 161,
+      "utf16_units": 161,
+      "utf8_bytes": 161,
+      "shopify_mentions": 1,
+      "claim_ids": [
+        "rp-maker",
+        "rp-on-app-store",
+        "rp-contact-delivers"
+      ],
+      "needs": "the owner's outside-address test, recorded as evidence on rp-contact-delivers, and that row verified with a second session (STRATEGY §3.2, §13 step 10)"
+    }
+  },
+  "lint": {
+    "checked": "2026-11-07",
+    "rules": "banned spellings; STRATEGY §4 avoid and never-say words, plus 'reserved' and 'not otherwise'; '!', emoji, hashtags, non-ASCII; free-pair and fee rule; contact@ needs rp-contact-delivers; no first person; paid-order and refund sentences keep their limits; forbidden links; handle, UTM and link-title words",
+    "problems": []
+  }
+}
