@@ -55,7 +55,7 @@ const BOUND_TOPICS: Record<string, { domain: string; shaped: (payload: Payload) 
 };
 
 /** A header value or field name fit for a log line: anything but letters, digits, `_./-` becomes "?". */
-const safe = (value: string | null) => (value ?? "?").slice(0, 100).replace(/[^\w./-]/g, "?");
+const safe = (value: string | null) => (value || "?").slice(0, 100).replace(/[^\w./-]/g, "?");
 
 /** The body's field names (never their values), for a refusal's log line. */
 const fieldsOf = (payload: Payload) => `(body fields: ${Object.keys(payload).sort().slice(0, 20).map(safe).join(", ")})`;

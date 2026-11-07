@@ -211,6 +211,24 @@ describe("a refused delivery says why, without its values", () => {
     ]);
   });
 
+  it("names every other refusal", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(verifyShopifyWebhook(delivery({ method: "GET" }))).resolves.toBeNull();
+    await expect(verifyShopifyWebhook(delivery({ body: "", headers: { "X-Shopify-Hmac-Sha256": sign("") } }))).resolves.toBeNull();
+    const body = JSON.stringify(UNINSTALLED);
+    await expect(verifyShopifyWebhook(delivery({ body, headers: { "X-Shopify-Shop-Domain": "shop.example.com" } }))).resolves.toBeNull();
+    await expect(as("shop/redact", [SHOP_REDACT])).resolves.toBeNull();
+    delete process.env.SHOPIFY_API_SECRET;
+    await expect(verifyShopifyWebhook(delivery())).resolves.toBeNull();
+    expect(warned()).toEqual([
+      `[webhook] refused app/uninstalled from ${SHOP}: it isn't a POST`,
+      `[webhook] refused app/uninstalled from ${SHOP}: the body is empty`,
+      "[webhook] refused app/uninstalled from shop.example.com: the shop header isn't a myshopify.com domain",
+      `[webhook] refused shop/redact from ${SHOP}: the body isn't a JSON object`,
+      `[webhook] refused app/uninstalled from ${SHOP}: the app's secret isn't set`,
+    ]);
+  });
+
   it("logs header values only in a safe shape", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(verifyShopifyWebhook(delivery({ headers: { "X-Shopify-Topic": "forged line <x> [y]", "X-Shopify-Hmac-Sha256": "bad" } }))).resolves.toBeNull();
