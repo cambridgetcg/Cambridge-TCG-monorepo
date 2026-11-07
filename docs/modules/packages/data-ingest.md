@@ -12,7 +12,7 @@ Describe source adapters, their rights/activation boundaries and normalization i
 
 ## Progress
 
-Source review recorded **2026-09-28**. The existing SOURCES registry distinguishes partial, blocked and reserved adapters. Several sources are explicitly blocked; this map does not override that registry. 2026-09-29: member-price observation types and positive native-decimal validation reuse data-spec, preserving existing adapter imports and source/use policies. Cardmarket numeric/foil and Scryfall USD/EUR parser fixtures also exercise the shared normalized-value boundary; raw numeric source inputs still become decimal strings before storage.
+Source review recorded **2026-09-28**. The existing SOURCES registry distinguishes partial, blocked and reserved adapters. Several sources are explicitly blocked; this map does not override that registry. 2026-09-29: member-price observation types and positive native-decimal validation reuse data-spec, preserving existing adapter imports and source/use policies. Cardmarket numeric/foil and Scryfall USD/EUR parser fixtures also exercise the shared normalized-value boundary; raw numeric source inputs still become decimal strings before storage. 2026-10-28: CardRush and TCGplayer get member-display-only policies under their own evidence versions, and every policy names its own derivation evidence (Scryfall none); the legacy CardRush and TCGplayer readers stay locked. Later on 2026-10-28: the CardRush page collector (cardrush/member-prices.ts) is evidence-gated, uses an identified User-Agent at 0.5 rps per host, reads robots.txt first, keeps the structured price only (no first-yen fallback) and writes One Piece title crosswalks; the CardRush meta is partial with page_collector freshness, and its legacy paths stay locked. The TCGplayer price-guide collector (tcgplayer/member-prices.ts) reads the data TCGplayer's public price-guide page loads, one request per 10 s across its hosts, for One Piece and Pokemon Japan; its fetcher is the only live TCGplayer path, and the OAuth reader stays locked. The Cardmarket meta describes the daily One Piece collector, which runs only while DATA_COLLECT_CARDMARKET is on, with daily_file freshness; the legacy OAuth reader stays locked. CardRush and TCGplayer test fixtures carry synthetic prices.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -28,6 +28,13 @@ This records source and documentation evidence. It does not establish deployment
 - [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
 - [docs/plans/tcg-data-platform/README.md](../../plans/tcg-data-platform/README.md)
 - [packages/data-ingest/src/__tests__/member-prices.test.ts](../../../packages/data-ingest/src/__tests__/member-prices.test.ts)
+- [packages/data-ingest/src/cardrush/member-prices.ts](../../../packages/data-ingest/src/cardrush/member-prices.ts)
+- [packages/data-ingest/src/cardrush/__tests__/member-prices.test.ts](../../../packages/data-ingest/src/cardrush/__tests__/member-prices.test.ts)
+- [packages/data-ingest/src/cardrush/__tests__/fixtures](../../../packages/data-ingest/src/cardrush/__tests__/fixtures)
+- [packages/data-ingest/src/tcgplayer/member-prices.ts](../../../packages/data-ingest/src/tcgplayer/member-prices.ts)
+- [packages/data-ingest/src/tcgplayer/__tests__/member-prices.test.ts](../../../packages/data-ingest/src/tcgplayer/__tests__/member-prices.test.ts)
+- [packages/data-ingest/src/cardmarket/index.ts](../../../packages/data-ingest/src/cardmarket/index.ts)
+- [docs/methodology/source-intake.md](../../methodology/source-intake.md)
 
 ## Declared package relationships
 

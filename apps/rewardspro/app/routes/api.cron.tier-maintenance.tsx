@@ -1,11 +1,14 @@
 /**
  * Daily cron job for tier maintenance tasks
  * - Process membership expirations
- * - Evaluate tier downgrades with grace periods
- * - Send tier change notifications
+ * - Warn shoppers before a membership runs out
+ * - Repair Customer / CustomerTierState tier mismatches
  *
- * Should run daily at midnight UTC
- * Add to vercel.json: { "path": "/api/cron/tier-maintenance", "schedule": "0 0 * * *" }
+ * It doesn't downgrade customers who stopped ordering: spending-based tiers
+ * change on orders and in tier-recalculation, which is on unless a shop
+ * turns it off.
+ *
+ * Runs daily at 01:00 UTC (vercel.json: "0 1 * * *")
  *
  * IMPORTANT: Uses distributed locking to prevent concurrent execution
  * across multiple Vercel regions.
@@ -22,16 +25,13 @@ import {
 } from "../services/email-notifications.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
-
-// Configuration
-const DOWNGRADE_GRACE_PERIOD_DAYS = 30;
-const DOWNGRADE_WARNING_DAYS = 7;
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
 // Tier purchase expiration warning configuration
 const EXPIRATION_WARNING_DAYS = [7, 1]; // Send warnings at 7 days and 1 day before expiry
 
 // Use loader for GET requests (Vercel sends GET, not POST)
-export async function loader({ request }: LoaderFunctionArgs) {
+export const loader = monitoredCron("tier-maintenance", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -82,11 +82,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const results = {
     expiredMemberships: 0,
     expirationWarnings: 0,
-    downgradeWarnings: 0,
-    downgrades: 0,
     errors: 0,
     details: [] as any[]
   };
+  // The first thing that failed, for the cron monitor
+  let firstProblem: unknown;
 
   try {
     // 3. Process expired subscriptions
@@ -119,10 +119,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
           });
 
           // Recalculate effective tier using resolver
-          await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
+          const resolved = await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
             triggeredBy: 'subscription_expired',
             subscriptionId: subscription.id
           });
+          if (!resolved.success) {
+            // Leave it as it was, so the next run tries again
+            await prisma.tierSubscription.update({
+              where: { id: subscription.id },
+              data: { status: 'ACTIVE', endDate: subscription.endDate }
+            });
+            throw new Error(`Could not re-resolve the tier: ${resolved.error ?? 'unknown error'}`);
+          }
         }
 
         results.expiredMemberships++;
@@ -137,6 +145,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       } catch (error: any) {
         log('error', `Failed to process subscription ${subscription.id}`, { error: error.message });
         results.errors++;
+        firstProblem ??= error;
       }
     }
 
@@ -159,6 +168,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     for (const purchase of expiredPurchases) {
       try {
+        let newTierId: string | null = null;
         if (!isDryRun) {
           // Mark as expired
           await prisma.tierPurchase.update({
@@ -167,10 +177,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
           });
 
           // Recalculate effective tier using resolver
-          await updateCustomerToEffectiveTier(purchase.shop, purchase.customerId, {
+          const resolved = await updateCustomerToEffectiveTier(purchase.shop, purchase.customerId, {
             triggeredBy: 'purchase_expired',
             purchaseId: purchase.id
           });
+          if (!resolved.success) {
+            // Leave it ACTIVE, so the next run tries again and no email goes out
+            await prisma.tierPurchase.update({
+              where: { id: purchase.id },
+              data: { status: 'ACTIVE' }
+            });
+            throw new Error(`Could not re-resolve the tier: ${resolved.error ?? 'unknown error'}`);
+          }
+          newTierId = resolved.newTierId;
         }
 
         results.expiredMemberships++;
@@ -183,15 +202,21 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
         log('info', `Processed expired purchase for customer ${purchase.customerId}`);
 
-        // Send expiration notification email
-        if (!isDryRun && purchase.customer?.email) {
+        // Send expiration notification email, unless the shopper keeps the
+        // tier (they renewed, or a manual tier or their spending holds it)
+        if (!isDryRun && purchase.customer?.email && newTierId !== null && newTierId === purchase.tierId) {
+          log('info', `Customer ${purchase.customerId} keeps the tier, so no membership-ended email`);
+        } else if (!isDryRun && purchase.customer?.email) {
           try {
+            const newTier = newTierId
+              ? await prisma.tier.findFirst({ where: { id: newTierId, shop: purchase.shop }, select: { name: true } })
+              : null;
             await sendTierExpiredEmail(purchase.shop, {
               customerId: purchase.customerId,
               email: purchase.customer.email,
               firstName: purchase.customer.firstName,
               expiredTierName: purchase.tier?.name || 'Premium',
-              newTierName: null, // Will be resolved by tier resolution
+              newTierName: newTier?.name ?? null,
             });
           } catch (emailError: any) {
             log('warn', `Failed to send expiration email for ${purchase.customerId}`, { error: emailError.message });
@@ -200,6 +225,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       } catch (error: any) {
         log('error', `Failed to process purchase ${purchase.id}`, { error: error.message });
         results.errors++;
+        firstProblem ??= error;
       }
     }
 
@@ -249,8 +275,30 @@ export async function loader({ request }: LoaderFunctionArgs) {
           });
 
           if (existingWarning) {
-            log('info', `Already sent ${warningDays}-day warning to ${purchase.customer?.email}, skipping`);
+            log('info', `Already sent ${warningDays}-day warning to customer ${purchase.customerId}, skipping`);
             continue;
+          }
+
+          // Nothing is ending for a shopper who renewed, or who holds the same
+          // or a higher tier through another membership that ends later or never
+          if (purchase.tier) {
+            const lastsLonger = {
+              shop: purchase.shop,
+              customerId: purchase.customerId,
+              status: 'ACTIVE' as const,
+              tier: { is: { minSpend: { gte: purchase.tier.minSpend } } },
+              OR: [{ endDate: null }, { endDate: { gt: purchase.endDate! } }],
+            };
+            const continues =
+              (await prisma.tierPurchase.findFirst({
+                where: { ...lastsLonger, id: { not: purchase.id } },
+                select: { id: true }
+              })) ??
+              (await prisma.tierSubscription.findFirst({ where: lastsLonger, select: { id: true } }));
+            if (continues) {
+              log('info', `Customer ${purchase.customerId} has a membership that lasts longer, skipping the ${warningDays}-day warning`);
+              continue;
+            }
           }
 
           if (!isDryRun && purchase.customer?.email && purchase.tier) {
@@ -295,7 +343,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
                 shop: purchase.shop
               });
 
-              log('info', `Sent ${warningDays}-day expiration warning to ${purchase.customer.email}`);
+              log('info', `Sent ${warningDays}-day expiration warning to customer ${purchase.customerId}`);
             }
           } else if (isDryRun && purchase.customer?.email) {
             results.expirationWarnings++;
@@ -311,142 +359,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
         } catch (error: any) {
           log('error', `Failed to send expiration warning for purchase ${purchase.id}`, { error: error.message });
           results.errors++;
+          firstProblem ??= error;
         }
-      }
-    }
-
-    // 5. Evaluate earned tier downgrades (with grace period)
-    const gracePeriodDate = new Date();
-    gracePeriodDate.setDate(gracePeriodDate.getDate() - DOWNGRADE_GRACE_PERIOD_DAYS);
-
-    // Find customers who haven't made a purchase recently and might need downgrading
-    const inactiveCustomers = await prisma.customer.findMany({
-      where: {
-        currentTierId: { not: null },
-        // No active purchased tiers
-        currentSubscriptionId: null,
-        // Haven't ordered in grace period
-        lastOrderDate: { lt: gracePeriodDate }
-      },
-      include: {
-        currentTier: true
-      }
-    });
-
-    log('info', `Found ${inactiveCustomers.length} potentially inactive customers to evaluate`);
-
-    for (const customer of inactiveCustomers) {
-      try {
-        // Check if they still qualify for their current tier based on spending
-        const earnedTier = await prisma.tier.findFirst({
-          where: {
-            shop: customer.shop,
-            minSpend: { lte: customer.netSpent.toNumber() }
-          },
-          orderBy: { minSpend: 'desc' }
-        });
-
-        const shouldDowngrade = !earnedTier || earnedTier.id !== customer.currentTierId;
-
-        if (shouldDowngrade) {
-          // Check if we've already warned them
-          const recentWarning = await prisma.tierChangeLog.findFirst({
-            where: {
-              customerId: customer.id,
-              metadata: {
-                path: ['warningType'],
-                equals: 'DOWNGRADE_WARNING'
-              },
-              createdAt: {
-                gte: new Date(Date.now() - DOWNGRADE_WARNING_DAYS * 24 * 60 * 60 * 1000)
-              }
-            }
-          });
-
-          if (!recentWarning) {
-            // Send warning
-            if (!isDryRun) {
-              await prisma.tierChangeLog.create({
-                data: {
-                  id: crypto.randomUUID(),
-                  customerId: customer.id,
-                  shop: customer.shop,
-                  fromTierId: customer.currentTierId,
-                  fromTierName: customer.currentTier?.name,
-                  toTierId: earnedTier?.id,
-                  toTierName: earnedTier?.name,
-                  changeType: 'DOWNGRADE',
-                  triggerType: 'PERIODIC_REVIEW',
-                  totalSpending: customer.totalSpent,
-                  periodSpending: customer.netSpent,
-                  metadata: {
-                    warningType: 'DOWNGRADE_WARNING',
-                    scheduledDate: new Date(Date.now() + DOWNGRADE_WARNING_DAYS * 24 * 60 * 60 * 1000),
-                    reason: 'Inactive for grace period'
-                  },
-                  createdAt: new Date()
-                }
-              });
-
-              // TODO: Send warning email
-              // await sendDowngradeWarningEmail(customer, earnedTier);
-            }
-
-            results.downgradeWarnings++;
-            results.details.push({
-              type: 'downgrade_warning',
-              customerId: customer.id,
-              fromTier: customer.currentTier?.name,
-              toTier: earnedTier?.name,
-              shop: customer.shop
-            });
-          } else {
-            // Warning was sent, check if it's time to downgrade
-            const warningDate = new Date(recentWarning.createdAt);
-            const daysSinceWarning = Math.floor(
-              (Date.now() - warningDate.getTime()) / (24 * 60 * 60 * 1000)
-            );
-
-            if (daysSinceWarning >= DOWNGRADE_WARNING_DAYS) {
-              // Execute downgrade using tier resolution system
-              // This respects priority: Manual Override > Subscription > Purchase > Spending-based
-              if (!isDryRun) {
-                const result = await updateCustomerToEffectiveTier(customer.shop, customer.id, {
-                  triggeredBy: 'periodic_maintenance_downgrade'
-                });
-
-                // Only count as downgrade if tier actually changed
-                if (result.changed) {
-                  results.downgrades++;
-                  results.details.push({
-                    type: 'downgrade_executed',
-                    customerId: customer.id,
-                    fromTier: customer.currentTier?.name,
-                    toTier: result.newTierId ? 'resolved by system' : null,
-                    source: result.source,
-                    shop: customer.shop
-                  });
-                }
-
-                // TODO: Send downgrade notification email
-                // await sendDowngradeEmail(customer, earnedTier);
-              } else {
-                // Dry run - just record what would happen
-                results.downgrades++;
-                results.details.push({
-                  type: 'downgrade_executed',
-                  customerId: customer.id,
-                  fromTier: customer.currentTier?.name,
-                  toTier: earnedTier?.name,
-                  shop: customer.shop
-                });
-              }
-            }
-          }
-        }
-      } catch (error: any) {
-        log('error', `Failed to evaluate customer ${customer.id}`, { error: error.message });
-        results.errors++;
       }
     }
 
@@ -454,11 +368,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // This detects when the two sources of truth have gotten out of sync
     let consistencyRepairs = 0;
     try {
+      // Newest mismatches first, so a few that keep failing can't hide the rest
       const desyncedCustomers = await prisma.$queryRaw`
         SELECT c.id, c.shop, c."currentTierId", cts."effectiveTierId"
         FROM "Customer" c
         JOIN "CustomerTierState" cts ON c.id = cts."customerId"
         WHERE c."currentTierId" IS DISTINCT FROM cts."effectiveTierId"
+        ORDER BY c."updatedAt" DESC, c.id
         LIMIT 100
       ` as Array<{ id: string; shop: string; currentTierId: string | null; effectiveTierId: string | null }>;
 
@@ -469,13 +385,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
           // Auto-repair by re-resolving each customer's tier
           for (const customer of desyncedCustomers) {
             try {
-              await updateCustomerToEffectiveTier(customer.shop, customer.id, {
+              const repaired = await updateCustomerToEffectiveTier(customer.shop, customer.id, {
                 triggeredBy: 'consistency_repair'
               });
-              consistencyRepairs++;
+              if (repaired.success) {
+                consistencyRepairs++;
+              } else {
+                log('error', `Failed to repair customer ${customer.id}`, { error: repaired.error });
+                results.errors++;
+                firstProblem ??= new Error(`Failed to repair customer ${customer.id}: ${repaired.error ?? 'unknown error'}`);
+              }
             } catch (error: any) {
               log('error', `Failed to repair customer ${customer.id}`, { error: error.message });
               results.errors++;
+              firstProblem ??= error;
             }
           }
 
@@ -492,8 +415,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const summary = {
       expiredMemberships: results.expiredMemberships,
       expirationWarnings: results.expirationWarnings,
-      downgradeWarnings: results.downgradeWarnings,
-      downgrades: results.downgrades,
       consistencyRepairs,
       errorCount: results.errors,
       duration: Date.now() - startTime,
@@ -502,24 +423,29 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     log('info', 'Tier maintenance job completed', summary);
 
-    // 7. Send alert if there were errors
+    // 7. Send alert if there were errors (only when SLACK_WEBHOOK_URL is set)
     if (results.errors > 0 && process.env.SLACK_WEBHOOK_URL) {
       await sendAlert(`⚠️ Tier maintenance had ${results.errors} errors`);
     }
 
+    // A membership that couldn't be ended, a warning that failed or a repair
+    // that didn't work makes this a failed run, so the cron monitor and the
+    // logs show it as one
+    if (results.errors > 0) cronFailed(request, firstProblem);
     return json({
-      success: true,
+      success: results.errors === 0,
       correlationId,
       summary
-    });
+    }, { status: results.errors > 0 ? 500 : 200 });
 
   } catch (error: any) {
     log('error', 'Tier maintenance job failed', { error: error.message });
+    cronFailed(request, error);
     return json({
       success: false,
       correlationId,
       error: "Tier maintenance failed"
-    });
+    }, { status: 500 });
   } finally {
     // Always release the lock when done, even if there was an error
     if (lock.lockId) {
@@ -527,7 +453,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('info', 'Released distributed lock');
     }
   }
-}
+});
 
 // Helper function to send alerts
 async function sendAlert(message: string) {

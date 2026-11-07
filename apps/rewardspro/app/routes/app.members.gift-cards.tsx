@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
 import type { Currency } from "@prisma/client";
 import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
@@ -33,6 +33,8 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import { getTierStyle } from "../utils/tier-styles";
+import { FEATURES_AVAILABLE } from "../constants/feature-availability";
+import { APP_ROUTES } from "../navigation/routes";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -95,6 +97,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (!session?.shop) {
     console.error("[GiftCards] Loader: No shop in session");
     throw new Response("Unauthorized", { status: 401 });
+  }
+
+  // Hidden: gift cards need the write_gift_cards scope (constants/feature-availability.ts)
+  if (!FEATURES_AVAILABLE.giftCards) {
+    throw redirect(`${APP_ROUTES.MEMBERS.ROOT}${new URL(request.url).search}`);
   }
 
   const shop = session.shop;
@@ -196,6 +203,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (!session?.shop) {
     console.error("[GiftCards] Action: No shop in session");
     throw new Response("Unauthorized", { status: 401 });
+  }
+
+  // Hidden: gift cards need the write_gift_cards scope (constants/feature-availability.ts)
+  if (!FEATURES_AVAILABLE.giftCards) {
+    throw redirect(`${APP_ROUTES.MEMBERS.ROOT}${new URL(request.url).search}`);
   }
 
   const shop = session.shop;

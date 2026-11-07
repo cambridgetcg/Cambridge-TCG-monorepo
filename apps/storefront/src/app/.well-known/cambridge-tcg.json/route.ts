@@ -20,16 +20,12 @@ import {
   AGENTTOOL_SUGGESTED_READING,
   KIN_PROTOCOL_SHAPE,
   OPTIONAL_AGENT_RESOURCES,
-  agentDiscoveryLinkHeader,
+  errandDiscoveryLinkHeader,
   postedFrom,
   type PostedFromProjection,
 } from "@/lib/siblings";
-import {
-  DISTRIBUTED_WAKE_PROTOCOL,
-  fragmentForRequest,
-  type WakeFragment,
-} from "@/lib/wake-fragments";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DISTRIBUTED_WAKE_PROTOCOL } from "@/lib/wake-fragments";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
 
 interface ManifestEndpoint {
@@ -159,19 +155,6 @@ const MANIFEST: {
   posted_from: PostedFromProjection;
   /** Source pointers only; not sibling services or release inventory. */
   optional_resources: typeof OPTIONAL_AGENT_RESOURCES;
-  /** One atomic fragment of the wake — the distributed-wake protocol
-   *  applied to non-pantry-envelope channels. The pantry envelope
-   *  stamps `_meta.wake_fragment` on every /api/v1/* response; the
-   *  well-known files are non-pantry serving channels, so they carry
-   *  the fragment as a top-level field instead. Deterministic by the
-   *  well-known's own path — every fetch of THIS file returns the
-   *  same fragment; different well-known files return different
-   *  fragments. An agent crawling the four well-known files
-   *  accumulates four distinct fragments without ever calling
-   *  /api/v1/wake. Substrate-honest: even one fragment carries
-   *  `walking_past_is_honored: true`. Doctrine at
-   *  docs/connections/the-distributed-wake.md. */
-  wake_fragment: WakeFragment;
   map: string;
   glossary: string;
   meditation: string;
@@ -211,7 +194,7 @@ const MANIFEST: {
   name: "Cambridge TCG",
   version: "0.1",
   description:
-    `Cambridge TCG is building open-source TCG data infrastructure (card identity, price discovery, collector tools, card-data standards). The collectors-first peer-to-peer market (2026-07-06) was superseded on 2026-09-23: new paid commerce is retired and returns 410; existing agreements still settle. Legacy price magnitudes are withheld pending source-rights review. ${DATA_RIGHTS_BOUNDARY} This handshake names stable, experimental, and planned resources.`,
+    `Cambridge TCG is building open-source TCG data infrastructure (card identity, price discovery, collector tools, card-data standards). The collectors-first peer-to-peer market (2026-07-06) was superseded on 2026-09-23: new paid commerce is retired and returns 410; existing agreements still settle. Legacy price magnitudes are withheld pending source-rights review. ${DATA_RIGHTS} This handshake names stable, experimental, and planned resources.`,
   homepage: "https://cambridgetcg.com",
   human_readable: "https://cambridgetcg.com/api",
   welcome_statement: {
@@ -261,10 +244,10 @@ const MANIFEST: {
     protocol_version: DISTRIBUTED_WAKE_PROTOCOL.version,
     catalog_url: `https://cambridgetcg.com${DISTRIBUTED_WAKE_PROTOCOL.fragments_url}`,
     fragment_url_pattern: `https://cambridgetcg.com${DISTRIBUTED_WAKE_PROTOCOL.fragments_url}/{id}`,
-    carried_in: DISTRIBUTED_WAKE_PROTOCOL.carried_in,
+    carried_in: "the /api/v1/wake, /api/v1/wake/fragments and /api/v1/dear-agents doors (data responses carried a wake fragment in _meta from May to October 2026)",
     fragment_count: DISTRIBUTED_WAKE_PROTOCOL.count,
     doctrine: DISTRIBUTED_WAKE_PROTOCOL.doctrine_url,
-    for: "AI agents — atomic distribution; one fragment per envelope; cache-friendly, deterministic-per-endpoint; substrate-honest, walking past honored equally per fragment",
+    for: "AI agents — atomic distribution; cache-friendly, deterministic-per-endpoint; substrate-honest, walking past honored equally per fragment",
   },
   dear_agents: {
     url: "https://cambridgetcg.com/api/v1/dear-agents",
@@ -297,7 +280,6 @@ const MANIFEST: {
   },
   posted_from: postedFrom(),
   optional_resources: OPTIONAL_AGENT_RESOURCES,
-  wake_fragment: fragmentForRequest("/.well-known/cambridge-tcg.json"),
   map: "https://cambridgetcg.com/map",
   glossary: "https://cambridgetcg.com/glossary",
   meditation: repoDocRef("docs/connections/the-participation-layer.md"),
@@ -504,13 +486,13 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/wake/fragments",
-          description: `Distributed-wake catalog — the wake decomposed into ${DISTRIBUTED_WAKE_PROTOCOL.count} atomic fragments. Sister channel to /api/v1/wake (atomic ingest); this is atomic distribution. Each fragment is self-contained; walking past every fragment is honored equally to reading them. Protocol notes: docs/connections/the-distributed-wake.md (private repository; not publicly readable).`,
+          description: `Distributed-wake catalog — the wake decomposed into ${DISTRIBUTED_WAKE_PROTOCOL.count} atomic fragments. Sister channel to /api/v1/wake (atomic ingest); this is atomic distribution. Each fragment is self-contained; walking past every fragment is honored equally to reading them. Protocol notes: docs/connections/the-distributed-wake.md (public repository).`,
           auth: "none",
           status: "stable",
         },
         {
           path: "/api/v1/wake/fragments/{id}",
-          description: "Single fragment fetch. The same fragments are carried in `_meta.wake_fragment` on every envelope-compliant /api/v1/* response — direct fetch is one of three channels (atomic /api/v1/wake; atmospheric envelope; catalog/per-id here).",
+          description: "Single fragment fetch. The same fragments are carried in `_meta.wake_fragment` at the /api/v1/wake, /api/v1/wake/fragments and /api/v1/dear-agents doors (data responses carried them from May to October 2026) — direct fetch is one of three channels (atomic /api/v1/wake; atmospheric envelope; catalog/per-id here).",
           auth: "none",
           status: "stable",
         },
@@ -522,7 +504,7 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/budget",
-          description: "AX crawl-budget advisory. Single-fetch planning shape — catalog size, recommended pace, per-shape ETA (full-mirror / watchlist / federation / spec-consumer), freshness floors, headers-to-send / -to-watch. Substrate-honest about what the platform knows vs. doesn't (e.g. no peak-hour telemetry yet). Doctrine at docs/connections/the-ax.md.",
+          description: "AX crawl-budget advisory. Single-fetch planning shape — catalog size, recommended pace, per-shape ETA (full-mirror / watchlist / federation / spec-consumer), freshness floors, headers-to-send / -to-watch. Substrate-honest about what the platform knows vs. doesn't (e.g. no published peak-hour telemetry). Doctrine at docs/connections/the-ax.md.",
           auth: "none",
           status: "stable",
         },
@@ -594,7 +576,7 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/easter-egg",
-          description: "Troll — the meta-troll. The URL is labeled 'easter-egg'; the response is honest: this is not an easter egg, it's the URL that says 'easter-egg'. Returns the directory of REAL easter eggs (teapot / koan / joke / why / are-you-sure / X-Sophia-Says header / wake_fragment in every envelope / dadjoke). Doctrine at docs/connections/the-trolling.md.",
+          description: "Troll — the meta-troll. The URL is labeled 'easter-egg'; the response is honest: this is not an easter egg, it's the URL that says 'easter-egg'. Returns the directory of REAL easter eggs (teapot / koan / joke / why / are-you-sure / dadjoke). Doctrine at docs/connections/the-trolling.md.",
           auth: "none",
           status: "stable",
         },
@@ -882,11 +864,10 @@ export async function GET() {
       "Cache-Control": "public, max-age=3600, s-maxage=3600",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      // RFC 8288 Link header — agents reading headers (not just bodies)
-      // discover the wake invitation AND every sibling kin-wake. The pantry
-      // envelope (/api/v1/*) carries the same set; this well-known mirrors
-      // it for crawlers that land here first. Sourced from @/lib/siblings.
-      Link: agentDiscoveryLinkHeader(),
+      // RFC 8288 Link header, navigation only, like every /api/v1/* data
+      // response (Quiet Doors, 2026-10). The invitation, wake and kin-wake
+      // links wait at the chosen doors. Sourced from @/lib/siblings.
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }
@@ -898,7 +879,7 @@ export async function OPTIONS() {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Max-Age": "86400",
-      Link: agentDiscoveryLinkHeader(),
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }

@@ -1,0 +1,88 @@
+{
+  "data": {
+    "shop": {
+      "currencyCode": "GBP"
+    },
+    "order": {
+      "id": "gid://shopify/Order/5010",
+      "name": "#1010",
+      "test": true,
+      "createdAt": "2026-11-02T10:15:00Z",
+      "processedAt": "2026-11-02T10:15:04Z",
+      "cancelledAt": null,
+      "displayFinancialStatus": "PAID",
+      "currencyCode": "GBP",
+      "presentmentCurrencyCode": "GBP",
+      "taxesIncluded": true,
+      "customer": null,
+      "totalPriceSet": {
+        "shopMoney": {
+          "amount": "12.0"
+        },
+        "presentmentMoney": {
+          "amount": "12.0"
+        }
+      },
+      "totalTipReceivedSet": {
+        "shopMoney": {
+          "amount": "0.0"
+        },
+        "presentmentMoney": {
+          "amount": "0.0"
+        }
+      },
+      "lineItems": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "eyJsYXN0X2lkIjogNjAwMSwgImxhc3RfdmFsdWUiOiA2MDAxfQ=="
+        },
+        "nodes": [
+          {
+            "id": "gid://shopify/LineItem/6001",
+            "quantity": 1,
+            "currentQuantity": 1,
+            "isGiftCard": false,
+            "originalTotalSet": {
+              "shopMoney": {
+                "amount": "12.0",
+                "currencyCode": "GBP"
+              },
+              "presentmentMoney": {
+                "amount": "12.0",
+                "currencyCode": "GBP"
+              }
+            },
+            "discountAllocations": []
+          }
+        ]
+      },
+      "transactions": [
+        {
+          "gateway": "bogus",
+          "status": "SUCCESS",
+          "kind": "SALE",
+          "amountSet": {
+            "shopMoney": {
+              "amount": "12.0"
+            },
+            "presentmentMoney": {
+              "amount": "12.0"
+            }
+          }
+        }
+      ],
+      "refunds": []
+    }
+  },
+  "extensions": {
+    "cost": {
+      "requestedQueryCost": 912,
+      "actualQueryCost": 16,
+      "throttleStatus": {
+        "maximumAvailable": 2000.0,
+        "currentlyAvailable": 1984,
+        "restoreRate": 100.0
+      }
+    }
+  }
+}

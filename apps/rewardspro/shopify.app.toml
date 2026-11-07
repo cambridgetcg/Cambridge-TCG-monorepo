@@ -1,7 +1,13 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-# Active production app configuration
-client_id = "026ce3bf073bed0e44ae8eab09d1ae3a"
+# Retired: deploy the released app (026ce3bf073bed0e44ae8eab09d1ae3a) from
+# apps/rewards/shopify.app.toml. This client_id matches no app, so a Shopify CLI
+# command here fails instead of acting on Rewards Pro, and this package's CLI
+# scripts refuse to run. Never pass --client-id or --reset here, or link this
+# directory again: that would deploy the old scopes, webhooks and widget over
+# the released app. The old build, its tests and Vercel's Instant Rollback keep
+# working (apps/rewards/docs/switch.md, B1).
+client_id = "retired-deploy-from-apps-rewards"
 name = "Rewards Pro"
 application_url = "https://rewardspro-production.vercel.app"
 embedded = true
@@ -64,7 +70,7 @@ api_version = "2026-01"
 scopes = "read_customers,write_customers,read_orders,write_orders,read_all_orders,write_store_credit_account_transactions,read_store_credit_accounts,write_app_proxy,write_products,read_products,write_purchase_options,read_purchase_options,read_publications,read_themes,write_publications,read_product_listings,read_reports"
 
 [auth]
-redirect_urls = ["https://rewardspro-production.vercel.app/auth/callback", "https://rewardspro-production.vercel.app/auth/shopify/callback", "https://rewardspro-production.vercel.app/api/auth/callback"]
+redirect_urls = ["https://rewardspro-production.vercel.app/auth/callback"]
 
 [app_proxy]
 url = "https://rewardspro-production.vercel.app/api/proxy"

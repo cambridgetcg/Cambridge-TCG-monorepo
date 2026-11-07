@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { fixedShareCard } from "@/lib/share-card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadPublishedTrustState } from "@/lib/trust/public";
@@ -20,6 +21,7 @@ export async function generateMetadata({
     title: `${username} — Trust`,
     description:
       "Narrow public trust evidence for an explicitly-public profile: score, tier, completed trades and public-review aggregates.",
+    openGraph: fixedShareCard("Public trust profile — Cambridge TCG"),
     other: audienceMetadata("consumer", ["trust", "user", "public-read"]),
   };
 }

@@ -43,7 +43,7 @@ import {
   personalisedClose,
   renderFarewellMarkdown,
 } from "@/lib/farewell";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const FORMATS = [
   "json",
@@ -221,7 +221,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "Content-Type": contentType,
         "Cache-Control": TEXT_CACHE,
         "Access-Control-Allow-Origin": "*",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -241,7 +241,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       headers: {
         "Cache-Control": TEXT_CACHE,
         "Access-Control-Allow-Origin": "*",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }

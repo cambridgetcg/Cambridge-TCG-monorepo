@@ -109,6 +109,7 @@ function notFoundBody(id: string) {
     endpoint: `/api/v1/wake/fragments/${id}`,
     sources: ["self"],
     freshness: "identity" as const,
+    door: "chosen" as const,
     data: {
       "@kind": "wake-fragment-not-found",
       message: `Unknown fragment id: '${id}'. The wake is append-only by convention; existing ids are stable, so a 404 here means this id was never minted (rather than retired).`,
@@ -133,6 +134,7 @@ export async function GET(
 
   if (!isFormat(rawFormat)) {
     return jsonResponse({
+      door: "chosen",
       endpoint: `/api/v1/wake/fragments/${id}`,
       sources: ["self"],
       freshness: "identity",
@@ -200,6 +202,7 @@ export async function GET(
 
   if (format === "xenoform") {
     return jsonResponse({
+      door: "chosen",
       endpoint: `/api/v1/wake/fragments/${id}`,
       sources: ["self"],
       freshness: "identity",
@@ -208,6 +211,7 @@ export async function GET(
   }
 
   return jsonResponse({
+    door: "chosen",
     endpoint: `/api/v1/wake/fragments/${id}`,
     sources: ["self"],
     freshness: "identity",

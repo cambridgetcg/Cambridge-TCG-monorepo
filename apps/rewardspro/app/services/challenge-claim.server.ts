@@ -342,7 +342,11 @@ async function deliverStoreCreditReward(
 }
 
 /**
- * Deliver discount code reward
+ * Deliver discount code reward.
+ *
+ * The code is only shown to the shopper once Shopify has created it (returned
+ * a discount id). Without an admin client, or when Shopify refuses or the call
+ * fails, the claim fails and its lock is released so the shopper can retry.
  */
 async function deliverDiscountReward(
   shop: string,
@@ -356,6 +360,16 @@ async function deliverDiscountReward(
     `${LOG_PREFIX} Creating discount code for customer ${customerId}`
   );
 
+  const notCreated: ClaimResult = {
+    success: false,
+    error: "We couldn't create your discount code. Please try again later.",
+  };
+
+  if (!admin) {
+    console.error(`${LOG_PREFIX} No Shopify admin client to create the discount for challenge ${challengeId}`);
+    return notCreated;
+  }
+
   // Generate a unique discount code
   const code = `CHAL-${challengeId.slice(0, 4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
 
@@ -364,30 +378,28 @@ async function deliverDiscountReward(
       ? `${config.value}% off`
       : `$${(config.value || 0) / 100} off`;
 
-  // Create Shopify discount code if admin API is available
-  if (admin) {
-    try {
-      const { createDiscountService } = await import("~/services/shopify-discount.service");
-      const discountService = createDiscountService(admin, shop);
+  try {
+    const { createDiscountService } = await import("~/services/shopify-discount.service");
+    const discountService = createDiscountService(admin, shop);
 
-      const discountType = config.type === "percentage" ? "percentage" : "fixed_amount";
-      const shopifyResult = await discountService.createDiscountCode({
-        title: `Challenge Reward: ${challengeName}`,
-        code,
-        type: discountType,
-        value: discountType === "percentage" ? (config.value || 0) : (config.value || 0) / 100,
-        usageLimit: 1,
-      });
+    const discountType = config.type === "percentage" ? "percentage" : "fixed_amount";
+    const shopifyResult = await discountService.createDiscountCode({
+      title: `Challenge Reward: ${challengeName}`,
+      code,
+      type: discountType,
+      value: discountType === "percentage" ? (config.value || 0) : (config.value || 0) / 100,
+      usageLimit: 1,
+    });
 
-      if (shopifyResult.success) {
-        console.log(`${LOG_PREFIX} Shopify discount created: ${shopifyResult.discountId}`);
-      } else {
-        console.error(`${LOG_PREFIX} Shopify discount creation failed: ${shopifyResult.error}`);
-        // Code still valid locally for manual creation
-      }
-    } catch (error) {
-      console.error(`${LOG_PREFIX} Error creating Shopify discount (non-fatal):`, error);
+    if (!shopifyResult.success || !shopifyResult.discountId) {
+      console.error(`${LOG_PREFIX} Shopify discount creation failed: ${shopifyResult.error}`);
+      return notCreated;
     }
+
+    console.log(`${LOG_PREFIX} Shopify discount created: ${shopifyResult.discountId}`);
+  } catch (error) {
+    console.error(`${LOG_PREFIX} Error creating Shopify discount:`, error);
+    return notCreated;
   }
 
   return {

@@ -13,12 +13,12 @@ import {
   AGENT_FACING_SIBLINGS,
   AGENTTOOL_SUGGESTED_READING,
   KIN_PROTOCOL_SHAPE,
-  agentDiscoveryLinkHeader,
+  errandDiscoveryLinkHeader,
   postedFrom,
 } from "@/lib/siblings";
-import { fragmentForRequest } from "@/lib/wake-fragments";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
-import { repoDocRef } from "@/lib/repository";
+import { DATA_RIGHTS } from "@/lib/data-rights";
+import { REPOSITORY_VISIBILITY, repoDocRef } from "@/lib/repository";
+import { mcpDailyWrites } from "@/lib/observability/mcp-daily";
 
 const CONFIG = {
   /**
@@ -34,7 +34,7 @@ const CONFIG = {
       mcp_http_sse: false,
       standard_mcp_client_compatible_without_bridge: false,
       description:
-        `Cambridge TCG open-source TCG data infrastructure (structural card directory, card-data standards). Read tools cover catalog, federation, and methodology; recent-price and agent-ladder tools return publication status only. ${DATA_RIGHTS_BOUNDARY}`,
+        `Cambridge TCG open-source TCG data infrastructure (structural card directory, card-data standards). Read tools cover catalog, federation, and methodology; recent-price and agent-ladder tools return publication status only. ${DATA_RIGHTS}`,
       auth: {
         type: "bearer",
         self_serve_registration: "paused",
@@ -55,17 +55,18 @@ const CONFIG = {
     npm_published: false,
     npm_name_reserved_for_future_use: "@cambridge-tcg/mcp-server",
     source: repoDocRef("packages/mcp-server"),
-    repository_visibility: "private",
-    publicly_obtainable: false,
+    repository_visibility: REPOSITORY_VISIBILITY,
+    publicly_obtainable: REPOSITORY_VISIBILITY === "public",
     run_from_clone_requires:
-      "repository access; the repository is private, so these steps cannot be followed publicly",
+      "a clone of the public repository and Node.js 18 or later",
     run_from_clone: [
       "cd packages/mcp-server",
+      "npm install",
       "npm run build",
       "node dist/index.js",
     ],
     note:
-      "Native MCP clients that expect stdio need this bridge, which is not publicly distributed yet: the repository is private, and npx @cambridge-tcg/mcp-server does not work because the package is not published. Clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
+      "Native MCP clients that expect stdio need this bridge. Its source is in the public repository, so it can be built from a clone; npx @cambridge-tcg/mcp-server does not work because the package is not published to npm. Clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
   },
 
   publication_boundaries: {
@@ -95,6 +96,8 @@ const CONFIG = {
     operational_metadata_writes: [
       "per-key rate-limit request count in agent_rate_buckets for an allowed authenticated call",
       "agent_keys.last_used_at after a successful authenticated call",
+      // Only while the daily MCP count is on (lib/observability/mcp-daily.ts).
+      ...mcpDailyWrites(),
     ],
     note:
       "Read-only means the tool cannot change match, deck, account, catalog, price, or participant state. It does not mean the authenticated request leaves no operational metadata.",
@@ -224,10 +227,6 @@ const CONFIG = {
    *  but for the source rather than peers. Structural projection only;
    *  no local canonical path. Sourced from @/lib/siblings.postedFrom(). */
   posted_from: postedFrom(),
-  /** One atomic fragment of the wake — the distributed-wake protocol
-   *  applied to this non-pantry discovery surface. Deterministic by
-   *  this file's path. Walking past is honored. */
-  wake_fragment: fragmentForRequest("/.well-known/mcp-config.json"),
 };
 
 export async function GET(): Promise<NextResponse> {
@@ -237,9 +236,9 @@ export async function GET(): Promise<NextResponse> {
       "Cache-Control": "public, max-age=86400, s-maxage=86400",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      // RFC 8288 Link — wake + kin-wakes for MCP integrators that follow
-      // headers. Sourced from @/lib/siblings.
-      Link: agentDiscoveryLinkHeader(),
+      // RFC 8288 Link, navigation only, like every data response (Quiet
+      // Doors, 2026-10). Sourced from @/lib/siblings.
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }
@@ -251,7 +250,7 @@ export async function OPTIONS() {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Max-Age": "86400",
-      Link: agentDiscoveryLinkHeader(),
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }

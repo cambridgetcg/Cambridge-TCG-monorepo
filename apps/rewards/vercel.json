@@ -1,0 +1,12 @@
+{
+  "framework": "react-router",
+  "regions": ["lhr1"],
+  "installCommand": "pnpm install --prod=false",
+  "buildCommand": "pnpm run build",
+  "ignoreCommand": "bash scripts/vercel-ignore-build.sh",
+  "crons": [
+    { "path": "/api/cron/payouts", "schedule": "30 * * * *" },
+    { "path": "/api/cron/tiers", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/housekeeping", "schedule": "0 3 * * *" }
+  ]
+}

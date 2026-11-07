@@ -128,6 +128,8 @@ describe("Stripe order reconciliation ownership", () => {
       checkout("cs_auction", { type: "auction_payment" }),
       checkout("cs_b2b", { b2b_channel: "wholesale" }),
       checkout("cs_future", { type: "unknown_future_flow" }),
+      // Data-API subscriptions belong to their own webhook (paid-data-api.md §6).
+      checkout("cs_data_api", { type: "data_api_subscription", plan: "pro", user_id: "8b7f0d2e-3c1a-4f5e-9a6b-1c2d3e4f5a6b" }),
     );
 
     const summary = await reconcileStripeOrders();
@@ -136,15 +138,15 @@ describe("Stripe order reconciliation ownership", () => {
     expect(settleStripeMarketCheckout).not.toHaveBeenCalled();
     expect(recordOrderFromStripeSession).not.toHaveBeenCalled();
     expect(summary).toMatchObject({
-      scanned: 3,
-      paid: 3,
+      scanned: 4,
+      paid: 4,
       recorded: 0,
       marketAttemptsScanned: 0,
       marketApplied: 0,
       marketProcessing: 0,
       marketTerminal: 0,
       review: 0,
-      skipped: 3,
+      skipped: 4,
       errors: 0,
     });
   });

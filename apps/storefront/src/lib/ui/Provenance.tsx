@@ -176,14 +176,14 @@ function ProvenanceDefault({
   }
 
   const TONE_CLS = {
-    neutral: "text-ink-faint",
+    neutral: "text-ink-muted",
     amber: "text-warning",
     red: "text-danger",
   };
 
   return (
     <span
-      className={`inline-block text-[10px] uppercase tracking-wider ${TONE_CLS[tone]}`}
+      className={`inline-block text-xs uppercase tracking-wider ${TONE_CLS[tone]}`}
       title={title}
     >
       {label}

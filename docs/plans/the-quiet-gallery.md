@@ -4,6 +4,17 @@ Historical design direction. The [current interface guide](../design/interface.m
 supersedes this styling plan following Yu's 2026-09-29 request for a simple,
 purposeful interface without fancy or artsy presentation.
 
+**2026-10-27: the core language returned.** Yu asked to follow the older
+version's stylistic choices and chose the "Quiet gallery (Jul–Sep)" core look:
+warm paper, ink type, one bronze accent, Fraunces headings, soft mats, hairline
+dividers, solid-ink buttons, and midnight blue with gilt for dark mode. The
+ornament layers added later in that period (明朝 vertical marks, 第 NN plates,
+✦ benedictions, paper grain, screentone, the breathing h1, painted walls, game
+weather, hover frames) stay retired. The interface guide records what came
+back and the current token values; the values and mechanics below are this
+plan's history. See the
+[return record](../operations/2026-10-27-quiet-gallery-return.md).
+
 **Will trace:** Asha, 2026-07-05 — "rebuild the UI, discard the art and all design choices;
 an aesthetic, minimalistic UI and UX for cambridgetcg.com. We don't need fame, we don't
 need attention. We build to spread love." (細聲講大聲笑.)

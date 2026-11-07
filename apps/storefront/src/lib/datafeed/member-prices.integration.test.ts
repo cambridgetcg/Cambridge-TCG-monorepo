@@ -49,6 +49,17 @@ describe.skipIf(!localUrl)('member prices PostgreSQL integration (explicit loopb
     const page = await readMemberPrices(actor, query({ source: 'cardmarket' }), 'member-api');
     expect(page.items[0]).toMatchObject({ amount: '2.950000', sourceUpdatedAt: row.sourceUpdatedAt, catalogUpdatedAt: row.catalogUpdatedAt, catalogArtifactSha256: row.catalogArtifactSha256, retrievedAt: row.retrievedAt });
   });
+  it('stores a batch that names its set keys on a store without 0139, leaving the key out', async () => {
+    // Today's manual Cardmarket import parses idExpansion into sourceSetKey;
+    // before 0139 there is no column for it, and the batch must still land.
+    const column = await state.pool.query(`SELECT count(*)::int AS n FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'member_price_observations' AND column_name = 'source_set_key'`, [schema]);
+    expect(column.rows[0].n).toBe(0);
+    const keyed = await write([observation('set-key-1', { sourceSetKey: '5229' }), observation('set-key-2', { sourceSetKey: null })]);
+    expect(keyed).toMatchObject({ inserted: 2, duplicate: false });
+    const page = await readMemberPrices(actor, query({ q: 'set-key', source: 'cardmarket' }), 'member-api');
+    expect(page.items.map(item => item.sourceProductId)).toEqual(['set-key-1', 'set-key-2']);
+    expect(page.items[0]).not.toHaveProperty('sourceSetKey');
+  });
   it('uses one release-aware projection and excludes display-only Scryfall from both feed uses', async () => {
     await write([observation('scryfall-id', { source: 'scryfall', game: 'magic', granularity: 'printing', finish: 'nonfoil', language: 'en', metric: 'usd', currency: 'USD', underlyingMarket: 'tcgplayer', sourceUrl: 'https://data.scryfall.io/default-cards/default-cards-20260907090000.json', parserVersion: 'scryfall-daily-prices/1', catalogSourceUrl: null, catalogUpdatedAt: null, catalogArtifactSha256: null })]);
     expect((await readMemberPrices(actor, query(), 'member-display')).items.some(row => row.source === 'scryfall')).toBe(true);

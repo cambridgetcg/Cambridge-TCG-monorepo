@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Audience, audienceMetadata } from "@/lib/ui";
+import { collectionOn, collectionSchedule } from "@/lib/datafeed/collection-flags";
 
 export const metadata: Metadata = {
   title: "Cross-source pricing",
@@ -8,6 +9,8 @@ export const metadata: Metadata = {
 };
 
 export default function CrossSourcePricingMethodology() {
+  // Built statically, so this follows the deployment's DATA_COLLECT_CARDMARKET.
+  const cardmarketScheduled = collectionOn("cardmarket");
   return (
     <>
       <Audience kind="public-documentation" contexts={["pricing", "methodology"]} />
@@ -19,7 +22,9 @@ export default function CrossSourcePricingMethodology() {
         permissions. Its current coverage comes from stored successful runs,
         not the existence of an adapter. The warehouse architecture below is
         the older CardRush-shaped archive; its legacy values remain withheld.
-        TCGplayer and CardRush collection blocks are not lifted by login.
+        TCGplayer and CardRush prices are display-only on Cambridge pages and
+        never served by the API or in downloads; signing in does not change
+        that.
       </p>
 
       <blockquote>
@@ -96,7 +101,7 @@ export default function CrossSourcePricingMethodology() {
         </tbody>
       </table>
 
-      <h2>One observed source, two explicit absences</h2>
+      <h2>Three sources, and where their rows live</h2>
       <table>
         <thead>
           <tr>
@@ -114,23 +119,25 @@ export default function CrossSourcePricingMethodology() {
             <td>Japan</td>
             <td>JPY</td>
             <td>internal-only</td>
-            <td>Legacy archive only; acquisition disabled (latest snapshot: see /prices/coverage)</td>
-            <td>NM (status A-)</td>
+            <td>Legacy archive frozen; its legacy acquisition stays disabled (latest snapshot: see /prices/coverage). Member display only, collected only while scheduled (see /api/v1/sources)</td>
+            <td>NM (status A-) in the legacy archive; a stated grade where the page states one</td>
           </tr>
           <tr>
             <td>TCGplayer</td>
             <td>US</td>
             <td>USD</td>
             <td>proprietary</td>
-            <td>Blocked; no collection cadence</td>
-            <td>No observations collected</td>
+            <td>Member display only, collected only while scheduled (see /api/v1/sources); none in price_archive</td>
+            <td>The condition each price-guide row states; none in price_archive</td>
           </tr>
           <tr>
             <td>Cardmarket</td>
             <td>Europe</td>
             <td>EUR</td>
             <td>proprietary</td>
-            <td>Public daily files; manual member import only (see the Cardmarket entry at /api/v1/sources); no scheduled refresh</td>
+            <td>{cardmarketScheduled
+              ? `Public daily files; Cambridge collects ${collectionSchedule("cardmarket")} (see the Cardmarket entry at /api/v1/sources)`
+              : "Public daily files; manual member import only (see the Cardmarket entry at /api/v1/sources); no scheduled refresh"}</td>
             <td>Not in price_archive; member observations keep source metrics (average, low, trend), not conditions</td>
           </tr>
         </tbody>
@@ -140,9 +147,10 @@ export default function CrossSourcePricingMethodology() {
       <p>
         The price archive can carry a source&apos;s native amount plus a
         GBP-normalised value computed at write time. Rows in price_archive are
-        legacy CardRush JPY observations (acquisition disabled). TCGplayer has not
-        landed. Cardmarket EUR observations live separately in the member feed and
-        are not GBP-normalised.
+        legacy CardRush JPY observations (legacy acquisition disabled). TCGplayer
+        rows have not landed there. CardRush, TCGplayer and Cardmarket
+        observations for the member feed live separately, in their native
+        currency, and are not GBP-normalised.
         When conversion occurs, the rate is captured per-row in{" "}
         <code>fx_rate_to_gbp</code> with a{" "}
         <code>fx_rate_source</code> declaration (<em>live</em> /{" "}
@@ -179,10 +187,10 @@ export default function CrossSourcePricingMethodology() {
           </tr>
           <tr>
             <td>TCGplayer</td>
-            <td>None</td>
+            <td>Not selected</td>
             <td>
-              Source blocked. Cambridge has no recorded permission for this
-              multi-source pricing use and does not collect its price fields.
+              Not in this legacy guide. TCGplayer prices are display-only on
+              Cambridge pages and never served by the API or in downloads.
             </td>
           </tr>
           <tr>
@@ -247,10 +255,13 @@ export default function CrossSourcePricingMethodology() {
           stated use policy remains the boundary.
         </li>
         <li>
-          <strong>blocked proprietary sources</strong> (including CardRush and
-          unapproved marketplace feeds) are not exposed anonymously, through a
-          session, or through a bearer key. Authentication and transformation do
-          not create upstream rights.
+          <strong>display-only sources</strong> (CardRush and TCGplayer) are
+          shown to signed-in members on Cambridge pages with the source named,
+          and never served through a bearer key, the API or a download.{" "}
+          <strong>Blocked proprietary sources</strong> (including unapproved
+          marketplace feeds and legacy CardRush rows) are not exposed
+          anonymously, through a session, or through a bearer key.
+          Authentication and transformation do not create upstream rights.
         </li>
         <li>
           <strong>NOASSERTION</strong> marks a mixed export where Cambridge

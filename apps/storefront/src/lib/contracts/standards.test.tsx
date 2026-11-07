@@ -12,13 +12,13 @@ vi.mock("@/lib/db", () => { throw new Error("Standards must not read a database"
 afterEach(() => vi.unstubAllGlobals());
 
 describe("shared standards registry", () => {
-  it("preserves the existing manifest keys, three IDs, versions and statuses", async () => {
+  it("preserves the existing manifest keys, IDs, versions and statuses, with new standards appended", async () => {
     const response = GET();
     const body = await response.json();
     expect(body).toMatchObject({
       spec_version: "1",
       distributor: { name: "Cambridge TCG", license: "CC0-1.0", license_path: "docs/STANDARDS-LICENSE.md" },
-      counts: { total: 3, frozen: 1, draft: 1, implemented: 1, planned: 0 },
+      counts: { total: 4, frozen: 1, draft: 2, implemented: 1, planned: 0 },
       adoption: { requires_attribution: false, requires_license_acceptance: false, requires_account: false, registry_status: "empty" },
       self_reference: { this_endpoint: "/standards.json", human_readable_sibling: "/standards", contains_self: true },
       what_is_not_yet_shipped: expect.any(Array),
@@ -27,6 +27,7 @@ describe("shared standards registry", () => {
       ["CTCG-SKU-v1", "1.0", "frozen"],
       ["CTCG-PRICING-v1", "1.0", "draft"],
       ["CTCG-UNIVERSAL-v1", "1.0", "implemented"],
+      ["CTCG-NAMES-v1", "1.0", "draft"],
     ]);
     expect(body.standards).toEqual(STANDARDS);
     expect(Number.isFinite(Date.parse(body.generated_at))).toBe(true);
@@ -56,7 +57,7 @@ describe("shared standards registry", () => {
       expect(standard.implementation_license).toBe("NOASSERTION");
       expect(standard.implementation_license_reference).toContain("/LICENSE");
       expect(standard.implementation_license_note).toContain("does not assert an absence");
-      expect(standard.implementation_license_note).toContain("The repository is currently private and no packages are published");
+      expect(standard.implementation_license_note).toContain("The repository is public on GitHub and no packages are published to npm");
     }
   });
 

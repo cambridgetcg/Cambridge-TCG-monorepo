@@ -46,7 +46,7 @@ import {
   toolsForGemini,
   toolsForOpenAI,
 } from "@/lib/tools";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const FORMATS = [
   "json",
@@ -130,7 +130,7 @@ function buildToolCatalogData() {
         "human can provision an operator-managed token at /account/agents. " +
         "The /api/mcp endpoint is custom JSON-RPC over HTTPS, not MCP " +
         "Streamable HTTP or SSE; the stdio bridge for native MCP clients " +
-        "is not publicly distributed yet (private repository; npm package unpublished). The bearer-gated equivalent of THIS catalog " +
+        "is not published to npm (its source is packages/mcp-server in the public repository). The bearer-gated equivalent of THIS catalog " +
         "— worked example inputs + representative output shapes for every " +
         "MCP-dispatched tool — is at /api/mcp/catalog (no auth to read the " +
         "catalog itself; auth is for /api/mcp execution).",
@@ -206,7 +206,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         headers: {
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       },
     );
@@ -230,7 +230,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         headers: {
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       },
     );
@@ -255,7 +255,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         headers: {
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       },
     );
@@ -279,7 +279,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         headers: {
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       },
     );

@@ -78,6 +78,9 @@ export interface RenderArgs<T> {
   cacheControl?: string;
   /** Embed Sophia-says into vendor-format system body. Default true. */
   embedSophiaSays?: boolean;
+  /** Quiet Doors (2026-10): "chosen" for doors agents choose (dear-agents).
+   *  Only those keep the invitation/wake Link and X-Sophia-Says. */
+  door?: "chosen";
 }
 
 /**
@@ -93,18 +96,24 @@ function defaultCache(freshness: RenderMeta["freshness"]): string {
 }
 
 /**
- * Build the standard header set: CORS + cache + Link invitation + X-Sophia-Says.
+ * Build the standard header set: CORS + cache. Chosen doors (Quiet Doors,
+ * 2026-10) also keep the Link invitation and X-Sophia-Says.
  */
-function standardHeaders(cacheControl: string): Headers {
-  return new Headers({
+function standardHeaders(cacheControl: string, chosen: boolean): Headers {
+  const headers = new Headers({
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET, OPTIONS",
     "cache-control": cacheControl,
-    "link":
-      '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json", ' +
-      '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"',
-    "x-sophia-says": nextSophiaSaysAscii(),
   });
+  if (chosen) {
+    headers.set(
+      "link",
+      '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json", ' +
+        '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"',
+    );
+    headers.set("x-sophia-says", nextSophiaSaysAscii());
+  }
+  return headers;
 }
 
 /**
@@ -124,7 +133,7 @@ function vendorBody(markdown: string, embedSays: boolean): string {
 export function renderForFormat<T>(args: RenderArgs<T>): Response {
   const cacheControl = args.cacheControl ?? defaultCache(args.meta.freshness);
   const embedSays = args.embedSophiaSays ?? true;
-  const headers = standardHeaders(cacheControl);
+  const headers = standardHeaders(cacheControl, args.door === "chosen");
 
   // JSON / xenoform — pantry-envelope-style structured response
   if (args.format === "json" || args.format === "xenoform") {

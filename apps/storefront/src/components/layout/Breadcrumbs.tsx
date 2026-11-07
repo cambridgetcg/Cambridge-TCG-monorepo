@@ -40,6 +40,7 @@ export function Breadcrumbs({
         <li>
           <Link
             href="/"
+            prefetch={false}
             className="rounded-sm text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Home
@@ -53,6 +54,7 @@ export function Breadcrumbs({
             {step.href ? (
               <Link
                 href={step.href}
+                prefetch={false}
                 className="rounded-sm text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 {step.label}

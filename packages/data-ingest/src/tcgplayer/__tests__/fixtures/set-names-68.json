@@ -1,0 +1,72 @@
+{
+ "_fixture": "Trimmed from https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=68&active=true, read 2026-10-28 by the identified collector. The listed rows are verbatim; the rest are left out.",
+ "errors": [],
+ "results": [
+  {
+   "setNameId": 3188,
+   "categoryId": 68,
+   "name": "Romance Dawn",
+   "cleanSetName": "Romance Dawn",
+   "urlName": "romance-dawn",
+   "abbreviation": "OP01",
+   "releaseDate": "2022-12-02T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 3189,
+   "categoryId": 68,
+   "name": "ST-01: Starter Deck 1 Straw Hat Crew",
+   "cleanSetName": "ST 01 Starter Deck 1 Straw Hat Crew",
+   "urlName": "st-01-starter-deck-1-straw-hat-crew",
+   "abbreviation": "ST-01",
+   "releaseDate": "2022-12-02T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 17659,
+   "categoryId": 68,
+   "name": "ST-01: Starter Deck 1 Straw Hat Crew (Super Pre-Release Edition)",
+   "cleanSetName": "ST 01 Starter Deck 1 Straw Hat Crew Super Pre Release Edition",
+   "urlName": "st-01-starter-deck-1-straw-hat-crew-super-pre-release-edition",
+   "abbreviation": "ST-01 PRE",
+   "releaseDate": "2022-09-30T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 17675,
+   "categoryId": 68,
+   "name": "One Piece Promotion Cards",
+   "cleanSetName": "One Piece Promotion Cards",
+   "urlName": "one-piece-promotion-cards",
+   "abbreviation": "OP-PR",
+   "releaseDate": "2022-09-30T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 24537,
+   "categoryId": 68,
+   "name": "The Azure Sea's Seven",
+   "cleanSetName": "The Azure Seas Seven",
+   "urlName": "the-azure-seas-seven",
+   "abbreviation": "OP14-EB04",
+   "releaseDate": "2026-01-16T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 24664,
+   "categoryId": 68,
+   "name": "The Time of Battle",
+   "cleanSetName": "The Time of Battle",
+   "urlName": "the-time-of-battle",
+   "abbreviation": "OP16",
+   "releaseDate": "2026-06-12T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  }
+ ]
+}

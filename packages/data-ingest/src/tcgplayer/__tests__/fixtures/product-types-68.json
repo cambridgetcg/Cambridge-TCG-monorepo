@@ -1,0 +1,13 @@
+{
+ "errors": [],
+ "results": [
+  {
+   "productTypeId": 110,
+   "productName": "Cards"
+  },
+  {
+   "productTypeId": 111,
+   "productName": "Sealed Products"
+  }
+ ]
+}

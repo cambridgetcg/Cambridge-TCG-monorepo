@@ -20,5 +20,11 @@ it('connects approved finite Scryfall display acquisition to native writer, repo
   const parsed = {observations:[],quarantine:[{sourceProductId:null,reason:'fixture'}],sourceRows:1,missingPrices:3};
   ports.query.mockResolvedValue({rows:[{source:'scryfall'}]}); ports.scryfall.mockResolvedValue(parsed); ports.write.mockResolvedValue({batchId:'4',inserted:0,duplicate:false});
   const result = await ingestMemberPriceSource({source:'scryfall'});
-  expect(ports.write).toHaveBeenCalledWith('scryfall',parsed); expect(result).toMatchObject({status:'completed-with-quarantine',quarantined:1,missingPriceFields:3,batchId:'4'});
+  expect(ports.write).toHaveBeenCalledWith('scryfall',parsed,undefined); expect(result).toMatchObject({status:'completed-with-quarantine',quarantined:1,missingPriceFields:3,batchId:'4'});
+});
+it('hands a caller-supplied transaction to the writer, which keeps its own checks', async () => {
+  const parsed = {observations:[],quarantine:[],sourceRows:0,missingPrices:0}; const runTransaction = vi.fn();
+  ports.query.mockResolvedValue({rows:[{source:'cardmarket'}]}); ports.cardmarket.mockResolvedValue(parsed); ports.write.mockResolvedValue({batchId:'5',inserted:0,duplicate:false});
+  await ingestMemberPriceSource({source:'cardmarket',gameId:18}, {}, runTransaction);
+  expect(ports.write).toHaveBeenCalledWith('cardmarket',parsed,runTransaction); expect(runTransaction).not.toHaveBeenCalled();
 });

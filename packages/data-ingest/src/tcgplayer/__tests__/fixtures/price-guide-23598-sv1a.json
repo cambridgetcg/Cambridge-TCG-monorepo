@@ -1,0 +1,41 @@
+{
+ "_fixture": "Trimmed from https://infinite-api.tcgplayer.com/priceguide/set/23598/cards/?rows=5000&productTypeID=143, read 2026-10-28 by the identified collector. Rows, identifiers, names, numbers, conditions and printings are verbatim; marketPrice and lowPrice are synthetic stand-ins (raw TCGplayer values are display-only); count and total are set to the trimmed length.",
+ "count": 2,
+ "total": 2,
+ "result": [
+  {
+   "productID": 568126,
+   "productConditionID": 0,
+   "condition": "Near Mint - Japanese",
+   "game": "Pokemon Japan",
+   "isSupplemental": false,
+   "lowPrice": 7,
+   "marketPrice": 0.25,
+   "number": "003/073",
+   "printing": "Normal",
+   "productName": "Amoonguss",
+   "rarity": "Uncommon",
+   "sales": 0,
+   "set": "SV1a: Triplet Beat",
+   "setAbbrv": "SV1a",
+   "type": "Cards"
+  },
+  {
+   "productID": 568192,
+   "productConditionID": 0,
+   "condition": "Near Mint Holofoil - Japanese",
+   "game": "Pokemon Japan",
+   "isSupplemental": false,
+   "lowPrice": 3,
+   "marketPrice": 1.5,
+   "number": "069/073",
+   "printing": "Holofoil",
+   "productName": "Boss's Orders - 069/073",
+   "rarity": "Rare",
+   "sales": 0,
+   "set": "SV1a: Triplet Beat",
+   "setAbbrv": "SV1a",
+   "type": "Cards"
+  }
+ ]
+}

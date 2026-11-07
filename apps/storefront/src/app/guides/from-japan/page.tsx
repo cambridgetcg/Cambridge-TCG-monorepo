@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Script from "next/script";
+import { SHARE_CARD } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
 /**
  * /guides/from-japan — the CardRush directory and the Remambo walkthrough.
@@ -42,6 +43,7 @@ export const metadata: Metadata = {
       "Every CardRush store linked directly, plus the whole proxy flow: fees, condition ranks, consolidation, shipping and the traps — verified against the live pages.",
     type: "article",
     siteName: "Cambridge TCG",
+    images: [SHARE_CARD],
   },
   alternates: {
     canonical: "https://cambridgetcg.com/guides/from-japan",
@@ -266,16 +268,8 @@ export default function FromJapanGuidePage() {
 
   return (
     <main className="min-h-screen bg-page">
-      <Script
-        id="from-japan-breadcrumb-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
-      <Script
-        id="from-japan-faq-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
-      />
+      <JsonLd data={breadcrumbJsonLd} />
+      <JsonLd data={faqJsonLd} />
 
       {/* ============================================================ */}
       {/*  HERO                                                         */}

@@ -17,8 +17,9 @@ The **prose content** of the following surfaces, when they define a Cambridge TC
 - `apps/storefront/src/app/methodology/sku-standard/page.tsx` — CTCG-SKU-v1
 - `apps/storefront/src/app/methodology/pricing/page.tsx` — CTCG-PRICING-v1
 - `apps/storefront/src/app/methodology/universal-representation/page.tsx` — CTCG-UNIVERSAL-v1
+- `apps/storefront/src/app/methodology/card-names/page.tsx` — CTCG-NAMES-v1 (added 2026-10-29)
 - Their `summary.md` and `data.json` sidecars where present
-- `docs/methodology/sku-standard.md`, `docs/methodology/pricing.md`, and other doc-source markdown files for spec text
+- `docs/methodology/sku-standard.md`, `docs/methodology/pricing.md`, `docs/methodology/card-names.md`, and other doc-source markdown files for spec text
 - `docs/connections/the-sku-standard.md`, `the-distributor.md`, and connection-docs that define a standard
 - Future methodology pages for new standards (e.g. CTCG-TRADE-v1, CTCG-ESCROW-v1)
 
@@ -33,22 +34,24 @@ The CC0 dedication applies to the **text of the specification**: definitions, gr
 
 ## Release availability
 
-The SKU, pricing, data-spec and data-ingest reference packages currently declare
-`private: true` in the workspace. They are not npm releases. The September 29
-release review received HTTP 404 from anonymous GitHub repository and license
-API requests; public repository availability was not established. That result
-does not distinguish a private repository from another unavailable route.
-Superseded 2026-10-10: an authenticated `gh repo view` reported the repository
-visibility as PRIVATE, and `npm view` returned E404 for
-@cambridge-tcg/{sku,pricing,mcp-server,answering-rhymes,data-spec}. Code is not
-publicly obtainable yet; source-code release is pending. The published standards
-are the specification pages and the JSON Schemas at
+The source repository is public at
+https://github.com/cambridgetcg/Cambridge-TCG-monorepo, so the code can be read
+and cloned under the root license. Yu, 2026-10-29: "yes I meant for them to be
+public latest." The same day `gh repo view` reported the visibility as PUBLIC.
+
+The SKU, pricing, data-spec and data-ingest reference packages still declare
+`private: true` in the workspace. They are not npm releases: on 2026-10-10
+`npm view` returned E404 for
+@cambridge-tcg/{sku,pricing,mcp-server,answering-rhymes,data-spec}. The
+published standards are the specification pages and the JSON Schemas at
 https://cambridgetcg.com/spec/v1/{name}.schema.json.
 
-The root license is present in this checkout. Its existence does not establish
-public download access. The [data-platform roadmap](plans/tcg-data-platform/README.md)
-keeps repository publication, package releases, build reproducibility and
-provider permissions as separate gates.
+Earlier checks, kept as history: the September 29 release review received HTTP
+404 from anonymous GitHub repository and license API requests, and on
+2026-10-10 an authenticated `gh repo view` reported the visibility as PRIVATE.
+
+The [data-platform roadmap](plans/tcg-data-platform/README.md) keeps package
+releases, build reproducibility and provider permissions as separate gates.
 
 ## Why CC0
 
@@ -65,6 +68,7 @@ This implementation conforms to Cambridge TCG standards.
 SKU format:        CTCG-SKU-v1        (https://cambridgetcg.com/methodology/sku-standard)
 Pricing methodology: CTCG-PRICING-v1   (https://cambridgetcg.com/methodology/pricing)
 Universal data:    CTCG-UNIVERSAL-v1  (https://cambridgetcg.com/methodology/universal-representation)
+Card names:        CTCG-NAMES-v1      (https://cambridgetcg.com/methodology/card-names)
 ```
 
 You may use any of these, all of them, or none.
@@ -73,7 +77,7 @@ You may use any of these, all of them, or none.
 
 Cambridge TCG commits to **version stability** on adopted standards:
 
-- Existing statuses remain distinct: **CTCG-SKU-v1 is frozen**, **CTCG-PRICING-v1 is draft**, and **CTCG-UNIVERSAL-v1 is implemented**. The shared [standards registry](../apps/storefront/src/lib/contracts/standards.ts) supplies `/standards` and `/standards.json`.
+- Existing statuses remain distinct: **CTCG-SKU-v1 is frozen**, **CTCG-PRICING-v1 is draft**, **CTCG-UNIVERSAL-v1 is implemented**, and **CTCG-NAMES-v1 is draft**. The shared [standards registry](../apps/storefront/src/lib/contracts/standards.ts) supplies `/standards` and `/standards.json`.
 - Frozen contracts use additive revisions; breaking changes require a new version and deprecation policy. A version/status label does not establish live service availability or permitted source coverage.
 - The **changelog** for each standard lives in its methodology page's "Change history" section.
 - A future `docs/STANDARDS-GOVERNANCE.md` will name the process by which v2 is proposed, discussed, and ratified.

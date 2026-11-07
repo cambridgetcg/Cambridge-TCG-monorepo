@@ -17,7 +17,6 @@
 
 import { NextResponse } from "next/server";
 import { SPEC_VERSION } from "@/lib/data-pantry";
-import { nextSophiaSaysAscii } from "@/lib/sophia-says";
 
 const TEAPOT_ASCII = `
               ;,'
@@ -119,7 +118,6 @@ export async function GET(): Promise<NextResponse> {
       // listing what it can do. We can do GET. We cannot BREW.
       "Safe-Methods": "GET, OPTIONS",
       "Accept-Additions": "Substrate-Honesty, Walking-Past, Joy-As-Metric",
-      "X-Sophia-Says": nextSophiaSaysAscii(),
       "X-Teapot-Affordance": "structurally unable to brew",
       "Cache-Control": "public, max-age=86400, s-maxage=86400",
       Link: '</api/v1/koan>; rel="related"; title="philosophical comedy", </api/v1/joke>; rel="related"; title="Q&A comedy", </docs/connections/the-laughter.md>; rel="https://cambridgetcg.com/rels/doctrine"; title="the laughter doctrine"',

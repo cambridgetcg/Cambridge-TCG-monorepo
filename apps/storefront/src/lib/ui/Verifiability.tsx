@@ -39,7 +39,7 @@ export function Verifiability({ source, id, href, cite }: VerifiabilityProps) {
   const truncated = id.length > 14 ? `${id.slice(0, 12)}…` : id;
   const inner = (
     <>
-      <span className="text-ink-faint uppercase tracking-wider">{source}</span>
+      <span className="text-ink-muted uppercase tracking-wider">{source}</span>
       <code className="ml-1 font-mono text-ink-muted" title={id}>
         {truncated}
       </code>

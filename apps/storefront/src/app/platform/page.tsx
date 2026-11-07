@@ -32,12 +32,12 @@ import {
   TWO_OPERATIONS,
   COVERAGE_FACTS,
 } from "@/lib/brand";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 
 export const metadata: Metadata = {
   title: "Platform — Cambridge TCG, open-source TCG data infrastructure",
   description:
-    `Cambridge TCG is building open-source TCG data infrastructure: card identity, price discovery, collector tools and card-data standards. ${COVERAGE_FACTS.games.confirmed_codes} games have public catalog rows and ${COVERAGE_FACTS.games.declared} public game codes are registered. New paid commerce was retired on 23 September 2026. ${DATA_RIGHTS_BOUNDARY}`,
+    `Cambridge TCG is building open-source TCG data infrastructure: card identity, price discovery, collector tools and card-data standards. ${COVERAGE_FACTS.games.confirmed_codes} games have public catalog rows and ${COVERAGE_FACTS.games.declared} public game codes are registered. New paid commerce was retired on 23 September 2026. ${DATA_RIGHTS}`,
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",

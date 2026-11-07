@@ -1,0 +1,61 @@
+# The staging app (plan task A25): the leftover draft app "rewardspro-production",
+# reused with Yu's agreement (2026-11-04) and renamed "RewardsPro Staging". It is
+# not the released app (client_id 026ce3bf073bed0e44ae8eab09d1ae3a) and is only
+# installed on development stores. `pnpm dev` uses this file. shopify.app.toml
+# beside it is the released app's: never run `shopify app dev` against it.
+# https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "f04b5854fb022d67ba9dd097767b465a"
+name = "RewardsPro Staging"
+# Kept from the draft app, so the admin links of stores that installed it still work
+handle = "rewardspro-production"
+# Replaced by the dev tunnel's URL on each `shopify app dev` (staging only)
+application_url = "https://example.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-10"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/paid" ]
+  uri = "/webhooks/orders/paid"
+
+  # Money returned on a refund or a cancellation arrives here
+  [[webhooks.subscriptions]]
+  topics = [ "refunds/create" ]
+  uri = "/webhooks/orders/refunded"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/cancelled" ]
+  uri = "/webhooks/orders/cancelled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+[access_scopes]
+# The write scope also grants read_store_credit_account_transactions (Shopify:
+# "Any scope that writes a resource also grants read access to it")
+scopes = "read_customers,read_orders,read_all_orders,read_store_credit_accounts,write_store_credit_account_transactions,write_app_proxy"
+
+[auth]
+redirect_urls = [ "https://example.com/auth/callback" ]
+
+[app_proxy]
+url = "https://example.com/api/proxy"
+subpath = "rewardspro"
+prefix = "apps"
+
+[pos]
+embedded = false

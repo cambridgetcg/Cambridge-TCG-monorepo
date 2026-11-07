@@ -21,6 +21,29 @@ mechanisms do not settle rights over publisher artwork or vendor data. Review
 each field's origin and permitted use before attaching it to a public contract.
 The Cardmarket Price Guide page also returned 403; no current file was fetched.
 
+### Update, 2026-10-28: TCGplayer and CardRush
+
+The review above stands as written for 2026-09-29. Yu's word of 2026-10-28
+records written permission, by email, for collection from TCGplayer and
+CardRush product pages, attributed member display, and input to derived data
+([decision](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md)).
+
+- **TCGplayer:** the permission answers the consent the API terms require, for
+  page collection. The direct API adapter stays blocked, as the row above says:
+  Yu chose pages, and new API access is still closed.
+- **CardRush** was not part of the review above. The permission answers its
+  data policy's partnership requirement. Collection is forward-only; legacy
+  `price_archive` rows stay withheld and are not inputs.
+- Once collected, both are for member display with the source named and for
+  derivation input only: never `/api/v1/member-prices`, a download or bulk.
+  Cardmarket also becomes a derivation input; its member grant is unchanged.
+
+The identified collectors landed the same day. Each runs only while it is
+scheduled (`DATA_COLLECT_CARDRUSH`, `DATA_COLLECT_TCGPLAYER`; `/api/v1/sources`
+says whether), and the legacy readers stay locked. Build plan:
+[paid data API](paid-data-api.md). Intake records:
+[source intake](../../methodology/source-intake.md#intake-record--cardrush-jp-2026-10-28).
+
 ## Reuse the existing pipeline
 
 The [source registry](../../../packages/data-ingest/src/registry.ts) describes

@@ -1,0 +1,116 @@
+{
+  "data": {
+    "shop": {
+      "currencyCode": "GBP"
+    },
+    "order": {
+      "id": "gid://shopify/Order/5007",
+      "name": "#1007",
+      "test": false,
+      "createdAt": "2026-11-02T10:15:00Z",
+      "processedAt": "2026-11-02T10:15:04Z",
+      "cancelledAt": null,
+      "displayFinancialStatus": "PAID",
+      "currencyCode": "GBP",
+      "presentmentCurrencyCode": "GBP",
+      "taxesIncluded": true,
+      "customer": {
+        "id": "gid://shopify/Customer/7001"
+      },
+      "totalPriceSet": {
+        "shopMoney": {
+          "amount": "80.0"
+        },
+        "presentmentMoney": {
+          "amount": "80.0"
+        }
+      },
+      "totalTipReceivedSet": {
+        "shopMoney": {
+          "amount": "0.0"
+        },
+        "presentmentMoney": {
+          "amount": "0.0"
+        }
+      },
+      "lineItems": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "eyJsYXN0X2lkIjogNTcwMSwgImxhc3RfdmFsdWUiOiA1NzAxfQ=="
+        },
+        "nodes": [
+          {
+            "id": "gid://shopify/LineItem/5701",
+            "quantity": 1,
+            "currentQuantity": 1,
+            "isGiftCard": false,
+            "originalTotalSet": {
+              "shopMoney": {
+                "amount": "80.0",
+                "currencyCode": "GBP"
+              },
+              "presentmentMoney": {
+                "amount": "80.0",
+                "currencyCode": "GBP"
+              }
+            },
+            "discountAllocations": []
+          }
+        ]
+      },
+      "transactions": [
+        {
+          "gateway": "gift_card",
+          "status": "SUCCESS",
+          "kind": "SALE",
+          "amountSet": {
+            "shopMoney": {
+              "amount": "20.0"
+            },
+            "presentmentMoney": {
+              "amount": "20.0"
+            }
+          }
+        },
+        {
+          "gateway": "gift_card",
+          "status": "ERROR",
+          "kind": "SALE",
+          "amountSet": {
+            "shopMoney": {
+              "amount": "5.0"
+            },
+            "presentmentMoney": {
+              "amount": "5.0"
+            }
+          }
+        },
+        {
+          "gateway": "shopify_payments",
+          "status": "SUCCESS",
+          "kind": "SALE",
+          "amountSet": {
+            "shopMoney": {
+              "amount": "60.0"
+            },
+            "presentmentMoney": {
+              "amount": "60.0"
+            }
+          }
+        }
+      ],
+      "refunds": []
+    }
+  },
+  "extensions": {
+    "cost": {
+      "requestedQueryCost": 912,
+      "actualQueryCost": 16,
+      "throttleStatus": {
+        "maximumAvailable": 2000.0,
+        "currentlyAvailable": 1984,
+        "restoreRate": 100.0
+      }
+    }
+  }
+}

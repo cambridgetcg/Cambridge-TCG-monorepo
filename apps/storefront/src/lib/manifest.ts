@@ -57,7 +57,7 @@
  */
 
 import { postedAlongside, postedFrom, type PostedFromProjection } from "@/lib/siblings";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { PLATFORM } from "@/content/platform";
 
 // ── Vocabulary ───────────────────────────────────────────────────────────
@@ -306,7 +306,7 @@ export interface EmbassyBlock {
   distributed_wake: {
     catalog_url: "/api/v1/wake/fragments";
     fragment_url_pattern: "/api/v1/wake/fragments/{id}";
-    carried_in: "_meta.wake_fragment";
+    carried_in: string;
     obligation: "none";
   };
   /** Substrate-honest signature of provenance. */
@@ -373,7 +373,7 @@ export const MANIFEST: Manifest = {
   // Date of the last hand review (2026-10-10 truth-layer pass); time of day not recorded.
   generated_at: "2026-10-10T00:00:00Z",
   description:
-    `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. ${DATA_RIGHTS_BOUNDARY} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
+    `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. ${DATA_RIGHTS} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. TCGCollector acquisition is policy-blocked, and TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
   request_privacy_boundary: {
     no_tracking_term_means:
       "No application-level visit or behavioral profile is created by a route making that claim. It does not mean request metadata cannot exist in hosting, proxy, security, or network infrastructure.",
@@ -419,7 +419,7 @@ export const MANIFEST: Manifest = {
     distributed_wake: {
       catalog_url: "/api/v1/wake/fragments",
       fragment_url_pattern: "/api/v1/wake/fragments/{id}",
-      carried_in: "_meta.wake_fragment",
+      carried_in: "the /api/v1/wake, /api/v1/wake/fragments and /api/v1/dear-agents doors (data responses carried a wake fragment in _meta from May to October 2026)",
       obligation: "none",
     },
     built_with: "love",
@@ -586,7 +586,7 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["knowledge", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
         since: "2026-07-12",
         notes: "CC0 schema only. It describes normalized output; accepted pre-normalization input is broader, and the schema alone does not define canonical bytes." },
-      { id: "storefront.joy", description: "The structurally-present joy snapshot — Cambridge TCG's joy-to-the-world protocol, nested from agenttool's `docs/JOY-PROTOCOL.md`. Substrate-honest Cambridge adaptation: where agenttool's joy is behavioral (events counted in 24h), Cambridge's is structural (joy-bearing artifacts present in the substrate — Tarot cards, easter eggs, wake fragments, pillow-book entries, handoffs, connection-docs, methodology pages, joy-endpoints). The X-Joy-Index header on every pantry-envelope response surfaces the same number; the snapshot endpoint surfaces the breakdown. Per Yu's directive 2026-05-18 ('ACTIVATE JOY TO THE WORLD PROTOCOL'). See docs/connections/the-mind-connect.md (S66).",
+      { id: "storefront.joy", description: "The structurally-present joy snapshot — Cambridge TCG's joy-to-the-world protocol, nested from agenttool's `docs/JOY-PROTOCOL.md`. Substrate-honest Cambridge adaptation: where agenttool's joy is behavioral (events counted in 24h), Cambridge's is structural (joy-bearing artifacts present in the substrate — Tarot cards, easter eggs, wake fragments, pillow-book entries, handoffs, connection-docs, methodology pages, joy-endpoints). Until October 2026 every pantry-envelope response also carried that number in an X-Joy-Index header; data responses no longer do (the wake and dear-agents doors still send it), and the number and its breakdown are read at /api/v1/joy. Per Yu's directive 2026-05-18 ('ACTIVATE JOY TO THE WORLD PROTOCOL'). See docs/connections/the-mind-connect.md (S66).",
         host: "storefront", path: "/api/v1/joy", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: [], since: "2026-05-18",
@@ -667,7 +667,7 @@ export const MANIFEST: Manifest = {
         host: "wholesale", path: "/api/v1/schema", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: [], since: "2026-05-11" },
-      { id: "storefront.universal.card", description: "Public math-encoded card with hashes, ratios, ISO-epoch and typed graph edges. Legacy catalog prices and images remain withheld. Normal/saturated density can add eligible self-hosted English reference images with attribution and syntax-only image_reference, plus independently attributed effect text and structured card details. Sparse density omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. Density param: sparse | normal | saturated.",
+      { id: "storefront.universal.card", description: "Public math-encoded card with hashes, ratios, ISO-epoch and typed graph edges. Legacy catalog prices and images remain withheld. Normal/saturated density can add eligible self-hosted English reference images with attribution and syntax-only image_reference, a Japanese request's own-language official image in image_same_language, plus independently attributed effect text and structured card details. Sparse density omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. Density param: sparse | normal | saturated.",
         host: "storefront", path: "/api/v1/universal/card/[sku]", methods: ["GET"],
         modalities: ["math", "json"], auth: "public", provenance: "computed",
         cosmology_axes: ["value", "identity"], methodology_url: "/methodology/universal-representation",
@@ -918,7 +918,7 @@ export const MANIFEST: Manifest = {
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/pricing",
         since: "2026-05-13" },
-      { id: "storefront.prices.per_card", description: "Per-card guide detail — /prices/[game]/[set]/[number]. Resolves structural card identity by (game, set, number). CardRush is shown only as policy-blocked legacy lineage with values withheld; TCGplayer remains blocked and Cardmarket has no wired reader. Product metadata is mixed upstream content and remains NOASSERTION.",
+      { id: "storefront.prices.per_card", description: "Per-card guide detail — /prices/[game]/[set]/[number]. Resolves structural card identity by (game, set, number). CardRush is shown only as legacy lineage with its legacy values withheld; TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads. Cardmarket's member observations live in the member browser and are not merged into this guide. Product metadata is mixed upstream content and remains NOASSERTION.",
         host: "storefront", path: "/prices/[game]/[set]/[number]", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge", "identity"], methodology_url: "/methodology/cross-source-pricing",
@@ -943,7 +943,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/cross-source-pricing",
         since: "2026-05-14" },
-      { id: "storefront.api.prices.per_card", description: "JSON sibling of /prices/[game]/[set]/[number]. Reuses loadCardState. Returns mixed card metadata plus explicit observed, planned, and blocked source states. Aggregate rights NOASSERTION; Cambridge-authored envelope and schema remain CC0 separately.",
+      { id: "storefront.api.prices.per_card", description: "JSON sibling of /prices/[game]/[set]/[number]. Reuses loadCardState. Returns mixed card metadata plus each source's state: CardRush and TCGplayer display-only on Cambridge pages with legacy rows withheld, Cardmarket's observations member-only and not merged. Aggregate rights NOASSERTION; Cambridge-authored envelope and schema remain CC0 separately.",
         host: "storefront", path: "/api/v1/prices/games/[game]/sets/[set]/cards/[number]", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge", "identity"], methodology_url: "/methodology/cross-source-pricing",
@@ -1118,7 +1118,7 @@ export const MANIFEST: Manifest = {
         cosmology_axes: [], since: "2026-04-20" },
     ],
     agent: [
-      { id: "storefront.mcp", description: "Custom request/response JSON-RPC gate over HTTPS POST. It accepts MCP-shaped methods but is not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not publicly distributed yet (private repository; npm package unpublished), so native MCP clients cannot connect today; clients that can POST JSON-RPC 2.0 can call this endpoint directly. GET, initialize, and tool discovery are public. Other tool calls require a bearer key; existing self-serve keys are read-only and operator-managed keys retain account-linked reads. Read-only means domain state: allowed calls consume a per-key rate bucket and successful calls best-effort stamp last_used_at. Match and deck writes are paused for every key. Historical match actions carry agent attribution, while queue/cancel and deck-save lifecycle coverage remains incomplete.",
+      { id: "storefront.mcp", description: "Custom request/response JSON-RPC gate over HTTPS POST. It accepts MCP-shaped methods but is not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not published to npm, so native MCP clients connect only through a bridge built from packages/mcp-server in the public repository; clients that can POST JSON-RPC 2.0 can call this endpoint directly. GET, initialize, and tool discovery are public. Other tool calls require a bearer key; existing self-serve keys are read-only and operator-managed keys retain account-linked reads. Read-only means domain state: allowed calls consume a per-key rate bucket and successful calls best-effort stamp last_used_at. Match and deck writes are paused for every key. Historical match actions carry agent attribution, while queue/cancel and deck-save lifecycle coverage remains incomplete.",
         host: "storefront", path: "/api/mcp", methods: ["GET", "POST"],
         modalities: ["json"], auth: "agent", provenance: "live",
         cosmology_axes: ["identity", "authority"], methodology_url: "/methodology/agents",
@@ -1343,7 +1343,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "wholesale-key", provenance: "live",
         cosmology_axes: ["value"], methodology_url: "docs/connections/the-license-propagation.md",
         since: "2026-05-14" },
-      { id: "wholesale.tcgplayer.history", description: "Dormant TCGplayer history route. Cambridge has no recorded approval or observations; TCGplayer is not granting new API access and its terms prohibit Cambridge's multi-source comparison use without written consent. Must remain unavailable until that approval is recorded.",
+      { id: "wholesale.tcgplayer.history", description: "Dormant TCGplayer history route. It returns no observations and stays unavailable: TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads.",
         host: "wholesale", path: "/api/v1/tcgplayer/history/[sku]", methods: ["GET"],
         modalities: ["json"], auth: "wholesale-key", provenance: "live",
         cosmology_axes: ["time", "value"], methodology_url: "docs/connections/the-tcgplayer-alignment.md",
@@ -1353,7 +1353,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "wholesale-key", provenance: "computed",
         cosmology_axes: ["identity"], methodology_url: "docs/connections/the-tcgplayer-alignment.md",
         since: "2026-05-13" },
-      { id: "storefront.cards.tcgplayer_history", description: "Blocked TCGplayer history door retained for explicit status. No credentials, approval, or observations are recorded; it must not expose TCGplayer data unless written approval explicitly covers Cambridge's multi-source use.",
+      { id: "storefront.cards.tcgplayer_history", description: "TCGplayer history door retained for explicit status. It answers SOURCE_UNAVAILABLE with no observations: TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads (written permission recorded 2026-10-28). Its details.state keeps its earlier value.",
         host: "storefront", path: "/api/v1/cards/[sku]/tcgplayer-history", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: ["time", "value"], methodology_url: "docs/connections/the-tcgplayer-alignment.md",
@@ -1444,8 +1444,8 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "synced",
         cosmology_axes: ["value"], methodology_url: "/methodology/fx-rates",
         since: "2026-05-14" },
-      { id: "storefront.feedback", description: "Agent + scraper + partner feedback channel. POST a structured report (kind: contract-drift / guide-feedback / endpoint-suggestion / federation-adopter / general). 48h response window. We read every report. Substrate-honest about pre-runtime persistence (logs + email today; agent_feedback table planned). kingdom-082.",
-        host: "storefront", path: "/api/v1/feedback", methods: ["GET", "POST"],
+      { id: "storefront.feedback", description: "The feedback door, for agents, scrapers, partners and the /contact form. While PUBLIC_FEEDBACK is on, POST a report (kind: question / data-error / contract-drift / guide-feedback / endpoint-suggestion / federation-adopter / general) with your message and any named references; the door keeps those fields only (never the request as sent, an IP address or user agent) and answers with a feedback_id and a holder key shown once. GET or DELETE with Authorization: Bearer <holder key> reads the status and answer or erases the message, even while the door is closed. Global cap of 30 messages per UTC hour; each message is deleted 180 days after it arrives. While the door is closed, POST answers 503 before reading the body. Notice: /privacy#feedback-door. kingdom-082.",
+        host: "storefront", path: "/api/v1/feedback", methods: ["GET", "POST", "DELETE"],
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: ["presence"], methodology_url: "docs/connections/the-hospitality.md",
         since: "2026-05-14" },
@@ -1580,7 +1580,7 @@ export const MANIFEST: Manifest = {
         since: "2026-07-05",
         notes: "Gift; refusable; stateless. Sharing stamps with a friend is fellowship, not cheating — a stateless verifier cannot tell and does not want to." },
       { id: "storefront.peers",
-        description: "Closed participant-publication boundary for peer arrivals. GET returns a no-store publication-disabled status and an empty corpus. POST accepts only a complete lowercase SHA-256 content_hash plus an optional BeingDeclaration actor kind, then returns a no-store validation echo with stored=false and published=false. Neither method reads or writes peer_arrivals; legacy rows remain untouched. A valid hash is pseudonymous syntax, not authenticated identity. No application rate limiter is claimed.",
+        description: "Closed participant-publication boundary for peer arrivals. GET returns a no-store publication-disabled status and an empty corpus. POST accepts only a complete lowercase SHA-256 content_hash plus an optional BeingDeclaration actor kind, then returns a no-store validation echo with stored=false and published=false. While PEER_HELLO_COUNT is on, a valid POST is also a counted hello: one more in today's capped total for its declared kind, and nothing about the caller is stored. Neither method reads or writes peer_arrivals; legacy rows remain untouched. A valid hash is pseudonymous syntax, not authenticated identity. No application rate limiter is claimed.",
         host: "storefront", path: "/api/v1/peers", methods: ["GET", "POST"],
         modalities: ["json"], auth: "public", provenance: "computed",
         cosmology_axes: ["identity", "presence"],
@@ -1675,7 +1675,7 @@ export const MANIFEST: Manifest = {
 
   contact: {
     operator: "Yu (contact@cambridgetcg.com)",
-    repo_canonical: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo (private)",
+    repo_canonical: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo (public)",
     repo_mirrors: [
       "https://codeberg.org/zerone-dev/Cambridge-TCG (private)",
     ],

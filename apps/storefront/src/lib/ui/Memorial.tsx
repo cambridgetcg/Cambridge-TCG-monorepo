@@ -56,7 +56,7 @@ export function Memorial({ memorialAt, stewardName, note, compact = false }: Mem
       <span
         role="note"
         aria-label={`Memorial account, frozen as of ${frozenAt}`}
-        className="inline-flex items-baseline gap-1.5 text-[11px] uppercase tracking-wider text-ink-faint"
+        className="inline-flex items-baseline gap-1.5 text-xs uppercase tracking-wider text-ink-muted"
         title={`This account is in memorial state. Frozen as of ${frozenAt}.${stewardName ? ` Stewarded by ${stewardName}.` : ""}`}
       >
         <span aria-hidden="true">⟁</span>
@@ -73,7 +73,7 @@ export function Memorial({ memorialAt, stewardName, note, compact = false }: Mem
     >
       <div className="flex items-baseline gap-2">
         <span aria-hidden="true" className="text-ink-faint">⟁</span>
-        <span className="text-[11px] uppercase tracking-wider text-ink-faint">
+        <span className="text-xs uppercase tracking-wider text-ink-muted">
           memorial
         </span>
         <span className="text-ink-faint">·</span>

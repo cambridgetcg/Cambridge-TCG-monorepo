@@ -1,9 +1,14 @@
 import type { SourceMeta } from "@cambridge-tcg/data-ingest";
+import { MEMBER_PRICE_POLICIES, type MemberPriceSource } from "@cambridge-tcg/data-ingest/member-prices";
 import { COLLECTOR_OBSERVATION_PUBLICATION } from "@/lib/collector-observations/types";
 import type { UnifiedMarketView } from "@/lib/market/unified";
 import { soldCompsPausedData } from "@/lib/sold-comps/query";
 
-export type EvidenceSourceState = "observed_withheld" | "blocked" | "planned";
+/** display_only: released for attributed member display and never for the
+ * member API or downloads (displayOnly below). It replaced observed_withheld
+ * on 2026-10-28, which described a legacy archive these sources no longer
+ * stand for. */
+export type EvidenceSourceState = "display_only" | "blocked" | "planned";
 
 export interface EvidenceSource {
   id: string;
@@ -57,8 +62,20 @@ export interface CardEvidenceModel {
   };
 }
 
+/** A source released for attributed member display and never for the member
+ * API or downloads, read from its release policy (MEMBER_PRICE_POLICIES uses).
+ * Of the three rivers this ledger names, CardRush and TCGplayer, since
+ * 2026-10-28. Their values are on Cambridge's price pages with their names
+ * beside them and never in an API, this one included. They used to read
+ * "blocked" (TCGplayer) and "internal lineage" (CardRush). */
+function displayOnly(id: string): boolean {
+  if (!Object.hasOwn(MEMBER_PRICE_POLICIES, id)) return false;
+  const uses: readonly string[] = MEMBER_PRICE_POLICIES[id as MemberPriceSource].uses;
+  return uses.includes("member-display") && !uses.includes("member-api") && !uses.includes("member-download");
+}
+
 function sourceState(source: SourceMeta): EvidenceSourceState | null {
-  if (source.id === "cardrush") return "observed_withheld";
+  if (displayOnly(source.id)) return "display_only";
   if (source.status === "blocked") return "blocked";
   if (source.status === "planned") return "planned";
   return null;
@@ -86,8 +103,8 @@ export function evidenceSourcesForGame(
       const state = sourceState(source);
       if (state === null) return [];
       const reason =
-        state === "observed_withheld"
-          ? "Used as internal lineage where available; raw values and source URLs are not republished."
+        state === "display_only"
+          ? "Display-only (written permission recorded 2026-10-28): prices collected only while its collector is scheduled (see /api/v1/sources) appear with the source named on Cambridge price pages. Raw values and source URLs are never served by an API, a download or this response; rows stored before that date stay withheld."
           : state === "blocked"
             ? "No collection or display: the required permission or access is not available."
             : "A source slot exists, but no live collection path is being claimed.";

@@ -13,8 +13,10 @@ This page is the **operational protocol** for wiring a new upstream river into t
 > source to `blocked`, keep its reader inert, and ask the rights holder. Repeat
 > the check before every public emission. Authentication, payment, storage,
 > transformation, aggregation, attribution, or downstream contracts do not
-> create upstream rights. CardRush is hard-blocked by its official data policy;
-> TCGCollector is hard-blocked pending written partner approval.
+> create upstream rights. CardRush's legacy paths stay hard-blocked under its
+> official data policy; only its evidence-gated page collector reads, under
+> the written permission recorded 2026-10-28. TCGCollector is hard-blocked pending
+> written partner approval.
 
 ---
 
@@ -86,7 +88,7 @@ Every field in [`SourceMeta`](../../packages/data-ingest/src/types.ts) is requir
 - `redistribute: false` for partner-restricted, internal-only, or scraped sources. This field limits downstream use; it does not itself authorize acquisition. Default to `false` when unsure.
 - `tos_notes` quotes the upstream's ToS / robots.txt / known restrictions. *This is mandatory* — the audit checks it's non-empty.
 - `catalog_section` is the anchor link into `the-tributaries.md` (e.g. `the-tributaries.md#31-scryfall-mtg`).
-- `freshness` is a key from `@cambridge-tcg/data-spec` `FRESHNESS` table — `catalog` (24h), `price_current` (5min), `market_signal` (1min), etc.
+- `freshness` is a key from `@cambridge-tcg/data-spec` `FRESHNESS` table — `catalog` (24h), `price_current` (5min), `market_signal` (1min), `page_collector` (6h, a page collector's newest batch), `daily_file` (26h, a daily file collector's newest batch), etc.
 - `status` reflects reality:
   - `shipped` — implemented + tested + wired to a writer, with current rights evidence for the operations it performs
   - `partial` — implemented but caller-side wiring incomplete
@@ -347,7 +349,7 @@ The whole thing should take a focused half-day. The shape is mechanical because 
 ## 9. Recursion targets
 
 1. **Ship `tcgplayer`, `cardmarket`, `pokemon-tcg-api`, `ygoprodeck`** as the second wave — high-value upstreams, similar shape to `scryfall`.
-2. **Keep CardRush and TCGCollector policy blocks tested** — runners must return before network access, and written approval must precede any future enablement.
+2. **Keep CardRush's legacy and TCGCollector policy blocks tested** — their runners must return before network access, and written approval must precede any future enablement. CardRush's page collector is the one path its written permission (2026-10-28) reaches.
 3. **Wire `/api/v1/sources` endpoint** — emit `listSourceMeta()` through the data-pantry envelope. The inverse of `/api/v1/status` (which inspects emission); this inspects ingestion.
 4. **Wire `_meta.source_license` on the envelope** — read `meta.redistribute` + `meta.license` for every source contributing to a response; the byte travels with its rights.
 5. **Ship `ingest_quarantine` table** — schema: `(id, source, sku, raw_json, reason, ingested_at)`. Admin review surface.

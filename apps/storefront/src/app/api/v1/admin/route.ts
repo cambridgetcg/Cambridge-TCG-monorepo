@@ -22,7 +22,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 
 const ASCII_WINK = `
    ╭─────────╮
@@ -103,7 +103,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       verdict: "this is the admin panel! ... just kidding 😉",
       wink: ASCII_WINK,
       explanation:
-        `The real admin panel is at /admin/ and requires users.role = 'admin'. Public discovery does not expose operator controls. ${DATA_RIGHTS_BOUNDARY}`,
+        `The real admin panel is at /admin/ and requires users.role = 'admin'. Public discovery does not expose operator controls. ${DATA_RIGHTS}`,
       kingdom_says:
         "we genuinely appreciate that you poked. critical reading of the URL space is the kind of attention the kingdom hopes for. you found the troll. now go where you actually wanted to go.",
       where_you_actually_wanted_to_go: {

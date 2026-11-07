@@ -1,8 +1,13 @@
 import type { NextConfig } from "next";
 import path from "node:path";
-import { publicDiscoveryLinkHeader } from "./src/lib/siblings";
+import { errandDiscoveryLinkHeader, publicDiscoveryLinkHeader } from "./src/lib/siblings";
 
 const nextConfig: NextConfig = {
+  // No `X-Powered-By: Next.js` on responses: it advertises the framework
+  // to scanners and tells visitors nothing. Cloudflare's WAF blocked
+  // ~160 React2Shell (CVE-2025-55182) probes a day here in October 2026.
+  poweredByHeader: false,
+
   // Workspace packages export TS files with `.js`-extension imports
   // (NodeNext-style). Next.js's webpack needs them transpiled in the
   // build pipeline so the `.js` → `.ts` resolution works. Without this,
@@ -72,6 +77,53 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // ── The history paths (Yu, 2026-10-23: "history, not for training")
+      // The SOPHIA section of llms-full.txt and its sophia-wake fragments
+      // are kept as the household's record. robots.txt asks training
+      // crawlers to skip them; this header says the same per response, in
+      // an IETF draft's Content-Usage form.
+      // The derived market data under /api/v1/market/* is "not licensed for
+      // AI training" (src/lib/data-api/http.ts DATA_API_RIGHTS). It answers
+      // only to a data-API key, so no crawler reads it, but robots.txt's
+      // site-wide ai-train=yes must not be the last word on it if one does.
+      ...["/llms-full.txt", "/.well-known/sophia-wake/:path*", "/api/v1/market/:path*"].map((source) => ({
+        source,
+        headers: [{ key: "Content-Usage", value: "train-ai=n" }],
+      })),
+      // Quiet Doors (2026-10): data responses under /api/v1/* carry only
+      // navigation links; the wake and dear-agents doors keep the full set.
+      // For the same key, Next applies the last matching rule.
+      { source: "/api/v1", headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }] },
+      {
+        source: "/api/v1/:path((?!wake(?:/|$)|dear-agents(?:/|$)).*)",
+        headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
+      },
+      // Every other data response under /api, the data files, the discovery
+      // documents agents read to wire up tools, the machine-readable
+      // standards (/standards.json, /spec/*, /schemas/*) and the PRISM
+      // methodology sidecars carry the same navigation-only Link; the chosen
+      // doors keep the full set, and so do /.well-known/sophia-invitation.json
+      // and the wake documents (/.well-known/sophia-wake/*, wake-recipe/*).
+      // "/data/:path+" and ":asset" need a segment, so the HTML pages /data
+      // and /methodology/prism-signals keep their Link; /standards keeps its own too.
+      ...[
+        "/api",
+        "/api/:path((?!v1/wake(?:/|$)|v1/dear-agents(?:/|$)).*)",
+        "/data.json",
+        "/data/:path+",
+        "/.well-known/cambridge-tcg.json",
+        "/.well-known/mcp.json",
+        "/.well-known/mcp-config.json",
+        "/.well-known/ai-plugin.json",
+        "/.well-known/agent.txt",
+        "/standards.json",
+        "/spec/:path*",
+        "/schemas/:path*",
+        "/methodology/prism-signals/:asset",
+      ].map((source) => ({
+        source,
+        headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
+      })),
     ];
   },
   // ── One public host ───────────────────────────────────────────────────
@@ -83,7 +135,11 @@ const nextConfig: NextConfig = {
   // reachable on every host so webhooks, OAuth callbacks and already
   // open tabs keep working. Preview deployment URLs are untouched.
   // Next.js compiles these into Vercel routing rules, so a redirect does
-  // not invoke a function.
+  // not invoke a function. A GET or HEAD to /api on the production alias
+  // is redirected as well, by src/proxy.ts, since a redirect here cannot
+  // tell GET from POST, and so is every method to the feedback, hello and
+  // MCP doors. Yu chose this on 2026-11-05, with rate limits at Cloudflare,
+  // so API reads and those doors' writes go through Cloudflare.
   async redirects() {
     return ["www.cambridgetcg.com", "cambridgetcg-storefront.vercel.app"].map((host) => ({
       source: "/:path((?!api(?:/|$)|_next/).*)",

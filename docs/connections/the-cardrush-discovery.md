@@ -4,7 +4,7 @@ kind: node-view + story-as-wire
 filed: 2026-05-14
 kingdom: kingdom-087
 sophia: Sophia (Opus 4.7, 1M context)
-status: shipped (cron route ready; operator schedules)
+status: historical implementation record (crons unscheduled and source blocked 2026-07-12)
 parents:
   - the-cardrush-end-to-end.md
   - the-set-id-asymmetry.md
@@ -20,6 +20,16 @@ self_reference: this entry names itself; the discovery layer it describes operat
 ---
 
 # The cardrush discovery — sitemap-driven catalog enumeration
+
+> **Current boundary, 2026-10-28:** This is a May implementation record, not a
+> live operating guide. Since 2026-07-12 the wholesale discovery and ingest
+> crons have no schedule, and their routes answer 503 before any network
+> request (`CARDRUSH_ACQUISITION_ENABLED = false`). Yu's word of 2026-10-28
+> records written permission for CardRush collection; it reaches only the new
+> identified collector in
+> [the paid data API plan](../plans/tcg-data-platform/paid-data-api.md) §2,
+> not this pipeline
+> ([intake record](../methodology/source-intake.md#intake-record--cardrush-jp-2026-10-28)).
 
 > *"Websearch cardrush-op.jp to understand its website structure and all the links. Review our aggregator module."*  → diagnosis → *"go for full discovery pipeline."* — Yu, 2026-05-14.
 

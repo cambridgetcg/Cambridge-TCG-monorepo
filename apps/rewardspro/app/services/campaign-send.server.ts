@@ -1,0 +1,283 @@
+/**
+ * Sending one email campaign. The send page's Send now, the Create page's
+ * Send immediately and the scheduled-campaigns cron all come here, so they
+ * read the audience the same way and a campaign goes out once.
+ *
+ * A campaign's audience is saved in EmailCampaign.segmentRules as exactly one
+ * of these (a recommendation's context may sit beside it):
+ *   { allCustomers: true }                                  everyone who agreed to marketing
+ *   { tierIds: [...] }                                      those of them in these tiers
+ *   { fromRecommendation: true, targetCustomerIds: [...] }  those of them a recommendation picked
+ * Anything else can't be read, and then nothing is sent.
+ */
+
+import type { Prisma } from "@prisma/client";
+import prisma from "~/db.server";
+import { jsonObject } from "~/utils/json-object";
+import { usableTimeZone } from "~/utils/zoned-time";
+import { sendCampaignEmails } from "./email-notifications.server";
+import { MARKETING_AUDIENCE } from "./marketing-consent.server";
+import { MARKETING_EMAIL_OFF, marketingEmailBlockedReason } from "./marketing-email.server";
+
+export type CampaignAudience =
+  | { kind: "all" }
+  | { kind: "tiers"; tierIds: string[] }
+  | { kind: "customers"; customerIds: string[] };
+
+export type CampaignSendOutcome =
+  | { status: "sent"; recipients: number; sent: number; failed: number }
+  /**
+   * Nothing went out. "refused": RewardsPro held it back for something about
+   * the campaign or the shop (its audience, the monthly limit, Klaviyo,
+   * email switched off). "failed": RewardsPro or its email service failed.
+   */
+  | { status: "not_sent"; reason: string; cause: "refused" | "failed" }
+  /**
+   * The email service gave no answer, so some or all of it may have gone
+   * out. It is marked failed, and never sent again by itself.
+   */
+  | { status: "may_have_sent"; reason: string }
+  /** Someone else is sending it, or it is no longer in the state the caller saw */
+  | { status: "taken" };
+
+const UNKNOWN_AUDIENCE = "RewardsPro couldn't tell who this campaign is for. Duplicate it and choose the audience again.";
+const NO_RECIPIENTS = "No recipients match your audience selection. Adjust your filters and try again.";
+const NO_ONE_AGREED =
+  "When it was due, no one in its audience could get marketing email (the audience was empty, or no one in it had agreed to marketing email), so nothing was sent.";
+const COULD_NOT_SEND = {
+  draft: "RewardsPro couldn't send this campaign just now. Try again later.",
+  scheduled: "RewardsPro couldn't send this campaign when it was due, so nothing was sent. Duplicate it to try again.",
+};
+const WENT_WRONG_BEFORE_SENDING = "Something went wrong before this campaign was sent, so nothing went out. Duplicate it to send it again.";
+const MAY_HAVE_GONE_OUT =
+  "Something went wrong while this campaign was sending, and some or all customers may have received it. RewardsPro won't send it again by itself. Check whether they got it before you send it again, so no one gets it twice.";
+
+function stringList(value: Prisma.JsonValue | undefined): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && v !== "") : [];
+}
+
+/** Who a campaign is for, from its segmentRules, or null when that can't be told. */
+export function campaignAudience(segmentRules: Prisma.JsonValue | undefined): CampaignAudience | null {
+  const rules = jsonObject(segmentRules);
+  const found: CampaignAudience[] = [];
+  if (rules.allCustomers === true) found.push({ kind: "all" });
+  const tierIds = stringList(rules.tierIds);
+  // Before this shape was settled, the Create page saved "All Customers" as tierIds ["all"]
+  if (tierIds.length === 1 && tierIds[0] === "all") found.push({ kind: "all" });
+  else if (tierIds.length > 0) found.push({ kind: "tiers", tierIds });
+  const customerIds = rules.fromRecommendation === true ? stringList(rules.targetCustomerIds) : [];
+  if (customerIds.length > 0) found.push({ kind: "customers", customerIds });
+  return found.length === 1 ? found[0] : null;
+}
+
+/** `segmentRules` with `audience` as its one audience, keeping any recommendation context. */
+export function withCampaignAudience(
+  segmentRules: Prisma.JsonValue | undefined,
+  audience: CampaignAudience,
+): Prisma.InputJsonObject {
+  const context = { ...jsonObject(segmentRules) };
+  delete context.allCustomers;
+  delete context.tierIds;
+  delete context.targetCustomerIds;
+  if (audience.kind === "all") return { ...context, allCustomers: true };
+  if (audience.kind === "tiers") return { ...context, tierIds: audience.tierIds };
+  return { ...context, fromRecommendation: true, targetCustomerIds: audience.customerIds };
+}
+
+/** The customers an audience reaches: only those who agreed to marketing (sendMarketingEmail checks again). */
+export async function campaignRecipients(shop: string, audience: CampaignAudience): Promise<Array<{ customerId: string }>> {
+  const where: Prisma.CustomerWhereInput = { shop, ...MARKETING_AUDIENCE };
+  if (audience.kind === "tiers") where.currentTierId = { in: audience.tierIds };
+  if (audience.kind === "customers") where.id = { in: audience.customerIds };
+  const customers = await prisma.customer.findMany({ where, select: { id: true } });
+  return customers.map((c) => ({ customerId: c.id }));
+}
+
+/** The shop's time zone: Shopify's shop.ianaTimezone, saved in ShopSettings when the app opens. */
+export async function shopTimeZone(shop: string): Promise<string> {
+  const settings = await prisma.shopSettings.findUnique({ where: { shop }, select: { timezone: true } });
+  return usableTimeZone(settings?.timezone);
+}
+
+const NO_METRICS = { sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, unsubscribed: 0, revenue: 0, orders: 0 };
+
+/** Metrics for a campaign that sent nothing, with the reason the merchant sees on it. */
+export function notSentMetrics(reason: string): Prisma.InputJsonObject {
+  return { ...NO_METRICS, notSentReason: reason };
+}
+
+/**
+ * Metrics for a campaign that may have gone out, with the reason. They keep
+ * what SendGrid has reported on it so far (webhooks.sendgrid.tsx counts
+ * deliveries and bounces): that is how the merchant can tell whether it went.
+ */
+function maybeSentMetrics(current: Prisma.JsonValue | undefined, sent?: number): Prisma.InputJsonObject {
+  const reported = { ...jsonObject(current) };
+  delete reported.notSentReason;
+  return { ...NO_METRICS, ...reported, ...(sent !== undefined && { sent }), interruptedReason: MAY_HAVE_GONE_OUT };
+}
+
+/** How long a send can run: well past the function's time limit (300 s) */
+const CUT_OFF_AFTER_MINUTES = 15;
+
+/**
+ * Campaigns whose send started (sentAt, set as one is taken) long before any
+ * send could still be running, and are still 'sending', were cut off part
+ * way: the function was stopped, or the database failed as the send ended.
+ * Some or all of each may have gone out, so they are marked failed with that
+ * reason, and never sent again by themselves. Returns how many there are.
+ */
+export async function markCutOffSends(now: Date, dryRun = false): Promise<number> {
+  const cutOff = { status: "sending", sentAt: { lt: new Date(now.getTime() - CUT_OFF_AFTER_MINUTES * 60 * 1000) } };
+  const campaigns = await prisma.emailCampaign.findMany({ where: cutOff, select: { id: true, metrics: true } });
+  if (dryRun) return campaigns.length;
+  let marked = 0;
+  for (const campaign of campaigns) {
+    const { count } = await prisma.emailCampaign.updateMany({
+      where: { id: campaign.id, ...cutOff },
+      data: { status: "failed", metrics: maybeSentMetrics(campaign.metrics), updatedAt: now },
+    });
+    marked += count;
+  }
+  return marked;
+}
+
+/**
+ * Send a 'draft' (Send now, Send immediately) or 'scheduled' (the cron)
+ * campaign to the audience saved on it, or to `segmentRules` saved with it
+ * as it is taken. It moves to 'sending' only from `from`, so when two
+ * requests race, one sends and the other is "taken".
+ * When nothing goes out, a draft stays a draft with the audience it had (the
+ * caller shows the reason), and a scheduled campaign is marked 'failed' with
+ * the reason. If something goes wrong once the email service may have sent
+ * some of it, or the service gives no answer, it is marked failed, never put
+ * back to draft.
+ */
+export async function sendCampaign(
+  shop: string,
+  campaignId: string,
+  from: "draft" | "scheduled",
+  segmentRules?: Prisma.InputJsonObject,
+): Promise<CampaignSendOutcome> {
+  if (marketingEmailBlockedReason()) return { status: "not_sent", reason: MARKETING_EMAIL_OFF, cause: "refused" };
+
+  // The audience saved before this send, put back if the draft doesn't go out
+  const before = segmentRules
+    ? await prisma.emailCampaign.findFirst({ where: { id: campaignId, shop, status: from }, select: { segmentRules: true } })
+    : null;
+  const claimed = await prisma.emailCampaign.updateMany({
+    where: { id: campaignId, shop, status: from },
+    data: { status: "sending", sentAt: new Date(), updatedAt: new Date(), ...(segmentRules && { segmentRules }) },
+  });
+  if (claimed.count !== 1) return { status: "taken" };
+
+  const backToDraft = () => ({
+    status: "draft",
+    sentAt: null,
+    updatedAt: new Date(),
+    ...(before && { segmentRules: before.segmentRules as Prisma.InputJsonValue }),
+  });
+  const failedUnsent = (reason: string) => ({ status: "failed", sentAt: null, metrics: notSentMetrics(reason), updatedAt: new Date() });
+  const markMaybeSent = async (sent: number) => {
+    // What SendGrid reported while RewardsPro waited is kept; if it can't be read, the reason still is
+    const current = await prisma.emailCampaign
+      .findFirst({ where: { id: campaignId, shop }, select: { metrics: true } })
+      .catch(() => null);
+    await prisma.emailCampaign.updateMany({
+      where: { id: campaignId, shop, status: "sending" },
+      data: { status: "failed", metrics: maybeSentMetrics(current?.metrics, sent), updatedAt: new Date() },
+    });
+  };
+  const notSent = async (reason: string, cause: "refused" | "failed"): Promise<CampaignSendOutcome> => {
+    await prisma.emailCampaign.updateMany({
+      where: { id: campaignId, shop, status: "sending" },
+      data: from === "draft" ? backToDraft() : failedUnsent(reason),
+    });
+    return { status: "not_sent", reason, cause };
+  };
+
+  let handedOff = false;
+  try {
+    const campaign = await prisma.emailCampaign.findFirstOrThrow({
+      where: { id: campaignId, shop },
+      select: { segmentRules: true, templateId: true, subject: true },
+    });
+    const audience = campaignAudience(campaign.segmentRules);
+    if (!audience) return await notSent(UNKNOWN_AUDIENCE, "refused");
+
+    const recipients = await campaignRecipients(shop, audience);
+    if (recipients.length === 0) return await notSent(from === "draft" ? NO_RECIPIENTS : NO_ONE_AGREED, "refused");
+
+    // Snapshot the template at send time for the audit trail
+    let templateSnapshot: { subject?: string; htmlContent?: string } = {};
+    try {
+      const template = await prisma.emailTemplate.findFirst({
+        where: { id: campaign.templateId, shop },
+        select: { subject: true, htmlContent: true, bodyHtml: true },
+      });
+      if (template) {
+        templateSnapshot = {
+          subject: campaign.subject || template.subject || undefined,
+          htmlContent: template.htmlContent || template.bodyHtml || undefined,
+        };
+      }
+    } catch {
+      // Non-critical: send without the snapshot
+    }
+
+    // Once the email goes to the email service, it may send it
+    const result = await sendCampaignEmails(shop, campaignId, recipients, () => {
+      handedOff = true;
+    });
+    if (result.uncertain) {
+      // No answer isn't a refusal: it may have gone out, so it can't go back to draft
+      console.error(`[Campaign] The email service gave no answer for campaign ${campaignId} for ${shop}:`, result.errors);
+      await markMaybeSent(result.sent);
+      return { status: "may_have_sent", reason: MAY_HAVE_GONE_OUT };
+    }
+    if (result.sent === 0) {
+      if (result.refused) return await notSent(result.refused, "refused");
+      // Everyone left the audience (stopped agreeing to marketing) since it was read
+      if (result.errors.length === 0) return await notSent(from === "draft" ? NO_RECIPIENTS : NO_ONE_AGREED, "refused");
+      // The provider's own words are for the operator, not the merchant
+      console.error(`[Campaign] The email service didn't send campaign ${campaignId} for ${shop}:`, result.errors);
+      return await notSent(COULD_NOT_SEND[from], "failed");
+    }
+
+    await prisma.emailCampaign.updateMany({
+      where: { id: campaignId, shop, status: "sending" },
+      data: {
+        status: "sent",
+        metrics: {
+          sent: result.sent,
+          delivered: 0, // Actual delivery count comes from SendGrid webhook events
+          opened: 0,
+          clicked: 0,
+          bounced: result.failed,
+          unsubscribed: 0,
+          revenue: 0,
+          orders: 0,
+          templateSnapshot,
+        },
+        updatedAt: new Date(),
+      },
+    });
+    return { status: "sent", recipients: recipients.length, sent: result.sent, failed: result.failed };
+  } catch (error) {
+    // Once the email service has it, some of it may have gone out, so it is
+    // marked failed and never sent again by itself. Before that, a draft goes
+    // back to draft so it isn't stuck, and a scheduled campaign says nothing went out.
+    try {
+      if (handedOff) await markMaybeSent(0);
+      else {
+        await prisma.emailCampaign.updateMany({
+          where: { id: campaignId, shop, status: "sending" },
+          data: from === "draft" ? backToDraft() : failedUnsent(WENT_WRONG_BEFORE_SENDING),
+        });
+      }
+    } catch (resetError) {
+      console.error(`[Campaign] Failed to reset campaign ${campaignId} status:`, resetError);
+    }
+    throw error;
+  }
+}

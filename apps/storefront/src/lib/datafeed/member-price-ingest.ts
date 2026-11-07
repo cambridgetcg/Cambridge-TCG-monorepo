@@ -6,11 +6,15 @@ import { MEMBER_PRICE_POLICIES, type ExactPriceCrosswalk } from '@cambridge-tcg/
 import type { IngestContext } from '@cambridge-tcg/data-ingest/types';
 import { writeMemberPriceBatch } from './member-price-writer';
 
-/** Finite operator seam, NOT an HTTP endpoint, cron, or enabled production job.
- * Review current official artifact/permission evidence before invoking. The
- * release check precedes network work; the writer checks again in its transaction
+/** Finite seam for an operator and for the flag-gated Cardmarket collector
+ * (cardmarket-collector.ts); not an HTTP endpoint itself. Review current
+ * official artifact/permission evidence before invoking by hand. The release
+ * check precedes network work; the writer checks again in its transaction
  * so revocation during a download cannot release those newly acquired values.
  * Acquisition has a fixed deadline and returns no raw-export/storage artifacts.
+ * A caller may pass the transaction, as the writer allows.
+ * Official files only. Page sources (CardRush, TCGplayer) are not acquired
+ * here; a collector for them writes through the same member-price-writer.
  */
 export async function ingestMemberPriceSource(
   input: ({ source: 'cardmarket'; gameId: number } | { source: 'scryfall' }) & {
@@ -18,6 +22,7 @@ export async function ingestMemberPriceSource(
     crosswalkVersion?: string;
   },
   context: IngestContext = {},
+  runTransaction?: Parameters<typeof writeMemberPriceBatch>[2],
 ) {
   const policy = MEMBER_PRICE_POLICIES[input.source];
   if (!policy) throw new Error('unreviewed-member-price-source');
@@ -26,7 +31,7 @@ export async function ingestMemberPriceSource(
   const parsed = input.source === 'cardmarket'
     ? await acquireCardmarketMemberPrices(context, input.gameId, input.crosswalk, input.crosswalkVersion)
     : await acquireScryfallMemberPrices(context, input.crosswalk, input.crosswalkVersion);
-  const written = await writeMemberPriceBatch(input.source, parsed);
+  const written = await writeMemberPriceBatch(input.source, parsed, runTransaction);
   return {
     source: input.source, status: parsed.quarantine.length ? 'completed-with-quarantine' as const : 'completed' as const,
     sourceRows: parsed.sourceRows, observations: parsed.observations.length,

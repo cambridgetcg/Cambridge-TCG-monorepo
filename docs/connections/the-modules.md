@@ -37,6 +37,9 @@ self_reference: this entry names itself in `this_entry_names` (see the-nesting.m
 > relicense package code, upstream data, mixed catalog responses, or participant
 > submissions. `/data/catalog.jsonl` is paused and returns status-only HTTP 503
 > with zero rows. CardRush and TCGCollector network acquisition are hard-blocked.
+> *Since 2026-10-28:* CardRush's legacy paths stay locked, and only its
+> identified page collector reads it, under the written permission recorded
+> that day ([decision](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md)).
 
 > *"Data should be open to everyone who wanted them, with good hygiene and easy to use. Think about how we can build that infra and what modules are in there."* — Yu, 2026-05-12.
 
@@ -187,7 +190,7 @@ The next sessions ship these. Each has a one-line responsibility, named dependen
 - **Ease-of-use:** one-line install; auto-completion in editors; bundled types
 
 ### `packages/data-ingest` *(shipped registry; individual sources remain rights-gated)*
-- **Responsibility:** Normalization and source-adapter registry for approved upstream acquisition. A registered adapter is not permission to contact or republish a source. CardRush is hard-blocked by its official data policy; TCGCollector is hard-blocked pending written partner approval.
+- **Responsibility:** Normalization and source-adapter registry for approved upstream acquisition. A registered adapter is not permission to contact or republish a source. CardRush's legacy paths stay locked; since 2026-10-28 only its identified page collector reads it, under the written permission recorded that day and only while `DATA_COLLECT_CARDRUSH` is `on`. TCGCollector is hard-blocked pending written partner approval.
 - **Depends on:** `packages/sku` (normalization), `packages/db` (write target)
 - **Hygiene:** every ingest run emits a lifecycle log (the Scribe); failed rows quarantined, not dropped; dedup against canonical SKU
 - **Emits to:** RDS tables that the substrate layer (`manifest.ts`, `graph.ts`) consumes

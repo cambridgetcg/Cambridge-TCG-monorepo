@@ -454,9 +454,10 @@ export async function getKlaviyoService(
   }
 
   // Fall back to API key if OAuth not connected
-  if (settings.klaviyoApiKey) {
+  const apiKey = decryptSecret(settings.klaviyoApiKey);
+  if (apiKey) {
     return new KlaviyoService({
-      apiKey: decryptSecret(settings.klaviyoApiKey),
+      apiKey,
       publicKey: settings.klaviyoPublicKey || undefined,
       defaultListId: settings.klaviyoDefaultListId || undefined,
     });
@@ -467,7 +468,7 @@ export async function getKlaviyoService(
 
 /**
  * Check if Klaviyo is enabled for a shop
- * Returns true if either OAuth is connected or API key is set
+ * Returns true if either OAuth is connected or a saved API key can be read
  */
 export async function isKlaviyoEnabled(shop: string): Promise<boolean> {
   const settings = await prisma.emailSettings.findUnique({
@@ -483,8 +484,8 @@ export async function isKlaviyoEnabled(shop: string): Promise<boolean> {
     return false;
   }
 
-  // Either OAuth connected or API key must be present
-  return !!(settings.klaviyoOAuthConnected || settings.klaviyoApiKey);
+  // Either OAuth connected or an API key we can read (as getKlaviyoService needs)
+  return settings.klaviyoOAuthConnected || decryptSecret(settings.klaviyoApiKey) !== null;
 }
 
 /**

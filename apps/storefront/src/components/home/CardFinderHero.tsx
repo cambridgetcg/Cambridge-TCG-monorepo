@@ -17,8 +17,8 @@ export default function CardFinderHero({ games, uiLang = "en" }: { games: Finder
   const title = tx({ en: "Find a card", ja: "カードをさがす", es: "Encuentra una carta", "zh-Hans": "找卡", "zh-Hant": "找卡" }, uiLang);
 
   return (
-    <section aria-label={title} className="border-t-2 border-ink pt-5">
-      <h2 className="text-base font-semibold leading-7 text-ink">{title}</h2>
+    <section aria-label={title} className="rounded-xl border border-border-subtle bg-surface p-4 shadow-mat sm:p-6">
+      <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">{title}</h2>
       <form method="get" action="/prices/search" className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_auto] sm:items-end">
         <Field label={tx({ en: "Game", ja: "ゲーム", es: "Juego", "zh-Hans": "游戏", "zh-Hant": "遊戲" }, uiLang)} htmlFor="finder-game">
           <Select id="finder-game" name="game" defaultValue={sorted[0]?.code ?? ""} density="comfortable">
@@ -34,7 +34,7 @@ export default function CardFinderHero({ games, uiLang = "en" }: { games: Finder
       </form>
       <p className="mt-4 text-xs leading-6 text-ink-muted">
         {tx({ en: "No account needed to search. Some prices are withheld.", ja: "検索にアカウントは要りません。表示できない価格もあります。", es: "Busca sin cuenta. Algunos precios no se muestran.", "zh-Hans": "找卡不需要账号，有些价格不予显示。", "zh-Hant": "找卡不用帳戶，有些價格不公開。" }, uiLang)}{" "}
-        <Link href="/prices" className="text-accent underline underline-offset-4">
+        <Link href="/prices" className="text-accent underline underline-offset-4 hover:text-accent-strong">
           {tx({ en: "Or browse by game", ja: "ゲームからさがす", es: "O busca por juego", "zh-Hans": "也可以按游戏浏览", "zh-Hant": "也可以按遊戲瀏覽" }, uiLang)}
         </Link>
       </p>

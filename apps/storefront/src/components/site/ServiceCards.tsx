@@ -14,23 +14,23 @@ export function ServiceCards({ featured = false }: { featured?: boolean }) {
   const Heading = featured ? "h3" : "h2";
 
   return (
-    <ul className={`grid gap-px overflow-hidden rounded-2xl border border-border-subtle bg-border-subtle sm:grid-cols-2${featured ? " lg:grid-cols-4" : ""}`} lang="en">
+    <ul className={`grid gap-px border-y border-border-subtle bg-border-subtle sm:grid-cols-2${featured ? " lg:grid-cols-4" : ""}`} lang="en">
       {services.map((service) => (
-        <li key={service.id} className={`bg-surface${!featured && services.length % 2 === 1 ? " last:sm:col-span-2" : ""}`}>
+        <li key={service.id} className={`bg-page${!featured && services.length % 2 === 1 ? " last:sm:col-span-2" : ""}`}>
           <Link
             href={service.href}
             prefetch={false}
-            className="group flex h-full flex-col p-5 transition-colors hover:bg-accent-wash focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-accent sm:p-6"
+            className="group relative flex h-full flex-col p-5 transition-colors hover:bg-surface-subtle focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-accent sm:p-6"
           >
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary-wash text-ink"><Icon name={SERVICE_ICONS[service.id]} size={22} /></span>
-              <Icon name="arrow-right" size={20} className="text-accent" />
-            </div>
-            <Heading className="text-base font-semibold leading-6 tracking-tight text-ink">
+            <Icon name={SERVICE_ICONS[service.id]} size={22} className="text-accent" />
+            <Heading className="mt-4 font-display text-xl font-medium leading-7 tracking-tight text-ink">
               {service.title}
             </Heading>
             <p className="mt-2 text-sm leading-6 text-ink-muted">{service.description}</p>
-            <span className="mt-auto pt-4 text-xs font-medium text-accent">{service.accessLabel}</span>
+            <span className="mt-auto flex items-center justify-between gap-3 pt-5 text-xs">
+              <span className="rounded-full border border-border-subtle px-2.5 py-0.5 font-medium text-ink-muted">{service.accessLabel}</span>
+              <Icon name="arrow-right" size={18} className="shrink-0 text-ink-muted group-hover:text-ink" />
+            </span>
           </Link>
         </li>
       ))}

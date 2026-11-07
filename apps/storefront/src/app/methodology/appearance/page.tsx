@@ -39,8 +39,8 @@ export default function AppearanceMethodology() {
 
       <h2 id="themes">Available themes</h2>
       <ul>
-        <li><strong>Light:</strong> dark text, white surfaces and blue links.</li>
-        <li><strong>Dark:</strong> light text, dark surfaces and blue links.</li>
+        <li><strong>Light:</strong> ink text on warm paper and white surfaces, with bronze links.</li>
+        <li><strong>Dark:</strong> warm light text on midnight blue surfaces, with gilt links.</li>
         <li><strong>Terminal:</strong> light text and amber links on black.</li>
         <li><strong>High contrast:</strong> black text, strong borders and white surfaces.</li>
       </ul>
@@ -53,8 +53,10 @@ export default function AppearanceMethodology() {
       <h2 id="rollout">Where the theme applies</h2>
       <p>
         Shared page surfaces, navigation and interface components use the selected
-        theme. The shared design uses readable sans-serif text, simple borders
-        and static surfaces. Older screens with fixed colours may not follow every
+        theme. In Light and Dark, the shared design uses serif headings over
+        readable sans-serif text, hairline borders, one soft shadow and static
+        surfaces. Terminal and high contrast keep their own simpler type.
+        Older screens with fixed colours may not follow every
         theme yet; choosing a theme does not establish complete coverage of every page.
       </p>
       <p>

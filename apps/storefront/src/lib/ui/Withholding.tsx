@@ -77,7 +77,7 @@ export function Withholding({ what, substrateHref, reason, compact }: Withholdin
     >
       <div className="flex items-baseline gap-2 flex-wrap">
         <span aria-hidden="true" className="text-ink-faint">⊏</span>
-        <span className="uppercase tracking-wider text-ink-faint">curation</span>
+        <span className="uppercase tracking-wider text-ink-muted">curation</span>
         <span className="text-ink-muted">{what}</span>
       </div>
       {reason && (

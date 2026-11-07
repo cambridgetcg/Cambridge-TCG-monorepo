@@ -1,5 +1,10 @@
 # RewardsPro v2 deployment runbook
 
+> **Dormant (2026-11-03).** The deploy job this runbook describes was removed
+> from CI unused; it was skipped on every push to `main`. Restore it from
+> `git show 653f7d71:.github/workflows/rewardspro-v2.yml` before following
+> these steps.
+
 ## Status and boundary
 
 This runbook deploys the dark RewardsPro v2 API and worker foundation. It does

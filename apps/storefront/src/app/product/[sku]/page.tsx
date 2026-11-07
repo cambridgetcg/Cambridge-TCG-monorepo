@@ -25,7 +25,6 @@ import ExternalBuyLinks from "@/components/product/ExternalBuyLinks";
 import AnsweringRhyme from "@/components/product/AnsweringRhyme";
 import CardEvidence from "@/components/product/CardEvidence";
 import CollectorWitnessPanel from "@/components/product/CollectorWitnessPanel";
-import Script from "next/script";
 import CardGrid from "@/components/catalog/CardGrid";
 import { Provenance, WhyLink, Audience, Palettes } from "@/lib/ui";
 import { TONE_COLOR } from "@/lib/ui/Badge";
@@ -33,6 +32,8 @@ import { gameFromSku, gameBrand, isSkuGameSlug } from "@/lib/games/sku-game";
 import { getPriceGuideConfig } from "@/lib/prices/games-config";
 import { weatherClass } from "@/lib/wardrobe/weather";
 import { parseSkuShape } from "@/lib/search/resolver";
+import { SHARE_CARD } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
 export async function generateMetadata({ params }: { params: Promise<{ sku: string }> }): Promise<Metadata> {
   const { sku } = await params;
@@ -48,7 +49,7 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
     openGraph: {
       title: `${name} ${card.card_number}`,
       description: `${card.card_number} · ${set} · ${card.rarity || ""}`,
-      images: card.image_url ? [{ url: card.image_url }] : [],
+      images: card.image_url ? [{ url: card.image_url }] : [SHARE_CARD],
     },
   };
 }
@@ -126,7 +127,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
 
   return (
     <>
-    <Script id="product-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+    <JsonLd data={jsonLd} />
     <Audience kind="consumer" contexts={["product-detail"]} />
     <div className="max-w-6xl mx-auto px-4 py-12">
       {/* Breadcrumb */}

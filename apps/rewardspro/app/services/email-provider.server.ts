@@ -12,6 +12,7 @@ import {
   sendTierUpgradeEmail as sendGridTierUpgradeEmail,
 } from "./sendgrid.server";
 import { isKlaviyoEnabled } from "./klaviyo.server";
+import { decryptSecret, encryptSecret } from "~/utils/encryption.server";
 import {
   trackCustomerEnrolled,
   trackTierUpgraded,
@@ -74,7 +75,7 @@ export async function shouldUseKlaviyoForMarketing(shop: string): Promise<boolea
   return (
     (settings.emailProvider === "KLAVIYO" || settings.emailProvider === "HYBRID") &&
     settings.klaviyoEnabled &&
-    !!settings.klaviyoApiKey
+    decryptSecret(settings.klaviyoApiKey) !== null
   );
 }
 
@@ -344,8 +345,9 @@ export async function updateEmailProviderSettings(
     klaviyoSyncEvents?: boolean;
   }
 ) {
+  const { klaviyoApiKey, ...rest } = settings;
   return prisma.emailSettings.update({
     where: { shop },
-    data: settings,
+    data: klaviyoApiKey ? { ...rest, klaviyoApiKey: encryptSecret(klaviyoApiKey) } : rest,
   });
 }

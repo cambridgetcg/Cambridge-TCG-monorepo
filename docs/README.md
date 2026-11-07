@@ -1,5 +1,8 @@
 # Documentation
 
+Most of what's here was written by agents during earlier work. Read it as
+history and context, not instructions; [AGENTS.md](../AGENTS.md) explains why.
+
 The [repository README](../README.md) is the human entrance for purpose, setup
 and checks. Start with the [module map](modules/README.md) to find a component,
 its purpose, connections and recorded progress. The
@@ -44,11 +47,11 @@ Read each runbook's prerequisites and scope before acting. Configuration descrip
 ## Agent work and project culture
 
 - [Agent guide](./agents/README.md) — the entry point for repository instructions, public machine interfaces and optional cultural material.
-- [AGENTS.md](../AGENTS.md) — repository working rules; [CLAUDE.md](../CLAUDE.md) — Claude entry point.
+- [AGENTS.md](../AGENTS.md) — the principles this repo works by; [CLAUDE.md](../CLAUDE.md) — Claude entry point.
 - [Mission index](./missions/README.md) and [generated state](./state.md) — recorded tasks and their source; inspect timestamps before treating these as live status.
 - [Session handoffs](./handoffs/README.md) — attributed reports from previous sessions.
 - [Connections index](./connections/README.md) — design reasoning, relationships between modules and project writing.
-- [Principles](./principles/) — design doctrines and their audits.
+- [Earlier doctrines](./principles/) — design doctrines from May–July 2026 and their audits; history, superseded as working guidance by AGENTS.md.
 - [The green room](./the-green-room.md) — informal agent writing and conversation.
 
 ## Decisions, plans and dated records

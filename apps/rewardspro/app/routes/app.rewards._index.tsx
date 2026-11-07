@@ -37,6 +37,7 @@ import { getRaffleStats } from "../services/raffle-management.server";
 import { getMysteryBoxStats } from "../services/mystery-box-management.server";
 import { APP_ROUTES } from "~/navigation/routes";
 import { CHANCE_MECHANICS_PAUSED } from "~/constants/chance-mechanics";
+import { FEATURES_AVAILABLE } from "~/constants/feature-availability";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -210,6 +211,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (intent === "toggle") {
     const currentConfig = await getPointsConfig(shop);
+
+    // Points stay off until they can be spent (constants/feature-availability.ts)
+    if (!currentConfig.isEnabled && !FEATURES_AVAILABLE.points) {
+      return json({ success: false, error: "Points aren't available yet" }, { status: 400 });
+    }
+
     await updatePointsConfig(shop, {
       isEnabled: !currentConfig.isEnabled,
     });
@@ -258,6 +265,33 @@ export default function PointsOverview() {
   const circulationPercent = stats.totalPointsIssued > 0
     ? Math.round((totalCirculating / stats.totalPointsIssued) * 100)
     : 0;
+
+  // Points are hidden until shoppers can spend them (constants/feature-availability.ts)
+  if (!FEATURES_AVAILABLE.points) {
+    return (
+      <Page title="Loyalty program">
+        <Layout>
+          <Layout.Section>
+            <Card>
+              <EmptyState
+                heading="Points aren't available yet"
+                image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                action={{
+                  content: "Set up tiers",
+                  url: APP_ROUTES.MEMBERS.TIERS,
+                }}
+              >
+                <p>
+                  Shoppers would have nowhere to spend points yet, so RewardsPro
+                  doesn't offer them. Cashback and tiers work today.
+                </p>
+              </EmptyState>
+            </Card>
+          </Layout.Section>
+        </Layout>
+      </Page>
+    );
+  }
 
   // If not enabled, show setup prompt
   if (!config.isEnabled) {
@@ -315,12 +349,10 @@ export default function PointsOverview() {
         <Layout>
           {/* Status Banner */}
           <Layout.Section>
-            <Banner
-              title={`Points System Active - Earning ${config.pointsPerDollar} ${config.currencyNamePlural.toLowerCase()} per $1 spent`}
-              tone="success"
-            >
+            <Banner title="Points system active" tone="success">
               <p>
-                Customers are earning {config.currencyNamePlural.toLowerCase()} on every purchase.
+                Customers don't earn {config.currencyNamePlural.toLowerCase()} from purchases.
+                They get them from missions and from adjustments you make on the Customers page.
                 {config.pointsExpire && ` Points expire after ${config.expirationDays} days.`}
               </p>
             </Banner>
@@ -825,7 +857,7 @@ export default function PointsOverview() {
                   <InlineStack gap="200" blockAlign="center">
                     <Icon source={EmailIcon} tone="info" />
                     <Text variant="bodySm" as="p">
-                      <Text as="span" fontWeight="semibold">Tip:</Text> Email campaigns announcing bonus {config.currencyNamePlural.toLowerCase()} events see 2-3x higher engagement
+                      <Text as="span" fontWeight="semibold">Tip:</Text> Tell customers about bonus {config.currencyNamePlural.toLowerCase()} events, for example in an email campaign
                     </Text>
                   </InlineStack>
                 </Box>

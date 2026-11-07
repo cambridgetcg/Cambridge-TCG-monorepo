@@ -20,13 +20,21 @@
  * migration), this endpoint joins per-source last-known-good structured
  * status. Free-text run notes remain operator-only because they can contain
  * upstream titles, queries, or exception text.
+ *
+ * A source with a collector also carries `collector.hosts`: each host its
+ * collector reads and that host's refusal state (price_collector_hosts,
+ * migration 0146; ./collector-health.ts), so a host refused on every recent
+ * run shows here even while another host of the source collects. The
+ * source's health, from its batches and these hosts, is at /api/v1/sources/{id}.
  */
 
 import type { NextResponse } from "next/server";
-import { jsonResponse, type FreshnessKey } from "@/lib/data-pantry";
+import { FRESHNESS, jsonResponse, type FreshnessKey } from "@/lib/data-pantry";
 import { sourcesByStatus, listSourceMeta } from "@cambridge-tcg/data-ingest";
 import { MEMBER_PRICE_POLICIES, type MemberPriceSource, type MemberPriceUse } from "@cambridge-tcg/data-ingest/member-prices";
 import { fetchSourceLastRuns, type SourceRunRow } from "@/lib/wholesale/client";
+import { batchCollected, collectionFlag, collectionOn, scheduledCollection, type CollectedSource } from "@/lib/datafeed/collection-flags";
+import { deriveHostHealth, readCollectorHostStates, type CollectorHostsHealth } from "./collector-health";
 
 /**
  * Live last-run block (kingdom-079). Substrate-honest:
@@ -71,11 +79,16 @@ interface SourceEntry {
   last_run?: LastRunBlock | { _unavailable: true; reason: "never_run" };
   member_pricing?: {
     reviewed_uses: readonly MemberPriceUse[];
-    cadence: "daily";
+    cadence: (typeof MEMBER_PRICE_POLICIES)[MemberPriceSource]["cadence"];
     evidence_url: string;
     methodology: string;
+    /** Whether a Cambridge collector runs on a schedule now: its
+     * DATA_COLLECT_* flag is exactly "on". No flag means no collector. */
+    collection: { flag: string | null; scheduled: boolean };
     availability_note: string;
   };
+  /** Sources with a collector only: every host it reads and its refusal state. */
+  collector?: CollectorHostsHealth;
 }
 
 interface SourcesBody {
@@ -112,6 +125,17 @@ interface SourcesBody {
   };
 }
 
+/** "catalog (24h) / price_current (5min) / …": every FRESHNESS key, in its
+ * declared order, so a key added there is listed here too. */
+function freshnessKeys(): string {
+  const span = (seconds: number) =>
+    seconds === Number.MAX_SAFE_INTEGER ? "immutable"
+      : seconds % 3600 === 0 ? `${seconds / 3600}h`
+        : seconds % 60 === 0 ? `${seconds / 60}min`
+          : `${seconds}s`;
+  return `${Object.entries(FRESHNESS).map(([key, seconds]) => `${key} (${span(seconds)})`).join(" / ")}. See packages/data-spec/src/freshness.ts.`;
+}
+
 function buildLastRun(row: SourceRunRow, now: Date): LastRunBlock {
   const triggered = new Date(row.triggered_at);
   const age_hours = (now.getTime() - triggered.getTime()) / (1000 * 60 * 60);
@@ -137,15 +161,21 @@ export async function GET(): Promise<NextResponse> {
   // [] when no runs exist yet — distinct facts. The body's
   // `ingest_runs_available` flag carries the distinction so a downstream
   // reader can tell "couldn't query" from "queried, got nothing".
-  const lastRuns = await fetchSourceLastRuns();
+  const [lastRuns, hostStates] = await Promise.all([fetchSourceLastRuns(), readCollectorHostStates()]);
   const ingest_runs_available = lastRuns !== null;
   const lastRunByEntry = new Map((lastRuns ?? []).map((r) => [r.source_id, r]));
   const now = new Date();
+  // Read per request, so the note changes with the flags rather than drifting.
+  const scheduled = scheduledCollection();
+  const scheduleNote = scheduled
+    ? `Cambridge collects ${scheduled}, as collection.scheduled shows; other imports are manual.`
+    : "Cambridge imports are manual and none is scheduled.";
 
   const sources: SourceEntry[] = allMeta.map((meta) => {
     const memberPolicy = Object.hasOwn(MEMBER_PRICE_POLICIES, meta.id)
       ? MEMBER_PRICE_POLICIES[meta.id as MemberPriceSource]
       : null;
+    const flag = collectionFlag(meta.id);
     const runRow = lastRunByEntry.get(meta.id);
     const last_run: SourceEntry["last_run"] = ingest_runs_available
       ? runRow
@@ -170,12 +200,14 @@ export async function GET(): Promise<NextResponse> {
       ...(meta.user_agent_suffix ? { user_agent_suffix: meta.user_agent_suffix } : {}),
       ...(meta.rate_limit ? { rate_limit: meta.rate_limit } : {}),
       ...(last_run !== undefined ? { last_run } : {}),
+      ...(batchCollected(meta.id) ? { collector: deriveHostHealth(meta.id, hostStates, Object.hasOwn(FRESHNESS, meta.freshness) ? FRESHNESS[meta.freshness] : 0) } : {}),
       ...(memberPolicy ? { member_pricing: {
         reviewed_uses: memberPolicy.uses,
         cadence: memberPolicy.cadence,
         evidence_url: memberPolicy.evidenceUrl,
         methodology: "/methodology/member-pricing",
-        availability_note: "Reviewed uses are not activation or collection evidence. Runtime release permission is checked on each member read. cadence is the upstream file publication schedule, not a Cambridge collection schedule; Cambridge imports are manual and none is scheduled. This entry's last_run is legacy wholesale only; member observations carry their own source/retrieval clocks.",
+        collection: { flag, scheduled: flag !== null && collectionOn(meta.id as CollectedSource) },
+        availability_note: `Reviewed uses are not activation or collection evidence. Runtime release permission is checked on each member read. cadence is the source's own publication rhythm (daily files, or live-page: a page's current value at the moment it is read), not a Cambridge collection schedule; ${scheduleNote} This entry's last_run is legacy wholesale only; member observations carry their own source/retrieval clocks.`,
       } } : {}),
     };
   });
@@ -203,22 +235,26 @@ export async function GET(): Promise<NextResponse> {
         "cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary. `redistribute: true` is only valid with cc0/cc-by/cc-by-sa/mit; the audit (pnpm audit:tributaries check 7) enforces this.",
       access_methods:
         "public-api / public-file / app-token / oauth2 / oauth1 / scrape / partner / paid-feed / blocked.",
-      freshness_keys:
-        "catalog (24h) / price_current (5min) / price_historical (immutable) / market_signal (1min) / status (30s) / methodology (24h) / identity (1h) / adopters (24h). See packages/data-spec/src/freshness.ts.",
+      freshness_keys: freshnessKeys(),
       source_license_propagation:
         "When a response is composed from multiple sources, _meta.sources lists them in contribution order and _meta.source_license (optional, when declared) carries each one's redistribution tier. Absence is substrate-honest; presence is the platform's declaration.",
     },
   };
 
+  const hostsIncluded = hostStates.available && sources.some((entry) => entry.collector);
   return jsonResponse({
     data,
     endpoint: "/api/v1/sources",
-    sources: ingest_runs_available
-      ? ["ctcg-derived", "wholesale-rds.ingest_run"]
-      : ["ctcg-derived"],
-    source_license: ingest_runs_available
-      ? ["proprietary", "internal-only"]
-      : ["proprietary"],
+    sources: [
+      "ctcg-derived",
+      ...(ingest_runs_available ? ["wholesale-rds.ingest_run"] : []),
+      ...(hostsIncluded ? ["storefront-rds.price_collector_hosts"] : []),
+    ],
+    source_license: [
+      "proprietary",
+      ...(ingest_runs_available ? ["internal-only"] : []),
+      ...(hostsIncluded ? ["internal-only"] : []),
+    ],
     license: "NOASSERTION",
     freshness: "status",
     contains_self: true,

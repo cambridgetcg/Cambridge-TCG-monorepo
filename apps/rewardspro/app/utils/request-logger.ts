@@ -1,6 +1,8 @@
 /**
- * Request/Response Logger for debugging Shopify communications
- * Logs all requests and responses between the app and Shopify
+ * Privacy-safe request diagnostics for Shopify communications.
+ *
+ * Query values, header values, request/response bodies, merchant identifiers,
+ * cookies, and credentials must never be written to application logs.
  */
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
@@ -10,11 +12,28 @@ interface LogEntry {
   type: 'REQUEST' | 'RESPONSE' | 'ERROR';
   method: string;
   url: string;
-  headers: Record<string, string>;
-  body?: any;
+  headerNames: string[];
   status?: number;
   duration?: number;
-  error?: string;
+  errorName?: string;
+}
+
+export function describeRequestUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl, "https://rewardspro.invalid");
+    const queryKeys = [...new Set(url.searchParams.keys())].sort();
+    return queryKeys.length > 0
+      ? `${url.pathname}?keys=${queryKeys.join(",")}`
+      : url.pathname;
+  } catch {
+    return "[invalid-url]";
+  }
+}
+
+function sortedHeaderNames(headers: Headers): string[] {
+  const names = new Set<string>();
+  headers.forEach((_value, key) => names.add(key.toLowerCase()));
+  return [...names].sort();
 }
 
 /**
@@ -27,52 +46,20 @@ export async function logRequest(
   const requestId = Math.random().toString(36).substring(7);
   const startTime = Date.now();
   
-  const url = new URL(request.url);
-  const headers: Record<string, string> = {};
-  request.headers.forEach((value, key) => {
-    // Don't log sensitive headers in full
-    if (key.toLowerCase().includes('token') || key.toLowerCase().includes('secret')) {
-      headers[key] = value.substring(0, 10) + '...';
-    } else {
-      headers[key] = value;
-    }
-  });
-
   const logEntry: LogEntry = {
     timestamp: new Date().toISOString(),
     type: 'REQUEST',
     method: request.method,
-    url: url.pathname + url.search,
-    headers,
+    url: describeRequestUrl(request.url),
+    headerNames: sortedHeaderNames(request.headers),
   };
 
-  // Try to get body if it's not a GET request
-  if (request.method !== 'GET' && request.body) {
-    try {
-      const clonedRequest = request.clone();
-      const text = await clonedRequest.text();
-      if (text) {
-        try {
-          logEntry.body = JSON.parse(text);
-        } catch {
-          logEntry.body = text.substring(0, 1000); // Limit text body size
-        }
-      }
-    } catch (error) {
-      logEntry.body = '[Could not read body]';
-    }
-  }
-
-  console.log(`\n${'='.repeat(80)}`);
-  console.log(`[${requestId}] 📥 INCOMING ${context} REQUEST`);
-  console.log(`${'='.repeat(80)}`);
-  console.log(`Method: ${logEntry.method}`);
-  console.log(`URL: ${logEntry.url}`);
-  console.log(`Headers:`, JSON.stringify(headers, null, 2));
-  if (logEntry.body) {
-    console.log(`Body:`, JSON.stringify(logEntry.body, null, 2));
-  }
-  console.log(`${'='.repeat(80)}\n`);
+  console.log(JSON.stringify({
+    event: "request_received",
+    requestId,
+    context,
+    ...logEntry,
+  }));
 
   return { startTime, requestId };
 }
@@ -88,15 +75,15 @@ export function logResponse(
 ): void {
   const duration = Date.now() - startTime;
   
-  const headers: Record<string, string> = {};
+  const headerNames = new Set<string>();
   if (response.headers) {
     if (response.headers.forEach) {
-      response.headers.forEach((value: string, key: string) => {
-        headers[key] = value;
+      response.headers.forEach((_value: string, key: string) => {
+        headerNames.add(key.toLowerCase());
       });
     } else if (response.headers instanceof Headers) {
-      response.headers.forEach((value: string, key: string) => {
-        headers[key] = value;
+      response.headers.forEach((_value: string, key: string) => {
+        headerNames.add(key.toLowerCase());
       });
     }
   }
@@ -106,18 +93,17 @@ export function logResponse(
     type: 'RESPONSE',
     method: 'RESPONSE',
     url: context,
-    headers,
+    headerNames: [...headerNames].sort(),
     status: response.status || 200,
     duration,
   };
 
-  console.log(`\n${'='.repeat(80)}`);
-  console.log(`[${requestId}] 📤 OUTGOING ${context} RESPONSE`);
-  console.log(`${'='.repeat(80)}`);
-  console.log(`Status: ${logEntry.status}`);
-  console.log(`Duration: ${duration}ms`);
-  console.log(`Headers:`, JSON.stringify(headers, null, 2));
-  console.log(`${'='.repeat(80)}\n`);
+  console.log(JSON.stringify({
+    event: "response_sent",
+    requestId,
+    context,
+    ...logEntry,
+  }));
 }
 
 /**
@@ -128,14 +114,15 @@ export function logError(
   context: string = 'Unknown',
   requestId: string
 ): void {
-  console.error(`\n${'='.repeat(80)}`);
-  console.error(`[${requestId}] ❌ ERROR in ${context}`);
-  console.error(`${'='.repeat(80)}`);
-  console.error(`Error:`, error.message || error);
-  if (error.stack) {
-    console.error(`Stack:`, error.stack);
-  }
-  console.error(`${'='.repeat(80)}\n`);
+  console.error(JSON.stringify({
+    event: "request_error",
+    requestId,
+    context,
+    errorName:
+      error && typeof error === "object" && typeof error.name === "string"
+        ? error.name
+        : "UnknownError",
+  }));
 }
 
 /**
@@ -169,35 +156,17 @@ export function logShopifyContext(data: {
   apiKey?: string;
   host?: string;
 }): void {
-  console.log(`\n${'🛍️'.repeat(20)}`);
-  console.log('SHOPIFY CONTEXT');
-  console.log(`${'🛍️'.repeat(20)}`);
-  
-  if (data.shop) {
-    console.log(`Shop: ${data.shop}`);
-  }
-  
-  if (data.session) {
-    console.log(`Session ID: ${data.session.id}`);
-    console.log(`Session Shop: ${data.session.shop}`);
-    console.log(`Is Online: ${data.session.isOnline}`);
-    console.log(`Has Access Token: ${!!data.session.accessToken}`);
-    console.log(`Expires: ${data.session.expires}`);
-  }
-  
-  if (data.admin) {
-    console.log(`Admin GraphQL: Available`);
-  }
-  
-  if (data.apiKey) {
-    console.log(`API Key: ${data.apiKey.substring(0, 10)}...`);
-  }
-  
-  if (data.host) {
-    console.log(`Host: ${data.host}`);
-  }
-  
-  console.log(`${'🛍️'.repeat(20)}\n`);
+  console.log(JSON.stringify({
+    event: "shopify_context",
+    hasShop: Boolean(data.shop),
+    hasSession: Boolean(data.session),
+    sessionIsOnline: Boolean(data.session?.isOnline),
+    hasSessionExpiry: Boolean(data.session?.expires),
+    hasAccessToken: Boolean(data.session?.accessToken),
+    hasAdminClient: Boolean(data.admin),
+    hasApiKey: Boolean(data.apiKey),
+    hasHost: Boolean(data.host),
+  }));
 }
 
 /**
@@ -269,14 +238,20 @@ export function getBrowserDebugInfo(): string {
     return 'Not in browser context';
   }
   
+  let hasReferrer = false;
+  try {
+    hasReferrer = Boolean(document.referrer);
+  } catch {
+    hasReferrer = false;
+  }
+
   const info = {
-    url: window.location.href,
+    path: window.location.pathname,
+    queryKeys: [...new Set(new URL(window.location.href).searchParams.keys())].sort(),
     isEmbedded: window.top !== window.self,
     hasShopify: typeof (window as any).shopify !== 'undefined',
-    shopifyConfig: (window as any).shopify?.config,
-    shopifyEnvironment: (window as any).shopify?.environment,
-    referrer: document.referrer,
-    userAgent: navigator.userAgent,
+    hasShopifyConfig: Boolean((window as any).shopify?.config),
+    hasReferrer,
     cookies: document.cookie ? 'Present' : 'None',
   };
   

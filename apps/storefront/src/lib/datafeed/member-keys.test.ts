@@ -55,10 +55,49 @@ describe("member credentials", () => {
   it("refuses deleted owners, excess keys and bad names", async () => {
     dbQuery.mockResolvedValueOnce({ rows: [] });
     await expect(createMemberKey("missing", "key")).rejects.toMatchObject({ status: 401 });
-    dbQuery.mockResolvedValueOnce({ rows: [{ id: "owner" }] }).mockResolvedValueOnce({ rows: [{ n: 5 }] });
+    // At five, the account's entitlement is read under a savepoint; no subscription is free.
+    dbQuery.mockResolvedValueOnce({ rows: [{ id: "owner" }] }).mockResolvedValueOnce({ rows: [{ n: 5 }] })
+      .mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] });
     await expect(createMemberKey("owner", "sixth")).rejects.toMatchObject({ status: 409 });
     dbQuery.mockReset();
     for (const name of ["", "a".repeat(81), "bad\nname"]) await expect(createMemberKey("owner", name)).rejects.toMatchObject({ status: 400 });
     expect(dbQuery).not.toHaveBeenCalled();
+  });
+
+  describe("key cap follows the data-API entitlement; free is unchanged", () => {
+    const free409 = { status: 409, message: "You have five active keys. Revoke one before creating another." };
+    const minted = (n: number) => dbQuery.mockResolvedValueOnce({ rows: [{ id: "owner" }] }).mockResolvedValueOnce({ rows: [{ n }] });
+    const entitlement = (rows: unknown[]) => dbQuery.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows }).mockResolvedValueOnce({ rows: [] });
+    it("below five reads no entitlement: owner lock, count, insert, as before", async () => {
+      minted(4).mockResolvedValueOnce({ rows: [{ id: "key" }] });
+      await createMemberKey("owner", "fifth");
+      expect(dbQuery).toHaveBeenCalledTimes(3);
+      expect(dbQuery.mock.calls.map(call => String(call[0]))).not.toContain("SAVEPOINT data_api_entitlement");
+    });
+    it("a free account stops at five with the same message", async () => {
+      minted(5); entitlement([]);
+      await expect(createMemberKey("owner", "sixth")).rejects.toMatchObject(free409);
+      expect(dbQuery.mock.calls.map(call => String(call[0]).split(/\s/)[0])).toEqual(["SELECT", "SELECT", "SAVEPOINT", "SELECT", "RELEASE"]);
+      expect(dbQuery.mock.calls[3]![0]).toContain("data_api_subscriptions");
+      expect(dbQuery.mock.calls[3]![1]).toEqual(["owner"]);
+    });
+    it("an unprovisioned subscription table is free, rolled back to its savepoint", async () => {
+      minted(5);
+      dbQuery.mockResolvedValueOnce({ rows: [] }).mockRejectedValueOnce(Object.assign(new Error("missing"), { code: "42P01" })).mockResolvedValueOnce({ rows: [] });
+      await expect(createMemberKey("owner", "sixth")).rejects.toMatchObject(free409);
+      expect(dbQuery.mock.calls[4]![0]).toBe("ROLLBACK TO SAVEPOINT data_api_entitlement");
+    });
+    it("any other entitlement failure refuses the mint without claiming the cap", async () => {
+      minted(5);
+      dbQuery.mockResolvedValueOnce({ rows: [] }).mockRejectedValueOnce(new Error("connection reset"));
+      await expect(createMemberKey("owner", "sixth")).rejects.toThrow("connection reset");
+      expect(dbQuery).toHaveBeenCalledTimes(4);
+    });
+    it("a pro account mints a sixth and stops at ten", async () => {
+      minted(5); entitlement([{ planId: "pro", count: 1 }]); dbQuery.mockResolvedValueOnce({ rows: [{ id: "key" }] });
+      expect((await createMemberKey("owner", "sixth")).token).toMatch(/^ctcg_member_/);
+      minted(10); entitlement([{ planId: "pro", count: 1 }]);
+      await expect(createMemberKey("owner", "eleventh")).rejects.toMatchObject({ status: 409, message: "You have 10 active keys, the most your plan allows. Revoke one before creating another." });
+    });
   });
 });

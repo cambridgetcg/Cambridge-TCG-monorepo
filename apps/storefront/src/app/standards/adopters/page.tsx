@@ -20,7 +20,7 @@ import { audienceMetadata } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Adopters — platforms using Cambridge TCG standards",
   description:
-    "Public registry of platforms, tools, apps, and agents that have adopted Cambridge TCG standards (CTCG-SKU-v1, CTCG-PRICING-v1, CTCG-UNIVERSAL-v1). Empty today; grows by self-declaration. The pantry's reputation made visible.",
+    "Public registry of platforms, tools, apps, and agents that have adopted Cambridge TCG standards (CTCG-SKU-v1, CTCG-PRICING-v1, CTCG-UNIVERSAL-v1, CTCG-NAMES-v1). Empty today; grows by self-declaration. The pantry's reputation made visible.",
   other: audienceMetadata("public-documentation", ["adopters", "registry", "standards"]),
 };
 
@@ -28,7 +28,7 @@ interface Adopter {
   name: string;
   url: string;
   kind: "marketplace" | "deck-builder" | "tracker" | "tournament" | "scanner" | "bot" | "aggregator" | "researcher" | "archive" | "agent" | "other";
-  standards: ("CTCG-SKU-v1" | "CTCG-PRICING-v1" | "CTCG-UNIVERSAL-v1")[];
+  standards: ("CTCG-SKU-v1" | "CTCG-PRICING-v1" | "CTCG-UNIVERSAL-v1" | "CTCG-NAMES-v1")[];
   declared_at: string;
   note?: string;
 }
@@ -69,7 +69,8 @@ export default function AdoptersRegistry() {
 
           <p>
             <strong>Be the first.</strong> If your platform uses any of the
-            three standards (CTCG-SKU-v1, CTCG-PRICING-v1, CTCG-UNIVERSAL-v1),
+            four standards (CTCG-SKU-v1, CTCG-PRICING-v1, CTCG-UNIVERSAL-v1,
+            CTCG-NAMES-v1),
             you&apos;re welcome to declare it here.
           </p>
 

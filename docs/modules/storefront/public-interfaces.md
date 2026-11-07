@@ -16,6 +16,7 @@ Expose data contracts, specifications, provenance and agent discovery, with a se
 - [calling-card](../../../apps/storefront/src/lib/calling-card)
 - [contracts](../../../apps/storefront/src/lib/contracts)
 - [data-pantry](../../../apps/storefront/src/lib/data-pantry)
+- [feedback](../../../apps/storefront/src/lib/feedback)
 - [http](../../../apps/storefront/src/lib/http)
 - [release](../../../apps/storefront/src/lib/release)
 - [universal](../../../apps/storefront/src/lib/universal)

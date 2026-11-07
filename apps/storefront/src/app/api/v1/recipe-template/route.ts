@@ -40,7 +40,7 @@ import {
   recipeToMarkdown,
   validateRecipe,
 } from "@/lib/recipe-template";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const FORMATS = [
   "json",
@@ -195,7 +195,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "Content-Type": contentType,
         "Cache-Control": TEXT_CACHE,
         "Access-Control-Allow-Origin": "*",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -220,7 +220,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         headers: {
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       },
     );
@@ -244,7 +244,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         headers: {
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       },
     );
@@ -387,7 +387,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "content-type",
         "Cache-Control": "no-store",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     },
   );

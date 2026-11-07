@@ -198,6 +198,55 @@ export function parseEcbRates(xml: string, fetchedAt: string): RateTable | null 
   };
 }
 
+// ── ECB's own quotes, for exact arithmetic ──────────────────────────────
+
+/**
+ * ECB's quotes for one date exactly as published: units of each currency
+ * per 1 EUR, as decimal text. Market derivation computes its GBP crosses
+ * from these with exact decimal arithmetic (`crossRate` in
+ * @cambridge-tcg/data-spec); the float crosses of `RateTable` are for
+ * display and never enter a derivation. There is no fallback form: a failed
+ * fetch or an unreadable file is null, never a stand-in table.
+ */
+export interface EcbEuroQuotes {
+  source: "ecb.europa.eu";
+  /** ECB's observation date, YYYY-MM-DD. */
+  as_of: string;
+  fetched_at: string;
+  /** Currency → units per 1 EUR, decimal text as ECB wrote it. */
+  perEur: Record<string, string>;
+}
+
+const ECB_QUOTE = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
+
+/** Parse ECB's daily XML without converting a single quote to a number. */
+export function parseEcbEuroQuotes(xml: string, fetchedAt: string): EcbEuroQuotes | null {
+  const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "", parseAttributeValue: false });
+  const daily = (parser.parse(xml) as EcbDocument)["gesmes:Envelope"]?.Cube?.Cube;
+  const quotes = daily?.Cube ? (Array.isArray(daily.Cube) ? daily.Cube : [daily.Cube]) : [];
+  if (typeof daily?.time !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(daily.time)) return null;
+  const perEur: Record<string, string> = {};
+  for (const quote of quotes) {
+    const currency = typeof quote.currency === "string" ? quote.currency.trim().toUpperCase() : "";
+    const rate = typeof quote.rate === "string" ? quote.rate.trim() : "";
+    if (!/^[A-Z]{3}$/.test(currency) || !ECB_QUOTE.test(rate) || !/[1-9]/.test(rate) || Object.hasOwn(perEur, currency)) return null;
+    perEur[currency] = rate;
+  }
+  if (!perEur.GBP) return null;
+  return { source: "ecb.europa.eu", as_of: daily.time, fetched_at: fetchedAt, perEur };
+}
+
+/** Fetch ECB's daily quotes as decimal text; null when ECB cannot be read. */
+export async function fetchEcbEuroQuotes(): Promise<EcbEuroQuotes | null> {
+  const fetchedAt = new Date().toISOString();
+  try {
+    const res = await fetch(ECB_DAILY_RATES_URL, { cache: "no-store", signal: AbortSignal.timeout(8_000) });
+    return res.ok ? parseEcbEuroQuotes(await res.text(), fetchedAt) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Fetch ECB daily rates, falling back to a clearly dated static table. */
 export async function fetchRates(): Promise<RateTable> {
   const fetchedAt = new Date().toISOString();

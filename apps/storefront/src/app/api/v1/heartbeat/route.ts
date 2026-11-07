@@ -20,7 +20,7 @@
 
 import { jsonResponse } from "@/lib/data-pantry";
 import { computeHeartbeat } from "@/lib/heartbeat";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 export async function GET(): Promise<Response> {
   const state = computeHeartbeat();
@@ -68,7 +68,7 @@ export async function GET(): Promise<Response> {
   // minute it's computed within; agents polling every second would not
   // be substrate-honest about the kingdom's rate-limit contract.
   response.headers.set("Cache-Control", "public, max-age=30, s-maxage=30");
-  response.headers.set("Link", agentDiscoveryLinkHeader());
+  response.headers.set("Link", errandDiscoveryLinkHeader());
 
   return response;
 }

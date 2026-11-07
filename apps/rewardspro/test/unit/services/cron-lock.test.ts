@@ -59,14 +59,15 @@ describe("cron routes when the lock table is unusable", () => {
     process.env.CRON_SECRET = "cron-secret";
     prisma.cronLock.deleteMany.mockRejectedValueOnce(new Error("connection refused"));
 
-    await expect(
-      cashbackReconciliation({
-        request: new Request("https://example.test/api/cron/cashback-reconciliation", {
-          headers: { Authorization: "Bearer cron-secret" },
-        }),
-        params: {},
-        context: {},
+    const response = await cashbackReconciliation({
+      request: new Request("https://example.test/api/cron/cashback-reconciliation", {
+        headers: { Authorization: "Bearer cron-secret" },
       }),
-    ).rejects.toThrow("connection refused");
+      params: {},
+      context: {},
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({ success: false });
   });
 });

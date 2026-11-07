@@ -3,6 +3,8 @@
  *
  * Theme-aware action hierarchy with a visible focus state and a 44px
  * minimum target. Size changes padding and text, not the minimum target.
+ * Primary is solid ink (`highlight` is ink in the gallery and midnight
+ * themes); secondary is a surface with a control edge.
  */
 
 import * as React from "react";
@@ -19,9 +21,9 @@ const VARIANT_CLS: Record<Variant, string> = {
 };
 
 const SIZE_CLS: Record<Size, string> = {
-  sm: "px-4 py-2 text-sm rounded-full",
-  md: "px-5 py-2 text-base rounded-full",
-  lg: "px-7 py-3 text-base rounded-full",
+  sm: "px-4 py-2 text-sm rounded-lg",
+  md: "px-5 py-2 text-base rounded-lg",
+  lg: "px-7 py-3 text-base rounded-lg",
 };
 
 interface BaseProps {
