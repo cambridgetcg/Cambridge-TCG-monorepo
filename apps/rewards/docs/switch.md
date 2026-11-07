@@ -172,14 +172,14 @@ Push a commit touching `apps/rewards` to main (the B1 PR stays unmerged). Checks
 
 - The production deployment is READY. Read its build log once, to see the Output Directory change took.
 - `GET /api/health` answers `200 {"status":"ok","database":"ready"}`. Since F1 the probe reads one of the app's own tables (`cron_lock`), so a URL with the right host but the wrong schema or role answers 503 here instead of passing (READINESS-3).
-- A `POST` with a bad HMAC to each of the 11 released webhook URIs answers 401: `/webhooks/orders/paid`, `/webhooks/orders/refunded`, `/webhooks/orders/cancelled`, `/webhooks/app/uninstalled`, `/webhooks/app/scopes_update`, `/webhooks/compliance`, `/webhooks/orders/create`, `/webhooks/orders/fulfilled`, `/webhooks/customers/create`, `/webhooks/customers/update`, `/webhooks/products/update`.
-- A webhook signed with the released app's real secret answers 200. A bad HMAC answers 401 whatever secret Vercel holds, so only this proves `SHOPIFY_API_SECRET` is Rewards Pro's (client id `026ce3bf…`), not the staging app's. `products/update` is acknowledged without reading or writing anything:
+- A `POST` with a bad HMAC to each webhook URI answers 401: `/webhooks/orders/paid`, `/webhooks/orders/refunded`, `/webhooks/orders/cancelled`, `/webhooks/app/uninstalled`, `/webhooks/app/scopes_update`, `/webhooks/compliance`. (Before B3 the released version also had `/webhooks/orders/create`, `/webhooks/orders/fulfilled`, `/webhooks/customers/create`, `/webhooks/customers/update` and `/webhooks/products/update`; B3 step 5 removed their routes, so they now answer 404.)
+- A webhook signed with the released app's real secret answers 200. A bad HMAC answers 401 whatever secret Vercel holds, so only this proves `SHOPIFY_API_SECRET` is Rewards Pro's (client id `026ce3bf…`), not the staging app's. The CLI's sample `orders/cancelled` names no real store, so the app logs "No store connection for shop.myshopify.com; nothing to do" and answers 200, writing nothing:
 
   ```sh
-  shopify app webhook trigger --client-id 026ce3bf073bed0e44ae8eab09d1ae3a --topic products/update --api-version 2026-10 --delivery-method http --address https://rewardspro-production.vercel.app/webhooks/products/update
+  shopify app webhook trigger --client-id 026ce3bf073bed0e44ae8eab09d1ae3a --topic orders/cancelled --api-version 2026-10 --delivery-method http --address https://rewardspro-production.vercel.app/webhooks/orders/cancelled
   ```
 
-  On 2026-11-06 the Dev Dashboard's draft app "rewardspro-production" (the staging app, whose name matches the Vercel project) was copied by mistake: this webhook answered 401 and the admin answered 401 Unauthorized.
+  On 2026-11-06 the Dev Dashboard's draft app "rewardspro-production" (the staging app, whose name matches the Vercel project) was copied by mistake: this check (then on `products/update`, since removed) answered 401 and the admin answered 401 Unauthorized. The `orders/cancelled` form was proved on 2026-11-07.
 - `GET /api/proxy/membership` without a signature answers 400, never 404.
 - The project's `crons.definitions` (the same `/v9/projects` read) lists `/api/cron/payouts` (`30 * * * *`), `/api/cron/tiers` (`0 2 * * *`) and `/api/cron/housekeeping` (`0 3 * * *`) on the new deployment.
 
@@ -213,6 +213,8 @@ Expected: one merchant, one connection, the import `running` or `done`, and the 
 
 ### Rollback
 
+This rollback is for phase 2, before B3's release. Since `rewardspromembership-217` was released (2026-11-07), the stores hold the trimmed scopes and 2026-10 webhooks, so going back to the old app would also need a Shopify release of the old config, which the old directory's guard refuses: that is a new plan, not these steps.
+
 1. **Yu:** Vercel Instant Rollback to the last old-app deployment (683e30b9 today).
 2. **Yu:** in the project settings, Root Directory back to `apps/rewardspro`, and the Output Directory (`build`), the Framework, Node and the default region (`iad1`) as they were.
 3. **Ai on Yu's yes:** read the settings back, and read which crons are registered (`crons.definitions`, as in step 4).
@@ -225,7 +227,7 @@ Credit the new app issued stays in Shopify; on the dev store that is test money.
 ## Between phase 2 and phase 3: the known windows
 
 - **The released widget shows £0.00 for an unknown balance (MONEY-3, WIDGET-4).** The new proxy answers `storeCredit: null` when Shopify can't say: a read over 2.5 s, the 10 s back-off after a slow read or a low API budget, credit only in another currency, or a renewal of the store's token running. The released widget, still live until phase 3, formats that as £0.00. The new widget says "Your store credit shows at checkout" instead. On the dev store this is accepted: keep phase 3 close behind phase 2, and don't read £0.00 in that window as a fault. If a real merchant appears before the switch, answer requests without `?currency=` (the released widget's) with `success: false` instead.
-- **The proxy path must stay `/apps/rewardspro` (WIDGET-6).** Both widgets call `/apps/rewardspro/membership`; Liquid has no object for the proxy path. A store can hold another path already: on rewardsprotesting it was `/apps/rewardspro-1` after a draft app's install, and every signed-in widget call answered 404 from Shopify. Check it in the store's Settings, Apps, Rewards Pro (the URL above Customize URL). If the app proxy's URL is customised in Shopify's admin, or Shopify gives another subpath, a signed-in buyer's widget stays hidden while Home still says the embed is on. Leave the proxy URL as it is.
+- **The proxy path must stay `/apps/rewardspro` (WIDGET-6).** Both widgets call `/apps/rewardspro/membership`; Liquid has no object for the proxy path. A store can hold another path already: on rewardsprotesting it was `/apps/rewardspro-1` after a draft app's install, and every signed-in widget call answered 404 from Shopify. Check it in the store's Settings, Apps, Rewards Pro (the URL above Customize URL). If it is anything other than `/apps/rewardspro`, a signed-in buyer's widget stays hidden while Home still says the embed is on: set it back with Customize URL (the store's owner), as on rewardsprotesting. Never customise it to anything else.
 - **Compliance webhooks reach only schema `rewards`,** while schema `rewardspro` still holds the dev store's old data. Drop it within 30 days of the switch (B5), so a redact received meanwhile is honoured for the old copy too.
 
 ## B3: the trimmed Shopify release (phase 3)
@@ -254,6 +256,8 @@ As the plan says:
 
 Add to the gates what staging left open. Each line says who does what; **Ai on Yu's yes** records every result with evidence in `gates.md`:
 
+- **Carried from B2 step 6 and B3 (the switch record):** **Ai on Yu's yes:** the `shop` tag on the first store-scoped Sentry event; an `orders/paid` delivery that renews the store's token first, answered within 5 s (row 7b); a burst of webhooks against the pool of 3 (row 3); an export at a few thousand buyers and a large tier delete, timed; whether the theme editor's preview survives a settings change without a reload. **Yu:** a store without a storefront password for Lighthouse with the embed off and on (spec 5).
+
 - **Compliance with real data (I):** **Yu** sends a real customers/data_request and customers/redact from Shopify admin; **Ai on Yu's yes** checks the Home banner, the download and the erasure. Shopify sends customers/redact about 10 days after the request, or up to 6 months later for a customer who ordered recently, so use a test customer with no recent orders and start the redact about 10 days before this gate. On staging, the data request from cashbackpro's admin never reached the dev tunnel (docs/staging-run.md), so this is its first real run.
 - **A tax-exclusive order:** spec 6.3 rule 1 requires one; it needs a market or store whose prices exclude tax, which **Yu** sets up in Shopify admin. **Ai on Yu's yes** places the order and checks the base and a shipping-only refund (Rulings 11, 12).
 - **Ai on Yu's yes:** **a tipped order** (Ruling 26), and **orders edited before and after payment** (Ruling 25's known risk: if Shopify's refund for removed items carries no refund lines, the removal counts twice in spend).
@@ -268,7 +272,7 @@ Add to the gates what staging left open. Each line says who does what; **Ai on Y
 
 As the plan says, plus:
 
-- B3 step 5 is done, so no test reads the old toml any more;
+- B3 step 5 is done, so no `apps/rewards` test reads the old toml. `apps/rewardspro`'s own tests still do, and the `rewardspro` CI job runs them under `CI status`, which main's ruleset requires: delete the old toml only together with that job (below);
 - **Ai on Yu's yes:** remove the root scripts (`dev:`, `build:` and `test:rewardspro`, the `rewardspro-api` scripts) and the `--filter '!rewardspro'` in `typecheck`;
 - **Ai on Yu's yes:** remove the `rewardspro` CI job, its `detect` filter and its `ci-status` needs, and `rewardspro-v2.yml`;
 - **Ai on Yu's yes:** write `apps/rewards`'s own DEPLOY.md and DATABASE.md (the connection strings above) before the old ones are deleted;
@@ -290,8 +294,8 @@ From the final review's readiness lens, at e80bfecc, with F1's fixes. "Owner" me
 | 6a | Secrets: only the names the app reads | OK | Shared: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL`, `ENCRYPTION_SECRET`, `ENCRYPTION_SALT`, `CRON_SECRET`, `SENTRY_DSN`. Added at B2: `REWARDS_DATABASE_URL`, and `REWARDS_SENTRY_CRON_MONITORS` on Yu's yes. Read but unset, harmless: `SCOPES`, `SHOP_CUSTOM_DOMAIN`. |
 | 6b | Production secrets typed sensitive | OK | Read back on 2026-11-06: `SHOPIFY_API_SECRET`, `REWARDS_DATABASE_URL`, `ENCRYPTION_SECRET`, `ENCRYPTION_SALT` and `CRON_SECRET` are sensitive. `SENTRY_DSN` stays encrypted: a DSN only lets a sender submit events, and Sentry treats it as public. |
 | 6c | Orphaned names deleted | Owner | Before the sitting, row 5; the old app's own names at B5. |
-| 7a | HMAC on every webhook route | OK | 11 of 11 released URIs; B2 step 4 checks each answers 401 to a bad HMAC. |
-| 7b | Webhooks answered within 5 s, measured | OK | `orders/paid` 822 ms and `app/scopes_update` 344 ms on lhr1 (Dev Dashboard). The 5 s wait after an idle pause is fixed by #150. |
+| 7a | HMAC on every webhook route | OK | 6 of 6 URIs of the released version `rewardspromembership-217`; B2 step 4 checks each answers 401 to a bad HMAC. The five ignored-topic routes were removed in B3 step 5. |
+| 7b | Webhooks answered within 5 s, measured | OK; one open | `orders/paid` 822 ms and `app/scopes_update` 344 ms on lhr1 (Dev Dashboard); the 5 s wait after an idle pause is fixed by #150. Open: a delivery that renews the token first (B4). |
 | 7c | Webhooks idempotent by natural keys | OK | Unique keys on order, refund, ledger entry and payout. |
 | 8 | App proxy: signature, identity, rate limit | OK | The released widget, then the new one, against the new proxy on rewardsprotesting; unsigned calls answer 400. |
 | 9 | Tokens: expiring, encrypted including refresh, refresh proven | OK | B2 step 5 (refresh token to 2027-02-04), and the first renewal at the 15:30 cron with no overlap warning. |
