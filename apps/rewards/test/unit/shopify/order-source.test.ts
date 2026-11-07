@@ -122,8 +122,20 @@ function removalRefund(id: string, createdAt: string, lineId: string, restockTyp
   return answer;
 }
 
-/** Order 5012 ($20 × 2, paid) after an edit took `removed` units off its line, with these refunds. */
-function editedUsd(refundIds: string[], o: { removed?: number; quantity?: number; paidAt?: string } = {}): Answer {
+/**
+ * Order 5012 ($20 × 2, paid) after an edit took `removed` units off its line, with these refunds;
+ * `payments` replaces its one undated $49.30 sale, and `added` adds lines (an edit's swap, or a gift card).
+ */
+function editedUsd(
+  refundIds: string[],
+  o: {
+    removed?: number;
+    quantity?: number;
+    paidAt?: string;
+    payments?: Array<{ at: string; amount: string }>;
+    added?: Array<{ id: string; amount: string; giftCard?: boolean }>;
+  } = {},
+): Answer {
   const order = clone(refundedInFullUsd);
   const quantity = o.quantity ?? 2;
   const line = order.data.order.lineItems.nodes[0];
@@ -133,6 +145,19 @@ function editedUsd(refundIds: string[], o: { removed?: number; quantity?: number
     originalTotalSet: { shopMoney: { amount: `${20 * quantity}.0`, currencyCode: "USD" }, presentmentMoney: { amount: `${20 * quantity}.0`, currencyCode: "USD" } },
   });
   if (o.paidAt) Object.assign(order.data.order.transactions[0], { processedAt: o.paidAt });
+  if (o.payments) {
+    order.data.order.transactions = o.payments.map((p) => ({ gateway: "shopify_payments", status: "SUCCESS", kind: "SALE", processedAt: p.at, amountSet: bag(p.amount) }));
+  }
+  for (const added of o.added ?? []) {
+    order.data.order.lineItems.nodes.push({
+      ...clone(line),
+      id: added.id,
+      quantity: 1,
+      currentQuantity: 1,
+      isGiftCard: added.giftCard ?? false,
+      originalTotalSet: { shopMoney: { amount: added.amount, currencyCode: "USD" }, presentmentMoney: { amount: added.amount, currencyCode: "USD" } },
+    });
+  }
   order.data.order.refunds = refundIds.map((id) => ({ id }));
   return order;
 }
@@ -461,6 +486,51 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
       expect(values(f)).toEqual(["20.00", "5.00"]);
     });
 
+    it("owes nothing for a removal after a deposit: the edit only lowered the balance still due", async () => {
+      // $20 deposit, then the edit removes a unit (the order is now paid in full), then $5 goodwill
+      const refunds = [removalRefund("gid://shopify/Refund/7051", "2026-11-04T10:00:00Z", LINE), moneyRefund("gid://shopify/Refund/7052", "5.0", "2026-11-04T12:00:00Z")];
+      const order = editedUsd(["gid://shopify/Refund/7051", "gid://shopify/Refund/7052"], { payments: [{ at: "2026-11-04T09:00:00Z", amount: "20.0" }] });
+      const { facts: f } = await readOrder(order, refunds);
+      expect(values(f)).toEqual(["20.00", "5.00"]);
+    });
+
+    it("owes nothing for a swap: the edit removed a unit and added one the buyer had paid for", async () => {
+      const refunds = [removalRefund("gid://shopify/Refund/7061", "2026-11-04T10:00:00Z", LINE), moneyRefund("gid://shopify/Refund/7062", "5.0", "2026-11-04T12:00:00Z")];
+      const order = editedUsd(["gid://shopify/Refund/7061", "gid://shopify/Refund/7062"], {
+        payments: [{ at: "2026-11-04T09:00:00Z", amount: "40.0" }],
+        added: [{ id: "gid://shopify/LineItem/6202", amount: "20.0" }],
+      });
+      const { facts: f } = await readOrder(order, refunds);
+      expect(values(f)).toEqual(["20.00", "5.00"]);
+    });
+
+    it("leaves gift cards the order sold out of the money it held for products", async () => {
+      // A $10 gift card and $20 of the line were paid; the removal leaves nothing owed
+      const refunds = [removalRefund("gid://shopify/Refund/7071", "2026-11-04T10:00:00Z", LINE), moneyRefund("gid://shopify/Refund/7072", "5.0", "2026-11-04T12:00:00Z")];
+      const order = editedUsd(["gid://shopify/Refund/7071", "gid://shopify/Refund/7072"], {
+        payments: [{ at: "2026-11-04T09:00:00Z", amount: "30.0" }],
+        added: [{ id: "gid://shopify/LineItem/6203", amount: "10.0", giftCard: true }],
+      });
+      const { facts: f } = await readOrder(order, refunds);
+      expect(values(f)).toEqual(["20.00", "5.00"]);
+    });
+
+    it("takes a refund of units whose money is still pending for no removal", async () => {
+      const pending = removalRefund("gid://shopify/Refund/7081", "2026-11-04T10:00:00Z", LINE);
+      Object.assign(pending.data.refund as object, { transactions: { nodes: [{ kind: "REFUND", status: "PENDING", amountSet: bag("20.0") }] } });
+      const refunds = [pending, moneyRefund("gid://shopify/Refund/7082", "5.0", "2026-11-04T12:00:00Z")];
+      const { facts: f } = await readOrder(editedUsd(["gid://shopify/Refund/7081", "gid://shopify/Refund/7082"]), refunds);
+      expect(values(f)).toEqual(["20.00", "5.00"]);
+    });
+
+    it("lets money still on its way pay back what's owed, so later money counts", async () => {
+      const owedBack = moneyRefund("gid://shopify/Refund/7092", "20.0", "2026-11-04T11:00:00Z");
+      Object.assign(owedBack.data.refund as object, { transactions: { nodes: [{ kind: "REFUND", status: "PENDING", amountSet: bag("20.0") }] } });
+      const refunds = [removalRefund("gid://shopify/Refund/7091", "2026-11-04T10:00:00Z", LINE), owedBack, moneyRefund("gid://shopify/Refund/7093", "5.0", "2026-11-04T12:00:00Z")];
+      const { facts: f } = await readOrder(editedUsd(["gid://shopify/Refund/7091", "gid://shopify/Refund/7092", "gid://shopify/Refund/7093"]), refunds);
+      expect(values(f)).toEqual(["20.00", "0.00", "5.00"]);
+    });
+
     it("lets an item refund's money beyond its items pay back what's owed, so later money counts", async () => {
       // $20 × 4: an edit removes one unit, then one unit is refunded with $40 (it and the $20 owed), then $5
       const refunds = [
@@ -686,7 +756,8 @@ describe("the calls in flight (their requested cost within MAX_COST_IN_FLIGHT)",
     const answer = await createShopifyOrderSource(client).readRefund(ids[4]);
 
     expect(answer?.refund.productValue.amount.toFixed(2)).toBe("1.00");
-    expect(seen.map((s) => s.inFlight)).toEqual([429, 912, 429, 858, 858, 858]);
+    // The tender follow-up (801) too: readRefund reads every tender, as readOrder does, since what the order held values an edit's removal
+    expect(seen.map((s) => s.inFlight)).toEqual([429, 912, 801, 429, 858, 858, 858]);
   });
 
   it("rejects once, and sends no waiting refund, when the tender follow-up fails", async () => {

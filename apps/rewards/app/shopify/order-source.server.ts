@@ -191,11 +191,13 @@ interface ParsedOrder extends Currencies {
   /** Whether the order's prices include tax; null when the node doesn't say (the import's bulk node). */
   taxesIncluded: boolean | null;
   /**
-   * When the order was first paid, in ms: its earliest successful SALE or
-   * CAPTURE, -Infinity for one with no time (paid from the start), null when
-   * it has none. A £0 removal after it leaves the buyer's money owed (refundsOf).
+   * Its successful SALEs and CAPTUREs, each with its time in ms (-Infinity
+   * for one with no time: held from the start). What the order held when an
+   * edit removed units decides what the removal leaves owed (refundsOf).
    */
-  firstPaidAt: number | null;
+  payments: Array<{ at: number; money: MoneyPair }>;
+  /** The gift-card lines' value: money the order took for no product (rule 1). */
+  giftCards: MoneyPair;
 }
 
 const CUSTOMER_GID = /^gid:\/\/shopify\/Customer\/(\d+)$/;
@@ -224,6 +226,8 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
   const currency = currencyOf(node.presentmentCurrencyCode, "the order's presentment currency");
 
   const lines = new Map<string, Line>();
+  // Gift cards the order sold: money it held for no product (rule 1), left out of what an edit leaves owed
+  let giftCards = zero();
   for (const item of list(rec(node.lineItems, "the order's line items").nodes, "line items")) {
     const line = rec(item, "a line item");
     const id = text(line.id, "a line item id");
@@ -241,22 +245,23 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
       pairOf(rec(a, "a discount allocation").allocatedAmountSet, "a discount allocation"),
     );
     const value = minus(pairOf(totalSet, "a line's original total"), sum(discounts));
-    lines.set(id, { quantity, currentQuantity, value: flag(line.isGiftCard, "isGiftCard") ? zero() : value });
+    const giftCard = flag(line.isGiftCard, "isGiftCard");
+    if (giftCard) giftCards = plus(giftCards, value);
+    lines.set(id, { quantity, currentQuantity, value: giftCard ? zero() : value });
   }
 
   let storeCreditUsed = zero();
   let giftCardUsed = zero();
   // When the order became paid: its latest successful SALE or CAPTURE (Ruling 43)
   let paidAt: Date | null = null;
-  let firstPaidAt: number | null = null;
+  const payments: Array<{ at: number; money: MoneyPair }> = [];
   for (const item of list(node.transactions, "transactions")) {
     const tx = rec(item, "a transaction");
     if (tx.status !== "SUCCESS" || (tx.kind !== "SALE" && tx.kind !== "CAPTURE")) continue;
     // The import's bulk node reads no transaction times
     const processedAt = tx.processedAt === undefined || tx.processedAt === null ? null : dateOf(tx.processedAt, "a transaction's processedAt");
     if (processedAt && (paidAt === null || processedAt > paidAt)) paidAt = processedAt;
-    const at = processedAt ? processedAt.getTime() : -Infinity;
-    if (firstPaidAt === null || at < firstPaidAt) firstPaidAt = at;
+    payments.push({ at: processedAt ? processedAt.getTime() : -Infinity, money: pairOf(tx.amountSet, "a transaction's amount") });
     const tender = tenderOf(text(tx.gateway, "a transaction's gateway"));
     if (tender === "gift_card") giftCardUsed = plus(giftCardUsed, pairOf(tx.amountSet, "a transaction's amount"));
     if (tender === "store_credit") storeCreditUsed = plus(storeCreditUsed, pairOf(tx.amountSet, "a transaction's amount"));
@@ -276,7 +281,8 @@ function parseOrderNode(value: unknown, shopCurrency: string): ParsedOrder {
     lines,
     tip: pairOf(node.totalTipReceivedSet, "the order's tips"),
     taxesIncluded: node.taxesIncluded === undefined ? null : flag(node.taxesIncluded, "taxesIncluded"),
-    firstPaidAt,
+    payments,
+    giftCards,
     facts: {
       externalOrderId: text(node.id, "the order id"),
       name: text(node.name, "the order's name"),
@@ -335,21 +341,21 @@ function refundLinesOf(refund: Rec, order: ParsedOrder): Array<{ line: Line; qua
 }
 
 /**
- * A refund's successful money (REFUND + SUCCESS on any tender) and the
- * shipping it refunded (rule 7, Ruling 11).
+ * A refund's successful money (REFUND + SUCCESS on any tender), its money on
+ * its way too (a REFUND that didn't fail, pending included) and whether there
+ * is any, and the shipping it refunded (rule 7, Ruling 11).
  */
-function refundMoney(refund: Rec, order: ParsedOrder): { paid: MoneyPair; shipping: MoneyPair } {
+function refundMoney(refund: Rec, order: ParsedOrder): { paid: MoneyPair; moving: MoneyPair; moved: boolean; shipping: MoneyPair } {
   const transactions = list(rec(refund.transactions, "a refund's transactions").nodes, "refund transactions");
   const shippingLines = list(rec(refund.refundShippingLines, "a refund's shipping lines").nodes, "refund shipping lines");
   ensureWhole(transactions, LIST_LIMIT, "refund transactions");
   ensureWhole(shippingLines, LIST_LIMIT, "refund shipping lines");
-  const paid = sum(
-    transactions
-      .map((item) => rec(item, "a refund transaction"))
-      .filter((tx) => tx.kind === "REFUND" && tx.status === "SUCCESS")
-      .map((tx) => pairOf(tx.amountSet, "a refund transaction's amount")),
-  );
-  return { paid, shipping: sum(shippingLines.map((item) => shippingRefunded(item, order))) };
+  const refunds = transactions.map((item) => rec(item, "a refund transaction")).filter((tx) => tx.kind === "REFUND");
+  const paid = sum(refunds.filter((tx) => tx.status === "SUCCESS").map((tx) => pairOf(tx.amountSet, "a refund transaction's amount")));
+  // Money on its way counts as moved: a refund whose money is still pending is no £0 removal, and it pays back what is owed
+  const notFailed = refunds.filter((tx) => tx.status !== "FAILURE" && tx.status !== "ERROR");
+  const moving = sum(notFailed.map((tx) => pairOf(tx.amountSet, "a refund transaction's amount")));
+  return { paid, moving, moved: notFailed.length > 0, shipping: sum(shippingLines.map((item) => shippingRefunded(item, order))) };
 }
 
 /**
@@ -406,8 +412,6 @@ function atLeastZero(value: MoneyPair): MoneyPair {
   return { amount: Money.max(0, value.amount), shopAmount: Money.max(0, value.shopAmount) };
 }
 
-const isZero = (value: MoneyPair) => value.amount.isZero() && value.shopAmount.isZero();
-
 /**
  * Every refund of the order, oldest first and by id within the same moment,
  * each capped by the product value (`productValue`) less the ones before it.
@@ -415,12 +419,16 @@ const isZero = (value: MoneyPair) => value.amount.isZero() && value.shopAmount.i
  * each the same value.
  *
  * An order edit after payment writes its removal as a £0 refund of the units
- * (restockType CANCEL), and the money the buyer is owed for them as a later
- * refund with no items (production, 2026-11-07). The removal is valued by its
- * items and leaves its value owed; money that later pays it back, in a refund
- * with no items or beyond an item refund's own items, is worth nothing up to
- * what is owed, so one removal counts once. A removal before the order was
- * paid leaves nothing owed: those units were never paid for.
+ * (restockType CANCEL, no money moved), and the money the buyer is owed for
+ * them as a later refund with no items (production, 2026-11-07). The removal
+ * is valued by its items. What it leaves owed is what the order held then
+ * (its payments by that time, less the money refunded before and the gift
+ * cards it sold) beyond the
+ * product value the buyer keeps after it and beyond what was already owed,
+ * at most the removed items' value: nothing for an edit before payment or
+ * after a deposit, nothing for a swap the buyer kept paying for. Money that
+ * later pays it back, in a refund with no items or beyond an item refund's
+ * own items, is worth nothing up to what is owed, so one removal counts once.
  *
  * A refund of items completes the order when, after it, every line with a
  * value has had all its units refunded or removed by an edit (Ruling 34);
@@ -440,6 +448,7 @@ function refundsOf(order: ParsedOrder, productValue: MoneyPair, refundNodes: Rec
   const returned = new Map<Line, number>();
   let refunded = zero();
   let owed = zero();
+  let refundedMoney = zero();
   return dated.map(({ node, at }) => {
     const items = refundLinesOf(node, order);
     for (const { line, quantity } of items) returned.set(line, (returned.get(line) ?? 0) + quantity);
@@ -447,19 +456,24 @@ function refundsOf(order: ParsedOrder, productValue: MoneyPair, refundNodes: Rec
       items.length > 0 &&
       valued.length > 0 &&
       valued.every((line) => (removed.get(line) ?? 0) + (returned.get(line) ?? 0) >= line.quantity);
-    const { paid, shipping } = refundMoney(node, order);
+    const { paid, moving, moved, shipping } = refundMoney(node, order);
     let money = minus(paid, shipping);
     if (items.length === 0) {
-      const paysBack = least(owed, atLeastZero(money));
+      // Pending money pays back what is owed too; the refund is worth only its successful money beyond that
+      const paysBack = least(owed, atLeastZero(minus(moving, shipping)));
       owed = minus(owed, paysBack);
       money = minus(money, paysBack);
     } else {
       const itemValue = sum(items.map(({ line, quantity }) => shareOf(line.value, quantity, line.quantity)));
-      const removal = isZero(paid) && items.every((item) => item.restockType === "CANCEL");
-      const paidBefore = order.firstPaidAt !== null && order.firstPaidAt <= at;
-      if (removal && paidBefore) owed = plus(owed, itemValue);
-      else owed = minus(owed, least(owed, atLeastZero(minus(money, itemValue))));
+      if (!moved && items.every((item) => item.restockType === "CANCEL")) {
+        const held = minus(minus(sum(order.payments.filter((p) => p.at <= at).map((p) => p.money)), refundedMoney), order.giftCards);
+        const keptAfter = minus(minus(productValue, refunded), itemValue);
+        owed = plus(owed, least(itemValue, atLeastZero(minus(minus(held, keptAfter), owed))));
+      } else {
+        owed = minus(owed, least(owed, atLeastZero(minus(money, itemValue))));
+      }
     }
+    refundedMoney = plus(refundedMoney, paid);
     const refund = refundValue(node, order, items, minus(productValue, refunded), completesOrder, money);
     refunded = plus(refunded, refund.productValue);
     return refund;
@@ -702,8 +716,13 @@ export function createShopifyOrderSource(admin: GraphqlClient): OrderSource {
       const orderGid = text(rec(refund.order, "the refund's order").id, "the refund's order id");
       const read = await orderNode(ask, orderGid);
       if (!read) throw new OrderReadError("The refund's order could not be read");
-      const order = parseOrderNode(read.node, read.shopCurrency);
-      const others = await refundNodes(ask, oneBucket(), refundIds(read.node).filter((id) => id !== refundGid));
+      const inTurn = oneBucket();
+      const [transactions, others] = await Promise.all([
+        transactionsOf(ask, inTurn, orderGid, read.node),
+        refundNodes(ask, inTurn, refundIds(read.node).filter((id) => id !== refundGid)),
+      ]);
+      // Every tender, as readOrder reads them: what the order held decides an edit's removal (refundsOf)
+      const order = parseOrderNode({ ...read.node, transactions }, read.shopCurrency);
       const all = [...others, refund];
       const valued = refundsOf(order, boughtValue(order, all), all).find((r) => r.externalRefundId === refundGid);
       if (!valued) throw new OrderReadError("The refund could not be valued");
