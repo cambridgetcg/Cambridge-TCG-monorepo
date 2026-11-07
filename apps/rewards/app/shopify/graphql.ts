@@ -315,13 +315,14 @@ export const RewardsOrderTransactions = `#graphql
 `;
 
 /**
- * One refund: the lines and quantities it returned, its money and the
- * shipping it refunded, before and after tax (rule 7).
+ * One refund: the lines and quantities it returned (with each line's
+ * restockType: CANCEL on a £0 refund is an order edit's removal), its money
+ * and the shipping it refunded, before and after tax (rule 7).
  * Scopes: read_orders. The validator also names read_marketplace_orders and read_quick_sale: those
  * are alternatives to read_orders (returning only orders attributed to the
  * app), not further requirements.
  * Cost: 429 = refund 1 + order 1 + refundLineItems (connection 2, pageInfo 1,
- * 100 × (refund line 1 + line 1)) + transactions (connection 2, 20 ×
+ * 100 × (refund line 1 + line 1); restockType is a scalar, 0) + transactions (connection 2, 20 ×
  * (transaction 1 + amountSet 3)) + refundShippingLines (connection 2, 20 ×
  * (shipping line 1 + subtotalAmountSet 3 + taxAmountSet 3)).
  */
@@ -340,6 +341,7 @@ export const RewardsRefundFacts = `#graphql
         }
         nodes {
           quantity
+          restockType
           lineItem {
             id
           }

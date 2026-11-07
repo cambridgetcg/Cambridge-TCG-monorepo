@@ -108,6 +108,35 @@ function itemRefund(id: string, createdAt: string, lineId: string): Answer {
   return answer;
 }
 
+/**
+ * A £0 refund that took one of `lineId`'s units off the order with no money:
+ * what Shopify writes when an order edit removes a unit (restockType CANCEL),
+ * whether the order was paid before the edit (#1017) or after it (#1016).
+ */
+function removalRefund(id: string, createdAt: string, lineId: string, restockType = "CANCEL"): Answer {
+  const answer = moneyRefund(id, "0.0", createdAt);
+  Object.assign(answer.data.refund as object, {
+    transactions: { nodes: [] },
+    refundLineItems: { pageInfo: { hasNextPage: false }, nodes: [{ quantity: 1, restockType, lineItem: { id: lineId } }] },
+  });
+  return answer;
+}
+
+/** Order 5012 ($20 × 2, paid) after an edit took `removed` units off its line, with these refunds. */
+function editedUsd(refundIds: string[], o: { removed?: number; quantity?: number; paidAt?: string } = {}): Answer {
+  const order = clone(refundedInFullUsd);
+  const quantity = o.quantity ?? 2;
+  const line = order.data.order.lineItems.nodes[0];
+  Object.assign(line, {
+    quantity,
+    currentQuantity: quantity - (o.removed ?? 1),
+    originalTotalSet: { shopMoney: { amount: `${20 * quantity}.0`, currencyCode: "USD" }, presentmentMoney: { amount: `${20 * quantity}.0`, currencyCode: "USD" } },
+  });
+  if (o.paidAt) Object.assign(order.data.order.transactions[0], { processedAt: o.paidAt });
+  order.data.order.refunds = refundIds.map((id) => ({ id }));
+  return order;
+}
+
 async function readOrder(order: Answer, refunds: Answer[] = []) {
   const client = fromFixtures([order], refunds);
   const facts = await createShopifyOrderSource(client).readOrder((order.data.order as { id: string }).id);
@@ -383,6 +412,67 @@ describe("readOrder (the facts of one order, from its line items and tenders)", 
     expect(f.productValue.amount.toFixed(2)).toBe("47.00");
     const { facts: p } = await readOrder(plain);
     expect(p.productValue.amount.toFixed(2)).toBe("50.00");
+  });
+
+  describe("an order edit after payment, and the money refunded for it", () => {
+    // Shopify writes the edit's removal as a £0 refund of the unit (restockType CANCEL), and the money owed
+    // for it as a later refund with no items: one removal, which counted twice (production #1017, 2026-11-07)
+    const LINE = "gid://shopify/LineItem/6201";
+    const values = (f: { refunds: Array<{ productValue: { amount: { toFixed(n: number): string } } }> }) =>
+      f.refunds.map((r) => r.productValue.amount.toFixed(2));
+
+    it("counts the removal once: the money then refunded for it is worth nothing", async () => {
+      const refunds = [removalRefund("gid://shopify/Refund/7001", "2026-11-04T10:00:00Z", LINE), moneyRefund("gid://shopify/Refund/7002", "20.0", "2026-11-04T11:00:00Z")];
+      const order = editedUsd(["gid://shopify/Refund/7001", "gid://shopify/Refund/7002"]);
+
+      const { facts: f } = await readOrder(order, refunds);
+      expect(f.productValue.amount.toFixed(2)).toBe("40.00");
+      expect(values(f)).toEqual(["20.00", "0.00"]);
+      expect(f.refundedProductValue.amount.toFixed(2)).toBe("20.00");
+      expect(f.refundedProductValue.shopAmount.toFixed(2)).toBe("20.00");
+
+      // readRefund values each the same way
+      for (const [id, value] of [
+        ["gid://shopify/Refund/7001", "20.00"],
+        ["gid://shopify/Refund/7002", "0.00"],
+      ]) {
+        const one = await createShopifyOrderSource(fromFixtures([order], refunds)).readRefund(id);
+        expect(one?.refund.productValue.amount.toFixed(2)).toBe(value);
+      }
+    });
+
+    it("counts money refunded beyond what the removal left owed", async () => {
+      const refunds = [removalRefund("gid://shopify/Refund/7011", "2026-11-04T10:00:00Z", LINE), moneyRefund("gid://shopify/Refund/7012", "25.0", "2026-11-04T11:00:00Z")];
+      const { facts: f } = await readOrder(editedUsd(["gid://shopify/Refund/7011", "gid://shopify/Refund/7012"]), refunds);
+      expect(values(f)).toEqual(["20.00", "5.00"]);
+    });
+
+    it("owes nothing for a unit an edit removed before the order was paid: later money counts as before", async () => {
+      // #1016: edited at 10:00, paid at 10:30, so the unit was never paid for
+      const refunds = [removalRefund("gid://shopify/Refund/7021", "2026-11-04T10:00:00Z", LINE), moneyRefund("gid://shopify/Refund/7022", "5.0", "2026-11-04T11:00:00Z")];
+      const order = editedUsd(["gid://shopify/Refund/7021", "gid://shopify/Refund/7022"], { paidAt: "2026-11-04T10:30:00Z" });
+      const { facts: f } = await readOrder(order, refunds);
+      expect(values(f)).toEqual(["20.00", "5.00"]);
+    });
+
+    it("owes nothing for a £0 return settled outside Shopify: later money counts as before", async () => {
+      const refunds = [removalRefund("gid://shopify/Refund/7031", "2026-11-04T10:00:00Z", LINE, "RETURN"), moneyRefund("gid://shopify/Refund/7032", "5.0", "2026-11-04T11:00:00Z")];
+      const { facts: f } = await readOrder(editedUsd(["gid://shopify/Refund/7031", "gid://shopify/Refund/7032"], { removed: 0 }), refunds);
+      expect(values(f)).toEqual(["20.00", "5.00"]);
+    });
+
+    it("lets an item refund's money beyond its items pay back what's owed, so later money counts", async () => {
+      // $20 × 4: an edit removes one unit, then one unit is refunded with $40 (it and the $20 owed), then $5
+      const refunds = [
+        removalRefund("gid://shopify/Refund/7041", "2026-11-04T10:00:00Z", LINE),
+        itemRefund("gid://shopify/Refund/7042", "2026-11-04T11:00:00Z", LINE),
+        moneyRefund("gid://shopify/Refund/7043", "5.0", "2026-11-04T12:00:00Z"),
+      ];
+      Object.assign(refunds[1].data.refund as object, { transactions: { nodes: [{ kind: "REFUND", status: "SUCCESS", amountSet: bag("40.0") }] } });
+      const order = editedUsd(["gid://shopify/Refund/7041", "gid://shopify/Refund/7042", "gid://shopify/Refund/7043"], { quantity: 4, removed: 2 });
+      const { facts: f } = await readOrder(order, refunds);
+      expect(values(f)).toEqual(["20.00", "20.00", "5.00"]);
+    });
   });
 
   it("leaves tips out of the product value in each currency (Ruling 26)", async () => {
