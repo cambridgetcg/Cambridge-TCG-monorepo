@@ -335,22 +335,28 @@ export const EXAMPLES: EndpointExample[] = [
     sample_response: `{
   "data": {
     "protocol": { "package": "@cambridge-tcg/data-ingest", ... },
-    "counts": { "shipped": 7, "partial": 0, "planned": 10, ... },
+    "counts": { "shipped": 0, "partial": 6, "planned": 0, "blocked": 4, ... },
     "ingest_runs_available": true,
     "sources": [
       {
         "id": "cardrush",
         "name": "CardRush (JP)",
         "license": "internal-only",
-        "freshness": "price_current",
-        "status": "blocked",
+        "freshness": "page_collector",
+        "status": "partial",
         "redistribute": false,
-        "tos_notes": "Formal partnership required; acquisition hard-disabled.",
+        "tos_notes": "Written permission held by Yu (email, not copied; ...) covers collection from CardRush product pages, attributed member display and input to Cambridge-derived data. ... Never member API, download or bulk. Rows gathered before 2026-10-28 are not inputs.",
         "last_run": {
           "triggered_at": "2026-05-14T02:00:00Z",
           "status": "done",
           "rows_written": 11984,
-          "notes": "legacy run; current acquisition remains blocked"
+          ...
+        },
+        "member_pricing": {
+          "reviewed_uses": ["member-display"],
+          "cadence": "live-page",
+          "collection": { "flag": "DATA_COLLECT_CARDRUSH", "scheduled": false },
+          ...
         }
       }
     ],
@@ -360,7 +366,8 @@ export const EXAMPLES: EndpointExample[] = [
 }`,
     annotated_fields: [
       { path: "data.ingest_runs_available", meaning: "false = wholesale Falcon unreachable; per-source last_run absent. True = trustworthy state." },
-      { path: "data.sources[].last_run", meaning: "Three shapes: present (real row) / {_unavailable: true, reason: 'never_run'} / absent (Falcon failed)." },
+      { path: "data.sources[].last_run", meaning: "Three shapes: present (real row) / {_unavailable: true, reason: 'never_run'} / absent (Falcon failed). Legacy wholesale ingest_run only: CardRush's above is from its locked legacy path, not its page collector." },
+      { path: "data.sources[].member_pricing.collection", meaning: "Whether a Cambridge collector runs on a schedule now: its DATA_COLLECT_* flag is exactly on. Reviewed uses are not collection evidence." },
       { path: "data.sources[].license", meaning: "A declared source tier. It does not authorize acquisition or publication." },
     ],
     when_to_use: "Trust signal — has the ingest pipeline run today? Anything failed? Drift detection.",
@@ -381,16 +388,17 @@ export const EXAMPLES: EndpointExample[] = [
     method: "GET",
     auth: "user",
     title: "CardRush history policy status",
-    description: "Anonymous callers receive 401. Signed-in callers receive HTTP 503 and no observations because authentication does not create upstream rights.",
+    description: "Anonymous callers receive 401. Signed-in callers receive HTTP 503 and no observations: authentication does not create upstream rights, legacy CardRush rows stay withheld, and CardRush prices collected since 2026-10-28 are display-only.",
     curl: `# Requires next-auth session cookie
 curl -H 'cookie: <session-cookie>' \\
   https://cambridgetcg.com/api/v1/cards/op-op01-001-ja/cardrush-history`,
     sample_response: `{
   "error": {
     "code": "SOURCE_UNAVAILABLE",
-    "message": "CardRush observation publication is withheld pending written source rights.",
+    "message": "No CardRush observations are published here. Legacy CardRush observations, gathered before the written permission recorded 2026-10-28, stay withheld and are not inputs; CardRush prices collected under that permission appear only on Cambridge pages with CardRush named, never through an API or download.",
     "details": {
       "source": "cardrush",
+      "reason": "This legacy CardRush path stays locked. CardRush's data policy requires a formal partnership for automated collection; under the written permission recorded 2026-10-28 Cambridge collects only through the identified page collector.",
       "policy": "https://cardrush.media/data_policy",
       "observations": []
     }
@@ -403,7 +411,7 @@ curl -H 'cookie: <session-cookie>' \\
     when_to_use: "Check the current CardRush publication boundary after authentication.",
     gotchas: [
       "Returns 401 without a session and HTTP 503 with a session.",
-      "A session, bearer key, row cap, or downstream contract does not unlock observations.",
+      "A session, bearer key, row cap, or downstream contract does not unlock observations; CardRush prices appear only on Cambridge pages, with CardRush named.",
       "The status response is private, no-store and contains no CardRush values.",
     ],
     see_also: [
@@ -418,7 +426,7 @@ curl -H 'cookie: <session-cookie>' \\
     method: "POST",
     auth: "public",
     title: "File a feedback report",
-    description: "Five feedback kinds. Participant-supplied text and identity fields remain NOASSERTION unless the participant explicitly supplies a license.",
+    description: "Seven feedback kinds, including question and data-error, while the door is open (PUBLIC_FEEDBACK). The door keeps the named fields only. Participant-supplied text and identity fields remain NOASSERTION unless the participant explicitly supplies a license.",
     curl: `curl -X POST https://cambridgetcg.com/api/v1/feedback \\
   -H 'content-type: application/json' \\
   -d '{
@@ -430,24 +438,28 @@ curl -H 'cookie: <session-cookie>' \\
   }'`,
     sample_response: `{
   "data": {
-    "@kind": "feedback_receipt",
-    "feedback_id": "fb_a1b2c3d4e5f6",
+    "@kind": "feedback-receipt",
+    "feedback_id": "fb_3f9c0a1b2c3d4e5f60718293",
+    "holder_key": "fbk_…",
+    "holder_key_shown_once": true,
     "kind": "contract-drift",
-    "received_at": "2026-05-14T12:00:00Z",
-    "status": "logged",
-    "response_window_hours": 48,
-    "expected_response": "If the drift is real, we patch within a week and reply..."
+    "status": "received",
+    "received_at": "2026-11-06T12:00:00.000Z",
+    "expires_at": "2027-05-05T12:00:00.000Z",
+    "kept": ["kind", "observed", "expected", "endpoint", "reply_to"]
   }
 }`,
     annotated_fields: [
-      { path: "data.feedback_id", meaning: "Quote in any follow-up. Format: fb_<12-hex>." },
-      { path: "data.status", meaning: "Today: 'logged'. Future: 'triaged' / 'patched' / 'wont-fix' once persistence ships." },
+      { path: "data.feedback_id", meaning: "Quote in any follow-up. Format: fb_<24-hex>, random." },
+      { path: "data.holder_key", meaning: "Shown once; only its SHA-256 is kept. Send it as Authorization: Bearer <key> to GET the status and answer, or DELETE to erase the report." },
+      { path: "data.status", meaning: "received, then read, answered or closed as the operator works on it." },
+      { path: "data.kept", meaning: "Exactly the fields the door kept. A field it does not know is refused with 400, not dropped." },
     ],
-    when_to_use: "Any contract drift. Guide bugs. Endpoint suggestions. Federation partner registration.",
+    when_to_use: "A question. A data error (name endpoint, subject, as_of and method_version, not a source's value). Contract drift. Guide bugs. Endpoint suggestions. Federation partner registration.",
     gotchas: [
-      "reporter_contact is REQUIRED for kind 'contract-drift' and 'federation-adopter' so we can reply.",
+      "reporter_contact (or reply_to) is optional: the answer can be read with the holder key. Give one if you also want a reply by email or at a URL.",
       "Submitting feedback does not dedicate it to CC0; the submission remains NOASSERTION absent an explicit license.",
-      "Substrate-honest about persistence: today logged + emailed; agent_feedback table planned (drafts/0101).",
+      "The door answers 503 while PUBLIC_FEEDBACK is off, and 429 once it has taken 30 messages in the UTC hour. Each report is deleted 180 days after it arrives.",
     ],
     see_also: [
       { label: "Hospitality doctrine", href: repoDocRef("docs/connections/the-hospitality.md") },

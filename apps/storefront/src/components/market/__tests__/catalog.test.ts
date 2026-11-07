@@ -60,6 +60,12 @@ describe("buildCatalogSearch", () => {
     expect(s.get("set")).toBe("OP05");
     expect(s.get("q")).toBe("law");
     expect(s.get("game")).toBe("one-piece");
+    expect(s.has("images")).toBe(false);
+  });
+
+  it("asks for same-language images only when the caller says it prints their credit", () => {
+    expect(new URLSearchParams(buildCatalogSearch(base, 48, { sameLanguageImages: true })).get("images")).toBe("same-language");
+    expect(new URLSearchParams(buildCatalogSearch(base, 48, { sameLanguageImages: false })).has("images")).toBe(false);
   });
 });
 

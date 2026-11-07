@@ -7,6 +7,7 @@
  */
 
 import prisma from "../db.server";
+import { missionRewardUnavailableReason } from "../constants/feature-availability";
 
 const LOG_PREFIX = "[ChallengeManagement]";
 
@@ -418,6 +419,12 @@ export async function setChallengeReward(
 ): Promise<ChallengeWithDetails> {
   console.log(`${LOG_PREFIX} Setting reward for challenge ${challengeId} (shop: ${shop})`);
 
+  // Rewards a shopper couldn't receive are not offered (constants/feature-availability.ts)
+  const unavailable = missionRewardUnavailableReason(rewardData.rewardType);
+  if (unavailable) {
+    throw new Error(unavailable);
+  }
+
   // Verify challenge exists and belongs to shop
   const challenge = await prisma.challenge.findFirst({
     where: { id: challengeId, shop },
@@ -517,6 +524,12 @@ export async function transitionChallengeStatus(
     // Must have a reward configured
     if (!challenge.reward) {
       throw new Error("Challenge must have a reward configured before activation");
+    }
+
+    // Nor one whose reward a shopper couldn't receive
+    const unavailable = missionRewardUnavailableReason(challenge.reward.rewardType);
+    if (unavailable) {
+      throw new Error(unavailable);
     }
 
     // Validate dates

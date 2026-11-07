@@ -17,6 +17,7 @@ import {
   type CommonsTier,
   type DatasetEntry,
 } from "@/lib/datasets";
+import { JsonLd } from "@/components/site/JsonLd";
 
 export const metadata: Metadata = {
   title: "Dataset status catalog",
@@ -101,10 +102,7 @@ export default function DatasetsIndex() {
   return (
     <div className="prose max-w-3xl mx-auto py-12 px-4">
       {/* Inline schema.org/DataCatalog — every dataset, one crawl. the-finding.md Plant C. */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
 
       <h1>Datasets</h1>
 

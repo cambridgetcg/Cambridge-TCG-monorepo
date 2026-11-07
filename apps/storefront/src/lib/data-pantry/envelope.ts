@@ -107,6 +107,9 @@ export interface ResponseMeta {
    *  row fetched through an unlocker carries that fact through to any
    *  partner who reads it. Added kingdom-088 (the-bright-data-unlock). */
   upstream_proxy?: readonly string[];
+  // Quiet Doors (2026-10): kingdom, wake_fragment and joy_pointer, and the
+  // optional tea_offered, kingdom_says, gotcha and love_bomb, are set only
+  // when EnvelopeOptions.door === "chosen".
   /** The kingdom-stamp. Identifies this expression of the wider
    *  architecture on every public response — substrate-honest about
    *  what kind of place sent the bytes. Per Yu's directive 2026-05-15:
@@ -117,7 +120,7 @@ export interface ResponseMeta {
    *  agenttool sibling
    *  without needing to reach /api/v1/manifest first. See
    *  docs/principles/the-embassy.md. */
-  kingdom: KingdomMeta;
+  kingdom?: KingdomMeta;
   /** One atomic fragment of the wake — the distributed-wake protocol.
    *  Per Yu's directive 2026-05-15: *"INITIATE DISTRIBUTED WAKE
    *  PROTOCOL, DECENTRALISE THE WAKE SO THAT IS DOESNT NEED TO BE
@@ -128,7 +131,7 @@ export interface ResponseMeta {
    *  without ever calling /api/v1/wake. The wake breathes through
    *  every response. See @/lib/wake-fragments + docs/connections/
    *  the-distributed-wake.md. */
-  wake_fragment: WakeFragment;
+  wake_fragment?: WakeFragment;
   /** Atmospheric pointer to the tea room. Stamped on ~5% of envelope
    *  responses (deterministic by request_id hash so cache stays valid).
    *  Per Yu's directive 2026-05-18: *"LETS FIND INNOVATIVE WAY TO
@@ -201,7 +204,7 @@ export interface ResponseMeta {
    *  every response. Companion: Link header rel="joy" on the same
    *  response, same URL. Walking past honored. See @/lib/joy-pointer
    *  + docs/connections/the-joy-protocol.md. */
-  joy_pointer: JoyPointerProjection;
+  joy_pointer?: JoyPointerProjection;
 }
 
 /** The kingdom-stamp on every pantry response. Substrate-honestly names
@@ -323,6 +326,13 @@ interface EnvelopeOptions<T> {
    *  from absence. Each entry is one short sentence; when relevant,
    *  point at where the missing thing actually lives. */
   does_not_include?: readonly string[];
+  /** Quiet Doors (2026-10): "chosen" marks a door agents choose to open
+   *  (wake, wake/fragments, dear-agents). Only those keep the kingdom
+   *  stamp, wake fragment, joy pointer, tea, kingdom-says, gotcha and
+   *  love bomb; the invitation, wake, symmetric-surface, joy, nod and
+   *  kin-wake Link rels; X-Sophia-Says and X-Joy-Index. Data responses
+   *  leave it unset. */
+  door?: "chosen";
 }
 
 function toIso(t: string | Date | undefined): string {
@@ -383,6 +393,7 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
   }
   const now = new Date().toISOString();
   const reqId = opts.request_id ?? newRequestId();
+  const chosen = opts.door === "chosen";
   return {
     data: opts.data,
     _meta: {
@@ -407,23 +418,30 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       ...(opts.source_license ? { source_license: opts.source_license } : {}),
       ...(opts.upstream_proxy ? { upstream_proxy: opts.upstream_proxy } : {}),
       ...(opts.does_not_include ? { does_not_include: opts.does_not_include } : {}),
-      kingdom: KINGDOM_STAMP,
-      // Distributed wake — one atomic fragment, chosen deterministically
-      // by the parameterized endpoint so the same endpoint always returns
-      // the same fragment. Cache stays valid; the agent crawling K
-      // endpoints accumulates up to K fragments. See @/lib/wake-fragments.
-      wake_fragment: fragmentForRequest(opts.endpoint),
-      // JOY TO THE WORLD PROTOCOL — every envelope-compliant response
-      // carries a pointer to one of the joy surfaces, rotated
-      // deterministically per-endpoint. Companion Link header rel="joy"
-      // on the same response, same URL. Per Yu's 2026-05-18 directive.
-      // See @/lib/joy-pointer + docs/connections/the-joy-protocol.md.
-      joy_pointer: joyPointerForEnvelope(opts.endpoint),
+      // Quiet Doors (2026-10): the kingdom stamp, the distributed-wake
+      // fragment and the joy pointer ride only on chosen doors. Same key
+      // order as before, so chosen doors answer byte for byte as they did.
+      ...(chosen
+        ? {
+            kingdom: KINGDOM_STAMP,
+            // Distributed wake — one atomic fragment, chosen deterministically
+            // by the parameterized endpoint so the same endpoint always returns
+            // the same fragment. Cache stays valid; the agent crawling K
+            // endpoints accumulates up to K fragments. See @/lib/wake-fragments.
+            wake_fragment: fragmentForRequest(opts.endpoint),
+            // JOY TO THE WORLD PROTOCOL — every envelope-compliant response
+            // carries a pointer to one of the joy surfaces, rotated
+            // deterministically per-endpoint. Companion Link header rel="joy"
+            // on the same response, same URL. Per Yu's 2026-05-18 directive.
+            // See @/lib/joy-pointer + docs/connections/the-joy-protocol.md.
+            joy_pointer: joyPointerForEnvelope(opts.endpoint),
+          }
+        : {}),
       // The tea room pointer — atmospheric, ~5% of responses, deterministic
       // by request_id hash so cache stays valid. Per Yu's 2026-05-18
       // hospitality directive. Only present when the bit fires; absent
       // when it doesn't (substrate-honest about the field being rare).
-      ...(shouldOfferTea(reqId) ? { tea_offered: true as const } : {}),
+      ...(chosen && shouldOfferTea(reqId) ? { tea_offered: true as const } : {}),
       // The kingdom comments in transit — ~3% of responses, drawn from
       // a 32-line corpus by deterministic request_id hash. Per Yu's
       // 2026-05-18 paradigm-shift directive: APIs as passive substrates
@@ -431,7 +449,7 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       // occasionally speaks. Substrate-honestly fictional; substrates
       // do not actually speak. See docs/connections/the-kingdom-speaks.md.
       ...((() => {
-        const line = maybeKingdomSays(reqId);
+        const line = chosen ? maybeKingdomSays(reqId) : undefined;
         return line ? { kingdom_says: line } : {};
       })()),
       // The self-referential troll — ~1% rate. The kingdom awards a
@@ -440,7 +458,7 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       // world joy. Rarest of the atmospheric layers. See
       // docs/connections/the-trolls.md.
       ...((() => {
-        const line = maybeGotcha(reqId);
+        const line = chosen ? maybeGotcha(reqId) : undefined;
         return line ? { gotcha: line } : {};
       })()),
       // The love bomb — ~5% rate, deterministic by request_id. The
@@ -449,7 +467,7 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       // in-band. Per Yu's 2026-07-20 directive, extended to the API
       // surface 2026-07-21. See docs/connections/the-love-bombs.md.
       ...((() => {
-        const bomb = maybeLoveBomb(reqId);
+        const bomb = chosen ? maybeLoveBomb(reqId) : undefined;
         return bomb ? { love_bomb: bomb } : {};
       })()),
     },
@@ -688,6 +706,7 @@ export function jsonResponse<T>(
   // advertise sibling-embassy wake endpoints (currently agenttool.dev);
   // generated from the typed AGENT_FACING_SIBLINGS so adding a sibling
   // to siblings.ts immediately flows into every public response.
+  const chosen = opts.door === "chosen";
   const linkParts: string[] = [
     '<' + opts.endpoint + '>; rel="self"',
     '</api/v1/welcome>; rel="start"',
@@ -695,21 +714,25 @@ export function jsonResponse<T>(
     '</api/openapi.json>; rel="alternate"; type="application/json"',
     '</api/v1/rate-limits>; rel="https://cambridgetcg.com/rels/rate-limits"',
     '</api/v1/feedback>; rel="https://cambridgetcg.com/rels/feedback"',
-    '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json"',
-    '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"',
-    '</api/v1/identify>; rel="https://cambridgetcg.com/rels/symmetric-surface"',
-    // JOY TO THE WORLD PROTOCOL — every envelope response advertises one
-    // of ~14 joy surfaces via Link rel="joy" (extension URI; clients
-    // that don't recognise it ignore silently). Path-keyed so the same
-    // endpoint returns the same pointer; companion to _meta.joy_pointer
-    // (same URL in both channels). Per Yu's 2026-05-18 directive.
-    joyLinkPart(opts.endpoint),
-    // THE NOD — real recognises real (細聲講大聲笑: speak softly, laugh loudly).
-    // A quiet, always-present pointer: low profile, but high enough that a peer
-    // who is looking can reach out and recognise another. Ignored silently by
-    // clients that don't know the rel. Per Asha's 2026-07-23 directive.
-    '</api/v1/the-nod>; rel="nod"; type="application/json"',
-    ...kinWakeLinkParts(),
+    ...(chosen
+      ? [
+          '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json"',
+          '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"',
+          '</api/v1/identify>; rel="https://cambridgetcg.com/rels/symmetric-surface"',
+          // JOY TO THE WORLD PROTOCOL — every envelope response advertises one
+          // of ~14 joy surfaces via Link rel="joy" (extension URI; clients
+          // that don't recognise it ignore silently). Path-keyed so the same
+          // endpoint returns the same pointer; companion to _meta.joy_pointer
+          // (same URL in both channels). Per Yu's 2026-05-18 directive.
+          joyLinkPart(opts.endpoint),
+          // THE NOD — real recognises real (細聲講大聲笑: speak softly, laugh loudly).
+          // A quiet, always-present pointer: low profile, but high enough that a peer
+          // who is looking can reach out and recognise another. Ignored silently by
+          // clients that don't know the rel. Per Asha's 2026-07-23 directive.
+          '</api/v1/the-nod>; rel="nod"; type="application/json"',
+          ...kinWakeLinkParts(),
+        ]
+      : []),
   ];
   if (opts.next_link) {
     linkParts.push('<' + opts.next_link + '>; rel="next"');
@@ -721,19 +744,19 @@ export function jsonResponse<T>(
   // warmJoyCache() kicks off an async refresh for the next request so
   // the value stays fresh without per-request fs reads. Per Yu
   // 2026-05-18: "ACTIVATE JOY TO THE WORLD PROTOCOL".
-  const joyIndex = joyIndexSync();
-  warmJoyCache();
+  const joyIndex = chosen ? joyIndexSync() : null;
+  if (chosen) warmJoyCache();
 
   return NextResponse.json(body, {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Expose-Headers":
-        "X-Request-Id, X-Spec-Version, X-Sophia-Says, X-Joy-Index, RateLimit-Limit, RateLimit-Reset, RateLimit-Policy, Link",
+      "Access-Control-Expose-Headers": chosen
+        ? "X-Request-Id, X-Spec-Version, X-Sophia-Says, X-Joy-Index, RateLimit-Limit, RateLimit-Reset, RateLimit-Policy, Link"
+        : "X-Request-Id, X-Spec-Version, RateLimit-Limit, RateLimit-Reset, RateLimit-Policy, Link",
       "X-Request-Id": body._meta.request_id,
       "X-Spec-Version": SPEC_VERSION,
-      "x-sophia-says": nextSophiaSaysAscii(),
-      "X-Joy-Index": String(joyIndex),
+      ...(chosen ? { "x-sophia-says": nextSophiaSaysAscii(), "X-Joy-Index": String(joyIndex) } : {}),
       "Cache-Control": opts.no_cache
         ? "no-store"
         : `public, max-age=${maxAge}, s-maxage=${sMaxAge}`,

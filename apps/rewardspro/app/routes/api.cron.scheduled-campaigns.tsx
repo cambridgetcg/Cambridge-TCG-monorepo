@@ -1,11 +1,19 @@
 /**
  * Hourly cron job for processing scheduled email campaigns
- * - Find campaigns with status "scheduled" and scheduledFor <= now
- * - Send them via sendCampaignEmails()
- * - Update status to "sent" or "failed"
+ * - Mark campaigns more than LATE_LIMIT_HOURS past their time as "missed"
+ *   (they piled up while email was off; old news is not sent)
+ * - Mark campaigns whose send was cut off part way (still "sending" long
+ *   after any send could be running) as "failed": they may have gone out, so
+ *   they are never sent again by themselves
+ * - Send up to CAMPAIGNS_PER_RUN due campaigns, oldest first, through
+ *   sendCampaign() (services/campaign-send.server.ts), the same path as the
+ *   send page's Send now; the rest wait for the next run
+ * - sendCampaign marks each "sent", or "failed" with the reason
+ * - The run answers 500 if any campaign couldn't be sent because RewardsPro
+ *   or its email service failed (not when its audience or the monthly limit
+ *   held it back), after trying the others
  *
- * Should run hourly
- * Add to vercel.json: { "path": "/api/cron/scheduled-campaigns", "schedule": "0 * * * *" }
+ * Runs hourly at :15 (vercel.json: "15 * * * *")
  *
  * IMPORTANT: Uses distributed locking to prevent concurrent execution
  * across multiple Vercel regions.
@@ -15,14 +23,20 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
-import { sendCampaignEmails } from "../services/email-notifications.server";
-import { MARKETING_AUDIENCE } from "../services/marketing-consent.server";
+import { markCutOffSends, notSentMetrics, sendCampaign } from "../services/campaign-send.server";
 import { marketingEmailBlockedReason } from "../services/marketing-email.server";
-import type { Prisma } from "@prisma/client";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
-export async function loader({ request }: LoaderFunctionArgs) {
+/** A campaign this late when email can go out is held back, not sent */
+const LATE_LIMIT_HOURS = 24;
+/** Campaigns sent per run, so a run ends well inside the function's time limit */
+const CAMPAIGNS_PER_RUN = 10;
+
+const MISSED_REASON = `It was more than ${LATE_LIMIT_HOURS} hours past its scheduled time when email could go out, so it was held back rather than sent late. Duplicate it to send it again.`;
+
+export const loader = monitoredCron("scheduled-campaigns", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -79,25 +93,53 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const results = {
     sentCount: 0,
     failedCount: 0,
+    missedCount: 0,
+    interruptedCount: 0,
     errors: 0,
     details: [] as any[]
   };
 
   const now = new Date();
+  // Why the first campaign that failed was not sent, for the cron monitor
+  let firstProblem: unknown;
+  const lateCutoff = new Date(now.getTime() - LATE_LIMIT_HOURS * 60 * 60 * 1000);
 
   try {
-    // 5. Find scheduled campaigns that are due
+    // 5. Hold back campaigns too late to send, and say why on each
+    const tooLate = { status: 'scheduled', scheduledFor: { lt: lateCutoff } };
+    results.missedCount = isDryRun
+      ? await prisma.emailCampaign.count({ where: tooLate })
+      : (await prisma.emailCampaign.updateMany({
+          where: tooLate,
+          data: { status: 'missed', metrics: notSentMetrics(MISSED_REASON), updatedAt: now },
+        })).count;
+    if (results.missedCount > 0) {
+      log('warn', `${results.missedCount} scheduled campaigns were more than ${LATE_LIMIT_HOURS} hours late; marked missed`);
+    }
+
+    // 6. Sends cut off part way may have gone out: marked failed, and the run
+    // fails so the operator sees that something stopped them
+    results.interruptedCount = await markCutOffSends(now, isDryRun);
+    if (results.interruptedCount > 0) {
+      results.errors += results.interruptedCount;
+      const cutOff = `${results.interruptedCount} campaigns were cut off while sending; marked failed, as they may have gone out`;
+      firstProblem ??= new Error(cutOff);
+      log('error', cutOff);
+    }
+
+    // 7. Find scheduled campaigns that are due, oldest first
     const dueCampaigns = await prisma.emailCampaign.findMany({
       where: {
         status: 'scheduled',
-        scheduledFor: { lte: now },
+        scheduledFor: { gte: lateCutoff, lte: now },
       },
+      orderBy: { scheduledFor: 'asc' },
+      take: CAMPAIGNS_PER_RUN,
       select: {
         id: true,
         shop: true,
         name: true,
         scheduledFor: true,
-        segmentRules: true,
       },
     });
 
@@ -119,55 +161,35 @@ export async function loader({ request }: LoaderFunctionArgs) {
           continue;
         }
 
-        // Update status to "sending"
-        await prisma.emailCampaign.updateMany({
-          where: { id: campaign.id, shop: campaign.shop },
-          data: {
-            status: 'sending',
-            sentAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
+        // Only moves to 'sending' if still 'scheduled', so Send now can't send it too
+        const outcome = await sendCampaign(campaign.shop, campaign.id, 'scheduled');
 
-        // Resolve recipients based on segmentRules; only customers who
-        // consent to marketing (sendCampaignEmails checks again)
-        const segmentRules = campaign.segmentRules as any;
-        const audience = { shop: campaign.shop, ...MARKETING_AUDIENCE };
-        const where: Prisma.CustomerWhereInput =
-          segmentRules?.fromRecommendation && segmentRules?.targetCustomerIds?.length
-            ? { ...audience, id: { in: segmentRules.targetCustomerIds } }
-            : segmentRules?.selectedTiers?.length
-              ? { ...audience, currentTierId: { in: segmentRules.selectedTiers } }
-              : audience;
-        const recipients = (await prisma.customer.findMany({ where, select: { id: true } })).map((c) => ({ customerId: c.id }));
-
-        if (recipients.length === 0) {
-          log('warn', `Campaign ${campaign.id} has zero recipients, marking as sent with 0`, {
-            campaignId: campaign.id,
-          });
+        if (outcome.status === 'taken') {
+          log('info', `Campaign ${campaign.id} is no longer scheduled; skipping`);
+          continue;
         }
 
-        // Send emails
-        const sendResult = await sendCampaignEmails(campaign.shop, campaign.id, recipients);
+        if (outcome.status === 'not_sent') {
+          results.failedCount++;
+          if (outcome.cause === 'failed') {
+            results.errors++;
+            firstProblem ??= new Error(outcome.reason);
+          }
+          results.details.push({ type: 'not_sent', campaignId: campaign.id, name: campaign.name, reason: outcome.reason, cause: outcome.cause });
+          log(outcome.cause === 'failed' ? 'error' : 'warn', `Campaign ${campaign.id} not sent`, { reason: outcome.reason, cause: outcome.cause });
+          continue;
+        }
 
-        // Update campaign with results
-        await prisma.emailCampaign.updateMany({
-          where: { id: campaign.id, shop: campaign.shop },
-          data: {
-            status: sendResult.sent > 0 || sendResult.failed === 0 ? 'sent' : 'failed',
-            metrics: {
-              sent: sendResult.sent,
-              delivered: 0, // Actual delivery count comes from SendGrid webhook events
-              opened: 0,
-              clicked: 0,
-              bounced: sendResult.failed,
-              unsubscribed: 0,
-              revenue: 0,
-              orders: 0,
-            },
-            updatedAt: new Date(),
-          },
-        });
+        // The email service gave no answer: marked failed, and not retried,
+        // because some or all of its emails may have gone out
+        if (outcome.status === 'may_have_sent') {
+          results.failedCount++;
+          results.errors++;
+          firstProblem ??= new Error(outcome.reason);
+          results.details.push({ type: 'may_have_sent', campaignId: campaign.id, name: campaign.name, reason: outcome.reason });
+          log('error', `Campaign ${campaign.id} may have been sent; the email service gave no answer`);
+          continue;
+        }
 
         results.sentCount++;
         results.details.push({
@@ -175,31 +197,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
           campaignId: campaign.id,
           name: campaign.name,
           shop: campaign.shop,
-          recipientCount: recipients.length,
-          sent: sendResult.sent,
-          failed: sendResult.failed,
+          recipientCount: outcome.recipients,
+          sent: outcome.sent,
+          failed: outcome.failed,
         });
 
-        log('info', `Campaign ${campaign.id} sent: ${sendResult.sent} sent, ${sendResult.failed} failed`);
+        log('info', `Campaign ${campaign.id} sent: ${outcome.sent} sent, ${outcome.failed} failed`);
       } catch (error: any) {
+        // sendCampaign has marked it failed. It is not retried, because some
+        // of its emails may already have gone out.
         log('error', `Failed to send campaign ${campaign.id}`, { error: error.message });
+        firstProblem ??= error;
         results.errors++;
         results.failedCount++;
-
-        // Reset status to "scheduled" so it can be retried
-        try {
-          await prisma.emailCampaign.updateMany({
-            where: { id: campaign.id, shop: campaign.shop, status: 'sending' },
-            data: {
-              status: 'failed',
-              updatedAt: new Date(),
-            },
-          });
-        } catch (resetError) {
-          log('error', `Failed to reset campaign ${campaign.id} status`, {
-            error: (resetError as Error).message,
-          });
-        }
 
         results.details.push({
           type: 'failed',
@@ -210,33 +220,40 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     }
 
-    // 6. Log summary
+    // 8. Log summary
     const summary = {
       sent: results.sentCount,
       failed: results.failedCount,
+      missed: results.missedCount,
+      interrupted: results.interruptedCount,
       errorCount: results.errors,
       duration: Date.now() - startTime,
       dryRun: isDryRun,
     };
 
-    log('info', 'Scheduled campaigns cron completed', summary);
+    // A campaign RewardsPro or its email service failed to send makes the
+    // run fail, so Vercel and the operator see it
+    const runFailed = results.errors > 0;
+    log(runFailed ? 'error' : 'info', 'Scheduled campaigns cron completed', summary);
 
+    if (runFailed) cronFailed(request, firstProblem);
     return json({
-      success: true,
+      success: !runFailed,
       correlationId,
       summary,
-    });
+    }, { status: runFailed ? 500 : 200 });
   } catch (error: any) {
     log('error', 'Scheduled campaigns cron failed', { error: error.message });
+    cronFailed(request, error);
     return json({
       success: false,
       correlationId,
       error: "Scheduled campaign processing failed",
-    });
+    }, { status: 500 });
   } finally {
     if (lock.lockId) {
       await releaseCronLock(lock.lockId);
       log('info', 'Released distributed lock');
     }
   }
-}
+});

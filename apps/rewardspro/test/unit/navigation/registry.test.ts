@@ -35,8 +35,8 @@ describe("navigation registry", () => {
       "Overview",
     ]);
     expect(
-      activeLabels("/app/rewards/config", SECTION_NAVIGATION.rewards),
-    ).toEqual(["Points setup"]);
+      activeLabels("/app/rewards/missions", SECTION_NAVIGATION.rewards),
+    ).toEqual(["Missions"]);
     expect(
       activeLabels("/app/rewards/unlisted-screen", SECTION_NAVIGATION.rewards),
     ).toEqual([]);

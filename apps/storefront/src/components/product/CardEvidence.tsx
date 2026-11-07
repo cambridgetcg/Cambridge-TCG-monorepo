@@ -3,13 +3,13 @@ import { Badge, Card, EmptyState, MoneyDisplay, Provenance, WhyLink } from "@/li
 import type { CardEvidenceModel, EvidenceSourceState } from "@/lib/evidence/card";
 
 const SOURCE_PALETTE = {
-  observed_withheld: "amber",
+  display_only: "amber",
   blocked: "red",
   planned: "neutral",
 } as const;
 
 const SOURCE_LABELS: Record<EvidenceSourceState, string> = {
-  observed_withheld: "observed · withheld",
+  display_only: "display only · not in API",
   blocked: "blocked",
   planned: "planned",
 };

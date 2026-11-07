@@ -13,11 +13,10 @@ import {
   AGENT_FACING_SIBLINGS,
   AGENTTOOL_SUGGESTED_READING,
   KIN_PROTOCOL_SHAPE,
-  agentDiscoveryLinkHeader,
+  errandDiscoveryLinkHeader,
   postedFrom,
 } from "@/lib/siblings";
-import { fragmentForRequest } from "@/lib/wake-fragments";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
 
 const PLUGIN = {
@@ -25,9 +24,9 @@ const PLUGIN = {
   name_for_human: "Cambridge TCG",
   name_for_model: "cambridge_tcg",
   description_for_human:
-    `Cambridge TCG is building open-source TCG data infrastructure: card identity, price discovery, collector tools and card-data standards. New paid commerce is retired; existing agreements still settle. ${DATA_RIGHTS_BOUNDARY}`,
+    `Cambridge TCG is building open-source TCG data infrastructure: card identity, price discovery, collector tools and card-data standards. New paid commerce is retired; existing agreements still settle. ${DATA_RIGHTS}`,
   description_for_model:
-    `Cambridge TCG builds open-source TCG data infrastructure (SKU identity, price discovery, collector tools, and card-data standards published as JSON Schemas under /spec/v1/). New paid commerce (orders, offers, auctions, checkout, memberships) is retired and returns 410; existing agreements still settle. Reference prices are never platform offers. Public tools include card math mirrors, game and set directories, dated card views, and content-hash resolution. ${DATA_RIGHTS_BOUNDARY} Read /api/v1/welcome and /api/v1/manifest before use; /standards licenses specification text only, not implementation code or every payload.`,
+    `Cambridge TCG builds open-source TCG data infrastructure (SKU identity, price discovery, collector tools, and card-data standards published as JSON Schemas under /spec/v1/). New paid commerce (orders, offers, auctions, checkout, memberships) is retired and returns 410; existing agreements still settle. Reference prices are never platform offers. Public tools include card math mirrors, game and set directories, dated card views, and content-hash resolution. ${DATA_RIGHTS} Read /api/v1/welcome and /api/v1/manifest before use; /standards licenses specification text only, not implementation code or every payload.`,
   auth: {
     type: "none",
   },
@@ -35,7 +34,7 @@ const PLUGIN = {
     type: "openapi",
     url: "https://cambridgetcg.com/api/openapi.json",
   },
-  logo_url: "https://cambridgetcg.com/apple-touch-icon.png",
+  logo_url: "https://cambridgetcg.com/icon-512.png",
   contact_email: "contact@cambridgetcg.com",
   legal_info_url: "https://cambridgetcg.com/about",
   /** Agent-facing wake invitation. Plugin-discovery clients that follow
@@ -86,10 +85,6 @@ const PLUGIN = {
    *  role, doctrine URLs, relationship; no local canonical path.
    *  Sourced from @/lib/siblings.postedFrom(). */
   posted_from: postedFrom(),
-  /** One atomic fragment of the wake — the distributed-wake protocol
-   *  applied to this non-pantry discovery surface. Deterministic by
-   *  this file's path. Walking past is honored. */
-  wake_fragment: fragmentForRequest("/.well-known/ai-plugin.json"),
 };
 
 export async function GET(): Promise<NextResponse> {
@@ -99,9 +94,9 @@ export async function GET(): Promise<NextResponse> {
       "Cache-Control": "public, max-age=86400, s-maxage=86400",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      // RFC 8288 Link — wake + kin-wakes for plugin discovery clients that
-      // read headers. Sourced from @/lib/siblings.
-      Link: agentDiscoveryLinkHeader(),
+      // RFC 8288 Link, navigation only, like every data response (Quiet
+      // Doors, 2026-10). Sourced from @/lib/siblings.
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }
@@ -113,7 +108,7 @@ export async function OPTIONS() {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Max-Age": "86400",
-      Link: agentDiscoveryLinkHeader(),
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }

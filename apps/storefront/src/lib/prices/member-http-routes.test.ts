@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MemberPriceItem, MemberPricePage } from "./member-feed-types";
-import { MemberPriceQueryError } from "./member-feed-types";
+import { DISPLAY_ONLY_INPUT_NOT_EXPORTED, MemberPriceQueryError } from "./member-feed-types";
 vi.mock("server-only", () => ({}));
 const mocks = vi.hoisted(() => ({ session: vi.fn(), bearer: vi.fn(), read: vi.fn(), parse: vi.fn(), mint: vi.fn(), list: vi.fn(), revoke: vi.fn() }));
 vi.mock("@/lib/prices/member-access", () => ({ getMemberSessionActor: mocks.session }));
@@ -84,6 +84,16 @@ describe("member route authentication before pricing", () => {
     mocks.read.mockRejectedValueOnce(new Error("DATABASE_URL=secret"));
     const unavailable = await feed.GET(request("/api/v1/member-prices"));
     expect(unavailable.status).toBe(503); privateResponse(unavailable); expect(await unavailable.text()).not.toContain("secret");
+  });
+  it("answers 400, as for an unknown source, when the reader refuses a display-only source for the API or a download", async () => {
+    mocks.bearer.mockResolvedValue({ ok: true, actor: { userId: "member" }, remaining: 29, resetSeconds: 20 });
+    mocks.session.mockResolvedValue({ userId: "member" });
+    mocks.read.mockRejectedValue(new MemberPriceQueryError(DISPLAY_ONLY_INPUT_NOT_EXPORTED));
+    for (const response of [await feed.GET(request("/api/v1/member-prices?source=cardrush")), await download.GET(request("/api/account/prices/export?source=tcgplayer&format=csv"))]) {
+      expect(response.status).toBe(400); privateResponse(response);
+      expect(response.headers.has("content-disposition")).toBe(false);
+      expect(await response.json()).toEqual({ error: DISPLAY_ONLY_INPUT_NOT_EXPORTED });
+    }
   });
 });
 

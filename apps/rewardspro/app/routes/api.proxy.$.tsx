@@ -11,6 +11,7 @@
 // - CustomerTierState (effectiveTier, progress, tierSource)
 // - Tier details (name, cashbackPercent)
 // - ShopSettings (theme, currency)
+// The store credit balance is Shopify's, read alongside (cached briefly).
 //
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate, unauthenticated } from "../shopify.server";
@@ -21,6 +22,8 @@ import { appProxyRateLimit } from "../utils/rate-limiter-redis";
 import { getActiveEvents } from "../services/points-bonus-events.server";
 import { getRedemptionTiers } from "../services/points-redemption.server";
 import { getEnabledFeatures, getCurrencyBranding } from "../services/points-config.server";
+import { getCustomerAccountsVersion } from "../services/customer-accounts-version.server";
+import { getLiveStoreCreditBalance } from "../services/store-credit-balance.server";
 // Engagement action imports
 import { purchaseRaffleEntries, claimDailyFreeEntry } from "../services/raffle-entry.server";
 import { getRaffleStreakInfo } from "../services/raffle-streak.server";
@@ -36,6 +39,7 @@ import {
   CHANCE_MECHANICS_PAUSED_STATUS,
   chanceMechanicsPausedResult,
 } from "../constants/chance-mechanics";
+import { FEATURES_AVAILABLE } from "../constants/feature-availability";
 
 /** Storefront actions that enter a draw or open a box (games of chance). */
 const CHANCE_PATHS = new Set(["raffles", "raffles/enter", "mystery-boxes/open"]);
@@ -163,9 +167,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   log.debug('=== AUTH: Starting HMAC authentication ===');
 
   let session;
+  let admin;
   try {
     const authResult = await authenticate.public.appProxy(request);
     session = authResult.session;
+    admin = authResult.admin;
     log.debug('=== AUTH SUCCESS ===', {
       shop: session?.shop,
       hasSession: !!session
@@ -287,7 +293,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       });
 
       const startTime = Date.now();
-      const [customer, shopSettings, pointsConfig] = await Promise.all([
+      const [customer, shopSettings, pointsConfig, customerAccountsVersion, liveStoreCredit] = await Promise.all([
         prisma.customer.findUnique({
           where: { shop_shopifyCustomerId: { shop, shopifyCustomerId: customerId } },
           select: {
@@ -354,6 +360,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             streakBonusMultiplier: true,
           },
         }),
+        // Which customer accounts the shop uses: store credit can be spent
+        // signed in only with new customer accounts (cached; null if unknown)
+        getCustomerAccountsVersion(shop, admin),
+        // The shopper's store credit as Shopify holds it now, in the shop's
+        // currency (cached briefly; null if Shopify can't say)
+        getLiveStoreCreditBalance(shop, customerId, admin),
       ]);
 
       const executionTime = Date.now() - startTime;
@@ -437,7 +449,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       // ═══════════════════════════════════════════════════════════════════════
       // POINTS DATA - Fetch bonus events and redemption tiers if points enabled
       // ═══════════════════════════════════════════════════════════════════════
-      const pointsEnabled = row.points_enabled === true;
+      // Shoppers see no balance they can't spend (constants/feature-availability.ts)
+      const pointsEnabled = FEATURES_AVAILABLE.points && row.points_enabled === true;
       let pointsData = null;
 
       if (pointsEnabled) {
@@ -633,7 +646,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           isNewCustomer: Number(row.orderCount || 0) === 0 && Number(row.totalCashbackEarned || 0) === 0
         },
         balance: {
-          storeCredit: Number(row.storeCredit || 0),
+          // Our copy lags credit changed in Shopify admin, by other apps or by
+          // expiry, so it stands in only when Shopify can't say
+          storeCredit: liveStoreCredit ?? Number(row.storeCredit || 0),
           totalEarned: Number(row.totalCashbackEarned || 0),
           lastSynced: row.updatedAt || null
         },
@@ -677,6 +692,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         },
         settings: {
           currency: row.storeCurrency || 'USD',
+          // The widget explains spending store credit only for NEW_CUSTOMER_ACCOUNTS
+          customerAccountsVersion,
         },
         // Points Engagement System data
         points: pointsData,

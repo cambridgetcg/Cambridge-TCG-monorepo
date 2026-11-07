@@ -1,8 +1,8 @@
 /**
  * Points Redemption API
  *
- * DEPRECATED: Points can no longer be redeemed for discount codes.
- * Points are now spent exclusively on raffles and mystery boxes.
+ * DEPRECATED: Points can no longer be redeemed for discount codes, and
+ * nothing else spends them yet (constants/feature-availability.ts).
  * This endpoint returns 410 Gone for backward compatibility.
  */
 
@@ -16,14 +16,14 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   return json(
-    { success: false, error: "Points can only be spent on raffles and mystery boxes." },
+    { success: false, error: "Points can't be spent yet." },
     { status: 410 }
   );
 }
 
 export async function loader(_args: LoaderFunctionArgs) {
   return json(
-    { success: false, error: "Points can only be spent on raffles and mystery boxes." },
+    { success: false, error: "Points can't be spent yet." },
     { status: 410 }
   );
 }

@@ -31,7 +31,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const FORMATS = ["json", "text", "md", "markdown"] as const;
 type Format = (typeof FORMATS)[number];
@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         ...SHARED_HEADERS,
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -219,7 +219,7 @@ export async function GET(request: NextRequest) {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
         ...SHARED_HEADERS,
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -253,6 +253,6 @@ export async function GET(request: NextRequest) {
     },
   });
   response.headers.set("Cache-Control", SHARED_HEADERS["Cache-Control"]);
-  response.headers.set("Link", agentDiscoveryLinkHeader());
+  response.headers.set("Link", errandDiscoveryLinkHeader());
   return response;
 }

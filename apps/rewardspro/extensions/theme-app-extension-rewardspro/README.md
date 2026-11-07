@@ -1,7 +1,7 @@
 # RewardsPro Theme App Extension
 
-Storefront surface for the RewardsPro loyalty app. Injects six widgets into
-Shopify themes via app blocks and app embeds. **No build step** — assets
+Storefront surface for the RewardsPro loyalty app. Injects the membership
+widget into Shopify themes as an app embed. **No build step** — assets
 under `assets/` are hand-written vanilla JavaScript and CSS, loaded directly
 by Shopify when a merchant enables a block.
 
@@ -10,19 +10,23 @@ by Shopify when a merchant enables a block.
 ```
 extensions/theme-app-extension-rewardspro/
 ├── assets/
+│   ├── rp-widget-loader.js         # SHARED — small visibility/ordering entry
 │   ├── rp-utils.js                 # SHARED — window.RPUtils (see below)
-│   ├── membership-widget.{js,css}  # Floating tier + store-credit badge
-│   ├── raffles.{js,css}            # Raffle grid (section block)
-│   ├── mystery-boxes-widget.{js,css}
-│   ├── missions-widget.{js,css}
-│   └── gift-cards.{js,css}
+│   └── membership-widget.{js,css}  # Floating tier + store-credit badge
 ├── blocks/                         # Liquid templates (one per widget)
 ├── snippets/
-│   ├── rp_utils_loader.liquid      # Loads rp-utils.js before any widget
+│   ├── rp_utils_loader.liquid      # Links shared widget-state styles
 │   └── stars.liquid                # Star rating helper
 ├── locales/                        # Translatable strings (| t in Liquid)
 └── shopify.extension.toml          # Extension manifest
 ```
+
+The raffle, mystery-box, gift-card and missions blocks were removed while
+those features can't work in a storefront: raffles and boxes are paused by
+`CHANCE_MECHANICS_PAUSED`, gift cards need `write_gift_cards`, which the app
+doesn't request, and nothing switches missions on for shoppers
+(`PointsConfig.missionsEnabled` is never set). They are in git history if
+the features come back.
 
 ## Shared module — `assets/rp-utils.js` (`window.RPUtils`)
 
@@ -44,17 +48,24 @@ helpers into each widget.** Current surface (v1.0.0):
 | `RP.format.currency(amount, currency, locale?)` | `Intl.NumberFormat` with safe fallback. |
 | `RP.readTranslations(dataset, schema)` | Resolves `data-i18n-*` values with fallbacks. |
 
-Every Liquid block already ships with `{% render 'rp_utils_loader' %}` at
-the top, so `window.RPUtils` is defined before widget JS runs. The browser
-dedupes identical script tags — multiple widgets on the same page cost one
-HTTP request.
+Every block references the sub-10 KB `rp-widget-loader.js` schema asset and
+supplies Shopify CDN URLs through `data-rp-utils-src` and
+`data-rp-widget-src`. Shopify can load the entry asynchronously without an
+ordering race: it observes roots with a 300 px viewport margin, loads
+`rp-utils.js` once, awaits it, and only then requests each widget runtime.
+First interaction also starts loading, and browsers without
+`IntersectionObserver` load immediately.
+
+The loader deduplicates canonical asset URLs with page-global promises and
+emits a root-scoped `rewardspro:widget-ready` event after a runtime is ready.
+That event lets already-cached runtimes initialize blocks inserted later by
+the Shopify theme editor without executing the asset twice.
 
 ### Reference implementation
 
 `assets/membership-widget.js` is the canonical consumer. It has no local
 sanitize/fetch/cache helpers — everything comes from `RP.*`. Use it as the
-template when porting the other four widgets (they each carry a
-`MIGRATION NOTE` comment pointing here).
+template for any new widget.
 
 ## Security model
 
@@ -62,8 +73,8 @@ template when porting the other four widgets (they each carry a
   (`/apps/rewardspro/<widget>`). The backend verifies the HMAC signature and
   reads `logged_in_customer_id` from the signed URL — never from the POST
   body. See `app/routes/api.proxy.$.tsx` and `test/routes/api.proxy.auth.test.ts`.
-- **Idempotency**: State-changing POSTs (raffle entry, mystery-box open,
-  challenge claim, gift-card conversion) send an `Idempotency-Key` header.
+- **Idempotency**: The proxy's state-changing POSTs (mission claims)
+  require an `Idempotency-Key` header.
   Server dedupes via Vercel KV (`SET NX EX 120`) so double-clicks, network
   retries, and replays are safe.
 - **Cache keys**: Always include the customer ID so a shared device can't
@@ -71,12 +82,14 @@ template when porting the other four widgets (they each carry a
 
 ## Data flow
 
-1. Liquid gates on `{% if customer %}` and emits a container with `data-*`
-   attributes plus the `rp_utils_loader` snippet.
-2. Widget JS reads `element.dataset`, fetches from its proxy endpoint
+1. Liquid gates on `{% if customer %}` and emits a container with settings
+   plus the utility and widget CDN URLs. `rp_utils_loader` links shared CSS.
+2. `rp-widget-loader.js` waits until the container is near the viewport or
+   interacted with, then ordered-loads RPUtils and the widget runtime.
+3. Widget JS reads `element.dataset`, fetches from its proxy endpoint
    (`RP.fetchWithRetry`), caches in localStorage (`RP.cache.write`), and
    renders via `innerHTML` using `RP.escapeHtml` for dynamic values.
-3. Merchant theme editor settings (colors, cache duration, copy) flow
+4. Merchant theme editor settings (colors, cache duration, copy) flow
    through `data-*` and are sanitized on the client before inline
    `style=` / text interpolation.
 
@@ -93,18 +106,20 @@ hits, fetch URLs, retries, and render branches.
 ## Enabling in a theme
 
 1. Online Store → Themes → Customize.
-2. Theme settings → App embeds (for membership/missions) or section target
-   for raffles/mystery-boxes/gift-cards.
+2. Theme settings → App embeds (the membership widget).
 3. Toggle the RewardsPro block on and configure settings.
 4. Save.
 
 ## Tests
 
-`test/extensions/rp-utils.test.ts` covers the entire `window.RPUtils`
-surface (50 tests, jsdom + vitest). Run:
+`test/extensions/rp-utils.test.ts` covers the `window.RPUtils` surface.
+`test/unit/extensions/rp-widget-loader.test.ts` covers ordered loading,
+deduplication, viewport/interaction fallback, theme-editor insertion, and
+Liquid wiring; it and the rest of `test/unit/extensions/` run in CI with
+`test:unit`. Run:
 
 ```sh
-npm test -- test/extensions/rp-utils.test.ts
+npm test -- test/extensions/rp-utils.test.ts test/unit/extensions/
 ```
 
 `test/routes/api.proxy.auth.test.ts` locks in the proxy auth contract
@@ -120,6 +135,6 @@ and any HTTP error.
 replay. In normal usage this means the user double-clicked; the first
 request is still in flight. Wait and retry.
 
-**`window.RPUtils is missing` in console** — the `rp_utils_loader` snippet
-wasn't rendered before the widget's schema-injected script. Confirm each
-Liquid block starts with `{% render 'rp_utils_loader' %}`.
+**`window.RPUtils is missing` in console** — the ordered loader contract was
+bypassed. Confirm the block schema references `rp-widget-loader.js` and its
+root includes both `data-rp-utils-src` and `data-rp-widget-src`.

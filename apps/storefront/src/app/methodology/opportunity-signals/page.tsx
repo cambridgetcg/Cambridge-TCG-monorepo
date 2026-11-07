@@ -67,9 +67,9 @@ export default function OpportunitySignalsMethodology() {
         <strong>Where this lives in code.</strong> The public contract and strict
         validator live at <code>packages/opportunity-signal/</code>. The
         proprietary engine is intentionally absent from the repository, which is
-        itself currently private (public source release pending). The connection
-        record is <code>docs/connections/the-opportunity-signal.md</code> (private
-        repository).
+        itself public. The connection record is{" "}
+        <code>docs/connections/the-opportunity-signal.md</code> in the same
+        repository.
       </blockquote>
 
       <h2>The public/private boundary</h2>

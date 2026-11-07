@@ -1,0 +1,16 @@
+{
+  "rewards_widget": {
+    "button": "Rewards",
+    "tier": "Your tier",
+    "earn": "{percent}% back as store credit",
+    "balance": "Your store credit",
+    "balance_unknown": "Your store credit shows at checkout",
+    "to_next": "{amount} more to reach {tier}",
+    "progress": "Progress to {tier}",
+    "top": "You are on the top tier",
+    "spend": "Sign in and choose Apply store credit at checkout",
+    "guest_message": "Sign in to see your rewards",
+    "guest_earn": "Earn {percent}% back as store credit",
+    "guest_cta": "Sign in"
+  }
+}

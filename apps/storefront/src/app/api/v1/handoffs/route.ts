@@ -39,7 +39,7 @@ import {
   type HandoffStatus,
   listHandoffs,
 } from "@/lib/handoffs";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 import { repoDocRef } from "@/lib/repository";
 
 const FORMATS = ["json", "md", "markdown", "text", "xenoform"] as const;
@@ -150,7 +150,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "Content-Type": contentType,
         "Cache-Control": TEXT_CACHE,
         "Access-Control-Allow-Origin": "*",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }

@@ -10,7 +10,7 @@ to distinguish implemented behavior from planned integration.
 
 ## Working in the repository
 
-[AGENTS.md](../../AGENTS.md) is the shared operating guide.
+[AGENTS.md](../../AGENTS.md) holds the principles the repo works by.
 [CLAUDE.md](../../CLAUDE.md) points Claude sessions to it. App guides add local
 conventions; the optional ignored HERE.md describes one machine's worktrees.
 
@@ -23,7 +23,7 @@ operational update.
 
 | Need | Read |
 | --- | --- |
-| Scope and relevant checks | [Agent instructions](../../AGENTS.md) |
+| How we work, and useful checks | [AGENTS.md](../../AGENTS.md) |
 | Commits and unfinished work | [Git workflow](../operations/git-workflow.md) |
 | Source architecture and module progress | [Module map](../modules/README.md), [catalog](../modules/catalog.json) and current source |
 | Visitor and API entry design | [Entry pages and module map](../connections/the-entry-map.md) |
@@ -54,8 +54,8 @@ authentication, data rights, provenance and the
 [commerce boundary](../../apps/storefront/docs/commercial-retirement.md).
 Code follows the root [Apache-2.0 license](../../LICENSE) and more-specific notices;
 [CC0 specification prose](../STANDARDS-LICENSE.md), source data and artwork have
-separate terms. Reference packages are private workspaces, not npm releases.
-Public repository access, package distribution and provider permissions each
+separate terms. The repository is public; reference packages are private
+workspaces, not npm releases. Package distribution and provider permissions each
 require their own release evidence.
 
 ## Optional invitations

@@ -27,7 +27,8 @@ interface TheEyeProps {
   choices: string[];
   imageUrl: string;
   imageAttribution: string | null;
-  imageIsReference: boolean;
+  imageLabel: string;
+  imageCreditLang?: "ja";
   setName: string | null;
   origin: { x: number; y: number };
 }
@@ -42,7 +43,8 @@ export default function TheEye({
   choices,
   imageUrl,
   imageAttribution,
-  imageIsReference,
+  imageLabel,
+  imageCreditLang,
   setName,
   origin,
 }: TheEyeProps) {
@@ -114,11 +116,11 @@ export default function TheEye({
             image without its copyright line is dishonest (the market's
             co-location rule). Inside .stage so text-mode hides both. */}
         {imageAttribution && (
-          <p className="mt-1.5 text-xs text-ink-faint leading-relaxed">
+          <p lang={imageCreditLang} className="mt-1.5 text-xs text-ink-faint leading-relaxed">
             {imageAttribution}
           </p>
         )}
-        <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">{imageIsReference ? "English reference image · printing not verified" : "Catalog image · source and printing unverified"}</p>
+        <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">{imageLabel}</p>
       </div>
 
       <p aria-live="polite" className="mt-4 font-mono text-xs uppercase tracking-[0.2em] text-ink-faint">

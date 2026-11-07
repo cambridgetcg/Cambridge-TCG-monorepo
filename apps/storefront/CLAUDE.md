@@ -2,188 +2,76 @@
 
 # Cambridge TCG Storefront
 
-Read the shared [agent instructions](../../AGENTS.md) and local Next.js rules
-above before changing code. The [app README](README.md) is the human setup and
-architecture guide. [Culture and invitations](../../docs/agents/culture.md)
-remain optional context.
+The repo-wide principles are in [the root AGENTS.md](../../AGENTS.md); the
+Next.js note above is imported from this folder's AGENTS.md. The
+[app README](README.md) covers setup and architecture. These are practical
+notes about this app.
 
-This app serves card research, collections, community, public API discovery and
-existing account/order records. New paid commerce is retired; preserve existing
-settlement, cancellation, refunds and support. See the
-[commerce boundary](docs/commercial-retirement.md).
+This app serves card research, collections, community, the public API and
+existing account and order records. New paid sales are off; existing
+settlement, cancellation, refunds and support keep working (see the
+[commerce note](docs/commercial-retirement.md)).
 
 ## Stack
-- Next.js 16.2.11 (App Router, Turbopack), React 19.2.4, TypeScript and Tailwind CSS 4; use the installed Next.js docs before editing framework code.
-- PostgreSQL through shared `@cambridge-tcg/db` helpers; connection configuration belongs to the selected development or deployment environment.
-- Stripe for preserved agreements, settlement and signed webhook processing; new checkout admission stays retired.
-- Transactional email via `@cambridge-tcg/email`; AWS SES is the carrier, and the seam selects a transport per stream (`EMAIL_TRANSPORT`, `EMAIL_TRANSPORT_<STREAM>`); deployment state is separate from configuration. The self-hosted mail plan was retired 2026-10-13 ([note](../../docs/ops-email-selfhost.md)).
-- next-auth v5 (email magic links, optional Google and GitHub OAuth)
-- Vercel deployment configuration targets cambridgetcg.com; source and config alone do not verify the live revision.
-- Legacy wholesale catalog access is in `src/lib/wholesale/client.ts`, with direct-database fallbacks in `src/lib/wholesale/db-source.ts`. Keep the returned source labels and `src/lib/public-wholesale-fields.ts` publication policy: available credentials or stored prices do not establish publication rights. Shared pricing calculations live in `@cambridge-tcg/pricing`.
+
+- Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 4.
+- PostgreSQL through the shared `@cambridge-tcg/db` helpers.
+- Stripe for existing agreements, settlement and signed webhooks.
+- Email through `@cambridge-tcg/email` on AWS SES; `EMAIL_TRANSPORT` and
+  `EMAIL_TRANSPORT_<STREAM>` pick the transport per stream.
+- next-auth v5: email magic links, plus optional Google and GitHub OAuth.
+- Vercel deploys cambridgetcg.com from `main`.
+- Legacy wholesale catalog reads live in `src/lib/wholesale/client.ts`, with
+  direct-database fallbacks in `src/lib/wholesale/db-source.ts`. Shared
+  pricing maths lives in `@cambridge-tcg/pricing`.
 
 ## Database
-- `src/lib/db.ts` exposes raw-SQL `query()` and `transaction()` through `@cambridge-tcg/db/compat`, backed by a shared postgres.js pool. Reuse these helpers and domain data-access modules; do not add another ORM or connection implementation.
-- Connection and TLS options are owned by `packages/db/src/index.ts`. Inspect the chosen environment and owning helper instead of copying older per-query `pg.Pool` workarounds.
-- Domain migrations and tables are mapped in the [storefront module guide](../../docs/modules/storefront/README.md).
-- Append-only SQL migrations live in `drizzle/`; applying them needs a reviewed target and the relevant scoped authorization.
+
+- `src/lib/db.ts` exposes raw-SQL `query()` and `transaction()` over a shared
+  postgres.js pool. Connection and TLS options live in
+  `packages/db/src/index.ts`.
+- SQL migrations live in `drizzle/`. Applied ones are history; add new ones.
 
 ## Auth
-- next-auth v5 with custom PgAdapter (`src/lib/auth/adapter.ts`) and 30-day database sessions.
-- Email magic links use the transactional email transport (`src/lib/auth/email.ts`). Optional Google OAuth uses `AUTH_GOOGLE_ID` + `AUTH_GOOGLE_SECRET`; optional GitHub OAuth uses `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET`. GitHub registers only when both trimmed values are non-empty. `/login` discovers configured providers via `/api/auth/providers` and submits CSRF-protected full-page OAuth forms with a safe relative return path.
-- GitHub (`src/lib/auth/github.ts`) requests only `read:user user:email`, verifies the authenticated email list (verified primary, otherwise a verified fallback), and links a matching verified email to an existing CTCG account. The immutable numeric GitHub ID preserves an existing link even after an email change. A first link is refused when its verified email differs from the active CTCG session's email; sign out before using a different account. This does not block an already-linked ID after an email change. Missing verification fails closed. The provider-level `account()` mapping omits GitHub tokens from persistence; the adapter stores the provider link with null token columns. Google policy is unchanged.
-- GitHub callbacks: production `https://cambridgetcg.com/api/auth/callback/github`; development `http://localhost:3001/api/auth/callback/github` (prefer a separate development OAuth app). Creating apps, setting hosted secrets and deployment need separate authorization; see `docs/ops-deploy-runbook.md`.
-- Adding a provider does not change registration admission (`src/lib/auth/admission.ts`): existing linked GitHub identities and verified same-email existing accounts can sign in while new registration is paused. New identities still need the existing admission policy. Email requests retain their generic, non-enumerating confirmation.
-- Session-aware Nav shows Sign In / Account.
-- Admin dashboard at `/admin/trade-ins` is gated by `users.role = 'admin'`. Admins use the same `/login` methods as customers; OAuth never grants a role. `proxy.ts` checks cookie presence, while `src/lib/auth/realms.ts` and `src/lib/admin/auth.ts` enforce page/API access.
 
-## UI primitives — `@/lib/ui`
+- Custom PgAdapter (`src/lib/auth/adapter.ts`), 30-day database sessions.
+- GitHub sign-in (`src/lib/auth/github.ts`) asks only for
+  `read:user user:email`, links by verified email and stores no GitHub tokens.
+- Whether new accounts can register is decided in
+  `src/lib/auth/admission.ts` and `src/lib/release/production-gates.ts`
+  (`ACCOUNT_ADMISSION_MODE`). Existing accounts can always sign in.
+- Admin pages check `users.role = 'admin'` in `src/lib/auth/realms.ts` and
+  `src/lib/admin/auth.ts`; `proxy.ts` only checks that a cookie exists.
 
-The consumer surface composes through one shared primitive library, mirroring
-the admin app's `@/lib/ui` shape so a builder moving between surfaces meets
-the same vocabulary.
+## UI
 
-```ts
-import { Badge, Palettes, Button, Card, DataTable, EmptyState,
-         ErrorAlert, FilterPills, PageLayout, PageHeader, Section, ActionCard, Pagination,
-         Provenance, SearchForm, Tabs, WhyLink, Verifiability } from "@/lib/ui";
-import { formatPrice, formatDate, formatDateTime,
-         formatRelativeTime, formatTimeUntil } from "@/lib/format";
-```
+- Shared primitives come from `@/lib/ui` (Badge, Button, Card, PageHeader,
+  Tabs, Provenance, WhyLink and friends) and formatters from `@/lib/format`.
+  Client code imports individual primitive files so server helpers stay out
+  of the bundle.
+- Use the semantic colour tokens (`bg-page`, `text-ink`, `text-accent`,
+  `text-bid` / `text-ask` and so on). Raw palette classes like
+  `bg-neutral-*` don't follow the appearance themes.
+- Shared controls use 16px text and targets at least 44px high, and respect
+  `prefers-reduced-motion`; that keeps the site usable on phones and for
+  people who need it.
+- The `/account/*` list pages share one shape (PageHeader, Tabs, list,
+  Pagination); copy a sibling page when adding one.
 
-**Status badges.** Pages don't define their own STATUS_* maps. Pick a named
-palette from `Palettes` (e.g. `OfferStatusPalette`, `EscrowStatusPalette`)
-and pass it to `<Badge>`. If display labels differ from raw enum values,
-keep a small per-page `STATUS_LABELS` const and pass it via `labels`.
+## Gotchas
 
-```tsx
-<Badge
-  status={offer.status}
-  palette={Palettes.OfferStatusPalette}
-  labels={STATUS_LABELS}
-/>
-```
+- Trim env values used as keys (`.trim()`): Vercel sometimes stores them with
+  trailing whitespace.
+- Use `pnpm`.
 
-When adding a new domain, define a new palette in `lib/ui/status-palettes.ts`
-keyed by the domain's status enum. The Tone vocabulary is shared with admin
-(amber / red / emerald / blue / purple / neutral / green / sky).
+## Checks
 
-**Provenance / WhyLink / Verifiability.** Whenever a value is non-live or
-derived from a foreign authority, label it. Trust score, escrow tier,
-membership tier, payout hold, fraud flag — every user-affecting decision
-gets a `<WhyLink href="/methodology/<topic>" />`. See
-`docs/principles/transparency.md` (Ring 2) for the doctrine.
-
-## List-page composition pattern
-
-The `/account/{orders,trades,offers,returns,trade-cancels,trade-ins,
-pricing-rules,vacation,searches,vault}` pages follow one shape:
-
-```
-PageHeader
-  ↓
-[ActionBanner]            optional — "X needs your attention"
-  ↓
-Tabs                      "Incoming / Outgoing", "Orders / History"
-  ↓
-SearchForm + FilterPills  optional, on listing-style pages
-  ↓
-EmptyState | list of cards | DataTable
-  ↓
-Pagination                optional
-```
-
-Compose primitives directly — there's no `<ListPage>` wrapper. Each page
-controls its own data fetching and state management; the primitives just
-unify visual surface.
-
-Skeleton (controlled tabs, no auth handling — see below):
-
-```tsx
-"use client";
-import { useState } from "react";
-import { PageHeader, Tabs, EmptyState, ErrorAlert, ListSkeleton } from "@/lib/ui";
-
-const TABS = [
-  { value: "incoming" as const, label: "Incoming" },
-  { value: "outgoing" as const, label: "Outgoing" },
-];
-
-export default function MyListPage() {
-  const [tab, setTab] = useState<"incoming" | "outgoing">("incoming");
-  // …fetching logic…
-
-  return (
-    <div>
-      <PageHeader
-        title="Existing offers"
-        description="Review records and their current status."
-      />
-      <Tabs tabs={TABS} selected={tab} onSelect={setTab} />
-      {error && <ErrorAlert description={error} />}
-      {loading ? <ListSkeleton rows={3} />
-        : items.length === 0 ? <EmptyState title="Nothing here yet." />
-        : items.map((i) => <Card key={i.id}>…</Card>)}
-    </div>
-  );
-}
-```
-
-## Key Patterns
-- **The current interface is plain and task-focused** — follow
-  [the interface guide](../../docs/design/interface.md). The older quiet-gallery
-  plan is historical. Prioritize readable text, visible labels, clear next actions
-  and compact navigation. Card art remains content; avoid decorative backgrounds,
-  ornamental type, glow and ambient animation.
-- **Page composition**: use `PageLayout` for the main landmark and consistent
-  width, `PageHeader` for the title and purpose, `Section` for related content,
-  and `ActionCard` for a linked task. Account layouts already own the main
-  landmark; do not nest another main inside them. Client code should import
-  individual primitive files to avoid pulling server helpers through a barrel.
-- **Semantic tokens only** (Tailwind 4 `@theme` in `globals.css` + `themes.css`):
-  surfaces `bg-page` / `bg-surface` / `bg-surface-subtle` / `bg-surface-elevated`,
-  hairlines `border-border-subtle` (strong: `border-border-strong`), text hierarchy
-  `text-ink` / `text-ink-muted` / `text-ink-faint`, accent `text-accent` /
-  `bg-accent-wash` (active pill) / `bg-accent`, tones `ok` / `danger` / `warning` /
-  `info`. **Never write raw palette classes** (`bg-neutral-*`, `text-amber-*`,
-  `text-emerald-*`, `text-white`) — they don't respond to appearance themes.
-  Reference implementations: `src/components/home/HomeLanding.tsx`,
-  `src/app/prices/page.tsx`, and the layout chrome in `src/components/layout/`.
-- **Green buys, red sells** — always `text-bid` / `text-ask` (doctrine-narrow tokens),
-  never generic ok/danger.
-- **Buttons**: primary = solid ink (`bg-ink text-page rounded-lg`), the single
-  strongest thing on a page; secondary = hairline border + ink text; danger = solid
-  danger. No gradients, no glow, no emerald/amber CTAs.
-- **Type**: one sans-serif family for headings, wordmark and body; system mono for
-  identifiers and tabular values. Keep CJK fallbacks legible. Use ordinary sentence
-  case, readable descriptions and visible form labels. Shared controls use 16px
-  text and targets at least 44px high.
-- **Motion**: use only feedback needed to understand an interaction. The old
-  `wardrobe-*` material classes remain static compatibility hooks, not a visual
-  vocabulary for new pages. Respect reduced-motion preferences.
-- **Form**: shared controls, small radii, clear borders and visible keyboard focus.
-  Prefer native forms and links where they work. Explain empty, unavailable,
-  signed-out and paused states without inventing data or removing access checks.
-- **Emoji as UI chrome dies**; emoji that is content (user-generated text) stays.
-- **What must survive any restyle**: Provenance / WhyLink / Verifiability /
-  Consequences pills, Badge's 8-tone vocabulary, `body.text-mode`,
-  `prefers-reduced-motion`, free `high-contrast`.
-- Cards: `<Card>` from @/lib/ui (replaces inline surface + radius soup)
-- Forms: `<Field>` + `<Input>`/`<Select>`/`<Textarea>` from @/lib/ui
-- All env vars must be `.trim()`'d when used as API keys (Vercel whitespace issue)
-- Use `pnpm` for package management (pnpm-lock.yaml)
-
-## Verification
-- From the repository root, `pnpm --filter cambridgetcg-storefront typecheck` checks types using the installed toolchain.
-- Local dev: `pnpm dev:storefront --hostname 127.0.0.1` (port 3001). Supply only the required local fixtures or scoped development configuration. The shared layout imports database-backed auth, so `DATABASE_URL` must be configured; functional sign-in additionally needs a development auth secret and the relevant provider setup. The landing page itself makes no database/catalog query. See [local setup](README.md#run-locally).
-- E2E: `STOREFRONT_BASE_URL=http://127.0.0.1:3001 pnpm --filter cambridgetcg-storefront test:e2e:smoke` is a GET-only auth check against an already-running local server. Playwright otherwise defaults to production. Full magic-link e2e in `tests/auth-magic-link.spec.ts` can send email and access the database; inspect its gates and obtain task-specific authorization before using external providers.
-
-## Entry and module maintenance
-
-Use the [module map](../../docs/modules/README.md) for purpose, recorded progress
-and next review. Follow the user's assigned scope rather than treating a
-recorded queue as authority to begin unrelated work.
-
-The [entry design](../../docs/connections/the-entry-map.md) connects the visitor
-landing, practical agent/API portal, shared navigation and compatibility
-redirects. Keep those paths coherent when updating entry content. Update the
-catalog and run `pnpm docs:modules` / `pnpm audit:modules` for module changes.
+- Typecheck from the repo root: `pnpm --filter cambridgetcg-storefront typecheck`.
+- Local dev: `pnpm dev:storefront --hostname 127.0.0.1` (port 3001). The shared
+  layout loads database-backed auth, so `DATABASE_URL` must point at a
+  development database; sign-in also needs an auth secret and provider setup.
+  See [local setup](README.md#run-locally).
+- E2E: `STOREFRONT_BASE_URL=http://127.0.0.1:3001 pnpm --filter cambridgetcg-storefront test:e2e:smoke`
+  runs GET-only auth checks against a running local server. Playwright
+  otherwise targets production, and `tests/auth-magic-link.spec.ts` can send
+  real email, so read a spec before running it.

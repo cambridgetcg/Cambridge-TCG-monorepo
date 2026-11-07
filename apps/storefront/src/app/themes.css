@@ -1,111 +1,120 @@
 /* Shared appearance tokens and Tailwind defaults. Existing cookie IDs stay valid: gallery is
  * Light, midnight is Dark, terminal and high-contrast remain selectable.
+ * Light and Dark are the quiet gallery (returned 2026-10-27): warm paper, ink type and one
+ * bronze accent; midnight blue with moonlight gilt.
  * With no explicit choice, system follows the device at first paint.
  * Registry labels and swatches live in lib/wardrobe/themes.ts. */
 @theme {
-  --color-page: #fbf7f1;
-  --color-surface: #fffdf9;
-  --color-surface-subtle: #f3eaf1;
-  --color-surface-elevated: #ffffff;
-  --color-border-subtle: #dfd0dc;
-  --color-border-strong: #8a738d;
-  --color-accent: #9b3b12;
-  --color-accent-strong: #7f2d0c;
-  --color-accent-wash: #fcebdc;
-  /* Bright fills have their own ink; link colors remain readable on ivory. */
-  --color-highlight: #ec7838;
-  --color-ink-on-highlight: #2c1836;
-  --color-secondary: #69437d;
-  --color-secondary-wash: #ede3f6;
-  --color-danger: #9e253d;
-  --color-warning: #8a4b06;
-  --color-info: #5e4a94;
-  --color-ok: #2c674c;
-  --color-ink: #2c1836;
-  --color-ink-muted: #625469;
-  --color-ink-faint: #716078;
-  --color-bid: #2c674c;
-  --color-ask: #9e253d;
-  --shadow-mat: 0 0 #0000;
-  --shadow-mat-hover: 0 0 #0000;
-  --color-scrim: rgb(29 20 37 / 0.9);
+  --color-page: #faf8f4;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f3f0e9;
+  --color-surface-elevated: #fffdf9;
+  --color-border-subtle: #e7e2d8;
+  --color-border-strong: #8e877a;
+  --color-accent: #86661c;
+  --color-accent-strong: #6f561b;
+  --color-accent-wash: #f5eedd;
+  /* The primary fill is solid ink; bronze stays for links, focus and the mark. */
+  --color-highlight: #201d18;
+  --color-ink-on-highlight: #faf8f4;
+  --color-secondary: #36634d;
+  --color-secondary-wash: #e8f3ed;
+  --color-danger: #953e2e;
+  --color-warning: #844d16;
+  --color-info: #415c7e;
+  --color-ok: #36634d;
+  --color-ink: #201d18;
+  --color-ink-muted: #5e574c;
+  --color-ink-faint: #726a5c;
+  --color-bid: #36634d;
+  --color-ask: #953e2e;
+  /* The mat: the only elevation. Tailwind copies an @theme shadow's value into
+   * the shadow-mat utility, so these names point at --mat-shadow, which each
+   * theme sets; setting --shadow-mat in a theme would miss the utility. */
+  --shadow-mat: var(--mat-shadow);
+  --shadow-mat-hover: var(--mat-shadow-hover);
+  --mat-shadow: 0 1px 2px rgb(32 29 24 / 0.06), 0 10px 28px rgb(32 29 24 / 0.07);
+  --mat-shadow-hover: 0 2px 4px rgb(32 29 24 / 0.08), 0 18px 44px rgb(32 29 24 / 0.12);
+  --color-scrim: rgb(32 29 24 / 0.9);
   --color-scrim-ink: #ffffff;
-  --font-display: var(--font-inter, system-ui), sans-serif;
-  --font-body: var(--font-inter, system-ui), sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* next/font defines the face variables on <html> (layout.tsx). */
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-schibsted), system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* Two existing page styles still use these names directly. Keep their
- * glyph fallbacks while removing the extra downloaded font families. */
+/* .wardrobe-jp, the condition worksheet and The Pull still read this name.
+ * It stays a system Japanese stack; no CJK face is downloaded. */
 :root {
-  --font-schibsted: var(--font-inter, system-ui);
   --font-noto-serif-jp: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
 }
 
 [data-theme="gallery"] {
-  --color-page: #fbf7f1;
-  --color-surface: #fffdf9;
-  --color-surface-subtle: #f3eaf1;
-  --color-surface-elevated: #ffffff;
-  --color-border-subtle: #dfd0dc;
-  --color-border-strong: #8a738d;
-  --color-accent: #9b3b12;
-  --color-accent-strong: #7f2d0c;
-  --color-accent-wash: #fcebdc;
-  --color-highlight: #ec7838;
-  --color-ink-on-highlight: #2c1836;
-  --color-secondary: #69437d;
-  --color-secondary-wash: #ede3f6;
-  --color-danger: #9e253d;
-  --color-warning: #8a4b06;
-  --color-info: #5e4a94;
-  --color-ok: #2c674c;
-  --color-ink: #2c1836;
-  --color-ink-muted: #625469;
-  --color-ink-faint: #716078;
-  --color-bid: #2c674c;
-  --color-ask: #9e253d;
-  --shadow-mat: 0 0 #0000;
-  --shadow-mat-hover: 0 0 #0000;
-  --color-scrim: rgb(29 20 37 / 0.9);
+  --color-page: #faf8f4;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f3f0e9;
+  --color-surface-elevated: #fffdf9;
+  --color-border-subtle: #e7e2d8;
+  --color-border-strong: #8e877a;
+  --color-accent: #86661c;
+  --color-accent-strong: #6f561b;
+  --color-accent-wash: #f5eedd;
+  --color-highlight: #201d18;
+  --color-ink-on-highlight: #faf8f4;
+  --color-secondary: #36634d;
+  --color-secondary-wash: #e8f3ed;
+  --color-danger: #953e2e;
+  --color-warning: #844d16;
+  --color-info: #415c7e;
+  --color-ok: #36634d;
+  --color-ink: #201d18;
+  --color-ink-muted: #5e574c;
+  --color-ink-faint: #726a5c;
+  --color-bid: #36634d;
+  --color-ask: #953e2e;
+  --shadow-mat: var(--mat-shadow);
+  --shadow-mat-hover: var(--mat-shadow-hover);
+  --mat-shadow: 0 1px 2px rgb(32 29 24 / 0.06), 0 10px 28px rgb(32 29 24 / 0.07);
+  --mat-shadow-hover: 0 2px 4px rgb(32 29 24 / 0.08), 0 18px 44px rgb(32 29 24 / 0.12);
+  --color-scrim: rgb(32 29 24 / 0.9);
   --color-scrim-ink: #ffffff;
-  --font-display: var(--font-inter, system-ui), sans-serif;
-  --font-body: var(--font-inter, system-ui), sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-schibsted), system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: light;
 }
 
 /* Keep this bundle synchronized with system's dark media block below. */
 [data-theme="midnight"] {
-  --color-page: #1d1425;
-  --color-surface: #291e32;
-  --color-surface-subtle: #34283f;
-  --color-surface-elevated: #3a2d47;
-  --color-border-subtle: #5c466a;
-  --color-border-strong: #9a829f;
-  --color-accent: #ffb078;
-  --color-accent-strong: #ffd0ab;
-  --color-accent-wash: #493047;
-  --color-highlight: #ec7838;
-  --color-ink-on-highlight: #2c1836;
-  --color-secondary: #d2b3ed;
-  --color-secondary-wash: #40304f;
-  --color-danger: #ffacb9;
-  --color-warning: #ffd08a;
-  --color-info: #c6b7ff;
-  --color-ok: #9adeb7;
-  --color-ink: #fff6e9;
-  --color-ink-muted: #ded0e1;
-  --color-ink-faint: #c8b4cd;
-  --color-bid: #9adeb7;
-  --color-ask: #ffacb9;
-  --shadow-mat: 0 0 #0000;
-  --shadow-mat-hover: 0 0 #0000;
+  --color-page: #0b0f1a;
+  --color-surface: #121829;
+  --color-surface-subtle: #0e1422;
+  --color-surface-elevated: #1a2138;
+  --color-border-subtle: #1f2941;
+  --color-border-strong: #5e6d94;
+  --color-accent: #d9b36c;
+  --color-accent-strong: #e6c788;
+  --color-accent-wash: rgb(217 179 108 / 0.12);
+  --color-highlight: #e9e4d6;
+  --color-ink-on-highlight: #0b0f1a;
+  --color-secondary: #5bbf8f;
+  --color-secondary-wash: #19251e;
+  --color-danger: #e48c7f;
+  --color-warning: #e39a52;
+  --color-info: #7fb4c9;
+  --color-ok: #5bbf8f;
+  --color-ink: #e9e4d6;
+  --color-ink-muted: #afb7cd;
+  --color-ink-faint: #939db4;
+  --color-bid: #5bbf8f;
+  --color-ask: #e48c7f;
+  --mat-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+  --mat-shadow-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.6);
   --color-scrim: rgb(0 0 0 / 0.9);
   --color-scrim-ink: #ffffff;
-  --font-display: var(--font-inter, system-ui), sans-serif;
-  --font-body: var(--font-inter, system-ui), sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-schibsted), system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: dark;
 }
 
@@ -132,8 +141,8 @@
   --color-ink-faint: #a3a3a3;
   --color-bid: #34d399;
   --color-ask: #f87171;
-  --shadow-mat: 0 0 #0000;
-  --shadow-mat-hover: 0 0 #0000;
+  --mat-shadow: 0 0 #0000;
+  --mat-shadow-hover: 0 0 #0000;
   --color-scrim: rgb(0 0 0 / 0.9);
   --color-scrim-ink: #ffffff;
   --font-display: var(--font-inter, system-ui), sans-serif;
@@ -165,8 +174,8 @@
   --color-ink-faint: #333333;
   --color-bid: #00591f;
   --color-ask: #a80000;
-  --shadow-mat: 0 0 #0000;
-  --shadow-mat-hover: 0 0 #0000;
+  --mat-shadow: 0 0 #0000;
+  --mat-shadow-hover: 0 0 #0000;
   --color-scrim: rgb(0 0 0 / 0.9);
   --color-scrim-ink: #ffffff;
   --font-display: system-ui, sans-serif;
@@ -182,58 +191,103 @@
 
 @media (prefers-color-scheme: dark) {
   [data-theme="system"] {
-    --color-page: #1d1425;
-    --color-surface: #291e32;
-    --color-surface-subtle: #34283f;
-    --color-surface-elevated: #3a2d47;
-    --color-border-subtle: #5c466a;
-    --color-border-strong: #9a829f;
-    --color-accent: #ffb078;
-    --color-accent-strong: #ffd0ab;
-    --color-accent-wash: #493047;
-    --color-highlight: #ec7838;
-    --color-ink-on-highlight: #2c1836;
-    --color-secondary: #d2b3ed;
-    --color-secondary-wash: #40304f;
-    --color-danger: #ffacb9;
-    --color-warning: #ffd08a;
-    --color-info: #c6b7ff;
-    --color-ok: #9adeb7;
-    --color-ink: #fff6e9;
-    --color-ink-muted: #ded0e1;
-    --color-ink-faint: #c8b4cd;
-    --color-bid: #9adeb7;
-    --color-ask: #ffacb9;
-    --shadow-mat: 0 0 #0000;
-    --shadow-mat-hover: 0 0 #0000;
+    --color-page: #0b0f1a;
+    --color-surface: #121829;
+    --color-surface-subtle: #0e1422;
+    --color-surface-elevated: #1a2138;
+    --color-border-subtle: #1f2941;
+    --color-border-strong: #5e6d94;
+    --color-accent: #d9b36c;
+    --color-accent-strong: #e6c788;
+    --color-accent-wash: rgb(217 179 108 / 0.12);
+    --color-highlight: #e9e4d6;
+    --color-ink-on-highlight: #0b0f1a;
+    --color-secondary: #5bbf8f;
+    --color-secondary-wash: #19251e;
+    --color-danger: #e48c7f;
+    --color-warning: #e39a52;
+    --color-info: #7fb4c9;
+    --color-ok: #5bbf8f;
+    --color-ink: #e9e4d6;
+    --color-ink-muted: #afb7cd;
+    --color-ink-faint: #939db4;
+    --color-bid: #5bbf8f;
+    --color-ask: #e48c7f;
+    --mat-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+    --mat-shadow-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.6);
     --color-scrim: rgb(0 0 0 / 0.9);
     --color-scrim-ink: #ffffff;
-    --font-display: var(--font-inter, system-ui), sans-serif;
-    --font-body: var(--font-inter, system-ui), sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+    --font-body: var(--font-schibsted), system-ui, sans-serif;
+    --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     color-scheme: dark;
   }
 }
 
-/* Preserve language-aware glyphs and wrapping without a display-serif rule. */
+/* Japanese and Chinese: the house Latin faces first, then system CJK faces
+ * (gothic for reading text, serif for headings), with more leading and
+ * upright glyphs. */
 :lang(ja) body,
 :lang(ja) .font-display {
-  font-family: var(--font-inter, system-ui), "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
   line-height: 1.8;
   word-break: auto-phrase;
 }
+:lang(ja) body {
+  font-family: var(--font-schibsted), "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+}
+:lang(ja) .font-display {
+  font-family: var(--font-fraunces), "Hiragino Mincho ProN", "Yu Mincho", serif;
+}
 :lang(zh) body,
 :lang(zh) .font-display {
-  font-family: var(--font-inter, system-ui), "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Microsoft YaHei", sans-serif;
   line-height: 1.8;
 }
-:lang(zh-Hans) body,
+:lang(zh) body {
+  font-family: var(--font-schibsted), "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Microsoft YaHei", sans-serif;
+}
+:lang(zh) .font-display {
+  font-family: var(--font-fraunces), "Songti TC", "Songti SC", PMingLiU, SimSun, serif;
+}
+:lang(zh-Hans) body {
+  font-family: var(--font-schibsted), "PingFang SC", "Microsoft YaHei", sans-serif;
+}
 :lang(zh-Hans) .font-display {
+  font-family: var(--font-fraunces), "Songti SC", SimSun, serif;
+}
+/* Terminal and high contrast keep their own faces in every language, with the
+ * system CJK faces after them. */
+:is([data-theme="terminal"], [data-theme="high-contrast"]) body {
+  font-family: var(--font-body);
+}
+:is([data-theme="terminal"], [data-theme="high-contrast"]) .font-display {
+  font-family: var(--font-display);
+}
+[data-theme="terminal"]:lang(ja) :is(body, .font-display) {
+  font-family: var(--font-inter, system-ui), "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+}
+[data-theme="terminal"]:lang(zh) :is(body, .font-display) {
+  font-family: var(--font-inter, system-ui), "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Microsoft YaHei", sans-serif;
+}
+[data-theme="terminal"]:lang(zh-Hans) :is(body, .font-display) {
   font-family: var(--font-inter, system-ui), "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+[data-theme="high-contrast"]:lang(ja) :is(body, .font-display) {
+  font-family: system-ui, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+}
+[data-theme="high-contrast"]:lang(zh) :is(body, .font-display) {
+  font-family: system-ui, "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Microsoft YaHei", sans-serif;
+}
+[data-theme="high-contrast"]:lang(zh-Hans) :is(body, .font-display) {
+  font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 :lang(ja) :is(em, i, .italic),
 :lang(zh) :is(em, i, .italic) {
   font-style: normal;
+}
+/* Wide tracking suits Latin small capitals; it only spaces out kana and hanzi. */
+.uppercase:lang(ja),
+.uppercase:lang(zh) {
+  letter-spacing: normal;
 }
 .wardrobe-jp {
   font-family: var(--font-noto-serif-jp);
@@ -245,12 +299,17 @@
 .wardrobe-wall {
   background-color: var(--color-page);
 }
-.wardrobe-mat,
-.wardrobe-frame,
-.wardrobe-panel {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 0.5rem;
+/* The mat: surface, hairline and the one soft shadow. It sits in the
+ * components layer so markup utilities (rounded-xl, a hover fill) refine it. */
+@layer components {
+  .wardrobe-mat,
+  .wardrobe-frame,
+  .wardrobe-panel {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-mat);
+  }
 }
 .wardrobe-breathe {
   display: flex;

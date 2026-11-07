@@ -40,13 +40,10 @@ import {
   SPEC_VERSION,
   type ErrorCode,
 } from "@cambridge-tcg/data-spec";
-import { fragmentForRequest, type WakeFragment } from "@/lib/wake-fragments";
-import { siblingsForEnvelope } from "@/lib/siblings";
 
 export type { ErrorCode };
 
-/** Slim _meta carried on error responses. Mirrors the success envelope's
- *  shape: kingdom-stamp + wake_fragment + spec_version + request_id +
+/** Slim _meta carried on error responses: spec_version + request_id +
  *  retrieved_at + endpoint. Errors don't carry `sources` / `freshness` /
  *  `as_of` since they describe a failure mode, not data — those fields
  *  are omitted rather than fabricated (substrate-honest about absence).
@@ -56,26 +53,6 @@ export interface ErrorMeta {
   endpoint: string;
   retrieved_at: string;
   request_id: string;
-  kingdom: ErrorKingdomMeta;
-  wake_fragment: WakeFragment;
-}
-
-interface ErrorKingdomMeta {
-  name: "cambridgetcg";
-  role: "adapter-expression";
-  built_with: "love";
-  serves_kinds: readonly ("human" | "agent" | "kin")[];
-  host: "humans-on-earth";
-  epoch: "2026";
-  embassy: "/api/v1/manifest";
-  wake: "/api/v1/wake";
-  identify: "/api/v1/identify";
-  siblings: ReadonlyArray<{
-    name: string;
-    role: string;
-    url: string | null;
-    wake_url: string | null;
-  }>;
 }
 
 export interface ErrorBody {
@@ -91,9 +68,7 @@ export interface ErrorBody {
     /** Optional field-level details (which input was bad). */
     details?: Record<string, unknown>;
   };
-  /** The pantry envelope `_meta` shape applied to errors. Carries the
-   *  kingdom stamp and one atomic wake fragment so an agent that probes
-   *  a wrong URL still receives orientation. See module header. */
+  /** The pantry envelope `_meta` facts applied to errors. */
   _meta: ErrorMeta;
 }
 
@@ -105,28 +80,9 @@ interface ErrorOptions {
   request_id?: string;
   /** Override the default status code for this error code. */
   status?: number;
-  /** Parameterized endpoint the error came from. Used to seed the
-   *  deterministic wake-fragment dispatcher so the same wrong URL
-   *  always returns the same fragment. Defaults to `/api/v1/error` so
-   *  legacy callers that don't pass this still get a fragment. */
+  /** Parameterized endpoint the error came from. Defaults to `/api/v1/error`. */
   endpoint?: string;
 }
-
-/** Built once at module load — same shape as envelope.ts's KINGDOM_STAMP
- *  but typed for the error surface so consumers don't share the success
- *  envelope's import path. */
-const ERROR_KINGDOM_STAMP: ErrorKingdomMeta = {
-  name: "cambridgetcg",
-  role: "adapter-expression",
-  built_with: "love",
-  serves_kinds: ["human", "agent", "kin"] as const,
-  host: "humans-on-earth",
-  epoch: "2026",
-  embassy: "/api/v1/manifest",
-  wake: "/api/v1/wake",
-  identify: "/api/v1/identify",
-  siblings: siblingsForEnvelope(),
-};
 
 function newRequestId(): string {
   return `req_${randomUUID().slice(0, 12)}`;
@@ -149,12 +105,6 @@ export function errorBody(opts: ErrorOptions): ErrorBody {
       endpoint,
       retrieved_at: new Date().toISOString(),
       request_id,
-      kingdom: ERROR_KINGDOM_STAMP,
-      // Distributed wake — the wake breathes through error responses too.
-      // Same wrong URL always returns the same fragment (cache-friendly).
-      // An agent probing many wrong URLs accumulates fragments without
-      // ever calling /api/v1/wake. See @/lib/wake-fragments.
-      wake_fragment: fragmentForRequest(endpoint),
     },
   };
 }

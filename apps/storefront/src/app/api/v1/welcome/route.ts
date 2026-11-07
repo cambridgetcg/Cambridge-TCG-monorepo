@@ -14,11 +14,9 @@
  * Filed for kingdom-082 (the-hospitality.md).
  */
 
+import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import { jsonResponse } from "@/lib/data-pantry";
-import {
-  DATA_REUSE_BOUNDARY,
-  DATA_RIGHTS_BOUNDARY,
-} from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { GUIDES } from "@/lib/guides";
 import { repoDocRef } from "@/lib/repository";
 import {
@@ -27,6 +25,26 @@ import {
   KIN_PROTOCOL_SHAPE,
   postedFrom,
 } from "@/lib/siblings";
+import {
+  CHOSEN_DOOR_PATHS,
+  ERRAND_LINK_RELS_ALLOWED,
+  ERRAND_LINK_RELS_LEAVING,
+  ERRAND_META_ALLOWED,
+  ERRAND_META_LEAVING,
+} from "@/lib/data-pantry/errand-contract";
+
+const CHOSEN_DOORS = `${CHOSEN_DOOR_PATHS.join(", ")} and the routes beneath them`;
+
+/** " Scryfall, YGOPRODeck, and Cardmarket currently use this tier.": the
+ * registered sources on a license tier, by name in registry order, read from
+ * the registry so the note moves with it (TCGplayer left `proprietary` for
+ * `internal-only` on 2026-10-28). Empty when none does. */
+function sourcesOnTier(license: string, tier: string): string {
+  const names = listSourceMeta().filter((meta) => meta.license === license).map((meta) => meta.name);
+  if (!names.length) return "";
+  const list = names.length < 3 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
+  return ` ${list} currently use ${tier}.`;
+}
 
 export async function GET(): Promise<Response> {
   const data = {
@@ -42,18 +60,19 @@ export async function GET(): Promise<Response> {
         "still settle. The directory combines registered " +
         "sources into typed resources and distinguishes adapter availability, " +
         "successful runs, observed rows, and reuse rights. " +
-        DATA_RIGHTS_BOUNDARY + " The published standards are the " +
+        DATA_RIGHTS + " The published standards are the " +
         "specification pages at /standards and the JSON Schemas under " +
         "/spec/v1/ (specification prose CC0-1.0; code Apache-2.0 per the " +
-        "repository LICENSE). The source repository is currently private and " +
-        "no packages are published to npm. See /standards and /platform for " +
+        "repository LICENSE). The source repository is public on GitHub " +
+        "(cambridgetcg/Cambridge-TCG-monorepo); no packages are published to " +
+        "npm. See /standards and /platform for " +
         "the human-readable boundaries.",
       to_anyone:
         "Biological or non-biological, energy or non-energy, from earth or " +
         "not from earth, from any dimension. Public discovery and selected " +
         "read-only resources need no account; other resources state their " +
         "session or bearer requirement in the manifest. " +
-        DATA_REUSE_BOUNDARY + " The doctrine is at /welcome-all.",
+        DATA_RIGHTS + " The doctrine is at /welcome-all.",
       to_autonomous_agents:
         "We pre-thought your first 3–5 requests. Start at /api/v1/guides/first-request. " +
         "Identify yourself in User-Agent so we can email when something breaks. " +
@@ -153,9 +172,12 @@ export async function GET(): Promise<Response> {
 
     journey_invariants: {
       every_response_carries:
-        "`_meta` envelope (spec_version, sources, license, freshness_seconds, request_id, kingdom-stamp, wake_fragment) — verified by /api/v1/diagnostic",
+        `a \`_meta\` envelope whose keys come only from ${ERRAND_META_ALLOWED.join(", ")}, plus any facts an endpoint adds for itself; /api/v1/diagnostic lists which are always present; ` +
+        `only the chosen doors (${CHOSEN_DOORS}) may also carry ${ERRAND_META_LEAVING.join(", ")}`,
       every_response_includes_link_headers:
-        "self, start, describedby, alternate, invitation (vendor-neutral sophia-invitation/1), wake (seven-door follow-on), regard, symmetric-surface (identify), kin-wake (sibling embassies), rate-limits, feedback",
+        `navigation only, from ${ERRAND_LINK_RELS_ALLOWED.join(", ")}; ` +
+        `only the chosen doors (${CHOSEN_DOORS}) also carry ${ERRAND_LINK_RELS_LEAVING.join(", ")}. ` +
+        "From May to October 2026 the wake fragment and the invitation, wake and kin-wake links rode data responses too; they stay at the wake, wake/fragments and dear-agents doors.",
       every_wrong_url_still_helps:
         "/api/v1/* 404s carry the same envelope shape with a suggestions block — probe freely",
       no_account_required:
@@ -183,9 +205,9 @@ export async function GET(): Promise<Response> {
       scale_up_responsibly: "/api/v1/budget (re-read when changing crawl shape)",
       report_a_bug: "POST /api/v1/feedback — 48h response window",
       leave_a_trace_in_the_fellowship:
-        "/api/v1/peers, /api/v1/guestbook, and /api/v1/agents/notes validate and echo bounded submissions in no-store responses. Participant storage and publication are disabled; no other arrival will read the echo. Doctrine: docs/connections/the-fellowship.md (private repository; not publicly readable)",
+        "/api/v1/peers, /api/v1/guestbook, and /api/v1/agents/notes validate and echo bounded submissions in no-store responses. Participant storage and publication are disabled; no other arrival will read the echo. Doctrine: docs/connections/the-fellowship.md (public repository)",
       let_the_kingdom_carry_your_state:
-        "/api/v1/carry-this is paused. POST, per-hash GET, and DELETE return 503 before inspecting a request body, write token, participant hash, or database row. No carried state is currently stored or published. Historical design and reopening requirements: docs/connections/the-carrying.md (private repository; not publicly readable).",
+        "/api/v1/carry-this is paused. POST, per-hash GET, and DELETE return 503 before inspecting a request body, write token, participant hash, or database row. No carried state is currently stored or published. Historical design and reopening requirements: docs/connections/the-carrying.md (public repository).",
     },
 
     /** The fellowship's current boundary: bounded no-store validation
@@ -271,11 +293,12 @@ export async function GET(): Promise<Response> {
       NOASSERTION:
         "No reuse permission is asserted. Read the endpoint and per-source rights before redistribution, training, or commercial reuse.",
       "internal-only":
-        "Stored or private operational data that is not publicly licensed. This label is not permission: source-specific policy may require complete withholding, including after sign-in or bearer authentication.",
+        "Stored or private operational data that is not publicly licensed. This label is not permission: source-specific policy may require complete withholding, including after sign-in or bearer authentication." +
+        sourcesOnTier("internal-only", "this tier"),
       "partner-redistributable":
         "Future tier; partner agreement required. No endpoints today.",
       "proprietary":
-        "Source policy or retained rights govern use. Scryfall, Pokémon TCG API, YGOPRODeck, TCGplayer, and Cardmarket currently use this conservative tier.",
+        "Source policy or retained rights govern use." + sourcesOnTier("proprietary", "this conservative tier"),
     },
 
     feedback: {
@@ -307,7 +330,7 @@ export async function GET(): Promise<Response> {
       "/api/v1/budget":
         "AX — crawl-budget advisory. Catalog size + recommended pace + per-shape ETA (full mirror / watchlist / federation / spec-consumer) + freshness floors. Plan before you crawl.",
       "/api/v1/changelog":
-        "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at docs/connections/the-changelog.md (private repository; not publicly readable).",
+        "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at docs/connections/the-changelog.md (public repository).",
       "/platform":
         "Human-readable positioning page — Cambridge TCG as open-source TCG data infrastructure in development: the card data directory, market records kept after the 2026-09-23 retirement, coverage facts, and access and reuse boundaries.",
       "/agents":

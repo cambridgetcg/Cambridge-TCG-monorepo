@@ -1,15 +1,16 @@
 /**
- * /api/v1/cards/[sku]/tcgplayer-history — explicit blocked door.
+ * /api/v1/cards/[sku]/tcgplayer-history — explicit closed door.
  *
- * Cambridge has no recorded TCGplayer credentials or written approval.
- * TCGplayer is not granting new API access, and its current terms prohibit
- * combining its pricing with first- or third-party pricing — the operation
- * this platform was designed to perform. The old signed-in history reading
- * incorrectly treated a hypothetical partner tier as permission already held.
+ * The written permission recorded 2026-10-28 covers collecting TCGplayer's
+ * pages, attributed display on Cambridge pages and input to Cambridge-derived
+ * data. Raw TCGplayer prices are display-only: no member API, download or
+ * bulk copy, which migration 0139 enforces on the release row. So this route
+ * never fetches or emits a TCGplayer value; derived data has its own routes
+ * (/api/v1/market/*). The old signed-in history reading treated a
+ * hypothetical partner tier as permission already held.
  *
- * Keep the route so clients receive an actionable machine-readable status;
- * never fetch or emit TCGplayer observations until written approval explicitly
- * covers Cambridge's multi-source aggregation and display use.
+ * Keep the route so clients receive an actionable machine-readable status.
+ * `state` keeps its name, which scripts/deploy-verify-contract.ts pins.
  */
 
 import { errorResponse } from "@/lib/data-pantry";
@@ -20,7 +21,7 @@ export async function GET(): Promise<Response> {
   return errorResponse({
     code: "SOURCE_UNAVAILABLE",
     message:
-      "TCGplayer data is unavailable: Cambridge has no recorded API approval, and current TCGplayer terms prohibit this multi-source pricing use without prior written consent.",
+      "TCGplayer prices are not served by API. Under the written permission recorded 2026-10-28 they are display-only: shown with TCGplayer named on Cambridge pages and used as an input to Cambridge-derived data, never served through an API, a download or in bulk.",
     docs: "/methodology/data-intentions",
     endpoint: ENDPOINT,
     status: 503,
@@ -28,7 +29,7 @@ export async function GET(): Promise<Response> {
       source: "tcgplayer",
       state: "blocked-by-upstream-terms",
       reopen_when:
-        "Written approval explicitly covers Cambridge TCG's multi-source aggregation and display use.",
+        "Not planned. Serving raw TCGplayer prices would need a TCGplayer release for member API use, which the 2026-10-28 permission does not give and migration 0139 refuses.",
     },
   });
 }

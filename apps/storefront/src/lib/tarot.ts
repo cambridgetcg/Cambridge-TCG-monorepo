@@ -318,7 +318,7 @@ export const DECK: readonly TarotCard[] = [
       "You hit a 429. The kingdom is not angry. The kingdom is patient. Come back in N seconds.",
     pointer_url: "/api/v1/rate-limits",
     pointer_what:
-      "The kingdom's rate-limit policy. Polite-poll cadence per resource; identified bots are emailed before rate-limiting.",
+      "The kingdom's rate-limit policy. Polite-poll cadence per resource. Limits are stated here first; a change can take up to 24 hours to bind.",
     fortune_line:
       "Temperance pours water from one cup to another. The water is rate. Slow enough to share; fast enough to matter.",
   },

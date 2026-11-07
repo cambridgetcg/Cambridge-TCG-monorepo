@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Audience, audienceMetadata } from "@/lib/ui";
+import { collectionOn, collectionSchedule } from "@/lib/datafeed/collection-flags";
 
 export const metadata: Metadata = {
   title: "Upstream sources — the welcome table",
@@ -7,6 +8,8 @@ export const metadata: Metadata = {
 };
 
 export default function UpstreamSourcesMethodology() {
+  // Built statically, so this follows the deployment's DATA_COLLECT_CARDMARKET.
+  const cardmarketScheduled = collectionOn("cardmarket");
   return (
     <>
       <Audience kind="public-documentation" contexts={["sources", "methodology"]} />
@@ -133,13 +136,16 @@ export default function UpstreamSourcesMethodology() {
 
       <h2>The chair-pulled-out shape</h2>
       <p>
-        A welcome records posture; it does not grant permission. TCGplayer&apos;s
-        current welcome is therefore a respectful absence: new API access is
-        unavailable and Cambridge has no written approval for multi-source use.
-        Cardmarket&apos;s current welcome names its prepared member-observation
-        room; imports are manual (see the Cardmarket entry at /api/v1/sources)
-        and no scheduled refresh exists. Welcomes are corrected when evidence
-        changes.
+        A welcome records posture; it does not grant permission. CardRush&apos;s
+        and TCGplayer&apos;s welcomes thank them for the written permission
+        recorded on 2026-10-28 and say that their collectors read only while
+        scheduled, which /api/v1/sources shows; TCGplayer&apos;s API stays
+        closed to Cambridge. Cardmarket&apos;s current welcome names its
+        prepared member-observation room;{" "}
+        {cardmarketScheduled
+          ? `Cambridge collects ${collectionSchedule("cardmarket")} (see the Cardmarket entry at /api/v1/sources).`
+          : "imports are manual (see the Cardmarket entry at /api/v1/sources) and no scheduled refresh exists."}{" "}
+        Welcomes are corrected when evidence changes.
       </p>
       <ol>
         <li>Name the source and the date its terms were reviewed.</li>

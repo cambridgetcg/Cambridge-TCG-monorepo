@@ -439,8 +439,11 @@ redemption surface that the loyalty engine operates on.
 
 ## Pillar 6: Customer Experience
 
-### 6.1 Customer Account Extension ✅ LIVE
-**Status**: Production-ready
+### 6.1 Customer Account Extension: removed 2026-10-20
+**Status**: Removed (P0-8). It targeted API 2025-07, which Shopify refuses
+since 2026-10-01, so it blocked every `shopify app deploy`. It stays in git
+history; rebuild it on a current API only if merchants want a customer-account
+view. The list below records what it did.
 
 **Implemented Features**:
 - Loyalty status widget in customer account
@@ -503,6 +506,7 @@ is part of this change.
 **Implemented Features**:
 - Public process-liveness endpoint with no dependency or environment detail
 - Exact-Bearer operator readiness endpoint with one read-only database probe
+  and the scheduled crons' last run times
 - Authenticated monitoring dashboard that derives database state from its own reads
 - Sentry error tracking
 - Datadog integration

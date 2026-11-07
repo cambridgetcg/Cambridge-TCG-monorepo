@@ -1,19 +1,25 @@
 # RewardsPro — per-app agent guide
 
-## Understanding without commercial targets
+## Free-only, without commercial targets
 
-From 2026-09-23, this project has no KPI, revenue, conversion, growth or
-commercialisation requirement. Understanding and exploration are sufficient.
-New paid RewardsPro subscriptions and paid plan changes are retired. Existing
-agreements retain their records, cancellation, refund and support paths; this
-decision does not rewrite their entitlements or cancel them automatically.
+RewardsPro relaunches free-only: Free Forever is the whole offer, and paid plans
+and billing webhooks stay off
+([2026-10-20 decision](../../docs/decisions/2026-10-20-rewardspro-free-only-relaunch.md),
+an agent's call under Yu's delegation). Since 2026-09-23 there has been no KPI,
+revenue, conversion or growth target. Merchant-facing copy says paid plans
+aren't offered; it doesn't talk about retirement, and it never tells a shop
+that still pays that RewardsPro is free (`paidPlansNotOfferedMessage` in
+`app/constants/commercial-retirement.ts` branches on that). Existing agreements keep
+their records, cancellation, refund and support paths, and nothing rewrites
+their entitlements or cancels them automatically.
 
 
 RewardsPro is a **Shopify loyalty & rewards app**: points, tiers, cashback, store
 credit, memberships, mystery boxes, raffles, missions, and email campaigns for
 Shopify merchants. Remix (Vite) + Polaris embedded app, Prisma → Postgres 17
 on Supabase ([`docs/DATABASE.md`](docs/DATABASE.md)), deployed on Vercel (see
-`vercel.json` — it also carries ~24 cron routes). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
+`vercel.json` — it also schedules 8 of the app's 24 cron routes; DEPLOY.md
+lists them and says where to look when one fails). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
 
 Guards that need a decision to lift, not a refactor:
 
@@ -46,8 +52,7 @@ Guards that need a decision to lift, not a refactor:
 Fused into the monorepo on 2026-06-10 from
 `github.com/cambridgetcg/rewardspro-production` with full history (1123
 commits, rewritten under `apps/rewardspro/` — `git log`/`blame` work). The
-repo-root [`AGENTS.md`](../../AGENTS.md) and the principles it links apply here
-too.
+repo-root [`AGENTS.md`](../../AGENTS.md) principles apply here too.
 
 ## Facts that bite
 
@@ -63,20 +68,21 @@ too.
   rotation").
 - **Shopify config is a separate deploy.** `shopify.app.toml` (webhook
   subscriptions, scopes) and `extensions/` reach Shopify only through
-  `shopify app deploy`, with the owner's login. While
-  `extensions/rewards-pro-membership` targets API `2025-07`, Shopify refuses
-  that deploy (since 2026-10-01), so config changes stay unpublished until the
-  extension is removed or rebuilt.
+  `shopify app deploy`, with the owner's login. The customer-account
+  extension `extensions/rewards-pro-membership` (API `2025-07`, which Shopify
+  refuses since 2026-10-01) was removed on 2026-10-20 so that deploy can run;
+  it stays in git history. Rebuild it on a current API only if merchants want
+  a customer-account view.
 
 ## Commands (pnpm, from repo root)
 
 ```
 pnpm dev:rewardspro              # shopify app dev (SKIP_DB_CHECKS=1)
 pnpm build:rewardspro            # prisma generate && remix vite:build
-pnpm test:rewardspro             # vitest unit suite
+pnpm test:rewardspro             # vitest suite: everything in test/ but the Postgres tests
 pnpm --filter rewardspro exec tsc --noEmit   # typecheck
 pnpm --filter rewardspro test:postgres       # Postgres integration suites (needs REWARDSPRO_TEST_DATABASE_URL; docs/DATABASE.md)
-pnpm --filter rewardspro lint    # eslint — RED, see debt below
+pnpm --filter rewardspro lint    # eslint (CI lints this app too)
 ```
 
 On a fresh clone, run `pnpm --filter rewardspro exec prisma generate` before
@@ -109,11 +115,8 @@ element type"), extend mechanism 1 or 2 — don't pin a global `@types/react`.
 ## Workspace shape
 
 - `app/` — Remix routes, services, repositories (the app proper)
-- `extensions/rewards-pro-membership` — checkout/customer-account UI extension;
-  a workspace package (`pnpm-workspace.yaml` includes
-  `apps/rewardspro/extensions/*`) but **excluded from root typecheck** (its own
-  stricter tsconfig was never a gate; its sources still compile under this
-  app's tsconfig)
+- `extensions/theme-app-extension-rewardspro` — theme widgets (Liquid, JS,
+  CSS; no package build step)
 - `prisma/` — schema + migrations (own database; not `@cambridge-tcg/db`)
 - `test/` — vitest unit + integration suites (`test:e2e` is a dangling
   playwright script: no config, no specs — inherited debt)
@@ -124,8 +127,5 @@ element type"), extend mechanism 1 or 2 — don't pin a global `@types/react`.
 
 ## Known debt (inherited from standalone, 2026-06-10)
 
-- **Lint is red** (817 errors standalone, 1029 under the workspace incl.
-  extensions/) — excluded from the CI lint sweep in `.github/workflows/ci.yml`;
-  burn it down before re-including.
 - `npm run`-style strings remain inside some package.json script bodies and
   older docs here; they work under pnpm but read stale.

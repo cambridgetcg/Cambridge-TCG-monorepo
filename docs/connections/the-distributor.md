@@ -38,13 +38,16 @@ This doc names what that strategic position requires substantively. Not aspirati
 
 ---
 
-## The three standards (today)
+## The standards
 
 | Standard | Version | Status | Spec | Reference impl | License |
 |----------|---------|--------|------|----------------|---------|
 | **CTCG-SKU-v1** | 1.0 | **frozen** | [`/methodology/sku-standard`](../../apps/storefront/src/app/methodology/sku-standard/page.tsx) | [`packages/sku/`](../../packages/sku/) | CC0 (spec) / unlicensed (code: monorepo-internal; npm-publish path is a recursion target) |
 | **CTCG-PRICING-v1** | 1.0 | **draft → frozen pending audit clean** | [`/methodology/pricing`](../../apps/storefront/src/app/methodology/pricing/page.tsx) | [`packages/pricing/`](../../packages/pricing/) | CC0 (spec) / unlicensed (code) |
 | **CTCG-UNIVERSAL-v1** | 1.0 | **spec'd; endpoint planned** | [`/methodology/universal-representation`](../../apps/storefront/src/app/methodology/universal-representation/page.tsx) | endpoint at `/api/v1/universal/card/[sku]` is planned per [`/data`](../../apps/storefront/src/app/data/page.tsx) | CC0 (spec) |
+| **CTCG-NAMES-v1** | 1.0 | **draft** (added 2026-10-29) | [`/methodology/card-names`](../../apps/storefront/src/app/methodology/card-names/page.tsx) | [`packages/sku/src/names.ts`](../../packages/sku/src/names.ts) | CC0 (spec) |
+
+*2026-10-29: the first three rows and the notes below are as written on 2026-05-12; [`standards.ts`](../../apps/storefront/src/lib/contracts/standards.ts) holds the current versions and statuses. CTCG-NAMES-v1 names cards per card key and language, with each name's status and source.*
 
 **Substrate honesty about each:**
 
@@ -109,6 +112,7 @@ The protocol is **light by design**. CC0 means no legal ceremony. The reference 
 |-------------------|----------------------------------------|
 | `packages/sku/` | Reference parser for CTCG-SKU-v1 |
 | `packages/pricing/` | Reference math for CTCG-PRICING-v1 |
+| `packages/sku/src/names.ts` | Reference implementation for CTCG-NAMES-v1 (draft, 2026-10-29) |
 | `/data` + `/data.json` | The open-substrate index — partners discover endpoints |
 | `/api/v1/identify` + `/identify` | The platform identifies itself; partners can name us when adopting |
 | `/methodology/*` | The spec corpus — every standard has a methodology page |
@@ -163,6 +167,8 @@ Each gap is named because **substrate honesty requires it**. The position is "we
 | CTCG-PRICING-v1 implementation | [`packages/pricing/`](../../packages/pricing/) |
 | CTCG-UNIVERSAL-v1 spec | [`/methodology/universal-representation`](../../apps/storefront/src/app/methodology/universal-representation/page.tsx) |
 | CTCG-UNIVERSAL-v1 implementation | endpoint planned at `/api/v1/universal/card/[sku]` |
+| CTCG-NAMES-v1 spec | [`/methodology/card-names`](../../apps/storefront/src/app/methodology/card-names/page.tsx) |
+| CTCG-NAMES-v1 implementation | [`packages/sku/src/names.ts`](../../packages/sku/src/names.ts) |
 | Composes with | [`the-open-substrate.md`](./the-open-substrate.md) (open queryable), [`the-self-identification.md`](./the-self-identification.md) (adopter self-declaration), [`the-sku-standard.md`](./the-sku-standard.md) (the SKU specifically), [`the-nesting.md`](./the-nesting.md) (the citation graph) |
 
 ---

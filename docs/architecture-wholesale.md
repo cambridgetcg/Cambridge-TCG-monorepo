@@ -10,6 +10,12 @@
 > source publication. Authentication, storage, transformation, aggregation,
 > and downstream contracts do not create upstream rights. The ECB daily
 > reference-rate feed is the sole live FX input and must retain ECB attribution.
+>
+> **Since 2026-10-28:** written permission for CardRush page collection is
+> recorded ([decision](decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md)).
+> It reaches only the storefront's identified page collector. This app's
+> CardRush paths stay locked (`CARDRUSH_ACQUISITION_ENABLED = false`), and its
+> stored CardRush prices, images and history stay withheld.
 
 **App:** `apps/wholesale` (tcg-wholesale v0.1.0)
 **Framework:** Next.js 15.1+ (App Router), React 19, Tailwind 3.4
@@ -184,7 +190,7 @@
 |---|---|---|
 | **AWS S3** (eu-west-2) | Price feed Excel download (`pricedata-tcg` bucket) | IAM keys |
 | **AWS S3** (us-east-1) | Legacy source-derived card-image storage; not publicly licensed by storage location | IAM-controlled operational access; source-specific rights still apply |
-| **CardRush** (cardrush-op.jp) | Automated acquisition hard-blocked; formal partnership required by official policy | Disabled before network access |
+| **CardRush** (cardrush-op.jp) | Legacy automated acquisition locked (`CARDRUSH_ACQUISITION_ENABLED = false`); the written permission recorded 2026-10-28 reaches only the storefront's identified page collector, not this app | Disabled before network access |
 | **TCGCollector** (tcgcollector.com) | Discovery/acquisition hard-blocked pending written partner approval | Disabled before network access |
 | **Cloudflare KV** | Trade-in buylist JSON storage | Global API Key |
 | **Resend** | Order lifecycle emails | API key |

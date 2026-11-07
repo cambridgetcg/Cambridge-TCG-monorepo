@@ -1,7 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Inter } from "next/font/google";
-import Script from "next/script";
+import { Fraunces, Inter, Schibsted_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
 import Nav from "@/components/layout/Nav";
@@ -16,37 +15,68 @@ import { langModeFromCookies } from "@/lib/lang-mode-server";
 import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
+import { themeViewport } from "@/lib/wardrobe/viewport";
 import { auth } from "@/lib/auth";
 import { PLATFORM } from "@/content/platform";
+import { SHARE_CARD } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+// Self-hosted faces, exposed as CSS variables and bound per theme in
+// themes.css: Fraunces headings, Schibsted Grotesk text and Spline Sans Mono
+// for numbers in Light and Dark. Inter is the terminal theme's face only, so
+// it is not preloaded. CJK glyphs use system fallbacks.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+});
+const schibsted = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-schibsted" });
+const splineMono = Spline_Sans_Mono({ subsets: ["latin"], variable: "--font-spline-mono" });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", preload: false });
 
-// One self-hosted sans family. Monospace and CJK glyphs use system fallbacks.
+// Icons, manifest and the default share card are the brand kit's web files
+// (marketing/kit/web), copied into public/. brand-kit.sync.test.ts keeps the
+// copies identical to the kit.
 
 export const metadata: Metadata = {
   title: PLATFORM.title,
   description: PLATFORM.description,
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
-    icon: "/favicon.ico",
+    // The .ico holds 16, 32 and 48 px; sizes="32x32" lets Chrome choose the SVG.
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
     apple: "/apple-touch-icon.png",
   },
+  manifest: "/site.webmanifest",
+  // No title or description in openGraph, and only the card type in twitter:
+  // Next.js then fills og:title and og:description from each page's own title
+  // and description, and every twitter: tag from the page's resolved openGraph
+  // (so a card page's X preview shows its card too). Setting them here gave
+  // every page without its own openGraph the site-wide title when shared.
+  // A page whose title echoes the URL uses fixedShareCard() from
+  // lib/share-card.ts instead, or a shared link could put anyone's text on a
+  // cambridgetcg.com card.
   openGraph: {
-    title: PLATFORM.title,
-    description: PLATFORM.description,
-    images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
+    images: [SHARE_CARD],
     siteName: "Cambridge TCG",
     type: "website",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: PLATFORM.title,
-    description: PLATFORM.description,
-    images: ["/images/twitter-image.png"],
-  },
+  twitter: { card: "summary_large_image" },
   // Site discovery is emitted as actual <link> elements below, not
   // metadata.other (which emits <meta>) or fake per-page alternates.
 };
+
+// The browser bar's theme-color and the color-scheme tag follow the theme
+// <html> wears: the brand kit's light/dark pair while the page follows the
+// device, else the saved theme's own page ground. Read from the same cookie
+// as the layout, so a saved Dark theme on a light phone gets a dark bar.
+export async function generateViewport(): Promise<Viewport> {
+  return themeViewport(appearanceFromCookies(await cookies()).theme);
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Read the x-pathname header forwarded by proxy.ts for /admin/* requests.
@@ -99,20 +129,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang={uiLang}
       data-theme={themeAttr(appearance.theme)}
-      className={inter.variable}
+      className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${inter.variable}`}
     >
       <head>
-        <Script id="org-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        <JsonLd data={{
           "@context": "https://schema.org",
           "@type": "Organization",
           name: "Cambridge TCG",
           url: "https://cambridgetcg.com",
-          logo: "https://cambridgetcg.com/images/logo.png",
+          logo: "https://cambridgetcg.com/icon-512.png",
           description: "Card research, collection tools and play resources based in Cambridge, UK. Published data carries source and reuse information. New paid commerce is retired.",
           address: { "@type": "PostalAddress", addressLocality: "Cambridge", addressCountry: "GB" },
           sameAs: [],
-        }) }} />
-        <Script id="website-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        }} />
+        <JsonLd data={{
           "@context": "https://schema.org",
           "@type": "WebSite",
           name: "Cambridge TCG",
@@ -122,7 +152,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             target: "https://cambridgetcg.com/prices/search?q={search_term_string}",
             "query-input": "required name=search_term_string",
           },
-        }) }} />
+        }} />
         {/* Same pure site-description and optional-invitation definitions
             as the HTTP Link header; these links preload or invoke nothing. */}
         {publicDiscoveryHtmlLinks().map((link) => (

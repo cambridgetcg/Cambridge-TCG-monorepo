@@ -28,11 +28,13 @@ vi.mock("./play-tools", () => ({
     }
   },
 }));
+// A partial source with no legacy lock, so its declared game with no archive
+// row is an invitation. CardRush's lock keeps it off the board (board.ts).
 vi.mock("@cambridge-tcg/data-ingest", () => ({
   listSourceMeta: vi.fn(() => [{
-    id: "cardrush", name: "CardRush", description: "", upstream: "https://example.test",
-    catalog_section: "x", access: "scrape", license: "internal-only", redistribute: false,
-    freshness: "price_current", canonical_effort: "high", status: "partial", games: ["op"], tos_notes: "",
+    id: "cardmarket", name: "Cardmarket", description: "", upstream: "https://example.test",
+    catalog_section: "x", access: "public-file", license: "proprietary", redistribute: false,
+    freshness: "daily_file", canonical_effort: "medium", status: "partial", games: ["op"], tos_notes: "",
   }]),
 }));
 vi.mock("@/lib/coverage-hunt/db", () => ({

@@ -338,7 +338,7 @@ export async function loadCardState(
       source_id: "cardrush",
       license: "proprietary",
       available: false,
-      detail: `${config.cardrush.subdomain} is retained as legacy lineage. Acquisition and publication are blocked pending a formal partnership and written downstream permission.`,
+      detail: `${config.cardrush.subdomain} is retained as legacy lineage, and its legacy rows stay withheld. CardRush prices collected under the written permission recorded 2026-10-28, only while its collector is scheduled (see /api/v1/sources), are display-only: shown on Cambridge pages with CardRush named, never in this guide, an API or a download.`,
       signed_in_path: null,
     });
   }
@@ -349,7 +349,7 @@ export async function loadCardState(
     license: "proprietary",
     available: false,
     detail:
-      "Blocked: TCGplayer is not granting new API access, and its terms prohibit combining its prices with Cambridge or third-party prices without written consent.",
+      "TCGplayer's legacy rows stay withheld. TCGplayer prices Cambridge collects under the written permission recorded 2026-10-28, only while its collector is scheduled (see /api/v1/sources), are display-only: shown on Cambridge pages with TCGplayer named, never in this guide, an API or a download. TCGplayer's API stays closed to Cambridge.",
     signed_in_path: null,
   });
 

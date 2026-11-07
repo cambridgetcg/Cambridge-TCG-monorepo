@@ -7,9 +7,11 @@ import {
   PRICING_PLANS,
   PUBLIC_PLAN_KEYS,
   getBillingName,
+  getPlanFeatureSummary,
   getPlanKey,
   getPlanPrice,
   requireKnownPlanKey,
+  type PlanKey,
 } from "~/constants/pricing-contract";
 
 describe("RewardsPro pricing contract", () => {
@@ -226,6 +228,15 @@ describe("RewardsPro pricing contract", () => {
     expect(landing).not.toContain("$39 ");
     expect(landing).not.toContain("$149 ");
     expect(landing).not.toContain("Trials are available");
+  });
+
+  it("calls the monthly order number a guide, since orders past it still earn cashback", () => {
+    // orders/paid credits cashback before it counts the order, and nothing locks
+    expect(getPlanFeatureSummary("free")).toContain("1,000 orders/month guide (orders past it still earn cashback)");
+    expect(getPlanFeatureSummary("enterprise")).toContain("Unlimited orders");
+    for (const key of Object.keys(PRICING_PLANS) as PlanKey[]) {
+      expect(getPlanFeatureSummary(key).join("\n")).not.toContain("reward-eligible orders");
+    }
   });
 
   it("rejects unknown plans at strict contract boundaries", () => {

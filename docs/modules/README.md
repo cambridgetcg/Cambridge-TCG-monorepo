@@ -4,9 +4,9 @@
 
 [Project entry](../../README.md) · [Documentation](../README.md) · [Agent guide](../agents/README.md)
 
-Find a module's purpose, source, scope, recorded progress and next review. This map covers **28 module roots**: 24 pnpm workspace packages, 1 extension without package.json, and 3 nested support packages. Source review: **2026-09-28**.
+Find a module's purpose, source, scope, recorded progress and next review. This map covers **28 module roots**: 24 pnpm workspace packages, 2 extensions without package.json, and 2 nested support packages. Source review: **2026-09-28**.
 
-**Start with the website:** [Storefront domains](storefront/README.md) groups 70 library directories and 77 route families by purpose.
+**Start with the website:** [Storefront domains](storefront/README.md) groups 75 library directories and 77 route families by purpose.
 
 **Current boundary:** [New paid commerce is retired](../../apps/storefront/docs/commercial-retirement.md). Retained source can support existing agreements, a preview, a paused feature or historical compatibility. Presence in this map is not a release or service-health claim.
 
@@ -17,6 +17,7 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 | [Storefront and admin](apps/storefront.md) | Human and API entry to Cambridge TCG data infrastructure: SKU identity, images, prices and market observations, alongside collector tools, retained account records and the operator console. |
 | [Wholesale records and research](apps/wholesale.md) | Price and stock research plus the lifecycle of existing wholesale orders. |
 | [RewardsPro loyalty platform](apps/rewardspro.md) | Loyalty tiers, credit, points and reward records, with Shopify integration and merchant-facing administration. |
+| [RewardsPro rebuild](apps/rewards.md) | The new RewardsPro: one embedded Shopify app where a paid order earns cashback as Shopify store credit, tiers raise the rate, a widget shows tier and credit, and refunds take the cashback back. |
 | [RewardsPro API foundation](apps/rewardspro-api.md) | Receive verified Shopify commerce events, persist an idempotent inbox and project supported orders through a worker. |
 | [Admin redirect shell](apps/admin.md) | Preserve old admin bookmarks by redirecting to the storefront operator console. |
 
@@ -47,14 +48,13 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 
 | Module | Purpose |
 |---|---|
-| [RewardsPro customer account extension](extensions/rewards-pro-membership.md) | Render membership and reward experiences inside Shopify customer accounts. |
 | [RewardsPro theme widgets](extensions/theme-app-extension-rewardspro.md) | Embed loyalty and reward widgets into Shopify storefront themes using Liquid, JavaScript and CSS. |
+| [RewardsPro rebuild widget](extensions/rewards-widget.md) | Show a storefront buyer their tier, its cashback rate, their Shopify store credit and their progress to the next tier; invite guests to sign in with the base rate. |
 
 ## Nested support packages
 
 | Module | Purpose |
 |---|---|
-| [RewardsPro legacy Lambda handlers](tooling/lambda.md) | Handle the legacy Shopify webhook, order queue and scheduled-job integrations described by RewardsPro. |
 | [RewardsPro development tools](tooling/tools.md) | Provide webhook simulation, shop inspection and scenario-running tools for local RewardsPro development. |
 | [Exploration prompt evaluator](tooling/prompt-evaluator.md) | Record structured evaluations and reports for code-exploration prompts. |
 

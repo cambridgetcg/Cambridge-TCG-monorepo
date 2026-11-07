@@ -165,9 +165,10 @@ describe("every cron route uses the shared fail-closed boundary", () => {
     body: string;
   }
 
+  // A scheduled cron's handler is wrapped: monitoredCron("job", async (...) => {
   function exportedHandlers(source: string): ExportedHandler[] {
     const pattern =
-      /export\s+(?:const\s+(loader|action)\s*=\s*async\s*\(([^)]*)\)\s*=>\s*\{|async\s+function\s+(loader|action)\s*\(([^)]*)\)\s*\{)/g;
+      /export\s+(?:const\s+(loader|action)\s*=\s*(?:monitoredCron\(\s*"[a-z-]+",\s*)?async\s*\(([^)]*)\)\s*=>\s*\{|async\s+function\s+(loader|action)\s*\(([^)]*)\)\s*\{)/g;
     const matches = [...source.matchAll(pattern)];
 
     return matches.map((match, index) => ({

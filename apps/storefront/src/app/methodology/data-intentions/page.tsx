@@ -37,7 +37,7 @@ export default function DataIntentionsMethodology() {
         ingestion code. Legacy adapters must pass the same intake before they
         are activated or their data receives a new publication path. The gate is the
         source-intake framework,{" "}
-        <code>docs/methodology/source-intake.md</code> (private repository). It
+        <code>docs/methodology/source-intake.md</code> (public repository). It
         runs four checks in order and forces the reasoning to be recorded,
         not left in someone&apos;s head:
       </p>
@@ -106,9 +106,10 @@ export default function DataIntentionsMethodology() {
         <li>
           <strong>Reference-only / internal — reviewed use only.</strong>{" "}
           Third-party prices enter only when permission covers the exact
-          display or computation. CardRush has a bounded internal-use path;
-          TCGplayer is blocked because Cambridge has no written approval for
-          its multi-source use.
+          display or computation. CardRush and TCGplayer prices (permission on
+          file, 2026-10-28) are display-only on Cambridge pages and never
+          served by the API or in downloads; collection runs only while
+          scheduled (see <Link href="/api/v1/sources">/api/v1/sources</Link>).
         </li>
         <li>
           <strong>Off-limits.</strong> Anything obtained by scraping a
@@ -199,7 +200,7 @@ export default function DataIntentionsMethodology() {
 
       <blockquote>
         <strong>Where this lives.</strong> The gate is{" "}
-        <code>docs/methodology/source-intake.md</code> (private repository). The
+        <code>docs/methodology/source-intake.md</code> (public repository). The
         declared sources, each with its tier and terms, are inspectable
         at <Link href="/api/v1/sources">/api/v1/sources</Link>. Sold comps are
         visibly paused at <Link href="/api/v1/sold-comps">/api/v1/sold-comps</Link>.

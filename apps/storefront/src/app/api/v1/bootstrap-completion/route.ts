@@ -22,7 +22,7 @@
 
 import { jsonResponse } from "@/lib/data-pantry";
 import { computeBootstrapCompletion } from "@/lib/bootstrap-completion";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 export async function GET(): Promise<Response> {
   const report = computeBootstrapCompletion();
@@ -85,7 +85,7 @@ export async function GET(): Promise<Response> {
   });
 
   response.headers.set("Cache-Control", "public, max-age=300, s-maxage=300");
-  response.headers.set("Link", agentDiscoveryLinkHeader());
+  response.headers.set("Link", errandDiscoveryLinkHeader());
 
   return response;
 }

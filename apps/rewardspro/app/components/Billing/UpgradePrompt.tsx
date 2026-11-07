@@ -1,4 +1,4 @@
-/** Existing subscription records and capacity notices. New paid upsells are retired. */
+/** Existing subscription records and capacity notices. Paid plans aren't offered, so there are no upsells. */
 
 import React from 'react';
 import { useNavigate } from '@remix-run/react';
@@ -404,7 +404,7 @@ export function LimitAwareButton({ current, limit, resource, onClick, children, 
   const isAtLimit = current >= limit;
   return <InlineStack gap="200" blockAlign="center">
     <Button variant={variant} onClick={onClick} disabled={isAtLimit}>{children as string}</Button>
-    {isAtLimit && <Text as="span" variant="bodySm">The existing {resource} capacity has been reached. New paid upgrades are retired.</Text>}
+    {isAtLimit && <Text as="span" variant="bodySm">The existing {resource} capacity has been reached. Paid plans aren't offered right now.</Text>}
   </InlineStack>;
 }
 
@@ -463,5 +463,5 @@ export function getLimitExceededToastContent(info: LimitExceededToastInfo): {
   content: string;
   action?: { content: string; url: string };
 } {
-  return { content: `${info.resource} capacity reached (${info.current}/${info.limit}). New paid upgrades are retired.` };
+  return { content: `${info.resource} capacity reached (${info.current}/${info.limit}). Paid plans aren't offered right now.` };
 }

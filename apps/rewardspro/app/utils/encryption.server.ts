@@ -1,87 +1,59 @@
 /**
- * Encryption utilities for storing secrets at rest.
+ * Encryption utilities for storing third-party secrets at rest
+ * (today: the merchant's Klaviyo private API key).
  *
- * Uses AES-256-GCM with a key derived from the EMAIL_ENCRYPTION_KEY env var.
- * Falls back to plaintext if no encryption key is configured (dev environments).
+ * Uses the app's fail-closed AES-256-GCM helper in ./encryption.ts, keyed by
+ * ENCRYPTION_SECRET and ENCRYPTION_SALT. If either is missing, encryptSecret
+ * throws, so a secret is never stored in plaintext.
  *
- * Format: "enc:v1:<iv_hex>:<auth_tag_hex>:<ciphertext_hex>"
+ * Format: "enc:v2:<base64 payload from encrypt()>"
  */
 
-import * as crypto from "node:crypto";
+import { decrypt, encrypt } from "./encryption";
 
-const ENCRYPTION_PREFIX = "enc:v1:";
-const ALGORITHM = "aes-256-gcm";
-const IV_LENGTH = 12; // GCM recommended IV length
-
-/**
- * Derive a 256-bit key from the environment variable using SHA-256.
- */
-function getEncryptionKey(): Buffer | null {
-  const envKey = process.env.EMAIL_ENCRYPTION_KEY;
-  if (!envKey) {
-    return null;
-  }
-  return crypto.createHash("sha256").update(envKey).digest();
-}
+const ENCRYPTION_PREFIX = "enc:v2:";
 
 /**
  * Encrypt a plaintext secret for storage.
- * Returns the encrypted string in the format "enc:v1:<iv>:<tag>:<ciphertext>".
- * If no encryption key is configured, returns plaintext (for dev environments).
+ * Throws if encryption is not configured; there is no plaintext fallback.
  */
 export function encryptSecret(plaintext: string): string {
-  const key = getEncryptionKey();
-  if (!key) {
-    // No encryption key configured — store plaintext (dev only)
-    return plaintext;
-  }
-
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-
-  let encrypted = cipher.update(plaintext, "utf8", "hex");
-  encrypted += cipher.final("hex");
-
-  const authTag = cipher.getAuthTag().toString("hex");
-  return `${ENCRYPTION_PREFIX}${iv.toString("hex")}:${authTag}:${encrypted}`;
+  return `${ENCRYPTION_PREFIX}${encrypt(plaintext)}`;
 }
 
 /**
  * Decrypt a stored secret.
- * If the value doesn't have the encryption prefix, returns it as-is (plaintext/legacy).
+ *
+ * Returns null for anything encryptSecret did not write: a legacy plaintext
+ * value, the old EMAIL_ENCRYPTION_KEY "enc:v1:" format, a tampered value, or a
+ * value that can't be read because the key is missing. Callers treat null as
+ * "no key saved", so a legacy value is never used or sent anywhere.
  */
-export function decryptSecret(stored: string): string {
-  // Not encrypted — return as-is (legacy or dev)
+export function decryptSecret(stored: string | null | undefined): string | null {
+  if (!stored) {
+    return null;
+  }
+
   if (!stored.startsWith(ENCRYPTION_PREFIX)) {
-    return stored;
+    console.warn("[Encryption] Ignoring a stored secret that was not written by encryptSecret");
+    return null;
   }
-
-  const key = getEncryptionKey();
-  if (!key) {
-    console.warn("[Encryption] Encrypted value found but EMAIL_ENCRYPTION_KEY is not set. Cannot decrypt.");
-    return "";
-  }
-
-  const payload = stored.slice(ENCRYPTION_PREFIX.length);
-  const parts = payload.split(":");
-  if (parts.length !== 3) {
-    console.error("[Encryption] Malformed encrypted value");
-    return "";
-  }
-
-  const [ivHex, authTagHex, ciphertextHex] = parts;
 
   try {
-    const iv = Buffer.from(ivHex, "hex");
-    const authTag = Buffer.from(authTagHex, "hex");
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-    decipher.setAuthTag(authTag);
-
-    let decrypted = decipher.update(ciphertextHex, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
-  } catch (error) {
-    console.error("[Encryption] Decryption failed:", error);
-    return "";
+    return decrypt(stored.slice(ENCRYPTION_PREFIX.length));
+  } catch {
+    console.error("[Encryption] Could not decrypt a stored secret");
+    return null;
   }
 }
+
+/**
+ * EmailSettings columns that hold Klaviyo credentials. Pass as Prisma `omit`
+ * when a loader sends the settings row to the browser.
+ */
+export const EMAIL_SETTINGS_SECRET_FIELDS = {
+  klaviyoApiKey: true,
+  klaviyoAccessToken: true,
+  klaviyoRefreshToken: true,
+  klaviyoWebhookSecret: true,
+} as const;

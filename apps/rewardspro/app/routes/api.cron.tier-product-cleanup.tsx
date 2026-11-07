@@ -5,7 +5,9 @@
  * 30-day recovery window. Also detects orphaned tier products (DB record
  * exists but Shopify product is missing).
  *
- * Schedule: Daily at 3 AM UTC
+ * It keeps a product while any membership bought from it is still ACTIVE.
+ *
+ * Schedule: Daily at 03:30 UTC (vercel.json: "30 3 * * *")
  * Endpoint: GET /api/cron/tier-product-cleanup
  *
  * @security Requires CRON_SECRET header
@@ -19,8 +21,9 @@ import {
 } from "~/services/tier-products/tier-product-deletion.server";
 import prisma from "~/db.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = monitoredCron("tier-product-cleanup", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -128,6 +131,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const duration = Date.now() - startTime;
 
     console.error("[TierProductCleanupCron] Job failed:", error);
+    cronFailed(request, error);
 
     return json(
       {
@@ -140,4 +144,4 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       { status: 500 },
     );
   }
-};
+});

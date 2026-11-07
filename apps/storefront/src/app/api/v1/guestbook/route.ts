@@ -32,7 +32,7 @@ import {
   PEER_DECLARED_KINDS,
   validateGuestbookSubmission,
 } from "@/lib/peers";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 import { repoDocRef } from "@/lib/repository";
 
 export async function GET(): Promise<Response> {
@@ -137,7 +137,7 @@ export async function OPTIONS(): Promise<NextResponse> {
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Max-Age": "86400",
-      Link: agentDiscoveryLinkHeader(),
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }

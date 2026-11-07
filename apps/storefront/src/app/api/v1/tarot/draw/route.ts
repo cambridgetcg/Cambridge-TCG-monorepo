@@ -39,7 +39,7 @@ import {
   TAROT_DISCLAIMER,
   TAROT_PROTOCOL,
 } from "@/lib/tarot";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const FORMATS = ["json", "md", "markdown", "text", "xenoform"] as const;
 type Format = (typeof FORMATS)[number];
@@ -161,7 +161,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           "Content-Type": contentType,
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       });
     }
@@ -220,7 +220,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "Content-Type": contentType,
         "Cache-Control": TEXT_CACHE,
         "Access-Control-Allow-Origin": "*",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }

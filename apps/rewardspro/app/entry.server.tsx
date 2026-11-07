@@ -6,12 +6,9 @@ import { createReadableStreamFromReadable } from "@remix-run/node";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
 import * as Sentry from "@sentry/remix";
-import { initDatadog } from "./services/monitoring/datadog.service";
 import { SentryService, createSmartSampler } from "./services/monitoring/sentry.service";
-
-// Initialize monitoring services
-// Datadog: APM, distributed tracing, metrics
-initDatadog();
+import { addSecurityHeaders } from "./utils/security-headers.server";
+import { redactSensitiveTelemetryValue } from "./utils/telemetry-redaction";
 
 // Initialize Sentry for server-side error tracking with enhanced configuration
 if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'true') {
@@ -40,6 +37,12 @@ if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'tru
 
     // Filter and sanitize events before sending
     beforeSend(event, _hint) {
+      // Remove credentials (tokens, hmac, cookies) and shopper emails anywhere in the event
+      event = redactSensitiveTelemetryValue(event) as typeof event;
+      if (event.request) {
+        delete event.request.cookies;
+      }
+
       // Remove sensitive headers
       if (event.request?.headers) {
         delete event.request.headers['authorization'];
@@ -71,8 +74,16 @@ if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'tru
       return event;
     },
 
+    // Console and HTTP breadcrumbs can carry URLs, tokens and shopper emails
+    beforeBreadcrumb(breadcrumb) {
+      return redactSensitiveTelemetryValue(breadcrumb) as typeof breadcrumb;
+    },
+
     // Enrich transactions with business context
     beforeSendTransaction(event) {
+      // Outgoing HTTP spans carry full URLs
+      event = redactSensitiveTelemetryValue(event) as typeof event;
+
       // Add deployment info to all transactions
       event.tags = {
         ...event.tags,
@@ -174,6 +185,12 @@ export function handleError(
   }
 }
 
+// Remix calls this for loader and action data requests, which skip handleRequest
+export function handleDataRequest(response: Response) {
+  addSecurityHeaders(response.headers);
+  return response;
+}
+
 export const streamTimeout = 5000;
 
 export default async function handleRequest(
@@ -183,6 +200,7 @@ export default async function handleRequest(
   remixContext: EntryContext
 ) {
   addDocumentResponseHeaders(request, responseHeaders);
+  addSecurityHeaders(responseHeaders);
   const userAgent = request.headers.get("user-agent");
   const callbackName = isbot(userAgent ?? '')
     ? "onAllReady"

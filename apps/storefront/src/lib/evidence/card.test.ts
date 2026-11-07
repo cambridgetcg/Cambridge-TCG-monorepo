@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { MEMBER_PRICE_POLICIES } from "@cambridge-tcg/data-ingest/member-prices";
 import { buildCardEvidence, evidenceSourcesForGame } from "./card";
 
 const sources = [
@@ -23,15 +24,16 @@ const sources = [
     description: "",
     upstream: "https://example.test",
     catalog_section: "x",
-    access: "blocked",
-    license: "proprietary",
+    access: "scrape",
+    license: "internal-only",
     redistribute: false,
-    freshness: "price_current",
+    freshness: "page_collector",
     canonical_effort: "medium",
-    status: "blocked",
+    status: "partial",
     games: ["op"],
     tos_notes: "",
   },
+
   {
     id: "cardmarket",
     name: "Cardmarket",
@@ -107,12 +109,67 @@ describe("card evidence", () => {
     expect(model.aggregate_rights).toBe("NOASSERTION");
   });
 
-  it("names restricted, blocked, and planned sources without unlocking them", () => {
+  it("names display-only and planned sources without unlocking them", () => {
     expect(evidenceSourcesForGame("op", sources)).toEqual([
-      expect.objectContaining({ id: "cardrush", state: "observed_withheld", license: "internal-only" }),
-      expect.objectContaining({ id: "tcgplayer", state: "blocked" }),
+      expect.objectContaining({ id: "cardrush", state: "display_only", license: "internal-only" }),
+      expect.objectContaining({ id: "tcgplayer", state: "display_only", license: "internal-only" }),
       expect.objectContaining({ id: "cardmarket", state: "planned" }),
     ]);
+  });
+
+  // CardRush and TCGplayer have been display-only since 2026-10-28: on
+  // Cambridge's pages with their names, never in an API. TCGplayer no longer
+  // reads as blocked, and neither says anything is missing.
+  it("says what a display-only source's values are for, and where they never go", () => {
+    const [cardrush, tcgplayer] = evidenceSourcesForGame("op", sources);
+    for (const source of [cardrush!, tcgplayer!]) {
+      expect(source.reason).toContain("Display-only (written permission recorded 2026-10-28)");
+      expect(source.reason).toContain("only while its collector is scheduled");
+      expect(source.reason).toContain("never served by an API, a download or this response");
+      expect(source.reason).not.toMatch(/No collection or display|not available|withheld:|observed/);
+    }
+  });
+
+  // The state follows each source's release policy, not its name: a source
+  // whose policy adds the member API is no longer display-only, and one whose
+  // policy is display-only is, whatever it is called.
+  it("reads display-only from the release policy", async () => {
+    expect(MEMBER_PRICE_POLICIES.cardrush.uses).toEqual(["member-display"]);
+    expect(MEMBER_PRICE_POLICIES.tcgplayer.uses).toEqual(["member-display"]);
+    expect(MEMBER_PRICE_POLICIES.cardmarket.uses).toContain("member-api");
+    const cardmarket = sources.map((source) => source.id === "cardmarket" ? { ...source, status: "partial" as const } : source);
+    expect(evidenceSourcesForGame("op", cardmarket).map((source) => source.id)).toEqual(["cardrush", "tcgplayer"]);
+
+    // A policy fixture with the roles swapped: Cardmarket display-only,
+    // CardRush and TCGplayer exportable. A check on the source's name would
+    // still call CardRush and TCGplayer display-only and Cardmarket planned.
+    vi.resetModules();
+    vi.doMock("@cambridge-tcg/data-ingest/member-prices", () => ({
+      MEMBER_PRICE_POLICIES: {
+        cardmarket: { uses: ["member-display"] },
+        scryfall: { uses: ["member-display"] },
+        cardrush: { uses: ["member-display", "member-api"] },
+        tcgplayer: { uses: ["member-display", "member-download"] },
+      },
+    }));
+    try {
+      const swapped = await import("./card");
+      expect(swapped.evidenceSourcesForGame("op", sources).map(({ id, state }) => ({ id, state }))).toEqual([
+        { id: "cardmarket", state: "display_only" },
+      ]);
+    } finally {
+      vi.doUnmock("@cambridge-tcg/data-ingest/member-prices");
+      vi.resetModules();
+    }
+  });
+
+  it("still names a blocked river as blocked", () => {
+    const blocked = sources.map((source) => source.id === "cardmarket" ? { ...source, status: "blocked" as const } : source);
+    expect(evidenceSourcesForGame("op", blocked)[2]).toMatchObject({
+      id: "cardmarket",
+      state: "blocked",
+      reason: "No collection or display: the required permission or access is not available.",
+    });
   });
 
   it("keeps both person-derived publication lanes paused when other reads fail", () => {

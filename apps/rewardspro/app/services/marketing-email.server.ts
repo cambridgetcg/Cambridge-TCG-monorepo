@@ -7,6 +7,9 @@
  * - Every message carries the recipient's own unsubscribe link and
  *   List-Unsubscribe / List-Unsubscribe-Post headers (RFC 8058 one-click),
  *   both served by routes/email.unsubscribe.tsx.
+ * - Nothing is sent past the shop's monthly email limit: the free app pays
+ *   for every email, so the emails are counted against it before they are
+ *   sent (reserveEmails), and a send that would go past it is refused whole.
  * - Nothing is sent while SendGrid's signed event webhook is unconfigured,
  *   because bounces, spam reports and SendGrid-side unsubscribes would then
  *   be lost (routes/webhooks.sendgrid.tsx refuses unsigned events).
@@ -19,7 +22,7 @@
 import prisma from "~/db.server";
 import { sanitizeText } from "~/utils/html-sanitizer";
 import { shouldUseKlaviyoForMarketing } from "./email-provider.server";
-import { checkEmailLimit, recordEmailSent } from "./email-usage-control.server";
+import { type EmailReservation, releaseEmails, reserveEmails } from "./email-usage-control.server";
 import { MARKETING_AUDIENCE, unsubscribeUrl } from "./marketing-consent.server";
 import { sendPersonalizedEmails, type SendGridPersonalization } from "./sendgrid.server";
 
@@ -41,7 +44,11 @@ export interface MarketingSendResult {
   /** Recipients without consent (or unknown), not sent */
   skipped: number;
   failed: number;
+  /** Of `failed`, those the email service gave no answer for, so they may have gone out */
+  uncertain?: number;
   errors: string[];
+  /** Why RewardsPro refused the whole send (switched off, Klaviyo, the monthly limit), in words for the merchant */
+  refused?: string;
 }
 
 /** Why marketing email cannot be sent at all right now, or null. */
@@ -53,6 +60,18 @@ export function marketingEmailBlockedReason(): string | null {
     return "Marketing email is off until SHOPIFY_APP_URL is set, so unsubscribe links work.";
   }
   return null;
+}
+
+/** What merchants are told while marketing email is off; the reason itself (marketingEmailBlockedReason) is for logs and operators. */
+export const MARKETING_EMAIL_OFF =
+  "RewardsPro can't send marketing email yet. You can write campaigns and save them as drafts, and send them once sending is switched on.";
+
+function limitReached(requested: number, remaining: number, limit: number): string {
+  const n = (count: number) => count.toLocaleString("en-US");
+  if (requested > limit) {
+    return `This audience is ${n(requested)} customers who agreed to marketing, more than the shop's limit of ${n(limit)} emails a month, so it can't go out as one campaign. Choose a smaller audience, such as one tier.`;
+  }
+  return `Sending this would use ${n(requested)} email${requested === 1 ? "" : "s"}, and the shop has ${n(remaining)} of its ${n(limit)} emails left this month. The limit starts again next month.`;
 }
 
 function withUnsubscribeFooter(html: string, storeName: string): string {
@@ -67,16 +86,25 @@ function withUnsubscribeFooter(html: string, storeName: string): string {
 /**
  * Send one marketing email to the consenting customers among `recipients`.
  * Recipients are customers of `shop`, named by internal id or by email.
+ * `onHandOff` is called just before the email goes to the email service:
+ * anything thrown before it means nothing was sent.
  */
 export async function sendMarketingEmail(
   shop: string,
   recipients: MarketingRecipient[],
   email: MarketingEmail,
+  onHandOff?: () => void,
 ): Promise<MarketingSendResult> {
-  const refused = (error: string): MarketingSendResult => ({ sent: 0, skipped: 0, failed: recipients.length, errors: [error] });
+  const refused = (reason: string, error = reason): MarketingSendResult => ({
+    sent: 0,
+    skipped: 0,
+    failed: recipients.length,
+    errors: [error],
+    refused: reason,
+  });
 
   const blocked = marketingEmailBlockedReason();
-  if (blocked) return refused(blocked);
+  if (blocked) return refused(MARKETING_EMAIL_OFF, blocked);
   if (await shouldUseKlaviyoForMarketing(shop)) {
     return refused("This shop sends marketing through Klaviyo; send the campaign from Klaviyo.");
   }
@@ -94,9 +122,8 @@ export async function sendMarketingEmail(
   const skipped = recipients.length - customers.length;
   if (customers.length === 0) return { sent: 0, skipped, failed: 0, errors: [] };
 
-  const usage = await checkEmailLimit(shop, customers.length);
-  if (usage.capacityExceeded) console.warn(`[MarketingEmail] ${usage.message}`);
-
+  // Everything that can fail is read before the emails are counted, so a
+  // failure here leaves the shop's limit as it was
   const settings = await prisma.shopSettings.findUnique({ where: { shop }, select: { storeName: true } });
   const storeName = settings?.storeName || shop.replace(/\.myshopify\.com$/, "");
 
@@ -112,13 +139,38 @@ export async function sendMarketingEmail(
       customArgs: email.customArgs,
     };
   });
+  const html = withUnsubscribeFooter(email.html, storeName);
 
+  // The free app pays for every email it sends, so marketing stops at the
+  // shop's monthly limit: the emails are counted before they are sent, and a
+  // send that would go past it, even at the same moment as another, is
+  // refused whole. Nothing is sent while the usage can't be read.
+  let reservation: EmailReservation;
+  try {
+    reservation = await reserveEmails(shop, customers.length);
+  } catch (error) {
+    console.error(`[MarketingEmail] Couldn't read this month's email usage for ${shop}; sending nothing:`, error);
+    return { sent: 0, skipped, failed: customers.length, errors: ["Couldn't read this month's email usage"] };
+  }
+  if (!reservation.reserved) return refused(limitReached(customers.length, reservation.remaining, reservation.limit));
+
+  // From here nothing throws (sendPersonalizedEmails catches its own errors),
+  // so the reservation is always settled below
+  onHandOff?.();
   const result = await sendPersonalizedEmails(shop, personalizations, {
     subject: email.subject,
-    html: withUnsubscribeFooter(email.html, storeName),
+    html,
     categories: email.categories,
   });
-  if (result.sent > 0) await recordEmailSent(shop, result.sent, "campaign");
+  // Give back the emails that didn't go out. Those the email service gave no
+  // answer for stay counted, as do all of them if the send threw, since some
+  // of them may have gone.
+  const unsent = customers.length - result.sent - result.uncertain;
+  try {
+    await releaseEmails(reservation.usageId, unsent);
+  } catch (error) {
+    console.error(`[MarketingEmail] Couldn't give back ${unsent} unsent emails for ${shop}:`, error);
+  }
 
-  return { sent: result.sent, skipped, failed: result.failed, errors: result.errors };
+  return { sent: result.sent, skipped, failed: result.failed, uncertain: result.uncertain, errors: result.errors };
 }

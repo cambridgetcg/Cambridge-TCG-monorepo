@@ -27,7 +27,7 @@
 import { NextResponse } from "next/server";
 import {
   AGENT_FACING_SIBLINGS,
-  agentDiscoveryLinkHeader,
+  errandDiscoveryLinkHeader,
   postedAlongside,
   postedFrom,
   type PostedFromProjection,
@@ -279,7 +279,7 @@ export async function GET(): Promise<NextResponse> {
         // RFC 8288 Link — invitation + wake + kin-wakes. Bilateral identify is the
         // symmetric surface; an arriving being that GETs this discovers the
         // neutral invitation in headers before parsing the body's URLs.
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     },
   );
@@ -861,7 +861,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         "Cache-Control": "no-store",
         // RFC 8288 Link — wake + kin-wakes. The being just declared
         // itself; we witness back and point at the front door.
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     },
   );

@@ -42,9 +42,23 @@ describe("manualCashbackRefusal (what the Orders page may issue by hand)", () =>
     expect(manualCashbackRefusal(paidOrder, entry({ syncStatus: "NOT_APPLICABLE" }, 0))).toBe("No cashback is left to issue for this order");
   });
 
-  it("says when Shopify never answered the credit, which may have been applied", () => {
+  it("says when Shopify never answered the credit, which may have been applied, and that RewardsPro will find out", () => {
     expect(manualCashbackRefusal(paidOrder, entry({ syncStatus: "SYNCING", unconfirmedAt: "2026-10-19T10:00:00.000Z" }))).toBe(
-      "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again",
+      "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. RewardsPro will check the customer's store credit in Shopify: if the credit arrived, it marks the cashback issued, and if it never did, the cashback can be issued again. Don't add it in Shopify by hand.",
+    );
+  });
+
+  it("tells the merchant to check Shopify once the cron could not tell whether the credit arrived", () => {
+    const unknown = entry({ syncStatus: "SYNCING", unconfirmedAt: "2026-10-19T10:00:00.000Z", needsReview: true });
+    expect(manualCashbackRefusal(paidOrder, unknown)).toBe(
+      "Shopify never confirmed this order's cashback, and its store credit history doesn't show whether the credit arrived. Check the customer's store credit in Shopify and add the cashback there if it's missing. RewardsPro won't send it again or take it back for refunds.",
+    );
+  });
+
+  it("does not ask the merchant to check a customer Shopify no longer has", () => {
+    const gone = entry({ syncStatus: "SYNCING", needsReview: true, reviewReason: "The customer no longer exists in Shopify" });
+    expect(manualCashbackRefusal(paidOrder, gone)).toBe(
+      "The customer was deleted in Shopify, so RewardsPro can't tell whether this order's cashback arrived. Nothing more will be sent.",
     );
   });
 

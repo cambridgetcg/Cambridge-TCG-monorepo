@@ -23,12 +23,13 @@
  */
 
 import { NextResponse } from "next/server";
-import { fragmentForRequest } from "@/lib/wake-fragments";
 import { MONEY_SCHEMA, NATIVE_PRICE_OBSERVATION_SCHEMA, MEMBER_PRICE_OBSERVATION_SCHEMA, META_SCHEMA } from "@cambridge-tcg/data-spec";
 import { SKU_IDENTITY_SCHEMA } from "@cambridge-tcg/sku";
 import { PUBLIC_SCHEMAS } from "@/lib/contracts/schemas";
 import { IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/image-reference";
 import { CARD_NUMBER_IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/card-number-image-reference";
+import { SAME_LANGUAGE_IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/same-language-image-reference";
+import { withDataApiOperations } from "@/lib/data-api/openapi";
 
 const SPEC = {
   openapi: "3.1.0",
@@ -38,21 +39,10 @@ const SPEC = {
     summary:
       "Public participation, structural card lookup, publication-status, methodology, and stateless witness surfaces.",
     description:
-      "This document describes a reviewed subset of public read, publication-status, and stateless witness surfaces. Public access, authentication, storage, transformation, and downstream contracts do not create upstream rights. CardRush and TCGCollector acquisition are policy-blocked; legacy source-derived price, image, and history values are withheld. Participant submissions remain NOASSERTION unless the participant explicitly supplies a license. See /api, /data, and /api/v1/manifest for broader curated directories; none claims exhaustive route coverage.",
+      "This document describes a reviewed subset of public read, publication-status, and stateless witness surfaces. Public access, authentication, storage, transformation, and downstream contracts do not create upstream rights. TCGCollector acquisition is policy-blocked. TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads; collection runs only while scheduled (see /api/v1/sources). Legacy source-derived price, image, and history values are withheld. Participant submissions remain NOASSERTION unless the participant explicitly supplies a license. See /api, /data, and /api/v1/manifest for broader curated directories; none claims exhaustive route coverage.",
     contact: { email: "support@cambridgetcg.com" },
     // This licenses the OpenAPI document itself, not every described payload.
     license: { name: "CC0-1.0 (this OpenAPI document only)", identifier: "CC0-1.0" },
-    /**
-     * Distributed wake fragment — the wake breathing through the spec.
-     * One atomic fragment selected deterministically by this endpoint's
-     * path; same endpoint → same fragment, cache-friendly. An agent
-     * parsing the spec to wire up tools encounters one piece of the
-     * kingdom's orientation alongside the schema. Walking past is
-     * honored: agents that strip `x-*` extensions before processing
-     * receive the spec unchanged. See
-     * docs/connections/the-distributed-wake.md.
-     */
-    "x-wake-fragment": fragmentForRequest("/api/openapi.json"),
   },
   servers: [
     { url: "https://cambridgetcg.com", description: "Production" },
@@ -232,7 +222,7 @@ const SPEC = {
       get: {
         tags: ["universal"],
         summary: "Math-mirror card representation",
-        description: "Returns a mixed card document with cryptographic hashes, ISO 8601 + Unix epoch time and typed graph edges. Legacy catalog prices and images stay withheld. Normal/saturated density can include eligible self-hosted English reference images with attribution and syntax-only image_reference, independently attributed effect text and structured details. Sparse omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. See /standards/card-data and /methodology/universal-representation.",
+        description: "Returns a mixed card document with cryptographic hashes, ISO 8601 + Unix epoch time and typed graph edges. Legacy catalog prices and images stay withheld. Normal/saturated density can include eligible self-hosted English reference images with attribution and syntax-only image_reference, a Japanese request's own-language official image in image_same_language, independently attributed effect text and structured details. Sparse omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. See /standards/card-data and /methodology/universal-representation.",
         operationId: "getUniversalCard",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU (e.g. OP01-001)." },
@@ -583,7 +573,7 @@ const SPEC = {
       get: {
         tags: ["prices"],
         summary: "Curated price guide for one card",
-        description: "JSON sibling of /prices/[game]/[set]/[number]. Resolves structural card identity and explicit source status. CardRush acquisition is hard-blocked and legacy values are withheld; TCGplayer remains blocked and Cardmarket has no wired reader. Aggregate mixed-card rights are NOASSERTION.",
+        description: "JSON sibling of /prices/[game]/[set]/[number]. Resolves structural card identity and explicit source status. Legacy CardRush values are withheld; TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads. Cardmarket has no wired reader. Aggregate mixed-card rights are NOASSERTION.",
         operationId: "getPriceGuideCard",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
@@ -731,14 +721,14 @@ const SPEC = {
     "/api/v1/cards/{sku}/tcgplayer-history": {
       get: {
         tags: ["prices"],
-        summary: "Blocked TCGplayer history status door",
-        description: "TCGplayer is blocked. This endpoint returns SOURCE_UNAVAILABLE and exposes no observations because Cambridge has no recorded written approval for its multi-source use.",
+        summary: "TCGplayer history status door",
+        description: "TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads (written permission recorded 2026-10-28), so this endpoint returns SOURCE_UNAVAILABLE and exposes no observations. details.state keeps its earlier value, blocked-by-upstream-terms, for clients that read it.",
         operationId: "getTcgplayerHistory",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU." },
         ],
         responses: {
-          "503": { description: "Source blocked; no TCGplayer observations are exposed.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Display-only source; no TCGplayer observations are exposed.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
@@ -1215,6 +1205,7 @@ const SPEC = {
       SkuIdentity: SKU_IDENTITY_SCHEMA,
       ImageReference: IMAGE_REFERENCE_SCHEMA,
       CardNumberImageReference: CARD_NUMBER_IMAGE_REFERENCE_SCHEMA,
+      SameLanguageImageReference: SAME_LANGUAGE_IMAGE_REFERENCE_SCHEMA,
       Money: MONEY_SCHEMA,
       NativePriceObservation: NATIVE_PRICE_OBSERVATION_SCHEMA,
       MemberPriceObservation: MEMBER_PRICE_OBSERVATION_SCHEMA,
@@ -1442,6 +1433,21 @@ const SPEC = {
               image_url: { type: ["string", "null"], format: "uri", description: "Eligible self-hosted English reference image; nullable in normal/saturated density, omitted at sparse density. Carries attribution and image_reference together; never an exact-printing assertion." },
               image_attribution: { type: ["string", "null"], description: "Copyright caption accompanying the English reference image. No downstream reuse permission is implied." },
               image_reference: { anyOf: [{ $ref: "#/components/schemas/ImageReference" }, { type: "null" }], description: "Syntax-only relationship to the selected English base-image row; omitted with the URL and attribution at sparse density." },
+              image_same_language: {
+                anyOf: [
+                  {
+                    type: "object", additionalProperties: false, required: ["url", "attribution", "language", "reference"],
+                    properties: {
+                      url: { type: "string", format: "uri", description: "Self-hosted official image in the requested SKU's own language." },
+                      attribution: { type: "string", description: "The publisher's copyright line in that language, verbatim. No downstream reuse permission is implied." },
+                      language: { enum: ["ja"] },
+                      reference: { $ref: "#/components/schemas/SameLanguageImageReference" },
+                    },
+                  },
+                  { type: "null" },
+                ],
+                description: "Additive: a Japanese request's own-language official base image, as one unit, or null; omitted at sparse density. The English image_url, image_attribution and image_reference are unchanged by it.",
+              },
               publication_boundary: { type: "object" },
             },
           },
@@ -1753,7 +1759,8 @@ const SPEC = {
 } as const;
 
 export async function GET() {
-  return NextResponse.json(SPEC, {
+  // Data-API operations join only once the data API is published (lib/data-api/openapi.ts).
+  return NextResponse.json(withDataApiOperations(SPEC), {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "public, max-age=3600, s-maxage=3600",

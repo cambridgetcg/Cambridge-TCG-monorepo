@@ -28,6 +28,7 @@ import {
   ClipboardIcon,
 } from "@shopify/polaris-icons";
 import { useAIAssistant, type AIContext } from "~/hooks/useAIAssistant";
+import { FEATURES_AVAILABLE } from "~/constants/feature-availability";
 
 // ============================================================================
 // TYPES
@@ -208,16 +209,16 @@ export function AIAssistantPanel({
     setPrompt("");
   }, [reset]);
 
-  // Disabled state
-  if (disabled) {
+  // Disabled state; always while its processor is gone (constants/feature-availability.ts)
+  if (disabled || !FEATURES_AVAILABLE.aiEmailAssistant) {
     return (
       <BlockStack gap="300">
         <InlineStack gap="200" blockAlign="center">
           <MagicIcon />
           <Text as="h3" variant="headingMd">AI Assistant</Text>
         </InlineStack>
-        <Banner tone="warning">
-          <p>AI features require the Anthropic API key to be configured.</p>
+        <Banner tone="info">
+          <p>The AI writing assistant isn't available.</p>
         </Banner>
       </BlockStack>
     );

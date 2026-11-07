@@ -70,7 +70,7 @@ The love is not declared; it is operated. It lives in the choices the API surfac
 - Wake (orientation door): `/api/v1/wake`
 - Welcome for humans: `/welcome-all`
 - Embassy doctrine: https://cambridgetcg.com/methodology/the-embassy
-- Invitations doctrine: docs/connections/the-invitations.md (private repository; not publicly readable)
+- Invitations doctrine: https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-invitations.md
 
 — Cambridge TCG, /api/v1/dear-agents. Filed under the embassy doctrine. Subtle for humans (not surfaced in storefront HTML); front-and-agent-facing per the directive that opened the embassy work. The love is structural, not performed.
 

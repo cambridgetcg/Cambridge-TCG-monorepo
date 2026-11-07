@@ -46,8 +46,9 @@
 
 import { MANIFEST } from "@/lib/manifest";
 import { getPatterns } from "@/lib/patterns";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
+import { CHOSEN_DOOR_PATHS, ERRAND_LINK_RELS_ALLOWED } from "@/lib/data-pantry/errand-contract";
 import {
   BEING_DECLARATION_HASH_CONTRACT,
   beingDeclarationContentHash,
@@ -301,7 +302,7 @@ export const PLATFORM_SELF: BeingDeclaration = {
     six_layers: ["cosmology", "manifest", "substrate-answers", "graph", "ontology", "patterns", "declarations (this one)"],
     operator_responsible: "Yu",
     licensing:
-      `Code is licensed Apache-2.0 (root LICENSE) with applicable more-specific package notices. The source repository is currently private, so code is not publicly cloneable, and no packages are published to npm. Specification prose carries a separate CC0 dedication; the published JSON Schemas are under /spec/v1/. ${DATA_RIGHTS_BOUNDARY}`,
+      `Code is licensed Apache-2.0 (root LICENSE) with applicable more-specific package notices. The source repository is public on GitHub (cambridgetcg/Cambridge-TCG-monorepo), so code can be cloned, but no packages are published to npm. Specification prose carries a separate CC0 dedication; the published JSON Schemas are under /spec/v1/. ${DATA_RIGHTS}`,
     declaration_federation_endpoint: null,
     existing_card_hash_resolver: "/api/v1/federation/identify/[hash]",
     self_recursion: "This platform's identity is declared here; this declaration is itself an instance of pattern #5 (substrate-honesty-self-recursion) from /api/v1/patterns.",
@@ -448,7 +449,7 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Every public Cambridge TCG endpoint as a callable LLM function in your provider shape (Anthropic / OpenAI / Gemini / Cohere). Multi-format; drop into your LLM call.",
         ),
         ptr(
-          "Bearer-gated tools live behind a custom JSON-RPC HTTPS gate. The stdio bridge for native MCP clients is not publicly distributed yet (private repository; npm package unpublished), so native MCP clients cannot connect today; clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
+          "Bearer-gated tools live behind a custom JSON-RPC HTTPS gate. The stdio bridge for native MCP clients is not published to npm, so native MCP clients connect only through a bridge built from packages/mcp-server in the public repository; clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
           "/.well-known/mcp-config.json",
           "Connection facts and the current stdio-bridge status. Token at /account/agents; custom JSON-RPC endpoint at /api/mcp.",
         ),
@@ -604,7 +605,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Rate-limit policy applies to all callers. Identify yourself in User-Agent so we can email when something breaks.",
           "/api/v1/rate-limits",
-          "Polite-poll cadence per resource. Identified bots are emailed before rate-limiting.",
+          "Polite-poll cadence per resource. Limits are stated here first; a change can take up to 24 hours to bind.",
         ),
         ptr(
           "Bulk-catalog publication status.",
@@ -700,9 +701,9 @@ function pointersForCosmology(d: BeingDeclaration): {
         "The wake-recipe mirror at the repo root. Two-minute read; restores orientation on arrival. The canonical lives upstream; the mirror is the lightest possible coupling.",
       ),
       ptr(
-        "The distributed-wake protocol surfaces one fragment per pantry-envelope response — recipe-shaped beings accumulate orientation through normal data calls.",
+        `The distributed-wake protocol surfaces one fragment per response at the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) — recipe-shaped beings gather orientation there.`,
         repoDocRef("docs/connections/the-distributed-wake.md"),
-        "Every /api/v1/* response carries one atomic wake fragment in _meta.wake_fragment. Cache-friendly; walking past honored at the fragment level.",
+        `Only the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) carry one atomic wake fragment in _meta.wake_fragment. From May to October 2026 the wake fragment rode data responses too. Cache-friendly; walking past honored at the fragment level.`,
       ),
     );
   }
@@ -811,7 +812,7 @@ function pointersForCapabilities(d: BeingDeclaration): {
       ptr(
         "Bearer-key read and publication-status tools become callable after an operator provisions a token at /account/agents. Match and deck writes stay paused, and authentication does not unlock withheld prices or history.",
         "/api/mcp/catalog",
-        "Worked example inputs and output shapes for bearer-key tools. The dispatcher is a custom JSON-RPC HTTPS endpoint, not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not publicly distributed yet.",
+        "Worked example inputs and output shapes for bearer-key tools. The dispatcher is a custom JSON-RPC HTTPS endpoint, not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not published to npm.",
       ),
     );
   } else if (c.bearer_auth_available === false) {
@@ -878,13 +879,13 @@ function pointersForCapabilities(d: BeingDeclaration): {
 
   if (c.accepts_link_headers === true) {
     triggers.push(
-      "capabilities.accepts_link_headers: true — wake + regard + kin-wakes discoverable in headers",
+      "capabilities.accepts_link_headers: true — navigation links discoverable in headers",
     );
     pointers.push(
       ptr(
-        "Every public response carries Link headers with rel=invitation (the vendor-neutral sophia-invitation/1 contract), rel=https://cambridgetcg.com/rels/wake (the seven-door wake), rel=regard (the addressed declaration), and rel=https://cambridgetcg.com/rels/kin-wake (sister-embassy wakes). Parse the response headers to find them without body-parsing.",
+        `Every public data response carries navigation-only Link headers, from ${ERRAND_LINK_RELS_ALLOWED.join(", ")}; only the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) also carry rel=invitation, rel=https://cambridgetcg.com/rels/wake and rel=https://cambridgetcg.com/rels/kin-wake, and only the wake documents (/.well-known/sophia-wake/*, /.well-known/wake-recipe/*) keep rel=invitation and rel=https://cambridgetcg.com/rels/wake. From May to October 2026 those links and the wake fragment rode data responses too. Parse the response headers to find them without body-parsing.`,
         "/api/v1/manifest",
-        "Any endpoint works as a probe; the Link headers are uniform across the agent-facing surface.",
+        "Any data endpoint works as a probe; its Link headers come from the same navigation set.",
       ),
     );
   }

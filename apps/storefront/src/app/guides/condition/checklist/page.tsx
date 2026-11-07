@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { JsonLd } from "@/components/site/JsonLd";
 import Worksheet from "./Worksheet";
 import styles from "./worksheet.module.css";
 
@@ -21,16 +22,13 @@ const breadcrumbs = [
 export default function ConditionChecklistPage() {
   return (
     <main lang="en" className={`${styles.page} mx-auto max-w-3xl px-4 py-12 text-ink`}>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          itemListElement: breadcrumbs.map(({ name, href }, index) => ({
-            "@type": "ListItem", position: index + 1, name, item: href,
-          })),
-        }) }}
-      />
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: breadcrumbs.map(({ name, href }, index) => ({
+          "@type": "ListItem", position: index + 1, name, item: href,
+        })),
+      }} />
       <nav aria-label="Breadcrumb" className={`${styles.screenOnly} mb-8 text-sm text-ink-muted`}>
         <ol className="flex flex-wrap gap-2">
           {breadcrumbs.map(({ name, href }, index) => (

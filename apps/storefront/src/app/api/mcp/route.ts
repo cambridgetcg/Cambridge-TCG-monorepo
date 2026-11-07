@@ -57,7 +57,15 @@ import {
   coverageHuntMyCases,
   coverageHuntView,
 } from "@/lib/agents/coverage-hunt-tools";
+import { REPOSITORY_NOTE } from "@/lib/repository";
 import type { AgentActor } from "@/lib/agents/auth";
+import {
+  countMcpRequest,
+  mcpDailyWrites,
+  mcpMethodAndTool,
+  unseenMcpRequest,
+  type McpRequestSeen,
+} from "@/lib/observability/mcp-daily";
 
 interface JsonRpcRequest {
   jsonrpc?: "2.0";
@@ -159,7 +167,7 @@ const TOOLS: Record<string, ToolHandler> = {
 };
 
 const TOOL_DESCRIPTIONS: Record<string, string> = {
-  "agent.self": "Returns the calling agent's own profile, rating, key tier, and whether the key is read-only. Account UUIDs are never returned.",
+  "agent.self": "Returns the calling agent's own profile, rating, key tier, and whether the key is read-only, and what the gate records about the calling key: its minute rate-limit buckets, last-used time, tier limit and how long each is kept. Collects nothing new. Account UUIDs are never returned.",
   "play.list_open_rooms": "Lists public game rooms in waiting/playing status (read-only browse).",
   "play.observe": "Fetches redacted match state. Params: { match_id }.",
   "play.legal_actions": "Enumerates this agent's currently legal actions. Params: { match_id }.",
@@ -361,7 +369,9 @@ function wrapMcpContent(result: unknown): { content: Array<{ type: "text"; text:
   return { content: [{ type: "text", text }], isError: false };
 }
 
-async function handlePost(request: Request) {
+/** `seen` collects the words the daily count records (method, tool, whether
+ *  the bearer resolved); it never holds the key, the agent or the body. */
+async function handlePost(request: Request, seen: McpRequestSeen) {
   const declaredLength = request.headers.get("content-length");
   if (declaredLength !== null) {
     const parsedLength = Number(declaredLength);
@@ -411,6 +421,7 @@ async function handlePost(request: Request) {
 
   const method = body.method;
   const params = body.params ?? {};
+  Object.assign(seen, mcpMethodAndTool(method, params.name, (name) => Object.hasOwn(TOOLS, name)));
 
   // ── MCP-spec discovery + lifecycle (no auth) ──────────────────────────
   // The methods below are MCP-spec aliases that compose with the
@@ -442,10 +453,7 @@ async function handlePost(request: Request) {
           "reads and may append bounded Coverage Hunt evidence that stops at " +
           "human review. A human operator can provision one at " +
           "https://cambridgetcg.com/account/agents. Per-key rate limits " +
-          "apply. The wake at https://cambridgetcg.com/api/v1/wake carries " +
-          "orientation. The dear-agents letter at " +
-          "https://cambridgetcg.com/api/v1/dear-agents addresses you " +
-          "directly. Walking past either is honored.",
+          "apply. The site guide is at https://cambridgetcg.com/llms.txt.",
       }),
     );
   }
@@ -488,12 +496,14 @@ async function handlePost(request: Request) {
 
   const auth = await resolveAgentBearer(request.headers.get("authorization"));
   if (!auth.ok) {
+    seen.outcome = "unauthenticated";
     return NextResponse.json(
       rpcError(body.id, ERR_UNAUTHENTICATED, auth.error),
       { status: auth.status },
     );
   }
   const actor = auth.actor;
+  seen.authenticated = true;
 
   // ── tools/call (MCP-spec) — unwrap to dotted-name dispatch ────────────
   // `tools/call` carries `{name: "<dotted-name>", arguments: {...}}`. The
@@ -563,6 +573,7 @@ async function handlePost(request: Request) {
     });
   } catch (err) {
     if (err instanceof ToolError) {
+      seen.outcome = err.status === 403 ? "forbidden" : "tool-error";
       // MCP spec says tool errors should be reported via `{isError: true,
       // content: [...]}` in the result rather than JSON-RPC error. We follow
       // that for `tools/call`; native dotted dispatch keeps the existing
@@ -588,8 +599,12 @@ async function handlePost(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const response = await handlePost(request);
+  const seen = unseenMcpRequest();
+  const response = await handlePost(request, seen);
   response.headers.set("Cache-Control", "private, no-store");
+  // Counted after the response, only while OPS_MCP_DAILY is on
+  // (lib/observability/mcp-daily.ts); it never changes this answer.
+  countMcpRequest(seen, response.status);
   return response;
 }
 
@@ -605,7 +620,7 @@ export async function GET() {
       streamable_http: false,
       http_sse: false,
       note:
-        "This is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients need the stdio bridge, which is not publicly distributed yet, unless they explicitly support custom JSON-RPC HTTP endpoints.",
+        "This is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients need the stdio bridge, which is not on npm and is built from the public repository, unless they explicitly support custom JSON-RPC HTTP endpoints.",
     },
     methodology: "https://cambridgetcg.com/methodology/agents",
     discover: {
@@ -629,18 +644,20 @@ export async function GET() {
       operational_metadata_writes: [
         "per-key rate-limit bucket for an allowed authenticated call",
         "agent_keys.last_used_at after a successful authenticated call",
+        ...mcpDailyWrites(),
       ],
     },
     stdio_bridge: {
-      status: "not publicly distributed; npm publication and source release pending",
-      source: "packages/mcp-server in the Cambridge TCG monorepo (private repository; not publicly readable)",
+      status: "source public; not published to npm",
+      source: `packages/mcp-server in the Cambridge TCG monorepo (${REPOSITORY_NOTE})`,
       planned_npm_name: "@cambridge-tcg/mcp-server",
       honest_note:
-        "Not on the npm registry (404, rechecked 2026-10-10) and the source repository is " +
-        "private, so 'npx @cambridge-tcg/mcp-server' and clone-and-build do not work for the " +
-        "public. Clients that can POST JSON-RPC 2.0 can call this endpoint directly. The " +
-        "HTTPS gate accepts MCP-shaped JSON-RPC methods but is not MCP Streamable HTTP or " +
-        "HTTP+SSE; native MCP clients need the stdio bridge once it is distributed.",
+        "Not on the npm registry (404, rechecked 2026-10-10), so 'npx @cambridge-tcg/mcp-server' " +
+        "does not work. The source repository is public, so the bridge can be built from a " +
+        "clone (packages/mcp-server: npm install, npm run build). Clients that can POST " +
+        "JSON-RPC 2.0 can call this endpoint directly. The HTTPS gate accepts MCP-shaped " +
+        "JSON-RPC methods but is not MCP Streamable HTTP or HTTP+SSE; native MCP clients " +
+        "need the stdio bridge.",
       for: "Claude Desktop / Cursor / Continue / Cline / any MCP client expecting a local stdio server.",
     },
     config_snippet: "https://cambridgetcg.com/.well-known/mcp-config.json",

@@ -223,16 +223,10 @@ function checkClaudeMd(): void {
   if (!raw.includes("AGENTS.md")) {
     add("6. CLAUDE.md", "CLAUDE.md", "no reference to AGENTS.md");
   }
-  // CLAUDE.md is a host pointer. Shared operating rules belong in AGENTS.md.
-  const sharedPath = join(REPO_ROOT, "AGENTS.md");
-  if (!existsSync(sharedPath)) return; // covered by check 3
-  const shared = readFileSync(sharedPath, "utf8");
-  if (!shared.includes("docs/state.md")) {
-    add("6. shared instructions", "AGENTS.md", "no reference to docs/state.md");
-  }
-  if (!shared.includes("docs/missions")) {
-    add("6. shared instructions", "AGENTS.md", "no reference to docs/missions/");
-  }
+  // CLAUDE.md is a host pointer; AGENTS.md holds the shared principles. It no
+  // longer has to route to docs/state.md or docs/missions/: the 2026-10-19
+  // rewrite (after Yu asked for principles over rules) treats docs/ as history
+  // and context, not instructions.
 }
 
 // ── 7. Hook presence ─────────────────────────────────────────────────────

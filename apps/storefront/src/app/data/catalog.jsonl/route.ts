@@ -11,7 +11,6 @@
  */
 
 import { SPEC_VERSION } from "@cambridge-tcg/data-spec";
-import { fragmentForRequest } from "@/lib/wake-fragments";
 
 export async function GET(): Promise<Response> {
   const retrievedAt = new Date();
@@ -49,7 +48,6 @@ export async function GET(): Promise<Response> {
       "/api/v1/search/cards",
       "/api/v1/universal/card/[sku]",
     ],
-    wake_fragment: fragmentForRequest("/data/catalog.jsonl"),
   };
 
   const footer = {

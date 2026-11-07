@@ -13,12 +13,11 @@ export default async function Footer() {
   const uiLang = uiLangFromLangMode(langMode);
 
   return (
-    <footer className="mt-12 border-t border-border-strong bg-surface-subtle py-8">
+    <footer className="mt-16 border-t border-border-subtle bg-page py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] lg:gap-12">
           <div>
-            <span aria-hidden="true" className="mb-2 block h-1 w-8 rounded-full bg-accent" />
-            <Link href="/" className="inline-flex min-h-11 items-center rounded-sm font-display text-xl font-semibold tracking-[-0.04em] text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+            <Link href="/" prefetch={false} className="inline-flex min-h-11 items-center rounded-sm font-display text-lg font-semibold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
               Cambridge TCG
             </Link>
             <p className="mt-1 max-w-sm text-sm leading-6 text-ink-muted">
@@ -35,13 +34,13 @@ export default async function Footer() {
           <div className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
             {FOOTER_NAV_GROUPS.map((group, index) => (
               <nav key={group.heading} aria-labelledby={`footer-group-${index}`}>
-                <h2 id={`footer-group-${index}`} className="mb-1 border-b border-border-subtle pb-3 text-sm font-semibold text-ink">
+                <h2 id={`footer-group-${index}`} className="mb-1 break-words border-b border-border-subtle pb-3 text-sm font-semibold text-ink">
                   {navGroupHeading(group, uiLang)}
                 </h2>
                 <ul>
                   {group.items.map((item) => (
                     <li key={item.href}>
-                      <Link href={item.href} prefetch={item.href === "/account" || item.href.startsWith("/account/") ? false : undefined} className="inline-flex min-h-11 items-center rounded-sm text-sm text-ink-muted transition-colors hover:text-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+                      <Link href={item.href} prefetch={false} className="inline-flex min-h-11 items-center rounded-sm text-sm text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
                         {navLabel(item, uiLang)}
                       </Link>
                     </li>
@@ -70,9 +69,9 @@ export default async function Footer() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <span>© {new Date().getFullYear()} Cambridge TCG Ltd.</span>
             <nav aria-label={tx({ en: "Legal", ja: "法的情報", es: "Información legal", "zh-Hans": "法律信息", "zh-Hant": "法律資訊" }, uiLang)} className="flex flex-wrap gap-x-4 gap-y-2">
-              <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-ink transition">{tx({ en: "Privacy", ja: "プライバシー", es: "Privacidad", "zh-Hans": "隐私", "zh-Hant": "私隱" }, uiLang)}</Link>
-              <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-ink transition">{tx({ en: "Terms", ja: "利用規約", es: "Términos", "zh-Hans": "条款", "zh-Hant": "條款" }, uiLang)}</Link>
-              <Link href="/contact" className="inline-flex min-h-11 items-center hover:text-ink transition">{tx({ en: "Contact", ja: "連絡先", es: "Contacto", "zh-Hans": "联系方式", "zh-Hant": "聯絡" }, uiLang)}</Link>
+              <Link href="/privacy" prefetch={false} className="inline-flex min-h-11 items-center hover:text-ink transition">{tx({ en: "Privacy", ja: "プライバシー", es: "Privacidad", "zh-Hans": "隐私", "zh-Hant": "私隱" }, uiLang)}</Link>
+              <Link href="/terms" prefetch={false} className="inline-flex min-h-11 items-center hover:text-ink transition">{tx({ en: "Terms", ja: "利用規約", es: "Términos", "zh-Hans": "条款", "zh-Hant": "條款" }, uiLang)}</Link>
+              <Link href="/contact" prefetch={false} className="inline-flex min-h-11 items-center hover:text-ink transition">{tx({ en: "Contact", ja: "連絡先", es: "Contacto", "zh-Hans": "联系方式", "zh-Hant": "聯絡" }, uiLang)}</Link>
             </nav>
           </div>
         </div>

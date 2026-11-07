@@ -6,7 +6,7 @@ import { MANIFEST } from "./manifest";
 import { META_SNAPSHOT } from "./play/meta-snapshot";
 import { PULLS_SNAPSHOT } from "./pulls/pull-rates";
 import { ACCESS_LABELS, agentDiscoveryRecords, buildAgentText, buildLlmsText, discoveryResources, EDITORIAL_DOORS, PUBLIC_ORIGIN } from "./public-discovery";
-import { publicDiscoveryHtmlLinks, publicDiscoveryLinkHeader, kinWakeHtmlLinks, kinWakeLinkParts } from "./siblings";
+import { errandDiscoveryLinkHeader, publicDiscoveryHtmlLinks, publicDiscoveryLinkHeader, kinWakeHtmlLinks, kinWakeLinkParts } from "./siblings";
 import sitemap from "../app/sitemap";
 
 // If a future static index imports runtime sources, fail before any access.
@@ -111,13 +111,19 @@ describe("current compact machine documents", () => {
   it("serves generated documents with their real HTTP contract", async () => {
     const { GET: llms } = await import("../app/llms.txt/route");
     const { GET: agent } = await import("../app/.well-known/agent.txt/route");
-    for (const [get, body] of [[llms, buildLlmsText()], [agent, buildAgentText()]] as const) {
+    // llms.txt keeps the full discovery Link; agent.txt, a discovery document, sends navigation only.
+    for (const [get, body, link] of [
+      [llms, buildLlmsText(), publicDiscoveryLinkHeader()],
+      [agent, buildAgentText(), errandDiscoveryLinkHeader()],
+    ] as const) {
       const response = await get();
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
       expect(response.headers.get("access-control-allow-origin")).toBe("*");
       expect(response.headers.get("set-cookie")).toBeNull();
-      expect(response.headers.get("link")).toContain(publicDiscoveryLinkHeader());
+      // agent.txt sends exactly the navigation Link; the inviting header ends with the same parts, so toContain would not tell them apart.
+      if (get === agent) expect(response.headers.get("link")).toBe(link);
+      else expect(response.headers.get("link")).toContain(link);
       expect(await response.text()).toBe(body);
     }
   });

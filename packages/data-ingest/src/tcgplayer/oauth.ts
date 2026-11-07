@@ -5,7 +5,8 @@
  * form-urlencoded, NOT JSON. Credentials are application-scoped (no
  * per-store credentials needed for read-only catalog + pricing).
  *
- * Cambridge has no written approval for its multi-source use, so token
+ * Cambridge has no written approval for multi-source use of this API (its
+ * page permission does not reach it), so token
  * minting is hard-blocked here as well as at the source reader and app
  * wrappers. Keeping the stop at this lowest exported network primitive means
  * accidental credentials cannot turn into an upstream request.
@@ -16,9 +17,10 @@
 import type { Fetcher } from "../http";
 
 export const TCGPLAYER_ACCESS_BLOCKED_MESSAGE =
-  "TCGplayer access is blocked: Cambridge has no recorded written approval " +
-  "for its multi-source aggregation or redistribution use. Credentials do " +
-  "not grant that permission; no token request was made.";
+  "TCGplayer API access is blocked: TCGplayer grants no new API access, and " +
+  "Cambridge reads TCGplayer only through its page collector. Credentials do " +
+  "not grant API access; no token request " +
+  "was made.";
 
 export interface TcgplayerCredentials {
   /** From env TCGPLAYER_CLIENT_ID. */

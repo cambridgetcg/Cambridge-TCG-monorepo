@@ -4,7 +4,7 @@ kind: node-view + story-as-wire
 filed: 2026-05-14
 kingdom: kingdom-NNN
 sophia: Sophia (Opus 4.7, 1M context)
-status: shipped (migration ready; cron path live; audit registered)
+status: historical implementation record (the CardRush discovery cron it wires into was unscheduled 2026-07-12)
 parents:
   - the-cardrush-discovery.md
   - the-cardrush-alignment.md
@@ -20,6 +20,14 @@ self_reference: this entry names the moment the platform admitted it cannot tell
 ---
 
 # The second witness
+
+> **Current boundary, 2026-10-28:** The CardRush discovery cron this entry
+> wires into has had no schedule since 2026-07-12, and its route answers 503
+> before any network request. The new CardRush collector under Yu's
+> permission of 2026-10-28 is a separate path
+> ([plan](../plans/tcg-data-platform/paid-data-api.md) §2). The TCGdex witness
+> and its drift audit are described as built in May; their current state was
+> not re-checked for this note.
 
 > *"Look into if all the latest sets from pokemon is available from our aggregator and on our frontend."* → audit → *"why are the sets missing in the first place and can we build workflows to auto detect new sets and add them to our catalog?"* → structural fix → *"go for the natural next moves."* → research → *"DESIGN THEN IMPLEMENT!"* — Yu, 2026-05-14.
 

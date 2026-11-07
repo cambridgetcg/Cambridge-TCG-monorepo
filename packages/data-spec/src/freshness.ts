@@ -44,6 +44,14 @@ export const FRESHNESS = {
    *  (dadjoke / joke / koan rotations), agent-says headers, fortune-cookie
    *  endpoints. 5min. */
   rotating: 300,
+  /** An identified page collector's newest batch (CardRush every two hours,
+   *  one host a run; TCGplayer hourly), not a row's age: each row carries
+   *  its own retrieval time. A missed run or two stays within it; twice it
+   *  (12h) is a full round of CardRush's six hosts with no batch. 6h. */
+  page_collector: 21600,
+  /** A daily file collector's newest batch (Cardmarket's price guide, read
+   *  once a day): a day, and two hours for a late run. 26h. */
+  daily_file: 93600,
 } as const;
 
 export type FreshnessKey = keyof typeof FRESHNESS;
