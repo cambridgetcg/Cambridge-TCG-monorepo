@@ -12,22 +12,50 @@ Preview locally from `apps/rewardspro/landing`:
 wrangler pages dev public
 ```
 
-Deploy only after an explicit production release decision:
+Deploy only after an explicit production release decision, and only once
+every item below is true. The privacy policy, terms and subprocessor list
+describe the app after these changes, so publishing earlier makes them wrong:
+
+- #127 (hide what can't work yet) and #128 (no session replay, no header or
+  query values in logs) are merged and live.
+- The Vercel cron jobs are on: `vercel crons ls` doesn't say "(disabled)". The
+  retention promises (expired sessions, webhook records, data-request reports
+  gone within 52 days) and the membership reminder emails rely on them.
+- Merchants are shown the terms: the app links Privacy, Terms and
+  Subprocessors (in Settings and on #126's first-run card), and the App Store
+  listing links the terms. Until then, don't treat installing as accepting
+  them.
+- Every `[Yu: ...]` placeholder is filled in or removed. The deploy command
+  below refuses to run while one is left.
 
 ```bash
-wrangler pages deploy public \
-  --project-name rewardspro-landing \
-  --branch main \
-  --skip-caching
+! grep -rn '\[Yu:' public && \
+  wrangler pages deploy public \
+    --project-name rewardspro-landing \
+    --branch main \
+    --skip-caching
 ```
+
+Keep the published texts true afterwards:
+
+- The terms promise notice by email to the address Shopify uses for each
+  store's owner. Nothing stores it: when a notice goes out, read
+  `shop { email }` with each installed shop's offline token.
+- `GA4_MEASUREMENT_ID` is unset, so the app loads no Google Analytics. Setting
+  it loads GA4 (`app/root.tsx`), which the privacy policy doesn't cover, so
+  update the policy first.
+- The landing doesn't link docs.rewardspro.io while the docs still call paid
+  plans retired. Put the footer link back once they're rewritten.
 
 `--skip-caching` is deliberate. A cached direct upload produced an empty
 deployment on 23 July 2026; forcing the three public assets plus `_headers`
 produced a byte-identical, healthy deployment.
 
 Verify the immutable `*.pages.dev` URL before checking the custom domain. Then
-verify `https://rewardspro.io`, `/privacy-policy`, `robots.txt`, `sitemap.xml`,
-external links, responsive layout, and the visible integration status labels.
+verify `https://rewardspro.io`, `/privacy-policy`, `/terms`, `/subprocessors`,
+`/.well-known/security.txt`, `robots.txt`, `sitemap.xml`, external links,
+responsive layout, and the visible integration status labels. `security.txt`
+carries an `Expires` date: renew it before then.
 Cloudflare Pages retains earlier deployments for rollback.
 
 ## Embedded Shopify application
