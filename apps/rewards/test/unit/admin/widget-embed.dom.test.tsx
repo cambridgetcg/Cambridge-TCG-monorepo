@@ -58,7 +58,7 @@ describe("useWidgetEmbed", () => {
     screen.getByText("returns 0");
   });
 
-  it("stays unknown without App Bridge", async () => {
+  it("stays unknown without App Bridge, and still counts returns", async () => {
     render(<Probe />);
     await act(async () => {});
     screen.getByText("null");
@@ -66,9 +66,11 @@ describe("useWidgetEmbed", () => {
     await act(async () => {
       window.dispatchEvent(new Event("focus"));
     });
+    screen.getByText("returns 1");
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
     await act(async () => {});
     screen.getByText("null");
+    screen.getByText("returns 1");
   });
 
   it("stays unknown when App Bridge can't answer", async () => {
@@ -76,6 +78,41 @@ describe("useWidgetEmbed", () => {
     render(<Probe />);
     await act(async () => {});
     screen.getByText("null");
+  });
+
+  it("stays unknown when App Bridge throws at once, on the first ask", async () => {
+    vi.stubGlobal("shopify", {
+      app: {
+        extensions: vi.fn(() => {
+          throw new Error("App Bridge is not ready");
+        }),
+      },
+    });
+    render(<Probe />);
+    await act(async () => {});
+    screen.getByText("null");
+  });
+
+  it("goes back to unknown when App Bridge throws at once, or answers what can't be read, on Check again", async () => {
+    stubAppBridge("available");
+    render(<Probe />);
+    await screen.findByText("false");
+
+    extensions.mockImplementationOnce(() => {
+      throw new Error("App Bridge is not ready");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    await screen.findByText("null");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    });
+    screen.getByText("false");
+
+    // A theme extension with no activations: widgetEmbedOn throws reading it
+    extensions.mockImplementationOnce(async () => [{ type: "theme_app_extension" }] as unknown as ReturnType<typeof list>);
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    await screen.findByText("null");
   });
 
   it("asks again when the merchant comes back to the tab", async () => {
@@ -114,6 +151,7 @@ describe("useWidgetEmbed", () => {
     await screen.findByText("false");
 
     // Focus and visibilitychange arrive together on one return: one ask
+    const t0 = Date.now();
     await act(async () => {
       window.dispatchEvent(new Event("focus"));
       setHidden(true);
@@ -122,14 +160,17 @@ describe("useWidgetEmbed", () => {
     expect(extensions).toHaveBeenCalledTimes(2);
     screen.getByText("returns 1");
 
-    vi.setSystemTime(Date.now() + 9_999);
-    await act(async () => {
-      window.dispatchEvent(new Event("focus"));
-    });
-    expect(extensions).toHaveBeenCalledTimes(2);
-    screen.getByText("returns 1");
+    // Measured from that counted return, not from the last event
+    for (const after of [5_000, 9_999]) {
+      vi.setSystemTime(t0 + after);
+      await act(async () => {
+        window.dispatchEvent(new Event("focus"));
+      });
+      expect(extensions).toHaveBeenCalledTimes(2);
+      screen.getByText("returns 1");
+    }
 
-    vi.setSystemTime(Date.now() + 10_000);
+    vi.setSystemTime(t0 + 10_000);
     await act(async () => {
       window.dispatchEvent(new Event("focus"));
     });

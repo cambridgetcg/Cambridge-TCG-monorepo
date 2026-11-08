@@ -29,10 +29,15 @@ export function useWidgetEmbed(): WidgetEmbed {
     if (typeof shopify === "undefined" || typeof shopify.app?.extensions !== "function") return;
     const n = ++latest.current;
     const current = () => live.current && n === latest.current;
-    shopify.app.extensions().then(
-      (extensions) => current() && setOn(widgetEmbedOn(extensions)),
-      () => current() && setOn(null),
-    );
+    // Inside the chain, so a throw at once from App Bridge, or from reading its
+    // answer, is "can't tell" like a refusal, never an error out of the page
+    Promise.resolve()
+      .then(() => shopify.app.extensions())
+      .then((extensions) => widgetEmbedOn(extensions))
+      .then(
+        (embedOn) => current() && setOn(embedOn),
+        () => current() && setOn(null),
+      );
   }, []);
 
   useEffect(() => {
