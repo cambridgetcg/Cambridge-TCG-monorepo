@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import prisma from "~/db.server";
-import { dismissGuide, guideDue, tryItOrders } from "~/lib/guide.server";
+import { dismissGuide, guideDue, guideSwitchedOnAt, tryItOrders } from "~/lib/guide.server";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
 
@@ -193,5 +193,49 @@ describe.skipIf(!hasTestDatabase)("the setup guide's try-it list", () => {
     const buyer = await prisma.customer.create({ data: { merchantId: conn.merchantId, connectionId: conn.connectionId, externalCustomerId: null } });
     await seedOrder(conn, buyer.id, "#1002", { orderedAt: minutesAfter(1) });
     expect((await tryItOrders(conn, SWITCHED_ON)).map((o) => o.externalCustomerId)).toEqual([null]);
+  });
+});
+
+describe.skipIf(!hasTestDatabase)("the guide's switch-on time", () => {
+  let conn: ConnectionContext;
+  const MONTH_AGO = new Date(SWITCHED_ON.getTime() - 30 * 24 * 60 * MINUTE);
+
+  beforeEach(async () => {
+    await resetDatabase();
+    conn = await seedShop();
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  const setMerchant = (data: { running?: boolean; setupCompletedAt?: Date | null }) => prisma.merchant.update({ where: { id: conn.merchantId }, data });
+  const tierAt = (name: string, minSpend: string, position: number, createdAt: Date) =>
+    prisma.tier.create({ data: { merchantId: conn.merchantId, name, minSpend, cashbackPercent: "3", position, createdAt } });
+
+  it("is the newest tier's creation when the ladder came after an old setup", async () => {
+    await tierAt("Everyone", "0", 0, MONTH_AGO);
+    await tierAt("Gold", "500", 1, SWITCHED_ON);
+    await setMerchant({ running: true, setupCompletedAt: MONTH_AGO });
+    expect(await guideSwitchedOnAt(conn.merchantId)).toEqual(SWITCHED_ON);
+  });
+
+  it("is the setup's completion when that came after the tiers", async () => {
+    await tierAt("Everyone", "0", 0, MONTH_AGO);
+    await setMerchant({ running: true, setupCompletedAt: SWITCHED_ON });
+    expect(await guideSwitchedOnAt(conn.merchantId)).toEqual(SWITCHED_ON);
+  });
+
+  it("is nothing while cashback is off or setup isn't completed", async () => {
+    await tierAt("Everyone", "0", 0, MONTH_AGO);
+    await setMerchant({ running: false, setupCompletedAt: SWITCHED_ON });
+    expect(await guideSwitchedOnAt(conn.merchantId)).toBeNull();
+    await setMerchant({ running: true, setupCompletedAt: null });
+    expect(await guideSwitchedOnAt(conn.merchantId)).toBeNull();
+  });
+
+  it("is nothing for an unknown merchant", async () => {
+    expect(await guideSwitchedOnAt(crypto.randomUUID())).toBeNull();
+    expect(await guideSwitchedOnAt("not-a-uuid")).toBeNull();
   });
 });

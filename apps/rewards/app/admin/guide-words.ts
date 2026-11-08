@@ -61,6 +61,8 @@ export const GUIDE = {
   turnOnWidget: "Turn on the widget in your theme",
   checkAgain: "Check again",
   switchOn: "Switch cashback on",
+  /** The switch's answer when the store has no tiers yet. */
+  saveTiersFirst: "Save your tiers first.",
   placing: "Some buyers are still being placed in their tiers. Until they are, they earn the first tier's rate.",
   liveHeading: "Cashback is on",
   tryItHeading: "See it work with one order",
