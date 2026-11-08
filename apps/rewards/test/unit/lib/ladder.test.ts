@@ -60,7 +60,6 @@ describe("the ladder", () => {
       spenders: 40,
       binWidth: 10,
       horizonDays: 365,
-      tierWindow: "rolling_12_months" as const,
       importState: "done",
       currency: "GBP",
     };
@@ -72,19 +71,19 @@ describe("the ladder", () => {
     expect(suggestStarts({ ...base, p80: new Money("610"), p95: new Money("610") }).starts).toEqual([610, 620]); // kept apart by one bin
   });
 
-  it("rounds suggested starts up to the bin grid, and takes a short import for a lifetime window", () => {
+  it("rounds suggested starts up to the bin grid, and falls back on a short import", () => {
     const base = {
       p80: new Money("221.40"),
       p95: new Money("601"),
       spenders: 20,
       binWidth: 10,
-      horizonDays: 60,
-      tierWindow: "lifetime" as const,
+      horizonDays: 365,
       importState: "done",
       currency: "JPY",
     };
     expect(suggestStarts(base)).toEqual({ starts: [230, 610], fromData: true });
     expect(suggestStarts({ ...base, p95: null })).toEqual({ starts: null, fromData: false });
+    expect(suggestStarts({ ...base, currency: "GBP", horizonDays: 60 })).toEqual({ starts: [200, 500], fromData: false });
   });
 
   it("knows the smallest base that earns something", () => {

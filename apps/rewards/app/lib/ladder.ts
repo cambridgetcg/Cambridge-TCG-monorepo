@@ -96,7 +96,7 @@ function upToGrid(amount: Decimal, binWidth: number): number {
  * Starts for tiers 2 and 3 from the store's own buyers (about the 80th and
  * 95th percentiles of those who spent anything, up to the bin grid, the
  * second at least one bin above the first), but only from a finished import
- * that covers the tier window and enough buyers; else the fallbacks.
+ * that reached 12 months back and enough buyers; else the fallbacks.
  */
 export function suggestStarts(o: {
   p80: Decimal | null;
@@ -104,12 +104,10 @@ export function suggestStarts(o: {
   spenders: number;
   binWidth: number;
   horizonDays: number;
-  tierWindow: "rolling_12_months" | "lifetime";
   importState: string;
   currency: string;
 }): { starts: [number, number] | null; fromData: boolean } {
-  const coversWindow = o.horizonDays >= 365 || o.tierWindow === "lifetime";
-  if (o.importState === "done" && coversWindow && o.spenders >= MIN_SPENDERS && o.p80 !== null && o.p95 !== null) {
+  if (o.importState === "done" && o.horizonDays >= 365 && o.spenders >= MIN_SPENDERS && o.p80 !== null && o.p95 !== null) {
     const second = upToGrid(o.p80, o.binWidth);
     const third = Math.max(upToGrid(o.p95, o.binWidth), second + o.binWidth);
     return { starts: [second, third], fromData: true };
