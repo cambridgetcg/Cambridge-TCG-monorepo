@@ -8,9 +8,9 @@ import { setNotifyBuyers } from "~/lib/merchant.server";
 /**
  * Settings (spec 4.7), one short page: the cashback email switch (Shopify
  * sends the email, through the credit's `notify`), the way to the customer
- * data requests, and help by email. There is no docs link until the docs
- * describe this app (Ruling 72). The widget's look lives in the theme
- * block's own settings, not here.
+ * data requests, and help: the setup guide's first step to read again, and
+ * email. There is no docs link until the docs describe this app (Ruling
+ * 72). The widget's look lives in the theme block's own settings, not here.
  */
 
 const CONTACT_EMAIL = "contact@rewardspro.io";
@@ -63,9 +63,13 @@ export default function Settings() {
       </s-section>
 
       <s-section heading="Help">
-        <s-text>
-          Email us at <s-link href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</s-link>
-        </s-text>
+        <s-stack gap="small-200">
+          {/* The setup guide's first step, to read: it sends nobody anywhere (RP-24) */}
+          <s-link href="/app/welcome?step=1&read=1">How RewardsPro works</s-link>
+          <s-text>
+            Email us at <s-link href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</s-link>
+          </s-text>
+        </s-stack>
       </s-section>
     </s-page>
   );

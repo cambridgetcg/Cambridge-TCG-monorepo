@@ -87,11 +87,16 @@ describe("Settings", () => {
   });
 
   // Ruling 72 (DESIGN-4): no docs link until the docs describe this app
-  it("links to the data requests and to help by email, and to no docs", async () => {
+  it("links to the data requests, to the guide's first step for reading and to help by email, and to no docs", async () => {
     await renderSettings(false);
     expect(document.querySelector('s-link[href="/app/settings/privacy"]')?.textContent).toBe("Customer data requests");
+    expect(document.querySelector('s-link[href="/app/welcome?step=1&read=1"]')?.textContent).toBe("How RewardsPro works");
     expect(document.querySelector('s-link[href="mailto:contact@rewardspro.io"]')?.textContent).toBe("contact@rewardspro.io");
-    expect([...document.querySelectorAll("s-link")].map((link) => link.getAttribute("href"))).toEqual(["/app/settings/privacy", "mailto:contact@rewardspro.io"]);
+    expect([...document.querySelectorAll("s-link")].map((link) => link.getAttribute("href"))).toEqual([
+      "/app/settings/privacy",
+      "/app/welcome?step=1&read=1",
+      "mailto:contact@rewardspro.io",
+    ]);
     expect(document.body.textContent).not.toContain("docs");
   });
 });

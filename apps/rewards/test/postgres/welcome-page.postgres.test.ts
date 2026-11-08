@@ -291,6 +291,7 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
         step: 3,
         storeCredit: true,
         storeCreditBanner: null,
+        storeCreditLink: null,
         draftOrderUrl: `https://${SHOP}/admin/draft_orders/new`,
         placing: false,
         switchedOnAt: null,
@@ -299,15 +300,16 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       expect(data.themeEditorUrl).toContain(`https://${SHOP}/admin/themes/current/editor`);
     });
 
-    it("says when store credit can't be spent, in Home's words, and when Shopify didn't say", async () => {
+    it("says when store credit can't be spent, in Home's words with Home's settings link, and when Shopify didn't say", async () => {
       await seedTier(conn, "Everyone", "0", "3", 0);
       const off = fakeAdmin({ RewardsStoreCreditConfig: { data: { storeCreditConfiguration: { storeCreditEnabled: false } } } });
       expect(await load("/app/welcome?step=3", off)).toMatchObject({
         storeCredit: false,
         storeCreditBanner: "Buyers can't spend their store credit yet: store credit is turned off in Settings > Customer accounts.",
+        storeCreditLink: { label: "Open customer account settings", href: "shopify://admin/settings/customer_accounts" },
       });
       const unsure = fakeAdmin({ RewardsStoreCreditConfig: { errors: [{ message: "Throttled" }] } });
-      expect(await load("/app/welcome?step=3", unsure)).toMatchObject({ storeCredit: null, storeCreditBanner: null });
+      expect(await load("/app/welcome?step=3", unsure)).toMatchObject({ storeCredit: null, storeCreditBanner: null, storeCreditLink: null });
     });
   });
 

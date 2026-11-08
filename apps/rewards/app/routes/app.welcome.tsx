@@ -1,15 +1,22 @@
+import type { Decimal } from "decimal.js";
+import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { data, redirect } from "react-router";
+import { data, redirect, useFetcher, useLoaderData, useNavigate } from "react-router";
 
+import { formatMoney } from "~/admin/format";
 import { GUIDE, periodLabel } from "~/admin/guide-words";
 import { privatePageHeaders } from "~/admin/headers";
 import { homeBanners, importOutcomeLines, themeEditorUrl } from "~/admin/home-rules";
+import { LadderChart } from "~/admin/LadderChart";
+import { PASS_FOLLOW_MS, usePolling } from "~/admin/polling";
 import { requireMerchant } from "~/admin/require-merchant.server";
+import { useWidgetEmbed } from "~/admin/widget-embed";
+import { BUYER_IN_SHOPIFY, STATUS_TONE } from "~/admin/words";
 import { type TryItOrder, dismissGuide, guideSwitchedOnAt, tryItOrders } from "~/lib/guide.server";
-import { suggestStarts } from "~/lib/ladder";
+import { MAX_BINS, MIN_SPENDERS, type Starts, costFor, countsFor, exampleOrder, minEarningBase, suggestStarts, validStarts } from "~/lib/ladder";
 import { type LadderData, readGuideBasics, readLadder } from "~/lib/ladder.server";
 import { type ConnectionContext, markSetupCompleted, setRunning } from "~/lib/merchant.server";
-import { Money } from "~/lib/money";
+import { Money, cashbackFor } from "~/lib/money";
 import { homeState } from "~/lib/stats.server";
 import { BASE_TIER_NAME, type LadderErrors, isFreshLadder, requestTierPass, saveLadder, tiersOf } from "~/lib/tiers.server";
 import { pollImport } from "~/shopify/bulk-import.server";
@@ -88,6 +95,8 @@ export type WelcomeData = {
   storeCredit: boolean | null;
   /** Home's store-credit banner text when there are problems */
   storeCreditBanner: string | null;
+  /** That banner's link to Shopify's customer account settings, in Home's words */
+  storeCreditLink: { label: string; href: string } | null;
   themeEditorUrl: string;
   /** Shopify's new draft order page, opened in a new tab */
   draftOrderUrl: string;
@@ -152,18 +161,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       : [];
 
   const editorUrl = themeEditorUrl(conn.shop, process.env.SHOPIFY_API_KEY);
-  const storeCreditBanner =
-    homeBanners(
-      {
-        privacyDueAt: null,
-        spendProblems: spend.state === "problems" ? spend.problems : [],
-        needsLook: 0,
-        needsLookOrderId: null,
-        timezone: conn.timezone,
-        themeEditorUrl: editorUrl,
-      },
-      null,
-    ).find((banner) => banner.kind === "store-credit")?.text ?? null;
+  const creditBanner = homeBanners(
+    {
+      privacyDueAt: null,
+      spendProblems: spend.state === "problems" ? spend.problems : [],
+      needsLook: 0,
+      needsLookOrderId: null,
+      timezone: conn.timezone,
+      themeEditorUrl: editorUrl,
+    },
+    null,
+  ).find((banner) => banner.kind === "store-credit");
   const [first] = tiers;
 
   return {
@@ -184,7 +192,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     firstPercent: first ? first.cashbackPercent.toNumber() : null,
     // Ruling 59: null when Shopify couldn't say, shown as not checked
     storeCredit: spend.state === "ok" ? true : spend.state === "unknown" ? null : false,
-    storeCreditBanner,
+    storeCreditBanner: creditBanner?.text ?? null,
+    storeCreditLink: creditBanner?.link ?? null,
     themeEditorUrl: editorUrl,
     draftOrderUrl: `https://${conn.shop}/admin/draft_orders/new`,
     placing: state.placing,
@@ -238,7 +247,438 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 };
 
-/** The page itself comes with the guide's steps (RP-24 Task 9). */
+/** How often the page reloads its data while it follows something, as Home does. */
+const FOLLOW_MS = 10_000;
+/** Step 1's two tiles sit side by side when their section is this wide, and stack below it. */
+const TILES_SIDE_BY_SIDE = "@container tiles (inline-size > 500px)";
+/** A tier's three fields sit in one line when the rows are this wide, and stack below it. */
+const ROW_IN_LINE = "@container tiers (inline-size > 500px)";
+/** Yu's rates for tiers 1 to 3 (spec 3.4). */
+const DEFAULT_PERCENTS = ["3", "5", "8"] as const;
+/** A rate as saveLadder takes it: a whole percent from 0 to 100. */
+const WHOLE_PERCENT = /^\d{1,3}$/;
+
+const rateOf = (typed: string): number | null => {
+  const text = typed.trim();
+  return WHOLE_PERCENT.test(text) && Number(text) <= 100 ? Number(text) : null;
+};
+
+/** The suggested starts as the fields hold them; blank without a suggestion (no 200 or 500 here). */
+const startsText = (suggested: [number, number] | null): [string, string] => (suggested ? [String(suggested[0]), String(suggested[1])] : ["", ""]);
+
+/**
+ * Where counts and cost take a typed start from (R9): the start of the bin
+ * it falls in, so the figures match the picture's bars, and at least one
+ * bin, since bin 0 holds the buyers who spent nothing and they are always in
+ * tier 1. Only for the figures: the field keeps what was typed.
+ */
+const onGrid = (start: number, binWidth: number) => Math.max(binWidth, Math.floor(start / binWidth) * binWidth);
+
+/** Step 2's opening sentence: where the starts come from. */
+function tiersSentence(d: WelcomeData, ladder: NonNullable<WelcomeData["ladder"]>): string {
+  if (ladder.fromData) return GUIDE.tiersIntro(d.period);
+  // Nothing to suggest in this currency: the fields are blank, so nothing is called a suggestion
+  if (ladder.suggested === null) return GUIDE.tiersBlank;
+  // A running import may still bring orders in, and a failed one has Home's sentence beside it
+  if (d.importedOrders === 0 && (d.importState === "done" || d.importState === "not_started")) return GUIDE.tiersNoOrders;
+  if (d.importState === "done" && ladder.spenders < MIN_SPENDERS) return GUIDE.tiersFewBuyers;
+  return GUIDE.tiersFallback;
+}
+
+/** One check, in Home's states: done, not done, or not known yet. */
+function Check({ ok, yes, no, unknown }: { ok: boolean | null; yes: string; no: string; unknown: string }) {
+  return (
+    <s-stack direction="inline" gap="small-200" alignItems="center">
+      <s-icon type={ok ? "check-circle" : ok === null ? "circle-dashed" : "alert-circle"} tone={ok ? "success" : ok === null ? "neutral" : "warning"} />
+      <s-text>{ok ? yes : ok === null ? unknown : no}</s-text>
+    </s-stack>
+  );
+}
+
+/** The chosen try-it order: what happened to its cashback, and where to see it. */
+function TryItResult({ order }: { order: TryItOrder }) {
+  return (
+    <s-stack gap="small-200">
+      <s-stack direction="inline" gap="small-200" alignItems="center">
+        <s-text type="strong">{order.name}</s-text>
+        <s-badge tone={STATUS_TONE[order.status.key]}>{order.status.label}</s-badge>
+        {order.cashback ? <s-text>{formatMoney(order.cashback.amount, order.cashback.currency)}</s-text> : null}
+      </s-stack>
+      {order.status.detail ? <s-text color="subdued">{order.status.detail}</s-text> : null}
+      <s-stack direction="inline" gap="base">
+        <s-link href={`/app/orders/${order.orderId}`}>{GUIDE.openOrder}</s-link>
+        {order.externalCustomerId === null ? null : (
+          <s-link href={`shopify://admin/customers/${order.externalCustomerId}`} target="_top">
+            {BUYER_IN_SHOPIFY}
+          </s-link>
+        )}
+      </s-stack>
+    </s-stack>
+  );
+}
+
+/**
+ * The guide's page: the progress and the widget's status on every step,
+ * then the step the loader chose. Each control posts on its own fetcher, one
+ * post at a time (CONCURRENCY-2). One poll serves the whole page: the import
+ * while it runs, the tier pass while buyers are placed, and the try-it while
+ * its order hasn't settled, restarted when the merchant comes back to the tab.
+ */
 export default function Welcome() {
-  return null;
+  const d: WelcomeData = useLoaderData<typeof loader>();
+  const finishFetcher = useFetcher<typeof action>();
+  const saveFetcher = useFetcher<typeof action>();
+  const switchFetcher = useFetcher<typeof action>();
+  const navigate = useNavigate();
+  const widget = useWidgetEmbed();
+  const money = (amount: Decimal | number | string) => formatMoney(amount, d.currency);
+
+  // Home only once Finish later is recorded, so Home's guard sees the stamp
+  const finished = finishFetcher.data?.ok === true;
+  useEffect(() => {
+    if (finished) navigate("/app");
+  }, [finished, navigate]);
+  const finishBusy = finishFetcher.state !== "idle";
+  const finishLater = (
+    <s-button
+      loading={finishBusy}
+      onClick={() => {
+        if (!finishBusy) finishFetcher.submit({ intent: "finish-later" }, { method: "post" });
+      }}
+    >
+      {GUIDE.finishLater}
+    </s-button>
+  );
+
+  // Step 2's fields. The starts come only from the store's suggestions: a
+  // field the merchant has typed in (or dragged) keeps its value through
+  // every refresh, and the untouched ones move when the suggestions do
+  const suggested = d.ladder?.suggested ?? null;
+  const suggestedKey = suggested ? suggested.join(",") : "";
+  const [names, setNames] = useState<string[]>(() => [...GUIDE.defaultNames]);
+  const [percents, setPercents] = useState<string[]>(() => [String(d.everyonePercent ?? DEFAULT_PERCENTS[0]), DEFAULT_PERCENTS[1], DEFAULT_PERCENTS[2]]);
+  const [starts, setStarts] = useState<[string, string]>(() => startsText(suggested));
+  const [touched, setTouched] = useState<[boolean, boolean]>([false, false]);
+  const [startsFrom, setStartsFrom] = useState(suggestedKey);
+  if (startsFrom !== suggestedKey) {
+    setStartsFrom(suggestedKey);
+    const next = startsText(suggested);
+    setStarts([touched[0] ? starts[0] : next[0], touched[1] ? starts[1] : next[1]]);
+  }
+  const typeStart = (index: 0 | 1, value: string) => {
+    setStarts((current) => (index === 0 ? [value, current[1]] : [current[0], value]));
+    setTouched((current) => (index === 0 ? [true, current[1]] : [current[0], true]));
+  };
+  const setAt = (list: string[], index: number, value: string) => list.map((item, i) => (i === index ? value : item));
+
+  // Counts and cost from the typed starts, on the picture's grid (R9)
+  const ladder = d.ladder;
+  const valid = validStarts(starts[0], starts[1]);
+  const rates = percents.map(rateOf);
+  const gridStarts: Starts | null = ladder && valid ? [0, onGrid(valid[0], ladder.binWidth), onGrid(valid[1], ladder.binWidth)] : null;
+  const counts = ladder && gridStarts ? countsFor(ladder.buyers, ladder.binWidth, gridStarts) : null;
+  const allRates = rates.every((rate) => rate !== null) ? (rates as [number, number, number]) : null;
+  const cost = ladder && gridStarts && allRates && d.importedOrders > 0 ? costFor(ladder.earnBase, ladder.binWidth, gridStarts, allRates, d.currency) : null;
+  const beyondPicture = ladder !== null && valid !== null && valid.some((start) => start > (MAX_BINS - 1) * ladder.binWidth);
+  const showPicture = ladder !== null && d.importState === "done" && d.importedOrders > 0;
+
+  const saveBusy = saveFetcher.state !== "idle";
+  const saveAnswer = saveFetcher.data;
+  const ladderErrors = saveAnswer && !saveAnswer.ok && "errors" in saveAnswer ? saveAnswer.errors : undefined;
+  const rowErrors = ladderErrors?.rows ?? null;
+  const saveError = ladderErrors ? ladderErrors.form : saveAnswer && !saveAnswer.ok && "error" in saveAnswer ? saveAnswer.error : undefined;
+  const save = () => {
+    if (saveBusy) return;
+    saveFetcher.submit(
+      {
+        intent: "save-ladder",
+        name0: names[0],
+        percent0: percents[0],
+        name1: names[1],
+        minSpend1: starts[0],
+        percent1: percents[1],
+        name2: names[2],
+        minSpend2: starts[1],
+        percent2: percents[2],
+      },
+      { method: "post" },
+    );
+  };
+
+  // Step 3: on at once when pressed, as Home's switch is; the action's answer settles it
+  const switchBusy = switchFetcher.state !== "idle";
+  const isLive = d.running || switchFetcher.formData?.get("intent") === "running";
+  const switchAnswer = switchFetcher.data;
+  const switchError = switchAnswer && !switchAnswer.ok && "error" in switchAnswer ? switchAnswer.error : null;
+  const [picked, setPicked] = useState<string | null>(null);
+  const chosen = d.tryIt.length === 1 ? d.tryIt[0] : (d.tryIt.find((order) => order.orderId === picked) ?? null);
+  const minimum = d.firstPercent === null ? null : minEarningBase(d.firstPercent, d.currency);
+
+  const importRunning = d.importState === "running";
+  const tryItWaiting = d.step === 3 && d.switchedOnAt !== null && !(chosen !== null && chosen.status.key !== "waiting");
+  usePolling(importRunning || d.placing || tryItWaiting, FOLLOW_MS, {
+    forMs: importRunning ? undefined : PASS_FOLLOW_MS,
+    restartKey: `${d.importState}:${d.switchedOnAt ?? ""}:${widget.returns}`,
+  });
+
+  const order = exampleOrder(d.medianOrder === null ? null : new Money(d.medianOrder), d.currency);
+  const widgetCheck = <Check ok={widget.on} yes={GUIDE.widgetYes} no={GUIDE.widgetNo} unknown={GUIDE.widgetUnknown} />;
+
+  return (
+    <s-page heading={GUIDE.heading} inlineSize="base">
+      <s-section>
+        <s-stack gap="small-200">
+          <s-progress value={d.step} max={3} accessibilityLabel={GUIDE.progress(d.step)} />
+          <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="small-200">
+            {GUIDE.steps.map((name, i) => (
+              <s-text key={name} type={i + 1 === d.step ? "strong" : "generic"} color={i + 1 === d.step ? "base" : "subdued"}>
+                {name}
+              </s-text>
+            ))}
+          </s-grid>
+          {/* Step 3 shows it among its checks */}
+          {d.step === 3 ? null : widgetCheck}
+        </s-stack>
+      </s-section>
+
+      {d.step === 1 ? (
+        <s-section heading={GUIDE.steps[0]}>
+          <s-stack gap="base">
+            <s-query-container containerName="tiles">
+              <s-grid gridTemplateColumns={`${TILES_SIDE_BY_SIDE} 1fr 1fr, 1fr`} gap="base">
+                <s-box padding="base" border="base" borderRadius="base">
+                  <s-stack gap="small-200">
+                    <s-heading>{GUIDE.creditTitle}</s-heading>
+                    <s-paragraph>{GUIDE.creditBody}</s-paragraph>
+                    {d.multiCurrency ? <s-paragraph>{GUIDE.creditCurrency}</s-paragraph> : null}
+                  </s-stack>
+                </s-box>
+                <s-box padding="base" border="base" borderRadius="base">
+                  <s-stack gap="small-200">
+                    <s-heading>{GUIDE.nextTimeTitle}</s-heading>
+                    <s-paragraph>{GUIDE.nextTimeBody}</s-paragraph>
+                    {order === null ? null : (
+                      <s-text color="subdued">{GUIDE.example(money(order), money(cashbackFor(order, d.firstPercent ?? 3, d.currency)))}</s-text>
+                    )}
+                  </s-stack>
+                </s-box>
+              </s-grid>
+            </s-query-container>
+            <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
+              {finishLater}
+              {d.editable ? (
+                <s-button variant="primary" href="/app/welcome?step=2">
+                  {GUIDE.next}
+                </s-button>
+              ) : (
+                <s-link href="/app/tiers">{GUIDE.editTiers}</s-link>
+              )}
+            </s-stack>
+          </s-stack>
+        </s-section>
+      ) : null}
+
+      {d.step === 2 ? (
+        <s-section heading={GUIDE.steps[1]}>
+          <s-stack gap="base">
+            {ladder ? <s-paragraph>{tiersSentence(d, ladder)}</s-paragraph> : null}
+            {d.importLines.map((line) => (
+              <s-text key={line} color="subdued">
+                {line}
+              </s-text>
+            ))}
+            {importRunning ? <s-text color="subdued">{GUIDE.importRunning(d.importedOrders)}</s-text> : null}
+            {showPicture ? (
+              <s-stack gap="small-200">
+                <s-text>{GUIDE.chartLabel(d.period)}</s-text>
+                <LadderChart
+                  ariaLabel={
+                    counts && valid ? GUIDE.chartSummary(GUIDE.chartLabel(d.period), counts, money(valid[0]), money(valid[1])) : GUIDE.chartLabel(d.period)
+                  }
+                  buyers={ladder.buyers}
+                  binWidth={ladder.binWidth}
+                  starts={gridStarts ? [gridStarts[1], gridStarts[2]] : null}
+                  formatAmount={money}
+                  onStartsChange={([second, third]) => {
+                    setStarts([String(second), String(third)]);
+                    setTouched([true, true]);
+                  }}
+                />
+              </s-stack>
+            ) : null}
+            <s-query-container containerName="tiers">
+              <s-stack gap="base">
+                {[0, 1, 2].map((i) => (
+                  <s-grid key={i} gridTemplateColumns={`${ROW_IN_LINE} 2fr 2fr 1fr, 1fr`} gap="base" alignItems="start">
+                    <s-text-field
+                      label={GUIDE.name}
+                      name={`name${i}`}
+                      value={names[i]}
+                      error={rowErrors?.[i]?.name}
+                      onInput={(event) => {
+                        const value = event.currentTarget.value;
+                        setNames((current) => setAt(current, i, value));
+                      }}
+                    />
+                    {i === 0 ? (
+                      <s-stack gap="small-300">
+                        <s-text>{`${GUIDE.starts} ${money(0)}`}</s-text>
+                        <s-text color="subdued">{GUIDE.firstTier}</s-text>
+                      </s-stack>
+                    ) : (
+                      <s-money-field
+                        label={GUIDE.starts}
+                        name={`minSpend${i}`}
+                        currencyCode={d.currency as HTMLElementTagNameMap["s-money-field"]["currencyCode"]}
+                        min={0}
+                        value={starts[i - 1]}
+                        error={rowErrors?.[i]?.minSpend}
+                        onInput={(event) => typeStart(i === 1 ? 0 : 1, event.currentTarget.value)}
+                      />
+                    )}
+                    <s-number-field
+                      label={GUIDE.cashback}
+                      name={`percent${i}`}
+                      suffix="%"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={percents[i]}
+                      error={rowErrors?.[i]?.percent}
+                      onInput={(event) => {
+                        const value = event.currentTarget.value;
+                        setPercents((current) => setAt(current, i, value));
+                      }}
+                    />
+                  </s-grid>
+                ))}
+              </s-stack>
+            </s-query-container>
+            {/* Announced as they change; there from the first render so the first figures are announced too */}
+            <div role="status">
+              {counts ? (
+                <s-stack gap="small-200">
+                  {counts.map((count, i) => (
+                    <s-text key={i}>{`${names[i].trim() || GUIDE.defaultNames[i]}: ${GUIDE.buyers(count)}`}</s-text>
+                  ))}
+                  {cost ? <s-text>{GUIDE.cost(money(cost), d.period)}</s-text> : null}
+                  {beyondPicture ? <s-text color="subdued">{GUIDE.beyondPicture}</s-text> : null}
+                </s-stack>
+              ) : null}
+            </div>
+            {saveError ? <s-text tone="critical">{saveError}</s-text> : null}
+            <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
+              {finishLater}
+              <s-button variant="primary" loading={saveBusy} onClick={save}>
+                {GUIDE.saveTiers}
+              </s-button>
+            </s-stack>
+          </s-stack>
+        </s-section>
+      ) : null}
+
+      {d.step === 3 ? (
+        <>
+          <s-section heading={GUIDE.checksHeading}>
+            <s-stack gap="base">
+              <s-stack gap="small-200">
+                <Check ok={d.storeCredit} yes={GUIDE.storeCreditYes} no={GUIDE.storeCreditNo} unknown={GUIDE.storeCreditUnknown} />
+                {d.storeCredit === false && d.storeCreditBanner ? (
+                  <s-text>
+                    {d.storeCreditBanner}{" "}
+                    {d.storeCreditLink ? (
+                      <s-link href={d.storeCreditLink.href} target="_top">
+                        {d.storeCreditLink.label}
+                      </s-link>
+                    ) : null}
+                  </s-text>
+                ) : null}
+              </s-stack>
+              <s-stack gap="small-200">
+                {widgetCheck}
+                {widget.on === true ? null : (
+                  <s-stack direction="inline" gap="base" alignItems="center">
+                    {/* A new tab, so the guide stays where it was and checks again on the way back */}
+                    <s-link href={d.themeEditorUrl} target="_blank">
+                      {GUIDE.turnOnWidget}
+                    </s-link>
+                    <s-button variant="tertiary" onClick={widget.recheck}>
+                      {GUIDE.checkAgain}
+                    </s-button>
+                  </s-stack>
+                )}
+              </s-stack>
+              {d.placing ? <s-paragraph>{GUIDE.placing}</s-paragraph> : null}
+            </s-stack>
+          </s-section>
+
+          {isLive ? (
+            <s-section heading={GUIDE.liveHeading}>
+              <s-stack gap="base">
+                <s-heading>{GUIDE.tryItHeading}</s-heading>
+                {minimum === null ? (
+                  <s-paragraph>{GUIDE.tryItNoRate}</s-paragraph>
+                ) : (
+                  <>
+                    <s-ordered-list>
+                      {GUIDE.tryItSteps(money(minimum)).map((line) => (
+                        <s-list-item key={line}>{line}</s-list-item>
+                      ))}
+                    </s-ordered-list>
+                    <s-link href={d.draftOrderUrl} target="_blank">
+                      {GUIDE.draftOrder}
+                    </s-link>
+                  </>
+                )}
+                {d.tryIt.length === 0 ? <s-text color="subdued">{GUIDE.tryItNone}</s-text> : null}
+                {d.tryIt.length > 1 ? (
+                  <s-choice-list
+                    label={GUIDE.tryItPick}
+                    name="tryIt"
+                    onChange={(event) => {
+                      const [value] = event.currentTarget.values;
+                      setPicked(value ?? null);
+                    }}
+                  >
+                    {d.tryIt.map((option) => (
+                      <s-choice key={option.orderId} value={option.orderId} selected={option.orderId === chosen?.orderId}>
+                        {option.name}
+                      </s-choice>
+                    ))}
+                  </s-choice-list>
+                ) : null}
+                {chosen ? <TryItResult order={chosen} /> : null}
+                <s-text color="subdued">{GUIDE.emails}</s-text>
+                <s-stack direction="inline" justifyContent="end">
+                  <s-button variant="primary" href="/app">
+                    {GUIDE.goHome}
+                  </s-button>
+                </s-stack>
+              </s-stack>
+            </s-section>
+          ) : (
+            <s-section>
+              <s-stack gap="base">
+                {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
+                <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
+                  {finishLater}
+                  {/* Whatever the widget says: earning doesn't depend on it */}
+                  <s-button
+                    variant="primary"
+                    disabled={switchBusy}
+                    loading={switchBusy}
+                    onClick={() => {
+                      if (!switchBusy) switchFetcher.submit({ intent: "running", running: "on" }, { method: "post" });
+                    }}
+                  >
+                    {GUIDE.switchOn}
+                  </s-button>
+                </s-stack>
+              </s-stack>
+            </s-section>
+          )}
+        </>
+      ) : null}
+    </s-page>
+  );
 }
