@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import prisma from "~/db.server";
-import { dismissGuide, guideDue } from "~/lib/guide.server";
+import { dismissGuide, guideDue, tryItOrders } from "~/lib/guide.server";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
 
@@ -23,6 +23,78 @@ async function seedTier(conn: ConnectionContext, name: string, minSpend: string,
 }
 
 const merchantOf = (conn: ConnectionContext) => prisma.merchant.findUniqueOrThrow({ where: { id: conn.merchantId } });
+
+const MINUTE = 60 * 1000;
+/** When the guide's switch turned cashback on */
+const SWITCHED_ON = new Date("2026-11-09T10:00:00Z");
+const minutesAfter = (minutes: number) => new Date(SWITCHED_ON.getTime() + minutes * MINUTE);
+
+async function seedBuyer(conn: ConnectionContext, externalCustomerId: string) {
+  return prisma.customer.create({ data: { merchantId: conn.merchantId, connectionId: conn.connectionId, externalCustomerId } });
+}
+
+async function seedOrder(
+  conn: ConnectionContext,
+  customerId: string,
+  name: string,
+  o: { orderedAt: Date; source?: "live" | "import"; test?: boolean; noCashbackReason?: "test" | "import" },
+) {
+  return prisma.order.create({
+    data: {
+      merchantId: conn.merchantId,
+      connectionId: conn.connectionId,
+      customerId,
+      externalOrderId: `gid://shopify/Order/${name.slice(1)}`,
+      name,
+      source: o.source ?? "live",
+      currency: "GBP",
+      totalAmount: "50",
+      productAmount: "50",
+      shopProductAmount: "50",
+      storeCreditUsed: "0",
+      shopStoreCreditUsed: "0",
+      giftCardUsed: "0",
+      cashbackBase: "50",
+      orderedAt: o.orderedAt,
+      paidAt: o.orderedAt,
+      test: o.test ?? false,
+      noCashbackReason: o.noCashbackReason ?? null,
+    },
+  });
+}
+
+/** A cashback entry of `amount` GBP on the order, with its credit payout in `state` */
+async function seedCashback(conn: ConnectionContext, order: { id: string; customerId: string }, amount: string, state: "sent" | "pending") {
+  const entry = await prisma.ledgerEntry.create({
+    data: {
+      merchantId: conn.merchantId,
+      connectionId: conn.connectionId,
+      customerId: order.customerId,
+      orderId: order.id,
+      kind: "cashback",
+      amount,
+      currency: "GBP",
+      shopAmount: amount,
+      tierName: "Everyone",
+      ratePercent: "3",
+      idempotencyKey: `cashback:${order.id}`,
+    },
+  });
+  await prisma.payout.create({
+    data: {
+      merchantId: conn.merchantId,
+      ledgerEntryId: entry.id,
+      customerId: order.customerId,
+      rail: "shopify_store_credit",
+      direction: "credit",
+      amount,
+      currency: "GBP",
+      state,
+      nextAttemptAt: SWITCHED_ON,
+      sentAt: state === "sent" ? minutesAfter(1) : null,
+    },
+  });
+}
 
 describe.skipIf(!hasTestDatabase)("the setup guide's gate", () => {
   beforeEach(async () => {
@@ -56,5 +128,69 @@ describe.skipIf(!hasTestDatabase)("the setup guide's gate", () => {
 
   it("is not due for an unknown merchant", async () => {
     expect(await guideDue(crypto.randomUUID())).toBe(false);
+  });
+});
+
+describe.skipIf(!hasTestDatabase)("the setup guide's try-it list", () => {
+  let conn: ConnectionContext;
+
+  beforeEach(async () => {
+    await resetDatabase();
+    conn = await seedShop();
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it("lists the live orders since switch-on, newest first, with what they earned", async () => {
+    const buyer = await seedBuyer(conn, "7001");
+    // Placed a little before the switch was pressed, inside the 15 minutes' grace
+    const earned = await seedOrder(conn, buyer.id, "#1002", { orderedAt: new Date(SWITCHED_ON.getTime() - 5 * MINUTE) });
+    await seedCashback(conn, earned, "1.5", "sent");
+    await seedOrder(conn, buyer.id, "#1003", { orderedAt: minutesAfter(2), test: true, noCashbackReason: "test" });
+    // Left out: an import order, and a live order from before the grace
+    await seedOrder(conn, buyer.id, "#1001", { orderedAt: minutesAfter(1), source: "import", noCashbackReason: "import" });
+    await seedOrder(conn, buyer.id, "#1000", { orderedAt: new Date(SWITCHED_ON.getTime() - 20 * MINUTE) });
+    // Another store's order
+    const other = await seedShop("other-guide.myshopify.com");
+    const otherBuyer = await seedBuyer(other, "7001");
+    await seedOrder(other, otherBuyer.id, "#1004", { orderedAt: minutesAfter(3) });
+
+    const list = await tryItOrders(conn, SWITCHED_ON);
+    expect(list.map((o) => [o.name, o.status.label, o.status.detail])).toEqual([
+      ["#1003", "No cashback", "Test order"],
+      ["#1002", "Issued", null],
+    ]);
+    expect(list[1]).toEqual({
+      orderId: earned.id,
+      name: "#1002",
+      externalCustomerId: "7001",
+      status: { key: "issued", label: "Issued", detail: null },
+      cashback: { amount: "1.5", currency: "GBP" },
+    });
+    expect(list[0].cashback).toBeNull();
+  });
+
+  it("lists at most the limit, newest first", async () => {
+    const buyer = await seedBuyer(conn, "7001");
+    for (let i = 1; i <= 7; i++) {
+      const order = await seedOrder(conn, buyer.id, `#${1000 + i}`, { orderedAt: minutesAfter(i) });
+      await seedCashback(conn, order, "1.5", "pending");
+    }
+    expect((await tryItOrders(conn, SWITCHED_ON)).map((o) => [o.name, o.status.label])).toEqual([
+      ["#1007", "Waiting"],
+      ["#1006", "Waiting"],
+      ["#1005", "Waiting"],
+      ["#1004", "Waiting"],
+      ["#1003", "Waiting"],
+    ]);
+    expect((await tryItOrders(conn, SWITCHED_ON, 1)).map((o) => o.name)).toEqual(["#1007"]);
+  });
+
+  it("gives an erased buyer's order no Shopify id", async () => {
+    const buyer = await prisma.customer.create({ data: { merchantId: conn.merchantId, connectionId: conn.connectionId, externalCustomerId: null } });
+    await seedOrder(conn, buyer.id, "#1002", { orderedAt: minutesAfter(1) });
+    expect((await tryItOrders(conn, SWITCHED_ON)).map((o) => o.externalCustomerId)).toEqual([null]);
   });
 });
