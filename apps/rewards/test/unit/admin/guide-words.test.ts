@@ -11,6 +11,7 @@ describe("guide words", () => {
     const all = [
       JSON.stringify(GUIDE),
       GUIDE.beyondPicture,
+      GUIDE.andAbove("£820"),
       GUIDE.progress(1),
       GUIDE.example("£40.00", "£2.00"),
       GUIDE.tiersIntro("12 months"),
@@ -31,6 +32,14 @@ describe("guide words", () => {
 
   it("counts buyers", () => {
     expect([1, 2, 1200].map(GUIDE.buyers)).toEqual(["1 buyer", "2 buyers", "1,200 buyers"]);
+  });
+
+  it("labels the picture's last bar, which holds every spend above its start", () => {
+    expect(GUIDE.andAbove("£820")).toBe("£820 and above");
+  });
+
+  it("says which figures a start above the picture leaves low: that tier's count, not every count", () => {
+    expect(GUIDE.beyondPicture).toBe("This start is above the highest spend the picture shows, so that tier's count and the estimate may be low.");
   });
 
   it("sums up the picture for a screen reader", () => {

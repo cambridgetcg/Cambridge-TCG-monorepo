@@ -1,19 +1,24 @@
-import { useRef, type PointerEvent } from "react";
-import { snap } from "~/lib/ladder";
+import { useEffect, useRef, type PointerEvent } from "react";
+import { snap, tierOfBin } from "~/lib/ladder";
 import styles from "./admin.module.css";
+import { GUIDE } from "./guide-words";
 
 /**
  * The guide's picture of a store's buyers (RP-24 spec 4.3): a bar per bin of
- * spend, with two lines where tiers 2 and 3 start. Plain SVG on Chart.tsx's
- * pattern:
+ * spend, each tier's bars drawn as one stepped shape (R20), with two lines
+ * where tiers 2 and 3 start. Plain SVG on Chart.tsx's pattern:
  * - `role="img"` with the page's spoken summary as its label, and no text
  *   inside it: the page shows the picture's label above it, and the ends of
- *   its scale are Polaris text below it;
+ *   its scale are Polaris text below it, the right-hand one the last bar's
+ *   start "and above", since that bar holds every spend from there up;
  * - stretched to the width at a fixed height (preserveAspectRatio none), one
  *   unit per bin, with strokes that keep their pixel width;
- * - the tiers told apart by fill and edge, not colour alone: tier 1 light
- *   teal, tier 2 teal, tier 3 navy, every bar inside a navy edge. A bar
- *   belongs to the tier its bin's start falls in, as countsFor counts it;
+ * - one shape per tier, not a rect per bar, so a narrow screen shows each
+ *   tier's outline rather than stripes of edges: tier 1 light teal, tier 2
+ *   teal, tier 3 navy, each inside one navy edge. The tiers are told apart by
+ *   their fills' lightness and by the lines between them, not by colour
+ *   alone (every edge is the same navy). A bar belongs to the tier its bin's
+ *   start falls in, by tierOfBin, as countsFor counts it;
  * - the lines mirror the fields, which are the real control: they are
  *   hidden from the accessibility tree, and dragging one (pointer events
  *   with capture, so mouse, pen and touch all work) reports the new starts,
@@ -27,10 +32,10 @@ import styles from "./admin.module.css";
 interface LadderChartProps {
   /** The picture's spoken summary (GUIDE.chartSummary), worked out by the page */
   ariaLabel: string;
-  /** Buyers per bin; the last bin holds every spend above the picture */
+  /** Buyers per bin, from pictureBins; the last bin holds every spend from its start up */
   buyers: number[];
   binWidth: number;
-  /** Where tiers 2 and 3 start, from validStarts; null draws the bars only */
+  /** Where tiers 2 and 3 start, from validStarts on the grid (onGrid); null draws one tier-1 shape and no lines */
   starts: [number, number] | null;
   /** How a whole amount in the shop's currency is written */
   formatAmount: (whole: number) => string;
@@ -52,23 +57,25 @@ const DEAD_ZONE = 3;
 
 const round = (n: number) => Number(n.toFixed(2));
 
+/** Each tier's shape, by tier */
+const SHAPE_CLASS = [styles.tier1Shape, styles.tier2Shape, styles.tier3Shape] as const;
+
 export function LadderChart({ ariaLabel, buyers, binWidth, starts, formatAmount, onStartsChange }: LadderChartProps) {
   const svg = useRef<SVGSVGElement>(null);
   // The line being dragged (0 for tier 2, 1 for tier 3), the pointer dragging it, where the
   // pointer took hold and the line's start then, and whether it has gone past the dead zone
   const drag = useRef<{ line: 0 | 1; pointerId: number; fromX: number; fromStart: number; live: boolean } | null>(null);
+  // Starts gone (a field emptied mid-drag) take the lines away, and the drag with them: when they
+  // come back, only a new press takes a line
+  const hasStarts = starts !== null;
+  useEffect(() => {
+    if (!hasStarts) drag.current = null;
+  }, [hasStarts]);
 
   const bins = Math.max(buyers.length, 1);
   const highest = Math.max(0, ...buyers);
   const barHeight = (count: number) => (count > 0 ? round(Math.max(MIN_BAR, (count / highest) * (HEIGHT - TOP))) : 0);
-  // The same rule as countsFor: a bin is in the tier its start falls in
-  const barClass = (bin: number) => {
-    if (starts === null) return styles.bar;
-    const binStart = bin * binWidth;
-    if (binStart >= starts[1]) return `${styles.bar} ${styles.barTop}`;
-    if (binStart >= starts[0]) return `${styles.bar} ${styles.barMid}`;
-    return styles.bar;
-  };
+  const shapes = tierShapes(buyers, binWidth, starts, barHeight);
 
   /** How much spend a sideways move of the pointer covers, from the SVG's laid-out width and its viewBox. */
   function amountOver(pixels: number): number | null {
@@ -99,7 +106,8 @@ export function LadderChart({ ariaLabel, buyers, binWidth, starts, formatAmount,
 
   function onPointerMove(event: PointerEvent<SVGGElement>) {
     const dragging = drag.current;
-    if (dragging === null || dragging.pointerId !== event.pointerId || starts === null) return;
+    // No button pressed: a hover, or a release the page never saw (outside the frame), not a drag
+    if (dragging === null || dragging.pointerId !== event.pointerId || starts === null || event.buttons === 0) return;
     const pixels = event.clientX - dragging.fromX;
     if (!dragging.live && Math.abs(pixels) < DEAD_ZONE) return;
     dragging.live = true;
@@ -128,10 +136,9 @@ export function LadderChart({ ariaLabel, buyers, binWidth, starts, formatAmount,
   return (
     <s-stack gap="small-200">
       <svg ref={svg} className={styles.ladder} viewBox={`0 0 ${bins} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={ariaLabel}>
-        {buyers.map((count, bin) => {
-          const height = barHeight(count);
-          return <rect key={bin} className={barClass(bin)} x={bin} width={1} y={round(HEIGHT - height)} height={height} />;
-        })}
+        {shapes.map((shape) => (
+          <path key={shape.tier} className={SHAPE_CLASS[shape.tier]} d={shape.d} />
+        ))}
         {starts === null
           ? null
           : starts.map((start, index) => {
@@ -160,8 +167,45 @@ export function LadderChart({ ariaLabel, buyers, binWidth, starts, formatAmount,
       {/* The ends of the scale, as Chart.tsx gives its first and last day */}
       <s-stack direction="inline" justifyContent="space-between">
         <s-text color="subdued">{formatAmount(0)}</s-text>
-        <s-text color="subdued">{formatAmount(bins * binWidth)}</s-text>
+        <s-text color="subdued">{GUIDE.andAbove(formatAmount((bins - 1) * binWidth))}</s-text>
       </s-stack>
     </s-stack>
   );
+}
+
+/**
+ * Each tier's run of bars as one stepped outline: up from the baseline at the
+ * run's first bin, across each bar's top (an empty bin on the baseline), and
+ * back along the baseline from the run's end. A tier with no bins in the
+ * picture has no shape; with no starts, every bin is tier 1's.
+ */
+function tierShapes(
+  buyers: number[],
+  binWidth: number,
+  starts: [number, number] | null,
+  barHeight: (count: number) => number,
+): { tier: 0 | 1 | 2; d: string }[] {
+  const tierOf = (bin: number) => (starts === null ? 0 : tierOfBin(bin, binWidth, [0, starts[0], starts[1]]));
+  const shapes: { tier: 0 | 1 | 2; d: string }[] = [];
+  let bin = 0;
+  while (bin < buyers.length) {
+    const tier = tierOf(bin);
+    const path = [`M${bin} ${HEIGHT}`];
+    // Where the outline is: it only turns where a bar's top changes
+    let x = bin;
+    let y = HEIGHT;
+    for (; bin < buyers.length && tierOf(bin) === tier; bin += 1) {
+      const top = round(HEIGHT - barHeight(buyers[bin]));
+      if (top === y) continue;
+      if (bin !== x) path.push(`H${bin}`);
+      path.push(`V${top}`);
+      x = bin;
+      y = top;
+    }
+    path.push(`H${bin}`);
+    if (y !== HEIGHT) path.push(`V${HEIGHT}`);
+    path.push("Z");
+    shapes.push({ tier, d: path.join("") });
+  }
+  return shapes;
 }

@@ -13,7 +13,7 @@ import { requireMerchant } from "~/admin/require-merchant.server";
 import { type WidgetEmbed, useWidgetEmbed } from "~/admin/widget-embed";
 import { BUYER_IN_SHOPIFY, STATUS_TONE } from "~/admin/words";
 import { type TryItOrder, dismissGuide, guideSwitchedOnAt, tryItOrders } from "~/lib/guide.server";
-import { MAX_BINS, MIN_SPENDERS, type Starts, costFor, countsFor, exampleOrder, minEarningBase, onGrid, suggestStarts, validStarts } from "~/lib/ladder";
+import { MAX_BINS, MIN_SPENDERS, type Starts, costFor, countsFor, exampleOrder, minEarningBase, onGrid, pictureBins, suggestStarts, validStarts } from "~/lib/ladder";
 import { type LadderData, readGuideBasics, readLadder } from "~/lib/ladder.server";
 import { type ConnectionContext, markSetupCompleted, setRunning } from "~/lib/merchant.server";
 import { Money, cashbackFor } from "~/lib/money";
@@ -449,8 +449,12 @@ function StepTwo({
               ariaLabel={
                 counts && valid ? GUIDE.chartSummary(GUIDE.chartLabel(d.period), counts, money(valid[0]), money(valid[1])) : GUIDE.chartLabel(d.period)
               }
-              buyers={ladder.buyers}
+              // Only the range where 99% of buyers spend, the rest folded into its last bar (R21);
+              // counts, cost and beyondPicture keep the full MAX_BINS grid, and a start beyond the
+              // shown range is drawn on its edge (LadderChart's lineX)
+              buyers={pictureBins(ladder.buyers)}
               binWidth={ladder.binWidth}
+              // The gridded starts (onGrid), not the typed ones, so it shades what the counts count (R15)
               starts={gridStarts ? [gridStarts[1], gridStarts[2]] : null}
               formatAmount={money}
               onStartsChange={fields.dragStarts}

@@ -32,7 +32,7 @@ const { default: Welcome } = await import("~/routes/app.welcome");
 const SHOP = "welcome-dom.myshopify.com";
 
 // jsdom lays nothing out and has no pointer capture or PointerEvent: the
-// picture's drag reads only clientX and pointerId (as the chart's own test)
+// picture's drag reads only clientX, buttons and pointerId (as the chart's own test)
 Element.prototype.setPointerCapture = () => {};
 Element.prototype.releasePointerCapture = () => {};
 Element.prototype.hasPointerCapture = () => false;
@@ -357,6 +357,20 @@ describe("Step 2: Your tiers", () => {
     expect(liveText()).not.toContain(GUIDE.beyondPicture);
   });
 
+  it("fits the picture to where its buyers spend, and counts from every bin", async () => {
+    await renderWelcome(step2());
+    // All 21 buyers are in the first 61 bins (up to 600-609), and a quarter more is 77
+    const svg = document.querySelector('svg[role="img"]')!;
+    expect(svg.getAttribute("viewBox")).toBe("0 0 77 100");
+    expect([...document.querySelectorAll("s-text")].map((text) => text.textContent)).toContain(GUIDE.andAbove("£760.00"));
+    // A start above the picture but within the grid is drawn on its edge, and counted where it is
+    await type(field("minSpend2"), "1000");
+    expect(svg.querySelectorAll("g")[1].querySelector("line")?.getAttribute("x1")).toBe("77");
+    expect(liveText()).toContain(`Silver: ${GUIDE.buyers(11)}`);
+    expect(liveText()).toContain(`Gold: ${GUIDE.buyers(0)}`);
+    expect(liveText()).not.toContain(GUIDE.beyondPicture);
+  });
+
   it("says when a start is above the picture's highest spend", async () => {
     await renderWelcome(step2());
     // The last bin starts at 1990
@@ -389,11 +403,12 @@ describe("Step 2: Your tiers", () => {
     let next = step2();
     await renderWelcome(next, { next: () => next });
     const svg = document.querySelector('svg[role="img"]')!;
-    svg.getBoundingClientRect = () => ({ left: 0, width: 2000, top: 0, height: 100, right: 2000, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+    // The picture's 77 bins of 10 laid out one pixel per unit of spend
+    svg.getBoundingClientRect = () => ({ left: 0, width: 770, top: 0, height: 100, right: 770, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
     const line = svg.querySelectorAll("g")[0];
     await act(async () => {
       fireEvent.pointerDown(line, { button: 0, clientX: 200, pointerId: 1 });
-      fireEvent.pointerMove(line, { clientX: 300, pointerId: 1 });
+      fireEvent.pointerMove(line, { clientX: 300, buttons: 1, pointerId: 1 });
       fireEvent.pointerUp(line, { clientX: 300, pointerId: 1 });
     });
     expect(["minSpend1", "minSpend2"].map(shown)).toEqual(["300", "500"]);

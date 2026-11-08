@@ -41,7 +41,7 @@
   /* The edge's dashes 1px longer at each end, so every teal dash keeps its navy edge */
   --rp-dash-edge: 8px 2px;
   --rp-dash-edge-offset: 1px;
-  /* The buyer picture: tier 1's bars teal at a fifth on white, in their navy edge */
+  /* The buyer picture: tier 1's shape teal at a fifth on white, in its navy edge */
   --rp-teal-light: #d1f2f1;
   --rp-ladder-height: 10rem;
   --rp-bar-edge: 1px;
@@ -148,19 +148,25 @@
   touch-action: pan-y;
 }
 
-/* Tiers told apart by fill and edge, not colour alone: light teal, teal, navy, each bar in a navy edge */
-.bar {
-  fill: var(--rp-teal-light);
+/* One shape per tier, each in one navy edge (every teal mark keeps its navy edge): the tiers are
+   told apart by their fills' lightness, light teal, teal and navy, and by the lines between them */
+.tier1Shape,
+.tier2Shape,
+.tier3Shape {
   stroke: var(--rp-navy);
   stroke-width: var(--rp-bar-edge);
   vector-effect: non-scaling-stroke;
 }
 
-.barMid {
+.tier1Shape {
+  fill: var(--rp-teal-light);
+}
+
+.tier2Shape {
   fill: var(--rp-teal);
 }
 
-.barTop {
+.tier3Shape {
   fill: var(--rp-navy);
 }
 

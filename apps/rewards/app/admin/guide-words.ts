@@ -41,7 +41,9 @@ export const GUIDE = {
   chartSummary: (label: string, counts: [number, number, number], start2: string, start3: string) =>
     `${label}: ${buyers(counts[0])} below ${start2}, ${buyers(counts[1])} from ${start2}, ${buyers(counts[2])} from ${start3}`,
   /** Beside a tier start typed above the picture's highest spend. */
-  beyondPicture: "This start is above the highest spend the picture shows, so the counts and the estimate may be low.",
+  beyondPicture: "This start is above the highest spend the picture shows, so that tier's count and the estimate may be low.",
+  /** The right-hand end of the picture's scale: its last bar holds every spend from there up. */
+  andAbove: (amount: string) => `${amount} and above`,
   firstTier: "Everyone starts here",
   starts: "Starts at",
   cashback: "Cashback",
