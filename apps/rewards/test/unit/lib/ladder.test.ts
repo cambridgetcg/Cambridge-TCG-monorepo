@@ -9,6 +9,7 @@ import {
   fallbackStarts,
   minEarningBase,
   niceStep,
+  onGrid,
   snap,
   suggestStarts,
   validStarts,
@@ -120,6 +121,13 @@ describe("the ladder", () => {
 
   it("snaps a dragged start to the bin grid", () => {
     expect([3, 14, 15, 205].map((v) => snap(v, 10))).toEqual([10, 10, 20, 210]);
+  });
+
+  it("counts a typed start from the start of its bin, and at least one bin", () => {
+    expect(onGrid(200, 10)).toBe(200); // on the grid
+    expect([201, 205, 209].map((v) => onGrid(v, 10))).toEqual([200, 200, 200]); // between bins: down, not to the nearest
+    expect([0, 7].map((v) => onGrid(v, 10))).toEqual([10, 10]); // bin 0 is the buyers who spent nothing
+    expect(onGrid(2505, 10)).toBe(2500); // beyond the last bin: still its own bin's start, not the last bin's
   });
 
   it("picks a round example order", () => {

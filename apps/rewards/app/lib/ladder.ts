@@ -141,6 +141,16 @@ export function snap(value: number, binWidth: number): number {
   return Math.max(binWidth, Math.round(value / binWidth) * binWidth);
 }
 
+/**
+ * Where counts and cost take a typed start from (R9): the start of the bin
+ * it falls in, so the figures match the picture's bars, and at least one
+ * bin, since bin 0 holds the buyers who spent nothing and they are always in
+ * tier 1. Only for the figures: the field keeps what was typed.
+ */
+export function onGrid(start: number, binWidth: number): number {
+  return Math.max(binWidth, Math.floor(start / binWidth) * binWidth);
+}
+
 /** A round order for the worked example: near the store's median when known, else 100 near the pound. */
 export function exampleOrder(medianOrder: Decimal | null, currency: string): Decimal | null {
   if (medianOrder !== null) return new Money(niceStep(new Money(medianOrder).toNumber()));
