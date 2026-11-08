@@ -25,6 +25,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
 import prisma, { databaseSchema } from "~/db.server";
 import { acquireCronLock, releaseCronLock } from "./cron.server";
+import { WHOLE_AMOUNT } from "./ladder";
 import { Money, fromDb } from "./money";
 import { UUID } from "./uuid";
 import { waitUntil } from "./wait-until.server";
@@ -429,9 +430,6 @@ export async function tierPassPending(connectionId: string): Promise<boolean> {
 
 /** The longest a tier's name may be, in characters. */
 export const TIER_NAME_MAX = 40;
-
-/** A whole minimum spend in the shop's currency: numeric(19,4) holds 15 digits before the point, the form takes 12. */
-const WHOLE_AMOUNT = /^\d{1,12}$/;
 
 /** A tier change's problems: by field, or `form` for the whole change. */
 export type TierErrors = Partial<Record<"name" | "minSpend" | "percent" | "form", string>>;

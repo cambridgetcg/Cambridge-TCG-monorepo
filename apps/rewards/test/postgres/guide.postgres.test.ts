@@ -128,6 +128,7 @@ describe.skipIf(!hasTestDatabase)("the setup guide's gate", () => {
 
   it("is not due for an unknown merchant", async () => {
     expect(await guideDue(crypto.randomUUID())).toBe(false);
+    expect(await guideDue("not-a-uuid")).toBe(false);
   });
 });
 

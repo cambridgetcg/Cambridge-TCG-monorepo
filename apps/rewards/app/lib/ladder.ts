@@ -20,8 +20,8 @@ export const POUND_LIKE: ReadonlySet<string> = new Set(["GBP", "EUR", "USD", "CA
 /** Whole-unit starts of tiers 1, 2 and 3; tier 1 is always 0. */
 export type Starts = [number, number, number];
 
-/** As saveLadder takes a typed start (tiers.server.ts WHOLE_AMOUNT). */
-const WHOLE_AMOUNT = /^\d{1,12}$/;
+/** A typed start or minimum spend as the page and saveLadder both take it: whole units, up to 12 digits. */
+export const WHOLE_AMOUNT = /^\d{1,12}$/;
 
 /** The smallest of 1, 2, 5 × 10^k at least `n`, and at least 1. */
 export function niceStep(n: number): number {

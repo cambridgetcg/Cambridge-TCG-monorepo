@@ -205,7 +205,7 @@ describe.skipIf(!hasTestDatabase)("the guide's ladder read", () => {
 
   it("answers an empty store with empty bins and no percentiles", async () => {
     const ladder = await readLadder(conn, NOW);
-    expect(ladder).toMatchObject({ binWidth: 10, spenders: 0, p80: null, p95: null, medianOrder: null, estimate: false });
+    expect(ladder).toMatchObject({ binWidth: 10, spenders: 0, p80: null, p95: null, medianOrder: null, multiCurrency: false, estimate: false });
     expect(ladder.earnBase).toHaveLength(MAX_BINS);
     expect(ladder.earnBase.every((base) => base === "0")).toBe(true);
     expect(ladder.buyers).toEqual(Array(MAX_BINS).fill(0));
@@ -233,6 +233,9 @@ describe.skipIf(!hasTestDatabase)("the guide's ladder read", () => {
   it("gives step 1 the median order and whether another currency was used", async () => {
     const buyer = await addBuyer();
     for (const amount of ["40", "50", "60"]) await addOrder(buyer.id, amount, daysAgo(10), { source: "import" });
+    // Counted but worth nothing (gift card only, fully discounted): not the example
+    await addOrder(buyer.id, "0", daysAgo(10));
+    await addOrder(buyer.id, "0", daysAgo(10));
     // Not counted: a test order, a cancelled one, one outside the window, and an erased buyer's
     await addOrder(buyer.id, "5", daysAgo(9), { test: true, currency: "EUR" });
     await addOrder(buyer.id, "6", daysAgo(9), { cancelledAt: daysAgo(8), currency: "EUR" });
@@ -241,10 +244,11 @@ describe.skipIf(!hasTestDatabase)("the guide's ladder read", () => {
     await addOrder(erased.id, "8", daysAgo(9), { currency: "EUR" });
 
     expect(await readGuideBasics(conn, NOW)).toEqual({ medianOrder: "50", multiCurrency: false });
-    expect((await readLadder(conn, NOW)).medianOrder).toBe("50");
+    expect(await readLadder(conn, NOW)).toMatchObject({ medianOrder: "50", multiCurrency: false });
 
     await addOrder(buyer.id, "100", daysAgo(5), { currency: "EUR", productAmount: "117" });
     expect(await readGuideBasics(conn, NOW)).toEqual({ medianOrder: "50", multiCurrency: true });
+    expect(await readLadder(conn, NOW)).toMatchObject({ medianOrder: "50", multiCurrency: true });
   });
 
   it("answers an empty store's basics with no median", async () => {

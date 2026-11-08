@@ -47,6 +47,14 @@ describe("the ladder", () => {
     expect(costFor(base, 10, [0, 200, 500], [3, 5, 8], "GBP").toFixed()).toBe("50.03"); // 30 + 20.025 → 50.03
   });
 
+  it("rounds the total once, not each bin", () => {
+    const base = Array(MAX_BINS).fill("0");
+    base[0] = "0.10";
+    base[1] = "0.10";
+    // Each bin earns 0.005 (0.01 rounded alone, 0.02 summed); together 0.01
+    expect(costFor(base, 10, [0, 200, 500], [5, 5, 5], "GBP").toFixed()).toBe("0.01");
+  });
+
   it("falls back to 200 and 500 only near the pound", () => {
     expect(fallbackStarts("GBP")).toEqual([200, 500]);
     expect(fallbackStarts("JPY")).toBeNull();

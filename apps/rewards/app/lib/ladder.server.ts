@@ -36,8 +36,10 @@ export interface LadderData {
   spenders: number;
   p80: string | null;
   p95: string | null;
-  /** The median counted order's product value in shop currency, for step 1's example */
+  /** The median counted order's product value in shop currency (orders worth nothing left out), for step 1's example */
   medianOrder: string | null;
+  /** Some counted order was in another currency (step 2's note) */
+  multiCurrency: boolean;
 }
 
 type LadderConnection = Pick<ConnectionContext, "merchantId" | "connectionId" | "currency" | "tierWindow">;
@@ -144,13 +146,14 @@ export async function readLadder(conn: LadderConnection, now: Date): Promise<Lad
     p80: amountText(stats.p80),
     p95: amountText(stats.p95),
     medianOrder: basics.medianOrder,
+    multiCurrency: basics.multiCurrency,
   };
 }
 
 /** Step 1's light read: the median counted order and whether any counted order was in another currency (same filters as readLadder). */
 export async function readGuideBasics(conn: LadderConnection, now: Date): Promise<{ medianOrder: string | null; multiCurrency: boolean }> {
   const [row] = await prisma.$queryRaw<Array<{ median: string | null; multi: boolean | null }>>`
-    SELECT (percentile_disc(0.5) WITHIN GROUP (ORDER BY o.shop_product_amount))::text AS median,
+    SELECT (percentile_disc(0.5) WITHIN GROUP (ORDER BY o.shop_product_amount) FILTER (WHERE o.shop_product_amount > 0))::text AS median,
            bool_or(o.currency <> ${conn.currency}) AS multi
     ${pictureOrders(conn, now)}
     ${COUNTED}`;

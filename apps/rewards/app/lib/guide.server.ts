@@ -46,7 +46,12 @@ const TRY_IT_LIMIT = 5;
 /** How long before the switch-on an order still counts: one placed while the merchant pressed it. */
 const TRY_IT_GRACE_MS = 15 * 60 * 1000;
 
-/** What orderStatus reads of an order's cashback entry and take-backs (the Orders page's select). */
+/**
+ * What orderStatus reads of an order's cashback entry and take-backs. A copy of
+ * the Orders page's select (app/lib/stats.server.ts:612-667, STATUS_ENTRY_SELECT
+ * through cashbackAndStatus), less the tier name and rate the try-it list
+ * doesn't show: keep in step until the R7 follow-up moves both into app/lib.
+ */
 const STATUS_ENTRY_SELECT = {
   id: true,
   kind: true,
@@ -72,7 +77,11 @@ function reportMissingPayout(ledgerEntryId: string): void {
   monitoring.captureMessage(message, "error", { tags: { "ledger.invariant": "entry-without-payout" }, extra: { ledgerEntryId } });
 }
 
-/** The order's cashback and status from its ledger entries, as the Orders page works them out. */
+/**
+ * The order's cashback and status from its ledger entries, as the Orders page
+ * works them out. Twin of cashbackAndStatus in app/lib/stats.server.ts:612-667
+ * (the Orders page): keep in step until the R7 follow-up moves both into app/lib.
+ */
 function cashbackAndStatus(order: StatusOrder, entries: StatusEntry[]): Pick<TryItOrder, "cashback" | "status"> {
   const cashback = entries.find((entry) => entry.kind === "cashback") ?? null;
   for (const entry of entries) {
