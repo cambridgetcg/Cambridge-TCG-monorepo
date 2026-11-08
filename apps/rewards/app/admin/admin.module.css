@@ -164,10 +164,12 @@
   fill: var(--rp-navy);
 }
 
-/* Where tier 2 or 3 starts: a navy line with a grip, dragged sideways by mouse, pen or touch */
+/* Where tier 2 or 3 starts: a navy line with a grip, dragged sideways by mouse, pen or touch.
+   A vertical swipe that starts on a line still scrolls the page (the browser cancels the
+   pointer), so only a sideways drag is the chart's */
 .threshold {
   cursor: ew-resize;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .threshold line {

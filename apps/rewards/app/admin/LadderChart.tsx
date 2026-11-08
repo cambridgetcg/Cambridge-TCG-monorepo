@@ -17,7 +17,11 @@ import styles from "./admin.module.css";
  * - the lines mirror the fields, which are the real control: they are
  *   hidden from the accessibility tree, and dragging one (pointer events
  *   with capture, so mouse, pen and touch all work) reports the new starts,
- *   snapped to the bin grid and one bin apart.
+ *   snapped to the bin grid and one bin apart. A drag moves a line by how
+ *   far the pointer has gone since it took hold, not to the pointer, and
+ *   only once the pointer has gone DEAD_ZONE px sideways: touching a line,
+ *   or a scroll that starts on one, leaves a typed start (off the grid, or
+ *   beyond the picture) as it was.
  */
 
 interface LadderChartProps {
@@ -43,13 +47,16 @@ const MIN_BAR = 2;
 /** Where the grips sit: high up, above most bars */
 const GRIP_TOP = 8;
 const GRIP_BOTTOM = 32;
+/** How far, in CSS px, the pointer goes sideways before a press on a line becomes a drag */
+const DEAD_ZONE = 3;
 
 const round = (n: number) => Number(n.toFixed(2));
 
 export function LadderChart({ ariaLabel, buyers, binWidth, starts, formatAmount, onStartsChange }: LadderChartProps) {
   const svg = useRef<SVGSVGElement>(null);
-  // The line being dragged (0 for tier 2, 1 for tier 3) and the pointer dragging it
-  const drag = useRef<{ line: 0 | 1; pointerId: number } | null>(null);
+  // The line being dragged (0 for tier 2, 1 for tier 3), the pointer dragging it, where the
+  // pointer took hold and the line's start then, and whether it has gone past the dead zone
+  const drag = useRef<{ line: 0 | 1; pointerId: number; fromX: number; fromStart: number; live: boolean } | null>(null);
 
   const bins = Math.max(buyers.length, 1);
   const highest = Math.max(0, ...buyers);
@@ -63,12 +70,11 @@ export function LadderChart({ ariaLabel, buyers, binWidth, starts, formatAmount,
     return styles.bar;
   };
 
-  /** The amount under a pointer, from the SVG's laid-out width and its viewBox, kept on the picture. */
-  function amountAt(clientX: number): number | null {
+  /** How much spend a sideways move of the pointer covers, from the SVG's laid-out width and its viewBox. */
+  function amountOver(pixels: number): number | null {
     const box = svg.current?.getBoundingClientRect();
     if (!box || !(box.width > 0)) return null;
-    const amount = ((clientX - box.left) / box.width) * bins * binWidth;
-    return Math.min(Math.max(amount, 0), (bins - 1) * binWidth);
+    return (pixels / box.width) * bins * binWidth;
   }
 
   /** A dragged line's start on the grid, at least one bin from the other line. */
@@ -86,17 +92,29 @@ export function LadderChart({ ariaLabel, buyers, binWidth, starts, formatAmount,
   function onPointerDown(line: 0 | 1, event: PointerEvent<SVGGElement>) {
     if (event.button !== 0) return;
     event.preventDefault();
+    if (starts === null) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { line, pointerId: event.pointerId };
+    drag.current = { line, pointerId: event.pointerId, fromX: event.clientX, fromStart: starts[line], live: false };
   }
 
   function onPointerMove(event: PointerEvent<SVGGElement>) {
     const dragging = drag.current;
     if (dragging === null || dragging.pointerId !== event.pointerId || starts === null) return;
-    const amount = amountAt(event.clientX);
-    if (amount === null) return;
+    const pixels = event.clientX - dragging.fromX;
+    if (!dragging.live && Math.abs(pixels) < DEAD_ZONE) return;
+    dragging.live = true;
+    const shift = amountOver(pixels);
+    if (shift === null) return;
+    // From where the line is drawn (a start beyond the picture sits on its edge), kept on the picture
+    const drawn = Math.min(Math.max(dragging.fromStart, 0), bins * binWidth);
+    const amount = Math.min(Math.max(drawn + shift, 0), (bins - 1) * binWidth);
     const next = moved(dragging.line, amount, starts);
-    if (next !== null && (next[0] !== starts[0] || next[1] !== starts[1])) onStartsChange(next);
+    if (next === null || (next[0] === starts[0] && next[1] === starts[1])) return;
+    // A line never moves against the pointer: pushing one outward past an end of the picture,
+    // or into the other line, leaves a start the merchant typed there as it was
+    const to = next[dragging.line];
+    if (pixels > 0 ? to < dragging.fromStart : to > dragging.fromStart) return;
+    onStartsChange(next);
   }
 
   function onPointerEnd(event: PointerEvent<SVGGElement>) {

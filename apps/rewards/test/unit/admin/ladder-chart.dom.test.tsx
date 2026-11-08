@@ -149,6 +149,65 @@ describe("LadderChart", () => {
     expect(onStartsChange).not.toHaveBeenCalled();
   });
 
+  it("leaves a start beyond the picture as typed until the line is dragged inward", () => {
+    const { onStartsChange } = draw([500, 9000]);
+    const [, third] = withClass(styles.thresholdGrip);
+    // Drawn at the picture's right edge; a press with no sideways motion reports nothing
+    fireEvent.pointerDown(third, { clientX: xOf(2000), pointerId: 1 });
+    fireEvent.pointerMove(third, { clientX: xOf(2000), pointerId: 1 });
+    expect(onStartsChange).not.toHaveBeenCalled();
+    // Pushed outward past the edge, it stays where the merchant typed it
+    fireEvent.pointerMove(third, { clientX: xOf(2000) + 40, pointerId: 1 });
+    expect(onStartsChange).not.toHaveBeenCalled();
+    // Dragged inward, it follows the pointer from the edge
+    fireEvent.pointerMove(third, { clientX: xOf(2000) - 100, pointerId: 1 });
+    expect(onStartsChange).toHaveBeenLastCalledWith([500, 1900]);
+  });
+
+  it("reports nothing for a press that has not gone 3px sideways", () => {
+    const { onStartsChange } = draw([205, 495]);
+    const [second, third] = withClass(styles.thresholdGrip);
+    fireEvent.pointerDown(second, { clientX: xOf(205), pointerId: 1 });
+    // Touch jitter, and a vertical scroll that starts on the line, move under 3px sideways
+    fireEvent.pointerMove(second, { clientX: xOf(205) + 2.9, clientY: 80, pointerId: 1 });
+    fireEvent.pointerMove(second, { clientX: xOf(205) - 2.9, clientY: 140, pointerId: 1 });
+    expect(onStartsChange).not.toHaveBeenCalled();
+    // Past the dead zone it moves by the pointer's motion, snapped: 205 + 6 is 211
+    fireEvent.pointerMove(second, { clientX: xOf(205) + 6, pointerId: 1 });
+    expect(onStartsChange).toHaveBeenLastCalledWith([210, 495]);
+    // Once dragging, coming back within 3px still moves the line
+    fireEvent.pointerMove(second, { clientX: xOf(205) - 2, pointerId: 1 });
+    expect(onStartsChange).toHaveBeenLastCalledWith([200, 495]);
+    fireEvent.pointerUp(second, { clientX: xOf(205) - 2, pointerId: 1 });
+    // The other line works the same way
+    onStartsChange.mockClear();
+    fireEvent.pointerDown(third, { clientX: xOf(495), pointerId: 2 });
+    fireEvent.pointerMove(third, { clientX: xOf(495) + 1, pointerId: 2 });
+    expect(onStartsChange).not.toHaveBeenCalled();
+  });
+
+  it("leaves a typed start as it was when the line is pushed into the other", () => {
+    // 495 is above the highest tier 2 can be dragged to (490) below a tier 3 of 500
+    const { onStartsChange } = draw([495, 500]);
+    const [second] = withClass(styles.thresholdGrip);
+    fireEvent.pointerDown(second, { clientX: xOf(495), pointerId: 1 });
+    fireEvent.pointerMove(second, { clientX: xOf(495) + 50, pointerId: 1 });
+    expect(onStartsChange).not.toHaveBeenCalled();
+    // Dragged away from tier 3 it moves
+    fireEvent.pointerMove(second, { clientX: xOf(495) - 25, pointerId: 1 });
+    expect(onStartsChange).toHaveBeenLastCalledWith([470, 500]);
+  });
+
+  it("moves a line by the pointer's motion, wherever on the line it was taken", () => {
+    const { onStartsChange } = draw([200, 500]);
+    const [second] = withClass(styles.thresholdGrip);
+    // Taken 12px right of the tier-2 line, then moved one bin (10px) right
+    fireEvent.pointerDown(second, { clientX: xOf(200) + 12, pointerId: 1 });
+    fireEvent.pointerMove(second, { clientX: xOf(200) + 22, pointerId: 1 });
+    expect(onStartsChange).toHaveBeenCalledTimes(1);
+    expect(onStartsChange).toHaveBeenLastCalledWith([210, 500]);
+  });
+
   it("keeps its lines out of the accessibility tree", () => {
     draw([200, 500]);
     const lines = withClass(styles.threshold);
