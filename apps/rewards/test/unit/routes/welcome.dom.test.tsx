@@ -510,7 +510,8 @@ describe("Step 2: Your tiers", () => {
     expect([...document.querySelectorAll("s-text")].map((text) => text.textContent)).toContain(GUIDE.andAbove("£760.00"));
     // A start above the picture but within the grid is drawn on its edge, and counted where it is
     await type(field("minSpend2"), "1000");
-    expect(svg.querySelectorAll("g")[1].querySelector("line")?.getAttribute("x1")).toBe("77");
+    // Tier 3's line, drawn first so tier 2's is on top
+    expect(svg.querySelectorAll("g")[0].querySelector("line")?.getAttribute("x1")).toBe("77");
     expect(liveText()).toContain(GUIDE.tierCount("Silver", 11));
     expect(liveText()).toContain(GUIDE.tierCount("Gold", 0));
     expect(liveText()).not.toContain(GUIDE.beyondPicture);
@@ -550,7 +551,8 @@ describe("Step 2: Your tiers", () => {
     const svg = document.querySelector('svg[role="img"]')!;
     // The picture's 77 bins of 10 laid out one pixel per unit of spend
     svg.getBoundingClientRect = () => ({ left: 0, width: 770, top: 0, height: 100, right: 770, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
-    const line = svg.querySelectorAll("g")[0];
+    // Tier 2's line, drawn last so it is on top
+    const line = svg.querySelectorAll("g")[1];
     await act(async () => {
       fireEvent.pointerDown(line, { button: 0, clientX: 200, pointerId: 1 });
       fireEvent.pointerMove(line, { clientX: 300, buttons: 1, pointerId: 1 });

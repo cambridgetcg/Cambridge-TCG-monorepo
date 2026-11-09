@@ -139,11 +139,12 @@ export function LadderChart({ ariaLabel, buyers, binWidth, starts, formatAmount,
         {shapes.map((shape) => (
           <path key={shape.tier} className={SHAPE_CLASS[shape.tier]} d={shape.d} />
         ))}
+        {/* Tier 3's line first, so tier 2's is on top: with both starts beyond the picture, both sit on its edge,
+            and tier 3 can't move inward past tier 2, so tier 2's is the one a press there must take */}
         {starts === null
           ? null
-          : starts.map((start, index) => {
-              const line = index as 0 | 1;
-              const x = lineX(start);
+          : ([1, 0] as const).map((line) => {
+              const x = lineX(starts[line]);
               return (
                 <g
                   key={line}

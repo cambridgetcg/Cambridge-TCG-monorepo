@@ -60,6 +60,11 @@ function draw(starts: [number, number] | null, { buyers = bins, binWidth = BIN_W
 
 const classesOf = (element: Element) => (element.getAttribute("class") ?? "").split(" ").filter(Boolean);
 const withClass = (name: string) => [...document.querySelectorAll("*")].filter((element) => classesOf(element).includes(name));
+/** The lines' grips as [tier 2's, tier 3's]: the picture draws tier 3's first, so tier 2's is on top */
+const grips = () => {
+  const [third, second] = withClass(styles.thresholdGrip);
+  return [second, third];
+};
 const shapes = () => [...document.querySelectorAll("path")];
 const SHAPES = [styles.tier1Shape, styles.tier2Shape, styles.tier3Shape];
 /** The bins a tier's shape covers: from where it starts on the baseline to where it ends */
@@ -134,7 +139,7 @@ describe("LadderChart", () => {
 
   it("reports a dragged line snapped to the grid, kept above the other", () => {
     const { onStartsChange } = draw([200, 500]);
-    const [second, third] = withClass(styles.thresholdGrip);
+    const [second, third] = grips();
 
     fireEvent.pointerDown(second, { clientX: xOf(200), pointerId: 1 });
     expect(setPointerCapture).toHaveBeenCalledWith(1);
@@ -171,7 +176,7 @@ describe("LadderChart", () => {
 
   it("leaves a start beyond the picture as typed until the line is dragged inward", () => {
     const { onStartsChange } = draw([500, 9000]);
-    const [, third] = withClass(styles.thresholdGrip);
+    const [, third] = grips();
     // Drawn at the picture's right edge; a press with no sideways motion reports nothing
     fireEvent.pointerDown(third, { clientX: xOf(2000), pointerId: 1 });
     fireEvent.pointerMove(third, { clientX: xOf(2000), buttons: 1, pointerId: 1 });
@@ -184,9 +189,20 @@ describe("LadderChart", () => {
     expect(onStartsChange).toHaveBeenLastCalledWith([500, 1900]);
   });
 
+  // F2-F2: tier 3 can't move inward past tier 2, so with both on the edge tier 2's line must be the one taken
+  it("lets tier 2's line be taken when both starts sit on the picture's edge", () => {
+    const { onStartsChange } = draw([3000, 9000]);
+    expect(withClass(styles.threshold).map((group) => group.querySelector("line")?.getAttribute("x1"))).toEqual([String(MAX_BINS), String(MAX_BINS)]);
+    // A press where the lines overlap takes the one drawn on top: the last in the picture
+    const onTop = withClass(styles.thresholdGrip).at(-1)!;
+    fireEvent.pointerDown(onTop, { clientX: xOf(2000), pointerId: 1 });
+    fireEvent.pointerMove(onTop, { clientX: xOf(2000) - 100, buttons: 1, pointerId: 1 });
+    expect(onStartsChange).toHaveBeenLastCalledWith([1900, 9000]);
+  });
+
   it("reports nothing for a press that has not gone 3px sideways", () => {
     const { onStartsChange } = draw([205, 495]);
-    const [second, third] = withClass(styles.thresholdGrip);
+    const [second, third] = grips();
     fireEvent.pointerDown(second, { clientX: xOf(205), pointerId: 1 });
     // Touch jitter, and a vertical scroll that starts on the line, move under 3px sideways
     fireEvent.pointerMove(second, { clientX: xOf(205) + 2.9, clientY: 80, buttons: 1, pointerId: 1 });
@@ -209,7 +225,7 @@ describe("LadderChart", () => {
   it("leaves a typed start as it was when the line is pushed into the other", () => {
     // 495 is above the highest tier 2 can be dragged to (490) below a tier 3 of 500
     const { onStartsChange } = draw([495, 500]);
-    const [second] = withClass(styles.thresholdGrip);
+    const [second] = grips();
     fireEvent.pointerDown(second, { clientX: xOf(495), pointerId: 1 });
     fireEvent.pointerMove(second, { clientX: xOf(495) + 50, buttons: 1, pointerId: 1 });
     expect(onStartsChange).not.toHaveBeenCalled();
@@ -220,7 +236,7 @@ describe("LadderChart", () => {
 
   it("moves a line by the pointer's motion, wherever on the line it was taken", () => {
     const { onStartsChange } = draw([200, 500]);
-    const [second] = withClass(styles.thresholdGrip);
+    const [second] = grips();
     // Taken 12px right of the tier-2 line, then moved one bin (10px) right
     fireEvent.pointerDown(second, { clientX: xOf(200) + 12, pointerId: 1 });
     fireEvent.pointerMove(second, { clientX: xOf(200) + 22, buttons: 1, pointerId: 1 });
@@ -230,7 +246,7 @@ describe("LadderChart", () => {
 
   it("ignores a move with no button pressed", () => {
     const { onStartsChange } = draw([200, 500]);
-    const [second] = withClass(styles.thresholdGrip);
+    const [second] = grips();
     fireEvent.pointerDown(second, { clientX: xOf(200), pointerId: 1 });
     // The button let go where the page didn't see it (outside the frame): the pointer only hovers
     fireEvent.pointerMove(second, { clientX: xOf(300), buttons: 0, pointerId: 1 });
@@ -239,14 +255,14 @@ describe("LadderChart", () => {
 
   it("forgets a drag when the starts go away", () => {
     const { onStartsChange, redraw } = draw([200, 500]);
-    fireEvent.pointerDown(withClass(styles.thresholdGrip)[0], { clientX: xOf(200), pointerId: 1 });
-    fireEvent.pointerMove(withClass(styles.thresholdGrip)[0], { clientX: xOf(230), buttons: 1, pointerId: 1 });
+    fireEvent.pointerDown(grips()[0], { clientX: xOf(200), pointerId: 1 });
+    fireEvent.pointerMove(grips()[0], { clientX: xOf(230), buttons: 1, pointerId: 1 });
     expect(onStartsChange).toHaveBeenLastCalledWith([230, 500]);
     onStartsChange.mockClear();
     // A start emptied mid-drag takes the lines away; typed back, they return
     redraw(null);
     redraw([200, 500]);
-    const [second] = withClass(styles.thresholdGrip);
+    const [second] = grips();
     fireEvent.pointerMove(second, { clientX: xOf(260), pointerId: 1 });
     expect(onStartsChange).not.toHaveBeenCalled();
     // Nor does the old drag carry on with the button still down: only a new press takes a line
