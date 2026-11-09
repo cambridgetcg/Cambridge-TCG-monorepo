@@ -70,6 +70,8 @@ vi.mock("@/lib/agents/coverage-hunt-tools", () => ({
 }));
 
 import { query } from "@/lib/db";
+import { coverageHuntContribute } from "@/lib/agents/coverage-hunt-tools";
+import { playObserve, ToolError } from "@/lib/agents/play-tools";
 import { GET, MCP_MAX_REQUEST_BYTES, POST } from "./route";
 import { toolByName } from "@/lib/agent-tools-catalog";
 import { KEY_REPLACEMENT_CASES } from "@/lib/agents/key-exit-inventory";
@@ -736,11 +738,19 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
     mocks.agentSelf.mockRejectedValueOnce(new Error("boom"));
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     await POST(request("agent.self"));
+    // A tool's own 403 (Coverage Hunt's key_revoked) is a refusal; any other
+    // ToolError is a tool error, even one answered 404.
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("key revoked", 403));
+    await POST(request("tools/call", { name: "coverage.hunt.contribute", arguments: {} }));
+    vi.mocked(playObserve).mockRejectedValueOnce(new ToolError("match not found", 404));
+    await POST(request("play.observe", { match_id: "m-1" }));
     expect(await counted()).toEqual([
       ["tools/call", "agent.self", false, "unauthenticated"],
       ["tools/call", "deck.save", true, "forbidden"],
       ["native", "agent.self", true, "rate-limited"],
       ["native", "agent.self", true, "error"],
+      ["tools/call", "coverage.hunt.contribute", true, "forbidden"],
+      ["native", "play.observe", true, "tool-error"],
     ]);
   });
 
