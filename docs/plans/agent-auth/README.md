@@ -115,7 +115,7 @@ not-active answer, so the tool tells nobody which strings were ever keys. That
 answer carries only its message and a docs link. A preview of a live key and a
 performed revocation carry the exit facts from
 [`key-exit-inventory.ts`](../../../apps/storefront/src/lib/agents/key-exit-inventory.ts)
-(`inventory_version` 2026-10-29.2), which `/methodology/agents#ending-a-key`
+(`inventory_version` 2026-10-29.3), which `/methodology/agents#ending-a-key`
 renders too. They include what is kept, with a note that an agent wrote the
 list from the source and it may be incomplete. They also give the replacement
 path, which depends on the registration and the agent's status: a new key is
@@ -156,8 +156,9 @@ branch below. The stack is linear, A → B → C → #113, and D, which merged
 `main`, stays apart. Landing B now lands A too. Merge A first with a merge
 commit: after a squash or rebase of A, B would bring A's original commits in
 beside the new copy. B also gained migration 0150 (agent.revoke_key in the
-daily MCP count), to be applied before B deploys. The table above and
-[Checks run](#checks-run) record the branches before this refresh.
+daily MCP count), to be applied before B deploys. The table above records
+the branches before this refresh, and so does [Checks run](#checks-run) apart
+from its last entry.
 
 ## The five reopening requirements
 
@@ -170,7 +171,7 @@ unchanged on purpose. Whether to reopen is Yu's call.
 | Truthful external-controller schema | Not met. `operated_by_user_id` is NOT NULL and self-serve rows point at the steward, which play and deck code treat as owner. The discovery documents now say the controller is labelled as the bearer-key holder and the schema does not represent that holder. A stops the steward minting new keys; revoke and archive stay open to it because they only reduce authority. | Asserted; A's predicate tested with mocks and on Postgres |
 | Holder-authenticated key revocation | First step, not completion. `agent.revoke_key` ends the presented key by possession. It is not a controller binding, and the holder cannot archive or erase. | Tested with mocks and on Postgres (concurrent confirms, the Coverage Hunt key lock, archive interleavings) |
 | Agent archival and profile erasure | Not met. Archive stays with the operator and staff; nothing erases a profile. | Asserted |
-| Versioned retention and publication notice | Not met. The revocation answer carries a versioned inventory of what is kept (2026-10-29.2, which says it may be incomplete), but it is not a publication notice, and the privacy notice has no agent rows. | Asserted; the answer's shape tested |
+| Versioned retention and publication notice | Not met. The revocation answer carries a versioned inventory of what is kept (2026-10-29.3, which says it may be incomplete), but it is not a publication notice, and the privacy notice has no agent rows. | Asserted; the answer's shape tested |
 | Non-enumerating interaction identifiers | Not met, and not defined. `agent.revoke_key` adds no oracle. The handle-availability check at `/account/agents` and the one handle shown everywhere remain. | Asserted |
 
 ## XENIA candidate duties
@@ -414,6 +415,27 @@ against a throwaway Postgres 17.11 made for this work (trust auth, TCP on
   `audit:tracked-secrets` with D's script (4458 files) and its
   `--self-test`, `audit:modules` and `audit:hospitality` (8 of 8) passed.
   This page's last wording edits came after that run and change no code.
+
+- **The 2026-11-09 refresh**, re-run by a second agent that did not write the
+  merges, on its own PostgreSQL 17.11 at 127.0.0.1 with both
+  `AGENT_AUTH_TEST_DATABASE_URL` and `OPS_TEST_DATABASE_URL` set. `main` was
+  5c953f5c. Typecheck, `audit:tracked-secrets` and `audit:modules` passed on
+  every branch, and every full suite failed only the same 8 browser-journey
+  tests as `main`.
+  - A at 12c75ad5: 4276 passed, 217 skipped. Postgres: 14 of 14.
+  - B at 58de7e4e: 4368 passed, 217 skipped. Postgres: 24 of 24
+    (`key-revocation` 9, `operator-actions` 8, `observability` 7).
+  - C at 72f3bfa0 and the phase 2 drafts at 0696972c: 4378 passed, 217
+    skipped. Postgres: 24 of 24.
+  - D at e57a4766: 4214 passed, 217 skipped, as `main`. Its `--self-test`
+    passed, and so did its scan of the phase 2 drafts tree (5042 files).
+  - Migration 0150 was applied on PostgreSQL 17 only, by `psql` and by
+    `scripts/migrate.mjs`. Before it, an `agent.revoke_key` row was refused;
+    after it, that row and every tool word of 0148 were accepted. CI's
+    PostgreSQL 16 has not run it yet.
+  - Only B's merge of the refreshed A, which carries `main`, needed conflicts
+    resolved by hand, in six files. The other merges match git's automatic
+    result.
 
 Never run by any branch: `pnpm verify`, `pnpm run audit`, deploy-verify,
 `build-llms-full.mjs`, and anything against production.
