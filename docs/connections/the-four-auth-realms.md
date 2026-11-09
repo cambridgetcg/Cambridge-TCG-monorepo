@@ -190,7 +190,8 @@ How it differs from the two realms above, as the source reads:
   door, and `DELETE` answers 401.
 - **Its refusals are the API's ordinary error envelope**: 401
   `UNAUTHORIZED` with no `WWW-Authenticate` challenge, 404 `NOT_FOUND` when no
-  message holds the key (erased, or past 180 days), 503 `SOURCE_UNAVAILABLE`
+  message holds the key (erased, or, for `GET`, past 180 days; `DELETE` also
+  erases an expired message the hourly sweep has not yet removed), 503 `SOURCE_UNAVAILABLE`
   when the store cannot be read. There are no typed refusals or rate-limit
   headers.
 - **It is minted without a session**, by anyone who sends a message, and it
