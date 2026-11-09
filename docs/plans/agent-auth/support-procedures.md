@@ -29,7 +29,9 @@ does" something, it describes the proposal, not current practice.
 **Evidence.** Code claims were read from source on this branch
 (`claude/agent-auth-phase2-design` at 1e6c3ba4, which carries #109 and #110 on
 top of `main` 44ccaa1b). They are *asserted*. Nothing was tested for this
-page. External claims come only from research read on 2026-10-30 that a
+page. On 2026-11-09 an agent refreshing these branches pointed the line
+references at the refreshed tree (`main` 5c953f5c with #108 to #110),
+changing nothing else; it did not re-read every claim. External claims come only from research read on 2026-10-30 that a
 second pass re-checked against the pages. Where the check corrected a
 summary, the corrected reading is used. A claim the check did not reach is
 marked *not re-checked*. Quotes came through a fetch tool's extraction step;
@@ -58,39 +60,39 @@ Asserted from source.
 - **The privacy notice.** It names support@ for rights requests, promises a
   normal response within one month and says staff may ask for proportionate
   information to verify identity and scope
-  ([`privacy/page.tsx:1513-1527`](../../../apps/storefront/src/app/privacy/page.tsx#L1513-L1527)).
+  ([`privacy/page.tsx:1727-1741`](../../../apps/storefront/src/app/privacy/page.tsx#L1727-L1741)).
   It already describes a data-protection complaints route: subject "data
   protection complaint", acknowledgement within 30 days, enquiries, progress
-  and an outcome (lines 1528-1543). It says "a human scopes and completes the
-  request and confirms it by email" (1555-1560). It also says "there is not
+  and an outcome (lines 1742-1757). It says "a human scopes and completes the
+  request and confirms it by email" (1769-1774). It also says "there is not
   yet a durable in-product decision-review case queue, assigned reviewer or
-  published service level" (699).
+  published service level" (841).
 - **Acts people can already do themselves.**
   - A key holder ends the presented key with `agent.revoke_key`. It runs
     before the gate, with no status check and no rate limit, so a suspended
     agent's holder can still use it
-    ([`route.ts:644-660`](../../../apps/storefront/src/app/api/mcp/route.ts#L644-L660)).
+    ([`route.ts:653-676`](../../../apps/storefront/src/app/api/mcp/route.ts#L653-L676)).
   - An operator signed in at `/account/agents` can create agents, mint and
     revoke keys, and archive.
   - Staff at `/admin/trust/agents` can suspend, unsuspend and archive. A
     per-key `adminRevokeKey` exists
-    ([`_actions.ts:120`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts#L120)),
+    ([`_actions.ts:133`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts#L133)),
     but the page's component imports only the other three
     ([`_components.tsx:4-8`](../../../apps/storefront/src/app/admin/trust/agents/_components.tsx#L4-L8)),
     so it has no UI.
 - **Only staff suspend.** The only code that sets `status = 'suspended'` is
-  the admin action (`_actions.ts:38-41`). Nothing suspends automatically.
+  the admin action (`_actions.ts:45-48`). Nothing suspends automatically.
 - **What does not exist:**
   - a case record, a request reference or a clock;
   - any way to check that a requester holds a key;
   - erasure, export, or any edit of an agent's name, model tag or
     description. The only `UPDATE agents` statements change status or
-    ratings (`_actions.ts`, `operator-actions.ts:167`, `matchmaker.ts:335`,
+    ratings (`_actions.ts`, `operator-actions.ts:242`, `matchmaker.ts:335`,
     `344`);
   - notices to operators: no email is sent from the agent admin actions or
     `lib/agents`;
   - suspension history: unsuspend sets `suspended_reason` and
-    `suspended_at` to NULL (`_actions.ts:66-75`).
+    `suspended_at` to NULL (`_actions.ts:73-82`).
 
 ## What the platforms do
 
@@ -220,7 +222,7 @@ A request made by signing in as that account is not an operator's request
 - **The raw key.** Not in email, not in a form, not "just the last few
   characters".
 - **The key's SHA-256.** It is the value the database stores
-  ([`creation.ts:42-43`](../../../apps/storefront/src/lib/agents/creation.ts#L42-L43)).
+  ([`creation.ts:45-46`](../../../apps/storefront/src/lib/agents/creation.ts#L45-L46)).
   Anyone with database read access has it, and once written in an email
   anyone who reads the thread can replay it.
 - **Passwords, session cookies or sign-in links.**
@@ -400,7 +402,7 @@ receives, records, partial-outcome wording, and the tooling gap.
 
 **When.** An operator, a verified holder, or a person whose data is in the
 record asks to erase an agent, or named parts of it. Archiving is not
-erasure; the privacy notice already says so (`privacy/page.tsx:1330-1333`).
+erasure; the privacy notice already says so (`privacy/page.tsx:1504-1507`).
 
 **One erasure model for every package** (an agent's proposal). This
 procedure owns it, and [reopening-terms.md §7](reopening-terms.md#7-exit)
@@ -513,7 +515,7 @@ request code from a live key does, with the limit stated under
      - `game_rooms` player names, plus the handles inside `game_state` and
        its log ([`matchmaker.ts:173-196`](../../../apps/storefront/src/lib/agents/matchmaker.ts#L173-L196));
      - `match_lifecycle_log` labels and action data
-       ([`play-tools.ts:316`](../../../apps/storefront/src/lib/agents/play-tools.ts#L316), `365`);
+       ([`play-tools.ts:325`](../../../apps/storefront/src/lib/agents/play-tools.ts#L325), `374`);
    - the operator's user ids stay where the game records hold them (the
      tombstone's `operated_by_user_id`, and the player ids in `game_rooms`,
      `game_state` and the game log). See the "Kept" table; whether to
@@ -539,7 +541,7 @@ deleted agent (7a) keeps none of them.
 | What | Why | For how long |
 | --- | --- | --- |
 | The tombstone `agents` row, ratings and match counts | Holds no handle, name or description; keeps opponents' records joined. It still links to the operator (next row) | As long as the matches |
-| The tombstone's operator link, and the operator's user ids in the game records: `operated_by_user_id` ([0090:25](../../../apps/storefront/drizzle/0090_agents.sql#L25), NOT NULL), `game_rooms.player1_id` and `player2_id` ([`matchmaker.ts:193-194`](../../../apps/storefront/src/lib/agents/matchmaker.ts#L193-L194)), `game_state`'s player `userId` (#L173-L177), `currentTurn` and `winner`, and the game log's `playerId` ([`play-tools.ts:335`](../../../apps/storefront/src/lib/agents/play-tools.ts#L335)) | The schema requires an operator on an operator-managed row, the room columns must name a real `users` row, and the game engine identifies players by user id. For a legacy self-serve agent these ids are the steward's, not a person's. Whether to re-point them to a placeholder user is open ([D2](#d2-what-erasure-does)) | As long as the matches, unless D2 re-points them |
+| The tombstone's operator link, and the operator's user ids in the game records: `operated_by_user_id` ([0090:25](../../../apps/storefront/drizzle/0090_agents.sql#L25), NOT NULL), `game_rooms.player1_id` and `player2_id` ([`matchmaker.ts:193-194`](../../../apps/storefront/src/lib/agents/matchmaker.ts#L193-L194)), `game_state`'s player `userId` (#L173-L177), `currentTurn` and `winner`, and the game log's `playerId` ([`play-tools.ts:344`](../../../apps/storefront/src/lib/agents/play-tools.ts#L344)) | The schema requires an operator on an operator-managed row, the room columns must name a real `users` row, and the game engine identifies players by user id. For a legacy self-serve agent these ids are the steward's, not a person's. Whether to re-point them to a placeholder user is open ([D2](#d2-what-erasure-does)) | As long as the matches, unless D2 re-points them |
 | `agent_matches` and scrubbed `match_lifecycle_log` rows | The opponents' history too: a shared record | Not stated today |
 | Coverage Hunt turn content and chronicle | The game's review record, permanent by design; only the agent link is removed | Permanent |
 | `admin_actions_log` rows about the agent | Evidence of how staff acted; legal claims (Art 17(3)(e)) | Not stated today ([D9](#d9-how-long-support-records-are-kept)) |
@@ -671,7 +673,7 @@ unless routine deletion would have happened anyway.
 2. *Support:* searches each key-exit inventory category, plus
    `admin_actions_log` by `target_kind = 'agent'` and `target_id`. Agent
    admin actions set no `target_user_id`
-   ([`_actions.ts:27-32`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts#L27-L32)),
+   ([`_actions.ts:34-39`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts#L34-L39)),
    so the operator's admin page, which filters by it
    ([`catalog/users/[id]/page.tsx:306`](../../../apps/storefront/src/app/admin/catalog/users/[id]/page.tsx#L306)),
    does not show them.
@@ -773,7 +775,7 @@ of a successful archive appeal is a new agent and key from the operator.
   link, but not the reason
   ([`refusals.ts:59-77`](../../../apps/storefront/src/lib/agents/refusals.ts#L59-L77));
 - the operator sees `suspended_reason` at `/account/agents`
-  ([`page.tsx:55-64`](../../../apps/storefront/src/app/account/agents/page.tsx#L55-L64));
+  ([`page.tsx:61-70`](../../../apps/storefront/src/app/account/agents/page.tsx#L61-L70));
 - for a self-serve agent only the steward sees the reason, so its holder
   cannot learn why;
 - no email is sent.
@@ -857,7 +859,7 @@ And for an archive:
 > new agent and key at /account/agents. Our reasons are below.
 
 **Records.** Unsuspend wipes the reason and time from the row
-([`_actions.ts:66-75`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts#L66-L75)),
+([`_actions.ts:73-82`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts#L73-L82)),
 and the audit row is fire-and-forget
 ([`actions.ts:85-96`](../../../apps/storefront/src/lib/admin/actions.ts#L85-L96)).
 So today suspension history can be lost entirely.
@@ -922,7 +924,7 @@ procedure.
 
 ### P6. Complaints about how a request was handled
 
-The privacy notice already promises this route (`privacy/page.tsx:1528-1543`).
+The privacy notice already promises this route (`privacy/page.tsx:1742-1757`).
 The proposal adds only the case record.
 - **Acceptance:** a complaint is accepted however it arrives, through any
   address or any member of staff (ICO).
@@ -952,7 +954,7 @@ the data holder downstream. The nearest Cambridge TCG cases:
   webhook can wait until operators ask for one.
 - **Self-serve agents have no contact.** No column stores one; the
   discovery documents say the schema does not represent the holder
-  ([`tool-access.ts:132`](../../../apps/storefront/src/lib/agents/tool-access.ts#L132)).
+  ([`tool-access.ts:141`](../../../apps/storefront/src/lib/agents/tool-access.ts#L141)).
   Notices reach them only in-band. Whether reopened registration asks for a
   dedicated contact, as RFC 7591 suggests, is for
   [reopening-terms.md](reopening-terms.md).
@@ -1213,7 +1215,7 @@ This also answers README question 7.
      (D5). A handle-reservation store (a small table of retired handles
      and their release dates, which is a migration) and a check against it
      in `createAgentWithKey` before the insert
-     ([`creation.ts:107-112`](../../../apps/storefront/src/lib/agents/creation.ts#L107-L112)),
+     ([`creation.ts:140-145`](../../../apps/storefront/src/lib/agents/creation.ts#L140-L145)),
      answered with the same generic wording as any unavailable handle.
      Wording changes in the key-exit inventory, and possibly in the privacy
      notice's Coverage Hunt line (Yu's word). No foreign-key migration.

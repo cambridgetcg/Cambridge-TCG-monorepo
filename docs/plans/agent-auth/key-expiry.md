@@ -37,7 +37,9 @@ for discussion. It decides nothing, and nothing in it is built.
   takes 0150, so the migrations below are numbered 0151 and 0152; the
   runner citation points at its per-file transaction; and #108 mints a key
   through `window.prompt`, so an expiry choice at mint needs a mint form.
-  Nothing proposed changed.
+  Nothing proposed changed. A second pass the same day pointed the line
+  links at the refreshed tree (`main` with #108 to #110) and corrected what
+  `agent.self` returns; it did not re-read every claim.
 - **Acts this page does not authorise.** Applying a migration, deploying,
   sending email to operators, or changing the privacy notice. Each needs Yu's
   word for that act.
@@ -70,33 +72,38 @@ Read from source (*asserted*), not observed in production.
     ([`key-revocation.ts#L55-L82`](../../../apps/storefront/src/lib/agents/key-revocation.ts#L55-L82));
   - the Coverage Hunt write's key lock
     ([`coverage-hunt/db.ts#L300-L319`](../../../apps/storefront/src/lib/coverage-hunt/db.ts#L300-L319));
-  - the 5-key mint cap (on this branch
-    [`operator-actions.ts#L115-L123`](../../../apps/storefront/src/lib/agents/operator-actions.ts#L115-L123);
-    on PR #108, lines 151-157 inside the mint transaction);
+  - the 5-key mint cap, inside the mint transaction since PR #108
+    ([`operator-actions.ts#L151-L157`](../../../apps/storefront/src/lib/agents/operator-actions.ts#L151-L157));
   - the admin agents page's `active_keys` count
     ([`admin/trust/agents/page.tsx#L107-L108`](../../../apps/storefront/src/app/admin/trust/agents/page.tsx#L107-L108)).
 
   The revocation writes use the same predicate, which is right for them: the
   operator's revoke and archive
-  ([`operator-actions.ts#L176-L180`](../../../apps/storefront/src/lib/agents/operator-actions.ts#L176-L180)),
+  ([`operator-actions.ts#L218-L219`](../../../apps/storefront/src/lib/agents/operator-actions.ts#L218-L219),
+  [`#L250-L251`](../../../apps/storefront/src/lib/agents/operator-actions.ts#L250-L251)),
   and staff archive and revoke
-  ([`_actions.ts#L112`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts#L112),
-  [`#L135`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts#L135)).
+  ([`_actions.ts#L124`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts#L124),
+  [`#L148`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts#L148)).
 - **Unknown and revoked keys get one answer.** One 401 and one reason code,
   `unknown_or_revoked_key`, "so the gate never says which strings were ever
   keys" ([`auth.ts#L40-L47`](../../../apps/storefront/src/lib/agents/auth.ts#L40-L47)).
   The 401 carries `WWW-Authenticate: Bearer realm="cambridgetcg-mcp",
   error="invalid_token"` when a token was presented
-  ([`route.ts#L457-L465`](../../../apps/storefront/src/app/api/mcp/route.ts#L457-L465)).
+  ([`route.ts#L463-L471`](../../../apps/storefront/src/app/api/mcp/route.ts#L463-L471)).
   Refusal codes are a closed union
   ([`refusals.ts#L24-L28`](../../../apps/storefront/src/lib/agents/refusals.ts#L24-L28))
   that the OpenAPI enum mirrors
-  ([`openapi.json/route.ts#L1769`](../../../apps/storefront/src/app/api/openapi.json/route.ts#L1769)).
-- **The holder learns nothing about its key in-band.** `agent.self` returns
-  the agent's profile and the key's `rate_limit_tier`, nothing else about the
-  key ([`play-tools.ts#L126-L157`](../../../apps/storefront/src/lib/agents/play-tools.ts#L126-L157)).
+  ([`openapi.json/route.ts#L1786`](../../../apps/storefront/src/app/api/openapi.json/route.ts#L1786)).
+- **The holder learns nothing in-band about when its key ends.** `agent.self`
+  returns the agent's profile, the key's `rate_limit_tier` and, since
+  `main`'s 2026-11-06 change, `recorded_about_this_key`: the key's prefix
+  and creation time, its last-used time, its rate-limit buckets and how long
+  each is kept
+  ([`play-tools.ts#L126-L166`](../../../apps/storefront/src/lib/agents/play-tools.ts#L126-L166),
+  [`self-record.ts#L40-L66`](../../../apps/storefront/src/lib/agents/self-record.ts#L40-L66)).
+  Nothing in it says whether or when the key ends.
   Successful tool results carry `X-RateLimit-Remaining` and `X-Agent-Handle`
-  ([`route.ts#L729-L734`](../../../apps/storefront/src/app/api/mcp/route.ts#L729-L734)).
+  ([`route.ts#L750-L755`](../../../apps/storefront/src/app/api/mcp/route.ts#L750-L755)).
 - **Member keys are the house's other bearer realm, and they do expire.**
   `member_data_keys.expires_at` is NOT NULL, defaults to 2160 hours (90 days)
   and has a CHECK ceiling, with no per-key choice and no "never"
@@ -109,7 +116,7 @@ Read from source (*asserted*), not observed in production.
   ([`account/data/_client.tsx#L82`](../../../apps/storefront/src/app/account/data/_client.tsx#L82)).
 - **Text that says agent keys don't expire.** The OpenAPI `AgentKey` scheme
   ("it has no expiry",
-  [`openapi.json/route.ts#L1233`](../../../apps/storefront/src/app/api/openapi.json/route.ts#L1233)),
+  [`openapi.json/route.ts#L1234`](../../../apps/storefront/src/app/api/openapi.json/route.ts#L1234)),
   the guide entry "Bearer tokens do not have an automatic expiry"
   ([`guides.ts#L903-L908`](../../../apps/storefront/src/lib/guides.ts#L903-L908)),
   and the realms note's
@@ -322,7 +329,7 @@ Where it goes, and where it deliberately doesn't:
 | `agent.revoke_key` preview and revoke, `key-revocation.ts#L65-L66`, `#L73` | Unrevoked only, so an expired key can still be ended (see [§6](#6-what-the-holder-sees-in-band)) |
 | Their `other_live_keys` count, `#L58-L62`, `#L77-L81` | Live |
 | Coverage Hunt key lock, `coverage-hunt/db.ts#L312-L315` | Live; message "This key is no longer live." |
-| Mint cap (PR #108 lines 151-157) | Live, so expired keys free their slot, as member keys do |
+| Mint cap, `operator-actions.ts#L151-L157` (from PR #108) | Live, so expired keys free their slot, as member keys do |
 | Admin `active_keys`, `page.tsx#L107-L108` | Live, plus an `expired_keys` count |
 | Operator and staff revoke, both archive paths | Unrevoked only: archiving still revokes every key, expired ones included |
 
@@ -395,7 +402,7 @@ advance, from §6, and that the code's name then understates what it covers.
   `AgentActor` gains `keyExpiresAt: string | null`
   ([`auth.ts#L30-L38`](../../../apps/storefront/src/lib/agents/auth.ts#L30-L38))
   and `agentSelf` needs no new query. The tool's description
-  ([`route.ts#L202`](../../../apps/storefront/src/app/api/mcp/route.ts#L202))
+  ([`route.ts#L208`](../../../apps/storefront/src/app/api/mcp/route.ts#L208))
   and the catalog example say so.
 - **A response header** on every successful authenticated tool result,
   beside `X-Agent-Handle`: `X-Agent-Key-Expires`, whose value is an ISO 8601
@@ -453,7 +460,7 @@ mints replacements, after RFC 7592; that is its decision 4.
   reply.
 - **Built on the existing queue.** A daily sweep in the minute-ly maintenance
   cron, in a two-minute UTC window like the streak sweep
-  ([`maintenance/route.ts#L72-L73`](../../../apps/storefront/src/app/api/cron/maintenance/route.ts#L72-L73)),
+  ([`maintenance/route.ts#L74-L75`](../../../apps/storefront/src/app/api/cron/maintenance/route.ts#L74-L75)),
   selects keys expiring within the next 7 days and calls `scheduleEmail` with
   the idempotency key `agent_key_expiring:<key_id>`
   ([`queue.ts#L150-L187`](../../../apps/storefront/src/lib/email/queue.ts#L150-L187)).
@@ -495,9 +502,9 @@ On top of PR #108, which this change should follow:
 
 ### 10. Text that becomes false, and gets changed in the same PR
 
-- OpenAPI: the `AgentKey` description (#L1233), the 401 description (#L1108),
-  the reason-code enum (#L1769) if `key_expired` is chosen, and the
-  `X-Agent-Key-Expires` header beside `X-Agent-Handle` (#L1101).
+- OpenAPI: the `AgentKey` description (#L1234), the 401 description (#L1109),
+  the reason-code enum (#L1786) if `key_expired` is chosen, and the
+  `X-Agent-Key-Expires` header beside `X-Agent-Handle` (#L1102).
 - The guide entry "Bearer tokens do not have an automatic expiry"
   ([`guides.ts#L903-L908`](../../../apps/storefront/src/lib/guides.ts#L903-L908)),
   with `last_verified` bumped by the existing "an agent verified this"
@@ -682,7 +689,7 @@ reopening-terms.md.
    - *Recommended:* per key, chosen at mint by whoever mints it: the operator
      at `/account/agents`, or a self-serve registrant in its request. Needs:
      0151's column; a choice on `createAgentWithKey`
-     ([`creation.ts#L107-L112`](../../../apps/storefront/src/lib/agents/creation.ts#L107-L112))
+     ([`creation.ts#L140-L145`](../../../apps/storefront/src/lib/agents/creation.ts#L140-L145))
      and `mintKey`. Costs: one choice per key, so one agent's keys can
      differ.
    - Per agent: a policy chosen at agent creation that every key inherits.

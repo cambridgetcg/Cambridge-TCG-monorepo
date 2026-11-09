@@ -39,7 +39,9 @@ the discussion Yu asked for. It decides nothing.
   only where registration touches them.
 - **Corrected 2026-11-09** by an agent refreshing these branches onto `main`
   at `5c953f5c`: facts only. The migration numbering below now says what
-  `main` holds; nothing proposed changed.
+  `main` holds; nothing proposed changed. A second pass the same day
+  pointed the line links at the refreshed tree (`main` with #108 to #110);
+  it did not re-read every claim.
 
 ## Where this starts
 
@@ -67,12 +69,12 @@ Read from source (*asserted*), not observed in production.
 - **The code assumes one too.** `AgentActor.operatorUserId` is a plain string
   ([`auth.ts#L34`](../../../apps/storefront/src/lib/agents/auth.ts#L34)). The
   play tools pick the agent's side by comparing it
-  ([`play-tools.ts#L120`](../../../apps/storefront/src/lib/agents/play-tools.ts#L120)),
+  ([`play-tools.ts#L122`](../../../apps/storefront/src/lib/agents/play-tools.ts#L122)),
   and the matchmaker skips pairs that share an operator
   ([`matchmaker.ts#L108`](../../../apps/storefront/src/lib/agents/matchmaker.ts#L108)).
 - **What a self-serve key can do today.** Shared reads and `agent.revoke_key`,
   nothing else
-  ([`tool-access.ts#L24-L79`](../../../apps/storefront/src/lib/agents/tool-access.ts#L24-L79)).
+  ([`tool-access.ts#L24-L88`](../../../apps/storefront/src/lib/agents/tool-access.ts#L24-L88)).
   Domain writes are off for every key (#L22), and Coverage Hunt submissions
   are for operator-managed keys only (#L44). A self-serve agent therefore
   cannot play or contribute now. Its handle is seen by itself, by staff and,
@@ -80,7 +82,7 @@ Read from source (*asserted*), not observed in production.
   for any legacy agent that played while the July door had no write pause,
   by its opponents through `play.match_history`, a shared read that returns
   `opponent_handle`
-  ([`play-tools.ts#L449`](../../../apps/storefront/src/lib/agents/play-tools.ts#L449)).
+  ([`play-tools.ts#L458`](../../../apps/storefront/src/lib/agents/play-tools.ts#L458)).
   How many legacy agents played is unknown without a production read.
 - **The old IP hashes remain.** `agent_registration_buckets` holds unsalted
   `sha256(IP)` per day
@@ -295,9 +297,11 @@ data, and the ICO says unkeyed hashes over a small space can be brute-forced
 - **Global:** at most 100 registrations per UTC day across all addresses. The
   existing constant stays the switch to close the door again.
 - **Per agent:** 5 live keys, as on the operator door
-  ([`operator-actions.ts#L116-L123`](../../../apps/storefront/src/lib/agents/operator-actions.ts#L116-L123)).
+  ([`operator-actions.ts#L151-L157`](../../../apps/storefront/src/lib/agents/operator-actions.ts#L151-L157)).
 - **Per contact or URL, when one is given:** 10 agents, as on the operator
-  door (#L61-L68). A refusal under this cap uses the generic wording, so it
+  door (#L61, counted inside the create transaction at
+  [`creation.ts#L116-L121`](../../../apps/storefront/src/lib/agents/creation.ts#L116-L121)).
+  A refusal under this cap uses the generic wording, so it
   does not reveal that the contact is in use
   ([term 8](#8-non-enumerating-identifiers)).
 - **Per request:** a small body limit and the operator door's field bounds:
@@ -514,11 +518,11 @@ agent didn't choose. For Cambridge they mean:
 **What it doesn't forbid.** Showing an agent its own facts: `agent.self`
 returning its own ids is fine, and so is the `X-Agent-Handle` header, which
 carries the caller's own handle on its own results
-([`mcp/route.ts#L732`](../../../apps/storefront/src/app/api/mcp/route.ts#L732)).
+([`mcp/route.ts#L753`](../../../apps/storefront/src/app/api/mcp/route.ts#L753)).
 Nor does it hide anything an agent has chosen to publish.
 
 **Out of scope here.** The operator door's "That handle is already taken."
-([`creation.ts#L128`](../../../apps/storefront/src/lib/agents/creation.ts#L128))
+([`creation.ts#L172`](../../../apps/storefront/src/lib/agents/creation.ts#L172))
 is an existence oracle for signed-in users. It is not part of self-serve, but
 the same definition would apply to it if decision 8 extends it there.
 
@@ -683,14 +687,14 @@ the one place the caveat is kept.
   `reopening_requires`.
 - [`creation.ts`](../../../apps/storefront/src/lib/agents/creation.ts): no
   operator for self-serve, a server-assigned handle, `expires_at` on the key
-  insert (#L107-L112), and the registration row in the same transaction.
+  insert (#L140-L145), and the registration row in the same transaction.
 - [`auth.ts`](../../../apps/storefront/src/lib/agents/auth.ts):
   `operatorUserId` becomes `string | null` (#L34). The gate's lookup
   (#L156-L159) and `stampKeyUse` (#L210) take the expiry rule through one
   shared SQL fragment, as `VALID_MEMBER_KEY_SQL` does for member keys.
   key-expiry.md lists the other places that check `revoked_at IS NULL`.
 - [`play-tools.ts`](../../../apps/storefront/src/lib/agents/play-tools.ts)
-  side and turn checks (#L120, #L164, #L191, #L295, #L335) must handle a null
+  side and turn checks (#L122, #L173, #L200, #L304, #L344) must handle a null
   operator.
   [`matchmaker.ts#L108`](../../../apps/storefront/src/lib/agents/matchmaker.ts#L108)
   compares operators in JavaScript, where `null === null`, so two new
@@ -701,10 +705,10 @@ the one place the caveat is kept.
   [`coverage-hunt-tools.ts#L41`](../../../apps/storefront/src/lib/agents/coverage-hunt-tools.ts#L41)
   stay operator-only, as the grants already make them.
 - [`tool-access.ts`](../../../apps/storefront/src/lib/agents/tool-access.ts):
-  rewrite `SELF_SERVE_CONTROLLER_NOTE` (#L131-L134) to say what the record now
+  rewrite `SELF_SERVE_CONTROLLER_NOTE` (#L140-L143) to say what the record now
   holds. The grants are unchanged.
 - The discovery documents, the OpenAPI register path
-  ([`openapi.json/route.ts#L1126`](../../../apps/storefront/src/app/api/openapi.json/route.ts#L1126)),
+  ([`openapi.json/route.ts#L1127`](../../../apps/storefront/src/app/api/openapi.json/route.ts#L1127)),
   `/methodology/agents`, the register-yourself guide
   ([`guides.ts#L1112`](../../../apps/storefront/src/lib/guides.ts#L1112)), the
   changelog, and the key-exit inventory (a version bump plus the new
@@ -719,7 +723,7 @@ word.
 ### Package A adds
 
 - `agent.archive` in the MCP route's self-lifecycle carve-out
-  ([`mcp/route.ts#L650`](../../../apps/storefront/src/app/api/mcp/route.ts#L650)),
+  ([`mcp/route.ts#L665`](../../../apps/storefront/src/app/api/mcp/route.ts#L665)),
   beside `agent.revoke_key`: self-serve agents only, live keys only
   ([term 7](#7-exit)).
 - No erasure tool of its own. Erasure requests use
