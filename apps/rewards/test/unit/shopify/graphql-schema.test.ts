@@ -9,6 +9,7 @@ import {
   type OperationDefinitionNode,
   buildSchema,
   getNamedType,
+  isEnumType,
   isInputObjectType,
   isScalarType,
   parse,
@@ -29,9 +30,11 @@ import * as graphqlModule from "~/shopify/graphql";
  * Beyond the schema: page sizes are literals of at most 250, every document
  * lives in app/shopify/graphql.ts, and every operation a test mock answers,
  * or a stand-in client answers by a `Rewards…` name (see BY_NAME), exists.
- * Each check is a small function below, run once on the real
- * documents and once on a seeded bad input, so none of them passes by
- * matching nothing. Query cost is not checked (still counted by hand).
+ * The transaction enum values refundMoney compares in code are pinned too
+ * (see TRANSACTION_STATUSES). Each check is a small function below, run once
+ * on the real documents and once on a seeded bad input, so none of them
+ * passes by matching nothing. Query cost is not checked (still counted by
+ * hand).
  */
 
 const file = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -192,6 +195,32 @@ function mockProblems(files: { path: string; text: string }[], kinds: Map<string
   return problems;
 }
 
+/**
+ * The transaction enums the code compares, not only the documents. refundMoney
+ * in app/shopify/order-source.server.ts keeps a refund's REFUND transactions
+ * and counts every status other than FAILURE and ERROR as money on its way.
+ * A status a later Admin version adds would then count as pending, with no
+ * document invalid, so a refresh that changes these values fails here and
+ * names refundMoney, to be read again before the fixture is accepted.
+ */
+const TRANSACTION_STATUSES = ["SUCCESS", "FAILURE", "PENDING", "ERROR", "AWAITING_RESPONSE", "UNKNOWN"];
+const REFUND_MONEY = "refundMoney (app/shopify/order-source.server.ts)";
+
+function transactionEnumProblems(s: GraphQLSchema): string[] {
+  const enumValues = (name: string) => {
+    const type = s.getType(name);
+    return isEnumType(type) ? type.getValues().map((v) => v.name) : null;
+  };
+  const problems: string[] = [];
+  const statuses = enumValues("OrderTransactionStatus");
+  if (statuses === null) problems.push(`OrderTransactionStatus is not an enum, and ${REFUND_MONEY} compares its values`);
+  else if ([...statuses].sort().join() !== [...TRANSACTION_STATUSES].sort().join()) {
+    problems.push(`OrderTransactionStatus is ${statuses.join(", ")}, not ${TRANSACTION_STATUSES.join(", ")}: read ${REFUND_MONEY} again`);
+  }
+  if (!enumValues("OrderTransactionKind")?.includes("REFUND")) problems.push(`OrderTransactionKind has no REFUND, which ${REFUND_MONEY} keeps`);
+  return problems;
+}
+
 const namesMatching = (files: { path: string; text: string }[], pattern: RegExp) =>
   new Set(files.flatMap(({ text }) => [...text.matchAll(pattern)].map((m) => (m.groups as { name: string }).name)));
 
@@ -243,6 +272,10 @@ describe(`the Admin documents, against the committed ${VERSION} schema`, () => {
 
   it("use no deprecated field, argument or enum value", () => {
     expect(all.flatMap(([name, text]) => deprecatedUses(schema, text).map((use) => `${name}: ${use}`))).toEqual([]);
+  });
+
+  it("are read with the transaction statuses and kinds refundMoney compares", () => {
+    expect(transactionEnumProblems(schema)).toEqual([]);
   });
 
   it(`ask for pages of at most ${MAX_PAGE}, always as literals`, () => {
@@ -333,6 +366,31 @@ describe("the checks catch", () => {
 
     expect(deprecatedUses(schema, `{ ${field.name}(${arg.name}: null) }`)).toEqual([
       `Field "QueryRoot.${field.name}" argument "${arg.name}" is deprecated. ${arg.deprecationReason}`,
+    ]);
+  });
+
+  it("a transaction status refundMoney doesn't know, and a kind with no REFUND", () => {
+    const changed = buildSchema(`
+      enum OrderTransactionStatus { ${[...TRANSACTION_STATUSES, "REVERSED"].join(" ")} }
+      enum OrderTransactionKind { SALE CAPTURE }
+      type Query { ping: Int }
+    `);
+
+    expect(transactionEnumProblems(changed)).toEqual([
+      `OrderTransactionStatus is ${TRANSACTION_STATUSES.join(", ")}, REVERSED, not ${TRANSACTION_STATUSES.join(", ")}: read ${REFUND_MONEY} again`,
+      `OrderTransactionKind has no REFUND, which ${REFUND_MONEY} keeps`,
+    ]);
+  });
+
+  it("a transaction status missing", () => {
+    const shrunk = buildSchema(`
+      enum OrderTransactionStatus { ${TRANSACTION_STATUSES.filter((v) => v !== "UNKNOWN").join(" ")} }
+      enum OrderTransactionKind { REFUND }
+      type Query { ping: Int }
+    `);
+
+    expect(transactionEnumProblems(shrunk)).toEqual([
+      `OrderTransactionStatus is SUCCESS, FAILURE, PENDING, ERROR, AWAITING_RESPONSE, not ${TRANSACTION_STATUSES.join(", ")}: read ${REFUND_MONEY} again`,
     ]);
   });
 
