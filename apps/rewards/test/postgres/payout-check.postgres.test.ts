@@ -1095,11 +1095,12 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
           [refundGid(1), "-0.25"],
           [refundGid(2), "-0.20"],
         ]);
-        // One line each, by the refund's and the order's ids, never the buyer
+        // One line each, by the refund's and the order's ids, never the buyer,
+        // telling a refund that is gone from one that moved
         const lines = warn.mock.calls.map((call) => call.map(String).join(" "));
         expect(lines).toEqual([
-          expect.stringMatching(new RegExp(`${refundGid(1)}.*gid://shopify/Order/5001`)),
-          expect.stringMatching(new RegExp(`${refundGid(2)}.*gid://shopify/Order/5001`)),
+          expect.stringMatching(new RegExp(`has no refund ${refundGid(1)} of order gid://shopify/Order/5001 .* any more`)),
+          expect.stringMatching(new RegExp(`refund ${refundGid(2)} of order gid://shopify/Order/5001 .* is now another order's`)),
         ]);
         expect(lines.every((line) => !noIds(line).includes(BUYER))).toBe(true);
       } finally {
@@ -1217,6 +1218,101 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
       expect([row.moneyPendingSince instanceof Date, row.moneyCheckedAt]).toEqual([true, null]);
       expect((await prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId } })).lastSweptAt).toBeInstanceOf(Date);
       expect(MONEY_PENDING_RESERVE_MS).toBe(120_000);
+    });
+
+    /** Date.now() as the run reads it, `jump()` moving it on by a minute and a second: past step 3's reserve in `check`'s run, short of its deadline. */
+    function movableClock() {
+      const real = Date.now.bind(Date);
+      let ahead = 0;
+      const spy = vi.spyOn(Date, "now").mockImplementation(() => real() + ahead);
+      return { jump: () => void (ahead += MINUTE + 1_000), restore: () => spy.mockRestore() };
+    }
+
+    it("once a read takes step 3 past its reserve, the next marked refund is neither read nor stamped, and the sweep still runs (RP25-F2)", async () => {
+      const conn = await markedRefunds([refundFacts(1, "0.00", true), refundFacts(2, "0.00", true)]);
+      const shopify = shopifyReads(
+        new Map([
+          [refundGid(1), refundFacts(1, "20.00", false)],
+          [refundGid(2), refundFacts(2, "20.00", false)],
+        ]),
+      );
+      const clock = movableClock();
+      const railFor = async () => {
+        const store = await shopify.railFor();
+        const readRefund = store.orders.readRefund;
+        return {
+          ...store,
+          orders: {
+            ...store.orders,
+            readRefund: async (gid: string, o?: Parameters<OrderSource["readRefund"]>[1]) => {
+              // The first read is slow: the run's reserve is gone when it answers
+              if (shopify.reads.length === 0) clock.jump();
+              return readRefund(gid, o);
+            },
+          },
+        };
+      };
+
+      try {
+        const result = await check(railFor);
+
+        expect(result).toMatchObject({ refundsSettled: 1, problems: 0, unfinished: 0 });
+      } finally {
+        clock.restore();
+      }
+      expect(shopify.reads).toEqual([refundGid(1)]);
+      expect((await rowOf(1)).moneyPendingSince).toBeNull();
+      // The second keeps its place for the next run
+      const second = await rowOf(2);
+      expect([second.moneyPendingSince instanceof Date, second.moneyCheckedAt]).toEqual([true, null]);
+      expect((await prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId } })).lastSweptAt).toBeInstanceOf(Date);
+    });
+
+    it("once asking for one store takes step 3 past its reserve, it asks for no other store's, and the sweep still asks for and sweeps them all (RP25-F2)", async () => {
+      const shops = [SHOP, OTHER_SHOP, "payout-check-third.myshopify.com"];
+      const conns: ConnectionContext[] = [];
+      for (const [i, shop] of shops.entries()) {
+        const conn = await runningShop(shop, { session: false });
+        await markedRefunds([refundFacts(i + 1, "0.00", true)], { conn });
+        // The sweep's order: the shops as listed
+        await prisma.connection.update({ where: { id: conn.connectionId }, data: { lastSweptAt: new Date(Date.now() - (3 - i) * DAY) } });
+        conns.push(conn);
+      }
+      const sweepOrder = conns.map((conn) => conn.connectionId);
+      const clock = movableClock();
+      // What the run asked for, in order: a store, or a store's sweep listing
+      const asked: Array<[string, string]> = [];
+      const railFor = async (connectionId: string) => {
+        // The first store is slow to reach: the run's reserve is gone when it answers
+        if (asked.length === 0) clock.jump();
+        asked.push(["store", connectionId]);
+        const orders: OrderSource = {
+          readOrder: async () => null,
+          readRefund: async () => null,
+          recentlyUpdatedOrders: async () => {
+            asked.push(["listing", connectionId]);
+            return [];
+          },
+        };
+        return { rail, orders };
+      };
+
+      try {
+        const result = await check(railFor);
+
+        expect(result).toMatchObject({ refundsSettled: 0, problems: 0, unfinished: 0 });
+      } finally {
+        clock.restore();
+      }
+      // Step 3 asked for one store; the sweep asked for each other store once, and listed all three
+      const [first] = asked;
+      expect(asked).toEqual([
+        first,
+        ...sweepOrder.flatMap((id): Array<[string, string]> => (id === first[1] ? [["listing", id]] : [["store", id], ["listing", id]])),
+      ]);
+      // No marked refund was read or stamped: they keep their place
+      await expect(prisma.refund.count({ where: { moneyPendingSince: { not: null }, moneyCheckedAt: null } })).resolves.toBe(3);
+      await expect(prisma.connection.count({ where: { lastSweptAt: { gte: new Date(Date.now() - HOUR) } } })).resolves.toBe(3);
     });
 
     it("a busy store's marked refunds, more than one run reads, don't use up the run's reads: another store's is still read (P1-F3)", async () => {

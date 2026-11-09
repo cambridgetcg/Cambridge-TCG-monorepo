@@ -288,10 +288,11 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
  * refund first, so two of one order share what the order has left to refund
  * as readOrder would. A busy store's are left out before the
  * MAX_MONEY_PENDING_READS are taken, so they can't use up the run's reads,
- * and wait unstamped for the next run (P1-F3). No read starts once less
- * than MONEY_PENDING_RESERVE_MS of the run is left; the rest wait unstamped,
- * keeping their place (RP25-F2). Each is stamped (`moneyCheckedAt`) before
- * its read, so one that fails takes its turn after the others; an
+ * and wait unstamped for the next run (P1-F3). No store is asked for and no
+ * read starts once less than MONEY_PENDING_RESERVE_MS of the run is left;
+ * the rest wait unstamped, keeping their place (RP25-F2). Each is stamped
+ * (`moneyCheckedAt`) before its read, so one that fails takes its turn
+ * after the others; an
  * unreachable store's are stamped and left (storeFor counts the store
  * once). A database error on one refund, its stamp included, is one problem
  * and the next is still read, as in steps 1 and 2. A read that fails is a
@@ -319,9 +320,12 @@ async function settlePendingRefundMoney(ctx: {
   if (tooLate()) return;
   const markedWhere = { moneyPendingSince: { not: null }, connection: { status: "active" } } satisfies Prisma.RefundWhereInput;
   // Each store with a marked refund, asked for once (storeFor's answer is the
-  // run's, which the sweep reuses): a busy store's are left out of the take
+  // run's, which the sweep reuses): a busy store's are left out of the take.
+  // Reaching a store may renew its token, so the reserve is checked before
+  // each; once it is gone every marked refund waits unstamped (RP25-F2).
   const busy: string[] = [];
   for (const { connectionId } of await prisma.refund.groupBy({ by: ["connectionId"], where: markedWhere })) {
+    if (tooLate()) return;
     if ((await ctx.storeFor(connectionId)) === "busy") busy.push(connectionId);
   }
   const marked = await prisma.refund.findMany({
@@ -368,6 +372,8 @@ async function settlePendingRefundMoney(ctx: {
     let read: RefundFacts | null = null;
     // Whether Shopify answered that it has no such refund for this order
     let gone = false;
+    // Whether, of those, Shopify has it under another order
+    let otherOrder = false;
     // Whether its money may still be on its way: the read says so, or failed
     let stillMoving: boolean;
     try {
@@ -375,6 +381,7 @@ async function settlePendingRefundMoney(ctx: {
       // Gone from Shopify, or now another order's: settled from what is stored
       read = found && found.orderGid === order.externalOrderId ? found.refund : null;
       gone = read === null;
+      otherOrder = found !== null && found.orderGid !== order.externalOrderId;
       stillMoving = read?.moneyPending === true;
     } catch (error) {
       // The run's deadline cut the read off: the rest wait for the next run
@@ -400,7 +407,12 @@ async function settlePendingRefundMoney(ctx: {
           // Shopify that is #201's accepted C5; any other null (an access
           // change) would lose the rest just as unseen, so it is counted.
           // By ids only, never the buyer.
-          const cleared = new Error(`Shopify has no ${what} any more: it was settled from its stored value`);
+          // Moved and gone are told apart, as they may need different follow-ups
+          const cleared = new Error(
+            otherOrder
+              ? `The ${what} is now another order's in Shopify: it was settled from its stored value`
+              : `Shopify has no ${what} any more: it was settled from its stored value`,
+          );
           console.warn(`[payout-check] ${cleared.message}`);
           ctx.problem(cleared);
         } else if (expired && stillMoving) {
