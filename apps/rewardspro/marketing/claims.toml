@@ -1561,7 +1561,8 @@ kind = "negative"
 # toml's six scopes); concurred (lab 74cb7025 on #165), with the note that the literal 'points?|redeem' gives 44
 # non-reward hits, so only the reward-shaped pattern reproduces '0'. Stays proposed. Still needs: the exact grep
 # patterns recorded here, a guard test (Yu's call, AGENTS.md principle 8), and its positive half, which rp-store-credit
-# (verified 2026-11-09) and rp-vip-tiers (waiting on D6) carry. From: the next claims writer (patterns), Yu (guard, D6).
+# (proposed for verified; waits on a concur on #166 or Yu's D6) and rp-vip-tiers (waiting on D6) carry. From: the next
+# claims writer (patterns), Yu (guard, D6).
 status = "proposed"
 channels = ["social-post", "outreach"]
 sources = [
