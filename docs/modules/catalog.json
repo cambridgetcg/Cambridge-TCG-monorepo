@@ -27,10 +27,18 @@
       "evidence": ["apps/rewardspro/README.md", "apps/rewardspro/app/services", "apps/rewardspro/app/repositories", "apps/rewardspro/app/navigation/registry.ts", "apps/rewardspro/scripts/architecture/README.md", "apps/rewardspro/landing/public", "docs/decisions/2026-07-23-rewardspro-platform.md"]
     },
     {
+      "path": "apps/rewards", "group": "apps", "label": "RewardsPro rebuild",
+      "purpose": "The new RewardsPro: one embedded Shopify app where a paid order earns cashback as Shopify store credit, tiers raise the rate, a widget shows tier and credit, and refunds take the cashback back.",
+      "scope": "Being built on Shopify's React Router template to replace apps/rewardspro. Not deployed: production still serves apps/rewardspro, and the switch waits for Yu's yes.",
+      "progress": "2026-11-05: All four milestones are built. The foundation: the data model in Postgres schema rewards, with an append-only ledger and the payout checks enforced by the database, a local Postgres test bed, exact money maths, encrypted Shopify sessions. The engine: recording paid orders, cashback sent as Shopify store credit, refund take-backs, tiers and the past-orders import. The webhooks (orders, customers, products, compliance, uninstall); the payouts, with the hourly payout check and the nightly tier and housekeeping jobs; the admin (Home, Orders, Customers, Tiers, Settings with customer data requests); the storefront widget. The staging run on a development store is recorded in apps/rewards/docs/staging-run.md, and the final review's fixes are in. The CI job runs typecheck, unit tests, migrations, a drift check, the Postgres tests on Postgres 17 and the build. Not deployed: production still serves apps/rewardspro.",
+      "next": "The switch: plan Part B, run from apps/rewards/docs/switch.md, each step on Yu's yes.",
+      "evidence": ["apps/rewards/package.json", "apps/rewards/prisma/schema.prisma", "apps/rewards/prisma/migrations/20261105000000_init/migration.sql", "apps/rewards/scripts/test-db.sh", "apps/rewards/app/lib/money.ts", "apps/rewards/app/lib/order-facts.ts", "apps/rewards/app/shopify/session-storage.server.ts", "apps/rewards/app/shopify/store-credit-rail.server.ts", "apps/rewards/app/shopify/order-source.server.ts", "apps/rewards/app/shopify/graphql.ts", "apps/rewards/app/routes", "apps/rewards/extensions/rewards-widget", "apps/rewards/test/postgres", "apps/rewards/test/unit", "apps/rewards/vercel.json", "apps/rewards/scripts/vercel-ignore-build.sh", "apps/rewards/docs/staging-run.md", "apps/rewards/docs/switch.md"]
+    },
+    {
       "path": "apps/rewardspro-api", "group": "apps", "label": "RewardsPro API foundation",
       "purpose": "Receive verified Shopify commerce events, persist an idempotent inbox and project supported orders through a worker.",
       "scope": "Backend foundation; does not claim legacy RewardsPro feature, data or business-rule parity, and does not mutate a financial ledger.",
-      "progress": "Fastify routes, PostgreSQL repositories, migrations, webhook normalization and worker code are present. The README specifies event retention, immutable metadata and optional SQS delivery.",
+      "progress": "Fastify routes, PostgreSQL repositories, migrations, webhook normalization and worker code are present. The README specifies event retention, immutable metadata and optional SQS delivery. Dormant since 2026-11-03: never deployed, kept for the engine design; its unused AWS deploy job was removed from CI.",
       "next": "Extend only the supported event contract with matching repository and worker tests; validate migrations against the documented local PostgreSQL fixture before any separately authorized deployment.",
       "evidence": ["apps/rewardspro-api/README.md", "apps/rewardspro-api/src/routes", "apps/rewardspro-api/src/repositories", "apps/rewardspro-api/src/domain", "apps/rewardspro-api/src/webhooks"]
     },
@@ -158,9 +166,9 @@
       "path": "packages/sku", "group": "packages", "label": "Canonical card identifiers",
       "purpose": "Parse, build and normalize Cambridge card SKUs with shared game, set and rarity vocabulary.",
       "scope": "Identifier syntax and normalization; a valid identifier alone does not prove catalog membership or data rights.",
-      "progress": "Parser, builder, normalization and vocabulary modules plus tests are present. 2026-09-29: shared raw/normalized syntax identity and JSON Schema are consumed by game-specific search and card composition; stored identifiers and printing choices are preserved.",
+      "progress": "Parser, builder, normalization and vocabulary modules plus tests are present. 2026-09-29: shared raw/normalized syntax identity and JSON Schema are consumed by game-specific search and card composition; stored identifiers and printing choices are preserved. 2026-10-29: names.ts adds the draft CTCG-NAMES-v1 reference (card key, CardName records and schema, text form and match key, name choice, and versioned CardRush, TCGplayer and Cardmarket title rules that refuse rather than guess); no endpoint emits the records yet.",
       "next": "Preserve syntax and stored identifiers while introducing separately evidenced printing mappings. Registry declarations do not establish live coverage; workspace code does not establish an npm release.",
-      "evidence": ["packages/sku/src/index.ts", "packages/sku/src/parse.ts", "packages/sku/src/games.ts", "packages/sku/src/__tests__", "packages/sku/src/identity.ts", "packages/sku/src/__tests__/identity.test.ts", "docs/architecture/card-data-contracts.md", "apps/storefront/src/lib/contracts/standards.ts", "docs/plans/tcg-data-platform/README.md"]
+      "evidence": ["packages/sku/src/index.ts", "packages/sku/src/parse.ts", "packages/sku/src/games.ts", "packages/sku/src/__tests__", "packages/sku/src/identity.ts", "packages/sku/src/__tests__/identity.test.ts", "packages/sku/src/names.ts", "packages/sku/src/__tests__/names.test.ts", "docs/methodology/card-names.md", "docs/architecture/card-data-contracts.md", "apps/storefront/src/lib/contracts/standards.ts", "docs/plans/tcg-data-platform/README.md"]
     },
     {
       "path": "packages/stock", "group": "packages", "label": "Stock ledger and reservations",
@@ -195,12 +203,12 @@
       "evidence": ["apps/rewardspro/extensions/theme-app-extension-rewardspro/README.md", "apps/rewardspro/extensions/theme-app-extension-rewardspro/shopify.extension.toml", "apps/rewardspro/extensions/theme-app-extension-rewardspro/assets", "apps/rewardspro/extensions/theme-app-extension-rewardspro/blocks"]
     },
     {
-      "path": "apps/rewardspro/lambda", "group": "tooling", "label": "RewardsPro legacy Lambda handlers",
-      "purpose": "Handle the legacy Shopify webhook, order queue and scheduled-job integrations described by RewardsPro.",
-      "scope": "Nested support package outside the root pnpm workspace patterns. Deployment commands affect AWS and require their own authorization.",
-      "progress": "JavaScript handlers, package scripts and architecture notes are present. This map has not checked deployed functions or established parity with rewardspro-api workers.",
-      "next": "Identify which worker owns a flow before changing it; review legacy and foundation migration evidence to avoid duplicate processing.",
-      "evidence": ["apps/rewardspro/lambda/README.md", "apps/rewardspro/lambda/package.json", "apps/rewardspro/lambda/order-queue-processor.js"]
+      "path": "apps/rewards/extensions/rewards-widget", "group": "extensions", "label": "RewardsPro rebuild widget",
+      "purpose": "Show a storefront buyer their tier, its cashback rate, their Shopify store credit and their progress to the next tier; invite guests to sign in with the base rate.",
+      "scope": "One app embed block for apps/rewards, with the released extension's identity (uid, handle, block file name, body target) so the merchant's embed survives. Not released: the live store runs apps/rewardspro's widget until the trimmed release (spec 8, phase 3), which waits for Yu's yes.",
+      "progress": "2026-11-05: built. Liquid prints no buyer details; a signed-in buyer's widget asks the app proxy once (8 s limit, no retry); a guest's reads the app's rewards.config metafield and asks no server. About 10 KB of JS and CSS, Light and Dark looks with a teal accent kept off text, English strings only.",
+      "next": "Check it on the staging app at laptop and phone widths, then read the deploy output and version diff so the extension shows as updated, never created plus removed.",
+      "evidence": ["apps/rewards/extensions/rewards-widget/shopify.extension.toml", "apps/rewards/extensions/rewards-widget/blocks/membership_widget.liquid", "apps/rewards/extensions/rewards-widget/assets", "apps/rewards/test/unit/extensions"]
     },
     {
       "path": "apps/rewardspro/tools", "group": "tooling", "label": "RewardsPro development tools",
@@ -249,13 +257,13 @@
       "id": "public-interfaces", "label": "Public interfaces and discovery",
       "purpose": "Expose data contracts, specifications, provenance and agent discovery, with a separate authored integration roadmap that does not claim runtime capability or source availability.",
       "evidence": ["apps/storefront/src/content/platform/index.ts", "apps/storefront/src/lib/contracts/standards.ts", "apps/storefront/src/lib/contracts/standards.test.tsx", "apps/storefront/src/app/roadmap/page.tsx", "apps/storefront/src/app/api/v1/roadmap/route.ts", "docs/plans/tcg-data-platform/README.md"],
-      "lib": ["agents", "calling-card", "contracts", "data-pantry", "http", "release", "universal", "youspeak"],
+      "lib": ["agents", "calling-card", "contracts", "data-pantry", "feedback", "http", "release", "universal", "youspeak"],
       "routes": [".well-known", "agents", "answering-rhymes", "api", "graph", "identify", "llms.txt", "manifest", "ontology", "patterns", "platform", "roadmap", "robots.txt", "schemas", "scrapers", "spec", "standards", "standards.json"]
     },
     {
       "id": "safety-and-operations", "label": "Trust, privacy and operations",
       "purpose": "Operate the service, review evidence and trust decisions, apply privacy controls and maintain verification tools.",
-      "lib": ["admin", "audits", "evidence", "fraud", "privacy", "trust", "verification"],
+      "lib": ["admin", "audits", "evidence", "fraud", "observability", "privacy", "traffic", "trust", "verification"],
       "routes": ["admin", "legal", "privacy", "terms"]
     },
     {

@@ -82,7 +82,11 @@ const nextConfig: NextConfig = {
       // are kept as the household's record. robots.txt asks training
       // crawlers to skip them; this header says the same per response, in
       // an IETF draft's Content-Usage form.
-      ...["/llms-full.txt", "/.well-known/sophia-wake/:path*"].map((source) => ({
+      // The derived market data under /api/v1/market/* is "not licensed for
+      // AI training" (src/lib/data-api/http.ts DATA_API_RIGHTS). It answers
+      // only to a data-API key, so no crawler reads it, but robots.txt's
+      // site-wide ai-train=yes must not be the last word on it if one does.
+      ...["/llms-full.txt", "/.well-known/sophia-wake/:path*", "/api/v1/market/:path*"].map((source) => ({
         source,
         headers: [{ key: "Content-Usage", value: "train-ai=n" }],
       })),
@@ -131,7 +135,11 @@ const nextConfig: NextConfig = {
   // reachable on every host so webhooks, OAuth callbacks and already
   // open tabs keep working. Preview deployment URLs are untouched.
   // Next.js compiles these into Vercel routing rules, so a redirect does
-  // not invoke a function.
+  // not invoke a function. A GET or HEAD to /api on the production alias
+  // is redirected as well, by src/proxy.ts, since a redirect here cannot
+  // tell GET from POST, and so is every method to the feedback, hello and
+  // MCP doors. Yu chose this on 2026-11-05, with rate limits at Cloudflare,
+  // so API reads and those doors' writes go through Cloudflare.
   async redirects() {
     return ["www.cambridgetcg.com", "cambridgetcg-storefront.vercel.app"].map((host) => ({
       source: "/:path((?!api(?:/|$)|_next/).*)",

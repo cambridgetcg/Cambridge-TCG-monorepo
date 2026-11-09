@@ -20,10 +20,18 @@
  * Shopify can raise after running the mutation) the entry stays SYNCING and
  * is not sent again.
  *
- * Schedule: Every 15 minutes
- * Endpoint: GET /api/cron/cashback-reconciliation
+ * First, in every shop, entries left SYNCING whose claim is over are checked
+ * against the customer's store credit history in Shopify: marked issued,
+ * handed back to PENDING, or left for the merchant to check
+ * (services/stuck-cashback.server.ts). PENDING entries older than
+ * AUTO_SEND_MAX_AGE_DAYS are not sent; each run logs how many there are.
  *
- * Add to vercel.json crons with schedule every 15 minutes
+ * A run in which an entry, a shop or the stuck-cashback check failed still
+ * answers 200, and tells the cron monitor what failed (cronProblems), so
+ * Sentry hears of it.
+ *
+ * Schedule: hourly at :30, UTC ("30 * * * *" in vercel.json)
+ * Endpoint: GET /api/cron/cashback-reconciliation
  *
  * @security Requires CRON_SECRET header
  */
@@ -39,8 +47,10 @@ import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
 import { jsonObject } from "~/utils/json-object";
 import { createStoreCreditService } from "~/services/shopify-store-credit.service";
-import { claimLedgerEntry, markUnconfirmed } from "~/services/cashback-ledger.server";
+import { AUTO_SEND_MAX_AGE_DAYS, claimLedgerEntry, markUnconfirmed } from "~/services/cashback-ledger.server";
 import { cashbackLeftAfterRefunds } from "~/services/refund-handler.server";
+import { reconcileStuckCashback } from "~/services/stuck-cashback.server";
+import { cronFailed, cronProblems, monitoredCron } from "~/services/cron-monitor.server";
 
 const JOB_NAME = "cashback-reconciliation";
 const LOCK_TTL_MINUTES = 15;
@@ -48,13 +58,13 @@ const MAX_ENTRIES_PER_RUN = 50;
 // Only retry entries older than 2 minutes (avoid racing with the webhook)
 const MIN_AGE_MINUTES = 2;
 // Don't retry entries older than 7 days (likely need manual intervention)
-const MAX_AGE_DAYS = 7;
+const MAX_AGE_DAYS = AUTO_SEND_MAX_AGE_DAYS;
 
 async function settle(id: string, metadata: Prisma.InputJsonObject) {
   await prisma.storeCreditLedger.update({ where: { id }, data: { metadata } });
 }
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = monitoredCron("cashback-reconciliation", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -91,6 +101,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const minAge = new Date(now.getTime() - MIN_AGE_MINUTES * 60 * 1000);
     const maxAge = new Date(now.getTime() - MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
 
+    // Entries left SYNCING: did Shopify apply their credit? In every shop,
+    // before PENDING entries are sent, so one handed back is sent this run.
+    // A failure here leaves them SYNCING and does not stop the sending below.
+    let stuck: Awaited<ReturnType<typeof reconcileStuckCashback>> | null = null;
+    // The first thing that failed this run, for the cron monitor
+    let firstProblem: unknown;
+    try {
+      stuck = await reconcileStuckCashback({
+        now,
+        adminFor: async (shop) => (await unauthenticated.admin(shop)).admin,
+        log,
+      });
+      log('info', 'Checked cashback Shopify never confirmed', { ...stuck });
+    } catch (stuckError: any) {
+      firstProblem = stuckError;
+      log('error', 'Checking cashback Shopify never confirmed failed', { error: stuckError.message });
+    }
+    // The whole check, or the entries it couldn't check
+    const stuckProblems = stuck === null ? 1 : stuck.failed;
+
     // Only merchants who turned automatic processing on
     const autoShops = await prisma.shopSettings.findMany({
       where: { autoCashbackProcessingEnabled: true },
@@ -121,8 +151,32 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     log('info', `Found ${pendingEntries.length} PENDING cashback entries to reconcile`, { autoShops: autoShops.length });
 
+    // PENDING entries past the window are no longer sent: say how many
+    const tooOld = autoShops.length === 0 ? [] : await prisma.storeCreditLedger.groupBy({
+      by: ['shop'],
+      where: {
+        shop: { in: autoShops.map((s) => s.shop) },
+        type: 'CASHBACK_EARNED',
+        createdAt: { lt: maxAge },
+        amount: { gt: 0 },
+        metadata: { path: ['syncStatus'], equals: 'PENDING' },
+      },
+      _count: { _all: true },
+      _sum: { amount: true },
+    });
+    let tooOldToSend = 0;
+    for (const group of tooOld) {
+      tooOldToSend += group._count._all;
+      log('warn', `${group._count._all} pending cashback entries are over ${MAX_AGE_DAYS} days old and are no longer sent automatically; the merchant can issue them from the Orders page`, {
+        shop: group.shop,
+        count: group._count._all,
+        total: (group._sum.amount ?? new Prisma.Decimal(0)).toFixed(2),
+      });
+    }
+
     if (pendingEntries.length === 0) {
-      return json({ success: true, correlationId, processed: 0, synced: 0, failed: 0 });
+      cronProblems(request, stuckProblems, firstProblem);
+      return json({ success: true, correlationId, processed: 0, synced: 0, failed: 0, stuck, tooOldToSend });
     }
 
     // Group by shop for efficient admin API access
@@ -144,6 +198,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         admin = result.admin;
       } catch (err) {
         log('error', `Failed to get admin API for shop ${shop}`, { error: (err as Error).message });
+        firstProblem ??= err;
         failed += entries.length;
         continue;
       }
@@ -285,15 +340,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             // Shopify may have credited it, so it stays SYNCING
             await markUnconfirmed(id, result.error);
             failed++;
+            firstProblem ??= new Error(`Shopify did not confirm cashback entry ${id}: ${result.error}`);
             log('error', `Shopify did not confirm cashback entry ${id}`, { error: result.error, leftSyncing: true });
           } else {
             // Shopify refused: back to PENDING for the next run
             await settle(id, { ...metadata, syncStatus: 'PENDING' });
             failed++;
+            firstProblem ??= new Error(`Shopify refused cashback entry ${id}: ${result.error}`);
             log('error', `Failed to sync cashback entry ${id}`, { error: result.error });
           }
         } catch (entryError: any) {
           failed++;
+          firstProblem ??= entryError;
           if (claimed && !issueSent) {
             try { await claimLedgerEntry(id, 'SYNCING', 'PENDING'); } catch { /* retried next run */ }
           }
@@ -309,15 +367,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       synced,
       failed,
       skipped,
+      stuck,
+      tooOldToSend,
       durationMs: Date.now() - startTime,
     };
 
     log('info', 'Cashback reconciliation completed', summary);
 
+    cronProblems(request, failed + stuckProblems, firstProblem);
     return json({ success: true, correlationId, ...summary });
 
   } catch (error: any) {
     log('error', 'Cashback reconciliation failed', { error: error.message, stack: error.stack });
+    cronFailed(request, error);
     return json(
       { success: false, correlationId, error: "Cashback reconciliation failed" },
       { status: 500 },
@@ -328,4 +390,4 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       log('info', 'Released distributed lock');
     }
   }
-};
+});

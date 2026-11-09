@@ -149,16 +149,29 @@ describe("robots.txt history split", () => {
     expect(new Set(agents).size).toBe(agents.length);
   });
 
+  it.each([...TRAINING, ...READERS, ...UNNAMED, "*"])("%s is kept from account, admin, auth and preference paths by RFC and first-match parsers alike", async (token) => {
+    const text = await body();
+    const group = rfcGroupFor(rfcGroups(text), token);
+    for (const path of ["/account/orders", "/api/account/usage", "/admin/system/monitor", "/api/admin/emails", "/api/auth/signin", "/login", "/login/", "/login?return=/account", "/login/verify", "/api/lang-mode?mode=math", "/api/currency?code=USD"]) {
+      expect(rfcAllowed(group, path), `${token} ${path} (RFC 9309)`).toBe(false);
+      expect(firstMatchAllowed(text, token, path), `${token} ${path} (first match)`).toBe(false);
+    }
+    for (const path of ["/", "/prices", "/api/v1/prices/one-piece", "/accounting-guide"]) {
+      expect(rfcAllowed(group, path), `${token} ${path} (RFC 9309)`).toBe(true);
+      expect(firstMatchAllowed(text, token, path), `${token} ${path} (first match)`).toBe(true);
+    }
+  });
+
   it("says in its comment that training is welcome except on the history paths", async () => {
     expect((await body()).replace(/\n# /g, " ")).toContain("welcome in search, in AI answers and in AI training, except the history paths.");
   });
 });
 
-describe("Content-Usage on the history paths", () => {
-  it("sends train-ai=n on /llms-full.txt and every /.well-known/sophia-wake/ path", async () => {
+describe("Content-Usage on the history paths and the derived market data", () => {
+  it("sends train-ai=n on /llms-full.txt, every /.well-known/sophia-wake/ path and /api/v1/market/*", async () => {
     const { default: nextConfig } = await import("../../../next.config");
     const rules = await nextConfig.headers!();
-    for (const source of ["/llms-full.txt", "/.well-known/sophia-wake/:path*"]) {
+    for (const source of ["/llms-full.txt", "/.well-known/sophia-wake/:path*", "/api/v1/market/:path*"]) {
       const rule = rules.find((r) => r.source === source);
       expect(rule, source).toBeDefined();
       expect(rule!.headers).toContainEqual({ key: "Content-Usage", value: "train-ai=n" });

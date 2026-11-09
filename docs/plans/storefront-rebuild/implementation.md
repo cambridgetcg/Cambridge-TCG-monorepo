@@ -45,6 +45,8 @@ search retain their language controls.
   They do not activate providers or report live service capabilities.
 - `/standards` and `/standards.json` share the existing three specification IDs,
   versions and statuses; SKU registry counts are not current catalog counts.
+  (2026-10-29: CTCG-NAMES-v1 was appended as a fourth entry, in the same
+  registry.)
 - `/spec/v1/[schema]` serves only reviewed schema names, with no envelope.
 - Existing API and account paths retain their names. No blanket URL migration,
   database migration, credential loading or production activation occurs.

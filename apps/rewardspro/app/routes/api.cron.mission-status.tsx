@@ -3,8 +3,7 @@
  * - Transition SCHEDULED → ACTIVE when startsAt <= now
  * - Transition ACTIVE → CLOSED when endsAt <= now
  *
- * Should run hourly
- * Add to vercel.json: { "path": "/api/cron/mission-status", "schedule": "0 * * * *" }
+ * Schedule: hourly on the hour, UTC ("0 * * * *" in vercel.json)
  *
  * IMPORTANT: Uses distributed locking to prevent concurrent execution
  * across multiple Vercel regions.
@@ -16,9 +15,10 @@ import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, cronProblems, monitoredCron } from "~/services/cron-monitor.server";
 
 // Use loader for GET requests (Vercel sends GET, not POST)
-export async function loader({ request }: LoaderFunctionArgs) {
+export const loader = monitoredCron("mission-status", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -74,6 +74,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 
   const now = new Date();
+  // The first mission that couldn't be moved, for the cron monitor
+  let firstProblem: unknown;
 
   try {
     // 5. Transition SCHEDULED → ACTIVE
@@ -141,6 +143,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         }
       } catch (error: any) {
         log('error', `Failed to activate mission ${mission.id}`, { error: error.message });
+        firstProblem ??= error;
         results.errors++;
       }
     }
@@ -186,6 +189,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         log('info', `Mission ${mission.id} (${mission.name}) transitioned ACTIVE → CLOSED`);
       } catch (error: any) {
         log('error', `Failed to close mission ${mission.id}`, { error: error.message });
+        firstProblem ??= error;
         results.errors++;
       }
     }
@@ -201,6 +205,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     log('info', 'Mission status cron completed', summary);
 
+    // Missions it couldn't move are retried next hour; Sentry hears of them
+    cronProblems(request, results.errors, firstProblem);
     return json({
       success: true,
       correlationId,
@@ -209,11 +215,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   } catch (error: any) {
     log('error', 'Mission status cron failed', { error: error.message });
+    cronFailed(request, error);
     return json({
       success: false,
       correlationId,
       error: "Mission status update failed"
-    });
+    }, { status: 500 });
   } finally {
     // Always release the lock when done, even if there was an error
     if (lock.lockId) {
@@ -221,4 +228,4 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('info', 'Released distributed lock');
     }
   }
-}
+});

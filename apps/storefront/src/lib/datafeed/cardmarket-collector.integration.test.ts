@@ -120,7 +120,7 @@ describe.skipIf(!localUrl)('Cardmarket collector PostgreSQL integration (explici
     // Three official files, under Cambridge's own name, bytes unencoded.
     expect(requests.map(request => request.url)).toEqual([`${ORIGIN}/priceGuide/price_guide_18.json`, `${ORIGIN}/productList/products_singles_18.json`, `${ORIGIN}/productList/products_nonsingles_18.json`]);
     for (const request of requests) {
-      expect(request.userAgent).toBe('cambridgetcg.com/1.0 (admin@cambridgetcg.com; +https://cambridgetcg.com) (cardmarket-ingest)');
+      expect(request.userAgent).toBe('cambridgetcg.com/1.0 (admin@cambridgetcg.com; +https://cambridgetcg.com) (cardmarket-collector; permission member-prices/2026-09-07.1, cardmarket-derivation/2026-10-28.1)');
       expect(request.encoding).toBe('identity');
     }
   });

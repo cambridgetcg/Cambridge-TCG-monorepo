@@ -221,6 +221,12 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "card-names",
+    title: "Card names and official translations (v1, draft)",
+    blurb: "One name per card key and language, marked official, vendor, community or machine, with its source and the versioned rule that took it from a shop title. Official records outrank the rest, agreement never makes a name official, and a missing name stays missing.",
+    status: "published",
+  },
+  {
     slug: "",
     title: "/methodology ← this hub",
     blurb: "The catalogue of how-this-is-computed pages. Listed here as a topic because the catalogue is itself a methodology — transparency Ring 2 says every user-affecting decision deserves a documented recipe; this hub is the recipe for finding the recipes. Self-reference is substrate-honesty about being a methodology page.",

@@ -1,10 +1,14 @@
 /**
  * Cron job inventory + email queue health.
  *
- * No DB-backed run history exists today (Vercel handles cron execution and
- * its dashboard has the run logs). This page surfaces:
+ * Run history is kept for the four price jobs only (collect/cardmarket,
+ * collect/cardrush, collect/tcgplayer, derive/market: ops_job_outcomes,
+ * migration 0148), shown on /admin/system/monitor; the hourly traffic pull
+ * records the hours it covered in traffic_pulls, shown there too. For every
+ * other cron, Vercel handles execution and its dashboard has the run logs. This page
+ * surfaces:
  *   1. The static cron list from each app's vercel.json — what's *scheduled*
- *   2. email_queue stats — the only persistent cron-output table that lives in our DBs
+ *   2. email_queue stats — the maintenance sweep's persistent output
  *   3. Best-guess "next run" computed from the cron expression
  */
 import { sfQuery } from "@/lib/admin/db";
@@ -50,6 +54,7 @@ function describeSchedule(s: string): string {
     "0 0 * * 1": "weekly Mon 00:00 UTC",
     "15 * * * *": "hourly at :15 UTC",
     "5 * * * *":  "hourly at :05 UTC",
+    "7 * * * *":  "hourly at :07 UTC",
   };
   return map[s] ?? s;
 }
@@ -115,8 +120,9 @@ export default async function Page() {
 
       <ActionBanner tone="warning" title="This page reflects schedule, not run history">
         Cron entries below are read from each app&apos;s <code className="text-xs">vercel.json</code>{" "}
-        — they describe what we <em>intend</em> to run. We do not yet have a
-        <code className="text-xs"> cron_runs</code> table to record what actually fired.
+        — they describe what we <em>intend</em> to run. Only the four price jobs record
+        what actually happened (<code className="text-xs">ops_job_outcomes</code>, on the{" "}
+        <a href="/admin/system/monitor" className="underline">monitor</a>); for the rest,
         Vercel runs are authoritative; this page is reconciled.
         For per-invocation logs, see Vercel → Project → Logs → filter by &quot;Cron.&quot;
       </ActionBanner>

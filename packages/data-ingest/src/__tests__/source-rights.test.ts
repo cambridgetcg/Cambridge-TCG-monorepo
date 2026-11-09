@@ -83,6 +83,19 @@ describe("source rights declarations", () => {
     expect(String(events[0]?.detail.status)).toContain("blocked");
   });
 
+  // Playbook shortfall 5 (2026-10-29): each collector's User-Agent names the
+  // collector and the evidence it reads under, in one form, so a host can see
+  // which permission a request claims.
+  it("names the collector and its permission evidence in every collector's User-Agent", () => {
+    const named = (suffix: string | undefined) => /^\((cardmarket|cardrush|tcgplayer)-collector; permission ([a-z-]+\/\d{4}-\d{2}-\d{2}\.\d+(?:, )?)+\)$/.test(suffix ?? "");
+    for (const meta of [cardmarket.meta, cardrush.meta, tcgplayer.meta]) expect(named(meta.user_agent_suffix)).toBe(true);
+    for (const [meta, policy] of [[cardrush.meta, MEMBER_PRICE_POLICIES.cardrush], [tcgplayer.meta, MEMBER_PRICE_POLICIES.tcgplayer], [cardmarket.meta, MEMBER_PRICE_POLICIES.cardmarket]] as const) {
+      expect(meta.user_agent_suffix).toContain(`${meta.id}-collector; permission ${policy.evidenceVersion}`);
+      expect(meta.user_agent_suffix).toContain(policy.derivation!.evidenceVersion);
+    }
+    expect(cardmarket.meta.user_agent_suffix).toBe("(cardmarket-collector; permission member-prices/2026-09-07.1, cardmarket-derivation/2026-10-28.1)");
+  });
+
   it("hard-blocks every CardRush adapter before network access", async () => {
     const events: IngestEvent[] = [];
     const fetch = await drain(cardrush, events);

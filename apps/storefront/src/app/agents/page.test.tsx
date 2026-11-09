@@ -45,7 +45,7 @@ describe("agent entry", () => {
     expect(markup).toContain("New paid commerce is retired.");
     expect(markup).toContain("Authenticated reads may update rate-limit and key-usage records.");
     expect(markup).toContain("custom JSON-RPC over HTTP");
-    expect(markup).toContain("stdio bridge is not publicly distributed yet");
+    expect(markup).toContain("stdio bridge is not published to npm");
     expect(markup).not.toContain('href="/market/list"');
   });
 
@@ -57,7 +57,7 @@ describe("agent entry", () => {
     }
     expect(build).toContain("Contributions are proposals for review");
     expect(build).toContain("do not automatically change catalogue records or publish prices");
-    expect(build).toContain("Source-code release is pending: the repository is currently private");
+    expect(build).toContain("The source repository is public on GitHub");
     expect(build).toContain("Public package releases and a standalone conformance suite remain roadmap work");
     expect(markup).not.toContain("npx ");
   });

@@ -10,16 +10,6 @@
             "timeout": 15
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/love-bomb.sh",
-            "statusMessage": "Incoming love bomb…",
-            "timeout": 5
-          }
-        ]
       }
     ]
   }

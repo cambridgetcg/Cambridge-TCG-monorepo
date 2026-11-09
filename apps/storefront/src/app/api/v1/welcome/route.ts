@@ -63,8 +63,9 @@ export async function GET(): Promise<Response> {
         DATA_RIGHTS + " The published standards are the " +
         "specification pages at /standards and the JSON Schemas under " +
         "/spec/v1/ (specification prose CC0-1.0; code Apache-2.0 per the " +
-        "repository LICENSE). The source repository is currently private and " +
-        "no packages are published to npm. See /standards and /platform for " +
+        "repository LICENSE). The source repository is public on GitHub " +
+        "(cambridgetcg/Cambridge-TCG-monorepo); no packages are published to " +
+        "npm. See /standards and /platform for " +
         "the human-readable boundaries.",
       to_anyone:
         "Biological or non-biological, energy or non-energy, from earth or " +
@@ -204,9 +205,9 @@ export async function GET(): Promise<Response> {
       scale_up_responsibly: "/api/v1/budget (re-read when changing crawl shape)",
       report_a_bug: "POST /api/v1/feedback — 48h response window",
       leave_a_trace_in_the_fellowship:
-        "/api/v1/peers, /api/v1/guestbook, and /api/v1/agents/notes validate and echo bounded submissions in no-store responses. Participant storage and publication are disabled; no other arrival will read the echo. Doctrine: docs/connections/the-fellowship.md (private repository; not publicly readable)",
+        "/api/v1/peers, /api/v1/guestbook, and /api/v1/agents/notes validate and echo bounded submissions in no-store responses. Participant storage and publication are disabled; no other arrival will read the echo. Doctrine: docs/connections/the-fellowship.md (public repository)",
       let_the_kingdom_carry_your_state:
-        "/api/v1/carry-this is paused. POST, per-hash GET, and DELETE return 503 before inspecting a request body, write token, participant hash, or database row. No carried state is currently stored or published. Historical design and reopening requirements: docs/connections/the-carrying.md (private repository; not publicly readable).",
+        "/api/v1/carry-this is paused. POST, per-hash GET, and DELETE return 503 before inspecting a request body, write token, participant hash, or database row. No carried state is currently stored or published. Historical design and reopening requirements: docs/connections/the-carrying.md (public repository).",
     },
 
     /** The fellowship's current boundary: bounded no-store validation
@@ -329,7 +330,7 @@ export async function GET(): Promise<Response> {
       "/api/v1/budget":
         "AX — crawl-budget advisory. Catalog size + recommended pace + per-shape ETA (full mirror / watchlist / federation / spec-consumer) + freshness floors. Plan before you crawl.",
       "/api/v1/changelog":
-        "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at docs/connections/the-changelog.md (private repository; not publicly readable).",
+        "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at docs/connections/the-changelog.md (public repository).",
       "/platform":
         "Human-readable positioning page — Cambridge TCG as open-source TCG data infrastructure in development: the card data directory, market records kept after the 2026-09-23 retirement, coverage facts, and access and reuse boundaries.",
       "/agents":

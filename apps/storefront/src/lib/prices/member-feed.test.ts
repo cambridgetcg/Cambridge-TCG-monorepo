@@ -4,6 +4,8 @@ vi.mock('server-only', () => ({}));
 const { database } = vi.hoisted(() => ({ database: vi.fn() }));
 vi.mock('@/lib/db', () => ({ query: database }));
 import { DISPLAY_ONLY_INPUT_NOT_EXPORTED, DISPLAY_ONLY_INPUT_PAGES_END, MemberPriceQueryError, displayOnlySourcesWithRows, parseMemberPriceQuery, readMemberPrices } from './member-feed';
+import { MEMBER_PRICE_OBSERVATION_SCHEMA } from '@cambridge-tcg/data-spec';
+import { MEMBER_CSV_COLUMNS, serializeMemberExport } from './member-export';
 const parse = (value = '') => parseMemberPriceQuery(new URLSearchParams(value));
 beforeEach(() => { database.mockReset(); });
 describe('private member reader query boundary', () => {
@@ -215,6 +217,24 @@ describe('private member reader query boundary', () => {
     expect(page.items[0]).toMatchObject({ amount: '12.340000', currency: 'EUR', sku: null,
       metric: 'trend', granularity: 'source-product', sourceUpdatedAt: '2026-09-06T00:00:00.000Z',
       retrievedAt: '2026-09-07T00:00:00.000Z', permittedUses: ['member-api'] });
+  });
+  // Identity images are for /prices alone (member-images.ts): the API item and
+  // the downloads carry no image field, and no CardRush image URL, whatever a
+  // row read from storage holds beside its observation.
+  it('carries no image field or CardRush image URL in the API item or either download', async () => {
+    const image = `https://www.cardrush-op.jp/data/cardrush-op/_/${Buffer.from('product/SYNTHETIC_15600.jpg').toString('hex')}.jpg`;
+    const stored = { ...row, permitted_uses: ['member-api', 'member-download'], image_url: image, listing_image_url: image, image_attribution: 'Image: CardRush' };
+    expect(Object.keys(MEMBER_PRICE_OBSERVATION_SCHEMA.properties).filter(key => /image/i.test(key))).toEqual([]);
+    expect(MEMBER_CSV_COLUMNS.filter(key => /image/i.test(key))).toEqual([]);
+    database.mockResolvedValue({ rows: [{ watermark: '1', total: '1', items: [stored] }] });
+    const api = await readMemberPrices({ userId: 'test' }, parse(), 'member-api');
+    expect(Object.keys(api.items[0]!).sort()).toEqual(Object.keys(MEMBER_PRICE_OBSERVATION_SCHEMA.properties).sort());
+    const download = await readMemberPrices({ userId: 'test' }, parse(), 'member-download');
+    expect([api.items.length, download.items.length]).toEqual([1, 1]);
+    for (const body of [JSON.stringify(api), serializeMemberExport(download, 'csv'), serializeMemberExport(download, 'ndjson')]) {
+      expect(body).not.toMatch(/image/i);
+      expect(body).not.toContain('cardrush-op.jp/data/');
+    }
   });
   it.each([{ amount: '0.000000' }, { amount: 'Infinity' }, { currency: 'GBP' },
     { amount: '1\n' }, { language: 'en' }, { condition: 'near-mint' },

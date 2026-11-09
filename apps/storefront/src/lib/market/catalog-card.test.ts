@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ImageReference } from "@/lib/cards/image-reference";
+import { createSameLanguageImageReference } from "@/lib/cards/same-language-image-reference";
 import { resolveCardIdentity } from "./catalog-card";
 
 const mocks = vi.hoisted(() => ({ query: vi.fn(), getEnCardData: vi.fn() }));
@@ -60,5 +61,34 @@ describe("market card identity images", () => {
     expect(await resolveCardIdentity(row.sku)).toMatchObject({ kind: "ok", card: {
       image_url: null, image_attribution: null, image_reference: null,
     } });
+  });
+});
+
+describe("market card identity same-language images", () => {
+  const japanese = {
+    url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-001-JA.png",
+    attribution: "©尾田栄一郎／集英社 ©尾田栄一郎／集英社・フジテレビ・東映アニメーション",
+    language: "ja", reference: createSameLanguageImageReference("OP-OP01-001-JP-V1", "OP-OP01-001-JA")!,
+  };
+
+  it("prefers a Japanese request's own-language image over the English reference, and says so", async () => {
+    mocks.getEnCardData.mockResolvedValue({ en_image: official, same_language_image: japanese, effect_text: null, attributes: null });
+    expect(await resolveCardIdentity(row.sku)).toMatchObject({ kind: "ok", card: {
+      image_url: japanese.url, image_attribution: japanese.attribution, image_reference: null,
+      image_language: "ja", image_same_language_reference: japanese.reference,
+    } });
+  });
+
+  it("falls back to the English reference, then the catalogue photo, each with its own language field", async () => {
+    mocks.getEnCardData.mockResolvedValue({ en_image: official, same_language_image: null, effect_text: null, attributes: null });
+    expect(await resolveCardIdentity(row.sku)).toMatchObject({ kind: "ok", card: { image_url: official.url, image_language: "en", image_same_language_reference: null } });
+    // A reader result without the new field counts as null.
+    mocks.getEnCardData.mockResolvedValue({ en_image: null, effect_text: null, attributes: null });
+    expect(await resolveCardIdentity(row.sku)).toMatchObject({ kind: "ok", card: { image_url: catalogUrl, image_language: null, image_same_language_reference: null } });
+  });
+
+  it("does not use an incomplete Japanese image", async () => {
+    mocks.getEnCardData.mockResolvedValue({ en_image: official, same_language_image: { ...japanese, attribution: "" }, effect_text: null, attributes: null });
+    expect(await resolveCardIdentity(row.sku)).toMatchObject({ kind: "ok", card: { image_url: official.url, image_language: "en" } });
   });
 });

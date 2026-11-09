@@ -21,6 +21,7 @@ import { PlusIcon } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
+import { shopTimeZone } from "~/services/campaign-send.server";
 
 interface Campaign {
   id: string;
@@ -30,11 +31,15 @@ interface Campaign {
   scheduledFor: string | null;
   sentAt: string | null;
   metrics: {
-    sent: number;
-    delivered: number;
-    opened: number;
-    clicked: number;
-    revenue: number;
+    sent?: number;
+    delivered?: number;
+    opened?: number;
+    clicked?: number;
+    revenue?: number;
+    /** Why nothing was sent, for a missed or failed campaign */
+    notSentReason?: string;
+    /** Why a failed campaign may have gone out to some customers */
+    interruptedReason?: string;
   } | null;
   createdAt: string;
 }
@@ -71,11 +76,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json({
     shop,
     campaigns,
+    timeZone: await shopTimeZone(shop),
   });
 };
 
 export default function CampaignsList() {
-  const { campaigns } = useLoaderData<typeof loader>();
+  const { campaigns, timeZone } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [queryValue, setQueryValue] = useState("");
@@ -107,6 +113,8 @@ export default function CampaignsList() {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone,
+      timeZoneName: "short",
     });
   };
 
@@ -117,6 +125,7 @@ export default function CampaignsList() {
       sending: { tone: "attention", label: "Sending" },
       sent: { tone: "success", label: "Sent" },
       failed: { tone: "critical", label: "Failed" },
+      missed: { tone: "warning", label: "Missed" },
       paused: { tone: "warning", label: "Paused" },
     };
     const config = statusConfig[status] || { tone: "info", label: status };
@@ -148,6 +157,7 @@ export default function CampaignsList() {
             { label: "Sending", value: "sending" },
             { label: "Sent", value: "sent" },
             { label: "Failed", value: "failed" },
+            { label: "Missed", value: "missed" },
           ]}
           selected={statusFilter}
           onChange={handleStatusChange}
@@ -231,14 +241,22 @@ export default function CampaignsList() {
         ? formatDate(campaign.scheduledFor)
         : formatDate(campaign.createdAt)}
     </Text>,
-    campaign.metrics ? (
+    campaign.metrics?.interruptedReason ? (
+      <Text as="p" variant="bodySm">
+        May have gone out
+      </Text>
+    ) : campaign.metrics?.notSentReason ? (
+      <Text as="p" variant="bodySm">
+        Not sent
+      </Text>
+    ) : typeof campaign.metrics?.sent === "number" ? (
       <BlockStack gap="100">
         <Text as="p" variant="bodySm">
           {campaign.metrics.sent.toLocaleString()} sent
         </Text>
         <Text as="p" variant="bodySm" tone="subdued">
           {campaign.metrics.sent > 0
-            ? `${((campaign.metrics.opened / campaign.metrics.sent) * 100).toFixed(1)}% opened`
+            ? `${(((campaign.metrics.opened ?? 0) / campaign.metrics.sent) * 100).toFixed(1)}% opened`
             : "—"}
         </Text>
       </BlockStack>

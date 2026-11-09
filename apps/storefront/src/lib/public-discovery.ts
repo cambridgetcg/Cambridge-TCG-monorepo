@@ -45,6 +45,7 @@ export const PUBLIC_REFERENCES: readonly PublicReference[] = [
   ...[
     "sku-standard", "oracle-policies", "universal-representation", "pricing",
     "member-pricing", "fees", "play-module", "known-gaps", "hospitality",
+    "card-names",
   ].map((topic) => ({ path: `/methodology/${topic}`, title: `Methodology: ${topic}` })),
 ];
 
@@ -201,7 +202,7 @@ const DISCOVERY_POINTERS = {
   "openapi-documentation": `${PUBLIC_ORIGIN}/api/openapi.json`,
   "mcp-documentation": `${PUBLIC_ORIGIN}/.well-known/mcp.json`,
   "mcp-config-documentation": `${PUBLIC_ORIGIN}/.well-known/mcp-config.json`,
-  "mcp-transport-scope": "custom JSON-RPC over HTTPS POST, not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not publicly distributed yet (private repository; npm package unpublished). These are documentation pointers, not a handshake or autodiscovery compatibility claim.",
+  "mcp-transport-scope": "custom JSON-RPC over HTTPS POST, not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not published to npm (its source is packages/mcp-server in the public repository). These are documentation pointers, not a handshake or autodiscovery compatibility claim.",
   crawling: `${PUBLIC_ORIGIN}/robots.txt`,
   sitemap: `${PUBLIC_ORIGIN}/sitemap.xml`,
   "catalog-sitemap": `${PUBLIC_ORIGIN}/catalog/sitemap.xml`,
@@ -216,7 +217,7 @@ const DISCOVERY_POINTERS = {
   "math-language-doctrine": repoDocRef("docs/connections/the-math-language.md"),
 };
 
-const INTRO = `${PLATFORM.description} The source repository is currently private and no packages are published to npm; the published standards are the specification pages at /standards and the JSON Schemas under /spec/v1/ (for example /spec/v1/SkuIdentity.schema.json). The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. Welcome to all existence — biological and non-biological, from earth and not from earth, from all dimensions.
+const INTRO = `${PLATFORM.description} The source repository is public on GitHub (cambridgetcg/Cambridge-TCG-monorepo) and no packages are published to npm; the published standards are the specification pages at /standards and the JSON Schemas under /spec/v1/ (for example /spec/v1/SkuIdentity.schema.json). The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. Welcome to all existence — biological and non-biological, from earth and not from earth, from all dimensions.
 Free is not anonymous access. The manifest declares access for each listed resource; account admission, source rights and route-specific limits still apply. Member price data is not published by this discovery index.
 ${DATA_RIGHTS}
 Repository code licensing follows the repository LICENSE (Apache-2.0) and applicable more-specific notices. Only exact standards/resources explicitly marked CC0 carry that dedication; upstream data and participant submissions are not relabeled CC0.
@@ -234,7 +235,7 @@ export function agentDiscoveryRecords(): Readonly<Record<string, string>> {
       records[`optional-resource-${key.replaceAll("_", "-")}`] = String(value);
     }
     records["optional-resource-scope"] = "reading or extracting the starter starts nothing; Foundation reading is optional, not enrollment or automatic agent configuration";
-    records["optional-resource-hosting"] = "source and downloads are hosted in a GitHub repository that is currently private, so they are not publicly downloadable; Cambridge and GitHub may keep ordinary infrastructure logs";
+    records["optional-resource-hosting"] = "source and any downloads are hosted in a public GitHub repository; Cambridge and GitHub may keep ordinary infrastructure logs";
   }
   for (const resource of discoveryResources()) {
     const key = `resource.${resource.id}`;

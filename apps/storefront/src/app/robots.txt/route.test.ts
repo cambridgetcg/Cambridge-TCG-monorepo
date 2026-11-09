@@ -10,7 +10,7 @@ const READERS_SIGNAL = "Content-Signal: search=yes, ai-input=yes";
 const HISTORY_DISALLOWS = ["Disallow: /llms-full.txt", "Disallow: /.well-known/sophia-wake/"];
 const BASE_DISALLOWS = [
   "Disallow: /account/", "Disallow: /api/account/", "Disallow: /admin/", "Disallow: /api/admin/",
-  "Disallow: /api/auth/", "Disallow: /login/",
+  "Disallow: /api/auth/", "Disallow: /login",
   "Disallow: /api/lang-mode", "Disallow: /api/text-mode",
   "Disallow: /api/appearance", "Disallow: /api/currency",
 ];
@@ -24,19 +24,29 @@ const READERS = [
 ];
 
 // Assert parsed directives, not comments that merely mention a policy.
+// Every Disallow precedes "Allow: /" so first-match parsers honour it.
 describe("robots sitemap discovery", () => {
   it("advertises both independent sitemaps after the three crawler groups", async () => {
     const response = await GET();
     const directives = (await response.text()).split("\n")
       .filter((line) => line.trim() && !line.startsWith("#"));
     expect(directives).toEqual([
-      "User-agent: *", ...HISTORY_DISALLOWS, "Allow: /", CONTENT_SIGNAL, ...BASE_DISALLOWS, "Crawl-delay: 2",
-      ...TRAINING.map((t) => `User-agent: ${t}`), ...HISTORY_DISALLOWS, "Allow: /", CONTENT_SIGNAL,
-      ...BASE_DISALLOWS, "Crawl-delay: 2",
-      ...READERS.map((t) => `User-agent: ${t}`), "Allow: /", READERS_SIGNAL, ...BASE_DISALLOWS, "Crawl-delay: 2",
+      "User-agent: *", ...HISTORY_DISALLOWS, ...BASE_DISALLOWS, "Allow: /", CONTENT_SIGNAL, "Crawl-delay: 2",
+      ...TRAINING.map((t) => `User-agent: ${t}`), ...HISTORY_DISALLOWS, ...BASE_DISALLOWS, "Allow: /", CONTENT_SIGNAL,
+      "Crawl-delay: 2",
+      ...READERS.map((t) => `User-agent: ${t}`), ...BASE_DISALLOWS, "Allow: /", READERS_SIGNAL, "Crawl-delay: 2",
       "Sitemap: https://cambridgetcg.com/sitemap.xml",
       "Sitemap: https://cambridgetcg.com/catalog/sitemap.xml",
     ]);
     expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+  });
+
+  it("keeps each group whole for parsers that end a group at a blank line", async () => {
+    const groups = (await (await GET()).text()).split(/\n\s*\n/).filter((block) => /^User-agent:/m.test(block));
+    expect(groups).toHaveLength(3);
+    for (const block of groups) {
+      expect(block).toContain("Disallow: /login\n");
+      expect(block).toContain("Crawl-delay: 2");
+    }
   });
 });

@@ -1,0 +1,109 @@
+{
+  "file": "png/rewardspro_social_post-portrait_blank_1080x1350_20261107_v01.png",
+  "brand": "RewardsPro",
+  "campaign": "social",
+  "asset": "post-portrait",
+  "variant": "blank",
+  "brief_id": "STRATEGY.md §7 A6-A9 base (1080x1350, 4:5)",
+  "status": "PROPOSAL for Yu: not approved, not published",
+  "size": {
+    "width": 1080,
+    "height": 1350
+  },
+  "bytes": 15109,
+  "sha256": "aa126cf2a9213d3add144dc157eb5f07f92bbd11e48b313b3277ce4a67ed3e28",
+  "format": "PNG, opaque, 3 channels, ICC profile embedded (sRGB)",
+  "review_only": false,
+  "max_bytes": 2000000,
+  "under_limit": true,
+  "platforms": [
+    "LinkedIn image post (4:5, the tallest feed ratio)",
+    "X and Bluesky: not planned (reserve only, pointer bio; STRATEGY.md §3)"
+  ],
+  "use": "Blank brand ground for a post: fill the zones from a verified claim, then render. No post goes out before S2 (STRATEGY.md §2).",
+  "safe_before_g0": true,
+  "claim_ids": [],
+  "claim_status_at_build": {},
+  "draft": false,
+  "blockers": [],
+  "text_on_image": [
+    "RewardsPro (kit outlined horizontal lockup, bottom left)"
+  ],
+  "alt_text": "A blank RewardsPro post template: white ground, a short teal rule at the top left and the RewardsPro logo at the bottom left. No other text.",
+  "alt_chars": 140,
+  "contrast": [
+    {
+      "text": "logo lockup-horizontal (exempt from WCAG)",
+      "colours": "#1a3e5c on #ffffff",
+      "wcag": 11.13,
+      "apca_lc": 95.52,
+      "needs": null,
+      "pass": null
+    },
+    {
+      "text": "logo lockup-horizontal (exempt from WCAG)",
+      "colours": "#17bebb on #ffffff",
+      "wcag": 2.3,
+      "apca_lc": 44.85,
+      "needs": null,
+      "pass": null
+    }
+  ],
+  "logo_display": [
+    {
+      "logo": "lockup-horizontal",
+      "native": "376.17x74 px",
+      "shown_at": "390 CSS px across 1080 source px [I] (phone feed width)",
+      "css_width": 135.84,
+      "css_cap_height": 13.36,
+      "css_height": 26.72,
+      "kit_minimum": "130 px wide, cap height 12 px",
+      "ok": true
+    }
+  ],
+  "notes": null,
+  "master": {
+    "path": "masters/rewardspro_social_post-portrait_blank_1080x1350_20261107_v01.svg",
+    "sha256": "174d9d47694157c299e723fddf1af027b0b90c05abef16a16f7c02368e8a9039",
+    "source": "src/rewardspro_social_post-portrait_blank_1080x1350_20261107_v01.src.svg"
+  },
+  "inputs": [
+    {
+      "path": "kit/colour/tokens.json",
+      "sha256": "538dd5aeefcaa3c215ba3866a5a807366354e759170a220a657cdda42cb0c00a",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. From the 2026-10-27 kit rebuild (676c10b4); not covered by an approval.",
+      "note": "Every token used here has the same value as in the approved 2026-10-20 tokens, except dark.bg: #09110F came with the rebuild as the dark landing's ink (it was neutral 950, #1B1D1F)."
+    },
+    {
+      "path": "kit/logo/lockup-horizontal.svg",
+      "sha256": "33042d204485d9a867c05518d77a41eb26e671ea3fa1e06997c16a970d5cc79d",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+    }
+  ],
+  "kernel_sha256": {
+    "kernel.toml": "3ca10d6949ee134102b27f53d35e02253c6852e4474647b3c4a23193200a3f22",
+    "brand.json": "713ff39ee0a33444848b58298a81f8ec59d828142cb2759dc593933b3aa0f657",
+    "kit/.brandkit-fingerprint": "bdb0874b5c9df2937c859d43c3d0e33dbfb8cf10e6fecc3a1408cef718b85265"
+  },
+  "tools": {
+    "render.mjs": "render.mjs v01 (2026-11-07, fix pass 1)",
+    "node": "v26.0.0",
+    "sharp": "0.34.5",
+    "libvips": "8.17.3",
+    "librsvg": "2.61.2",
+    "vectorcraft-cli": "vectorcraft-cli 0.21.0",
+    "font": "Inter Regular and SemiBold as bundled in vectorcraft-cli (OFL-1.1, github.com/rsms/inter; vectorcraft-cli ASSETS.md rows assets/fonts/Inter-*.ttf), outlined to paths"
+  },
+  "fonts_resolved": [],
+  "text_measured": [],
+  "ai_involvement": "none",
+  "ai_involvement_note": "No generative-AI image, texture or text-to-image step, and no AI-written words on the image. A Claude Code agent wrote this layout code and chose the placement; every shape is the kit's own path data or a plain rectangle.",
+  "jurisdictions": [
+    "UK"
+  ],
+  "channel": "social (no account exists yet)",
+  "gate_report": null,
+  "approval_id": null,
+  "publish_url": null,
+  "created": "2026-11-07"
+}

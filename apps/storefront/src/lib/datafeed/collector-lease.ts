@@ -5,7 +5,8 @@ import { query } from '@/lib/db';
 /** One collector run at a time per lease key (migration 0143). A duplicate
  * cron delivery or a manual authenticated call during a scheduled run would
  * otherwise double the rate the collector keeps to (0.5 rps per CardRush
- * host, an agent's call; TCGplayer's robots.txt Crawl-Delay 10). No rate is
+ * host, an agent's call; TCGplayer's robots.txt Crawl-Delay, 10 s when last
+ * recorded and re-read by every run). No rate is
  * recorded as agreed with either source. Keys: 'cardmarket', 'tcgplayer' (all its
  * hosts share one bucket, so one lease) and 'cardrush:<host>'.
  *
@@ -33,8 +34,10 @@ export type CollectorLeaseRefusal = { ran: false; reason: 'run-in-progress' | 'r
 export interface CollectorLeaseOptions {
   runQuery?: typeof query; ttlMs?: number; holder?: string;
   /** The source's interval between requests (CardRush 2 s per host, TCGplayer
-   * 10 s), kept after the run ends; 0 or none deletes the row at the end. */
-  spacingMs?: number;
+   * 10 s or the longer Crawl-delay its run read), kept after the run ends; 0
+   * or none deletes the row at the end. A function is read at release, after
+   * the run's last request. */
+  spacingMs?: number | (() => number);
 }
 
 const LEASE_KEY = /^[a-z][a-z0-9-]*(:[a-z0-9.-]+)?$/;
@@ -88,13 +91,15 @@ export async function releaseCollectorLease(key: string, holder: string, runQuer
  * own result or error. */
 export async function withCollectorLease<T>(key: string, work: () => Promise<T>, options: CollectorLeaseOptions = {}): Promise<{ ran: true; value: T } | CollectorLeaseRefusal> {
   const runQuery = options.runQuery ?? query, spacingMs = options.spacingMs ?? 0;
-  if (!validSpacing(spacingMs)) throw new Error('invalid-collector-lease-spacing');
+  if (typeof spacingMs === 'number' && !validSpacing(spacingMs)) throw new Error('invalid-collector-lease-spacing');
   const lease = await acquireCollectorLease(key, { ...options, runQuery });
   if ('reason' in lease) return lease;
   try {
     return { ran: true, value: await work() };
   } finally {
-    try { await releaseCollectorLease(key, lease.holder, runQuery, spacingMs); }
+    // An invalid spacing read at release fails the release, so the row
+    // expires at its TTL, longer than any spacing.
+    try { await releaseCollectorLease(key, lease.holder, runQuery, typeof spacingMs === 'function' ? spacingMs() : spacingMs); }
     catch (error) { console.error('[collector-lease] release failed; the lease will expire', key, error instanceof Error ? error.name : 'UnknownError'); }
   }
 }

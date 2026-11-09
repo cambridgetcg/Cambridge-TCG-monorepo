@@ -95,7 +95,165 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-11-06 ─────────────────────────────────────────────────────────
+  {
+    id: "production-alias-api-to-apex",
+    date: "2026-11-06",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "cambridgetcg-storefront.vercel.app/api/*",
+    summary:
+      "The production alias no longer serves API reads: a GET or HEAD to /api/* there answers 308 to the same path on https://cambridgetcg.com, and so does every method to /api/v1/feedback, /api/v1/peers and /api/mcp.",
+    detail:
+      "Yu chose this on 2026-11-05 so that API traffic passes Cloudflare's firewall and rate rules. A request that would be redirected but carries Authorization answers 421 with the apex URL instead, because clients drop that header on a cross-host redirect. Other POSTs (webhooks) and /api/cron/* are unchanged, as are per-deployment hosts. Callers that used the alias should call https://cambridgetcg.com.",
+    related_urls: ["/api/v1/status"],
+  },
+  {
+    id: "agent-doors-opt-in",
+    date: "2026-11-06",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/feedback, /api/v1/peers, /api/mcp (agent.self), /robots.txt, /privacy",
+    summary:
+      "Doors an agent may use if it wants to: a feedback door with a holder key to read the answer or erase the message, a counted hello on /api/v1/peers that stores nothing about the caller, and agent.self listing what is recorded about the calling key.",
+    detail:
+      "The feedback door and the counted hello ship switched off and open only after /privacy names them (it now does, with Cloudflare as a recipient and the aggregate counts the internal monitor keeps). agent.self's recorded_about_this_key is live and collects nothing new. robots.txt now lists each group's disallows before Allow: /, so first-match parsers honour them, and Disallow: /login covers /login itself.",
+    related_urls: ["/privacy#feedback-door", "/privacy#aggregate-counts", "/.well-known/mcp.json"],
+  },
+  // ── 2026-10-30 ─────────────────────────────────────────────────────────
+  {
+    id: "tcgplayer-pokemon-line",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (TCGplayer rows), /api/v1/sources/tcgplayer",
+    summary:
+      "TCGplayer's English Pokemon price guides (220 sets) are now collected beside One Piece and Pokemon Japan, and the collector takes product lines in turn so no line starves.",
+    detail:
+      "Display only on /prices, credited to TCGplayer; Pokemon rows stay unmapped until a reviewed Pokemon set crosswalk exists. The request rate is unchanged (TCGplayer's Crawl-delay 10), so the lines share the same hourly budget: One Piece sets are re-read about every 17 h, English Pokemon about every 42 h, Pokemon Japan about every 87 h.",
+    related_urls: ["/api/v1/sources/tcgplayer", "/prices"],
+  },
+  {
+    id: "official-images-japanese-starter-decks",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices, /market (Japanese official images)",
+    summary:
+      "The Japanese official-image lane also covers One Piece starter and ultimate decks (ST-01 to ST-36), the family deck set, limited-product cards and promotion cards, as Bandai's Japanese card list lists them.",
+    detail:
+      "The first Japanese collection read boosters, extra and premium boosters only, while CardRush's first live run mapped starter-deck cards. The new series are collected with the same tool and rules.",
+    related_urls: ["/legal/card-images"],
+  },
+  {
+    id: "prices-card-names",
+    date: "2026-10-30",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Each /prices row can show its CTCG-NAMES-v1 card name beside the raw source title, e.g. お玉 · vendor · CardRush, with any illustrator credit, for people and agents to check the card.",
+    detail:
+      "The name comes from the source's versioned vendor rule and is labelled vendor, never official. Rows whose title the rule refuses, Cardmarket sealed products, and CardRush titles with a language marker show no name. Elements carry data-name, data-name-key, data-name-lang, data-name-status and data-name-rule. Display only: no API or download changes.",
+    related_urls: ["/prices", "/methodology/card-names"],
+  },
+  {
+    id: "official-images-japanese-lane",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/universal/card/[sku] image_same_language, /prices, /market",
+    summary:
+      "A Japanese card can show its own-language official sample image: source bandai-jp, self-hosted with the Japanese credit line and takedown, as Yu chose on 2026-10-30. The universal card gains image_same_language; image_url and image_reference keep their English meaning.",
+    detail:
+      "Built inert: no Japanese image exists until Bandai's Japanese card lists are read and the images uploaded, and each of those acts needs Yu's word. OFFICIAL_IMAGES_JA=off hides the lane. A match is by SKU syntax only, base prints only, and labelled so. Record: docs/decisions/2026-10-30-japanese-official-images.md.",
+    related_urls: ["/legal/card-images", "/prices"],
+  },
+  {
+    id: "cardrush-listing-image-product-path",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (CardRush rows)",
+    summary:
+      "CardRush listing images are recorded again: a live listing's og:image takes the plain /data/<host>/product/<file> form, which the collector and migration 0145 had refused, so the first live run linked no image.",
+    detail:
+      "The validator and the table's CHECK (migration 0147) now accept that form beside the resized /_/<hex> form, with the same limits: https, the listing's own host and directory, one plain file name, an image type. Still a link, never a copy, shown only when the member opens it.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
+  {
+    id: "cardrush-title-rule-2",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (CardRush rows), /api/v1/sources/cardrush",
+    summary:
+      "CardRush title rule cardrush-title/2: an English listing written like ウタ(英語版/illust:…)【R】{OP01-005} now maps exactly to its -en SKU. Japanese titles map exactly as under /1; Chinese listings stay ambiguous, because a zh SKU cannot tell Simplified from Traditional.",
+    detail:
+      "Rows already stored keep crosswalk version cardrush-title/1; a listing's next read writes a /2 row. A card that CardRush lists in both Japanese and English has two SKUs on one source, so it drops out of CardRush's premium rows under the existing method. A bare (簡体字版) row that /1 mapped exact becomes ambiguous at its next read.",
+    related_urls: ["/api/v1/sources/cardrush"],
+  },
+  {
+    id: "prices-image-language",
+    date: "2026-10-30",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Each /prices identity image now says how its language and printing relate to the row: this printing, an English base print for a parallel, a different language, a pooled source-product row, or the CardRush listing's own image.",
+    detail:
+      "Images carry data-image-source, data-image-lang, data-row-lang, data-relationship, data-scope and, for official images, data-depicted-sku, so an agent reading the page can tell. An official match is by SKU syntax only, and the label says so. The member API, downloads and /api/v1/market/* are unchanged.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
   // ── 2026-10-29 ─────────────────────────────────────────────────────────
+  {
+    id: "source-collector-hosts",
+    date: "2026-10-29",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/sources, /api/v1/sources/[id] collector.hosts",
+    summary:
+      "Collected sources gain collector.hosts[]: each host's state (ok, refused, failing, stale, suspended, never_run, unknown), last success and refusal, not_before and suspension. A failing or suspended host makes its source failing.",
+    detail:
+      "The collectors now honour a Retry-After as long as the host asks (capped at 7 days), suspend themselves at a host after three refused runs in a row until a person clears it, and TCGplayer reads robots.txt on every run. Cardmarket's user-agent names its permission. This needs migration 0146; until then hosts[] is empty and the collectors behave as before. Existing health fields and vocabulary are unchanged.",
+    related_urls: ["/api/v1/sources/cardrush", "/api/v1/sources/tcgplayer", "/api/v1/sources/cardmarket"],
+  },
+  {
+    id: "repository-visibility-public",
+    date: "2026-10-29",
+    kind: "well-known-modified",
+    impact: "additive",
+    surface: "/.well-known/mcp.json, /.well-known/mcp-config.json, /api/v1/adopters, /standards.json",
+    summary:
+      "The Cambridge TCG monorepo is public on GitHub, and every live surface now says so: repository_visibility is \"public\", publicly_obtainable and publicly_cloneable are true, and repository paths link to GitHub.",
+    detail:
+      "Yu, 2026-10-29: \"yes I meant for them to be public latest.\" gh repo view reported the repository PUBLIC that day. The workspace packages are still not published to npm. /api/v1/adopters gives each implementation's GitHub path instead of null. Frozen history records and dated entries keep their wording.",
+    related_urls: ["https://github.com/cambridgetcg/Cambridge-TCG-monorepo", "/.well-known/mcp.json", "/standards"],
+  },
+  {
+    id: "prices-identity-images",
+    date: "2026-10-29",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Member price rows can carry an identity image: the official English base reference inline, and a CardRush listing's own image, linked at CardRush's URL, behind a control the member opens.",
+    detail:
+      "So a person or an agent can check the item against its price. CardRush images are linked, never copied, and load from CardRush only when the member opens them; they are never in the member API, downloads or /api/v1/market/*. CardRush links need migration 0145 and a collector run. The rule is the agents' reading of Yu's words of 2026-10-29, in docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
+  {
+    id: "standard-ctcg-names-v1-draft",
+    date: "2026-10-29",
+    kind: "spec-version-bump",
+    impact: "additive",
+    surface: "/methodology/card-names",
+    summary:
+      "CTCG-NAMES-v1 (draft): card names and official translations. A name belongs to a card key and a language, carries its status (official, vendor, community or machine) and its source, and has a match key.",
+    detail:
+      "Registered in /standards.json and served as /spec/v1/CardName.schema.json. The reference implementation is packages/sku/src/names.ts, with versioned rules that take a name out of CardRush, TCGplayer and Cardmarket titles and refuse rather than guess. A name never establishes a SKU mapping. Specification text CC0.",
+    related_urls: ["/methodology/card-names", "/standards", "/spec/v1/CardName.schema.json"],
+  },
   {
     id: "source-collector-latest-batch-observed",
     date: "2026-10-29",

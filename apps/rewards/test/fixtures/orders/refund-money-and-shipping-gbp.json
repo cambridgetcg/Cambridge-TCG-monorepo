@@ -1,0 +1,66 @@
+{
+  "data": {
+    "refund": {
+      "id": "gid://shopify/Refund/6154",
+      "createdAt": "2026-11-03T12:00:00Z",
+      "order": {
+        "id": "gid://shopify/Order/5011"
+      },
+      "refundLineItems": {
+        "pageInfo": {
+          "hasNextPage": false
+        },
+        "nodes": []
+      },
+      "transactions": {
+        "nodes": [
+          {
+            "kind": "REFUND",
+            "status": "SUCCESS",
+            "amountSet": {
+              "shopMoney": {
+                "amount": "13.0"
+              },
+              "presentmentMoney": {
+                "amount": "13.0"
+              }
+            }
+          }
+        ]
+      },
+      "refundShippingLines": {
+        "nodes": [
+          {
+            "subtotalAmountSet": {
+              "shopMoney": {
+                "amount": "5.0"
+              },
+              "presentmentMoney": {
+                "amount": "5.0"
+              }
+            },
+            "taxAmountSet": {
+              "shopMoney": {
+                "amount": "0.83"
+              },
+              "presentmentMoney": {
+                "amount": "0.83"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "extensions": {
+    "cost": {
+      "requestedQueryCost": 429,
+      "actualQueryCost": 6,
+      "throttleStatus": {
+        "maximumAvailable": 2000.0,
+        "currentlyAvailable": 1994,
+        "restoreRate": 100.0
+      }
+    }
+  }
+}

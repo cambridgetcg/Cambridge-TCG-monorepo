@@ -18,7 +18,8 @@ RewardsPro is a **Shopify loyalty & rewards app**: points, tiers, cashback, stor
 credit, memberships, mystery boxes, raffles, missions, and email campaigns for
 Shopify merchants. Remix (Vite) + Polaris embedded app, Prisma → Postgres 17
 on Supabase ([`docs/DATABASE.md`](docs/DATABASE.md)), deployed on Vercel (see
-`vercel.json` — it also carries ~24 cron routes). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
+`vercel.json` — it also schedules 8 of the app's 24 cron routes; DEPLOY.md
+lists them and says where to look when one fails). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
 
 Guards that need a decision to lift, not a refactor:
 
@@ -78,10 +79,10 @@ repo-root [`AGENTS.md`](../../AGENTS.md) principles apply here too.
 ```
 pnpm dev:rewardspro              # shopify app dev (SKIP_DB_CHECKS=1)
 pnpm build:rewardspro            # prisma generate && remix vite:build
-pnpm test:rewardspro             # vitest unit suite
+pnpm test:rewardspro             # vitest suite: everything in test/ but the Postgres tests
 pnpm --filter rewardspro exec tsc --noEmit   # typecheck
 pnpm --filter rewardspro test:postgres       # Postgres integration suites (needs REWARDSPRO_TEST_DATABASE_URL; docs/DATABASE.md)
-pnpm --filter rewardspro lint    # eslint — RED, see debt below
+pnpm --filter rewardspro lint    # eslint (CI lints this app too)
 ```
 
 On a fresh clone, run `pnpm --filter rewardspro exec prisma generate` before
@@ -126,8 +127,5 @@ element type"), extend mechanism 1 or 2 — don't pin a global `@types/react`.
 
 ## Known debt (inherited from standalone, 2026-06-10)
 
-- **Lint is red** (817 errors standalone, 1029 under the workspace incl.
-  extensions/) — excluded from the CI lint sweep in `.github/workflows/ci.yml`;
-  burn it down before re-including.
 - `npm run`-style strings remain inside some package.json script bodies and
   older docs here; they work under pnpm but read stale.

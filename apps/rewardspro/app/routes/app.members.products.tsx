@@ -18,7 +18,6 @@ import {
   Box,
   Modal,
   FormLayout,
-  Checkbox,
   Icon,
   Divider,
   SkeletonBodyText,
@@ -148,6 +147,16 @@ function formatDuration(duration: string): string {
     'LIFETIME': 'Lifetime'
   };
   return durations[duration] || duration;
+}
+
+// What shoppers read on the product: it's paid for once and doesn't renew
+function membershipDescription(tierName: string, duration: ProductDuration): string {
+  const lasts: Record<ProductDuration, string> = {
+    'MONTHLY': 'for one month. It doesn\'t renew automatically.',
+    'ANNUAL': 'for one year. It doesn\'t renew automatically.',
+    'LIFETIME': 'with no end date.'
+  };
+  return `One payment gives you ${tierName} tier benefits ${lasts[duration]}`;
 }
 
 // ============================================
@@ -562,7 +571,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Prepare product input with proper structure
         const productInput = {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
-          descriptionHtml: `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
+          descriptionHtml: `<p>${membershipDescription(tierName, duration)}</p>`,
           vendor: shop.split('.')[0],
           productType: "Tier Membership",
           status: "ACTIVE",
@@ -859,7 +868,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         console.log(`[TierProducts] Creating product with price: ${price}, SKU: ${sku}`);
         const result = await ProductCreatorV2.createAndPublishProductWithRetry(admin, {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
-          description: `Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.`,
+          description: membershipDescription(tierName, duration),
           vendor: shop.split('.')[0],
           productType: "Tier Membership",
           price: price.toString(),
@@ -1875,11 +1884,11 @@ export default function TierProducts() {
     value: tier.id,
   }));
   
-  // Duration options
+  // Duration options (every duration is a one-time purchase)
   const durationOptions = [
     { label: "Monthly", value: "MONTHLY" },
     { label: "Annual", value: "ANNUAL" },
-    { label: "Lifetime (one-time)", value: "LIFETIME" },
+    { label: "Lifetime", value: "LIFETIME" },
   ];
   
   // Handle delete product with validation
@@ -2014,6 +2023,19 @@ export default function TierProducts() {
             </Layout.Section>
           )}
 
+          {/* An order placed through a selling plan gives no membership (webhooks.orders.paid.tsx) */}
+          {data.tierProducts.some(p => p.hasSubscription) && (
+            <Layout.Section>
+              <Banner tone="warning" title="A selling plan is attached to a membership product">
+                <p>
+                  RewardsPro gives membership only for one-time purchases. Customers who choose
+                  the selling plan at checkout pay but don't get the tier. Remove the product
+                  from the plan in the app that added it.
+                </p>
+              </Banner>
+            </Layout.Section>
+          )}
+
           {/* Analytics Summary */}
           {data.tierProducts.length > 0 && (
             <Layout.Section>
@@ -2091,7 +2113,8 @@ export default function TierProducts() {
                       <Banner tone="warning">
                         <p>
                           {data.analytics.expiringThisWeek} membership{data.analytics.expiringThisWeek > 1 ? 's are' : ' is'} expiring
-                          in the next 7 days. Customers will receive email notifications.
+                          in the next 7 days. Customers get a reminder email only if you turn on
+                          Membership ending soon in Email settings.
                         </p>
                       </Banner>
                     )}
@@ -2485,15 +2508,18 @@ export default function TierProducts() {
                           }} />
                           <Text variant="bodySm" tone="subdued" as="span">Unpublished</Text>
                         </InlineStack>
-                        <InlineStack gap="100" blockAlign="center">
-                          <div style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            backgroundColor: '#3b82f6'
-                          }} />
-                          <Text variant="bodySm" tone="subdued" as="span">Subscription</Text>
-                        </InlineStack>
+                        {/* RewardsPro adds no selling plans (memberships are one-time purchases), so this marks one added elsewhere */}
+                        {data.tierProducts.some(p => p.hasSubscription) && (
+                          <InlineStack gap="100" blockAlign="center">
+                            <div style={{
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              backgroundColor: '#3b82f6'
+                            }} />
+                            <Text variant="bodySm" tone="caution" as="span">Selling plan attached: orders placed through it don't give membership</Text>
+                          </InlineStack>
+                        )}
                       </InlineStack>
                     </BlockStack>
                   </Box>
@@ -2715,7 +2741,7 @@ export default function TierProducts() {
                       <BlockStack gap="300">
                         <Banner tone="info">
                           <Text as="p" variant="bodyMd">
-                            Deleted products can be restored within 30 days. After that, they are permanently removed.
+                            Deleted products can be restored within 30 days. After that, they are permanently removed, unless a shopper still holds a membership from one.
                           </Text>
                         </Banner>
 
@@ -2824,7 +2850,7 @@ export default function TierProducts() {
                 options={durationOptions}
                 value={duration}
                 onChange={setDuration}
-                helpText="How long the membership lasts"
+                helpText="How long the membership lasts: one month, one year or a lifetime. Customers pay once, and it doesn't renew automatically."
               />
 
             </FormLayout>
@@ -2916,7 +2942,7 @@ export default function TierProducts() {
               {isValidatingDelete && (
                 <InlineStack gap="200" align="center">
                   <Spinner size="small" />
-                  <Text as="p" variant="bodyMd">Checking for active purchases and subscriptions...</Text>
+                  <Text as="p" variant="bodyMd">Checking for active purchases...</Text>
                 </InlineStack>
               )}
 
@@ -2925,7 +2951,7 @@ export default function TierProducts() {
                 <>
                   <Banner tone="critical" title="Cannot delete this tier product">
                     <Text as="p" variant="bodyMd">
-                      This product has active purchases or subscriptions that must be resolved first.
+                      This product has active purchases that must end first.
                     </Text>
                   </Banner>
                   <ul style={{ margin: 0, paddingLeft: '0', listStyle: 'none' }}>
@@ -2937,7 +2963,7 @@ export default function TierProducts() {
                     ))}
                   </ul>
                   <Text as="p" variant="bodySm" tone="subdued">
-                    Cancel or expire active subscriptions and wait for purchases to expire before deleting.
+                    You can delete it once none of its purchases are active.
                   </Text>
                 </>
               )}

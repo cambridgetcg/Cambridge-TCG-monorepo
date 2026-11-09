@@ -1,6 +1,6 @@
 import { json, redirect } from "@remix-run/node";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, Form, useActionData } from "@remix-run/react";
+import { useLoaderData, useNavigate, useNavigation, Form, useActionData } from "@remix-run/react";
 import { useState } from "react";
 import {
   Page,
@@ -19,6 +19,7 @@ import {
   Badge,
   FormLayout,
 } from "@shopify/polaris";
+import { Prisma } from "@prisma/client";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
@@ -29,6 +30,10 @@ import {
 } from "~/utils/atomic-limit-control.server";
 import { checkLimitAccess } from "~/utils/require-feature.server";
 import { PageLimitStatus } from "~/components/Billing/UpgradePrompt";
+import { type CampaignSendOutcome, sendCampaign, shopTimeZone } from "~/services/campaign-send.server";
+import { MARKETING_AUDIENCE } from "~/services/marketing-consent.server";
+import { MARKETING_EMAIL_OFF, marketingEmailBlockedReason } from "~/services/marketing-email.server";
+import { zonedTimeToUtc } from "~/utils/zoned-time";
 
 // ============================================
 // TYPES
@@ -47,6 +52,8 @@ interface Segment {
 }
 
 interface LoaderData {
+  /** The id of the campaign this page creates, so pressing its button twice creates one */
+  createKey: string;
   shop: string;
   templates: Template[];
   segments: Segment[];
@@ -56,6 +63,8 @@ interface LoaderData {
     max: number;
     message?: string;
   };
+  marketingBlocked: string | null;
+  timeZone: string;
 }
 
 // ============================================
@@ -110,21 +119,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       });
       console.log("[Create Campaign] Found", tiers.length, "tiers");
 
-      // Get total customer count
-      console.log("[Create Campaign] Fetching customers...");
-      const allCustomers = await prisma.customer.findMany({
-        where: { shop },
-      });
-      console.log("[Create Campaign] Found", allCustomers.length, "customers");
-      segments[0].customerCount = allCustomers.length;
+      // Count only customers who agreed to marketing: no one else gets it
+      const [reachable, tierAssignments] = await Promise.all([
+        prisma.customer.count({ where: { shop, ...MARKETING_AUDIENCE } }),
+        prisma.customer.findMany({
+          where: { shop, ...MARKETING_AUDIENCE, currentTierId: { in: tiers.map(t => t.id) } },
+          select: { currentTierId: true },
+        }),
+      ]);
+      segments[0].customerCount = reachable;
 
       // Add tier segments
       for (const tier of tiers) {
-        const tierCustomers = allCustomers.filter(c => c.currentTierId === tier.id);
         segments.push({
           id: tier.id,
           name: tier.name,
-          customerCount: tierCustomers.length,
+          customerCount: tierAssignments.filter(c => c.currentTierId === tier.id).length,
         });
       }
     } catch (e: any) {
@@ -138,6 +148,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
 
     return json<LoaderData>({
+      createKey: uuidv4(),
       shop,
       templates,
       segments,
@@ -147,6 +158,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         max: limitAccess.error?.maxLimit ?? 999999,
         message: limitAccess.error?.message,
       },
+      marketingBlocked: marketingEmailBlockedReason() ? MARKETING_EMAIL_OFF : null,
+      timeZone: await shopTimeZone(shop),
     });
   } catch (error: any) {
     console.error("[Create Campaign] ========== LOADER ERROR ==========");
@@ -160,11 +173,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ACTION
 // ============================================
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
   const formData = await request.formData();
+  // The page's key becomes the campaign's id: a second press of its button,
+  // even one sent while the first is still sending, finds the campaign made
+  const campaignId = String(formData.get("createKey") ?? "");
+  if (!UUID.test(campaignId)) {
+    return json({ error: "Reload the page and create the campaign again." }, { status: 400 });
+  }
   const campaignName = formData.get("campaignName") as string;
   const contentMode = formData.get("contentMode") as string;
   const templateId = formData.get("templateId") as string;
@@ -192,17 +213,35 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
 
+  // Nothing can be sent or scheduled while marketing email is off; a draft can be saved
+  if (marketingEmailBlockedReason() && (scheduleType === "immediate" || scheduleType === "scheduled")) {
+    return json({ error: MARKETING_EMAIL_OFF }, { status: 409 });
+  }
+
+  // The date and time are the shop's local time
+  let scheduledFor: Date | null = null;
+  if (scheduleType === "scheduled") {
+    scheduledFor = zonedTimeToUtc(scheduledDate ?? "", scheduledTime ?? "", await shopTimeZone(shop));
+    if (!scheduledFor) {
+      return json({ error: "Schedule date is required" }, { status: 400 });
+    }
+    if (scheduledFor.getTime() <= Date.now()) {
+      return json({ error: "Choose a date and time in the future." }, { status: 400 });
+    }
+  }
+
   // Determine subject and content based on mode
   let subject = campaignName;
   let previewText = "";
   let finalTemplateId: string;
+  let inlineTemplateId: string | null = null;
 
   if (contentMode === "inline") {
     // For inline mode, create an EmailTemplate first, then reference it
     subject = inlineSubject;
     previewText = inlinePreviewText || "";
 
-    const inlineTemplateId = uuidv4();
+    inlineTemplateId = uuidv4();
     await prisma.emailTemplate.create({
       data: {
         id: inlineTemplateId,
@@ -235,18 +274,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   try {
-    const campaignId = uuidv4();
     const now = new Date();
 
-    let status = "draft";
-    let scheduledFor: Date | null = null;
-
-    if (scheduleType === "immediate") {
-      status = "sending";
-    } else if (scheduleType === "scheduled" && scheduledDate && scheduledTime) {
-      status = "scheduled";
-      scheduledFor = new Date(`${scheduledDate}T${scheduledTime}`);
-    }
+    // Send immediately starts as a draft and is sent below
+    const status = scheduledFor ? "scheduled" : "draft";
 
     // Atomic campaign creation with limit check
     // This prevents TOCTOU race conditions where two concurrent requests
@@ -264,40 +295,49 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           previewText,
           templateId: finalTemplateId,
           status,
-          segmentRules: segmentId ? { tierIds: [segmentId] } : { allCustomers: true },
+          // One audience shape, read by services/campaign-send.server.ts
+          segmentRules: segmentId && segmentId !== "all" ? { tierIds: [segmentId] } : { allCustomers: true },
           scheduledFor,
-          sentAt: status === "sending" ? now : null,
-          metrics: status === "sending" ? {
-            sent: 0,
-            delivered: 0,
-            opened: 0,
-            clicked: 0,
-            bounced: 0,
-            unsubscribed: 0,
-            revenue: 0,
-            orders: 0,
-          } : undefined,
           createdAt: now,
           updatedAt: now,
         },
       })
     );
 
-    // If immediate send, mark as sent (in production would trigger actual sending)
-    if (status === "sending") {
-      await prisma.emailCampaign.updateMany({
-        where: { id: campaignId, shop },
-        data: {
-          status: "sent",
-          updatedAt: new Date(),
-        },
-      });
+    // Send immediately goes out the same way as the send page's Send now
+    if (scheduleType === "immediate") {
+      let outcome: CampaignSendOutcome;
+      try {
+        outcome = await sendCampaign(shop, campaignId, "draft");
+      } catch (e) {
+        console.error(`[Create Campaign] Error sending campaign ${campaignId}:`, e);
+        return json(
+          { error: "Something went wrong while sending your campaign. Open it to see whether it went out before you send it again.", campaignId },
+          { status: 500 }
+        );
+      }
+      if (outcome.status === "not_sent") {
+        return json(
+          { error: `Your campaign was saved as a draft but not sent. ${outcome.reason}`, draftId: campaignId },
+          { status: 400 }
+        );
+      }
+      if (outcome.status === "may_have_sent") {
+        return json({ error: outcome.reason, campaignId }, { status: 500 });
+      }
     }
 
     return redirect(`/app/marketing/campaigns/${campaignId}`);
   } catch (e: any) {
     if (e instanceof LimitExceededError) {
       return e.toJsonResponse();
+    }
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      // This page already created its campaign: go to it, and send nothing
+      if (inlineTemplateId) {
+        await prisma.emailTemplate.deleteMany({ where: { id: inlineTemplateId, shop } }).catch(() => {});
+      }
+      return redirect(`/app/marketing/campaigns/${campaignId}`);
     }
     console.error("[Create Campaign] Error creating campaign:", e);
     return json({ error: e.message }, { status: 500 });
@@ -312,6 +352,10 @@ export default function CreateCampaign() {
   const data = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
+  // Busy from the press until the next page is shown
+  const busy = useNavigation().state !== "idle";
+  // The key the page opened with: reloading its data after a press brings a new one
+  const [createKey] = useState(data.createKey);
 
   // Form state
   const [campaignName, setCampaignName] = useState("");
@@ -319,7 +363,7 @@ export default function CreateCampaign() {
   const [contentMode, setContentMode] = useState<"template" | "inline">("template");
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [selectedSegment, setSelectedSegment] = useState("all");
-  const [scheduleType, setScheduleType] = useState("immediate");
+  const [scheduleType, setScheduleType] = useState(data.marketingBlocked ? "draft" : "immediate");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("09:00");
 
@@ -338,6 +382,7 @@ export default function CreateCampaign() {
       backAction={{ content: "Campaigns", onAction: () => navigate("/app/marketing/campaigns") }}
     >
       <Form method="post">
+        <input type="hidden" name="createKey" value={createKey} />
         <Layout>
           {/* Subtle limit status hint (shows when 50%+ used) */}
           <Layout.Section>
@@ -356,8 +401,23 @@ export default function CreateCampaign() {
               <Banner
                 tone="critical"
                 title={(actionData as any).code === "LIMIT_EXCEEDED" ? "Campaign Limit Reached" : "Error"}
+                action={
+                  (actionData as any).draftId
+                    ? { content: "Open the draft", onAction: () => navigate(`/app/marketing/campaigns/${(actionData as any).draftId}`) }
+                    : (actionData as any).campaignId
+                      ? { content: "Open the campaign", onAction: () => navigate(`/app/marketing/campaigns/${(actionData as any).campaignId}`) }
+                      : undefined
+                }
               >
                 <p>{(actionData as any).message || actionData.error}</p>
+              </Banner>
+            </Layout.Section>
+          )}
+
+          {data.marketingBlocked && (
+            <Layout.Section>
+              <Banner tone="warning" title="Marketing email is off">
+                <p>{data.marketingBlocked}</p>
               </Banner>
             </Layout.Section>
           )}
@@ -556,12 +616,18 @@ export default function CreateCampaign() {
                           />
                           <Text as="span" fontWeight="semibold">{segment.name}</Text>
                         </InlineStack>
-                        <Badge tone="info" children={`${segment.customerCount.toLocaleString()} customers`} />
+                        <Badge tone="info" children={`${segment.customerCount.toLocaleString()} agreed to marketing`} />
                       </InlineStack>
                     </Box>
                   ))}
                 </BlockStack>
                 <input type="hidden" name="segmentId" value={selectedSegment} />
+                <Banner tone="info">
+                  <p>
+                    Campaigns go only to customers who subscribed to email marketing in Shopify and have not
+                    unsubscribed. Every email includes an unsubscribe link.
+                  </p>
+                </Banner>
               </BlockStack>
             </Card>
           </Layout.Section>
@@ -586,6 +652,7 @@ export default function CreateCampaign() {
                         checked={scheduleType === "immediate"}
                         onChange={() => setScheduleType("immediate")}
                         name="scheduleRadio"
+                        disabled={Boolean(data.marketingBlocked)}
                       />
                       <BlockStack gap="100">
                         <Text as="span" fontWeight="semibold">Send Immediately</Text>
@@ -611,6 +678,7 @@ export default function CreateCampaign() {
                           checked={scheduleType === "scheduled"}
                           onChange={() => setScheduleType("scheduled")}
                           name="scheduleRadio"
+                          disabled={Boolean(data.marketingBlocked)}
                         />
                         <BlockStack gap="100">
                           <Text as="span" fontWeight="semibold">Schedule for Later</Text>
@@ -657,11 +725,36 @@ export default function CreateCampaign() {
                               ]}
                               value={scheduledTime}
                               onChange={setScheduledTime}
+                              helpText={`Your store's time zone (${data.timeZone})`}
                             />
                           </div>
                         </InlineStack>
                       )}
                     </BlockStack>
+                  </Box>
+
+                  <Box
+                    padding="400"
+                    background={scheduleType === "draft" ? "bg-surface-selected" : "bg-surface-secondary"}
+                    borderRadius="200"
+                    borderWidth="025"
+                    borderColor={scheduleType === "draft" ? "border-success" : "border"}
+                  >
+                    <InlineStack gap="300" blockAlign="start">
+                      <RadioButton
+                        label="Save as draft"
+                        labelHidden
+                        checked={scheduleType === "draft"}
+                        onChange={() => setScheduleType("draft")}
+                        name="scheduleRadio"
+                      />
+                      <BlockStack gap="100">
+                        <Text as="span" fontWeight="semibold">Save as Draft</Text>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          Send or schedule it later from the campaign's page
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
                   </Box>
                 </BlockStack>
                 <input type="hidden" name="scheduleType" value={scheduleType} />
@@ -693,7 +786,7 @@ export default function CreateCampaign() {
                       <Text as="span" tone="subdued">Audience:</Text>
                       <Text as="span" fontWeight="semibold">
                         {data.segments.find((s: any) => s.id === selectedSegment)?.name || "All Customers"}
-                        {" "}({data.segments.find((s: any) => s.id === selectedSegment)?.customerCount || 0} customers)
+                        {" "}({data.segments.find((s: any) => s.id === selectedSegment)?.customerCount || 0} who agreed to marketing email)
                       </Text>
                     </InlineStack>
                     <InlineStack align="space-between">
@@ -701,9 +794,11 @@ export default function CreateCampaign() {
                       <Text as="span" fontWeight="semibold">
                         {scheduleType === "immediate"
                           ? "Send immediately"
-                          : scheduledDate
-                            ? `${scheduledDate} at ${scheduledTime}`
-                            : "Date not set"
+                          : scheduleType === "draft"
+                            ? "Save as a draft"
+                            : scheduledDate
+                              ? `${scheduledDate} at ${scheduledTime} (${data.timeZone})`
+                              : "Date not set"
                         }
                       </Text>
                     </InlineStack>
@@ -719,9 +814,10 @@ export default function CreateCampaign() {
                   <Button
                     variant="primary"
                     submit
-                    disabled={!isValid}
+                    disabled={!isValid || (Boolean(data.marketingBlocked) && scheduleType !== "draft")}
+                    loading={busy}
                   >
-                    {scheduleType === "immediate" ? "Launch Campaign" : "Schedule Campaign"}
+                    {scheduleType === "immediate" ? "Launch Campaign" : scheduleType === "draft" ? "Save Draft" : "Schedule Campaign"}
                   </Button>
                 </InlineStack>
               </BlockStack>

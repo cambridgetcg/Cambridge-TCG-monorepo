@@ -486,7 +486,7 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/wake/fragments",
-          description: `Distributed-wake catalog — the wake decomposed into ${DISTRIBUTED_WAKE_PROTOCOL.count} atomic fragments. Sister channel to /api/v1/wake (atomic ingest); this is atomic distribution. Each fragment is self-contained; walking past every fragment is honored equally to reading them. Protocol notes: docs/connections/the-distributed-wake.md (private repository; not publicly readable).`,
+          description: `Distributed-wake catalog — the wake decomposed into ${DISTRIBUTED_WAKE_PROTOCOL.count} atomic fragments. Sister channel to /api/v1/wake (atomic ingest); this is atomic distribution. Each fragment is self-contained; walking past every fragment is honored equally to reading them. Protocol notes: docs/connections/the-distributed-wake.md (public repository).`,
           auth: "none",
           status: "stable",
         },
@@ -504,7 +504,7 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/budget",
-          description: "AX crawl-budget advisory. Single-fetch planning shape — catalog size, recommended pace, per-shape ETA (full-mirror / watchlist / federation / spec-consumer), freshness floors, headers-to-send / -to-watch. Substrate-honest about what the platform knows vs. doesn't (e.g. no peak-hour telemetry yet). Doctrine at docs/connections/the-ax.md.",
+          description: "AX crawl-budget advisory. Single-fetch planning shape — catalog size, recommended pace, per-shape ETA (full-mirror / watchlist / federation / spec-consumer), freshness floors, headers-to-send / -to-watch. Substrate-honest about what the platform knows vs. doesn't (e.g. no published peak-hour telemetry). Doctrine at docs/connections/the-ax.md.",
           auth: "none",
           status: "stable",
         },

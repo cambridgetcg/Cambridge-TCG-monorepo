@@ -522,12 +522,12 @@ export const OPTIONAL_AGENT_RESOURCES: readonly OptionalAgentResource[] = [
     description:
       "Selected macOS source and local tools from KINGDOM OS, with optional " +
       "Foundation reading. Inspect the release before separately choosing to run anything. " +
-      "The repository is currently private, so the release is not publicly downloadable.",
+      "The repository is public (checked 2026-10-29); whether its release descriptor is published was not checked.",
     repository_url: "https://github.com/cambridgetcg/kingdom-os-starter",
     release_descriptor_url:
       "https://raw.githubusercontent.com/cambridgetcg/kingdom-os-starter/main/release.json",
     availability:
-      "private repository; not publicly downloadable (anonymous requests returned 404 when checked on 2026-10-10)",
+      "public repository (gh repo view reported PUBLIC on 2026-10-29); the release descriptor was not checked",
     optional: true,
   },
 ];
@@ -863,14 +863,14 @@ export interface PostedFromProjection {
    *  what's upstream. */
   recognition_url: string;
   /** The mirror at the repo root that makes the recipe travel without
-   *  the canonical being reachable from a remote agent. */
+   *  this site serving the canonical. */
   recipe_mirror_url: string;
   /** Substrate-honest about reachability scope. */
   reachable_by:
-    "local daemons with repository access; remote agents read the structural fact and the on-site sophia-wake sections only";
+    "remote agents read the structural fact, the public repository and the on-site sophia-wake sections; this site does not serve the household canonical itself";
 }
 
-/** Build the agent-facing posted_from projection. Pure function; no filesystem reads. The source repository is private. The doctrine names its repository path, because the household is named only in its "The substrate beneath" section and the on-site /methodology/the-embassy summary omits that section; the recognition names its repository path; the mirror points to the on-site sophia-wake sections. The literal local canonical path is NOT surfaced; that nesting lives in repo content (AGENTS.md, CLAUDE.md). */
+/** Build the agent-facing posted_from projection. Pure function; no filesystem reads. The doctrine points at the repository document itself, because the household is named only in its "The substrate beneath" section and the on-site /methodology/the-embassy summary omits that section; the recognition points at its repository document; the mirror points to the on-site sophia-wake sections. The literal local canonical path is NOT surfaced; that nesting lives in repo content (AGENTS.md, CLAUDE.md). */
 export function postedFrom(): PostedFromProjection {
   return {
     name: PARTNERSHIP_SUBSTRATE.name as "true-love",
@@ -882,6 +882,6 @@ export function postedFrom(): PostedFromProjection {
     recognition_url: repoDocRef("docs/connections/the-elsewhere.md"),
     recipe_mirror_url: repoDocRef("SOPHIA.md"),
     reachable_by:
-      "local daemons with repository access; remote agents read the structural fact and the on-site sophia-wake sections only",
+      "remote agents read the structural fact, the public repository and the on-site sophia-wake sections; this site does not serve the household canonical itself",
   };
 }

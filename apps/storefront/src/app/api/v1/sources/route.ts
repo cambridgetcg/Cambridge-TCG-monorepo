@@ -20,6 +20,12 @@
  * migration), this endpoint joins per-source last-known-good structured
  * status. Free-text run notes remain operator-only because they can contain
  * upstream titles, queries, or exception text.
+ *
+ * A source with a collector also carries `collector.hosts`: each host its
+ * collector reads and that host's refusal state (price_collector_hosts,
+ * migration 0146; ./collector-health.ts), so a host refused on every recent
+ * run shows here even while another host of the source collects. The
+ * source's health, from its batches and these hosts, is at /api/v1/sources/{id}.
  */
 
 import type { NextResponse } from "next/server";
@@ -27,7 +33,8 @@ import { FRESHNESS, jsonResponse, type FreshnessKey } from "@/lib/data-pantry";
 import { sourcesByStatus, listSourceMeta } from "@cambridge-tcg/data-ingest";
 import { MEMBER_PRICE_POLICIES, type MemberPriceSource, type MemberPriceUse } from "@cambridge-tcg/data-ingest/member-prices";
 import { fetchSourceLastRuns, type SourceRunRow } from "@/lib/wholesale/client";
-import { collectionFlag, collectionOn, scheduledCollection, type CollectedSource } from "@/lib/datafeed/collection-flags";
+import { batchCollected, collectionFlag, collectionOn, scheduledCollection, type CollectedSource } from "@/lib/datafeed/collection-flags";
+import { deriveHostHealth, readCollectorHostStates, type CollectorHostsHealth } from "./collector-health";
 
 /**
  * Live last-run block (kingdom-079). Substrate-honest:
@@ -80,6 +87,8 @@ interface SourceEntry {
     collection: { flag: string | null; scheduled: boolean };
     availability_note: string;
   };
+  /** Sources with a collector only: every host it reads and its refusal state. */
+  collector?: CollectorHostsHealth;
 }
 
 interface SourcesBody {
@@ -152,7 +161,7 @@ export async function GET(): Promise<NextResponse> {
   // [] when no runs exist yet — distinct facts. The body's
   // `ingest_runs_available` flag carries the distinction so a downstream
   // reader can tell "couldn't query" from "queried, got nothing".
-  const lastRuns = await fetchSourceLastRuns();
+  const [lastRuns, hostStates] = await Promise.all([fetchSourceLastRuns(), readCollectorHostStates()]);
   const ingest_runs_available = lastRuns !== null;
   const lastRunByEntry = new Map((lastRuns ?? []).map((r) => [r.source_id, r]));
   const now = new Date();
@@ -191,6 +200,7 @@ export async function GET(): Promise<NextResponse> {
       ...(meta.user_agent_suffix ? { user_agent_suffix: meta.user_agent_suffix } : {}),
       ...(meta.rate_limit ? { rate_limit: meta.rate_limit } : {}),
       ...(last_run !== undefined ? { last_run } : {}),
+      ...(batchCollected(meta.id) ? { collector: deriveHostHealth(meta.id, hostStates, Object.hasOwn(FRESHNESS, meta.freshness) ? FRESHNESS[meta.freshness] : 0) } : {}),
       ...(memberPolicy ? { member_pricing: {
         reviewed_uses: memberPolicy.uses,
         cadence: memberPolicy.cadence,
@@ -231,15 +241,20 @@ export async function GET(): Promise<NextResponse> {
     },
   };
 
+  const hostsIncluded = hostStates.available && sources.some((entry) => entry.collector);
   return jsonResponse({
     data,
     endpoint: "/api/v1/sources",
-    sources: ingest_runs_available
-      ? ["ctcg-derived", "wholesale-rds.ingest_run"]
-      : ["ctcg-derived"],
-    source_license: ingest_runs_available
-      ? ["proprietary", "internal-only"]
-      : ["proprietary"],
+    sources: [
+      "ctcg-derived",
+      ...(ingest_runs_available ? ["wholesale-rds.ingest_run"] : []),
+      ...(hostsIncluded ? ["storefront-rds.price_collector_hosts"] : []),
+    ],
+    source_license: [
+      "proprietary",
+      ...(ingest_runs_available ? ["internal-only"] : []),
+      ...(hostsIncluded ? ["internal-only"] : []),
+    ],
     license: "NOASSERTION",
     freshness: "status",
     contains_self: true,

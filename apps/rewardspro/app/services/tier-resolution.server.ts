@@ -325,6 +325,12 @@ export async function resolveEffectiveTier(
         skipUpdate: true          // CRITICAL: Don't update DB - just get the calculated tier
       });
 
+      // With the override check skipped, an error is a real failure. Falling
+      // through would resolve a lower tier (or none) and write it.
+      if (spendingTierResult.error) {
+        throw new Error(`Could not calculate the spending-based tier: ${spendingTierResult.error}`);
+      }
+
       if (spendingTierResult.newTierId) {
         resolutionLogger.debug('Spending-based tier calculated', { tierName: spendingTierResult.newTierName });
 
@@ -351,6 +357,7 @@ export async function resolveEffectiveTier(
       }
     } catch (error) {
       resolutionLogger.error('Error calculating spending-based tier', error);
+      throw error;
     }
   }
 
@@ -387,7 +394,9 @@ export async function resolveEffectiveTier(
         resolutionLogger.debug('Base tier assignment disabled for shop');
       }
     } catch (error) {
+      // Without this check the customer would resolve to no tier at all
       resolutionLogger.error('Error checking base tier', error);
+      throw error;
     }
   }
 

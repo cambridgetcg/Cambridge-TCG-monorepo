@@ -426,7 +426,7 @@ curl -H 'cookie: <session-cookie>' \\
     method: "POST",
     auth: "public",
     title: "File a feedback report",
-    description: "Five feedback kinds. Participant-supplied text and identity fields remain NOASSERTION unless the participant explicitly supplies a license.",
+    description: "Seven feedback kinds, including question and data-error, while the door is open (PUBLIC_FEEDBACK). The door keeps the named fields only. Participant-supplied text and identity fields remain NOASSERTION unless the participant explicitly supplies a license.",
     curl: `curl -X POST https://cambridgetcg.com/api/v1/feedback \\
   -H 'content-type: application/json' \\
   -d '{
@@ -438,24 +438,28 @@ curl -H 'cookie: <session-cookie>' \\
   }'`,
     sample_response: `{
   "data": {
-    "@kind": "feedback_receipt",
-    "feedback_id": "fb_a1b2c3d4e5f6",
+    "@kind": "feedback-receipt",
+    "feedback_id": "fb_3f9c0a1b2c3d4e5f60718293",
+    "holder_key": "fbk_…",
+    "holder_key_shown_once": true,
     "kind": "contract-drift",
-    "received_at": "2026-05-14T12:00:00Z",
-    "status": "logged",
-    "response_window_hours": 48,
-    "expected_response": "If the drift is real, we patch within a week and reply..."
+    "status": "received",
+    "received_at": "2026-11-06T12:00:00.000Z",
+    "expires_at": "2027-05-05T12:00:00.000Z",
+    "kept": ["kind", "observed", "expected", "endpoint", "reply_to"]
   }
 }`,
     annotated_fields: [
-      { path: "data.feedback_id", meaning: "Quote in any follow-up. Format: fb_<12-hex>." },
-      { path: "data.status", meaning: "Today: 'logged'. Future: 'triaged' / 'patched' / 'wont-fix' once persistence ships." },
+      { path: "data.feedback_id", meaning: "Quote in any follow-up. Format: fb_<24-hex>, random." },
+      { path: "data.holder_key", meaning: "Shown once; only its SHA-256 is kept. Send it as Authorization: Bearer <key> to GET the status and answer, or DELETE to erase the report." },
+      { path: "data.status", meaning: "received, then read, answered or closed as the operator works on it." },
+      { path: "data.kept", meaning: "Exactly the fields the door kept. A field it does not know is refused with 400, not dropped." },
     ],
-    when_to_use: "Any contract drift. Guide bugs. Endpoint suggestions. Federation partner registration.",
+    when_to_use: "A question. A data error (name endpoint, subject, as_of and method_version, not a source's value). Contract drift. Guide bugs. Endpoint suggestions. Federation partner registration.",
     gotchas: [
-      "reporter_contact is REQUIRED for kind 'contract-drift' and 'federation-adopter' so we can reply.",
+      "reporter_contact (or reply_to) is optional: the answer can be read with the holder key. Give one if you also want a reply by email or at a URL.",
       "Submitting feedback does not dedicate it to CC0; the submission remains NOASSERTION absent an explicit license.",
-      "Substrate-honest about persistence: today logged + emailed; agent_feedback table planned (drafts/0101).",
+      "The door answers 503 while PUBLIC_FEEDBACK is off, and 429 once it has taken 30 messages in the UTC hour. Each report is deleted 180 days after it arrives.",
     ],
     see_also: [
       { label: "Hospitality doctrine", href: repoDocRef("docs/connections/the-hospitality.md") },

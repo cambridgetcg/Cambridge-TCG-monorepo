@@ -22,7 +22,18 @@
  * Piece) on each anonymous request.
  */
 
+import { COLLECTOR_HOST_ROTATION_MS, COLLECTOR_HOSTS, HOST_COLUMNS, hostRowFrom, type CollectorHostRow } from "../../../../lib/datafeed/collector-hosts";
+import type { CollectedSource } from "../../../../lib/datafeed/collection-flags";
+
 type RunQuery = (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
+
+/** The storefront database module, imported on first use (it throws without
+ * DATABASE_URL) and shared by the readers here, which a request runs at once.
+ * A failed import is not kept. */
+let storefrontDbModule: Promise<{ query: RunQuery }> | null = null;
+function storefrontDb(): Promise<{ query: RunQuery }> {
+  return storefrontDbModule ??= import("@/lib/db").catch((error: unknown) => { storefrontDbModule = null; throw error; });
+}
 
 export interface CollectorBatch {
   inserted_at: string;
@@ -51,7 +62,7 @@ const iso = (value: unknown) => new Date(value as string | Date).toISOString();
 export async function readLatestCollectorBatch(source: string, runQuery?: RunQuery): Promise<CollectorBatchRead> {
   let run: RunQuery;
   try {
-    run = runQuery ?? (await import("@/lib/db")).query;
+    run = runQuery ?? (await storefrontDb()).query;
   } catch {
     return { available: false, reason: "the storefront database is not configured here" };
   }
@@ -113,4 +124,115 @@ export function deriveCollectorHealth(read: CollectorBatchRead, freshnessSeconds
   const age = observedAge === null ? `latest batch written ${hours(latestAge)} ago and ${observed}; ${budget}` : `${observed}; ${budget}`;
   if (ageSec > 2 * freshnessSeconds) return { health: "very_stale", reason: `${age} (2x exceeded)` };
   return { health: "stale", reason: age };
+}
+
+/**
+ * Health per host (price_collector_hosts, migration 0146). A source's batches
+ * cannot show a host that refuses: CardRush reads one host a run, so a host
+ * refused on every run sits beside five that collect, and a refused TCGplayer
+ * run writes no batch at all. Each host the collector reads is listed with
+ * its state:
+ *   suspended  refused three runs in a row; off until a person clears it.
+ *   failing    refused on its last two runs or more.
+ *   stale      not served within its budget (below), whatever it answered
+ *              since: a failure that is not a refusal (a 5xx, a redirect,
+ *              a network error) changes no count, but does not serve.
+ *   refused    refused on its latest run only, and served within its budget
+ *              or never served: one refusal is often a blip.
+ *   ok         served within its budget, and not refused since.
+ *   never_run  no run has reached it.
+ *   unknown    the state could not be read.
+ * Judged by each host's own turn: its budget is the source's freshness
+ * budget plus how much longer it waits between reads than the source between
+ * runs (collector-hosts.ts COLLECTOR_HOST_ROTATION_MS): 16 h for a CardRush
+ * host, read every 12 h, and the budget itself for TCGplayer's and
+ * Cardmarket's hosts, read every run. A failing or suspended host makes the
+ * source failing, whatever its batches say, and a stale one makes a healthy
+ * source stale; otherwise the batches decide, as before. Only Cambridge's own
+ * codes and times are read: no upstream text is stored there.
+ */
+export type CollectorHostState = "ok" | "refused" | "stale" | "failing" | "suspended" | "never_run" | "unknown";
+/** Refused runs in a row that read failing; HOST_SUSPEND_AFTER (3) suspends. */
+const HOST_FAILING_AFTER = 2;
+export interface CollectorHostHealth {
+  host: string;
+  state: CollectorHostState;
+  consecutive_refusals: number;
+  last_success_at: string | null;
+  last_refusal_at: string | null;
+  last_refusal_reason: string | null;
+  not_before: string | null;
+  suspended_at: string | null;
+  suspended_reason: string | null;
+}
+export type CollectorHostsRead =
+  | { available: true; rows: ReadonlyMap<string, ReadonlyMap<string, CollectorHostRow>> }
+  | { available: false; reason: string };
+export interface CollectorHostsHealth { hosts_available: boolean; hosts_reason?: string; hosts: CollectorHostHealth[] }
+
+/** Every source's host rows, in one query. Never throws: a database that is
+ * not configured, a table that is not provisioned and a failed query are each
+ * `available: false` with the reason. */
+export async function readCollectorHostStates(runQuery?: RunQuery): Promise<CollectorHostsRead> {
+  let run: RunQuery;
+  try {
+    run = runQuery ?? (await storefrontDb()).query;
+  } catch {
+    return { available: false, reason: "the storefront database is not configured here" };
+  }
+  try {
+    const table = await run(`SELECT to_regclass('price_collector_hosts') IS NOT NULL AS provisioned`);
+    if (table.rows[0]?.provisioned !== true) return { available: false, reason: "price_collector_hosts is not provisioned (migration 0146)" };
+    const rows = new Map<string, Map<string, CollectorHostRow>>();
+    for (const raw of (await run(`SELECT ${HOST_COLUMNS} FROM price_collector_hosts ORDER BY source, host`)).rows) {
+      const row = hostRowFrom(raw);
+      if (!row || typeof raw.source !== "string") continue;
+      rows.set(raw.source, (rows.get(raw.source) ?? new Map()).set(row.host, row));
+    }
+    return { available: true, rows };
+  } catch {
+    return { available: false, reason: "price_collector_hosts could not be read" };
+  }
+}
+
+/** Each host the source's collector reads, in its configured order. */
+export function deriveHostHealth(source: CollectedSource, read: CollectorHostsRead, freshnessSeconds: number, now: number = Date.now()): CollectorHostsHealth {
+  const budgetSeconds = freshnessSeconds + COLLECTOR_HOST_ROTATION_MS[source] / 1000;
+  const empty = (host: string, state: CollectorHostState): CollectorHostHealth => ({
+    host, state, consecutive_refusals: 0, last_success_at: null, last_refusal_at: null, last_refusal_reason: null, not_before: null, suspended_at: null, suspended_reason: null,
+  });
+  if (!read.available) return { hosts_available: false, hosts_reason: read.reason, hosts: COLLECTOR_HOSTS[source].map(host => empty(host, "unknown")) };
+  const rows = read.rows.get(source);
+  return {
+    hosts_available: true,
+    hosts: COLLECTOR_HOSTS[source].map(host => {
+      const row = rows?.get(host);
+      if (!row) return empty(host, "never_run");
+      const served = row.lastSuccessAt !== null && (now - Date.parse(row.lastSuccessAt)) / 1000 <= budgetSeconds;
+      const state: CollectorHostState = row.suspendedAt ? "suspended"
+        : row.consecutiveRefusals >= HOST_FAILING_AFTER ? "failing"
+          : row.consecutiveRefusals > 0 && (served || row.lastSuccessAt === null) ? "refused"
+            : served ? "ok"
+              // Served too long ago, or never since a person cleared its refusals.
+              : row.lastSuccessAt || row.lastRefusalAt ? "stale" : "never_run";
+      return {
+        host, state, consecutive_refusals: row.consecutiveRefusals, last_success_at: row.lastSuccessAt, last_refusal_at: row.lastRefusalAt,
+        last_refusal_reason: row.lastRefusalReason, not_before: row.notBefore, suspended_at: row.suspendedAt, suspended_reason: row.suspendedReason,
+      };
+    }),
+  };
+}
+
+/** The source's health once its hosts are read: failing when any host is
+ * failing or suspended, and stale when it was healthy and a host is stale,
+ * naming those hosts before the batches' own reason. */
+export function withHostHealth(health: { health: CollectorHealth; reason: string }, hosts: readonly CollectorHostHealth[]): { health: CollectorHealth; reason: string } {
+  const failing = hosts.flatMap(host =>
+    host.state === "suspended" ? [`${host.host} suspended after ${host.consecutive_refusals} refused runs in a row (${host.suspended_reason})`]
+      : host.state === "failing" ? [`${host.host} refused on its last ${host.consecutive_refusals} runs (${host.last_refusal_reason})`]
+        : []);
+  const stale = hosts.flatMap(host => host.state === "stale" ? [`${host.host} not served within its budget (last served ${host.last_success_at ?? "never"})`] : []);
+  if (!failing.length && !stale.length) return health;
+  const state = failing.length ? "failing" : health.health === "healthy" ? "stale" : health.health;
+  return { health: state, reason: `${[...failing, ...stale].join("; ")}; batches: ${health.reason}` };
 }

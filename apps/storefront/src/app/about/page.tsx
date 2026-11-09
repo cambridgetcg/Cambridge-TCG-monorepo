@@ -25,7 +25,7 @@ export default function AboutPage() {
           <div>
             <h2 id="about-open" className="text-xl font-semibold text-ink">Open-source direction, with clear boundaries</h2>
             <p className="mt-3 text-sm leading-6 text-ink-muted">Code is licensed Apache-2.0 (root LICENSE) and specification text has a separate CC0 dedication. Card artwork, provider data and personal records keep their own rights; every data release needs its own permission.</p>
-            <p className="mt-3 text-sm leading-6 text-ink-muted">What is published today: the standards, as specification pages under <Link href="/standards" className={link}>/standards</Link> and JSON Schemas under /spec/v1/. Source-code release is pending: the repository is currently private and the reference packages are not on npm.</p>
+            <p className="mt-3 text-sm leading-6 text-ink-muted">What is published today: the standards, as specification pages under <Link href="/standards" className={link}>/standards</Link> and JSON Schemas under /spec/v1/. The source repository is public on GitHub (cambridgetcg/Cambridge-TCG-monorepo); the reference packages are not on npm.</p>
           </div>
           <div>
             <h2 className="text-xl font-semibold text-ink">Useful standards earn adoption</h2>

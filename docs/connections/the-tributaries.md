@@ -93,7 +93,7 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | Public API? | No new access. Existing access is not transferable. |
 | Bulk feed? | Third-party mirrors do not cure the upstream restriction; do not use them without a written chain of rights. |
 | License | Proprietary. Terms prohibit a competing service, combining TCGplayer prices with first/third-party prices, and redistribution/commercialisation without prior written consent. Yu's written permission (2026-10-28) covers page collection, attributed member display and derivation input; raw values are never exported (`internal-only`, `redistribute: false`). |
-| Freshness | Market Price as the page data shows it when read. While scheduled, the collector runs hourly, stalest set first. Module freshness `page_collector` (6 h) is a budget for the collector's latest batch, not for each row. |
+| Freshness | Market Price as the page data shows it when read. While scheduled, the collector runs hourly, the product lines taking turns and each line's stalest set first. Module freshness `page_collector` (6 h) is a budget for the collector's latest batch, not for each row. |
 | Canonical-form effort | **medium** — TCGplayer uses its own `productId` (integer) per printing; SKU mapping requires their `group_id` (set) + product attributes. Worth caching their productId on `card_set_cards`. |
 | Status | **partial** since 2026-10-28 (blocked 2026-07-11 to 2026-10-28). The price-guide collector exists and runs only while `DATA_COLLECT_TCGPLAYER` is `on`; `/api/v1/sources` says whether it is (`member_pricing.collection`). Its runs are `member_price_batches` rows, which `/api/v1/sources/tcgplayer` health and `audit:tributaries` check 9 read. The API reader stays locked (`TCGPLAYER_ACQUISITION_ENABLED = false`). |
 | Update, 2026-10-28 | Written permission recorded for page collection, attributed member display and derivation input; the API reader stays locked. The identified collector landed the same day and the module is `partial` in code: it reads the data the public set price-guide page loads (`infinite-api.tcgplayer.com`, `mpapi.tcgplayer.com`), one request per set at Crawl-Delay 10, and runs only when `DATA_COLLECT_TCGPLAYER` is `on`. The module's public description, `tos_notes` and welcome named no API host and kept those requests apart from the permission until Yu answered. |
@@ -380,6 +380,16 @@ before collection or publication.
 | Canonical-form effort | **medium** — structured fields help, but product identity still needs canonical SKU matching |
 | Status | **blocked** — adapter retained for inspectability; cron returns 503 before the runner |
 
+### 3.12 Bandai JP official sample images
+
+| Field | Value |
+|-------|-------|
+| Coverage | One Piece and Dragon Ball Super Fusion World — official Japanese sample images, base prints only |
+| URL | `www.onepiece-cardgame.com/cardlist/`, `www.dbs-cardgame.com/fw/jp/cardlist/` |
+| Access | a manual tool only (`apps/storefront/scripts/ingest-official-ja.mjs`), run by a person with Yu's word for each run; no cron and no live reader. Reads list pages for image addresses and card ids, never text |
+| License | publisher-owned; both footers refuse reproduction without permission, and none is granted |
+| Status | **blocked** — Yu chose on 2026-10-30 to self-host these images with the Japanese credit and takedown, as the English ones are ([decision record](../decisions/2026-10-30-japanese-official-images.md)); that is Cambridge's decision, not Bandai's permission. Moves to `partial` only after Yu's word and a first `--apply` |
+
 ---
 
 ## 4. Tournament / play / meta sources
@@ -463,7 +473,7 @@ Cards have a visual identity; the pantry's `image_url` field should always cite 
 | Scryfall images | MTG all | Scryfall API/image policy + WotC rights; no CC claim | planned, value-added free surface only |
 | Pokémon TCG API images | Pokémon all | publisher-derived | planned |
 | YGOPRODeck images | Yu-Gi-Oh all | publisher-derived | planned |
-| Bandai TCG+ official images | One Piece, Digimon, DBF | publisher-owned | blocked; no hotlink, mirror, or display without written permission |
+| Bandai TCG+ official images | One Piece, Digimon, DBF | publisher-owned | blocked; no hotlink, mirror, or display without written permission. The web card lists' official images are a separate lane: English self-hosted under the 2026-07-13 decision ([EN-CARD-DATA](../EN-CARD-DATA.md)); Japanese under the 2026-10-30 decision (§3.12) |
 | eBay listing photos | per-listing | listing-owned | already accessible via eBay APIs |
 | PSA scans | graded cards | PSA-licensed | planned via PSA Registry API |
 | Customer-uploaded photos | per-listing | listing-owned | already in `apps/storefront/.../auctions/[id]/photos/` |
@@ -596,9 +606,10 @@ packages/data-ingest/
 | Scryfall | adapter built, never run; no scheduled job | catalog |
 | Pokémon TCG API | adapter built, never run; no scheduled job | catalog |
 | YGOPRODeck | blocked pending written commercial-content permission | none |
-| TCGplayer | price-guide collector, `45 * * * *` in `vercel.json`, stalest sets first; does its work only while `DATA_COLLECT_TCGPLAYER` is `on` | `page_collector` (6 h) for the latest `member_price_batches` row |
+| TCGplayer | price-guide collector, `45 * * * *` in `vercel.json`, product lines in turn, each line's stalest sets first; does its work only while `DATA_COLLECT_TCGPLAYER` is `on` | `page_collector` (6 h) for the latest `member_price_batches` row |
 | Cardmarket | official daily files; One Piece collector, `30 5 * * *` in `vercel.json`; does its work only while `DATA_COLLECT_CARDMARKET` is `on` | `daily_file` (26 h) for the latest `member_price_batches` row, which `/api/v1/sources/cardmarket` and check 9 read |
 | eBay | partial adapter; no observed rows in current coverage | market_signal intent |
+| Bandai JP official images | manual tool only (`ingest-official-ja.mjs`), never scheduled | none |
 | Other reserved slots | no module or scheduled job | none |
 
 For every source with a collector (`batchCollected` in `apps/storefront/src/lib/datafeed/collection-flags.ts`: Cardmarket, CardRush, TCGplayer), `/api/v1/sources/[id]` health and `audit:tributaries` check 9 read the newest `member_price_batches` row in the storefront database, not `ingest_run`. Health is `stale` past the freshness budget, `very_stale` past twice it and `never_run` with no batch; check 9 fails on the second and warns on the third. A manual import's batch counts too: health says when the newest batch was written, not who ran it. The other sources' runs are their `ingest_run` rows in the wholesale database.

@@ -1,0 +1,309 @@
+{
+  "file": "png/rewardspro_social_correction-card_placeholders-draft_1080x1350_20261107_v01.png",
+  "brand": "RewardsPro",
+  "campaign": "social",
+  "asset": "correction-card",
+  "variant": "placeholders-draft",
+  "brief_id": "STRATEGY.md §7 A9 (correction rule, §5)",
+  "status": "PROPOSAL for Yu: not approved, not published",
+  "size": {
+    "width": 1080,
+    "height": 1350
+  },
+  "bytes": 88205,
+  "sha256": "fbf785c473311bb7ea45d9e267df2a97e551e9d7e6f7128abc561020bf9c3112",
+  "format": "PNG, opaque, 3 channels, ICC profile embedded (sRGB)",
+  "review_only": false,
+  "max_bytes": 2000000,
+  "under_limit": true,
+  "platforms": [
+    "LinkedIn image post (4:5), on the channel that carried the wrong claim"
+  ],
+  "use": "Review only. Shows the layout and wording for Yu; never post a draft. render.mjs drops the bands only when every claim is verified, inside its review_after date and cleared for social-post, and no placeholder is left, and corrects names the wrong claim, whose row has a correction_url.",
+  "safe_before_g0": false,
+  "claim_ids": [],
+  "claim_status_at_build": {},
+  "draft": true,
+  "blockers": [
+    "a date",
+    "the wrong sentence",
+    "the true one",
+    "a source",
+    "a claim that proved wrong"
+  ],
+  "text_on_image": [
+    "TEMPLATE · NOT FOR POSTING",
+    "Correction, <D Month YYYY>",
+    "We said:",
+    "<old sentence>",
+    "What is true:",
+    "<new sentence>",
+    "Source: <source>, checked <date>",
+    "RewardsPro (kit lockup, bottom left)",
+    "Needs a date · the wrong sentence · the true one · a source · a claim that proved wrong"
+  ],
+  "alt_text": "Template, not for posting. RewardsPro correction card template: \"Correction,\" and a date, then \"We said:\" with the old sentence, \"What is true:\" with the new sentence, and the source with the date it was checked. RewardsPro logo at the bottom left.",
+  "alt_chars": 248,
+  "contrast": [
+    {
+      "text": "head",
+      "colours": "#1b1d1f on #ffffff",
+      "size_px": 76,
+      "weight": "SemiBold",
+      "wcag": 16.91,
+      "apca_lc": 103.84,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "head",
+      "colours": "#007c7a on #ffffff",
+      "size_px": 76,
+      "weight": "SemiBold",
+      "wcag": 5.04,
+      "apca_lc": 74.27,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "said-l",
+      "colours": "#686c70 on #ffffff",
+      "size_px": 34,
+      "weight": "SemiBold",
+      "wcag": 5.29,
+      "apca_lc": 76.34,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "said",
+      "colours": "#1b1d1f on #ffffff",
+      "size_px": 42,
+      "weight": "Regular",
+      "wcag": 16.91,
+      "apca_lc": 103.84,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "said",
+      "colours": "#007c7a on #ffffff",
+      "size_px": 42,
+      "weight": "Regular",
+      "wcag": 5.04,
+      "apca_lc": 74.27,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "true-l",
+      "colours": "#686c70 on #ffffff",
+      "size_px": 34,
+      "weight": "SemiBold",
+      "wcag": 5.29,
+      "apca_lc": 76.34,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "true",
+      "colours": "#1b1d1f on #ffffff",
+      "size_px": 42,
+      "weight": "Regular",
+      "wcag": 16.91,
+      "apca_lc": 103.84,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "true",
+      "colours": "#007c7a on #ffffff",
+      "size_px": 42,
+      "weight": "Regular",
+      "wcag": 5.04,
+      "apca_lc": 74.27,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "note",
+      "colours": "#686c70 on #ffffff",
+      "size_px": 28,
+      "weight": "Regular",
+      "wcag": 5.29,
+      "apca_lc": 76.34,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "note",
+      "colours": "#007c7a on #ffffff",
+      "size_px": 28,
+      "weight": "Regular",
+      "wcag": 5.04,
+      "apca_lc": 74.27,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "band-top",
+      "colours": "#1b1d1f on #17bebb",
+      "size_px": 24,
+      "weight": "SemiBold",
+      "wcag": 7.34,
+      "apca_lc": 56.91,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "band-bottom",
+      "colours": "#1b1d1f on #17bebb",
+      "size_px": 21,
+      "weight": "Regular",
+      "wcag": 7.34,
+      "apca_lc": 56.91,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "logo lockup-horizontal (exempt from WCAG)",
+      "colours": "#1a3e5c on #ffffff",
+      "wcag": 11.13,
+      "apca_lc": 95.52,
+      "needs": null,
+      "pass": null
+    },
+    {
+      "text": "logo lockup-horizontal (exempt from WCAG)",
+      "colours": "#17bebb on #ffffff",
+      "wcag": 2.3,
+      "apca_lc": 44.85,
+      "needs": null,
+      "pass": null
+    }
+  ],
+  "logo_display": [
+    {
+      "logo": "lockup-horizontal",
+      "native": "376.17x74 px",
+      "shown_at": "390 CSS px across 1080 source px [I] (phone feed width)",
+      "css_width": 135.84,
+      "css_cap_height": 13.36,
+      "css_height": 26.72,
+      "kit_minimum": "130 px wide, cap height 12 px",
+      "ok": true
+    }
+  ],
+  "notes": null,
+  "master": {
+    "path": "masters/rewardspro_social_correction-card_placeholders-draft_1080x1350_20261107_v01.svg",
+    "sha256": "ac7086eff08acfca5b8c1786f2f7d8573118303aa2129d4209c640f3ee4a5944",
+    "source": "src/rewardspro_social_correction-card_placeholders-draft_1080x1350_20261107_v01.src.svg"
+  },
+  "inputs": [
+    {
+      "path": "kit/colour/tokens.json",
+      "sha256": "538dd5aeefcaa3c215ba3866a5a807366354e759170a220a657cdda42cb0c00a",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. From the 2026-10-27 kit rebuild (676c10b4); not covered by an approval.",
+      "note": "Every token used here has the same value as in the approved 2026-10-20 tokens, except dark.bg: #09110F came with the rebuild as the dark landing's ink (it was neutral 950, #1B1D1F)."
+    },
+    {
+      "path": "kit/logo/lockup-horizontal.svg",
+      "sha256": "33042d204485d9a867c05518d77a41eb26e671ea3fa1e06997c16a970d5cc79d",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+    }
+  ],
+  "kernel_sha256": {
+    "kernel.toml": "3ca10d6949ee134102b27f53d35e02253c6852e4474647b3c4a23193200a3f22",
+    "brand.json": "713ff39ee0a33444848b58298a81f8ec59d828142cb2759dc593933b3aa0f657",
+    "kit/.brandkit-fingerprint": "bdb0874b5c9df2937c859d43c3d0e33dbfb8cf10e6fecc3a1408cef718b85265"
+  },
+  "tools": {
+    "render.mjs": "render.mjs v01 (2026-11-07, fix pass 1)",
+    "node": "v26.0.0",
+    "sharp": "0.34.5",
+    "libvips": "8.17.3",
+    "librsvg": "2.61.2",
+    "vectorcraft-cli": "vectorcraft-cli 0.21.0",
+    "font": "Inter Regular and SemiBold as bundled in vectorcraft-cli (OFL-1.1, github.com/rsms/inter; vectorcraft-cli ASSETS.md rows assets/fonts/Inter-*.ttf), outlined to paths"
+  },
+  "fonts_resolved": [
+    "Inter Regular (exact)",
+    "Inter SemiBold (exact)"
+  ],
+  "text_measured": [
+    {
+      "id": "head-0",
+      "width": 396.74,
+      "right": 488.57,
+      "top": 178.07,
+      "bottom": 250.21
+    },
+    {
+      "id": "head-1",
+      "width": 626.29,
+      "right": 720.56,
+      "top": 266.71,
+      "bottom": 322.85
+    },
+    {
+      "id": "said-l-0",
+      "width": 137.21,
+      "right": 226.04,
+      "top": 424.09,
+      "bottom": 450.38
+    },
+    {
+      "id": "said-0",
+      "width": 303.91,
+      "right": 395.47,
+      "top": 483.44,
+      "bottom": 514.49
+    },
+    {
+      "id": "true-l-0",
+      "width": 205.41,
+      "right": 294.24,
+      "top": 674.09,
+      "bottom": 700.38
+    },
+    {
+      "id": "true-0",
+      "width": 325.75,
+      "right": 417.31,
+      "top": 735.62,
+      "bottom": 764.49
+    },
+    {
+      "id": "note-0",
+      "width": 465.28,
+      "right": 554.87,
+      "top": 959.36,
+      "bottom": 984.91
+    },
+    {
+      "id": "band-top-0",
+      "width": 364.92,
+      "right": 722.31,
+      "top": 19.31,
+      "bottom": 37.27
+    },
+    {
+      "id": "band-bottom-0",
+      "width": 859.7,
+      "right": 969.96,
+      "top": 1314.22,
+      "bottom": 1334.53
+    }
+  ],
+  "ai_involvement": "assistive",
+  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by Yu before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
+  "jurisdictions": [
+    "UK"
+  ],
+  "channel": "social (no account exists yet)",
+  "gate_report": null,
+  "approval_id": null,
+  "publish_url": null,
+  "created": "2026-11-07"
+}

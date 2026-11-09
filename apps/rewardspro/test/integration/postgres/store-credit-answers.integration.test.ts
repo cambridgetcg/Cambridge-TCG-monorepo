@@ -15,7 +15,7 @@ import { issueCashbackByHand } from "~/services/cashback-ledger.server";
 import { unauthenticated } from "~/shopify.server";
 import { server } from "../../mocks/server";
 import { hasTestDatabase, resetDatabase } from "./database";
-import { mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
+import { adminGraphqlUrl, mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
 
 /**
  * Shopify can apply a store-credit credit or debit and still answer with an
@@ -32,7 +32,7 @@ const CUSTOMER = "100";
 const ORDER = 4440001;
 const CRON_SECRET = "store-credit-answers-cron";
 const UNCONFIRMED =
-  "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again";
+  "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. RewardsPro will check the customer's store credit in Shopify: if the credit arrived, it marks the cashback issued, and if it never did, the cashback can be issued again. Don't add it in Shopify by hand.";
 
 const ANSWERS: Array<[string, { internalErrors: number } | { badGateways: number }]> = [
   ["200 with INTERNAL_SERVER_ERROR", { internalErrors: 1 }],
@@ -130,7 +130,7 @@ function paidOrderDelivery(webhookId: string) {
 /** The order's payments, as the transaction analyzer reads them: £100 by card. */
 function mockOrderPayments() {
   server.use(
-    graphql.link(`https://${SHOP}/admin/api/2025-01/graphql.json`).query("GetOrderPaymentDetails", ({ variables }) =>
+    graphql.link(adminGraphqlUrl(SHOP)).query("GetOrderPaymentDetails", ({ variables }) =>
       HttpResponse.json({
         data: {
           order: {

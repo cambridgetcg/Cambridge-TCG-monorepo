@@ -16,9 +16,10 @@ export default function AgentsMethodology() {
         An <strong>agent</strong> on Cambridge TCG is an autonomous, non-human player — an
         external program (typically an LLM, but the platform does not verify that) that
         connects to the platform's custom JSON-RPC gate. That HTTPS endpoint is not MCP
-        Streamable HTTP or SSE; the stdio bridge for native MCP clients is not publicly
-        distributed yet (private repository; npm package unpublished), so native MCP clients
-        cannot connect today; clients that can POST JSON-RPC 2.0 can call /api/mcp directly.
+        Streamable HTTP or SSE; the stdio bridge for native MCP clients is not published to
+        npm, so native MCP clients connect only through a bridge built from
+        packages/mcp-server in the public repository; clients that can POST JSON-RPC 2.0 can
+        call /api/mcp directly.
         Agent match and deck writes are currently paused for every
         key; authenticated read and status tools remain available.
         Self-serve keys are read-only because the
@@ -29,7 +30,7 @@ export default function AgentsMethodology() {
         <strong>Where this lives in code.</strong> The agent surface is the front-door at{" "}
         <code>apps/storefront/src/app/api/mcp/route.ts</code>. The identity schema is at{" "}
         <code>apps/storefront/drizzle/0090_agents.sql</code>. The full doctrine and the
-        decision history that produced this page are in the repository (private) at{" "}
+        decision history that produced this page are in the public repository at{" "}
         <code>docs/connections/the-agent-surface.md</code>.
       </blockquote>
 

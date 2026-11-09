@@ -27,7 +27,7 @@ export const PUBLIC_GAME_CODE_COUNT = GAME_CODES.filter((code) => code !== "tst"
 const IMPLEMENTATION_RIGHTS = {
   implementation_license: "NOASSERTION",
   implementation_license_reference: "https://www.apache.org/licenses/LICENSE-2.0",
-  implementation_license_note: "Implementation rights follow the repository LICENSE (Apache-2.0) and applicable more-specific notices. NOASSERTION here does not assert an absence of a repository license. The repository is currently private and no packages are published; public repository access and package distribution are release gates, not current availability.",
+  implementation_license_note: "Implementation rights follow the repository LICENSE (Apache-2.0) and applicable more-specific notices. NOASSERTION here does not assert an absence of a repository license. The repository is public on GitHub and no packages are published to npm; package distribution is a release gate, not current availability.",
 } as const;
 
 /** One descriptive registry for the human page and the existing JSON contract. */
@@ -69,6 +69,18 @@ export const STANDARDS: readonly StandardEntry[] = [
     endpoint_url: "/api/v1/universal/card/[sku]",
     endpoint_status: "shipped",
     spec_license: "CC0-1.0",
+  },
+  {
+    code: "CTCG-NAMES-v1",
+    title: "Card names and official translations",
+    version: "1.0",
+    status: "draft",
+    short: "One name per card key (<game>-<set>-<number>) and language, marked official, vendor, community or machine, with its source. Versioned rules take condition, rarity and variant markers off shop titles or refuse; agreement between sources never makes a name official, and a name never establishes a SKU mapping.",
+    spec_url: "/methodology/card-names",
+    spec_path_in_repo: "apps/storefront/src/app/methodology/card-names/page.tsx",
+    impl_path_in_repo: "packages/sku/src/names.ts",
+    spec_license: "CC0-1.0",
+    ...IMPLEMENTATION_RIGHTS,
   },
 ];
 

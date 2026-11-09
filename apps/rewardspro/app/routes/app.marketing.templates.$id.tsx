@@ -49,6 +49,7 @@ import { useAutosave, formatRelativeTime } from "~/hooks/useAutosave";
 import { ColorPickerFieldInline } from "~/components/ColorPickerField";
 import { TextFieldWithVariables } from "~/components/TextFieldWithVariables";
 import { AIAssistantPanel } from "~/components/AIEmailAssistant";
+import { FEATURES_AVAILABLE } from "~/constants/feature-availability";
 
 // ============================================
 // TYPES
@@ -652,7 +653,8 @@ ${contentHtml}
   const tabs = [
     { id: "content", content: "Content", accessibilityLabel: "Content blocks" },
     { id: "styles", content: "Styles", accessibilityLabel: "Template styles" },
-    { id: "ai", content: "AI", accessibilityLabel: "AI Assistant" },
+    // Last, so hiding it moves no other tab (constants/feature-availability.ts)
+    ...(FEATURES_AVAILABLE.aiEmailAssistant ? [{ id: "ai", content: "AI", accessibilityLabel: "AI Assistant" }] : []),
   ];
 
   return (

@@ -99,6 +99,12 @@ const CRON_SCHEDULE: readonly CronJob[] = [
     description:
       "Daily at 07:00. Derives the day's reference prices, indices and premiums, only while DATA_DERIVE_MARKET is on; otherwise it does nothing.",
   },
+  {
+    path: "/api/cron/traffic-pull",
+    schedule: "7 * * * *",
+    description:
+      "Every hour at :07. Counts the previous hour of the storefront's Vercel request and error logs by route group, declared client class and status, keeping no IP address, user agent, path or log text, only while TRAFFIC_PULL is on; otherwise it does nothing.",
+  },
 ];
 
 export interface HeartbeatState {

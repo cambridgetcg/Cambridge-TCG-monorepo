@@ -38,7 +38,6 @@ interface OperatorHealthStatus {
     connected: boolean;
   };
   monitoring: {
-    datadog: string;
     sentry: string;
     logging: string;
   };
@@ -126,7 +125,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     },
     database: { connected: databaseConnected },
     monitoring: {
-      datadog: process.env.DD_API_KEY ? 'configured' : 'not configured',
       sentry: process.env.SENTRY_DSN ? 'configured' : 'not configured',
       logging: 'operational',
     },
@@ -255,11 +253,6 @@ export default function MonitoringDashboard() {
                       <Badge tone={data.health.database.connected ? "success" : "critical"}>
                         {data.health.database.connected ? 'Connected' : 'Disconnected'}
                       </Badge>
-                    </InlineStack>
-
-                    <InlineStack gap="200">
-                      <Text as="span">Datadog:</Text>
-                      {getServiceBadge(data.health.monitoring.datadog)}
                     </InlineStack>
 
                     <InlineStack gap="200">

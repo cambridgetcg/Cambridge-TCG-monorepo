@@ -2,7 +2,6 @@ import { json } from "@remix-run/node";
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { MetricsService } from "~/services/monitoring/metrics.service";
 import { Logger, CorrelationId } from "~/services/logger.service";
-import { DatadogService } from "~/services/monitoring/datadog.service";
 import { db } from "~/db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
@@ -105,9 +104,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
             error: (error as Error).message,
           });
           results.failed++;
-
-          // Track failure
-          DatadogService.metrics.increment('cron.metrics.shop_failed');
         }
       }
 
@@ -126,11 +122,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
         ...results,
       });
 
-      // Track cron execution
-      DatadogService.metrics.increment('cron.metrics.executed');
-      DatadogService.metrics.timing('cron.metrics.duration', results.duration);
-      DatadogService.metrics.gauge('cron.metrics.shops_processed', shops.length);
-
       return json({
         status: 'completed',
         correlationId,
@@ -146,9 +137,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
       correlationId,
       critical: true,
     });
-
-    // Track critical failure
-    DatadogService.metrics.increment('cron.metrics.critical_failure');
 
     return json(
       {

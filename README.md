@@ -2,7 +2,7 @@
 
 Building open-source TCG data infrastructure from Cambridge, UK: shared tools and standards for card identity, images, prices and market observations. The [website](https://cambridgetcg.com) gives people and API clients ways to inspect those records and their sources.
 
-The [data-platform roadmap](docs/plans/tcg-data-platform/README.md) is the current integration plan. Reference packages remain workspace-only; public repository access and package distribution are separate release gates. A source adapter, registered game or published plan does not establish available data or permission to redistribute it.
+The [data-platform roadmap](docs/plans/tcg-data-platform/README.md) is the current integration plan. The repository is public; reference packages remain workspace-only, and package distribution is a separate release gate. A source adapter, registered game or published plan does not establish available data or permission to redistribute it.
 
 **Current boundary:** new paid commerce is retired. Existing agreements retain settlement, cancellation, refunds and support. Start with the [storefront commerce boundary](apps/storefront/docs/commercial-retirement.md), [wholesale scope](apps/wholesale/README.md), and [RewardsPro scope](apps/rewardspro/README.md); older shop and launch plans are historical context.
 
