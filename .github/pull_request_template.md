@@ -5,3 +5,5 @@
 ## How tested
 
 <!-- What you ran, what failed, and what you didn't check. -->
+
+<!-- apps/rewards PR that adds a migration: apply it to production and see migrate:drift pass, then merge (apps/rewards/docs/switch.md, "A pull request with a migration"); the production build refuses a commit whose migrations production lacks. -->
