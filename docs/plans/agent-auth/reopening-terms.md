@@ -37,6 +37,9 @@ the discussion Yu asked for. It decides nothing.
   alongside this page, in [support-procedures.md](support-procedures.md) and
   [key-expiry.md](key-expiry.md). They own their detail. This page covers
   only where registration touches them.
+- **Corrected 2026-11-09** by an agent refreshing these branches onto `main`
+  at `5c953f5c`: facts only. The migration numbering below now says what
+  `main` holds; nothing proposed changed.
 
 ## Where this starts
 
@@ -638,17 +641,20 @@ link to it:
 
 | Order | Migration | Owner | Depends on |
 | --- | --- | --- | --- |
-| 1 | Agent key expiry: `agent_keys.expires_at` and its CHECK | [key-expiry.md §3](key-expiry.md#3-schema-migration-0147) | Nothing in the terms |
+| 1 | Agent key expiry: `agent_keys.expires_at` and its CHECK | [key-expiry.md §3](key-expiry.md#3-schema-migration-0151) | Nothing in the terms |
 | 2 | The expiry email category, only if Yu takes the email | key-expiry.md decision 7 | 1 |
 | 3 | Support: the request-code table, then the case tables | [support-procedures.md D1 and D5](support-procedures.md#d1-how-a-key-holder-is-verified) | Nothing in the terms |
 | 4 | Registration: nullable operator, `agent_registrations`, the limiter table (package A), plus package B's columns, events table and ladder receipt | This page | Agreed terms |
 | later | Dropping `agent_registration_buckets` | This page | Yu's word to delete its rows |
 
 **Numbers are assigned when each PR is cut.** The next free number was 0147
-when these drafts were read (the latest is `0146_price_collector_hosts.sql`,
-and no remote branch had 0147 or higher), so the first PR cut takes 0147 and
-each later one takes the next free number then. This is the one place the
-caveat is kept.
+when these drafts were read on 2026-10-30 (the latest was
+`0146_price_collector_hosts.sql`, and no remote branch had 0147 or higher).
+By 2026-11-09 `main` had taken 0147 to 0149
+(`0149_agent_doors.sql` is the latest) and #109 takes
+`0150_mcp_daily_agent_revoke_key.sql`, so the first PR cut from these drafts
+would take 0151, and each later one takes the next free number then. This is
+the one place the caveat is kept.
 
 ### Every package
 

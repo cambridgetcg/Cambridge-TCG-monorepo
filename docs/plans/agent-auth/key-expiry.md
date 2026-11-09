@@ -32,6 +32,12 @@ for discussion. It decides nothing, and nothing in it is built.
   the live pages before reusing them in published text.
 - **UK law.** The short section on it is research, not legal advice. Yu or
   counsel confirms it.
+- **Corrected 2026-11-09** by an agent refreshing these branches onto `main`
+  at `5c953f5c`: facts only. Main has taken migrations 0147 to 0149 and #109
+  takes 0150, so the migrations below are numbered 0151 and 0152; the
+  runner citation points at its per-file transaction; and #108 mints a key
+  through `window.prompt`, so an expiry choice at mint needs a mint form.
+  Nothing proposed changed.
 - **Acts this page does not authorise.** Applying a migration, deploying,
   sending email to operators, or changing the privacy notice. Each needs Yu's
   word for that act.
@@ -220,7 +226,8 @@ proposes for self-serve registration, so one parser serves both doors.
 ### 2. Defaults by registration kind
 
 - **Operator-managed keys:** 90 days pre-selected, on both the create-agent
-  form and the mint form. It matches member keys, npm's write-token cap and
+  form and a mint form (#108 mints through `window.prompt`, which asks only
+  for a key name, so the mint form is new; see [§9](#9-what-accountagents-shows)). It matches member keys, npm's write-token cap and
   AWS's rotation check. The operator can pick any other choice, "never"
   included.
 - **Self-serve keys (when registration reopens):** no default. The request
@@ -231,15 +238,17 @@ proposes for self-serve registration, so one parser serves both doors.
 - **Existing keys:** unchanged. The migration adds the column as NULL, which
   means never, so every key that works today keeps working.
 
-### 3. Schema: migration 0147
+### 3. Schema: migration 0151
 
 This is first in the proposed
 [order across the drafts](reopening-terms.md#migration-order-across-the-drafts),
 which also keeps the one caveat on numbering: `0147` was the next free
-number when this was read, and the number is assigned when the PR is cut.
+number when this was read on 2026-10-30. By 2026-11-09 `main` had taken 0147
+to 0149 and #109 takes 0150, so this would be 0151; the number is still
+assigned when the PR is cut.
 
 ```sql
--- 0147: optional agent key expiry (docs/plans/agent-auth/key-expiry.md).
+-- 0151: optional agent key expiry (docs/plans/agent-auth/key-expiry.md).
 -- NULL means the key has no expiry. Existing keys keep NULL: nothing
 -- changes for them. Safe to apply before the code that uses it: today's
 -- code neither reads nor writes the column, and every existing row passes
@@ -275,7 +284,7 @@ COMMENT ON COLUMN agent_keys.expires_at IS
 - **The style** follows 0131's drop-then-add for a constraint
   ([`0131#L11-L26`](../../../apps/storefront/drizzle/0131_collective_directory_publication.sql#L11-L26)).
   The runner wraps each file in its own transaction
-  ([`migrate.mjs#L110-L123`](../../../apps/storefront/scripts/migrate.mjs#L110-L123)).
+  ([`migrate.mjs#L132-L152`](../../../apps/storefront/scripts/migrate.mjs#L132-L152)).
   Adding a nullable column with no default doesn't rewrite the table; the
   CHECK scans it once, and every existing row is NULL.
 - **Owned here.** Expiry doesn't wait for the reopening terms, so this page
@@ -283,7 +292,7 @@ COMMENT ON COLUMN agent_keys.expires_at IS
   migration leaves it out, and carries it with this exact CHECK only if this
   PR has not landed when that one is cut.
 - **If Yu takes the reminder email** ([decision 7](#decisions-for-yu)), a
-  second file, `0148_agent_key_expiry_email.sql` (or the next free number
+  second file, `0152_agent_key_expiry_email.sql` (or the next free number
   then), adds
   `user_email_preferences.agent_key_expiring BOOLEAN NOT NULL DEFAULT true`.
   It is separate because email preferences are one column per category
@@ -465,10 +474,13 @@ mints replacements, after RFC 7592; that is its decision 4.
 
 On top of PR #108, which this change should follow:
 
-- **The create and mint forms** get an "Expires" choice with 90 days
-  pre-selected, the custom date picker, and the "never" warning. The server
-  actions accept the wire value and refuse anything else before touching the
-  database, as #108 already does for bad ids.
+- **The create form and a mint form** get an "Expires" choice with 90 days
+  pre-selected, the custom date picker, and the "never" warning. #108 has a
+  create form but mints through `window.prompt`, which asks only for a key
+  name ([`_client.tsx#L84-L86`](../../../apps/storefront/src/app/account/agents/_client.tsx#L84-L86)),
+  so the mint path needs a form built before it can offer the choice. The
+  server actions accept the wire value and refuse anything else before
+  touching the database, as #108 already does for bad ids.
 - **The fresh-key card** says "Expires 2027-01-28 15:04 UTC" or "No expiry"
   next to the show-once key.
 - **The key list** shows "expires …", "expired …" or "no expiry" for each
@@ -478,7 +490,7 @@ On top of PR #108, which this change should follow:
   expired flag are added there explicitly. The stored revoke reason still
   stays on the server.
 - **No revoke button on an expired key.** Revoking one changes nothing.
-- **The page cannot tell** a key minted before 0147 from one minted with
+- **The page cannot tell** a key minted before 0151 from one minted with
   "never". Both read "No expiry", and nothing needs to tell them apart.
 
 ### 10. Text that becomes false, and gets changed in the same PR
@@ -512,7 +524,7 @@ On top of PR #108, which this change should follow:
    #108's mint transaction and `toKeyRows`, and on #109's gate, refusals and
    `agent.revoke_key`.
 2. **Migration first, with Yu's word for that act.** Check with
-   `node scripts/migrate.mjs --plan --expect-only 0147_agent_key_expiry.sql`,
+   `node scripts/migrate.mjs --plan --expect-only 0151_agent_key_expiry.sql`,
    then apply. The running code keeps working, because it never names the
    column, inserts NULL, and NULL passes the CHECK. Apply the email
    migration the same way if the email is taken.
@@ -572,11 +584,11 @@ quiet.
 
 The opt-in Postgres tests skip unless `AGENT_AUTH_TEST_DATABASE_URL` is set,
 and refuse any database but 127.0.0.1 and `/agent_auth_test`. Add
-`0147_agent_key_expiry.sql` to their hard-coded lists
+`0151_agent_key_expiry.sql` to their hard-coded lists
 ([`key-revocation.integration.test.ts#L195`](../../../apps/storefront/src/lib/agents/key-revocation.integration.test.ts#L195),
 and line 107 of #108's `operator-actions.integration.test.ts`).
 
-- Existing keys: load 0090, 0112 and 0120, insert a key, then load 0147. The
+- Existing keys: load 0090, 0112 and 0120, insert a key, then load 0151. The
   key's `expires_at` is NULL and the real gate SQL accepts it.
 - The CHECK refuses `expires_at` at or before `created_at`.
 - A key inserted with `created_at` two days ago and `expires_at` one day ago:
@@ -669,7 +681,7 @@ reopening-terms.md.
    *For Yu.*
    - *Recommended:* per key, chosen at mint by whoever mints it: the operator
      at `/account/agents`, or a self-serve registrant in its request. Needs:
-     0147's column; a choice on `createAgentWithKey`
+     0151's column; a choice on `createAgentWithKey`
      ([`creation.ts#L107-L112`](../../../apps/storefront/src/lib/agents/creation.ts#L107-L112))
      and `mintKey`. Costs: one choice per key, so one agent's keys can
      differ.
@@ -686,7 +698,7 @@ reopening-terms.md.
      CHECK says only that expiry comes after creation. Costs: a parser and a
      form control.
    - The 366-day bound also in the CHECK, as member keys have theirs. Needs:
-     a bounded CHECK in 0147. Costs: changing the bound needs a migration,
+     a bounded CHECK in 0151. Costs: changing the bound needs a migration,
      and it blocks decision 6's cap for keys older than a year.
    - Presets only, no date picker. Costs: less parsing and UI, fewer choices.
    - No "never" for new keys (mandatory expiry, as npm did for write
@@ -726,7 +738,7 @@ reopening-terms.md.
 6. **Existing keys.**
    *For Yu.*
    - *Recommended:* leave them with no expiry. Operators can replace them
-     with expiring keys. Needs: nothing beyond 0147. Costs: today's
+     with expiring keys. Needs: nothing beyond 0151. Costs: today's
      long-lived keys stay long-lived until someone acts.
    - Announce, then give existing operator-managed keys an end date, for
      example 90 days after the notice, as npm did. Needs: a data migration (an
