@@ -404,6 +404,12 @@ describe("Step 1: How it works", () => {
     expect(screen.queryByText(/^Order /)).toBeNull();
   });
 
+  // F4-F2
+  it("goes on to step 2, keeping the page's other search parameters", async () => {
+    await renderWelcome(welcomeData(), { search: "&shop=s.myshopify.com&host=aG9zdA" });
+    expect(button(GUIDE.next).getAttribute("href")).toBe("/app/welcome?step=2&shop=s.myshopify.com&host=aG9zdA");
+  });
+
   it("offers the Tiers page instead when the ladder isn't editable", async () => {
     await renderWelcome(welcomeData({ editable: false, canGoLive: true }));
     expect(button(GUIDE.next)).toBeUndefined();

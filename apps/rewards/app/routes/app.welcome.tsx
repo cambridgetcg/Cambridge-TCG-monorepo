@@ -460,6 +460,7 @@ const focusOn = (target: Target) => target.current?.focus({ preventScroll: true 
 function StepOne({ d, target, finishLater }: { d: WelcomeData; target: Target; finishLater: ReactNode }) {
   const money = moneyIn(d.currency);
   const order = exampleOrder(d.medianOrder === null ? null : new Money(d.medianOrder), d.currency);
+  const { search } = useLocation();
   return (
     <FocusTarget target={target} label={d.reading ? GUIDE.howItWorks : GUIDE.steps[0]}>
       <s-section heading={d.reading ? undefined : GUIDE.steps[0]}>
@@ -487,7 +488,7 @@ function StepOne({ d, target, finishLater }: { d: WelcomeData; target: Target; f
           <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
             {finishLater}
             {d.editable ? (
-              <s-button variant="primary" href="/app/welcome?step=2">
+              <s-button variant="primary" href={stepHref(2, search)}>
                 {GUIDE.next}
               </s-button>
             ) : (
