@@ -21,11 +21,11 @@ import {
 import { REPOSITORY_VISIBILITY, repoDocRef } from "@/lib/repository";
 import {
   AGENT_KEY_REVOCATION,
-  AGENT_OPERATIONAL_METADATA_WRITES,
   SELF_LIFECYCLE_TOOLS,
   SELF_SERVE_CONTROLLER_NOTE,
   reviewSubmissionsByRegistration,
 } from "@/lib/agents/tool-access";
+import { operationalMetadataWrites } from "@/lib/agents/operational-metadata";
 
 const MCP = {
   protocol_version: "2024-11-05",
@@ -88,7 +88,9 @@ const MCP = {
   // Projected from lib/agents/tool-access.ts, the set the gate enforces.
   read_only_scope: {
     domain_state: true,
-    operational_metadata_writes: [...AGENT_OPERATIONAL_METADATA_WRITES],
+    // tool-access.ts's one list, plus the daily MCP count's line while it is
+    // on (lib/observability/mcp-daily.ts).
+    operational_metadata_writes: operationalMetadataWrites(),
     review_submissions: reviewSubmissionsByRegistration(),
     self_lifecycle: [...SELF_LIFECYCLE_TOOLS],
     note:

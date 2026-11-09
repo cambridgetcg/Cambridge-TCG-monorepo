@@ -272,46 +272,59 @@ async function deliverDiscountReward(
 ): Promise<DeliveryResult> {
   console.log(`${LOG_PREFIX} Delivering DISCOUNT reward`);
 
+  // A code is only delivered once Shopify has created it (returned a discount id)
+  if (!admin) {
+    console.error(`${LOG_PREFIX} No Shopify admin client to create the discount`);
+    return {
+      success: false,
+      error: "No Shopify connection to create the discount",
+      requiresManualAction: true,
+      manualActionReason: "Shopify discount creation failed",
+    };
+  }
+
   // Generate unique discount code
   const codePrefix = "MBOX";
   const uniqueId = winnerId.slice(-8).toUpperCase();
   const discountCode = `${codePrefix}-${uniqueId}`;
 
-  // If we have admin API, create the discount in Shopify
-  if (admin) {
-    try {
-      const { createDiscountService } = await import("~/services/shopify-discount.service");
-      const discountService = createDiscountService(admin, shop);
+  try {
+    const { createDiscountService } = await import("~/services/shopify-discount.service");
+    const discountService = createDiscountService(admin, shop);
 
-      const discountType = (rewardValue.type || "percentage") as "percentage" | "fixed_amount";
-      const discountValue = rewardValue.value || 10;
-      const expirationDays = rewardValue.expirationDays || 30;
+    const discountType = (rewardValue.type || "percentage") as "percentage" | "fixed_amount";
+    const discountValue = rewardValue.value || 10;
+    const expirationDays = rewardValue.expirationDays || 30;
 
-      const shopifyResult = await discountService.createDiscountCode({
-        title: `Mystery Box: ${boxName}`,
-        code: discountCode,
-        type: discountType === "percentage" ? "percentage" : "fixed_amount",
-        value: discountValue,
-        usageLimit: rewardValue.maxUses || 1,
-        expiresAt: new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000),
-        minimumSubtotal: rewardValue.minimumPurchase,
-      });
+    const shopifyResult = await discountService.createDiscountCode({
+      title: `Mystery Box: ${boxName}`,
+      code: discountCode,
+      type: discountType === "percentage" ? "percentage" : "fixed_amount",
+      value: discountValue,
+      usageLimit: rewardValue.maxUses || 1,
+      expiresAt: new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000),
+      minimumSubtotal: rewardValue.minimumPurchase,
+    });
 
-      if (!shopifyResult.success) {
-        console.error(`${LOG_PREFIX} Shopify discount creation failed:`, shopifyResult.error);
-        return {
-          success: false,
-          error: `Failed to create discount: ${shopifyResult.error}`,
-          requiresManualAction: true,
-          manualActionReason: "Shopify discount creation failed",
-        };
-      }
-
-      console.log(`${LOG_PREFIX} Created Shopify discount: ${discountCode}`);
-    } catch (error) {
-      console.error(`${LOG_PREFIX} Error creating Shopify discount:`, error);
-      // Return the code anyway for manual creation
+    if (!shopifyResult.success || !shopifyResult.discountId) {
+      console.error(`${LOG_PREFIX} Shopify discount creation failed:`, shopifyResult.error);
+      return {
+        success: false,
+        error: `Failed to create discount: ${shopifyResult.error}`,
+        requiresManualAction: true,
+        manualActionReason: "Shopify discount creation failed",
+      };
     }
+
+    console.log(`${LOG_PREFIX} Created Shopify discount: ${discountCode}`);
+  } catch (error) {
+    console.error(`${LOG_PREFIX} Error creating Shopify discount:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create discount",
+      requiresManualAction: true,
+      manualActionReason: "Shopify discount creation failed",
+    };
   }
 
   return {

@@ -1,12 +1,17 @@
 /**
  * Webhook Cleanup Cron Job
  *
- * Cleans up old processed webhook records to prevent database bloat.
- * Keeps records for 7 days for debugging purposes. Also deletes customer
- * data request reports past their retention period
- * (services/customer-data-request.server.ts).
+ * Deletes webhook records the app no longer needs:
+ * - the order webhooks' idempotency records (WebhookProcessed) after 30
+ *   days. Shopify retries a failed delivery for up to four hours and can
+ *   deliver up to a day late, so a month is well past any redelivery;
+ * - the order webhooks' error log (WebhookError) after 90 days (the
+ *   dashboard reads the last 24 hours);
+ * - billing webhook records (ProcessedWebhook) after 7 days;
+ * - customer data request reports past their retention period
+ *   (services/customer-data-request.server.ts).
  *
- * Schedule: Weekly on Sunday at 3 AM
+ * Schedule: Sundays at 05:00 UTC ("0 5 * * 0" in vercel.json)
  * Endpoint: GET /api/cron/webhook-cleanup
  *
  * @security Requires CRON_SECRET header
@@ -20,8 +25,14 @@ import {
 } from "~/services/billing/webhook-processing.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
 import { deleteExpiredDataRequests } from "~/services/customer-data-request.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
+import prisma from "~/db.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEBHOOK_PROCESSED_KEEP_DAYS = 30;
+const WEBHOOK_ERROR_KEEP_DAYS = 90;
+
+export const loader = monitoredCron("webhook-cleanup", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -58,6 +69,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Run cleanup
     const deletedCount = await cleanupOldWebhooks();
+    const { count: webhooksProcessedDeleted } = await prisma.webhookProcessed.deleteMany({
+      where: { processedAt: { lt: new Date(startTime - WEBHOOK_PROCESSED_KEEP_DAYS * DAY_MS) } },
+    });
+    const { count: webhookErrorsDeleted } = await prisma.webhookError.deleteMany({
+      where: { createdAt: { lt: new Date(startTime - WEBHOOK_ERROR_KEEP_DAYS * DAY_MS) } },
+    });
     const expiredDataRequests = await deleteExpiredDataRequests();
 
     // Get stats after cleanup
@@ -67,6 +84,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     console.log("[WebhookCleanupCron] Job completed:", {
       deleted: deletedCount,
+      webhooksProcessedDeleted,
+      webhookErrorsDeleted,
       expiredDataRequests,
       before: statsBefore.total,
       after: statsAfter.total,
@@ -78,6 +97,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       job: "webhook-cleanup",
       result: {
         deleted: deletedCount,
+        webhooksProcessedDeleted,
+        webhookErrorsDeleted,
         expiredDataRequests,
         recordsBefore: statsBefore.total,
         recordsAfter: statsAfter.total,
@@ -91,6 +112,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const duration = Date.now() - startTime;
 
     console.error("[WebhookCleanupCron] Job failed:", error);
+    cronFailed(request, error);
 
     return json({
       success: false,
@@ -100,4 +122,4 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       timestamp: new Date().toISOString(),
     }, { status: 500 });
   }
-};
+});

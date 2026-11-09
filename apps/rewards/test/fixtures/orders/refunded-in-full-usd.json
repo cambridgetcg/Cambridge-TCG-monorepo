@@ -1,0 +1,94 @@
+{
+  "data": {
+    "shop": {
+      "currencyCode": "USD"
+    },
+    "order": {
+      "id": "gid://shopify/Order/5012",
+      "name": "#1012",
+      "test": false,
+      "createdAt": "2026-11-02T10:15:00Z",
+      "processedAt": "2026-11-02T10:15:04Z",
+      "cancelledAt": null,
+      "displayFinancialStatus": "REFUNDED",
+      "currencyCode": "USD",
+      "presentmentCurrencyCode": "USD",
+      "taxesIncluded": false,
+      "customer": {
+        "id": "gid://shopify/Customer/7001"
+      },
+      "totalPriceSet": {
+        "shopMoney": {
+          "amount": "49.3"
+        },
+        "presentmentMoney": {
+          "amount": "49.3"
+        }
+      },
+      "totalTipReceivedSet": {
+        "shopMoney": {
+          "amount": "0.0"
+        },
+        "presentmentMoney": {
+          "amount": "0.0"
+        }
+      },
+      "lineItems": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "eyJsYXN0X2lkIjogNjIwMSwgImxhc3RfdmFsdWUiOiA2MjAxfQ=="
+        },
+        "nodes": [
+          {
+            "id": "gid://shopify/LineItem/6201",
+            "quantity": 2,
+            "currentQuantity": 2,
+            "isGiftCard": false,
+            "originalTotalSet": {
+              "shopMoney": {
+                "amount": "40.0",
+                "currencyCode": "USD"
+              },
+              "presentmentMoney": {
+                "amount": "40.0",
+                "currencyCode": "USD"
+              }
+            },
+            "discountAllocations": []
+          }
+        ]
+      },
+      "transactions": [
+        {
+          "gateway": "shopify_payments",
+          "status": "SUCCESS",
+          "kind": "SALE",
+          "amountSet": {
+            "shopMoney": {
+              "amount": "49.3"
+            },
+            "presentmentMoney": {
+              "amount": "49.3"
+            }
+          }
+        }
+      ],
+      "refunds": [
+        {
+          "id": "gid://shopify/Refund/6251"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "cost": {
+      "requestedQueryCost": 912,
+      "actualQueryCost": 16,
+      "throttleStatus": {
+        "maximumAvailable": 2000.0,
+        "currentlyAvailable": 1984,
+        "restoreRate": 100.0
+      }
+    }
+  }
+}

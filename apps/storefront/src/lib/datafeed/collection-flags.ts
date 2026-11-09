@@ -60,13 +60,14 @@ export function collectionSchedule(source: CollectedSource): string {
     case 'cardrush':
       return 'CardRush product pages every two hours (one host per run)';
     case 'tcgplayer':
-      return 'TCGplayer price guides hourly (stalest sets first)';
+      return 'TCGplayer price guides hourly (product lines in turn, each line\'s stalest sets first)';
   }
 }
 
 /** What Cambridge collects on a schedule now, in a fixed order, as prose to
  * follow "Cambridge collects" ("Cardmarket's One Piece files daily and
- * TCGplayer price guides hourly (stalest sets first)"); null when nothing is.
+ * TCGplayer price guides hourly (product lines in turn, each line's stalest sets
+ * first)"); null when nothing is.
  */
 export function scheduledCollection(env: Readonly<Record<string, string | undefined>> = process.env): string | null {
   const parts = (Object.keys(DATA_COLLECT_FLAGS) as CollectedSource[]).filter(source => collectionOn(source, env)).map(collectionSchedule);

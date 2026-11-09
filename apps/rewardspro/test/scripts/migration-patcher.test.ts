@@ -243,13 +243,12 @@ describe("buildPatches() — golden run against the real codebase", () => {
     fs.rmSync(tmp, { recursive: true, force: true });
   });
 
-  it("generates non-empty patches for the next adoption gap (.rp-btn--primary)", () => {
-    // The previous version of this test targeted `.rp-card` — that
-    // gap closed when missions-widget composed it on 2026-04-25.
-    // Aspirational target shifted to `.rp-btn--primary`, which is now
-    // the planner's #1 suggestion.
+  it("writes no patches for .rp-btn--primary now that no widget mirrors it", () => {
+    // `.rp-missions-btn--primary` was the last bespoke copy; it went with
+    // missions-widget when the missions blocks were removed (2026-11-03).
+    // A patch run against the real codebase must still finish cleanly.
     const result = buildPatches({ target: "rp-btn--primary", outputDir: tmp });
-    expect(result.manifests.length).toBeGreaterThan(0);
-    expect(result.manifests.every((m) => m.totalEdits > 0)).toBe(true);
+    expect(result.manifests).toEqual([]);
+    expect(fs.readdirSync(tmp)).toEqual([]);
   });
 });

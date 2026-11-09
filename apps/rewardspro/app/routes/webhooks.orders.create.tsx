@@ -216,7 +216,8 @@ export async function action({ request }: ActionFunctionArgs) {
           id: uuidv4(),
           shop: shop,
           shopifyCustomerId: shopifyCustomerId,
-          email: order.customer.email || shopifyCustomer.email || `customer_${shopifyCustomerId}@shop.com`,
+          // Customer.email is required; a shopper without one is stored as "" (no placeholder address)
+          email: order.customer.email || shopifyCustomer.email || "",
           firstName: order.customer.first_name || shopifyCustomer.firstName || null,
           lastName: order.customer.last_name || shopifyCustomer.lastName || null,
           tags: order.customer.tags || '',

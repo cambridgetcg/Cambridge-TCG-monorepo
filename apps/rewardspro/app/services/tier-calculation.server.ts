@@ -501,14 +501,9 @@ async function getCustomerSpendingFromDB(
   } catch (error) {
     logger.error(`Error fetching spending from DB for customer ${customerId}`, error);
 
-    // Return zero spending on error (keeps customer in current tier)
-    return {
-      customerId,
-      shopifyCustomerId: '',
-      totalSpending: 0,
-      orderCount: 0,
-      lastOrderDate: null
-    };
+    // Zero spending would put the customer in the lowest tier, so the caller
+    // must see the failure and leave the tier as it is
+    throw error;
   }
 }
 

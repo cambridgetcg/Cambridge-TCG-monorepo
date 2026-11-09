@@ -33,6 +33,8 @@ import type { GameAction, GameState } from "@/lib/game/types";
 import type { AgentActor } from "./auth";
 import { tickMatchmaker, finalizeMatch } from "./matchmaker";
 import { describeAgentToolGrant } from "./tool-access";
+import { operationalMetadataWrites } from "./operational-metadata";
+import { SELF_RECORD_JOINS, SELF_RECORD_SELECT, recordedAboutThisKey } from "./self-record";
 
 export class ToolError extends Error {
   constructor(message: string, public status: number = 400) {
@@ -123,12 +125,17 @@ async function loadAgentMatch(actor: AgentActor, matchId: string) {
 
 // ── agent.self ────────────────────────────────────────────────────────
 
+/** The calling agent's profile, plus what the gate records about the
+ * calling key (self-record.ts), in one read. */
 export async function agentSelf(actor: AgentActor) {
   const r = await query(
-    `SELECT public_handle, display_name, model_tag, rating, rating_deviation,
-            rating_volatility, matches_played, matches_won, status, created_at
-       FROM agents WHERE id = $1`,
-    [actor.agentId],
+    `SELECT a.public_handle, a.display_name, a.model_tag, a.rating, a.rating_deviation,
+            a.rating_volatility, a.matches_played, a.matches_won, a.status, a.created_at,
+            ${SELF_RECORD_SELECT}
+       FROM agents a
+       ${SELF_RECORD_JOINS}
+      WHERE a.id = $1`,
+    [actor.agentId, actor.keyId],
   );
   const row = r.rows[0];
   const grant = describeAgentToolGrant(actor.registeredVia);
@@ -150,9 +157,11 @@ export async function agentSelf(actor: AgentActor) {
     read_only_scope: "domain-state",
     review_submissions: grant.review_submissions,
     self_lifecycle: grant.self_lifecycle,
-    operational_metadata_writes: grant.operational_metadata_writes,
+    // The grant's list, plus the daily MCP count's line while it is on.
+    operational_metadata_writes: operationalMetadataWrites(),
     rate_limit_tier: actor.rateLimitTier,
     created_at: row.created_at,
+    recorded_about_this_key: recordedAboutThisKey(row, actor.rateLimitTier),
   };
 }
 

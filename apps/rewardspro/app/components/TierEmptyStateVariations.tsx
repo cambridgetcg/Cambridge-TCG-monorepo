@@ -36,29 +36,30 @@ interface TierEmptyStateProps {
  * Right side: Stacked Gold/Silver/Bronze tier preview cards
  */
 export function TierEmptyStateV1B({ onCreateTier }: TierEmptyStateProps) {
+  // What tiers do, not results nobody measured
   const benefits = [
     {
       icon: CashDollarIcon,
-      title: 'Automatic Cashback',
-      description: 'Customers earn rewards on every purchase',
+      title: 'Cashback as store credit',
+      description: 'Each tier sets the share of an order customers get back as Shopify store credit.',
       iconColor: 'success' as const,
     },
     {
       icon: ChartHistogramGrowthIcon,
-      title: 'Boost Retention',
-      description: 'Increase customer lifetime value by 25%+',
+      title: 'Tiers by spend',
+      description: 'Customers move into a tier once their spend reaches its minimum.',
       iconColor: 'info' as const,
     },
     {
       icon: PersonIcon,
-      title: 'Smart Segmentation',
-      description: 'Auto-group customers by spending behavior',
+      title: 'Shown on your store',
+      description: 'The rewards widget shows customers their tier and store credit.',
       iconColor: 'caution' as const,
     },
     {
       icon: TargetIcon,
-      title: 'Drive Revenue',
-      description: 'Motivate higher spending with tier rewards',
+      title: 'Your rates',
+      description: 'You choose each tier\'s minimum spend and cashback, and can change them later.',
       iconColor: 'magic' as const,
     },
   ];
@@ -81,14 +82,17 @@ export function TierEmptyStateV1B({ onCreateTier }: TierEmptyStateProps) {
                 Reward Your Best Customers
               </Text>
               <Text variant="bodyLg" as="span" tone="subdued">
-                Create a tiered loyalty program that keeps customers coming back
+                Give customers cashback as store credit, at a rate set by their tier
               </Text>
             </BlockStack>
 
-            {/* Benefits List */}
+            {/* Benefits List. Each row sets align: Polaris passes it to
+                nested stacks through an inherited CSS variable, so without
+                it a row takes the outer row's space-between and pushes its
+                text away from its icon. */}
             <BlockStack gap="300">
               {benefits.map((benefit, index) => (
-                <InlineStack key={index} gap="150" blockAlign="center" wrap={false}>
+                <InlineStack key={index} gap="150" align="start" blockAlign="center" wrap={false}>
                   <Box
                     background="bg-surface-secondary"
                     padding="200"

@@ -32,11 +32,7 @@ claude-desktop-config.json
 *-GUIDE.md
 *_GUIDE.md
 
-# Lambda documentation
-/lambda/README.md
-/lambda/*.md
-
-# Component documentation  
+# Component documentation
 /app/components/*.md
 /app/routes/*.md
 /app/utils/*.md
@@ -78,8 +74,7 @@ APP_PAGE_BOTTOM_MARGIN_COMPLETE_GUIDE.md
 *.test.md
 *.spec.md
 
-# AWS/Lambda deployment files (keep the actual code)
-lambda-deployment.zip
+# Zip archives
 *.zip
 
 

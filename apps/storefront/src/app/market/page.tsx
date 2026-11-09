@@ -30,6 +30,7 @@ import {
   parseCatalogError,
   sortSetsForDisplay,
   DEFAULT_GAME,
+  PAGE_SIZE,
   type CatalogQuery,
   type CatalogResult,
   type CatalogSource,
@@ -138,7 +139,9 @@ const INTERNAL_BASE = "http://market.internal/api/market/catalog";
 
 async function loadCards(query: CatalogQuery): Promise<CatalogResult> {
   try {
-    const res = await catalogGET(new Request(`${INTERNAL_BASE}?${buildCatalogSearch(query)}`));
+    // MarketBrowser prints each image's label and credit, so it asks for a
+    // Japanese card's own-language image (as its client refetch does).
+    const res = await catalogGET(new Request(`${INTERNAL_BASE}?${buildCatalogSearch(query, PAGE_SIZE, { sameLanguageImages: true })}`));
     const body = await res.json();
     if (!res.ok) {
       const { message, code } = parseCatalogError(body);

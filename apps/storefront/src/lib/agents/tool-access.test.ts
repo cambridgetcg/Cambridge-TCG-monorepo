@@ -68,7 +68,7 @@ describe("agent tool authority boundary", () => {
       expect(grant.reads).not.toContain("coverage.hunt.contribute");
       expect(grant.reads).not.toContain("agent.revoke_key");
       expect(grant.operational_metadata_writes.join(" ")).toContain("rate-limit");
-      expect(grant.operational_metadata_writes.join(" ")).toContain("last_used_at");
+      expect(grant.operational_metadata_writes.join(" ")).toContain("last-used");
       expect(grant.operational_metadata_writes).toContain(
         "agent_keys.revoked_at and revoked_reason for this key when its holder calls agent.revoke_key with confirm: true",
       );

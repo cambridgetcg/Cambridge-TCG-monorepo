@@ -324,9 +324,15 @@ export function getPlanFeatureSummary(planKey: PlanKey): string[] {
     ? "Full analytics history"
     : `${limits.historicalDataDays} days analytics history`;
 
+  // Order capacity is advisory: orders/paid credits cashback before it
+  // counts the order, and nothing locks
+  const orders = limits.orders >= UNLIMITED_PLAN_LIMIT
+    ? "Unlimited orders"
+    : `${formatPlanLimit(limits.orders)} orders/month guide (orders past it still earn cashback)`;
+
   const features = [
     "All core loyalty features",
-    `${formatPlanLimit(limits.orders)} reward-eligible orders/month`,
+    orders,
     `${formatPlanLimit(limits.customersSync)} customer sync capacity`,
     `${formatPlanLimit(limits.emails)} reward emails/month`,
     `${formatPlanLimit(limits.tiers)} membership tiers`,

@@ -192,14 +192,12 @@ describe("generateMigrationPlan() — golden run against the real codebase", () 
     expect(card).toBeUndefined();
   });
 
-  it(".rp-btn--primary is the next adoption-gap suggestion", () => {
-    // `.rp-missions-btn--primary` mirrors the shared `.rp-btn--primary`.
-    // Until missions-widget composes it, this assertion holds — and
-    // when adoption happens, it fails and is reconciled (same pattern
-    // as `.rp-card` was).
+  it(".rp-btn--primary has no suggestion: no remaining widget mirrors it", () => {
+    // `.rp-missions-btn--primary` mirrored it until missions-widget was
+    // removed with the missions blocks (2026-11-03). The membership
+    // widget has no bespoke copy, so there is nothing to migrate.
     const btn = real.suggestions.find((s) => s.target === "rp-btn--primary");
-    expect(btn, "expected a migration suggestion targeting `.rp-btn--primary`").toBeTruthy();
-    expect(btn!.candidates.length).toBeGreaterThan(0);
+    expect(btn).toBeUndefined();
   });
 
   it("suggestions are ordered by impact (descending)", () => {

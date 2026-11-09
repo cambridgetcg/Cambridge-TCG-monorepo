@@ -424,8 +424,10 @@ export async function getManualOverride(
     console.log(`[getManualOverride] No active override found`);
     return noOverride;
   } catch (error) {
+    // "No override" would let the resolver replace a tier set by hand, so the
+    // caller must see the failure
     console.error(`[getManualOverride] Error:`, error);
-    return noOverride;
+    throw error;
   }
 }
 

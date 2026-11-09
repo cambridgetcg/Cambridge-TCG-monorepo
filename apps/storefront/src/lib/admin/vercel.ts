@@ -17,7 +17,7 @@
  * project entirely.
  */
 
-const TEAM_ID = "team_HR4tb4WB0KZsKxqroSCTQrof";
+export const TEAM_ID = "team_HR4tb4WB0KZsKxqroSCTQrof";
 const MONOREPO_REPO_ID = 1223740492; // cambridgetcg/Cambridge-TCG-monorepo
 
 export interface VercelProject {

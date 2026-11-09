@@ -15,7 +15,7 @@ import { processOrderBatch, startOrderSyncJob } from "~/services/order-sync-job.
 import { unauthenticated } from "~/shopify.server";
 import { server } from "../../mocks/server";
 import { hasTestDatabase, resetDatabase } from "./database";
-import { mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
+import { adminGraphqlUrl, mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
 
 /**
  * Refunds the app learns of through an order sync before the refund's own
@@ -31,7 +31,7 @@ const SHOP = "sync-refunds.myshopify.com";
 const CUSTOMER = "100";
 const ORDER = 6660001;
 const CRON_SECRET = "sync-refunds-cron";
-const ADMIN = `https://${SHOP}/admin/api/2025-01/graphql.json`;
+const ADMIN = adminGraphqlUrl(SHOP);
 
 async function seedShop({ auto = false }: { auto?: boolean } = {}) {
   await prisma.shopSettings.create({

@@ -1,5 +1,4 @@
 import { db } from '~/db.server';
-import { DatadogService } from './datadog.service';
 import { Logger } from '../logger.service';
 
 export class MetricsService {
@@ -25,29 +24,6 @@ export class MetricsService {
         this.getSubscriptionMetrics(shop),
         this.checkLedgerConsistency(shop),
       ]);
-
-      // Report customer metrics
-      DatadogService.metrics.gauge('customers.total', customerMetrics.total);
-      DatadogService.metrics.gauge('customers.active_30d', customerMetrics.active30Days);
-      DatadogService.metrics.gauge('customers.new_today', customerMetrics.newToday);
-
-      // Report tier distribution
-      for (const [tierName, count] of Object.entries(tierDistribution)) {
-        DatadogService.metrics.gauge(`customers.tier.${tierName.toLowerCase()}`, count);
-      }
-
-      // Report cashback metrics
-      DatadogService.metrics.gauge('cashback.total_distributed', cashbackMetrics.totalDistributed);
-      DatadogService.metrics.gauge('cashback.distributed_today', cashbackMetrics.distributedToday);
-      DatadogService.metrics.gauge('cashback.average_amount', cashbackMetrics.averageAmount);
-
-      // Report subscription metrics
-      DatadogService.metrics.gauge('subscription.mrr', subscriptionMetrics.mrr);
-      DatadogService.metrics.gauge('subscription.active_count', subscriptionMetrics.activeCount);
-      DatadogService.metrics.gauge('subscription.churn_rate', subscriptionMetrics.churnRate);
-
-      // Report ledger consistency
-      DatadogService.metrics.trackLedgerConsistency(ledgerConsistency.discrepancyCount);
 
       Logger.info('Daily metrics reported successfully', {
         shop,
@@ -310,9 +286,6 @@ export class MetricsService {
    * Real-time metric tracking for critical events
    */
   static trackRealTimeEvent(event: string, data: Record<string, any>) {
-    // Track the event immediately
-    DatadogService.metrics.increment(`realtime.${event}`);
-
     // Log for audit trail
     Logger.info(`Real-time event: ${event}`, {
       event: `realtime_${event}`,
@@ -323,7 +296,6 @@ export class MetricsService {
     switch (event) {
       case 'high_value_transaction':
         if (data.amount > 1000) {
-          DatadogService.metrics.increment('realtime.high_value_transactions');
           Logger.warn('High value transaction detected', {
             ...data,
             alert: true,
@@ -332,12 +304,10 @@ export class MetricsService {
         break;
 
       case 'fraud_detection':
-        DatadogService.metrics.increment('security.fraud_attempts');
         Logger.security.suspiciousActivity('Potential fraud detected', data);
         break;
 
       case 'system_error':
-        DatadogService.metrics.increment('system.critical_errors');
         Logger.error('System error occurred', new Error(data.message), {
           ...data,
           critical: true,
@@ -370,10 +340,6 @@ export class MetricsService {
 
     // Get memory usage
     const memoryUsage = process.memoryUsage();
-    DatadogService.metrics.gauge('system.memory.heap_used', memoryUsage.heapUsed);
-    DatadogService.metrics.gauge('system.memory.heap_total', memoryUsage.heapTotal);
-    DatadogService.metrics.gauge('system.memory.rss', memoryUsage.rss);
-    DatadogService.metrics.gauge('system.memory.external', memoryUsage.external);
 
     return {
       memory: memoryUsage,

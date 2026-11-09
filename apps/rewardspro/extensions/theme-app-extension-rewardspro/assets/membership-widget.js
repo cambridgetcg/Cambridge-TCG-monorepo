@@ -5,7 +5,7 @@
  * and renders the floating tier + store-credit badge. Serves as the
  * reference implementation for other widgets: all shared helpers
  * (sanitize, fetch+retry, cache, escapeHtml, logger) come from
- * `window.RPUtils` — loaded by the `rp_utils_loader` Liquid snippet.
+ * `window.RPUtils`, ordered before this runtime by rp-widget-loader.js.
  */
 
 (function() {
@@ -17,8 +17,8 @@
   if (!window.RPUtils || !window.RPUtils.VERSION) {
     // Fail loudly but don't crash the page. The widget simply won't render.
     console.error('[RewardsWidget] window.RPUtils is missing. Ensure the ' +
-      '`rp_utils_loader` snippet is rendered before this script. See the ' +
-      'extension README for details.');
+      '`rp-widget-loader.js` schema asset ordered-loads this runtime. See ' +
+      'the extension README for details.');
     return;
   }
   var RP = window.RPUtils;
@@ -113,6 +113,7 @@
           perkTierStatus: dataset.i18nPerkTierStatus || 'Unlock higher tiers',
           perkProgress: dataset.i18nPerkProgress || 'Track your progress',
           storeCreditBalance: dataset.i18nStoreCreditBalance || 'Your credit',
+          spendAtCheckout: dataset.i18nSpendAtCheckout || "To spend it, select Apply store credit at checkout while signed in or using Shop Pay. You can't choose to use only part of it.",
           tierLabel: dataset.i18nTierLabel || 'Tier',
           cashbackLabel: dataset.i18nCashbackLabel || 'Cashback',
           progressLabel: dataset.i18nProgressLabel || 'Progress',
@@ -645,6 +646,14 @@
       try { cashbackPercent = (membership.tier && membership.tier.cashbackPercent) != null ? membership.tier.cashbackPercent : 0; } catch (e) {}
       try { storeCreditFormatted = this.formatCurrency(balance.storeCredit); } catch (e) {}
 
+      // How to spend it: Shopify applies store credit only for shoppers
+      // signed in through new customer accounts (or using Shop Pay), never
+      // legacy accounts, so the proxy says which kind the shop uses. No
+      // answer, or no credit, means no line.
+      var settings = data.settings || {};
+      var showSpend = settings.customerAccountsVersion === 'NEW_CUSTOMER_ACCOUNTS' &&
+        Number(balance.storeCredit) > 0;
+
       // Tier progress — show when the shopper either owns the top tier or has
       // a meaningful target to aim at.
       var progressPercent = 0, nextTierName = '', nextTierCashback = null;
@@ -728,6 +737,7 @@
               <div class="rp-auth-c__balance-label">${this.escapeHtml(t.storeCreditBalance)}</div>
               <div class="rp-auth-c__balance-amount">${this.escapeHtml(storeCreditFormatted)}</div>
               <div class="rp-auth__balance-rate">${this.escapeHtml(this.interpolate(t.cashbackRate, { percent: cashbackPercent }))}</div>
+              ${showSpend ? `<div class="rp-auth__balance-spend">${this.escapeHtml(t.spendAtCheckout)}</div>` : ''}
             </div>
             ${progressBlock}
             ${this.renderPointsSection()}
@@ -1105,8 +1115,11 @@
   /**
    * Initialize widget when DOM is ready
    */
-  function initWidget() {
-    const root = document.getElementById('membership-widget-root');
+  function initWidget(candidate) {
+    const root = candidate && candidate.matches &&
+      candidate.matches('#membership-widget-root')
+      ? candidate
+      : document.getElementById('membership-widget-root');
     if (root && !root.dataset.initialized) {
       log.info('Widget init');
       new MembershipWidget(root);
@@ -1125,4 +1138,11 @@
     document.addEventListener('shopify:section:load', initWidget);
     document.addEventListener('shopify:section:reorder', initWidget);
   }
+
+  document.addEventListener('rewardspro:widget-ready', (event) => {
+    if (event.target && event.target.matches &&
+        event.target.matches('#membership-widget-root')) {
+      initWidget(event.target);
+    }
+  });
 })();

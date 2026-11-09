@@ -13,6 +13,7 @@ import type {
   ChallengeObjectiveType,
   ChallengeRewardType,
 } from "../services/challenge-management.server";
+import { isMissionRewardAvailable } from "./feature-availability";
 
 // ============================================
 // TYPES
@@ -511,12 +512,27 @@ export const ALL_TEMPLATES: MissionTemplate[] = [
   ...SPECIAL_TEMPLATES,
 ];
 
+/** Templates whose reward a shopper can receive today (constants/feature-availability.ts) */
+const offered = (templates: MissionTemplate[]) =>
+  templates.filter((template) => isMissionRewardAvailable(template.rewardType));
+
 export const TEMPLATES_BY_CADENCE: Record<MissionCadence, MissionTemplate[]> = {
-  DAILY: DAILY_TEMPLATES,
-  WEEKLY: WEEKLY_TEMPLATES,
-  MONTHLY: MONTHLY_TEMPLATES,
-  SPECIAL: SPECIAL_TEMPLATES,
+  DAILY: offered(DAILY_TEMPLATES),
+  WEEKLY: offered(WEEKLY_TEMPLATES),
+  MONTHLY: offered(MONTHLY_TEMPLATES),
+  SPECIAL: offered(SPECIAL_TEMPLATES),
 };
+
+const ALL_REWARD_TYPES: { value: ChallengeRewardType; label: string }[] = [
+  { value: "POINTS", label: "Points" },
+  { value: "STORE_CREDIT", label: "Store Credit" },
+  { value: "DISCOUNT", label: "Discount Code" },
+  { value: "TIER_UPGRADE", label: "Tier Upgrade" },
+  { value: "CUSTOM", label: "Custom Reward" },
+];
+
+/** Rewards the mission editor offers: those a shopper can receive today */
+export const MISSION_REWARD_TYPES = ALL_REWARD_TYPES.filter((reward) => isMissionRewardAvailable(reward.value));
 
 /**
  * Get templates by cadence
