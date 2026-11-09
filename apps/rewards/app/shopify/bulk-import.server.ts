@@ -446,6 +446,8 @@ export async function pollImport(
  * a start found missing is started again, and counted only if that fails.
  * `polled` counts the polls that finished. A store whose token another call
  * is renewing right now is left for the next run, as no failure (Ruling 85).
+ * The stores the deadline leaves unpolled count once in `failed`, so a run
+ * the earlier steps used up is seen (RP25-F2).
  */
 export async function pollRunningImports(deadline: number): Promise<{ polled: number; failed: number; firstProblem?: unknown }> {
   const running = await prisma.connection.findMany({
@@ -459,8 +461,14 @@ export async function pollRunningImports(deadline: number): Promise<{ polled: nu
   // table) as it loads.
   const { unauthenticated } = await import("../shopify.server");
   const result: { polled: number; failed: number; firstProblem?: unknown } = { polled: 0, failed: 0 };
-  for (const connection of running) {
-    if (Date.now() >= deadline) break;
+  for (const [index, connection] of running.entries()) {
+    if (Date.now() >= deadline) {
+      const left = new Error(`${running.length - index} of ${running.length} past-orders imports were not polled before the deadline`);
+      console.warn(`[import] ${left.message}`);
+      if (result.failed === 0) result.firstProblem = left;
+      result.failed++;
+      break;
+    }
     const shop = connection.externalAccountId;
     try {
       const { admin } = await unauthenticated.admin(shop);

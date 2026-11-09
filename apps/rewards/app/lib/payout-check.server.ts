@@ -12,13 +12,15 @@
  *    longest due first. There is no age limit: a payout keeps being retried
  *    with backoff until it is sent or needs a look (rule 9).
  * 3. Read again refunds recorded with their money still on its way (#195),
- *    at most MAX_MONEY_PENDING_READS a run, the least recently read first,
- *    then the oldest refund first, straight from the refund table (not the
- *    sweep's 3-day listing): settleRefundMoney adds what has succeeded to
- *    spend and, once the money has succeeded or failed, writes the refund's
- *    one take-back (sent by a later run's step 2, as the sweep's are). One
- *    still pending after MONEY_PENDING_FOR_MS is cleared with what succeeded
- *    and counted as one problem, naming its order by its Shopify name.
+ *    at most MAX_MONEY_PENDING_READS a run (a busy store's left out before
+ *    they are counted), the least recently read first, then the oldest
+ *    refund first, straight from the refund table (not the sweep's 3-day
+ *    listing), starting no read once less than MONEY_PENDING_RESERVE_MS of
+ *    the run is left: settleRefundMoney adds what has succeeded to spend
+ *    and, once the money has succeeded or failed, writes the refund's one
+ *    take-back (sent by a later run's step 2, as the sweep's are). One still
+ *    pending after MONEY_PENDING_FOR_MS is cleared with what succeeded and
+ *    counted as one problem, naming its order by its Shopify name.
  * 4. Sweep each active store, the one least recently swept first (OPERATIONS-6),
  *    for orders updated in the last SWEEP_DAYS (never before its install):
  *    the backstop for orders, refunds and cancellations whose webhooks
@@ -44,6 +46,7 @@
  * the payout's code (`lastError`) as the problem and one log line. Nothing
  * about a buyer is logged but ids.
  */
+import type { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import { type ConnectionContext, findConnection } from "./merchant.server";
 import type { RefundFacts } from "./order-facts";
@@ -65,6 +68,15 @@ export const MIN_AGE_MS = 2 * 60 * 1000;
 export const SWEEP_DAYS = 3;
 /** Refunds whose money was on its way read again per run (#195; each read is three or more Shopify calls). */
 export const MAX_MONEY_PENDING_READS = 20;
+/**
+ * Step 3 starts no read with less than this left of the run's budget, so
+ * the sweep and the import polls after it keep their turn (RP25-F2). Half
+ * of the hourly route's 240 s: step 3's own worst case is
+ * MAX_MONEY_PENDING_READS reads of 4.5 s (ORDER_READ_DEADLINE_MS), 90 s, so
+ * it still has room after steps 1 and 2, and its last read ends with nearly
+ * two minutes left for the others.
+ */
+export const MONEY_PENDING_RESERVE_MS = 120 * 1000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** How long a refund's money may stay on its way before only what succeeded is taken back (#195). */
@@ -230,8 +242,15 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
     }
   }
 
-  // 3. Refunds whose money was on its way (#195).
-  await settlePendingRefundMoney({ result, problem, outOfTime, now, deadline: o.deadline, storeFor });
+  // 3. Refunds whose money was on its way (#195). A failure of the step
+  // itself (its listing of the marked refunds) is one problem, never the end
+  // of the run: the sweep and the import polls still have theirs (RP25-F2).
+  try {
+    await settlePendingRefundMoney({ result, problem, outOfTime, now, deadline: o.deadline, storeFor });
+  } catch (error) {
+    console.error(`[payout-check] Could not read the refunds whose money was on its way: ${messageOf(error)}`);
+    problem(error);
+  }
 
   // 4. The sweep (rule 13, Ruling 45), the store least recently swept first.
   const connections = await prisma.connection.findMany({
@@ -266,11 +285,16 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
  * on an active store, read again from Shopify by its id and settled
  * (settleRefundMoney), the least recently read first, then the oldest
  * refund first, so two of one order share what the order has left to refund
- * as readOrder would. Each is stamped (`moneyCheckedAt`) before its read, so
- * one that fails takes its turn after the others; a busy store's wait
- * unstamped for the next run, and an unreachable store's are stamped and
- * left (storeFor counts the store once). A read that fails is a problem and
- * the refund stays marked (a ReadLimit is only logged), until
+ * as readOrder would. A busy store's are left out before the
+ * MAX_MONEY_PENDING_READS are taken, so they can't use up the run's reads,
+ * and wait unstamped for the next run (P1-F3). No read starts once less
+ * than MONEY_PENDING_RESERVE_MS of the run is left; the rest wait unstamped,
+ * keeping their place (RP25-F2). Each is stamped (`moneyCheckedAt`) before
+ * its read, so one that fails takes its turn after the others; an
+ * unreachable store's are stamped and left (storeFor counts the store
+ * once). A database error on one refund, its stamp included, is one problem
+ * and the next is still read, as in steps 1 and 2. A read that fails is a
+ * problem and the refund stays marked (a ReadLimit is only logged), until
  * MONEY_PENDING_FOR_MS after it was marked: then it is settled with what has
  * succeeded, from its read if there is one, else from its stored value, and
  * counted as one problem by its order's Shopify name. A settle the credit's
@@ -287,8 +311,17 @@ async function settlePendingRefundMoney(ctx: {
   storeFor: (connectionId: string) => Promise<Store | "busy" | null>;
 }): Promise<void> {
   const { now } = ctx;
+  const tooLate = () => ctx.deadline - Date.now() < MONEY_PENDING_RESERVE_MS;
+  if (tooLate()) return;
+  const markedWhere = { moneyPendingSince: { not: null }, connection: { status: "active" } } satisfies Prisma.RefundWhereInput;
+  // Each store with a marked refund, asked for once (storeFor's answer is the
+  // run's, which the sweep reuses): a busy store's are left out of the take
+  const busy: string[] = [];
+  for (const { connectionId } of await prisma.refund.groupBy({ by: ["connectionId"], where: markedWhere })) {
+    if ((await ctx.storeFor(connectionId)) === "busy") busy.push(connectionId);
+  }
   const marked = await prisma.refund.findMany({
-    where: { moneyPendingSince: { not: null }, connection: { status: "active" } },
+    where: { ...markedWhere, connectionId: { notIn: busy } },
     orderBy: [{ moneyCheckedAt: { sort: "asc", nulls: "first" } }, { refundedAt: "asc" }, { id: "asc" }],
     take: MAX_MONEY_PENDING_READS,
     select: {
@@ -303,17 +336,27 @@ async function settlePendingRefundMoney(ctx: {
   const conns = new Map<string, ConnectionContext | null>();
   const moved = new Set<string>();
   for (const row of marked) {
-    if (ctx.outOfTime()) break;
+    // The sweep and the import polls keep their turn: the rest wait unstamped
+    if (tooLate()) break;
     const { order } = row;
     const shop = row.connection.externalAccountId;
+    const what = `refund ${row.externalRefundId} of order ${order.externalOrderId} for ${shop}`;
     const store = await ctx.storeFor(row.connectionId);
-    // Its token is being renewed: read next run
+    // Left out above; the check narrows the type
     if (store === "busy") continue;
-    await prisma.refund.updateMany({ where: { id: row.id, moneyPendingSince: { not: null } }, data: { moneyCheckedAt: now } });
-    // Unreachable: counted once by storeFor
-    if (!store) continue;
-    if (!conns.has(row.connectionId)) conns.set(row.connectionId, await findConnection(shop));
-    const conn = conns.get(row.connectionId);
+    let conn: ConnectionContext | null | undefined;
+    try {
+      await prisma.refund.updateMany({ where: { id: row.id, moneyPendingSince: { not: null } }, data: { moneyCheckedAt: now } });
+      // Unreachable: counted once by storeFor
+      if (!store) continue;
+      if (!conns.has(row.connectionId)) conns.set(row.connectionId, await findConnection(shop));
+      conn = conns.get(row.connectionId);
+    } catch (error) {
+      // One refund's database error is a problem, never the end of the run (RP25-F2)
+      console.error(`[payout-check] Could not prepare the read of ${what}: ${messageOf(error)}`);
+      ctx.problem(error);
+      continue;
+    }
     // Uninstalled since the run began
     if (!conn) continue;
     const expired = row.moneyPendingSince !== null && now.getTime() - row.moneyPendingSince.getTime() >= MONEY_PENDING_FOR_MS;
@@ -330,7 +373,6 @@ async function settlePendingRefundMoney(ctx: {
       // The run's deadline cut the read off: the rest wait for the next run
       if (ctx.outOfTime()) break;
       const limit = isReadLimit(error);
-      const what = `refund ${row.externalRefundId} of order ${order.externalOrderId} for ${shop}`;
       // Past what one read takes (20 or more refunds): logged, never a problem (M2c-F7)
       if (limit) console.warn(`[payout-check] The read of ${what} is past what one read takes: ${messageOf(error)}`);
       else console.error(`[payout-check] Could not read ${what}: ${messageOf(error)}`);

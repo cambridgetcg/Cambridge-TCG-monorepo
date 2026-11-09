@@ -873,6 +873,22 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       expect(partial.errorMessage).toMatch(/^1 failed; first: .*Internal error/);
     });
 
+    it("counts the imports the deadline left unpolled as one problem of the hourly run (RP25-F2)", async () => {
+      await firstOpen();
+      await seedOfflineSession(SHOP);
+      const asked = mockShopifyForCron({});
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const result = await pollRunningImports(Date.now() - 1);
+
+      expect(result).toMatchObject({ polled: 0, failed: 1 });
+      expect(String(result.firstProblem)).toMatch(/1 of 1 past-orders imports were not polled before the deadline/);
+      expect(warn.mock.calls.map((args) => args.join(" "))).toEqual(["[import] 1 of 1 past-orders imports were not polled before the deadline"]);
+      warn.mockRestore();
+      expect(asked).toEqual([]);
+      await expect(connectionRow()).resolves.toMatchObject({ importState: "running" });
+    });
+
     it("runs after the payout check in the hourly route", async () => {
       await firstOpen();
       await seedOfflineSession(SHOP);
