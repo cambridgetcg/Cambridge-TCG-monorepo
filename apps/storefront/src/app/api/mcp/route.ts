@@ -656,9 +656,12 @@ async function handlePost(request: Request, seen: McpRequestSeen) {
   // archived agent's holder can still end its key. This is the only path
   // that runs the tool. Under tools/call, confirm is read only from
   // params.arguments; a confirm beside the name previews.
-  // The daily count records it with seen.authenticated left false: this
-  // path runs before the gate resolves an actor, so no key authenticated
-  // in the gate's sense, whatever the revocation did.
+  // The daily count records it as authenticated only when the presented
+  // string was a live key (revoked now, or previewed): that possession is
+  // this path's authentication, and an authenticated row is what the
+  // monitor withholds while few keys are in use, as /privacy says. An
+  // unknown or already-revoked string, a malformed header and an unknown
+  // state stay unauthenticated; the gate never resolves an actor here.
   if (SELF_LIFECYCLE_TOOLS.has(dispatchName)) {
     const presented = parseAgentBearer(authHeader);
     if (presented.kind !== "token") {
@@ -668,6 +671,7 @@ async function handlePost(request: Request, seen: McpRequestSeen) {
     const outcome = await revokePresentedKey(presented.token, {
       confirm: dispatchParams.confirm === true,
     });
+    seen.authenticated = outcome.key_state === "revoked" || outcome.key_state === "active";
     return revocationResponse(body.id, isMcpCall, outcome);
   }
 

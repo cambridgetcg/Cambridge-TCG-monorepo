@@ -11,9 +11,11 @@
 -- count per UTC day of agent.revoke_key requests by method, authenticated or
 -- not, and outcome, with no key, agent or account id, under the same
 -- OPS_MCP_DAILY switch. The carve-out runs before the gate resolves an
--- actor, so these rows read authenticated = false, and the monitor's
--- holding back of authenticated rows while few keys are in use (monitor.ts
--- mcpView) does not cover them.
+-- actor; possession of the presented key is its authentication, so a
+-- revocation or preview by a live key reads authenticated = true, and the
+-- monitor holds those rows back while few keys are in use (monitor.ts
+-- mcpView), as /privacy says. A string that is not a live key reads
+-- authenticated = false.
 --
 -- Apply this before deploying code that writes the word: recordMcpDaily
 -- writes a batch in one statement and drops the whole batch if the database

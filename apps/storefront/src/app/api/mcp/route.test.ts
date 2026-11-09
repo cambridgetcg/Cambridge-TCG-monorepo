@@ -744,16 +744,24 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
     ]);
   });
 
-  it("counts agent.revoke_key as the carve-out answered it, never as authenticated", async () => {
+  it("counts agent.revoke_key as authenticated only when a live key was presented", async () => {
     vi.stubEnv("OPS_MCP_DAILY", "on");
     mocks.revokePresentedKey.mockResolvedValueOnce({ performed: true, revoked: true, key_state: "revoked", key_prefix: "ctcg_agt_Ab1", revoked_at: "2026-11-09T12:00:00.000Z", other_live_keys: 0 });
+    await POST(request("tools/call", { name: "agent.revoke_key", arguments: { confirm: true } }, `Bearer ${AGENT_TOKEN}`));
+    mocks.revokePresentedKey.mockResolvedValueOnce({ performed: false, revoked: false, key_state: "active", key_prefix: "ctcg_agt_Ab1", other_live_keys: 0 });
+    await POST(request("agent.revoke_key", {}, `Bearer ${AGENT_TOKEN}`));
+    mocks.revokePresentedKey.mockResolvedValueOnce({ performed: false, revoked: false, key_state: "not_active", message: "Nothing was changed.", docs: "https://cambridgetcg.com/methodology/agents" });
     await POST(request("tools/call", { name: "agent.revoke_key", arguments: { confirm: true } }, `Bearer ${AGENT_TOKEN}`));
     await POST(request("agent.revoke_key", { confirm: true }, null));
     mocks.revokePresentedKey.mockResolvedValueOnce({ performed: "unknown", key_state: "unknown", retryable: true, message: "Revocation state is unknown.", docs: "https://cambridgetcg.com/methodology/agents" });
     await POST(request("agent.revoke_key", { confirm: true }, `Bearer ${AGENT_TOKEN}`));
-    // The carve-out runs before the gate resolves an actor, so even a
-    // performed revocation reads authenticated: false.
+    // A performed revocation or a preview means a live key was presented,
+    // so the monitor withholds those rows while few keys are in use. A
+    // string that is not a live key, a malformed header or an unknown
+    // state says nothing about a key, and the gate never resolves an actor.
     expect(await counted()).toEqual([
+      ["tools/call", "agent.revoke_key", true, "ok"],
+      ["native", "agent.revoke_key", true, "ok"],
       ["tools/call", "agent.revoke_key", false, "ok"],
       ["native", "agent.revoke_key", false, "unauthenticated"],
       ["native", "agent.revoke_key", false, "error"],
