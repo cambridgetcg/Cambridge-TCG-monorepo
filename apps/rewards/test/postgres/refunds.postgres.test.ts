@@ -9,7 +9,7 @@ import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
 import { CLAIM_FINISHED_MS, sendPayout } from "~/lib/payouts.server";
 import type { PayoutRail } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
-import { ORDER_RECORDING_WINDOW_MS, RefundRetryLater, recordRefund } from "~/lib/refunds.server";
+import { ORDER_RECORDING_WINDOW_MS, RefundRetryLater, recordRefund, settleRefundMoney } from "~/lib/refunds.server";
 import { hasTestDatabase, resetDatabase, waitForLockWaitOr } from "./helpers/database";
 
 const SHOP = "refunds-test.myshopify.com";
@@ -849,6 +849,269 @@ describe.skipIf(!hasTestDatabase)("recordRefund", () => {
         { refund: "gid://shopify/Refund/2", product: "3.00", moneyPendingSince: NOW },
       ]);
       expect(await moneyOf(orderId)).toMatchObject({ refunded: "3.00", cashback: null, reversals: [] });
+    });
+
+    describe("settleRefundMoney, once Shopify reads it again", () => {
+      const LATER = new Date(NOW.getTime() + 60 * MINUTE);
+      const rowOf = async (n: number) => prisma.refund.findFirstOrThrow({ where: { externalRefundId: `gid://shopify/Refund/${n}` } });
+      /** Settle refund `n` from Shopify's read of it now (`read`), or from no read. */
+      const settleOf = async (conn: ConnectionContext, n: number, read: RefundFacts | null, o: { expired?: boolean; now?: Date } = {}) =>
+        settleRefundMoney(conn, (await rowOf(n)).id, read, { now: o.now ?? LATER, expired: o.expired ?? false });
+      const reversalCount = (n: number) =>
+        prisma.ledgerEntry.count({ where: { kind: "reversal", refund: { externalRefundId: `gid://shopify/Refund/${n}` } } });
+
+      it("once the money succeeds, before payout: the refund and the order rise by £20, one reversal under the standard key, and the credit is cut", async () => {
+        const { conn, orderId, customerId } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+
+        const result = await settleOf(conn, 1, refundFacts(1, "20.00"));
+
+        expect(result).toEqual({ status: "settled", takenBack: expect.anything(), reversalPayoutId: expect.any(String), customerId });
+        if (result.status !== "settled") throw new Error("unreachable");
+        expect(result.takenBack.toFixed(2)).toBe("1.00");
+        expect(await moneyOf(orderId)).toEqual({
+          refunded: "20.00",
+          shopRefunded: "20.00",
+          cashback: "2.50",
+          credit: { state: "pending", amount: "1.50" },
+          reversals: [
+            {
+              refund: "gid://shopify/Refund/1",
+              amount: "-1.00",
+              shopAmount: "-1.00",
+              payout: { direction: "debit", state: "nothing_to_send", amount: "1.00" },
+            },
+          ],
+        });
+        expect(await reversalCount(1)).toBe(1);
+        const reversal = await prisma.ledgerEntry.findFirstOrThrow({ where: { kind: "reversal" } });
+        expect(reversal.idempotencyKey).toBe(`reversal:${conn.connectionId}:gid://shopify/Refund/1`);
+        const row = await rowOf(1);
+        expect([money(row.productAmount), money(row.shopProductAmount), row.moneyPendingSince]).toEqual(["20.00", "20.00", null]);
+        expect(reversal.refundId).toBe(row.id);
+      });
+
+      it("once the money succeeds, after payout: one pending debit of £1.00, due when it settled", async () => {
+        const { conn, orderId, payoutId } = await recordedOrder();
+        await setCredit(payoutId, { state: "sent", sentAt: NOW });
+        await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+
+        await settleOf(conn, 1, refundFacts(1, "20.00"));
+
+        expect((await moneyOf(orderId)).reversals.map((r) => r.payout)).toEqual([{ direction: "debit", state: "pending", amount: "1.00" }]);
+        await expect(prisma.payout.findFirstOrThrow({ where: { direction: "debit" } })).resolves.toMatchObject({ nextAttemptAt: LATER, attempts: 0 });
+      });
+
+      it("when the money fails: the mark is cleared and nothing is taken back", async () => {
+        const { conn, orderId, customerId } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+
+        const result = await settleOf(conn, 1, refundFacts(1, "0.00"));
+
+        expect(result).toEqual({ status: "settled", takenBack: expect.anything(), reversalPayoutId: null, customerId });
+        expect(await moneyOf(orderId)).toEqual({ refunded: "0.00", shopRefunded: "0.00", cashback: "2.50", credit: { state: "pending", amount: "2.50" }, reversals: [] });
+        expect((await rowOf(1)).moneyPendingSince).toBeNull();
+      });
+
+      it("partial success: still pending, the newly settled part is added to spend, and nothing is taken back until the rest settles", async () => {
+        const { conn, orderId, customerId } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1, "5.00"), undefined, NOW);
+
+        const partly = await settleOf(conn, 1, pendingRefund(1, "12.00"));
+
+        expect(partly).toEqual({ status: "still_pending", customerId, spendChanged: true });
+        expect(await moneyOf(orderId)).toMatchObject({ refunded: "12.00", credit: { state: "pending", amount: "2.50" }, reversals: [] });
+        expect((await rowOf(1)).moneyPendingSince).toEqual(NOW);
+
+        expect(await settleOf(conn, 1, pendingRefund(1, "12.00"))).toEqual({ status: "still_pending", customerId, spendChanged: false });
+
+        // The rest failed: the £12 that succeeded takes its £0.60 share
+        const settled = await settleOf(conn, 1, refundFacts(1, "12.00"));
+
+        if (settled.status !== "settled") throw new Error(settled.status);
+        expect(settled.takenBack.toFixed(2)).toBe("0.60");
+        expect(await moneyOf(orderId)).toMatchObject({ refunded: "12.00", credit: { state: "pending", amount: "1.90" } });
+        expect(await reversalCount(1)).toBe(1);
+      });
+
+      it("settling twice writes nothing the second time", async () => {
+        const { conn } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+        await settleOf(conn, 1, refundFacts(1, "20.00"));
+        const snapshot = async () => ({
+          orders: await prisma.order.findMany(),
+          refunds: await prisma.refund.findMany(),
+          entries: await prisma.ledgerEntry.findMany({ orderBy: { createdAt: "asc" } }),
+          payouts: await prisma.payout.findMany({ orderBy: { createdAt: "asc" } }),
+        });
+        const before = await snapshot();
+
+        expect(await settleOf(conn, 1, refundFacts(1, "20.00"))).toEqual({ status: "not_marked" });
+
+        expect(await snapshot()).toEqual(before);
+        expect(await reversalCount(1)).toBe(1);
+      });
+
+      it("a refund that was never marked is not_marked, and nothing is written", async () => {
+        const { conn, orderId } = await recordedOrder();
+        await recordRefund(conn, ORDER, refundFacts(1, "10.00"), undefined, NOW);
+        const before = await moneyOf(orderId);
+
+        expect(await settleOf(conn, 1, refundFacts(1, "20.00"))).toEqual({ status: "not_marked" });
+
+        expect(await moneyOf(orderId)).toEqual(before);
+      });
+
+      it("while the credit is being sent: RefundRetryLater, nothing written, still marked", async () => {
+        const { conn, orderId, payoutId } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+        await setCredit(payoutId, { state: "sending", claimedAt: new Date(LATER.getTime() - MINUTE) });
+        const before = await moneyOf(orderId);
+
+        await expect(settleOf(conn, 1, refundFacts(1, "20.00"))).rejects.toBeInstanceOf(RefundRetryLater);
+
+        expect(await moneyOf(orderId)).toEqual(before);
+        const row = await rowOf(1);
+        expect([money(row.productAmount), row.moneyPendingSince]).toEqual(["0.00", NOW]);
+      });
+
+      it("a re-read value below the stored value lowers nothing", async () => {
+        // An edit since re-values the refund lower ("a refund already recorded keeps its value")
+        const { conn, orderId } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1, "10.00"), undefined, NOW);
+
+        const result = await settleOf(conn, 1, refundFacts(1, "4.00"));
+
+        if (result.status !== "settled") throw new Error(result.status);
+        expect(result.takenBack.toFixed(2)).toBe("0.50");
+        expect(await moneyOf(orderId)).toMatchObject({ refunded: "10.00", shopRefunded: "10.00", credit: { state: "pending", amount: "2.00" } });
+        const row = await rowOf(1);
+        expect([money(row.productAmount), money(row.shopProductAmount), row.moneyPendingSince]).toEqual(["10.00", "10.00", null]);
+      });
+
+      it("settling counts this refund's own increase when deciding completion by value", async () => {
+        // £10.10 takes £0.50; the marked refund's £39.90 then brings the order to
+        // its £50 of products, so it takes the £2.00 left, not its £1.99 share
+        const { conn, orderId } = await recordedOrder();
+        await recordRefund(conn, ORDER, refundFacts(1, "10.10"), undefined, NOW);
+        await recordRefund(conn, ORDER, pendingRefund(2), undefined, NOW);
+
+        const result = await settleOf(conn, 2, refundFacts(2, "39.90"));
+
+        if (result.status !== "settled") throw new Error(result.status);
+        expect(result.takenBack.toFixed(2)).toBe("2.00");
+        expect(await moneyOf(orderId)).toMatchObject({ refunded: "50.00", credit: { state: "nothing_to_send", amount: "0.00" } });
+      });
+
+      it("a later item refund that completed the order while it waited: settling adds no spend past the product value and takes nothing more", async () => {
+        const { conn, orderId } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+        await recordRefund(conn, ORDER, refundFacts(2, "50.00", "50.00", true), undefined, NOW);
+
+        const result = await settleOf(conn, 1, refundFacts(1, "20.00"));
+
+        if (result.status !== "settled") throw new Error(result.status);
+        expect(result.takenBack.toFixed(2)).toBe("0.00");
+        const after = await moneyOf(orderId);
+        expect([after.refunded, after.shopRefunded]).toEqual(["50.00", "50.00"]);
+        const takenBack = after.reversals.reduce((total, r) => total.minus(r.amount ?? 0), new Money(0));
+        expect(takenBack.toFixed(2)).toBe("2.50");
+        expect(money((await rowOf(1)).productAmount)).toBe("0.00");
+      });
+
+      it("a later refund that doesn't complete the order, then the earlier marked one settles: spend and take-backs stay within the order's", async () => {
+        const { conn, orderId } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+        await recordRefund(conn, ORDER, refundFacts(2, "35.00"), undefined, NOW);
+
+        const result = await settleOf(conn, 1, refundFacts(1, "20.00"));
+
+        // £35 took £1.75; the £20 is capped at the £15 left, which completes the order and takes the £0.75 left
+        if (result.status !== "settled") throw new Error(result.status);
+        expect(result.takenBack.toFixed(2)).toBe("0.75");
+        const after = await moneyOf(orderId);
+        expect(after.refunded).toBe("50.00");
+        expect(after.credit).toEqual({ state: "nothing_to_send", amount: "0.00" });
+        expect(money((await rowOf(1)).productAmount)).toBe("15.00");
+      });
+
+      it("past 30 days with its money still pending: the mark is cleared and only what succeeded is taken back", async () => {
+        const { conn, orderId } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1, "5.00"), undefined, NOW);
+
+        const result = await settleOf(conn, 1, pendingRefund(1, "5.00"), { expired: true });
+
+        if (result.status !== "settled") throw new Error(result.status);
+        expect(result.takenBack.toFixed(2)).toBe("0.25");
+        expect(await moneyOf(orderId)).toMatchObject({ refunded: "5.00", credit: { state: "pending", amount: "2.25" } });
+        expect((await rowOf(1)).moneyPendingSince).toBeNull();
+      });
+
+      it("with no read (Shopify no longer has it, or past 30 days unread): the mark is cleared and the stored value is taken back", async () => {
+        const { conn, orderId } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1, "5.00"), undefined, NOW);
+
+        const result = await settleOf(conn, 1, null);
+
+        if (result.status !== "settled") throw new Error(result.status);
+        expect(result.takenBack.toFixed(2)).toBe("0.25");
+        expect(await moneyOf(orderId)).toMatchObject({ refunded: "5.00" });
+      });
+
+      it("both currencies rise and are capped each on its own; the take-back is in the cashback's currency", async () => {
+        const { conn, orderId } = await recordedOrder({ currency: "EUR", productValue: pair("50.00", "43.00"), total: pair("50.00", "43.00") });
+        await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+
+        const result = await settleOf(conn, 1, refundFacts(1, "20.00", "17.20"));
+
+        if (result.status !== "settled") throw new Error(result.status);
+        expect(result.takenBack.toFixed(2)).toBe("1.00");
+        const after = await moneyOf(orderId);
+        expect([after.refunded, after.shopRefunded]).toEqual(["20.00", "17.20"]);
+        expect(after.reversals.map((r) => [r.amount, r.shopAmount])).toEqual([["-1.00", "-0.86"]]);
+        const reversal = await prisma.ledgerEntry.findFirstOrThrow({ where: { kind: "reversal" } });
+        expect(reversal.currency).toBe("EUR");
+      });
+
+      describe("a buyer whose data was erased meanwhile (MONEY-5)", () => {
+        it("credit closed by the redaction: spend falls, and nothing is taken back", async () => {
+          const { conn, orderId } = await recordedOrder();
+          await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+          await redactCustomer(conn, "7001", NOW);
+
+          const result = await settleOf(conn, 1, refundFacts(1, "20.00"));
+
+          expect(result).toMatchObject({ status: "settled", reversalPayoutId: null });
+          expect(await moneyOf(orderId)).toMatchObject({ refunded: "20.00", credit: { state: "closed" }, reversals: [] });
+        });
+
+        it("credit sent: the take-back is closed at once, never sent", async () => {
+          const { conn, orderId, payoutId } = await recordedOrder();
+          await setCredit(payoutId, { state: "sent", sentAt: NOW });
+          await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+          await redactCustomer(conn, "7001", NOW);
+
+          const result = await settleOf(conn, 1, refundFacts(1, "20.00"));
+
+          if (result.status !== "settled" || !result.reversalPayoutId) throw new Error("no take-back");
+          expect((await moneyOf(orderId)).reversals.map((r) => r.payout)).toEqual([{ direction: "debit", state: "closed", amount: "1.00" }]);
+          await expect(prisma.payout.findUniqueOrThrow({ where: { id: result.reversalPayoutId } })).resolves.toMatchObject({
+            settledBy: "auto",
+            lastError: "Customer data erased",
+          });
+        });
+      });
+
+      it("another store's refund row is not this store's to settle", async () => {
+        const { conn } = await recordedOrder();
+        await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+        await ensureMerchant({ shop: "other-shop.myshopify.com", name: "Other", currency: "GBP", timezone: "Europe/London", now: INSTALLED });
+        const other = await findConnection("other-shop.myshopify.com");
+        if (!other) throw new Error("no connection");
+
+        expect(await settleOf(other, 1, refundFacts(1, "20.00"))).toEqual({ status: "not_marked" });
+        expect((await rowOf(1)).moneyPendingSince).toEqual(NOW);
+      });
     });
   });
 });

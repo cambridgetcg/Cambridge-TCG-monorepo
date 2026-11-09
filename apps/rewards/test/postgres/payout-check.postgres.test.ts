@@ -3,13 +3,17 @@ import { graphql, HttpResponse } from "msw";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
 import { acquireCronLock } from "~/lib/cron.server";
-import { type ConnectionContext, ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
+import { eraseMerchant, redactCustomer } from "~/lib/erasure.server";
+import { type ConnectionContext, ensureMerchant, findConnection, markUninstalled, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
-import type { MoneyPair, OrderFacts } from "~/lib/order-facts";
-import { runPayoutCheck } from "~/lib/payout-check.server";
+import type { MoneyPair, OrderFacts, RefundFacts } from "~/lib/order-facts";
+import { MAX_MONEY_PENDING_READS, MONEY_PENDING_FOR_MS, runPayoutCheck } from "~/lib/payout-check.server";
 import { KEEP_TRYING_MS, sendPayout } from "~/lib/payouts.server";
 import type { OrderSource, PayoutRail, UpdatedOrder } from "~/lib/ports";
 import { recordOrder } from "~/lib/record-order.server";
+import { recordRefund } from "~/lib/refunds.server";
+import * as tiers from "~/lib/tiers.server";
+import { resolveTier } from "~/lib/tiers.server";
 import { monitoring } from "~/lib/telemetry.server";
 import { ShopifyTimeoutError } from "~/shopify/ask.server";
 import { OrderReadLimitError } from "~/shopify/order-source.server";
@@ -864,6 +868,323 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
       expect(String(result.firstProblem)).toMatch(/cut short by the deadline/);
       expect(vi.mocked(console.error)).not.toHaveBeenCalled();
       await expect(prisma.connection.findUniqueOrThrow({ where: { id: conn.connectionId } })).resolves.toMatchObject({ lastSweptAt: sweptBefore });
+    });
+  });
+
+  describe("refunds whose money was on its way (#195)", () => {
+    const rail = { credit: vi.fn(), debit: vi.fn(), balance: vi.fn(), creditHistory: vi.fn() } as unknown as PayoutRail;
+    const refundGid = (n: number) => `gid://shopify/Refund/${n}`;
+    /** Refund `n` worth `product` of money that has succeeded, `pending` while the rest is on its way, made `n` minutes after `base`. */
+    const refundFacts = (n: number, product: string, pending: boolean, base = Date.now() - DAY): RefundFacts => ({
+      externalRefundId: refundGid(n),
+      productValue: pair(product),
+      refundedAt: new Date(base + n * MINUTE),
+      completesOrder: false,
+      moneyPending: pending,
+    });
+
+    /**
+     * Shopify as the hourly step reads it: each refund's answer by its id (a
+     * read of it, an error to throw, or Shopify's null), each of `orderGid`
+     * unless `orderOf` says otherwise. Records the refunds read, in order.
+     */
+    function shopifyReads(answers: Map<string, RefundFacts | Error | null>, orderOf: (refundGid: string) => string = () => "gid://shopify/Order/5001") {
+      const reads: string[] = [];
+      const orders: OrderSource = {
+        readOrder: async () => null,
+        readRefund: async (gid) => {
+          reads.push(gid);
+          const answer = answers.get(gid) ?? null;
+          if (answer instanceof Error) throw answer;
+          return answer && { orderGid: orderOf(gid), refund: answer };
+        },
+        recentlyUpdatedOrders: async () => [],
+      };
+      return { reads, railFor: async () => ({ rail, orders }) };
+    }
+    const check = (railFor: Parameters<typeof runPayoutCheck>[0]["railFor"]) => runPayoutCheck({ now: new Date(), railFor, deadline: Date.now() + 60_000 });
+
+    /** A running shop with order `n`'s fresh £2.50 credit (not sent by this run) and its refunds recorded, each marked when `pending`. */
+    async function markedRefunds(refunds: RefundFacts[], o: { conn?: ConnectionContext; n?: number; buyer?: string } = {}) {
+      const conn = o.conn ?? (await runningShop(SHOP, { session: false }));
+      const n = o.n ?? 5001;
+      await pendingCredit(conn, n, { minutesAgo: 0, buyer: o.buyer });
+      for (const refund of refunds) await recordRefund(conn, `gid://shopify/Order/${n}`, refund);
+      return conn;
+    }
+    const rowOf = (n: number) => prisma.refund.findFirstOrThrow({ where: { externalRefundId: refundGid(n) } });
+    const reversalsOf = async (orderGid = "gid://shopify/Order/5001") =>
+      (await prisma.ledgerEntry.findMany({ where: { kind: "reversal", order: { externalOrderId: orderGid } }, include: { refund: true } }))
+        .sort((a, b) => (a.refund?.refundedAt.getTime() ?? 0) - (b.refund?.refundedAt.getTime() ?? 0))
+        .map((e) => [e.refund?.externalRefundId, e.amount.toFixed(2)]);
+
+    it("reads a marked refund from the table though no listing has its order, settles it once, and resolves the tier", async () => {
+      const conn = await markedRefunds([refundFacts(1, "0.00", true)]);
+      await prisma.tier.create({
+        data: { merchantId: conn.merchantId, name: "Gold", minSpend: new Prisma.Decimal(40), cashbackPercent: new Prisma.Decimal("10.00"), position: 1 },
+      });
+      const customer = await prisma.customer.findFirstOrThrow();
+      await resolveTier(customer.id);
+      const tierName = async () => (await prisma.customer.findFirstOrThrow({ include: { tier: true } })).tier?.name;
+      await expect(tierName()).resolves.toBe("Gold");
+      const shopify = shopifyReads(new Map([[refundGid(1), refundFacts(1, "20.00", false)]]));
+
+      const result = await check(shopify.railFor);
+
+      expect(result).toMatchObject({ refundsSettled: 1, refundsSwept: 0, problems: 0 });
+      expect(shopify.reads).toEqual([refundGid(1)]);
+      expect(await reversalsOf()).toEqual([[refundGid(1), "-1.00"]]);
+      const row = await rowOf(1);
+      expect([row.productAmount.toFixed(2), row.moneyPendingSince, row.moneyCheckedAt instanceof Date]).toEqual(["20.00", null, true]);
+      // £30 of spend left: under Gold's £40
+      await expect(tierName()).resolves.toBe("Everyone");
+      // Nothing is sent in the run that wrote the take-back
+      expect(rail.debit).not.toHaveBeenCalled();
+
+      // The next run has nothing to read, and takes back nothing more
+      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 0, problems: 0 });
+      expect(shopify.reads).toEqual([refundGid(1)]);
+      await expect(prisma.ledgerEntry.count({ where: { kind: "reversal" } })).resolves.toBe(1);
+    });
+
+    it("keeps a refund still pending marked, adding what has succeeded to spend, and settles it in a later run", async () => {
+      await markedRefunds([refundFacts(1, "0.00", true)]);
+      const answers = new Map<string, RefundFacts | Error | null>([[refundGid(1), refundFacts(1, "5.00", true)]]);
+      const shopify = shopifyReads(answers);
+
+      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 0, problems: 0 });
+      expect((await prisma.order.findFirstOrThrow()).refundedProductAmount.toFixed(2)).toBe("5.00");
+      expect((await rowOf(1)).moneyPendingSince).toBeInstanceOf(Date);
+      expect(await reversalsOf()).toEqual([]);
+
+      answers.set(refundGid(1), refundFacts(1, "20.00", false));
+      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 1, problems: 0 });
+      expect((await prisma.order.findFirstOrThrow()).refundedProductAmount.toFixed(2)).toBe("20.00");
+      expect(await reversalsOf()).toEqual([[refundGid(1), "-1.00"]]);
+    });
+
+    it("reads the least recently checked first, at most MAX_MONEY_PENDING_READS a run", async () => {
+      expect(MAX_MONEY_PENDING_READS).toBe(20);
+      const ids = Array.from({ length: 21 }, (_, i) => i + 1);
+      await markedRefunds(ids.map((n) => refundFacts(n, "0.00", true)));
+      const shopify = shopifyReads(new Map(ids.map((n) => [refundGid(n), refundFacts(n, "0.00", true)])));
+
+      await check(shopify.railFor);
+      expect(shopify.reads).toEqual(ids.slice(0, 20).map(refundGid));
+      expect((await rowOf(21)).moneyCheckedAt).toBeNull();
+
+      shopify.reads.length = 0;
+      await check(shopify.railFor);
+      expect(shopify.reads).toEqual([21, ...ids.slice(0, 19)].map(refundGid));
+    });
+
+    it("settles two marked refunds of one order oldest first in one run", async () => {
+      // Oldest first: £10.10 takes £0.50, then £39.90 completes the order and
+      // takes the £2.00 left. Newest first would take £1.99, then £0.51.
+      const base = Date.now() - DAY;
+      // The newer is recorded first, so neither its row's id nor its creation puts it second
+      await markedRefunds([refundFacts(2, "0.00", true, base), refundFacts(1, "0.00", true, base)]);
+      const shopify = shopifyReads(
+        new Map([
+          [refundGid(1), refundFacts(1, "10.10", false, base)],
+          [refundGid(2), refundFacts(2, "39.90", false, base)],
+        ]),
+      );
+
+      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 2, problems: 0 });
+
+      expect(shopify.reads).toEqual([refundGid(1), refundGid(2)]);
+      expect(await reversalsOf()).toEqual([
+        [refundGid(1), "-0.50"],
+        [refundGid(2), "-2.00"],
+      ]);
+    });
+
+    it("resolves a buyer's tier once a run, however many of their refunds settle", async () => {
+      await markedRefunds([refundFacts(1, "0.00", true), refundFacts(2, "0.00", true)]);
+      const shopify = shopifyReads(
+        new Map([
+          [refundGid(1), refundFacts(1, "10.00", false)],
+          [refundGid(2), refundFacts(2, "10.00", false)],
+        ]),
+      );
+      const resolved = vi.spyOn(tiers, "resolveTier");
+
+      try {
+        await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 2, problems: 0 });
+        const customer = await prisma.customer.findFirstOrThrow();
+        expect(resolved.mock.calls.map(([id]) => id)).toEqual([customer.id]);
+      } finally {
+        resolved.mockRestore();
+      }
+    });
+
+    it("a read that fails is stamped, one problem, and stays marked; the next refund is still read, and a ReadLimit is only logged", async () => {
+      await markedRefunds([refundFacts(1, "0.00", true), refundFacts(2, "0.00", true), refundFacts(3, "0.00", true)]);
+      const broken = new Error("The refund's order could not be read");
+      const limit = new OrderReadLimitError("Shopify gave 20 refunds, the most one read takes; there may be more");
+      const shopify = shopifyReads(
+        new Map<string, RefundFacts | Error | null>([
+          [refundGid(1), broken],
+          [refundGid(2), limit],
+          [refundGid(3), refundFacts(3, "20.00", false)],
+        ]),
+      );
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const result = await check(shopify.railFor);
+
+      expect(result).toMatchObject({ refundsSettled: 1, problems: 1, firstProblem: broken });
+      for (const n of [1, 2]) {
+        const row = await rowOf(n);
+        expect([row.moneyPendingSince instanceof Date, row.moneyCheckedAt instanceof Date]).toEqual([true, true]);
+      }
+      expect((await rowOf(3)).moneyPendingSince).toBeNull();
+      // Logged by ids only
+      const errors = vi.mocked(console.error).mock.calls.map((call) => call.map(String).join(" "));
+      expect(errors).toEqual([expect.stringContaining(refundGid(1))]);
+      expect(warn.mock.calls.map((call) => call.map(String).join(" "))).toEqual([expect.stringContaining("gid://shopify/Order/5001")]);
+      warn.mockRestore();
+    });
+
+    it("past 30 days still pending: one last read, then cleared with what succeeded, and one problem naming the order by its name", async () => {
+      await markedRefunds([refundFacts(1, "5.00", true)]);
+      await prisma.refund.updateMany({ data: { moneyPendingSince: new Date(Date.now() - MONEY_PENDING_FOR_MS - MINUTE) } });
+      const shopify = shopifyReads(new Map([[refundGid(1), refundFacts(1, "5.00", true)]]));
+
+      const result = await check(shopify.railFor);
+
+      expect(MONEY_PENDING_FOR_MS).toBe(30 * DAY);
+      expect(result).toMatchObject({ refundsSettled: 1, problems: 1 });
+      const message = String(result.firstProblem);
+      expect(message).toContain("#5001");
+      expect(message).not.toContain(BUYER);
+      expect(shopify.reads).toEqual([refundGid(1)]);
+      expect((await rowOf(1)).moneyPendingSince).toBeNull();
+      // £5 of £50 succeeded: a tenth of £2.50
+      expect(await reversalsOf()).toEqual([[refundGid(1), "-0.25"]]);
+    });
+
+    it("past 30 days with a read that fails: cleared from its stored value, counted as one problem", async () => {
+      await markedRefunds([refundFacts(1, "5.00", true)]);
+      await prisma.refund.updateMany({ data: { moneyPendingSince: new Date(Date.now() - MONEY_PENDING_FOR_MS - MINUTE) } });
+      const shopify = shopifyReads(new Map([[refundGid(1), new Error("Shopify answered with errors: internal")]]));
+
+      const result = await check(shopify.railFor);
+
+      expect(result).toMatchObject({ refundsSettled: 1, problems: 1 });
+      expect(String(result.firstProblem)).toContain("#5001");
+      expect((await rowOf(1)).moneyPendingSince).toBeNull();
+      expect(await reversalsOf()).toEqual([[refundGid(1), "-0.25"]]);
+    });
+
+    it("a read of a refund Shopify no longer has, or that is now another order's, is cleared from its stored value", async () => {
+      await markedRefunds([refundFacts(1, "5.00", true), refundFacts(2, "4.00", true)]);
+      const shopify = shopifyReads(new Map([[refundGid(2), refundFacts(2, "20.00", false)]]), () => "gid://shopify/Order/9999");
+
+      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 2, problems: 0 });
+
+      expect((await prisma.order.findFirstOrThrow()).refundedProductAmount.toFixed(2)).toBe("9.00");
+      expect(await reversalsOf()).toEqual([
+        [refundGid(1), "-0.25"],
+        [refundGid(2), "-0.20"],
+      ]);
+    });
+
+    it("a settle that throws a non-retry error is one problem, the row stays marked, and the next row is still settled", async () => {
+      const conn = await markedRefunds([refundFacts(1, "0.00", true)]);
+      await markedRefunds([refundFacts(2, "0.00", true)], { conn, n: 5002 });
+      // Only a take-back can be held: a refund can't judge such a credit
+      const held = await prisma.payout.findFirstOrThrow({ where: { ledgerEntry: { order: { externalOrderId: "gid://shopify/Order/5001" } } } });
+      await prisma.payout.update({ where: { id: held.id }, data: { state: "held" } });
+      const shopify = shopifyReads(
+        new Map([
+          [refundGid(1), refundFacts(1, "20.00", false)],
+          [refundGid(2), refundFacts(2, "20.00", false)],
+        ]),
+        (gid) => (gid === refundGid(1) ? "gid://shopify/Order/5001" : "gid://shopify/Order/5002"),
+      );
+
+      const result = await check(shopify.railFor);
+
+      expect(result).toMatchObject({ refundsSettled: 1, problems: 1 });
+      expect(String(result.firstProblem)).toMatch(/held, which only a debit can be/);
+      const first = await rowOf(1);
+      expect([first.productAmount.toFixed(2), first.moneyPendingSince instanceof Date, first.moneyCheckedAt instanceof Date]).toEqual(["0.00", true, true]);
+      expect((await rowOf(2)).moneyPendingSince).toBeNull();
+      expect(await reversalsOf("gid://shopify/Order/5002")).toEqual([[refundGid(2), "-1.00"]]);
+    });
+
+    it("past 30 days with a credit a refund can't judge: a problem every run, and never cleared", async () => {
+      await markedRefunds([refundFacts(1, "0.00", true)]);
+      await prisma.refund.updateMany({ data: { moneyPendingSince: new Date(Date.now() - MONEY_PENDING_FOR_MS - MINUTE) } });
+      await prisma.payout.updateMany({ data: { state: "held" } });
+      const shopify = shopifyReads(new Map([[refundGid(1), refundFacts(1, "0.00", true)]]));
+
+      for (let runs = 0; runs < 2; runs++) {
+        await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 0, problems: 1 });
+      }
+      expect((await rowOf(1)).moneyPendingSince).toBeInstanceOf(Date);
+      expect(await reversalsOf()).toEqual([]);
+    });
+
+    it("a credit being sent leaves the refund marked for the next run, with no problem", async () => {
+      await markedRefunds([refundFacts(1, "0.00", true)]);
+      await prisma.payout.updateMany({ data: { state: "sending", claimedAt: new Date() } });
+      const shopify = shopifyReads(new Map([[refundGid(1), refundFacts(1, "20.00", false)]]));
+
+      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 0, problems: 0 });
+
+      const row = await rowOf(1);
+      expect([row.productAmount.toFixed(2), row.moneyPendingSince instanceof Date]).toEqual(["0.00", true]);
+    });
+
+    it("a busy store's marked refunds wait unstamped; an unreachable store's count one problem", async () => {
+      await markedRefunds([refundFacts(1, "0.00", true)]);
+
+      await expect(check(async () => "busy")).resolves.toMatchObject({ busy: 1, problems: 0, refundsSettled: 0 });
+      expect((await rowOf(1)).moneyCheckedAt).toBeNull();
+
+      await expect(check(async () => null)).resolves.toMatchObject({ problems: 1, refundsSettled: 0 });
+      const row = await rowOf(1);
+      expect([row.moneyPendingSince instanceof Date, row.moneyCheckedAt instanceof Date]).toEqual([true, true]);
+    });
+
+    it("an uninstalled store's marked refunds wait; after reactivation they are read", async () => {
+      await markedRefunds([refundFacts(1, "0.00", true)]);
+      const shopify = shopifyReads(new Map([[refundGid(1), refundFacts(1, "20.00", false)]]));
+      expect(await markUninstalled(SHOP)).toBe("uninstalled");
+
+      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 0, problems: 0 });
+      expect(shopify.reads).toEqual([]);
+      expect((await rowOf(1)).moneyPendingSince).toBeInstanceOf(Date);
+
+      await ensureMerchant({ shop: SHOP, name: "Payout Check", currency: "GBP", timezone: "Europe/London" });
+      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 1, problems: 0 });
+      expect(await reversalsOf()).toEqual([[refundGid(1), "-1.00"]]);
+    });
+
+    it("an erased store's marked refunds are gone, and the run reads nothing", async () => {
+      await markedRefunds([refundFacts(1, "0.00", true)]);
+      const shopify = shopifyReads(new Map([[refundGid(1), refundFacts(1, "20.00", false)]]));
+      await markUninstalled(SHOP);
+      await eraseMerchant(SHOP);
+
+      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 0, problems: 0 });
+      expect(shopify.reads).toEqual([]);
+      await expect(prisma.refund.count()).resolves.toBe(0);
+    });
+
+    it("a marked refund of a buyer erased since settles without error, its take-back closed with the credit", async () => {
+      const conn = await markedRefunds([refundFacts(1, "0.00", true)]);
+      await redactCustomer(conn, BUYER);
+      const shopify = shopifyReads(new Map([[refundGid(1), refundFacts(1, "20.00", false)]]));
+
+      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 1, problems: 0 });
+
+      expect((await rowOf(1)).moneyPendingSince).toBeNull();
+      expect(await reversalsOf()).toEqual([]);
+      expect((await prisma.order.findFirstOrThrow()).refundedProductAmount.toFixed(2)).toBe("20.00");
     });
   });
 
