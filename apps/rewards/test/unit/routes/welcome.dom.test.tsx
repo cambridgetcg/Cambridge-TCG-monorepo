@@ -762,8 +762,40 @@ describe("Step 3: Go live", () => {
     screen.getByText("£0.60");
     expect(document.querySelector('s-link[href="/app/orders/o2"]')?.textContent).toBe(GUIDE.openOrder);
     expect(document.querySelector('s-link[href="shopify://admin/customers/7002"]')?.textContent).toContain("Open the buyer in Shopify");
-    // Settled: nothing more to follow
-    expect(usePolling).toHaveBeenLastCalledWith(false, 10_000, { forMs: 120_000, restartKey: "done:2026-11-08T10:00:00.000Z:0" });
+    // Settled, yet still followed: a refund takes the credit back off (R14)
+    expect(usePolling).toHaveBeenLastCalledWith(true, 10_000, { forMs: 120_000, restartKey: "done:2026-11-08T10:00:00.000Z:0" });
+  });
+
+  // R14 / 9-F1: the try-it's last step is a refund, which comes after the order has settled
+  it("keeps following a settled order, two minutes from each return, to see a refund", async () => {
+    await renderWelcome(live({ tryIt: [ORDER_1002] }));
+    screen.getByText("Issued");
+    expect(usePolling).toHaveBeenLastCalledWith(true, 10_000, { forMs: 120_000, restartKey: "done:2026-11-08T10:00:00.000Z:0" });
+    // Back from refunding it in Shopify
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    expect(usePolling).toHaveBeenLastCalledWith(true, 10_000, { forMs: 120_000, restartKey: "done:2026-11-08T10:00:00.000Z:1" });
+  });
+
+  // 9-F5: the lone order is followed by its id, so a second order coming in doesn't drop it
+  it("keeps following the lone order once a newer one comes in", async () => {
+    let next = live({ tryIt: [ORDER_1001] });
+    await renderWelcome(next, { next: () => next });
+    screen.getByText("Waiting");
+
+    next = live({ tryIt: [ORDER_1002, ORDER_1001] });
+    await act(async () => {
+      await refresh!();
+    });
+    const list = document.querySelector("s-choice-list")!;
+    expect([...list.querySelectorAll("s-choice")].map((choice) => [choice.textContent, choice.hasAttribute("selected")])).toEqual([
+      ["#1002", false],
+      ["#1001", true],
+    ]);
+    screen.getByText("Waiting");
+    expect(document.querySelector('s-link[href="/app/orders/o1"]')).not.toBeNull();
+    expect(screen.queryByText("Issued")).toBeNull();
   });
 
   it("follows a lone order without asking which", async () => {

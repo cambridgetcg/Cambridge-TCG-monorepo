@@ -707,8 +707,9 @@ function StepThree({
  * The guide's page: the progress and the widget's status on every step,
  * then the step the loader chose. Each control posts on its own fetcher, one
  * post at a time (CONCURRENCY-2). One poll serves the whole page: the import
- * while it runs, the tier pass while buyers are placed, and the try-it while
- * its order hasn't settled, restarted when the merchant comes back to the tab.
+ * while it runs, the tier pass while buyers are placed, and the try-it once
+ * switched on (its refund comes after its order settles); all but the import
+ * for two minutes, restarted when the merchant comes back to the tab.
  * The fetchers and the steps' state live here, so they outlive a change of step.
  */
 export default function Welcome() {
@@ -771,11 +772,14 @@ export default function Welcome() {
   const switchOn = () => {
     if (!switchBusy) switchFetcher.submit({ intent: "running", running: "on" }, { method: "post" });
   };
+  // The order followed, by its id: a lone order is taken as picked, so a newer one coming in doesn't drop it (9-F5)
   const [picked, setPicked] = useState<string | null>(null);
-  const chosen = d.tryIt.length === 1 ? d.tryIt[0] : (d.tryIt.find((order) => order.orderId === picked) ?? null);
+  if (d.tryIt.length === 1 && picked !== d.tryIt[0].orderId) setPicked(d.tryIt[0].orderId);
+  const chosen = d.tryIt.find((order) => order.orderId === picked) ?? null;
 
   const importRunning = d.importState === "running";
-  const tryItWaiting = d.step === 3 && d.switchedOnAt !== null && !(chosen !== null && chosen.status.key !== "waiting");
+  // Followed whatever the order's status: a settled one can still be refunded, which takes the credit back off (R14)
+  const tryItWaiting = d.step === 3 && d.switchedOnAt !== null;
   usePolling(importRunning || d.placing || tryItWaiting, FOLLOW_MS, {
     forMs: importRunning ? undefined : PASS_FOLLOW_MS,
     restartKey: `${d.importState}:${d.switchedOnAt ?? ""}:${widget.returns}`,
