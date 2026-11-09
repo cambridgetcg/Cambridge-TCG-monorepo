@@ -39,12 +39,12 @@ live (A7), and about 5 minutes a month from S2 (§3).
 
 ---
 
-## 1. Where things stand (2026-11-09: pages at about 21:40 UTC, DNS re-read at 22:18 UTC)
+## 1. Where things stand (2026-11-09: pages at about 21:40 UTC, DNS re-read at 22:37 UTC)
 
 | What | Today | Label |
 |---|---|---|
 | DNS host | Cloudflare (`ed.ns.cloudflare.com`, `zoe.ns.cloudflare.com`) | [V, `dig`] |
-| A Search Console Domain property | None verified by DNS: the apex has no `google-site-verification` TXT record. Whether someone holds a URL-prefix property under another account is unknown | [V, `dig`]; [U] |
+| A Search Console property | None verified by a DNS TXT record: the apex has no `google-site-verification` TXT record. Whether a property exists by another method or under another account is unknown. Google's other routes include a CNAME record at a name its wizard gives (`dig` can't look it up without that name) and automatic verification for a Workspace account (A1) | [V, `dig`]; [U] |
 | Apex TXT and DMARC | The apex has one TXT record, the SPF record (`v=spf1 … ~all`), and `_dmarc` has one record, `v=DMARC1; p=none`. This changed after the 7 Nov plans, which recorded two other apex TXT records and two DMARC records (ROADMAP §1; `…/wf10/status.md` §1.C11). Both records are RP-03's | [V, `dig` at 1.1.1.1, 8.8.8.8 and `ed.ns.cloudflare.com`] |
 | Mail for rewardspro.io | MX points to Google, so a Google Workspace mailbox on the domain exists | [V, `dig`]; [I] |
 | `https://rewardspro.io/robots.txt` | 67 bytes: `User-agent: *`, `Allow: /`, a blank line, `Sitemap: https://rewardspro.io/sitemap.xml`. Byte for byte the file in git (sha256 `08a15f98…`), and the same bytes the 7 Nov plans recorded. No Cloudflare-managed block | [V] |
@@ -94,7 +94,9 @@ RP-08. D1 is optional. A4–A6 and C1 need A3 to have verified; B1–B3 don't.
 - **Choice:** if the wizard lists Cloudflare with **Start verification**, don't use it. Choose **Any DNS provider**
   and the **TXT** record type, and copy the value it gives. *Why:* it's one record you add and label yourself, and the
   provider route needs a sign-in to Cloudflare from inside Google's wizard ("You will be required to log in to your
-  domain name provider"), which the manual record avoids. Whether Cloudflare is in the list is [U].
+  domain name provider"), which the manual record avoids. Whether Cloudflare is in the list is [U]. TXT rather than
+  CNAME follows Google's own rule, "If no CNAME record is found, then follow the TXT record instructions": public DNS
+  has no CNAME record at the apex [V, `dig`].
 - **While you do A2 and B1–B3:** leave the dialog open, or select **Verify later** ("click Verify later to save your
   current state"). To come back, select the saved, unverified property in the property selector and select
   **Verify** (A3).
@@ -106,6 +108,7 @@ RP-08. D1 is optional. A4–A6 and C1 need A3 to have verified; B1–B3 don't.
   method was used.
 - **Check:** the value starts `google-site-verification=`. It isn't secret (it's public once it's in DNS), but it
   doesn't need to go anywhere except A2.
+- **Outside check:** none yet; nothing changes in public DNS until A2.
 - **Why a Domain property:** it is a "domain-level property that Includes all subdomains (m, www, and so on) and
   multiple protocols", so one property covers the apex, `www` and `docs.rewardspro.io` (C1 needs that), and it can
   be verified only by DNS ("DNS record verification only").
@@ -341,6 +344,8 @@ note what you set and tell an agent; change nothing else in this sitting.
 - **Why:** it is the baseline before the state A page, and the one outside check that a Google crawler gets through
   Cloudflare.
 - **Check:** the live test's result. "There is a daily limit of inspection requests for each property".
+- **Outside check:** `curl -sI https://rewardspro.io/` answers 200. That shows the page is served, not that Google's
+  crawler gets through; only the live test shows that.
 - **Source:** https://support.google.com/webmasters/answer/9012289 (read 2026-11-09).
 
 ### C1. Removals request for the docs host (~3 min, or skipped)
