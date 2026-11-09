@@ -1,7 +1,7 @@
 import type { Decimal } from "decimal.js";
 import { type ReactNode, useEffect, useState } from "react";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { data, redirect, useFetcher, useLoaderData, useNavigate } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
+import { data, redirect, useFetcher, useLoaderData, useLocation, useNavigate } from "react-router";
 
 import { formatMoney } from "~/admin/format";
 import { GUIDE, periodLabel } from "~/admin/guide-words";
@@ -18,7 +18,7 @@ import { type LadderData, readGuideBasics, readLadder } from "~/lib/ladder.serve
 import { type ConnectionContext, markSetupCompleted, setRunning } from "~/lib/merchant.server";
 import { Money, cashbackFor } from "~/lib/money";
 import { homeState } from "~/lib/stats.server";
-import { BASE_TIER_NAME, type LadderErrors, isFreshLadder, requestTierPass, saveLadder, tiersOf } from "~/lib/tiers.server";
+import { BASE_TIER_NAME, type LadderErrors, TIER_ERRORS, isFreshLadder, requestTierPass, saveLadder, tiersOf } from "~/lib/tiers.server";
 import { pollImport } from "~/shopify/bulk-import.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { storeCreditSpendProblems } from "~/shopify/shop-checks.server";
@@ -28,11 +28,13 @@ import { syncWidgetConfig } from "~/shopify/widget-config.server";
  * The first-time setup guide (RP-24, spec 3 and 4): How it works, Your tiers,
  * Go live, one step at a time from `?step=`. Steps 2 and 3 are for the stores
  * they suit: step 2 (and step 1's Next) only while the guide may write the
- * store's ladder (isFreshLadder) and the merchant isn't reading from
- * Settings (`?read=1`); step 3 once the store has tiers, since it writes
- * none. Any other step asked for falls back to the furthest the store may
- * see. The past-orders import is followed as Home follows it on every step
- * (spec 4.6). Not in the menu.
+ * store's ladder (isFreshLadder); step 3 once the store has tiers, since it
+ * writes none. A step 2 or 3 asked for that the store may not see falls back
+ * to the furthest step it may see, not to step 1 (R23): after the guide's own
+ * save, `?step=2` (Back from step 3) gives 3, and a fresh store's `?step=3`
+ * gives 2. Read from Settings (`?read=1`) it is always step 1. The
+ * past-orders import is followed as Home follows it on every step (spec 4.6).
+ * Not in the menu.
  */
 
 /** How long one load may spend moving the import on, as on Home. */
@@ -126,7 +128,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const editable = !reading && isFreshLadder(tiers, conn.running);
   const canGoLive = tiers.length > 0;
-  const step: WelcomeData["step"] = asked === "2" ? (editable ? 2 : 1) : asked === "3" ? (canGoLive ? 3 : editable ? 2 : 1) : 1;
+  const furthest: WelcomeData["step"] = canGoLive ? 3 : editable ? 2 : 1;
+  const step: WelcomeData["step"] = reading ? 1 : asked === "2" ? (editable ? 2 : furthest) : asked === "3" ? (canGoLive ? 3 : furthest) : 1;
 
   const [basics, ladderData, switchedOn] = await Promise.all([
     step === 1 ? readGuideBasics(conn, now) : null,
@@ -214,6 +217,14 @@ const field = (form: FormData, name: string) => {
 
 const UNKNOWN = { ok: false, error: "Unknown action." } satisfies ActionResult;
 
+/** The guide at `step`, keeping the request's other search parameters (shop, host and the rest). */
+const stepHref = (step: WelcomeData["step"], search: URLSearchParams | string) => {
+  const rest = new URLSearchParams(search);
+  rest.delete("step");
+  const kept = rest.toString();
+  return `/app/welcome?step=${step}${kept ? `&${kept}` : ""}`;
+};
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, conn } = await requireMerchant(request);
   const form = await request.formData();
@@ -222,14 +233,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     case "save-ladder": {
       const rows = [0, 1, 2].map((i) => ({ name: field(form, `name${i}`), minSpend: field(form, `minSpend${i}`), percent: field(form, `percent${i}`) }));
       const saved = await saveLadder(conn.merchantId, rows);
-      if (!saved.ok) return { ok: false, errors: saved.errors } satisfies ActionResult;
+      // A 4xx, so React Router doesn't reload the page: step 2 stays, with its message (M-1)
+      if (!saved.ok) {
+        const status = saved.errors.form === TIER_ERRORS.ladderStale ? 409 : 422;
+        return data({ ok: false, errors: saved.errors } satisfies ActionResult, { status });
+      }
       // New tiers always move buyers
       await afterChange(admin, conn, true);
-      // On to step 3, keeping the request's other parameters (shop, host and the rest)
-      const rest = new URL(request.url).searchParams;
-      rest.delete("step");
-      const kept = rest.toString();
-      throw redirect(`/app/welcome?step=3${kept ? `&${kept}` : ""}`);
+      throw redirect(stepHref(3, new URL(request.url).searchParams));
     }
     case "running": {
       // Only on: the guide never switches cashback off
@@ -249,6 +260,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return data(UNKNOWN, { status: 400 });
   }
 };
+
+/**
+ * Finish later's post goes on to Home, so the page isn't reloaded on the way.
+ * Everything else is React Router's call, which skips a refused (4xx) post.
+ */
+export const shouldRevalidate: ShouldRevalidateFunction = ({ formData, defaultShouldRevalidate }) =>
+  formData?.get("intent") === "finish-later" ? false : defaultShouldRevalidate;
 
 /** How often the page reloads its data while it follows something, as Home does. */
 const FOLLOW_MS = 10_000;
@@ -435,6 +453,7 @@ function StepTwo({
   fields,
   rowErrors,
   saveError,
+  ladderRefused,
   saveBusy,
   onSave,
   finishLater,
@@ -443,12 +462,15 @@ function StepTwo({
   fields: TierFields;
   rowErrors: LadderErrors["rows"] | null;
   saveError: string | undefined;
+  /** The whole ladder was refused (`form`): its tiers changed elsewhere, so the Tiers page settles it */
+  ladderRefused: boolean;
   saveBusy: boolean;
   onSave: () => void;
   finishLater: ReactNode;
 }) {
   const { names, percents, starts } = fields;
   const money = moneyIn(d.currency);
+  const { search } = useLocation();
 
   // Counts and cost from the typed starts, on the picture's grid (R9)
   const ladder = d.ladder;
@@ -548,8 +570,14 @@ function StepTwo({
             </s-stack>
           ) : null}
         </s-box>
-        {saveError ? <s-text tone="critical">{saveError}</s-text> : null}
+        {saveError ? (
+          <s-stack direction="inline" gap="small-200" alignItems="center">
+            <s-text tone="critical">{saveError}</s-text>
+            {ladderRefused ? <s-link href="/app/tiers">{GUIDE.editTiers}</s-link> : null}
+          </s-stack>
+        ) : null}
         <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
+          <s-button href={stepHref(1, search)}>{GUIDE.back}</s-button>
           {finishLater}
           <s-button variant="primary" loading={saveBusy} onClick={onSave}>
             {GUIDE.saveTiers}
@@ -770,7 +798,7 @@ export default function Welcome() {
 
       {d.step === 1 ? <StepOne d={d} finishLater={finishLater} /> : null}
       {d.step === 2 ? (
-        <StepTwo d={d} fields={fields} rowErrors={rowErrors} saveError={saveError} saveBusy={saveBusy} onSave={save} finishLater={finishLater} />
+        <StepTwo d={d} fields={fields} rowErrors={rowErrors} saveError={saveError} ladderRefused={Boolean(ladderErrors?.form)} saveBusy={saveBusy} onSave={save} finishLater={finishLater} />
       ) : null}
       {d.step === 3 ? (
         <StepThree

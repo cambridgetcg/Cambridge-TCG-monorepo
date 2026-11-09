@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createRoutesStub, useRevalidator } from "react-router";
+import { type ShouldRevalidateFunctionArgs, createRoutesStub, data, useRevalidator } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GUIDE } from "~/admin/guide-words";
 import { MAX_BINS } from "~/lib/ladder";
@@ -27,7 +27,7 @@ vi.mock("~/admin/polling", async (original) => ({
   },
 }));
 
-const { default: Welcome } = await import("~/routes/app.welcome");
+const { default: Welcome, shouldRevalidate } = await import("~/routes/app.welcome");
 
 const SHOP = "welcome-dom.myshopify.com";
 
@@ -135,14 +135,16 @@ function stubAppBridge(status: "active" | "available") {
 }
 
 /**
- * The guide at its step with `first` as its data; each later load (a
- * refresh, or the revalidation after a post) reads `next()`. Each post goes
- * to `posted`; `answer` is what the action gives back (a promise that never
- * settles keeps the post in flight). /app is a stand-in Home.
+ * The guide at its step with `first` as its data, at `?step=` and `search`;
+ * each later load (a refresh, or the revalidation after a post) reads
+ * `next()`, and `loads` counts them. Each post goes to `posted`; `answer` is
+ * what the action gives back (a promise that never settles keeps the post in
+ * flight). The route revalidates by its own shouldRevalidate. /app is a
+ * stand-in Home.
  */
 async function renderWelcome(
   first: WelcomeData,
-  o: { next?: () => WelcomeData; posted?: Array<Record<string, string>>; answer?: () => unknown } = {},
+  o: { next?: () => WelcomeData; posted?: Array<Record<string, string>>; answer?: () => unknown; search?: string; loads?: { count: number } } = {},
 ) {
   letFetchersPost();
   const Stub = createRoutesStub([
@@ -150,7 +152,11 @@ async function renderWelcome(
       id: "routes/app.welcome",
       path: "/app/welcome",
       Component: Welcome,
-      loader: () => (o.next ?? (() => first))(),
+      shouldRevalidate,
+      loader: () => {
+        if (o.loads) o.loads.count++;
+        return (o.next ?? (() => first))();
+      },
       action: async ({ request }) => {
         o.posted?.push(await fieldsOf(request));
         return o.answer ? o.answer() : { ok: true };
@@ -158,7 +164,7 @@ async function renderWelcome(
     },
     { id: "routes/app._index", path: "/app", Component: () => <p>Home page</p> },
   ]);
-  render(<Stub initialEntries={[`/app/welcome?step=${first.step}`]} hydrationData={{ loaderData: { "routes/app.welcome": first } }} />);
+  render(<Stub initialEntries={[`/app/welcome?step=${first.step}${o.search ?? ""}`]} hydrationData={{ loaderData: { "routes/app.welcome": first } }} />);
   await waitFor(() => expect(document.querySelector("s-page")).not.toBeNull());
   // Let the widget check settle
   await act(async () => {});
@@ -282,10 +288,11 @@ describe("The guide, every step", () => {
     }
   });
 
-  it("posts Finish later and goes Home only once it's recorded", async () => {
+  it("posts Finish later and goes Home only once it's recorded, without reloading the guide first", async () => {
     const posted: Array<Record<string, string>> = [];
+    const loads = { count: 0 };
     let answer: (value: unknown) => void = () => {};
-    await renderWelcome(welcomeData(), { posted, answer: () => new Promise((resolve) => (answer = resolve)) });
+    await renderWelcome(welcomeData(), { posted, loads, answer: () => new Promise((resolve) => (answer = resolve)) });
 
     await click(button(GUIDE.finishLater));
     expect(posted).toEqual([{ intent: "finish-later" }]);
@@ -294,6 +301,8 @@ describe("The guide, every step", () => {
 
     await act(async () => answer({ ok: true }));
     await screen.findByText("Home page");
+    // The page is leaving, so its data isn't read again on the way
+    expect(loads.count).toBe(0);
   });
 
   it("polls once for the page, and restarts when the merchant returns", async () => {
@@ -559,10 +568,45 @@ describe("Step 2: Your tiers", () => {
     expect(field("name0").getAttribute("error")).toBeNull();
   });
 
-  it("says why a whole save was refused", async () => {
-    await renderWelcome(step2(), { answer: async () => ({ ok: false, errors: { rows: [{}, {}, {}], form: TIER_ERRORS.ladderStale } }) });
+  // M-1: the action refuses with a 4xx, so the page isn't reloaded: a reload would serve step 1 here
+  it("says why a whole save was refused, stays on step 2 and links the Tiers page", async () => {
+    const loads = { count: 0 };
+    await renderWelcome(step2(), {
+      loads,
+      next: () => welcomeData({ editable: false, canGoLive: true }),
+      answer: async () => data({ ok: false, errors: { rows: [{}, {}, {}], form: TIER_ERRORS.ladderStale } }, { status: 409 }),
+    });
+    await type(field("name1"), "Silver Club");
     await click(button(GUIDE.saveTiers));
-    screen.getByText(TIER_ERRORS.ladderStale);
+    await screen.findByText(TIER_ERRORS.ladderStale);
+    expect(loads.count).toBe(0);
+    expect(document.querySelector(`s-section[heading="${GUIDE.steps[1]}"]`)).not.toBeNull();
+    expect(screen.queryByText(GUIDE.creditTitle)).toBeNull();
+    expect(shown("name1")).toBe("Silver Club");
+    expect(document.querySelector('s-link[href="/app/tiers"]')?.textContent).toBe(GUIDE.editTiers);
+  });
+
+  it("keeps step 2 and its fields' errors after a refusal of its rows", async () => {
+    const loads = { count: 0 };
+    await renderWelcome(step2(), {
+      loads,
+      next: () => welcomeData(),
+      answer: async () => data({ ok: false, errors: { rows: [{}, { minSpend: TIER_ERRORS.ladderOrder }, {}] } }, { status: 422 }),
+    });
+    await click(button(GUIDE.saveTiers));
+    await waitFor(() => expect(field("minSpend1").getAttribute("error")).toBe(TIER_ERRORS.ladderOrder));
+    expect(loads.count).toBe(0);
+    // No Tiers link for a row's problem: the merchant fixes it here
+    expect(document.querySelector('s-link[href="/app/tiers"]')).toBeNull();
+  });
+
+  // M-2
+  it("goes back to step 1, keeping the page's other search parameters", async () => {
+    await renderWelcome(step2(), { search: "&shop=s.myshopify.com&host=aG9zdA" });
+    expect(button(GUIDE.back).getAttribute("href")).toBe("/app/welcome?step=1&shop=s.myshopify.com&host=aG9zdA");
+    cleanup();
+    await renderWelcome(step2());
+    expect(button(GUIDE.back).getAttribute("href")).toBe("/app/welcome?step=1");
   });
 
   // M-7: no buyer has spent, so there is nothing to count; the tiers and one sentence stay
@@ -713,5 +757,37 @@ describe("Step 3: Go live", () => {
     await renderWelcome(live({ firstPercent: 0 }));
     screen.getByText(GUIDE.tryItNoRate);
     expect(screen.queryByText(/at least/)).toBeNull();
+  });
+});
+
+describe("Revalidating the guide", () => {
+  const form = (intent: string) => {
+    const formData = new FormData();
+    formData.set("intent", intent);
+    return formData;
+  };
+  const args = (o: Partial<ShouldRevalidateFunctionArgs>) =>
+    ({
+      currentUrl: new URL("https://admin.example/app/welcome?step=2"),
+      nextUrl: new URL("https://admin.example/app/welcome?step=2"),
+      currentParams: {},
+      nextParams: {},
+      defaultShouldRevalidate: true,
+      ...o,
+    }) as ShouldRevalidateFunctionArgs;
+
+  it("skips the reload after Finish later, which leaves the page", () => {
+    expect(shouldRevalidate(args({ formMethod: "POST", formData: form("finish-later"), actionResult: { ok: true } }))).toBe(false);
+  });
+
+  it("leaves every other reload to React Router", () => {
+    for (const intent of ["save-ladder", "running"]) {
+      expect(shouldRevalidate(args({ formMethod: "POST", formData: form(intent), defaultShouldRevalidate: true })), intent).toBe(true);
+      // A refused post (4xx) is not reloaded by default
+      expect(shouldRevalidate(args({ formMethod: "POST", formData: form(intent), defaultShouldRevalidate: false })), intent).toBe(false);
+    }
+    // A poll's revalidation and a navigation carry no form
+    expect(shouldRevalidate(args({}))).toBe(true);
+    expect(shouldRevalidate(args({ defaultShouldRevalidate: false }))).toBe(false);
   });
 });

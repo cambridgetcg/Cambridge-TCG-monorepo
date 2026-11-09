@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import prisma from "~/db.server";
 import { guideDue } from "~/lib/guide.server";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
+import { TIER_ERRORS } from "~/lib/tiers.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import { pollImport } from "~/shopify/bulk-import.server";
 import type { GraphqlClient } from "~/shopify/graphql";
@@ -90,7 +91,7 @@ async function act(fields: Record<string, string>, admin: GraphqlClient = fakeAd
   await signIn(admin);
   const request = new Request(url, { method: "POST", body: new URLSearchParams(fields) });
   const result = await route.action({ request, params: {}, context: {} } as never);
-  // A 400 comes back wrapped by data()
+  // A 4xx comes back wrapped by data()
   if (result && typeof result === "object" && "type" in result && (result as { type: string }).type === "DataWithResponseInit") {
     const wrapped = result as unknown as { data: Result; init: { status?: number } };
     return { ...wrapped.data, status: wrapped.init.status };
@@ -199,8 +200,24 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       expect(await load("/app/welcome?step=4")).toMatchObject({ step: 1 });
       await seedTier(conn, "Bronze", "0", "3", 0);
       await seedTier(conn, "Gold", "500", "8", 1); // a ladder made on the Tiers page
-      expect(await load("/app/welcome?step=2")).toMatchObject({ step: 1, editable: false, ladder: null });
+      // Step 2 is refused: the furthest step it may see is 3, which writes no tiers (R23)
+      expect(await load("/app/welcome?step=2")).toMatchObject({ step: 3, editable: false, ladder: null });
       expect(await load("/app/welcome?step=3")).toMatchObject({ step: 3, canGoLive: true });
+      expect(await load("/app/welcome?step=1")).toMatchObject({ step: 1, editable: false });
+    });
+
+    // R23: a step the store may not see falls back to the furthest it may, so Back from step 3 never loops on step 1
+    it("falls back to the furthest step the store may see, and reading is always step 1", async () => {
+      // A fresh store may see steps 1 and 2
+      expect(await load("/app/welcome?step=3")).toMatchObject({ step: 2, editable: true, canGoLive: false });
+      expect(await load("/app/welcome?step=3&read=1")).toMatchObject({ step: 1, reading: true });
+      // Once the guide has saved its ladder: steps 1 and 3
+      await saveLadder();
+      expect(await load("/app/welcome?step=2")).toMatchObject({ step: 3, editable: false, canGoLive: true, ladder: null });
+      expect(await load("/app/welcome?step=1")).toMatchObject({ step: 1 });
+      for (const path of ["/app/welcome?step=1&read=1", "/app/welcome?step=2&read=1", "/app/welcome?step=3&read=1"]) {
+        expect(await load(path), path).toMatchObject({ step: 1, reading: true });
+      }
     });
 
     // I-3: Settings' "How RewardsPro works" link opens step 1 to read, and the page is told so
@@ -219,7 +236,8 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       await seedTier(conn, "Everyone", "0", "6", 0);
       expect(await load("/app/welcome?step=2")).toMatchObject({ step: 2, editable: true, canGoLive: true });
       await prisma.merchant.update({ where: { id: conn.merchantId }, data: { running: true } });
-      expect(await load("/app/welcome?step=2")).toMatchObject({ step: 1, editable: false, running: true });
+      // Step 2 refused, so the furthest step it may see (R23)
+      expect(await load("/app/welcome?step=2")).toMatchObject({ step: 3, editable: false, running: true, ladder: null });
     });
 
     it("gives steps 1 and 2 the store's median order and currency mix", async () => {
@@ -352,6 +370,8 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       const admin = fakeAdmin();
       const result = await act({ ...LADDER, name1: "", percent2: "101" }, admin, `${BASE}/app/welcome?step=2`);
       expect(result.ok).toBe(false);
+      // A 4xx, so React Router keeps step 2 and its errors rather than reloading the page (M-1)
+      expect(result.status).toBe(422);
       expect(result.errors?.rows[1].name).toBeTruthy();
       expect(result.errors?.rows[2].percent).toBeTruthy();
       expect(await prisma.tier.count({ where: { merchantId: conn.merchantId } })).toBe(0);
@@ -365,7 +385,7 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       await seedTier(conn, "Gold", "500", "9", 1);
       const admin = fakeAdmin();
       const result = await act(LADDER, admin, `${BASE}/app/welcome?step=2`);
-      expect(result).toMatchObject({ ok: false, errors: { form: expect.any(String) } });
+      expect(result).toMatchObject({ ok: false, errors: { form: TIER_ERRORS.ladderStale }, status: 409 });
       expect((await prisma.tier.findMany({ where: { merchantId: conn.merchantId } })).map((t) => t.name).sort()).toEqual(["Bronze", "Gold"]);
       expect(await passRequestedAt()).toBeNull();
       expect(widgetValues(admin)).toEqual([]);
