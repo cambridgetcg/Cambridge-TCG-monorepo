@@ -1,0 +1,780 @@
+<!doctype html>
+<!--
+  rewardspro.io/help/: DRAFT (package RP-09, issue #169). Not for deploy before G0.
+
+  How this file is built:
+  - Every section sits between a "BEGIN block:<name>" comment and its "END block:<name>" comment. To hold a
+    section back, delete everything from its BEGIN line to its END line, inclusive. Nothing outside a block
+    refers to a section, so one deletion is the whole change.
+  - Some sections hold sub-blocks (BEGIN sub:<name> ... END sub:<name>) with rows of their own. Delete a sub-block
+    the same way to hold back that part alone. Deleting a section deletes its sub-blocks with it.
+  - Each block's comment names the ledger rows (marketing/claims.toml) its sentences rest on. Ids marked "(new)"
+    are not in the ledger on main: other files propose them (MESSAGING.md section 7, RECOMMENDATION section 4.1,
+    RP-10, PR #187) and RP-06 decides. Each sentence also carries data-claim="<ids>" (DESIGN.md "Claims").
+  - The rule for publishing (WORK.md, RP-09): a block ships only when every row it names is "verified".
+    A block with an unverified row is deleted, not hedged.
+  - Header and footer are placeholders until RP-08's state A page sets the shared bytes; copy those in at review.
+-->
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Help: set up cashback and VIP tiers – RewardsPro</title>
+    <meta
+      name="description"
+      content="How RewardsPro works for Shopify stores: setup, the widget, which orders earn cashback, spending store credit, VIP tiers, refunds, cost and data."
+    />
+    <link rel="canonical" href="https://rewardspro.io/help/" />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#09110f" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="RewardsPro" />
+    <meta property="og:title" content="Help: set up cashback and VIP tiers – RewardsPro" />
+    <meta
+      property="og:description"
+      content="How RewardsPro works for Shopify stores: setup, the widget, which orders earn cashback, spending store credit, VIP tiers, refunds, cost and data."
+    />
+    <meta property="og:url" content="https://rewardspro.io/help/" />
+    <meta name="twitter:card" content="summary" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #09110f;
+        --surface: #1b2321;
+        --border: #2c3532;
+        --text: #f6f7f7;
+        --text-muted: #9ea2a6;
+        --accent: #17bebb;
+        --on-accent: #1b1d1f;
+        --focus: #658aad;
+        --radius: 8px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, system-ui, sans-serif;
+        font-size: 1.0625rem;
+        line-height: 1.6;
+        accent-color: var(--accent);
+        scrollbar-color: var(--border) var(--bg);
+      }
+
+      ::selection {
+        background: var(--accent);
+        color: var(--on-accent);
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: underline;
+        text-underline-offset: 0.18em;
+      }
+
+      a:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+        border-radius: 2px;
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        a:hover {
+          color: var(--text);
+        }
+      }
+
+      .skip {
+        position: absolute;
+        left: -9999px;
+      }
+
+      .skip:focus {
+        left: 16px;
+        top: 16px;
+        padding: 8px 12px;
+        background: var(--surface);
+      }
+
+      .wrap {
+        width: 100%;
+        max-width: calc(68ch + 32px);
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+
+      .site-header {
+        border-bottom: 1px solid var(--border);
+      }
+
+      .site-header .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px 24px;
+        min-height: 64px;
+      }
+
+      .brand {
+        color: var(--text);
+        font-weight: 600;
+        font-size: 1.125rem;
+        text-decoration: none;
+      }
+
+      .site-nav a {
+        display: inline-block;
+        padding: 8px 0;
+      }
+
+      main {
+        padding: 40px 0 64px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-weight: 600;
+        line-height: 1.2;
+        overflow-wrap: break-word;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(2rem, 6vw, 3rem);
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+      }
+
+      h2 {
+        margin: 0 0 16px;
+        font-size: 1.5rem;
+        letter-spacing: -0.01em;
+      }
+
+      h3 {
+        margin: 32px 0 8px;
+        font-size: 1.125rem;
+      }
+
+      section {
+        margin-top: 48px;
+        padding-top: 32px;
+        border-top: 1px solid var(--border);
+      }
+
+      p,
+      ul,
+      ol,
+      table {
+        margin: 0 0 16px;
+      }
+
+      li + li {
+        margin-top: 6px;
+      }
+
+      .as-of,
+      .source,
+      caption {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+      }
+
+      .rule {
+        margin: 0 0 16px;
+        padding: 16px 20px;
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .rule-label {
+        margin-bottom: 8px;
+        font-weight: 600;
+      }
+
+      .rule ul {
+        padding-left: 1.25em;
+      }
+
+      .rule .source {
+        margin: 0;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+
+      caption {
+        padding-bottom: 8px;
+        text-align: left;
+      }
+
+      th,
+      td {
+        padding: 8px 6px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      thead th {
+        background: var(--surface);
+      }
+
+      .num {
+        text-align: right;
+      }
+
+      td.num {
+        white-space: nowrap;
+      }
+
+      .site-footer {
+        border-top: 1px solid var(--border);
+        padding: 24px 0 40px;
+        color: var(--text-muted);
+        font-size: 0.875rem;
+      }
+
+      .site-footer ul {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 20px;
+        margin: 0 0 12px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .site-footer li + li {
+        margin-top: 0;
+      }
+
+      .site-footer a {
+        display: inline-block;
+        padding: 4px 0;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to the help</a>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="/">RewardsPro</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="/help/" aria-current="page">Help</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="wrap">
+      <h1>RewardsPro help</h1>
+      <p class="as-of">As of 9 November 2026.</p>
+
+      <!-- BEGIN block:what-it-is
+           Rows: rp-maker, rp-on-app-store, rp-purpose (new), rp-scope, rp-merchant-funds.
+           The first sentence is MESSAGING.md ONE-A, the entity sentence for rewardspro.io (it is also D500-B's
+           first sentence, so it holds in state A and state B). RP-08's home page should carry the same bytes.
+           Delete from this line to "END block:what-it-is" to hold the section back. -->
+      <section id="what-it-is" aria-labelledby="what-it-is-title">
+        <h2 id="what-it-is-title">What is RewardsPro?</h2>
+        <p>
+          <span data-claim="rp-maker rp-on-app-store rp-purpose">RewardsPro, made by Cambridge TCG Limited in London, UK, is an app for Shopify stores to reward loyal customers.</span>
+          <span data-claim="rp-scope">RewardsPro pays cashback as Shopify store credit and runs VIP tiers by spend; it offers no other reward types.</span>
+          <span data-claim="rp-merchant-funds">The cashback is store credit in your own shop, so you fund the cashback you give.</span>
+        </p>
+      </section>
+      <!-- END block:what-it-is -->
+
+      <!-- BEGIN block:before-you-start
+           Rows: sh-sc-signin-legacy, sh-sc-subscriptions (new), rp-no-order-rules (new), rp-home-spend-check (new),
+           sh-sc-checkout-option (new), rp-setup-steps (its source quotes Shopify's two setting sentences).
+           The three limits are wf8 FOCUS section 2.4's, "said first". They read as one answer: if any limit row is
+           held, hold the whole block, and consider holding the page, because a limit found later reads as a
+           hidden cost (DESIGN.md "Voice").
+           Delete from this line to "END block:before-you-start" to hold the section back. -->
+      <section id="before-you-start" aria-labelledby="before-you-start-title">
+        <h2 id="before-you-start-title">What should you know before you start?</h2>
+        <p>Three limits:</p>
+        <ul>
+          <li data-claim="sh-sc-signin-legacy">Customers can spend store credit at checkout when signed in with Shopify's new customer accounts or with Shop Pay; it isn't available for legacy customer accounts.</li>
+          <li data-claim="sh-sc-subscriptions">Shopify doesn't let store credit pay subscription renewals.</li>
+          <li data-claim="rp-no-order-rules">Each tier has one cashback rate, with no setting to exclude products, collections or sales channels.</li>
+        </ul>
+        <h3 id="shopify-settings">Which Shopify settings does your store need?</h3>
+        <p>
+          <span data-claim="rp-home-spend-check sh-sc-signin-legacy">For customers to spend their credit, your store needs store credit turned on, new customer accounts and visible sign-in links.</span>
+          <span data-claim="rp-home-spend-check">RewardsPro's Home warns you when Shopify shows one of these still needs doing, with a banner that starts "Buyers can't spend their store credit yet".</span>
+          <span data-claim="rp-home-spend-check">When Shopify doesn't fully answer, Home shows "Store credit: Shopify didn't say" and no banner.</span>
+        </p>
+        <div class="rule">
+          <p class="rule-label">Shopify's rule</p>
+          <p data-claim="sh-sc-checkout-option rp-setup-steps">Shopify's help page says to turn on the Store credit toggle in the Customer accounts section, and to activate the Apply store credit option in the Payments section of the checkout.</p>
+          <p class="source">
+            Source: Shopify Help Center,
+            <a href="https://help.shopify.com/en/manual/customers/store-credit">"Store credit"</a>, as read on 7 November 2026.
+          </p>
+        </div>
+      </section>
+      <!-- END block:before-you-start -->
+
+      <!-- BEGIN block:setup
+           Rows: rp-setup-steps, rp-import-past (PR #187's narrowed sentence, word for word).
+           Code: app/routes/app._index.tsx:362-414 (the card; the Switch button is disabled until a tier exists),
+           app/lib/tiers.server.ts:34, 37-40, 344-357 (the base rate makes "Everyone" at 0), prisma/schema.prisma:146,
+           app/admin/home-rules.ts:129 (the failed-import sentence), app/shopify/bulk-import.server.ts (365 or 60 days).
+           Note: draft PR #192 (RP-24) would add a setup guide to Home. If it merges first, re-read this block.
+           Delete from this line to "END block:setup" to hold the section back. -->
+      <section id="setup" aria-labelledby="setup-title">
+        <h2 id="setup-title">How do you set up RewardsPro?</h2>
+        <p>
+          <span data-claim="rp-setup-steps">A new store starts with cashback switched off and no tiers.</span>
+          <span data-claim="rp-setup-steps">RewardsPro's setup card has three steps: set a base cashback rate, switch cashback on, and turn on the widget in your theme editor.</span>
+          On Home, the card reads:
+        </p>
+        <ol>
+          <li data-claim="rp-setup-steps"><strong>Your base cashback rate</strong>: a whole percent from 0 to 100. Saving it creates your lowest tier, <strong>Everyone</strong>, which starts at a spend of 0.</li>
+          <li data-claim="rp-setup-steps"><strong>Switch cashback on</strong>. The button works once the base rate is saved.</li>
+          <li data-claim="rp-setup-steps"><strong>Turn on the widget in your theme</strong>, which opens your theme editor.</li>
+        </ol>
+        <p>
+          <span data-claim="rp-import-past">When you first open RewardsPro, it starts bringing in your paid orders from up to 12 months before install, so loyal customers can start in the tier their past spend reaches.</span>
+          <span data-claim="rp-import-past">Past orders earn no cashback.</span>
+          <span data-claim="rp-import-past">The 12 months need Shopify's access to your full order history; without it, the import reaches back 60 days.</span>
+          <span data-claim="rp-import-past">If your past orders can't be brought in, Home says so, and customers start in the lowest tier.</span>
+        </p>
+
+        <!-- BEGIN sub:try-it
+             Rows: rp-paid-trigger, rp-store-credit, rp-refund-takeback.
+             The draft-order route was seen on production: switch.md:77 (#1010) and gates.md:41 (#1016).
+             Delete from this line to "END sub:try-it" to hold this part back. -->
+        <h3 id="try-it">How can you try it on your own store?</h3>
+        <p>
+          <span data-claim="rp-paid-trigger">Once cashback is on, create a draft order for a customer and mark it as paid.</span>
+          <span data-claim="rp-store-credit">The cashback is real store credit on that customer's account in your shop.</span>
+          <span data-claim="rp-refund-takeback">Refunding the order takes back its share of the cashback.</span>
+          <span data-claim="rp-store-credit rp-paid-trigger">Orders with no customer attached, and Shopify's test orders, earn nothing.</span>
+        </p>
+        <!-- END sub:try-it -->
+      </section>
+      <!-- END block:setup -->
+
+      <!-- BEGIN block:widget
+           Rows: rp-setup-steps (step 3), rp-widget-settings (new; RP-10 proposes it), rp-widget (PR #187's revised
+           sentence, word for word), rp-widget-everywhere (new), sh-embed-activate (new; shopify.dev).
+           Sources: shopify.dev theme app extensions "configuration" (read 2026-11-09, raw sha256 3477d71f...,
+           line 180: app embeds start deactivated; merchants activate them from Theme Settings > App embeds; a deep
+           link can activate one). The "Save" step has no source yet: neither shopify.dev page read for this draft
+           says it, so rp-widget-settings needs a capture or the owner's observation before it verifies.
+           Code: membership_widget.liquid (schema name and settings), home-rules.ts:19-23 (deep link), :207-213
+           (the off banner), rewards-widget.css:20-23 (fixed, bottom, inline end), rewards-widget.js:111-177,
+           locales/en.default.json.
+           The block name in the theme editor is quoted as the schema has it at publish (RP-11 may rename it).
+           Delete from this line to "END block:widget" to hold the section back. -->
+      <section id="widget" aria-labelledby="widget-title">
+        <h2 id="widget-title">How do you turn on the widget?</h2>
+        <p>
+          <span data-claim="sh-embed-activate">Shopify adds the widget to your theme switched off, as an app embed.</span>
+          <span data-claim="rp-setup-steps sh-embed-activate">The setup card's link, <strong>Turn on the widget in your theme</strong>, opens your theme editor with the widget switched on under App embeds.</span>
+          <span data-claim="rp-widget-settings">Save the theme to keep the change.</span>
+          <span data-claim="rp-widget-settings">In the theme editor the widget is called <strong>RewardsPro Widget</strong>.</span>
+          <span data-claim="rp-widget-settings">If it is off, Home shows "The rewards widget is off in your theme." with a link to the theme editor.</span>
+        </p>
+        <p data-claim="rp-widget-settings">Its settings:</p>
+        <ul>
+          <li data-claim="rp-widget-settings"><strong>Guest message</strong>, <strong>Guest button text</strong> and <strong>Guest button link</strong> replace the sign-in prompt guests see.</li>
+          <li data-claim="rp-widget-settings"><strong>Colours</strong>: Light or Dark.</li>
+          <li data-claim="rp-widget-settings"><strong>Accent</strong> fills the progress bar; text never uses it.</li>
+        </ul>
+
+        <!-- BEGIN sub:widget-what-customers-see
+             Rows: rp-widget (gate C: the rest of it, or the owner counting gates.md:21), rp-widget-everywhere (new).
+             Delete from this line to "END sub:widget-what-customers-see" to hold this part back. -->
+        <h3 id="widget-what-customers-see">What do customers see?</h3>
+        <p>
+          <span data-claim="rp-widget-everywhere">The widget is a <strong>Rewards</strong> button at the bottom right of the page that opens a panel.</span>
+          <span data-claim="rp-widget">While cashback is on, a widget you turn on in your theme editor shows signed-in customers their tier and cashback rate, their store credit in the currency they are shopping in when Shopify returns it, and how far they are from the next tier when there is one they can reach.</span>
+          <span data-claim="rp-widget">Guests see your base rate and a sign-in prompt.</span>
+        </p>
+        <ul>
+          <li data-claim="rp-widget">When Shopify doesn't return the balance, the panel reads "Your store credit shows at checkout".</li>
+          <li data-claim="rp-widget">A customer in your top tier sees "You are on the top tier".</li>
+          <li data-claim="rp-widget">With cashback off, guests see nothing, and signed-in customers see their tier and store credit without a rate.</li>
+          <li data-claim="rp-widget">The widget's text is in English.</li>
+        </ul>
+        <!-- END sub:widget-what-customers-see -->
+
+        <!-- BEGIN sub:widget-troubleshooting
+             Rows: rp-widget (uncertainty 5, the proxy path), rp-setup-steps (uncertainty 4).
+             Seen on production twice: switch.md:80 and gates.md:45 (/apps/rewardspro-1).
+             Delete from this line to "END sub:widget-troubleshooting" to hold this part back. -->
+        <h3 id="widget-troubleshooting">What if signed-in customers don't see the widget?</h3>
+        <p>
+          <span data-claim="rp-widget">The signed-in widget needs RewardsPro's app proxy path, /apps/rewardspro.</span>
+          <span data-claim="rp-setup-steps rp-widget">If another app already holds that path on your store, Shopify gives RewardsPro a different one, such as /apps/rewardspro-1, and the signed-in widget stays hidden while Home still says the widget is on.</span>
+          <span data-claim="rp-contact-delivers">If that happens, email contact@rewardspro.io and we'll help.</span>
+        </p>
+        <!-- END sub:widget-troubleshooting -->
+      </section>
+      <!-- END block:widget -->
+
+      <!-- BEGIN block:earning
+           Rows: rp-cashback-base (PR #187's revised sentence, word for word, and the row's uncertainties 1 and 4),
+           rp-store-credit (uncertainties 4 and 5: the orders that earn nothing), rp-paid-trigger (scope), rp-switch-off.
+           Code: app/lib/order-facts.ts:50-60, 80-97; app/lib/record-order.server.ts:54-71, 92, 149;
+           app/shopify/order-source.server.ts:44, 54, 56, 250.
+           Delete from this line to "END block:earning" to hold the section back. -->
+      <section id="earning" aria-labelledby="earning-title">
+        <h2 id="earning-title">How much cashback does an order earn?</h2>
+        <p>
+          <span data-claim="rp-cashback-base">Cashback is paid on the product price after discounts, as the order stood when it was paid, less any part of the order paid with store credit or gift cards.</span>
+          <span data-claim="rp-cashback-base">Shipping, and gift cards bought as products, earn nothing.</span>
+          <span data-claim="rp-cashback-base">Duties and tips earn nothing either.</span>
+        </p>
+        <p>
+          <span data-claim="rp-cashback-base">The rate is the one for the tier the customer held before the order counted.</span>
+          <span data-claim="rp-cashback-base">So the order that takes a customer into a higher tier earns at their old rate, and their next order earns at the new one.</span>
+        </p>
+        <h3 id="earn-nothing">Which orders earn nothing?</h3>
+        <ul>
+          <li data-claim="rp-store-credit rp-paid-trigger">Orders with no customer attached.</li>
+          <li data-claim="rp-store-credit">Shopify's test orders, and cancelled orders.</li>
+          <li data-claim="rp-store-credit">Orders placed before you installed RewardsPro, even if they are paid later.</li>
+          <li data-claim="rp-import-past">Past orders RewardsPro brings in from before install.</li>
+          <li data-claim="rp-switch-off">Orders while cashback is off. They still count towards tiers.</li>
+          <li data-claim="rp-store-credit">Orders too large for RewardsPro to read: more than 2,500 lines, 200 or more payment transactions, or 20 or more refunds.</li>
+        </ul>
+
+        <!-- BEGIN sub:earning-example
+             Rows: rp-cashback-base, rp-cashback-example (new; claims-map.md "Requested rows"), rp-rounding (new).
+             Made-up amounts, chosen so no rounding happens. Rounding: app/lib/money.ts:79-91 (half up, once, to the
+             currency's minor unit). The production check (gates.md:20) used 2 x 222.00, a 44.40 discount and 10.00
+             shipping: 5% of 399.60 = 19.98.
+             Delete from this line to "END sub:earning-example" to hold this part back. -->
+        <div class="table-wrap">
+          <table data-claim="rp-cashback-base rp-cashback-example">
+            <caption>Example, made-up amounts: a customer in a 5% tier. Shipping earns nothing.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Order</th>
+                <th scope="col" class="num">By card</th>
+                <th scope="col" class="num">With £20.00 credit</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Products, 2 × £40.00</th>
+                <td class="num">£80.00</td>
+                <td class="num">£80.00</td>
+              </tr>
+              <tr>
+                <th scope="row">Discount</th>
+                <td class="num">−£10.00</td>
+                <td class="num">−£10.00</td>
+              </tr>
+              <tr>
+                <th scope="row">Shipping</th>
+                <td class="num">£4.95</td>
+                <td class="num">£4.95</td>
+              </tr>
+              <tr>
+                <th scope="row">Store credit used</th>
+                <td class="num">£0.00</td>
+                <td class="num">£20.00</td>
+              </tr>
+              <tr>
+                <th scope="row">Cashback is paid on</th>
+                <td class="num">£70.00</td>
+                <td class="num">£50.00</td>
+              </tr>
+              <tr>
+                <th scope="row">Cashback at 5%</th>
+                <td class="num">£3.50</td>
+                <td class="num">£2.50</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p data-claim="rp-rounding">Cashback is rounded once, half up, to the currency's smallest unit, such as the penny.</p>
+        <!-- END sub:earning-example -->
+      </section>
+      <!-- END block:earning -->
+
+      <!-- BEGIN block:payouts
+           Rows: rp-paid-trigger (PR #187's narrowed sentence, word for word; uncertainty 4), rp-retry-needs-look (new).
+           Code: app/routes/webhooks.orders.paid.tsx:55-64; app/lib/payouts.server.ts:1-23, 35 (KEEP_TRYING_MS, 24 h);
+           app/lib/status.ts:18 ("Needs a look"); app/admin/home-rules.ts:215-224 (the banner).
+           No timing words: one production order is not a promise (rp-paid-trigger uncertainty 1).
+           Delete from this line to "END block:payouts" to hold the section back. -->
+      <section id="payouts" aria-labelledby="payouts-title">
+        <h2 id="payouts-title">When is the store credit added?</h2>
+        <p>
+          <span data-claim="rp-paid-trigger">For an order that earns cashback, payment is what triggers it; RewardsPro doesn't wait for the order to be fulfilled.</span>
+          <span data-claim="rp-paid-trigger rp-retry-needs-look">If Shopify refuses the credit for now, RewardsPro tries again for up to 24 hours.</span>
+          <span data-claim="rp-retry-needs-look">A refusal that can't change, or one still failing after 24 hours, marks the order "Needs a look", and Home shows how many orders need a look.</span>
+        </p>
+      </section>
+      <!-- END block:payouts -->
+
+      <!-- BEGIN block:spending
+           Rows: sh-sc-signin-legacy, sh-sc-full, sh-sc-currency, sh-sc-channels (each row's own sentence, word for
+           word), rp-widget (the widget's spend line, en.default.json:11; sh-sc-signin-legacy uncertainty 2).
+           The sh-* rows go stale 30 days after they were read (review_after 2026-12-07): re-read them, and update
+           the date in the source line, before this block ships.
+           Delete from this line to "END block:spending" to hold the section back. -->
+      <section id="spending" aria-labelledby="spending-title">
+        <h2 id="spending-title">How do customers spend their store credit?</h2>
+        <div class="rule">
+          <p class="rule-label">Shopify's rule</p>
+          <ul>
+            <li data-claim="sh-sc-signin-legacy">Customers can spend store credit at checkout when signed in with Shopify's new customer accounts or with Shop Pay; it isn't available for legacy customer accounts.</li>
+            <li data-claim="sh-sc-full">Shopify applies the full store-credit balance at checkout; customers can't choose part of it.</li>
+            <li data-claim="sh-sc-currency">At checkout, Shopify shows only the store-credit balance in the checkout's currency.</li>
+            <li data-claim="sh-sc-channels">Store credit can be spent on the online store, POS and Shop, but not on draft or edited orders.</li>
+          </ul>
+          <p class="source">
+            Source: Shopify Help Center,
+            <a href="https://help.shopify.com/en/manual/customers/store-credit">"Store credit"</a>, as read on 7 November 2026.
+          </p>
+        </div>
+        <p data-claim="rp-widget sh-sc-signin-legacy">On stores with new customer accounts, the widget tells signed-in customers: "Sign in and choose Apply store credit at checkout".</p>
+
+        <!-- BEGIN sub:spending-currency
+             Rows: rp-presentment-currency (new; RECOMMENDATION section 4.4 names it), sh-sc-currency.
+             Code: app/lib/money.ts:15-26 (ISSUE_IN = "presentment"); app/lib/record-order.server.ts:154-156.
+             Seen on production: gates.md N (a USD order on a GBP store was credited $5.00 USD).
+             Multi-currency was one of the topics AI agents read most on the old docs.
+             Delete from this line to "END sub:spending-currency" to hold this part back. -->
+        <h3 id="spending-currency">What about customers who pay in another currency?</h3>
+        <p>
+          <span data-claim="rp-presentment-currency">RewardsPro gives cashback in the currency the customer paid in.</span>
+          <span data-claim="rp-presentment-currency sh-sc-currency">So credit from an order paid in US dollars shows at a checkout in US dollars, and not at a checkout in pounds.</span>
+        </p>
+        <!-- END sub:spending-currency -->
+
+        <!-- BEGIN sub:spending-expiry
+             Rows: rp-merchant-funds (uncertainty 1: no expiresAt), rp-no-expiry (new; MESSAGING.md section 7).
+             Code: app/shopify/store-credit-rail.server.ts:307 (creditAmount and notify, no expiry).
+             Delete from this line to "END sub:spending-expiry" to hold this part back. -->
+        <h3 id="spending-expiry">Does store credit expire?</h3>
+        <p data-claim="rp-no-expiry rp-merchant-funds">RewardsPro sets no expiry date on the credit it gives.</p>
+        <!-- END sub:spending-expiry -->
+      </section>
+      <!-- END block:spending -->
+
+      <!-- BEGIN block:tiers
+           Rows: rp-vip-tiers (PR #187's narrowed sentence, word for word; uncertainties 3, 4 and 6), rp-tier-window
+           (PR #187's narrowed sentence, word for word; scope; uncertainty 3), rp-tier-lock (claim; uncertainties 1
+           and 3; PR #187's note on deleted tiers).
+           Code: app/lib/tiers.server.ts:1-22, 62-110, 233-237, 262-285; app/routes/app.tiers.tsx:162, 380-386, 411-430;
+           app/routes/app.customers.$id.tsx:158-184; app/admin/words.ts:34; prisma/schema.prisma:147.
+           Not observed anywhere yet: a downgrade, a lock, a window change (PR #187, "Still unobserved").
+           Delete from this line to "END block:tiers" to hold the section back. -->
+      <section id="tiers" aria-labelledby="tiers-title">
+        <h2 id="tiers-title">How do VIP tiers work?</h2>
+        <p>
+          <span data-claim="rp-vip-tiers">Set tiers by spend, each with its own cashback rate.</span>
+          <span data-claim="rp-vip-tiers rp-tier-lock">Loyal customers move between tiers as their spend changes, unless you lock them to a tier.</span>
+          <span data-claim="rp-vip-tiers">Each tier has a name, a minimum spend in whole amounts of your shop's currency, and a cashback rate in whole percent from 0 to 100.</span>
+          <span data-claim="rp-vip-tiers">A new customer starts in your lowest tier, which begins at a spend of 0.</span>
+        </p>
+        <h3 id="tiers-spend">What counts as spend?</h3>
+        <p>
+          <span data-claim="rp-tier-window">A customer's spend is the product price after discounts, less any products refunded, in your shop's currency.</span>
+          <span data-claim="rp-tier-window">Test and cancelled orders don't count.</span>
+          <span data-claim="rp-tier-window">Tiers count a loyal customer's spend over the last 12 months or over all time, from the orders RewardsPro has recorded: those since install, and past orders from up to 12 months before it.</span>
+          <span data-claim="rp-tier-window">You choose one for the whole store under <strong>Spend counted over</strong>: <strong>Last 12 months</strong>, the default, or <strong>All time</strong>.</span>
+        </p>
+        <h3 id="tiers-moves">When do customers move?</h3>
+        <p>
+          <span data-claim="rp-vip-tiers">A customer's tier is updated after each paid order, refund and cancellation, and in a nightly pass.</span>
+          <span data-claim="rp-vip-tiers">There is no grace period: when a customer's counted spend falls below their tier's minimum, they move down.</span>
+          <span data-claim="rp-vip-tiers">After you add a tier, change a minimum or change the window, customers move to their new tiers; in a large store some move overnight.</span>
+          <span data-claim="rp-vip-tiers">Renaming a tier or changing its rate moves no one.</span>
+        </p>
+        <h3 id="tiers-lock">Can you keep a customer in a tier?</h3>
+        <p>
+          <span data-claim="rp-tier-lock">You can lock a customer to a tier.</span>
+          <span data-claim="rp-tier-lock">A locked customer keeps that tier and its rate whatever they spend, until you choose <strong>Return to automatic</strong>.</span>
+          <span data-claim="rp-tier-lock">The <strong>Lock to a tier</strong> control is on a customer's page, once RewardsPro has recorded an order of theirs.</span>
+          <span data-claim="rp-tier-lock">Deleting a tier returns customers locked to it to automatic.</span>
+        </p>
+      </section>
+      <!-- END block:tiers -->
+
+      <!-- BEGIN block:refunds
+           Rows: rp-refund-takeback (PR #187's narrowed sentence, word for word; its revised scope; uncertainties 1-3;
+           contrary_evidence: Ruling 12), plus PR #187's cross-row finding on orders edited to add items after payment.
+           The two limits at the end keep the first sentence true outside #187's scope, so they ship with it or the
+           whole block waits. Whether to publish them or fix the code first is a question for the owner.
+           Code: app/lib/order-facts.ts:99-120; app/lib/refunds.server.ts:1-34; app/lib/payouts.server.ts:257;
+           app/shopify/store-credit-rail.server.ts:363-370; app/routes/webhooks.orders.cancelled.tsx:1-5.
+           Delete from this line to "END block:refunds" to hold the section back. -->
+      <section id="refunds" aria-labelledby="refunds-title">
+        <h2 id="refunds-title">What happens to cashback when you refund an order?</h2>
+        <p>
+          <span data-claim="rp-refund-takeback">When items are refunded, RewardsPro takes back their share of the cashback, up to the store credit the customer still holds in the order's currency.</span>
+          <span data-claim="rp-refund-takeback">A refund of shipping alone takes nothing back.</span>
+        </p>
+        <ul>
+          <li data-claim="rp-refund-takeback">The share follows the product value: refunding half of an order's product value takes back half its cashback, and the refund that completes the order takes back what is left.</li>
+          <li data-claim="rp-refund-takeback">If the credit hasn't been sent yet, the refund reduces it before it is sent.</li>
+          <li data-claim="rp-refund-takeback">If the customer has already spent the credit, RewardsPro takes what is left and records the rest; it doesn't chase it.</li>
+          <li data-claim="rp-refund-takeback">The take-back comes from the customer's store-credit balance in that currency, whatever gave them the credit.</li>
+          <li data-claim="rp-refund-takeback">Cancelling an order moves no money by itself; the refund does.</li>
+        </ul>
+        <p>Two limits:</p>
+        <ul>
+          <li data-claim="rp-refund-takeback">On a store whose prices exclude tax, a refund of money alone, with no items, takes back a little more than its share.</li>
+          <li data-claim="rp-refund-takeback">If an order is edited after payment to add items, refunding those items can take back more than their share, up to all of the order's cashback.</li>
+        </ul>
+      </section>
+      <!-- END block:refunds -->
+
+      <!-- BEGIN block:cost
+           Rows: rp-merchant-funds (claim; uncertainty 1), sh-sc-fee (claim, word for word; uncertainty 1, "The rate
+           depends on your Shopify plan", which the row keeps inside itself).
+           Delete from this line to "END block:cost" to hold the section back. -->
+      <section id="cost" aria-labelledby="cost-title">
+        <h2 id="cost-title">What does it cost you?</h2>
+
+        <!-- BEGIN sub:cost-free
+             Rows: rp-free (its own sentence, word for word). It always sits beside rp-merchant-funds and sh-sc-fee,
+             which follow in this section. The row can't be verified while two frozen paid charges stand, unless the
+             owner accepts it in writing (claims.toml rp-free; ROADMAP Now-4). Until then "free" stays out of /help/.
+             Delete from this line to "END sub:cost-free" to hold this part back. -->
+        <p data-claim="rp-free">RewardsPro is free for every store that installs it, and no paid plans are offered.</p>
+        <!-- END sub:cost-free -->
+
+        <p>
+          <span data-claim="rp-merchant-funds">The cashback is store credit in your own shop, so you fund the cashback you give.</span>
+          <span data-claim="rp-merchant-funds">The cost lands when customers spend the credit at checkout.</span>
+        </p>
+        <div class="rule">
+          <p class="rule-label">Shopify's rule</p>
+          <p>
+            <span data-claim="sh-sc-fee">For Shopify stores created on or after 12 May 2025, Shopify charges third-party transaction fees on the part of an order paid with store credit.</span>
+            <span data-claim="sh-sc-fee">The rate depends on your Shopify plan.</span>
+          </p>
+          <p class="source">
+            Sources: Shopify Help Center,
+            <a href="https://help.shopify.com/en/manual/customers/store-credit">"Store credit"</a> and
+            <a href="https://help.shopify.com/en/manual/your-account/manage-billing/billing-charges/types-of-charges/third-party-charges/third-party-transaction-fees">"Third-party transaction fees"</a>,
+            as read on 7 November 2026.
+          </p>
+        </div>
+      </section>
+      <!-- END block:cost -->
+
+      <!-- BEGIN block:data
+           Rows: rp-no-own-email (claim, word for word; uncertainty 1). The row waits on the owner's data-request email
+           decision (ROADMAP Now-5): if he chooses an email to the shop owner, this sentence changes first.
+           Code: app/routes/app.settings._index.tsx:48-57; prisma/schema.prisma:148.
+           Delete from this line to "END block:data" to hold the section back. -->
+      <section id="data" aria-labelledby="data-title">
+        <h2 id="data-title">Does RewardsPro send emails, and what data does it keep?</h2>
+        <p>
+          <span data-claim="rp-no-own-email">RewardsPro sends no email.</span>
+          <span data-claim="rp-no-own-email">One setting, off by default, asks Shopify to send its own store-credit email.</span>
+          <span data-claim="rp-no-own-email">It is <strong>Email buyers when they earn store credit</strong>, under Settings.</span>
+          <span data-claim="rp-no-own-email">That email is Shopify's template, which you can edit in Shopify's customer notifications.</span>
+        </p>
+
+        <!-- BEGIN sub:data-requests
+             Rows: rp-data-request-window (new; RECOMMENDATION section 4.1 #11), rp-no-shopper-names (new; wf9),
+             sh-data-request (new; shopify.dev "privacy law compliance", read 2026-11-09, raw sha256 b60d0cf2...,
+             line 107), rp-no-own-email (uncertainty 2: requests show only inside the app).
+             Code: app/lib/erasure.server.ts:1-36 (REPORT_DUE_DAYS 30, REPORT_RETENTION_DAYS 45; the report is built
+             when downloaded); app/admin/home-rules.ts:196-204 (the banner); app/routes/app.settings._index.tsx:60-62;
+             prisma/schema.prisma:223-235 (no name or email on a customer); app/shopify/names.server.ts (names read
+             from Shopify). Seen on production: gates.md I.
+             Delete from this line to "END sub:data-requests" to hold this part back. -->
+        <h3 id="data-requests">What happens when a customer asks for their data?</h3>
+        <p>
+          <span data-claim="sh-data-request">When a customer asks you for their data, Shopify sends the request to the apps on your store.</span>
+          <span data-claim="rp-data-request-window rp-no-own-email">RewardsPro shows it inside the app, not by email: a banner on Home, and a list under <strong>Settings</strong> &gt; <strong>Customer data requests</strong>.</span>
+          <span data-claim="rp-data-request-window">The banner asks you to download the report by a date 30 days after the request arrived.</span>
+          <span data-claim="rp-data-request-window">The report can be downloaded for 45 days from the request; after that it can't.</span>
+          <span data-claim="rp-data-request-window">It is built when you download it, from what RewardsPro holds about that customer.</span>
+          <span data-claim="rp-no-shopper-names">RewardsPro stores no customer names or email addresses; the app reads names from Shopify when it shows them.</span>
+        </p>
+        <p><a href="/privacy-policy/">Privacy policy</a></p>
+        <!-- END sub:data-requests -->
+      </section>
+      <!-- END block:data -->
+
+      <!-- BEGIN block:uninstall
+           Rows: rp-uninstall-erasure (new), rp-credit-stays (new), sh-embed-removed (new; shopify.dev theme app
+           extensions "UX", read 2026-11-09, raw sha256 0f369224..., line 125), sh-shop-redact (new; shopify.dev
+           "privacy law compliance", line 158). The erasure wording is the owner's (ROADMAP Pre-8).
+           Code: app/routes/webhooks.app.uninstalled.tsx:1-15; app/lib/erasure.server.ts:4-9;
+           app/routes/api.cron.housekeeping.tsx:55-56, 113 (30 days); vercel.json:10 (daily, 03:00 UTC).
+           Seen on production: gates.md J (uninstall and reinstall within 48 hours; the store's rows stayed).
+           Delete from this line to "END block:uninstall" to hold the section back. -->
+      <section id="uninstall" aria-labelledby="uninstall-title">
+        <h2 id="uninstall-title">What happens when you uninstall?</h2>
+        <p>
+          <span data-claim="rp-uninstall-erasure">When you uninstall, RewardsPro stops working for your store: it records no more orders and sends no more credit.</span>
+          <span data-claim="sh-embed-removed">Shopify removes the widget from your theme.</span>
+          <span data-claim="rp-credit-stays">Store credit your customers already have stays on their accounts in Shopify.</span>
+        </p>
+        <p>
+          <span data-claim="sh-shop-redact rp-uninstall-erasure">48 hours after you uninstall, Shopify asks RewardsPro to erase your store's data, and RewardsPro erases it.</span>
+          <span data-claim="rp-uninstall-erasure">If you reinstall before then, your data stays and RewardsPro carries on.</span>
+          <span data-claim="rp-uninstall-erasure">If Shopify's request never arrives, a job that runs each night erases the data once 30 days have passed since you uninstalled.</span>
+        </p>
+      </section>
+      <!-- END block:uninstall -->
+
+      <!-- BEGIN block:contact
+           Rows: rp-contact-delivers (waits for the owner's outside delivery test; PR #187: "the code shows
+           publication only"), rp-help-in-settings. No reply-time promise (rp-contact-delivers uncertainty 4).
+           ROADMAP section 3: outreach's "Talk to us" becomes rewardspro.io/help/#contact the day this anchor ships.
+           Delete from this line to "END block:contact" to hold the section back. -->
+      <section id="contact" aria-labelledby="contact-title">
+        <h2 id="contact-title">How do you reach us?</h2>
+        <p>
+          <span data-claim="rp-contact-delivers">Questions reach us at <a href="mailto:contact@rewardspro.io">contact@rewardspro.io</a>.</span>
+          <span data-claim="rp-help-in-settings">In the app, Settings has a Help section with our address, contact@rewardspro.io.</span>
+        </p>
+      </section>
+      <!-- END block:contact -->
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <ul>
+          <li><a href="/help/">Help</a></li>
+          <li><a href="/privacy-policy/">Privacy policy</a></li>
+        </ul>
+        <p data-claim="rp-maker">RewardsPro © 2026 Cambridge TCG Limited</p>
+      </div>
+    </footer>
+  </body>
+</html>
