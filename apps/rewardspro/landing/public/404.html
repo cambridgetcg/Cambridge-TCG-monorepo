@@ -1,16 +1,26 @@
 <!doctype html>
-<!--
-  rewardspro.io's 404 page (package RP-09, issue #169). Cloudflare Pages serves this file, with a 404 status, for
-  any path it can't find; without it, Pages would answer unknown paths with the home page and a 200
-  (RECOMMENDATION section 3.1).
-  The head's icon and manifest lines are PR #95's; the files they name arrive with RP-08.
-  The old-links line points to /help/, so it ships the day /help/ ships (ROADMAP Pre-6). To ship this page
-  earlier, delete from "BEGIN block:old-links" to "END block:old-links".
--->
 <html lang="en-GB">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      rewardspro.io's 404 page, the review copy (package RP-09, issue #169). Cloudflare Pages serves this file, with a
+      404 status, for any path it can't find; without it, Pages would answer unknown paths with the home page and a 200
+      (RECOMMENDATION section 3.1).
+      - The head's four icon and manifest lines are PR #95's. The files they name (favicon.ico, favicon.svg,
+        apple-touch-icon.png, site.webmanifest) aren't on main: they arrive with RP-08, and #95's manifest still
+        describes "points", which RP-08 corrects. Until those files are on main, each request for them gets this
+        page back. So an early ship of this page needs RP-08's files and corrected manifest on main first, or ships
+        without those four lines.
+      - The old-links block points to /help/, so it ships the day /help/ ships (ROADMAP Pre-6). Its sentence rests
+        on rp-old-docs-removed (new: the docs site was unpublished on 2026-11-07; RP-06 adds the row or declines it).
+        To ship this page earlier, delete from "BEGIN block:old-links" to "END block:old-links".
+      - "There is no page at this address." states the response's 404 status in words; it makes no claim about
+        RewardsPro, so it carries no row.
+      - Header and footer: none yet. The page takes RP-08's shared header and footer bytes when they exist (DESIGN.md
+        "Layout": the same bytes on every page).
+      - The deploy copy carries no comments: strip every HTML comment before Yu's review pack hashes the bytes.
+    -->
     <title>Page not found – RewardsPro</title>
     <meta name="robots" content="noindex" />
     <meta name="theme-color" content="#09110f" />
@@ -82,10 +92,10 @@
     <main>
       <h1>Page not found</h1>
       <p class="muted">There is no page at this address.</p>
-      <!-- BEGIN block:old-links (ships with /help/) -->
+      <!-- BEGIN block:old-links (ships with /help/). Rows: rp-old-docs-removed (new). -->
       <p>
-        If you followed an old link to our help pages, that page described an older version of RewardsPro and has
-        been removed. Help is at <a href="/help/">rewardspro.io/help/</a>.
+        <span data-claim="rp-old-docs-removed">If you followed an old link to our help pages, that page described an older version of RewardsPro and has been removed.</span>
+        Help is at <a href="/help/">rewardspro.io/help/</a>.
       </p>
       <!-- END block:old-links -->
       <p><a href="/">Go to the RewardsPro home page</a></p>
