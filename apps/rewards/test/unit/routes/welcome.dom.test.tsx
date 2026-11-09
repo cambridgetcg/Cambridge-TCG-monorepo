@@ -4,7 +4,7 @@ import { type ShouldRevalidateFunctionArgs, createRoutesStub, data, useRevalidat
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GUIDE } from "~/admin/guide-words";
 import { MAX_BINS } from "~/lib/ladder";
-import { TIER_ERRORS } from "~/lib/tiers.server";
+import { TIER_ERRORS, TIER_NAME_MAX } from "~/lib/tiers.server";
 import type { WelcomeData } from "~/routes/app.welcome";
 import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
 
@@ -105,6 +105,7 @@ const welcomeData = (o: Partial<WelcomeData> = {}): WelcomeData => ({
   importLines: [],
   medianOrder: "45",
   multiCurrency: false,
+  nameMax: TIER_NAME_MAX,
   ladder: null,
   everyonePercent: null,
   firstPercent: null,
@@ -553,6 +554,18 @@ describe("Step 2: Your tiers", () => {
     expect(liveText()).toContain(GUIDE.tierCount("Bronze", 10));
     // The cost in yen: 3 + 25 + 32
     expect(liveText()).toContain(GUIDE.cost("¥60", "12 months"));
+  });
+
+  // 9-F9 and M-6: each row's fields say their tier, and take the Tiers page's limits
+  it("labels each row's fields by its tier, with the Tiers page's limits and hint", async () => {
+    await renderWelcome(step2());
+    const label = (name: string) => field(name).getAttribute("label");
+    expect(["name0", "name1", "name2"].map(label)).toEqual(["Tier 1 name", "Tier 2 name", "Tier 3 name"]);
+    expect(["minSpend1", "minSpend2"].map(label)).toEqual(["Tier 2 starts at", "Tier 3 starts at"]);
+    expect(["percent0", "percent1", "percent2"].map(label)).toEqual(["Tier 1 cashback", "Tier 2 cashback", "Tier 3 cashback"]);
+    screen.getByText(GUIDE.firstStart("£0.00"));
+    for (const name of ["name0", "name1", "name2"]) expect(field(name).getAttribute("maxLength"), name).toBe(String(TIER_NAME_MAX));
+    for (const name of ["minSpend1", "minSpend2"]) expect(field(name).getAttribute("details"), name).toBe(GUIDE.wholeAmounts);
   });
 
   it("starts row 1 at the merchant's own Everyone rate", async () => {

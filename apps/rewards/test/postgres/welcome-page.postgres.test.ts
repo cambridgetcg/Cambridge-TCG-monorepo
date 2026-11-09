@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import prisma from "~/db.server";
 import { guideDue } from "~/lib/guide.server";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
-import { TIER_ERRORS } from "~/lib/tiers.server";
+import { TIER_ERRORS, TIER_NAME_MAX } from "~/lib/tiers.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import { pollImport } from "~/shopify/bulk-import.server";
 import type { GraphqlClient } from "~/shopify/graphql";
@@ -306,6 +306,11 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
     it("says the import's own period", async () => {
       await setImport({ importState: "done", importHorizonDays: 60 });
       expect(await load("/app/welcome")).toMatchObject({ period: "60 days" });
+    });
+
+    // M-6: the Tiers page's limit on a name, as its loader gives it
+    it("gives step 2 the Tiers page's longest name", async () => {
+      expect(await load("/app/welcome?step=2")).toMatchObject({ step: 2, nameMax: TIER_NAME_MAX });
     });
 
     it("starts row 1 at the lone Everyone tier's rate", async () => {

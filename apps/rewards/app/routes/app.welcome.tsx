@@ -18,7 +18,7 @@ import { type LadderData, readGuideBasics, readLadder } from "~/lib/ladder.serve
 import { type ConnectionContext, markSetupCompleted, setRunning } from "~/lib/merchant.server";
 import { Money, cashbackFor } from "~/lib/money";
 import { homeState } from "~/lib/stats.server";
-import { BASE_TIER_NAME, type LadderErrors, TIER_ERRORS, isFreshLadder, requestTierPass, saveLadder, tiersOf } from "~/lib/tiers.server";
+import { BASE_TIER_NAME, type LadderErrors, TIER_ERRORS, TIER_NAME_MAX, isFreshLadder, requestTierPass, saveLadder, tiersOf } from "~/lib/tiers.server";
 import { pollImport } from "~/shopify/bulk-import.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { storeCreditSpendProblems } from "~/shopify/shop-checks.server";
@@ -89,6 +89,8 @@ export type WelcomeData = {
   medianOrder: string | null;
   /** Steps 1 and 2 */
   multiCurrency: boolean;
+  /** The longest a tier's name may be, as the Tiers page's loader gives it (TIER_NAME_MAX stays on the server) */
+  nameMax: number;
   /** Step 2 only: the store's ladder with suggestStarts' starts (fallbacks included) and whether they come from its data */
   ladder: (LadderData & { suggested: [number, number] | null; fromData: boolean }) | null;
   /** The lone Everyone tier's rate when that is the store's only tier, so row 1 starts at the merchant's own rate */
@@ -192,6 +194,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     importLines,
     medianOrder: (basics ?? ladderData)?.medianOrder ?? null,
     multiCurrency: (basics ?? ladderData)?.multiCurrency ?? false,
+    nameMax: TIER_NAME_MAX,
     ladder,
     // A display percent (numeric(5,2)), never used in arithmetic
     everyonePercent: tiers.length === 1 && first.name === BASE_TIER_NAME ? first.cashbackPercent.toNumber() : null,
@@ -521,30 +524,33 @@ function StepTwo({
             {[0, 1, 2].map((i) => (
               <s-grid key={i} gridTemplateColumns={`${ROW_IN_LINE} 2fr 2fr 1fr, 1fr`} gap="base" alignItems="start">
                 <s-text-field
-                  label={GUIDE.name}
+                  label={GUIDE.rowName(i + 1)}
                   name={`name${i}`}
+                  maxLength={d.nameMax}
                   value={names[i]}
                   error={rowErrors?.[i]?.name}
                   onInput={(event) => fields.setName(i, event.currentTarget.value)}
                 />
                 {i === 0 ? (
                   <s-stack gap="small-300">
-                    <s-text>{`${GUIDE.starts} ${money(0)}`}</s-text>
+                    <s-text>{GUIDE.firstStart(money(0))}</s-text>
                     <s-text color="subdued">{GUIDE.firstTier}</s-text>
                   </s-stack>
                 ) : (
+                  // Polaris's money field has no step, so whole amounts are the save's rule, said as Tiers says it
                   <s-money-field
-                    label={GUIDE.starts}
+                    label={GUIDE.rowStart(i + 1)}
                     name={`minSpend${i}`}
                     currencyCode={d.currency as HTMLElementTagNameMap["s-money-field"]["currencyCode"]}
                     min={0}
                     value={starts[i - 1]}
+                    details={GUIDE.wholeAmounts}
                     error={rowErrors?.[i]?.minSpend}
                     onInput={(event) => fields.typeStart(i === 1 ? 0 : 1, event.currentTarget.value)}
                   />
                 )}
                 <s-number-field
-                  label={GUIDE.cashback}
+                  label={GUIDE.rowRate(i + 1)}
                   name={`percent${i}`}
                   suffix="%"
                   min={0}

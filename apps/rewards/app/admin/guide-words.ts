@@ -48,9 +48,14 @@ export const GUIDE = {
   /** The right-hand end of the picture's scale: its last bar holds every spend from there up. */
   andAbove: (amount: string) => `${amount} and above`,
   firstTier: "Everyone starts here",
-  starts: "Starts at",
-  cashback: "Cashback",
-  name: "Name",
+  /** Row 1's start, which isn't a field: every buyer starts there. */
+  firstStart: (amount: string) => `Starts at ${amount}`,
+  /** Each row's field labels name its tier (counted from 1), so a screen reader tells the three rows apart. */
+  rowName: (n: number) => `Tier ${n} name`,
+  rowStart: (n: number) => `Tier ${n} starts at`,
+  rowRate: (n: number) => `Tier ${n} cashback`,
+  /** Under a start field, as the Tiers page says it: the save takes whole amounts. */
+  wholeAmounts: "Whole amounts only.",
   buyers,
   /** One tier's count on step 2, under the name typed for it. */
   tierCount: (name: string, n: number) => `${name}: ${buyers(n)}`,

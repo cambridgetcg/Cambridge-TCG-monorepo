@@ -21,6 +21,10 @@ const SAMPLES: Record<string, unknown[]> = {
   andAbove: ["£820"],
   buyers: [1200],
   tierCount: ["Bronze", 1200],
+  firstStart: ["£0.00"],
+  rowName: [1],
+  rowStart: [2],
+  rowRate: [3],
   cost: ["£1", "12 months"],
   tryItSteps: ["£0.17"],
 };
@@ -64,6 +68,14 @@ describe("guide words", () => {
 
   it("counts buyers", () => {
     expect([1, 2, 1200].map(GUIDE.buyers)).toEqual(["1 buyer", "2 buyers", "1,200 buyers"]);
+  });
+
+  it("labels each row's fields with its tier, so a screen reader tells the rows apart", () => {
+    expect([1, 2, 3].map(GUIDE.rowName)).toEqual(["Tier 1 name", "Tier 2 name", "Tier 3 name"]);
+    expect([2, 3].map(GUIDE.rowStart)).toEqual(["Tier 2 starts at", "Tier 3 starts at"]);
+    expect([1, 2, 3].map(GUIDE.rowRate)).toEqual(["Tier 1 cashback", "Tier 2 cashback", "Tier 3 cashback"]);
+    expect(GUIDE.firstStart("£0.00")).toBe("Starts at £0.00");
+    expect(GUIDE.wholeAmounts).toBe("Whole amounts only.");
   });
 
   it("counts a tier's buyers under its name", () => {
