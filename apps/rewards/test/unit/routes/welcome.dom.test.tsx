@@ -247,6 +247,41 @@ describe("The guide, every step", () => {
     }
   });
 
+  // M-4: on every step, a widget that's off comes with the way to turn it on
+  it("gives the theme editor's link and Check again beside a widget that's off, once, and neither once it's on", async () => {
+    const editorLinks = () => [...document.querySelectorAll("s-link")].filter((link) => link.textContent === GUIDE.turnOnWidget);
+    for (const data of [welcomeData(), step2(), step3()]) {
+      const page = `step ${data.step}`;
+      stubAppBridge("available");
+      await renderWelcome(data);
+      expect(editorLinks(), page).toHaveLength(1);
+      expect([editorLinks()[0].getAttribute("href"), editorLinks()[0].getAttribute("target")], page).toEqual([welcomeData().themeEditorUrl, "_blank"]);
+      expect(screen.getAllByText(GUIDE.saveInEditor), page).toHaveLength(1);
+      expect(button(GUIDE.checkAgain), page).toBeDefined();
+      cleanup();
+
+      stubAppBridge("active");
+      await renderWelcome(data);
+      await screen.findByText(GUIDE.widgetYes);
+      expect(editorLinks(), page).toHaveLength(0);
+      expect(screen.queryByText(GUIDE.saveInEditor), page).toBeNull();
+      expect(button(GUIDE.checkAgain), page).toBeUndefined();
+      cleanup();
+    }
+  });
+
+  it("asks App Bridge again on Check again, on steps 1 and 2 too", async () => {
+    for (const data of [welcomeData(), step2()]) {
+      stubAppBridge("available");
+      await renderWelcome(data);
+      screen.getByText(GUIDE.widgetNo);
+      stubAppBridge("active");
+      await click(button(GUIDE.checkAgain));
+      await screen.findByText(GUIDE.widgetYes);
+      cleanup();
+    }
+  });
+
   it("posts Finish later and goes Home only once it's recorded", async () => {
     const posted: Array<Record<string, string>> = [];
     let answer: (value: unknown) => void = () => {};

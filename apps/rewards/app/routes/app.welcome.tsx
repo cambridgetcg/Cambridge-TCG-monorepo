@@ -295,9 +295,31 @@ function Check({ ok, yes, no, unknown }: { ok: boolean | null; yes: string; no: 
   );
 }
 
-/** The widget's status: under the progress on steps 1 and 2, among the checks on step 3. */
-function WidgetCheck({ on }: { on: boolean | null }) {
-  return <Check ok={on} yes={GUIDE.widgetYes} no={GUIDE.widgetNo} unknown={GUIDE.widgetUnknown} />;
+/**
+ * The widget's status, under the progress on steps 1 and 2 and among the
+ * checks on step 3. Until it is on, the theme editor's link and Check again
+ * sit beside it: the link opens a new tab, so the guide stays where it was
+ * and checks again on the way back.
+ */
+function WidgetRow({ widget, themeEditorUrl }: { widget: WidgetEmbed; themeEditorUrl: string }) {
+  return (
+    <s-stack gap="small-200">
+      <Check ok={widget.on} yes={GUIDE.widgetYes} no={GUIDE.widgetNo} unknown={GUIDE.widgetUnknown} />
+      {widget.on === true ? null : (
+        <>
+          <s-stack direction="inline" gap="base" alignItems="center">
+            <s-link href={themeEditorUrl} target="_blank">
+              {GUIDE.turnOnWidget}
+            </s-link>
+            <s-button variant="tertiary" onClick={widget.recheck}>
+              {GUIDE.checkAgain}
+            </s-button>
+          </s-stack>
+          <s-text color="subdued">{GUIDE.saveInEditor}</s-text>
+        </>
+      )}
+    </s-stack>
+  );
 }
 
 /** The chosen try-it order: what happened to its cashback, and where to see it. */
@@ -576,20 +598,7 @@ function StepThree({
               </s-text>
             ) : null}
           </s-stack>
-          <s-stack gap="small-200">
-            <WidgetCheck on={widget.on} />
-            {widget.on === true ? null : (
-              <s-stack direction="inline" gap="base" alignItems="center">
-                {/* A new tab, so the guide stays where it was and checks again on the way back */}
-                <s-link href={d.themeEditorUrl} target="_blank">
-                  {GUIDE.turnOnWidget}
-                </s-link>
-                <s-button variant="tertiary" onClick={widget.recheck}>
-                  {GUIDE.checkAgain}
-                </s-button>
-              </s-stack>
-            )}
-          </s-stack>
+          <WidgetRow widget={widget} themeEditorUrl={d.themeEditorUrl} />
           {d.placing ? <s-paragraph>{GUIDE.placing}</s-paragraph> : null}
         </s-stack>
       </s-section>
@@ -751,7 +760,7 @@ export default function Welcome() {
             </>
           )}
           {/* Step 3 shows it among its checks */}
-          {d.step === 3 ? null : <WidgetCheck on={widget.on} />}
+          {d.step === 3 ? null : <WidgetRow widget={widget} themeEditorUrl={d.themeEditorUrl} />}
         </s-stack>
       </s-section>
 

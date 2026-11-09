@@ -65,6 +65,8 @@ export const GUIDE = {
   widgetNo: "Widget is off",
   widgetUnknown: "Widget: checking",
   turnOnWidget: "Turn on the widget in your theme",
+  /** Beside the theme editor's link: the embed is on only once the merchant saves there (spec 4.7) */
+  saveInEditor: "Save in the theme editor, then come back here.",
   checkAgain: "Check again",
   switchOn: "Switch cashback on",
   /** The switch's answer when the store has no tiers yet. */
