@@ -16,7 +16,9 @@ The platform claims to be one platform. Auth tells a different story: there are 
 The storefront has since grown two bearer-key realms, agent keys and member
 data keys. They are described in a dated section
 [below](#the-two-storefront-bearer-realms-2026-10-29); the filename keeps
-"four" because other files link to it.
+"four" because other files link to it. A third storefront bearer key, the
+feedback door's holder key (2026-11-06), opens one message rather than an
+account or an agent; the same section says how it differs.
 
 ## The two facts that explain the shape
 
@@ -162,6 +164,43 @@ authenticates neither route.
 **Not decided.** Agent keys never expire and member keys expire after 90 days.
 No record says whether that difference is deliberate. The question is listed
 in [`docs/plans/agent-auth/README.md`](../plans/agent-auth/README.md).
+
+### The feedback holder key (2026-11-09)
+
+*An agent added this on 2026-11-09, reading `origin/main` at `5c953f5c` as
+merged into this branch. Yu has not reviewed it. Nothing here was observed in
+production.*
+
+Main has a third storefront bearer key since 2026-11-06: the feedback door's
+holder key ([`lib/feedback/door.ts`](../../apps/storefront/src/lib/feedback/door.ts),
+[`app/api/v1/feedback/route.ts`](../../apps/storefront/src/app/api/v1/feedback/route.ts),
+migration 0149). This section keeps it out of the realm count because it
+resolves to no account, agent or person: it opens one message.
+
+| # | Key | Accepted at | Token and storage | Provisioned at | Lifetime and limits | Code |
+|---|---|---|---|---|---|---|
+| — | **Feedback holder key** | `GET` and `DELETE /api/v1/feedback` only; `POST` takes no key | `fbk_` + 43 base64url characters (32 random bytes). `public_feedback.holder_key_sha256` keeps only the SHA-256; no prefix is kept | The reply to `POST /api/v1/feedback` (the `/contact` form uses it too), shown once, to whoever sent the message: no sign-in or account. New messages only while `PUBLIC_FEEDBACK` is `on` | As long as its message: 180 days from arrival, or until the holder erases it with `DELETE`, after which the key opens nothing. Reading and erasing work whether or not the door takes new messages. No per-key limit; the door's one abuse control is a global cap of 30 accepted messages per UTC hour | [`lib/feedback/door.ts`](../../apps/storefront/src/lib/feedback/door.ts) |
+
+How it differs from the two realms above, as the source reads:
+
+- **It ignores other tokens instead of refusing them.** Only a bearer token
+  starting `fbk_` counts. One that starts so but is not exactly that shape
+  answers 401 before any lookup. Any other `Authorization` header (an agent
+  key a client sends everywhere, say) is ignored: `GET` then describes the
+  door, and `DELETE` answers 401.
+- **Its refusals are the API's ordinary error envelope**: 401
+  `UNAUTHORIZED` with no `WWW-Authenticate` challenge, 404 `NOT_FOUND` when no
+  message holds the key (erased, or past 180 days), 503 `SOURCE_UNAVAILABLE`
+  when the store cannot be read. There are no typed refusals or rate-limit
+  headers.
+- **It is minted without a session**, by anyone who sends a message, and it
+  signs no one in.
+- **The OpenAPI document does not describe it**: `/api/v1/feedback` has no
+  path there, so its schemes stay `AgentKey` and `MemberDataKey`.
+
+Like the two realms, it is looked up by an unsalted SHA-256 of the token,
+travels only in the `Authorization` header (never a URL or cookie), and
+authorises by possession, not identity.
 
 ## Recursion targets
 
