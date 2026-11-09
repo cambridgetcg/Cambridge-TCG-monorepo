@@ -445,7 +445,7 @@ export const TIER_ERRORS = {
   lowest: "The lowest tier can't be deleted: every buyer starts there.",
   busy: "The tier couldn't be deleted just now. Try again.",
   ladderOrder: "Start each tier above the one before.",
-  ladderStale: "Your tiers changed since you opened this page. Edit them on the Tiers page.",
+  ladderStale: "Your tiers changed since you opened this page.",
   ladderShape: "Set up exactly three tiers.",
 } as const;
 

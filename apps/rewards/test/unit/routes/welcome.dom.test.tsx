@@ -624,6 +624,9 @@ describe("Step 2: Your tiers", () => {
     expect(screen.queryByText(GUIDE.creditTitle)).toBeNull();
     expect(shown("name1")).toBe("Silver Club");
     expect(document.querySelector('s-link[href="/app/tiers"]')?.textContent).toBe(GUIDE.editTiers);
+    // F4-F1: the refusal and its link name the Tiers page once between them
+    const refusal = screen.getByText(TIER_ERRORS.ladderStale).parentElement!;
+    expect(refusal.textContent?.match(/Tiers page/g)).toHaveLength(1);
   });
 
   it("keeps step 2 and its fields' errors after a refusal of its rows", async () => {
