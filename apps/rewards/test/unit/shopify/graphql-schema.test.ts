@@ -27,8 +27,9 @@ import * as graphqlModule from "~/shopify/graphql";
  * `pnpm schema:admin` (scripts/fetch-admin-schema.ts); no network here.
  *
  * Beyond the schema: page sizes are literals of at most 250, every document
- * lives in app/shopify/graphql.ts, and every operation a test mock or
- * stand-in client answers exists. Each check is a small function below, run once on the real
+ * lives in app/shopify/graphql.ts, and every operation a test mock answers,
+ * or a stand-in client answers by a `Rewards…` name (see BY_NAME), exists.
+ * Each check is a small function below, run once on the real
  * documents and once on a seeded bad input, so none of them passes by
  * matching nothing. Query cost is not checked (still counted by hand).
  */
@@ -157,12 +158,15 @@ const MOCK = /\.(?<kind>query|mutation)\(\s*["'`](?<name>[A-Za-z_]\w*)["'`]/g;
 /**
  * Stand-in clients that read the operation name out of the query text and
  * answer by it, which say only the name: `case "RewardsX":` in a switch,
- * `query.includes("RewardsX")`, and `operation === "RewardsX"` (or `!==`).
+ * `query.includes("RewardsX")`, `operation === "RewardsX"` (or `!==`), and a
+ * `RewardsX: …` key, at the start of a line, of an object of answers keyed by
+ * operation name.
  */
 const BY_NAME = [
   /\bcase\s+["'`](?<name>Rewards\w*)["'`]\s*:/g,
   /\.includes\(\s*["'`](?<name>Rewards\w*)["'`]\s*\)/g,
   /\boperation\s*[!=]==?\s*["'`](?<name>Rewards\w*)["'`]/g,
+  /^\s*["'`]?(?<name>Rewards\w*)["'`]?\s*:/gm,
 ];
 
 /**
@@ -407,6 +411,10 @@ describe("the checks catch", () => {
           'if (query.includes("RewardsGone")) ask();',
           'if (operation !== "RewardsOld") throw new Error("no");',
           'calls.filter((call) => call.operation === "RewardsCustomerNames");',
+          "const defaults = {",
+          "  RewardsTokenPing: { data: { shop: { id: 1 } } },",
+          '  "RewardsStale": { data: {} },',
+          "};",
         ].join("\n"),
       },
     ];
@@ -415,6 +423,7 @@ describe("the checks catch", () => {
       `test/postgres/example.postgres.test.ts: answers RewardsNope, which no document in ${GRAPHQL_TS} is`,
       `test/postgres/example.postgres.test.ts: answers RewardsGone, which no document in ${GRAPHQL_TS} is`,
       `test/postgres/example.postgres.test.ts: answers RewardsOld, which no document in ${GRAPHQL_TS} is`,
+      `test/postgres/example.postgres.test.ts: answers RewardsStale, which no document in ${GRAPHQL_TS} is`,
     ]);
   });
 });
