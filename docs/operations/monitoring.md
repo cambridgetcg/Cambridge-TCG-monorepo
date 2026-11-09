@@ -68,9 +68,10 @@ why. It never shows that as zero.
   count. No key, agent or account id. Migration 0150 adds `agent.revoke_key`
   to the tool words, and is applied before the code that counts it (a
   refused row drops its whole batch). A holder's `agent.revoke_key` runs
-  before the gate authenticates an actor, so it is counted as not
-  authenticated, and the monitor shows those rows even while it withholds
-  authenticated ones.
+  before the gate authenticates an actor; possession of the presented key
+  is its authentication, so a revocation or preview by a live key is
+  counted as authenticated (withheld with the others while few keys are in
+  use), and a string that is not a live key as not authenticated.
 - `traffic_hourly`: per UTC hour, host class, route group, RSC or not,
   declared actor class, classifier version, status class, cache result,
   firewall action → count.

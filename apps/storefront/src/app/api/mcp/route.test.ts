@@ -70,6 +70,8 @@ vi.mock("@/lib/agents/coverage-hunt-tools", () => ({
 }));
 
 import { query } from "@/lib/db";
+import { coverageHuntContribute } from "@/lib/agents/coverage-hunt-tools";
+import { playObserve, ToolError } from "@/lib/agents/play-tools";
 import { GET, MCP_MAX_REQUEST_BYTES, POST } from "./route";
 import { toolByName } from "@/lib/agent-tools-catalog";
 import { KEY_REPLACEMENT_CASES } from "@/lib/agents/key-exit-inventory";
@@ -736,24 +738,40 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
     mocks.agentSelf.mockRejectedValueOnce(new Error("boom"));
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     await POST(request("agent.self"));
+    // A tool's own 403 (Coverage Hunt's key_revoked) is a refusal; any other
+    // ToolError is a tool error, even one answered 404.
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("key revoked", 403));
+    await POST(request("tools/call", { name: "coverage.hunt.contribute", arguments: {} }));
+    vi.mocked(playObserve).mockRejectedValueOnce(new ToolError("match not found", 404));
+    await POST(request("play.observe", { match_id: "m-1" }));
     expect(await counted()).toEqual([
       ["tools/call", "agent.self", false, "unauthenticated"],
       ["tools/call", "deck.save", true, "forbidden"],
       ["native", "agent.self", true, "rate-limited"],
       ["native", "agent.self", true, "error"],
+      ["tools/call", "coverage.hunt.contribute", true, "forbidden"],
+      ["native", "play.observe", true, "tool-error"],
     ]);
   });
 
-  it("counts agent.revoke_key as the carve-out answered it, never as authenticated", async () => {
+  it("counts agent.revoke_key as authenticated only when a live key was presented", async () => {
     vi.stubEnv("OPS_MCP_DAILY", "on");
     mocks.revokePresentedKey.mockResolvedValueOnce({ performed: true, revoked: true, key_state: "revoked", key_prefix: "ctcg_agt_Ab1", revoked_at: "2026-11-09T12:00:00.000Z", other_live_keys: 0 });
+    await POST(request("tools/call", { name: "agent.revoke_key", arguments: { confirm: true } }, `Bearer ${AGENT_TOKEN}`));
+    mocks.revokePresentedKey.mockResolvedValueOnce({ performed: false, revoked: false, key_state: "active", key_prefix: "ctcg_agt_Ab1", other_live_keys: 0 });
+    await POST(request("agent.revoke_key", {}, `Bearer ${AGENT_TOKEN}`));
+    mocks.revokePresentedKey.mockResolvedValueOnce({ performed: false, revoked: false, key_state: "not_active", message: "Nothing was changed.", docs: "https://cambridgetcg.com/methodology/agents" });
     await POST(request("tools/call", { name: "agent.revoke_key", arguments: { confirm: true } }, `Bearer ${AGENT_TOKEN}`));
     await POST(request("agent.revoke_key", { confirm: true }, null));
     mocks.revokePresentedKey.mockResolvedValueOnce({ performed: "unknown", key_state: "unknown", retryable: true, message: "Revocation state is unknown.", docs: "https://cambridgetcg.com/methodology/agents" });
     await POST(request("agent.revoke_key", { confirm: true }, `Bearer ${AGENT_TOKEN}`));
-    // The carve-out runs before the gate resolves an actor, so even a
-    // performed revocation reads authenticated: false.
+    // A performed revocation or a preview means a live key was presented,
+    // so the monitor withholds those rows while few keys are in use. A
+    // string that is not a live key, a malformed header or an unknown
+    // state says nothing about a key, and the gate never resolves an actor.
     expect(await counted()).toEqual([
+      ["tools/call", "agent.revoke_key", true, "ok"],
+      ["native", "agent.revoke_key", true, "ok"],
       ["tools/call", "agent.revoke_key", false, "ok"],
       ["native", "agent.revoke_key", false, "unauthenticated"],
       ["native", "agent.revoke_key", false, "error"],
