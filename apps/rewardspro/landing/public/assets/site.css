@@ -1,0 +1,202 @@
+/*
+  rewardspro.io shared styles: look A, dark only (apps/rewardspro/marketing/DESIGN.md).
+  The colour values are the dark roles from the brand kit (marketing/kit/colour/tokens.css).
+  The kit's tokens file is not loaded here: its plain :root holds the light roles, so a
+  light-mode visitor would get a white page.
+  System fonts, no webfont, no script, nothing from another host (the CSP in _headers is
+  self-only).
+*/
+
+:root {
+  color-scheme: dark;
+  --bg: #09110F;
+  --surface: #1B2321;
+  --border: #2C3532;
+  --text: #F6F7F7;
+  --text-muted: #9EA2A6;
+  --primary: #658AAD;
+  --on-primary: #1B1D1F;
+  --accent-text: #17BEBB;
+  --accent: #17BEBB;
+  --focus: #658AAD;
+  --font: "Inter", system-ui, sans-serif;
+  --measure: 40rem;
+  --gutter: 1rem;
+  --radius: 8px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-color: var(--border) var(--bg);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  accent-color: var(--accent);
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+h1,
+h2,
+p,
+ul {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(2.25rem, 9vw, 3.5rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+h1 + p,
+h2 + p,
+p + p {
+  margin-top: 1rem;
+}
+
+a {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  overflow-wrap: anywhere;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.wrap {
+  width: 100%;
+  max-width: calc(var(--measure) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--gutter);
+  top: 0.5rem;
+  z-index: 1;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.5rem 0.75rem;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header .wrap,
+.site-footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+}
+
+.site-header .wrap {
+  padding-block: 1.25rem;
+}
+
+.logo {
+  display: inline-block;
+  line-height: 0;
+}
+
+.logo img {
+  display: block;
+  height: 2rem;
+  width: auto;
+}
+
+.nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.nav-list a {
+  display: inline-block;
+  padding-block: 0.25rem;
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.intro {
+  padding-block: clamp(3rem, 10vw, 5.5rem);
+}
+
+.lead {
+  font-size: 1.25rem;
+  line-height: 1.5;
+}
+
+h1 + .lead {
+  margin-top: 1.5rem;
+}
+
+.section {
+  border-top: 1px solid var(--border);
+  padding-block: 2.5rem;
+}
+
+.site-footer {
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.site-footer .wrap {
+  padding-block: 1.5rem;
+}
+
+.site-footer .nav-list a {
+  color: var(--text-muted);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  a:hover,
+  .nav-list a:hover,
+  .site-footer .nav-list a:hover {
+    color: var(--text);
+  }
+}
