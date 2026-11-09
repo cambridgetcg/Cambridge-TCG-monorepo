@@ -6,8 +6,9 @@
  *
  * The decision is pure: migrationCheckPlan reads the env, migrationVerdict
  * compares the local migrations with production's `_prisma_migrations`
- * rows. readAppliedMigrations is the one read, read-only, with the app's own
- * verified TLS (app/db/database-connection.server.ts).
+ * rows, and reportVerdict turns a verdict into the lines the CLI prints and
+ * its exit code. readAppliedMigrations is the one read, read-only, with the
+ * app's own verified TLS (app/db/database-connection.server.ts).
  */
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -76,6 +77,40 @@ export function migrationVerdict(local: LocalMigration[], rows: MigrationRow[]):
   return pending.length === 0 ? { outcome: "pass", extra } : { outcome: "refuse", pending, extra };
 }
 
+const STATES: Record<PendingState, string> = {
+  missing: "not applied to production",
+  unfinished: "started, not finished (failed, or still running)",
+  rolled_back: "rolled back",
+  changed: "applied with different SQL: checksum differs",
+};
+
+/** One line of the CLI's report: `say` goes to stdout, `warn` to stderr. */
+export interface ReportLine {
+  level: "say" | "warn";
+  text: string;
+}
+
+/**
+ * What the CLI prints after a verdict, without its prefix, and its exit
+ * code: each local migration with its state, production's rows this commit
+ * lacks, then the outcome. Exit 1 refuses the build; the CLI then adds the
+ * recovery lines. It names migrations only.
+ */
+export function reportVerdict(local: LocalMigration[], verdict: MigrationVerdict): { lines: ReportLine[]; exitCode: 0 | 1 } {
+  const pending = new Map(verdict.outcome === "refuse" ? verdict.pending.map((p) => [p.name, p.state]) : []);
+  const lines: ReportLine[] = local.map(({ name }) => {
+    const state = pending.get(name);
+    return state ? { level: "warn", text: `  ${name}  ${STATES[state]}` } : { level: "say", text: `  ${name}  applied` };
+  });
+  for (const name of verdict.extra) lines.push({ level: "say", text: `  ${name}  in production, not in this commit (fine: applied before its PR merged)` });
+  if (verdict.outcome === "refuse") {
+    lines.push({ level: "warn", text: `refused: production lacks ${verdict.pending.length} of this commit's migrations, or holds different SQL for them.` });
+    return { lines, exitCode: 1 };
+  }
+  lines.push({ level: "say", text: "ok: production has every migration in prisma/migrations, with this commit's SQL" });
+  return { lines, exitCode: 0 };
+}
+
 const SKIP_VARIABLE = "REWARDS_SKIP_MIGRATION_CHECK";
 
 /**
@@ -115,7 +150,7 @@ export function migrationCheckPlan(env: Record<string, string | undefined>): Che
       return { action: "refuse", reason: `REWARDS_DATABASE_URL can't be used: ${(error as Error).message}`, notes };
     }
     if (!config.schemaInUrl) {
-      return { action: "refuse", reason: "REWARDS_DATABASE_URL has no ?schema=, so it doesn't name production's schema (rewards)", notes };
+      return { action: "refuse", reason: "REWARDS_DATABASE_URL has no ?schema=, so it doesn't say which schema's _prisma_migrations to read", notes };
     }
     return { action: "check", url, schema: config.schema, host: config.pool.host ?? "", notes };
   }

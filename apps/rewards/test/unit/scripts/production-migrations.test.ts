@@ -9,6 +9,7 @@ import {
   localMigrations,
   migrationCheckPlan,
   migrationVerdict,
+  reportVerdict,
 } from "../../../scripts/lib/production-migrations";
 
 /**
@@ -114,6 +115,63 @@ describe("migrationVerdict", () => {
   });
 });
 
+/**
+ * What the CLI prints after a verdict, and its exit code: 1 refuses the
+ * build and Vercel keeps the live deployment, 0 lets it go on. The CLI adds
+ * the prefix, prints `warn` lines to stderr, and after a refusal the
+ * recovery lines its own test covers.
+ */
+describe("reportVerdict", () => {
+  it("passes with exit 0, listing every migration applied and production's extra rows", () => {
+    const rows = [...allApplied(), applied("20261110100000_from_the_next_pr", "c".repeat(64))];
+
+    expect(reportVerdict(local, migrationVerdict(local, rows))).toEqual({
+      exitCode: 0,
+      lines: [
+        { level: "say", text: "  20261105000000_init  applied" },
+        { level: "say", text: "  20261106000000_second  applied" },
+        { level: "say", text: "  20261110100000_from_the_next_pr  in production, not in this commit (fine: applied before its PR merged)" },
+        { level: "say", text: "ok: production has every migration in prisma/migrations, with this commit's SQL" },
+      ],
+    });
+  });
+
+  it("refuses with exit 1, naming each pending migration's state as a warning", () => {
+    const four: LocalMigration[] = [
+      ...local,
+      { name: "20261107000000_third", checksum: "d".repeat(64) },
+      { name: "20261108000000_fourth", checksum: "e".repeat(64) },
+    ];
+    const rows: MigrationRow[] = [
+      applied("20261105000000_init", "f".repeat(64)),
+      { migration_name: "20261107000000_third", checksum: "d".repeat(64), finished_at: null, rolled_back_at: null },
+      { migration_name: "20261108000000_fourth", checksum: "e".repeat(64), finished_at: null, rolled_back_at: T },
+    ];
+
+    expect(reportVerdict(four, migrationVerdict(four, rows))).toEqual({
+      exitCode: 1,
+      lines: [
+        { level: "warn", text: "  20261105000000_init  applied with different SQL: checksum differs" },
+        { level: "warn", text: "  20261106000000_second  not applied to production" },
+        { level: "warn", text: "  20261107000000_third  started, not finished (failed, or still running)" },
+        { level: "warn", text: "  20261108000000_fourth  rolled back" },
+        { level: "warn", text: "refused: production lacks 4 of this commit's migrations, or holds different SQL for them." },
+      ],
+    });
+  });
+
+  it("refuses with exit 1 when only one migration is pending, still listing the applied ones", () => {
+    const report = reportVerdict(local, migrationVerdict(local, [applied(local[0].name, local[0].checksum)]));
+
+    expect(report.exitCode).toBe(1);
+    expect(report.lines).toEqual([
+      { level: "say", text: "  20261105000000_init  applied" },
+      { level: "warn", text: "  20261106000000_second  not applied to production" },
+      { level: "warn", text: "refused: production lacks 1 of this commit's migrations, or holds different SQL for them." },
+    ]);
+  });
+});
+
 describe("migrationCheckPlan", () => {
   it("skips, saying why, with no REWARDS_DATABASE_URL outside production", () => {
     for (const VERCEL_ENV of ["preview", "development", undefined]) {
@@ -151,6 +209,11 @@ describe("migrationCheckPlan", () => {
       expect(JSON.stringify(plan)).not.toContain(PASSWORD);
       expect(JSON.stringify(plan)).not.toContain("rewards_app");
     }
+    // Says what is missing, and claims no check of the schema's name
+    expect(migrationCheckPlan({ REWARDS_DATABASE_URL: loopbackUrl(":5432/postgres") })).toMatchObject({
+      action: "refuse",
+      reason: "REWARDS_DATABASE_URL has no ?schema=, so it doesn't say which schema's _prisma_migrations to read",
+    });
   });
 
   it("honours REWARDS_SKIP_MIGRATION_CHECK only for a hex prefix, 7 or more characters, of this build's commit", () => {

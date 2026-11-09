@@ -1,5 +1,5 @@
 import { buildSchema, introspectionFromSchema } from "graphql";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ADMIN_SCHEMA_PROXY, adminSchemaFile, fetchAdminSchemaSdl } from "../../../scripts/lib/admin-schema";
 
 /**
@@ -34,6 +34,10 @@ function stub(status: number, body: unknown) {
 }
 
 describe("fetchAdminSchemaSdl", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("prints the SDL the introspection describes, asking for @oneOf and deprecated arguments", async () => {
     const { calls, fetchImpl } = stub(200, ANSWER);
 
@@ -52,6 +56,16 @@ describe("fetchAdminSchemaSdl", () => {
     expect(query).toContain("isOneOf");
     expect(query).toContain("args(includeDeprecated: true)");
     expect(query).not.toContain("description");
+  });
+
+  it("gives up after 60 s, so a refresh never hangs on a stalled answer", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const { calls, fetchImpl } = stub(200, ANSWER);
+
+    await fetchAdminSchemaSdl("2026-10", fetchImpl);
+
+    expect(timeout).toHaveBeenCalledWith(60_000);
+    expect(calls[0].init.signal).toBe(timeout.mock.results[0].value);
   });
 
   it.each([

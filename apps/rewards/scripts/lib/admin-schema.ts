@@ -31,7 +31,7 @@ export const introspectionQuery = () =>
 /**
  * The Admin schema of one version as SDL, ending in a newline. It throws on
  * anything but a 200 answer carrying `data.__schema`, so a refresh never
- * writes junk over the fixture.
+ * writes junk over the fixture, and gives up after 60 s.
  */
 export async function fetchAdminSchemaSdl(version: string, fetchImpl: typeof fetch = fetch): Promise<string> {
   if (!/^\d{4}-\d{2}$/.test(version)) throw new Error(`"${version}" is not an Admin API version (YYYY-MM)`);
@@ -40,6 +40,7 @@ export async function fetchAdminSchemaSdl(version: string, fetchImpl: typeof fet
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ query: introspectionQuery() }),
+    signal: AbortSignal.timeout(60_000),
   });
   if (response.status !== 200) throw new Error(`${url} answered HTTP ${response.status}`);
   const body = (await response.json()) as { data?: Partial<IntrospectionQuery>; errors?: { message?: string }[] };

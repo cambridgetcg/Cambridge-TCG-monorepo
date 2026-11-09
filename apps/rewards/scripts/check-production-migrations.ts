@@ -20,27 +20,13 @@
  */
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  type PendingState,
-  localMigrations,
-  migrationCheckPlan,
-  migrationVerdict,
-  readAppliedMigrations,
-  readFailure,
-} from "./lib/production-migrations";
+import { localMigrations, migrationCheckPlan, migrationVerdict, readAppliedMigrations, readFailure, reportVerdict } from "./lib/production-migrations";
 
 const PREFIX = "[migration-check]";
 const MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), "../prisma/migrations");
 
 const say = (line: string) => console.log(`${PREFIX} ${line}`);
 const warn = (line: string) => console.error(`${PREFIX} ${line}`);
-
-const STATES: Record<PendingState, string> = {
-  missing: "not applied to production",
-  unfinished: "started, not finished (failed, or still running)",
-  rolled_back: "rolled back",
-  changed: "applied with different SQL: checksum differs",
-};
 
 function howToRecover({ migrations }: { migrations: boolean }) {
   if (migrations) {
@@ -94,23 +80,11 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const verdict = migrationVerdict(local, rows);
-  const pending = new Map(verdict.outcome === "refuse" ? verdict.pending.map((p) => [p.name, p.state]) : []);
   say(`schema ${plan.schema} on ${plan.host}, against the ${local.length} migrations in prisma/migrations:`);
-  for (const { name } of local) {
-    const state = pending.get(name);
-    if (state) warn(`  ${name}  ${STATES[state]}`);
-    else say(`  ${name}  applied`);
-  }
-  for (const name of verdict.extra) say(`  ${name}  in production, not in this commit (fine: applied before its PR merged)`);
-
-  if (verdict.outcome === "refuse") {
-    warn(`refused: production lacks ${verdict.pending.length} of this commit's migrations, or holds different SQL for them.`);
-    howToRecover({ migrations: true });
-    return 1;
-  }
-  say("ok: production has every migration in prisma/migrations, with this commit's SQL");
-  return 0;
+  const report = reportVerdict(local, migrationVerdict(local, rows));
+  for (const { level, text } of report.lines) (level === "say" ? say : warn)(text);
+  if (report.exitCode !== 0) howToRecover({ migrations: true });
+  return report.exitCode;
 }
 
 main().then(

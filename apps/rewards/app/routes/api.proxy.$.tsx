@@ -6,7 +6,7 @@
  * Every request is verified first (verifyProxyRequest), so the shop is the
  * signed one and the buyer the signed `logged_in_customer_id`. A guest gets
  * no personal data and Shopify is not asked anything for them. A buyer
- * RewardsPro hasn't seen yet, or one known from before the store had tiers,
+ * RewardsPro hasn't seen yet, or a known buyer not yet placed in a tier,
  * gets the lowest tier, as their next order earns; nothing is written for a
  * widget view. The balance is Shopify's own, read live
  * (2.5 s), or null when Shopify can't say; RewardsPro keeps no copy.
