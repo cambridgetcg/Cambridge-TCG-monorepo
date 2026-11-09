@@ -9,12 +9,16 @@
  * crosses come from ECB's own quotes, never a fallback table. An unprovisioned
  * store, unavailable FX or no usable input is a 503 that says which, not an
  * empty success. It writes derived rows only: nothing here publishes them.
+ * Each enabled run then records its outcome, excluded sources and skips in
+ * ops_job_outcomes (migration 0148), outside the derivation's transaction and
+ * never failing it; a disabled one records nothing.
  */
 
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/lib/cron-auth";
 import { fetchEcbEuroQuotes } from "@/lib/fx/rates";
-import { runMarketDerivation } from "@/lib/market-derived/derive";
+import { runMarketDerivation, type MarketDerivationResult } from "@/lib/market-derived/derive";
+import { derivationJobOutcome, recordedRun } from "@/lib/observability/job-outcomes";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,10 +35,14 @@ export async function GET(request: Request) {
   if (process.env.DATA_DERIVE_MARKET !== "on") {
     return NextResponse.json({ ok: true, ran: false, reason: "disabled" }, { headers: NO_STORE });
   }
+  return recordedRun("derive/market", derive, derivationJobOutcome);
+}
 
+async function derive(observe: (result: MarketDerivationResult) => void) {
   const now = new Date();
   try {
     const result = await runMarketDerivation({ asOf: now.toISOString().slice(0, 10), now, fx: await fetchEcbEuroQuotes() });
+    observe(result);
     return NextResponse.json(result, { status: result.ok ? 200 : 503, headers: NO_STORE });
   } catch (error) {
     // No SQL, connection detail or input values in the response or the log.

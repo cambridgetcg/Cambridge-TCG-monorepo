@@ -54,8 +54,8 @@ authentication, data rights, provenance and the
 [commerce boundary](../../apps/storefront/docs/commercial-retirement.md).
 Code follows the root [Apache-2.0 license](../../LICENSE) and more-specific notices;
 [CC0 specification prose](../STANDARDS-LICENSE.md), source data and artwork have
-separate terms. Reference packages are private workspaces, not npm releases.
-Public repository access, package distribution and provider permissions each
+separate terms. The repository is public; reference packages are private
+workspaces, not npm releases. Package distribution and provider permissions each
 require their own release evidence.
 
 ## Optional invitations

@@ -144,21 +144,17 @@ describe("analyzeWidgetAssets() — golden run against the real codebase", () =>
     expect(report.primitives.has("rp-widget-root")).toBe(true);
   });
 
-  it("the shared `.rp-card` primitive is now ADOPTED (was unused, missions-widget composed it 2026-04-25)", () => {
-    // missions-widget.js composes `.rp-card` alongside `.rp-missions-card`
-    // for the shared base shape. This assertion locks the adopted state
-    // forward — if a refactor accidentally drops the composition, this
-    // test fails. Celebrate-adoption pattern: the original "unused"
-    // assertion fired when adoption happened, and was reconciled to this
-    // positive-form test.
-    expect(report.primitives.has("rp-card")).toBe(true);
+  it("the shared `.rp-card` primitive is UNUSED again (its only consumer was removed)", () => {
+    // missions-widget.js composed `.rp-card` from 2026-04-25 until the
+    // missions blocks were removed on 2026-11-03 (nothing switched
+    // missions on for shoppers). When a widget composes it again, this
+    // assertion fails and is reconciled in turn.
+    expect(report.unusedPrimitives).toContain("rp-card");
   });
 
-  it("the shared `.rp-btn--primary` is currently UNUSED — next adoption gap", () => {
-    // After `.rp-card` was adopted, the planner still surfaces
-    // `.rp-btn--primary` as a candidate — `.rp-missions-btn--primary`
-    // mirrors it and could compose. When that migration happens, this
-    // assertion fails and is reconciled in turn.
+  it("the shared `.rp-btn--primary` is currently UNUSED", () => {
+    // No widget threads it yet. When one does, this assertion fails and
+    // is reconciled in turn.
     expect(report.unusedPrimitives).toContain("rp-btn--primary");
   });
 

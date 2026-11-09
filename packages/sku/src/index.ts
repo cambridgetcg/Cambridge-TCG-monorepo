@@ -9,7 +9,9 @@
  * `GAMES`); `set` and `number` are publisher-defined; `lang` is ISO
  * 639-1; `variant` is optional (e.g. "rev", "1st", "alt-art").
  *
- * See `docs/methodology/sku-standard.md` for the public spec.
+ * See `docs/methodology/sku-standard.md` for the public spec. Card names
+ * (CTCG-NAMES-v1, draft) live in `./names`; see
+ * `docs/methodology/card-names.md`.
  *
  * ── Usage ─────────────────────────────────────────────────────────────
  *
@@ -66,6 +68,36 @@ export {
   resolveGameToken,
   type SkuIdentity,
 } from "./identity";
+
+// CTCG-NAMES-v1 (draft): one name per card key and language, with its
+// status and source. See docs/methodology/card-names.md.
+export {
+  CARD_NAME_SPEC_VERSION,
+  CARD_NAME_STATUSES,
+  CARD_NAME_RULES,
+  CARD_NAME_MARKERS,
+  CARD_NAME_SCHEMA,
+  CardNameError,
+  cardKey,
+  isCardKey,
+  cardNameText,
+  cardNameKey,
+  sameCardName,
+  cardName,
+  chooseCardName,
+  printingName,
+  cardRushName,
+  tcgplayerName,
+  cardmarketName,
+  type CardName,
+  type CardNameInput,
+  type CardNameStatus,
+  type CardNameQuery,
+  type CardNameChoice,
+  type CardNameExtraction,
+  type CardNameRefusal,
+  type CardNameRefusalReason,
+} from "./names";
 
 export {
   SET_FORMATS,

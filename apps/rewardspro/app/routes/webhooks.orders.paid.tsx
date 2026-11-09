@@ -33,6 +33,7 @@ import { incrementMonthlyOrderCount } from "../utils/order-count.server";
 import { claimLedgerEntry, isAutoCashbackEnabled, lockOrder, markUnconfirmed } from "../services/cashback-ledger.server";
 import { cashbackLeftAfterRefunds } from "../services/refund-handler.server";
 import { jsonObject } from "../utils/json-object";
+import { fitsNumeric } from "../utils/fits-numeric";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'node:crypto';
@@ -204,7 +205,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Step 1: The order row references the customer, so make sure the
         // customer exists first (customers/create may not have arrived yet).
-        const { customer: orderCustomer, created: customerCreated } = await ensureCustomer(shop!, order);
+        const { customer: orderCustomer } = await ensureCustomer(shop!, order);
 
         // Step 2: Create Order record (NO TRANSACTION - match sync service)
         const orderCreated = await createOrderRecord(db, {
@@ -257,6 +258,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // A previous attempt may have stopped after creating the order.
           // Cashback (guarded by its ledger entry) and spending totals
           // (recomputed from orders) are idempotent, so finish them here.
+          await placeTierlessCustomer(db, { shop: shop!, order, customer: orderCustomer, admin });
           await processCashback(db, { shop: shop!, order, admin });
           await updateCustomerSpendingFromOrders(db, { shop: shop!, order });
           return { success: true, results: [], usageEligible: false };
@@ -366,17 +368,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Step 4: Cashback and spending totals. These are the money path, so a
         // failure fails the delivery (5xx) and Shopify redelivers; the retry
         // path above completes them idempotently.
-        if (customerCreated) {
-          // A first-time customer has no tier yet: place them using this
-          // order's spend, so the order earns at the tier it reaches.
-          await updateCustomerSpendingFromOrders(db, { shop: shop!, order });
-          await checkTierProgression(db, {
-            shop: shop!,
-            customerId: orderCustomer.id,
-            admin: admin,
-            orderId: order.id?.toString()
-          });
-        }
+        const placedBeforeCashback = await placeTierlessCustomer(db, {
+          shop: shop!,
+          order,
+          customer: orderCustomer,
+          admin,
+        });
 
         await processCashback(db, {
           shop: shop!,
@@ -443,9 +440,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Check for tier progression
           const dbCustomer = orderCustomer;
-          // Skip tier resolution if Step 3.5 or the first-order placement above already resolved it
+          // Skip tier resolution if Step 3.5 or the placement before cashback already resolved it
           const skipTierResolution =
-            customerCreated || (tierPurchaseMade && tierPurchaseCustomerId === dbCustomer.id);
+            placedBeforeCashback || (tierPurchaseMade && tierPurchaseCustomerId === dbCustomer.id);
           if (skipTierResolution) {
             console.log(`[OrderPaid] Skipping tier progression - already resolved for customer ${dbCustomer.id}`);
           } else {
@@ -613,7 +610,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           topic: topic || 'orders/paid',
           orderId: order.id?.toString() ?? null,
           error: error instanceof Error ? error.message : 'Unknown error',
-          payload: order,
+          // The order id and the error kind only: the order payload carries
+          // the shopper's name, email, addresses and payment details, and
+          // customers/redact does not reach this table
+          payload: {
+            orderId: order.id ?? null,
+            errorKind: error instanceof Error ? error.name : typeof error,
+          },
           createdAt: new Date(),
         }
       }).catch(e => errorLogger.error('Failed to log webhook error', e));
@@ -1071,6 +1074,8 @@ async function recordCashback(tx: PrismaClient, params: {
           // As recordRefund records a refund before issue
           ...(reversedBeforeIssue.length > 0 ? { originalAmount: earned.toFixed(2), reversedBeforeIssue } : {}),
           syncStatus: autoProcessingEnabled ? 'SYNCING' : 'PENDING',
+          // Created claimed, so the claim starts now (claimLedgerEntry)
+          ...(autoProcessingEnabled ? { claimedAt: now.toISOString() } : {}),
           autoProcessed: false,
         },
         createdAt: now,
@@ -1223,7 +1228,8 @@ async function ensureCustomer(shop: string, order: any) {
       data: {
         shop,
         shopifyCustomerId,
-        email: order.customer?.email || order.email || `customer_${order.customer.id}@shop.com`,
+        // Customer.email is required; a shopper without one is stored as "" (no placeholder address)
+        email: order.customer?.email || order.email || "",
         firstName: order.customer?.first_name || null,
         lastName: order.customer?.last_name || null,
       }
@@ -1294,25 +1300,35 @@ async function createOrderRecord(_dbOrTx: PrismaClient, params: {
   // IMPORTANT: REST API total_price is in SHOP CURRENCY, not presentment currency
   // So we must store the shop currency code to match the amount
   // See: docs/multi-currency-order-handling.md for full analysis
+  // REST `currency` is the shop's currency too; the shopper's is
+  // `presentment_currency` (and total_price_set.presentment_money), as the
+  // order sync job reads it from GraphQL
   const shopCurrencyCode = order.total_price_set?.shop_money?.currency_code;
-  const presentmentCurrencyCode = order.currency;
-  const orderCurrency = shopCurrencyCode || presentmentCurrencyCode || 'USD';
+  const presentmentCurrencyCode = order.presentment_currency || order.total_price_set?.presentment_money?.currency_code;
+  const orderCurrency = shopCurrencyCode || order.currency || 'USD';
 
   // Multi-currency tracking
   const shopAmount = parseFloat(order.total_price_set?.shop_money?.amount || order.total_price || '0');
   const presentmentAmount = parseFloat(order.total_price_set?.presentment_money?.amount || order.total_price || '0');
-  const isMultiCurrency = shopCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode;
+  const isMultiCurrency = Boolean(shopCurrencyCode && presentmentCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode);
 
   // Calculate exchange rate: presentment / shop (e.g., €100 / £86.21 = 1.16)
-  const exchangeRate = isMultiCurrency && shopAmount > 0
+  const rate = isMultiCurrency && shopAmount > 0
     ? presentmentAmount / shopAmount
     : null;
+  // Order.exchangeRate is numeric(10,6) and presentmentTotal numeric(10,2):
+  // a currency worth far less than the shop's (IDR, VND) can pass them, and
+  // the order must be recorded all the same. The rate is only for audit.
+  // Without the shopper's total, a refund in their currency can't be
+  // counted in the shop's, as before the shopper's currency was recorded.
+  const exchangeRate = rate !== null && fitsNumeric(rate, 10, 6) ? rate : null;
+  const keepsPresentment = isMultiCurrency && fitsNumeric(presentmentAmount, 10, 2);
 
   if (isMultiCurrency) {
     console.log(`[OrderPaid] Multi-currency order detected:`);
     console.log(`  - Customer paid in: ${presentmentCurrencyCode} (${presentmentAmount})`);
     console.log(`  - Shop receives: ${shopCurrencyCode} (${shopAmount})`);
-    console.log(`  - Exchange rate: ${exchangeRate?.toFixed(6)}`);
+    console.log(`  - Exchange rate: ${rate?.toFixed(6)}`);
     console.log(`  - Storing as: ${orderCurrency}`);
   }
 
@@ -1327,8 +1343,8 @@ async function createOrderRecord(_dbOrTx: PrismaClient, params: {
       email: order.email || order.customer?.email || '',
       currency: orderCurrency, // Use shop currency to match total_price amount
       // Multi-currency tracking fields
-      presentmentCurrency: isMultiCurrency ? presentmentCurrencyCode : null,
-      presentmentTotal: isMultiCurrency ? presentmentAmount : null,
+      presentmentCurrency: keepsPresentment ? presentmentCurrencyCode : null,
+      presentmentTotal: keepsPresentment ? presentmentAmount : null,
       exchangeRate: exchangeRate,
       subtotalPrice: parseFloat(order.subtotal_price || '0'),
       totalDiscounts: parseFloat(order.total_discounts || '0'),
@@ -1448,6 +1464,34 @@ async function updateCustomerSpendingFromOrders(tx: PrismaClient, params: {
   });
   
   console.log(`[OrderPaid] Updated customer ${customer.id} spending totals`);
+}
+
+/**
+ * Place a customer who has no tier yet, using this order's spend, so the
+ * order earns cashback at the tier it reaches instead of nothing. That is a
+ * customer on their first order here, and one created earlier without a tier:
+ * by customers/create, by a customer sync, or before the shop had any tier.
+ * Returns whether the customer was placed.
+ */
+async function placeTierlessCustomer(tx: PrismaClient, params: {
+  shop: string;
+  order: any;
+  customer: Customer;
+  admin: any;
+}): Promise<boolean> {
+  const { shop, order, customer, admin } = params;
+  if (customer.currentTierId) {
+    return false;
+  }
+
+  await updateCustomerSpendingFromOrders(tx, { shop, order });
+  await checkTierProgression(tx, {
+    shop,
+    customerId: customer.id,
+    admin,
+    orderId: order.id?.toString()
+  });
+  return true;
 }
 
 async function checkTierProgression(_dbOrTx: PrismaClient, params: {

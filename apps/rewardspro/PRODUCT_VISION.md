@@ -506,6 +506,7 @@ is part of this change.
 **Implemented Features**:
 - Public process-liveness endpoint with no dependency or environment detail
 - Exact-Bearer operator readiness endpoint with one read-only database probe
+  and the scheduled crons' last run times
 - Authenticated monitoring dashboard that derives database state from its own reads
 - Sentry error tracking
 - Datadog integration

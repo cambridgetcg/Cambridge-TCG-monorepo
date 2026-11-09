@@ -335,6 +335,57 @@ export function createFetcher(
   }) as Fetcher;
 }
 
+/** A host's answer that refuses this collector, as the collectors' per-host
+ * state counts it (storefront migration 0146: back off until Retry-After or a
+ * default, and suspend the host after repeated refused runs): a 403 or 429,
+ * or a 503 that says when to come back. Retry-After is kept as the host sent
+ * it, for the caller to read; status is null where no HTTP answer refused
+ * (robots.txt disallowing the collector). A 401, a 5xx without Retry-After or
+ * a network error stops a run too, but says nothing about this collector and
+ * is not counted.
+ */
+export interface HostRefusal { status: number | null; retryAfter: string | null }
+export function hostRefusal(status: number, retryAfter: string | null): HostRefusal | null {
+  return status === 403 || status === 429 || (status === 503 && retryAfter !== null) ? { status, retryAfter } : null;
+}
+
+/** Why a page host's answer means stop: refusals and challenges are answers,
+ * not obstacles. A challenge is the cf-mitigated header or the interstitial's
+ * title; Cloudflare also injects its beacon script into ordinary pages, so
+ * that script alone is not one. Shared by the page collectors (CardRush,
+ * TCGplayer's robots.txt). Every reason is Cambridge's own code: the header's
+ * value is read, never copied, since a reason is stored and served.
+ */
+export function pageRefusal(response: Response, head = ''): string | null {
+  const mitigated = response.headers.get('cf-mitigated');
+  if (mitigated) return mitigated.trim().toLowerCase() === 'challenge' ? 'challenge-challenge' : 'challenge-header';
+  if ([401, 403, 407, 429, 503].includes(response.status)) return `http-${response.status}`;
+  if (/<title>\s*Just a moment\.\.\.\s*<\/title>/i.test(head)) return 'challenge-page';
+  return null;
+}
+/** Whether a stop pageRefusal named is counted as the host refusing this
+ * collector: the statuses hostRefusal counts, and any challenge. */
+export function countedRefusal(response: Response, reason: string): HostRefusal | null {
+  const retryAfter = response.headers.get('retry-after');
+  return hostRefusal(response.status, retryAfter) ?? (reason.startsWith('challenge-') ? { status: response.status, retryAfter } : null);
+}
+/** The body, or null once it passes maxBytes (the rest is not read). */
+export async function readBounded(response: Response, maxBytes: number): Promise<Uint8Array | null> {
+  if (!response.body) return new Uint8Array(0);
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = []; let size = 0;
+  while (true) {
+    const { done, value } = await reader.read(); if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) { await reader.cancel(); return null; }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size); let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return bytes;
+}
+export const pageHead = (bytes: Uint8Array) => new TextDecoder().decode(bytes.subarray(0, 16 * 1024));
+
 function parseRetryAfter(value: string): number {
   // Either seconds, or HTTP-date.
   const seconds = Number(value);

@@ -2,8 +2,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import PrivacyPage from "./page";
+
+// The retention check below imports lib/peers, which opens no connection but
+// needs the db module present.
+vi.mock("@/lib/db", () => ({ query: vi.fn() }));
 
 const page = readFileSync(
   resolve(process.cwd(), "src/app/privacy/page.tsx"),
@@ -223,6 +227,54 @@ describe("storefront privacy notice contract", () => {
     expect(compactPage).toContain(
       "The pause does not block payment, shipping, receipt, cancellation, return, dispute, refund, payout, evidence or revocation",
     );
+  });
+
+  it("names Cloudflare, the aggregate counts and the feedback door before any of them collects", () => {
+    expect(compactPage).toContain("Last updated 6 November 2026");
+    expect(page).toContain('id="feedback-door"');
+    expect(page).toContain('id="aggregate-counts"');
+    expect(page).toContain('href="#feedback-door"');
+    expect(page).toContain('href="#aggregate-counts"');
+    expect(compactPage).toContain("<strong className=\"text-ink\">Cloudflare</strong> sits in front of cambridgetcg.com");
+    expect(page).toContain("https://www.cloudflare.com/privacypolicy/");
+    expect(compactPage).toContain("Understand how the site is used, from aggregate counts only");
+    expect(compactPage).toContain("Cambridge TCG keeps counts, not records of visits");
+    expect(compactPage).toContain(
+      "No count holds an IP address (hashed or not), a user agent, query string, referrer, request body or raw path, or a visitor, session, device, account or key identifier",
+    );
+    expect(compactPage).toContain("counting never changes how a request is answered");
+    expect(compactPage).toContain("ship switched off and are switched on only after this notice names them");
+    expect(compactPage).toContain("We do not build a visit or behaviour profile of anyone");
+    expect(compactPage).toContain("does not create an application-level analytics profile from ordinary page visits");
+    // Retention, as the code keeps it.
+    expect(compactPage).toContain("35 days; daily error, MCP, job-run and hello counts 13 months");
+    expect(compactPage).toContain("180 days after they arrive");
+    expect(compactPage).toContain("The hourly cap&apos;s counts are kept 48 hours");
+    expect(compactPage).toContain("The minute counts are kept 7 days");
+    // The door keeps named fields only, and the key works both ways.
+    expect(compactPage).toContain("We do not keep the request as it was sent, your IP address, user agent or cookies");
+    expect(compactPage).toContain("feedback-door/2026-11-06");
+    expect(compactPage).not.toContain("Agent feedback and carried state:</strong>{\" \"} public write paths are paused");
+  });
+
+  it("names the member-key counters and how a class is worked out, and sweeps whatever is switched on", () => {
+    expect(compactPage).toContain("<strong className=\"text-ink\">Member data keys:</strong>");
+    expect(compactPage).toContain("a count of your account&apos;s accepted requests in each calendar month (UTC)");
+    expect(compactPage).toContain("The data API&apos;s monthly counts are currently kept with the account and not deleted earlier");
+    expect(compactPage).toContain("the same string arrived from five or more countries in that hour");
+    expect(compactPage).toContain("shows those counts only once at least five keys or accounts are counted");
+    expect(compactPage).toContain("An hourly sweep deletes older rows whether or not any counter is switched on");
+  });
+
+  it("states the retention periods the code enforces", async () => {
+    const { OBSERVABILITY_RETENTION } = await import("@/lib/observability/retention");
+    const door = await import("@/lib/feedback/door");
+    const { PEER_HELLO_RETENTION_MONTHS } = await import("@/lib/peers");
+    expect(OBSERVABILITY_RETENTION).toEqual({ hourly: { days: 35 }, daily: { months: 13 } });
+    expect(PEER_HELLO_RETENTION_MONTHS).toBe(13);
+    expect([door.FEEDBACK_RETENTION_DAYS, door.FEEDBACK_INTAKE_RETENTION_HOURS]).toEqual([180, 48]);
+    expect(page).toContain(door.FEEDBACK_NOTICE.version);
+    expect(door.FEEDBACK_NOTICE.url).toBe("/privacy#feedback-door");
   });
 
   it("enumerates first-party cookies, durations and browser-only storage", () => {

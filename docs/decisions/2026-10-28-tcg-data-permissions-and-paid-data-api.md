@@ -14,7 +14,12 @@ review, which also took an agents' reading of the third DATA_RIGHTS line out
 of "What this changes" and put the question to Yu. Yu's words and the table
 below are unchanged. Updated again on 2026-10-29 with Yu's answers to four
 more questions; the answered items left "What still needs Yu's hand", and
-every earlier quote is unchanged.
+every earlier quote is unchanged. Updated again on 2026-10-29 with Yu's words
+on images and the agents' reading of them, and again the same day with three
+agents' calls on collecting politely (TCGplayer's robots.txt read every run,
+per-host backoff and self-suspension, migration 0146) and a pointer to the
+deletion procedure. Updated on 2026-10-30 with the activation and with Yu's
+word that day on TCGplayer's English Pokémon line.
 
 ## Yu's words
 
@@ -62,6 +67,51 @@ What the answers change:
 - **The collection limits stay the agents' choice, which Yu confirmed.** The
   answer does not say whether the emails name rates or hours, and this record
   does not claim either.
+
+## Yu's words, 2026-10-29: images
+
+On 2026-10-29, verbatim:
+
+> Also would be great to have images linked to each item (official or use
+> cardrush) so that humans and agents can double confirm the item.
+
+**What follows is the agents' reading, not Yu's decision.** The permission
+above covers prices; it names no image, and image copies stay locked (below).
+An agent took the more careful reading of these words for Yu:
+
+- **Official images keep their existing lane, unchanged:** self-hosted,
+  attributed Bandai English samples, through the existing projector and
+  readers (`apps/storefront/src/lib/cards/image-publication.ts`, and
+  `getEnCardImages` in `en-card-data.ts`). Today that is an English base
+  reference only, and it is labelled as one.
+- **A CardRush listing's own image is linked at CardRush's own URL,** credited
+  "Image: CardRush" and linked to the listing. Cambridge never copies,
+  mirrors, re-hosts, proxies or caches it. The collector records only the URL
+  the listing's page declares (its `og:image`), from the read it already makes
+  for the price (`price_source_listing_images`, migration 0145).
+- **The member chooses when CardRush is asked.** `/privacy` does not name
+  CardRush as a recipient, so a CardRush image sits behind a closed "Show
+  CardRush's listing image" control and loads only when the member opens it,
+  with no Referer; the official reference, from Cambridge's own image host,
+  shows at once. Showing CardRush images at once would need a CardRush entry
+  in `/privacy` first, which is Yu's call.
+- **CardRush images never appear in Cambridge's API or downloads,** the same
+  display-only line CardRush prices follow: `/api/v1/member-prices`, the
+  member CSV and NDJSON, and `/api/v1/market/*` carry no image.
+- **One switch turns the CardRush image lane off** if Yu says the email does
+  not cover linking: `CARDRUSH_LISTING_IMAGES=off`. It stops the display, from
+  the next deployment; the collector still records URLs while it is off. The
+  official lane is unaffected.
+- **Takedown:** `withdrawn_at` on a listing's row stops Cambridge linking its
+  image.
+- **The old copy script refuses to run.** `apps/storefront/scripts/self-host-cardrush.mjs`
+  copied CardRush images into Cambridge's buckets before the permission; it
+  now stops before any work, and `pnpm audit:redistribution` pins that.
+
+Whether the emails cover linking CardRush images is not recorded; the
+repository holds no copy of them. Migration 0145, like 0139–0144, is not
+applied to production by this work. Until it is, `/prices` shows official
+references only and the collector records no image links.
 
 ## What this changes
 
@@ -115,7 +165,15 @@ plan.").
   reports `SOURCE_UNAVAILABLE` rather than being routed around. A CardRush
   run reads the host's robots.txt first and stops if it disallows product
   pages (or the sitemap) to this collector or to every crawler, or cannot be
-  read; a host with no robots.txt (404, 410) sets no rule. One run at a time (collector leases,
+  read; a host with no robots.txt (404, 410) sets no rule. *Since 2026-10-29* a
+  TCGplayer run reads robots.txt first on all three hosts it reads, under its
+  own rule: the group naming the collector if one does, otherwise `*` (RFC
+  9309). A disallowed path every run reads refuses the run, a disallowed set
+  is skipped, and a file that leaves no listed set refuses the run. It keeps
+  the larger of 10 s and the Crawl-delay asked, and a host that refuses (a 403, a 429, a
+  503 with Retry-After, a challenge, robots.txt disallowing the collector) is
+  left alone until its Retry-After or 6 hours, and suspends itself after three
+  refused runs in a row until a person clears it (migration 0146). One run at a time (collector leases,
   migration 0143: one per CardRush host, one for all TCGplayer hosts, one
   for Cardmarket), so a duplicate delivery never doubles the rate. The legacy collection paths (wholesale
   crons, the `scrape-cardrush` CLI, stock checks and image copies) stay
@@ -164,8 +222,14 @@ plan.").
   pages" covers this is Yu's word since 2026-10-29 ("yes permission allows
   that"); the transport is the agents' call
   ([intake record](../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)).
-  TCGplayer's English Pokémon line (3) is not collected until a probe
-  confirms its category id and row label.
+  TCGplayer's English Pokémon line (3) was not to be collected until a probe
+  confirmed its category id and row label. On 2026-10-30 an agent
+  recommended probing it and switching it on, and Yu answered "lets go for
+  what you recommended". The probe that day confirmed both (category 3, rows
+  labelled `Pokemon`), and the line is switched on in code
+  ([intake record](../methodology/source-intake.md#pokemon-line-3-2026-10-30)):
+  it is collected once that code is deployed, its rows unmapped until a
+  reviewed Pokémon set crosswalk exists.
 - **Cardmarket: One Piece files only.** It is the game with reviewed set
   crosswalks, so its rows can feed derived data, and it is estimated to take 15
   to 30 s of a 270 s run. Its daily files add about 57 MB a day to an append-only
@@ -206,20 +270,58 @@ plan.").
   off, those routes answer 404 before a key is looked up, so nothing is
   counted, and OpenAPI does not list them.
 
+## Done on 2026-10-30
+
+Yu, 2026-10-29: "Go for the migration before collection and all sensible
+actions." Recorded by an agent (Claude Code session 8ef55b5e); times UTC.
+
+- **Database credential.** The storefront database password had been rotated
+  since June, and Vercel held it as a Sensitive value that cannot be read
+  back. Yu reset the RDS master password of `cambridgetcg-storefront` to one
+  an agent generated in-process (never printed), and the storefront's and
+  the admin app's database settings were updated to it and redeployed. The
+  admin app's copy had been stale too. Where the credential is kept is
+  recorded privately, not here. Database calls failed from about 10:09:30
+  to 10:13.
+- **Migrations 0139–0146** applied in order at 10:14:20–10:14:42, after a
+  read-only snapshot. The plan showed exactly those eight files pending.
+  Afterwards: no pending migrations; CardRush and TCGplayer release rows
+  display-only with derivation on; Cardmarket derivation on; the guards,
+  the display-only and forward-only constraints present; `member_price_latest`
+  backfilled (74,600 of 74,600 rows).
+- **Vercel limits.** Not checked directly. Production deployments carrying
+  the hourly crons and `maxDuration = 300` were accepted, which the plan
+  would refuse if it did not allow them. Function memory was not checked.
+- **Collectors and derivation.** `DATA_COLLECT_CARDMARKET`,
+  `DATA_COLLECT_CARDRUSH`, `DATA_COLLECT_TCGPLAYER` and `DATA_DERIVE_MARKET`
+  were set to `on` together at about 10:21 and deployed at about 10:24. The
+  plan's §9 says one at a time; the schedules still give each a first run of
+  its own (TCGplayer 10:45, CardRush 12:15, Cardmarket 05:30 on 31 October),
+  and derivation's first run (07:00, 31 October) follows all three. TCGplayer's
+  first run read 17 sets and wrote 1,308 rows, with all three hosts served.
+- **Still off:** `DATA_API_READS`, `DATA_API_PLANS_PUBLISHED`,
+  `DATA_API_CHECKOUT_INTAKE`.
+
 ## What still needs Yu's hand
 
 In order, as the plan's [activation list](../plans/tcg-data-platform/paid-data-api.md#9-activation-in-order)
-gives them. None was done by this work. The list's first two steps, the
+gives them. Steps 3 to 6 were done on 2026-10-30 ([above](#done-on-2026-10-30));
+the rest were not done by this work. The list's first two steps, the
 emails against the code (the TCGplayer scope and the limits) and the third
 DATA_RIGHTS line, were answered by Yu on 2026-10-29
 ([above](#yus-answers-2026-10-29)).
 
 - **Vercel limits.** Confirm the plan allows the new cron routes'
   `maxDuration = 300`, their memory and their schedules. Not checked.
-- **Migrations 0139–0144** on the production storefront database. This uses a
+- **Migrations 0139–0146** on the production storefront database. This uses a
   database credential the work was not given. The collectors refuse to run
   without 0143's lease table. 0144 (added 2026-10-29) bounds the free member
-  feed's current view; without it the feed reads as it did before.
+  feed's current view; without it the feed reads as it did before. 0145
+  (added 2026-10-29) holds the CardRush listing image links; without it the
+  CardRush collector records none (each run that writes a batch logs one
+  line), and `/prices` shows official references only. 0146 (added
+  2026-10-29) keeps each collector's per-host backoff and suspension; without
+  it the collectors run with neither.
 - **Turning on each collector** (`DATA_COLLECT_CARDMARKET`,
   `DATA_COLLECT_CARDRUSH`, `DATA_COLLECT_TCGPLAYER`) **and the derivation job**
   (`DATA_DERIVE_MARKET`). `DATA_COLLECT_CARDMARKET` waits for migration
@@ -262,3 +364,6 @@ Each source keeps its own revocation switch: `revoked_at`, `member_display`
 and `derivation` on its `member_price_source_releases` row. Derived rows carry
 their contributing sources, so revoking a source's derivation hides every
 derived row it contributed to on the next read. The rows are not rewritten.
+When a source asks for its data to be deleted, rather than no longer used, the
+procedure is [price-data-deletion.md](../operations/price-data-deletion.md);
+the guarded path it needs is designed there and not yet built.

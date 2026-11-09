@@ -1,9 +1,9 @@
 /**
  * Email Usage Control Service
  *
- * Tracks monthly email usage and reports plan-capacity advisories. Email
- * capacities never pause delivery; merchants can move to a larger fixed plan
- * when sustained volume calls for it.
+ * Tracks monthly email usage. Marketing email (marketing-email.server.ts)
+ * stops at the monthly limit, through reserveEmails; shopper account email
+ * only warns.
  *
  * @module email-usage-control.server
  */
@@ -232,6 +232,42 @@ export async function recordEmailSent(
     console.error("[EmailUsageControl] Error recording email:", error);
     // Don't throw - recording failure shouldn't block email sending
   }
+}
+
+export type EmailReservation =
+  | { reserved: true; usageId: string }
+  | { reserved: false; remaining: number; limit: number };
+
+/**
+ * Marketing email's hard stop: count `count` campaign emails against this
+ * month's limit before they are sent, in one conditional write, so two sends
+ * at the same moment can't both use the last emails left. Throws when the
+ * usage can't be read; the caller then sends nothing. Give back the emails
+ * that weren't sent with releaseEmails.
+ */
+export async function reserveEmails(shop: string, count: number): Promise<EmailReservation> {
+  // One after the other: both may create the shop's entitlements on first
+  // use, and two creates at once collide
+  const limit = await getLimit(shop, "maxEmails");
+  const usage = await getOrCreateMonthlyUsage(shop);
+
+  const taken = await prisma.monthlyEmailUsage.updateMany({
+    where: { id: usage.id, ...(limit < 999999 && { emailCount: { lte: limit - count } }) },
+    data: { emailCount: { increment: count }, campaignEmails: { increment: count }, lastEmailDate: new Date() },
+  });
+  if (taken.count === 1) return { reserved: true, usageId: usage.id };
+
+  const current = await prisma.monthlyEmailUsage.findUnique({ where: { id: usage.id }, select: { emailCount: true } });
+  return { reserved: false, remaining: Math.max(0, limit - (current?.emailCount ?? usage.emailCount)), limit };
+}
+
+/** Give back emails reserved with reserveEmails that weren't sent. */
+export async function releaseEmails(usageId: string, count: number): Promise<void> {
+  if (count <= 0) return;
+  await prisma.monthlyEmailUsage.updateMany({
+    where: { id: usageId },
+    data: { emailCount: { decrement: count }, campaignEmails: { decrement: count } },
+  });
 }
 
 /**

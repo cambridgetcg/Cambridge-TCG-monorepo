@@ -1,6 +1,6 @@
 import "@shopify/shopify-app-remix/adapters/node";
 import {
-  ApiVersion,
+  type ApiVersion,
   AppDistribution,
   shopifyApp,
   BillingInterval,
@@ -9,6 +9,7 @@ import prisma from "./db.server";
 import { toCurrency } from "./utils/currency-code.server";
 import { EncryptedPrismaSessionStorage } from "./utils/session-storage.server";
 import { syncCustomersInBackground } from "./services/background-customer-sync.server";
+import { waitUntil } from "./utils/wait-until.server";
 import { PRICING_PLANS } from "./constants/pricing-contract";
 
 // Import and re-export billing plan names from shared constants
@@ -43,10 +44,16 @@ export {
   ANNUAL_PLAN,
 };
 
+// Admin API 2026-10, supported until 2027-10-16. The installed
+// @shopify/shopify-api 11 has no enum member past October25 but takes the
+// version as a plain string, so it is named here. .graphqlrc.ts names the
+// same version for codegen.
+const SHOPIFY_API_VERSION = "2026-10" as ApiVersion;
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: ApiVersion.January25,
+  apiVersion: SHOPIFY_API_VERSION,
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
@@ -276,12 +283,15 @@ const shopify = shopifyApp({
         }
       }
 
-      // Trigger customer sync if not completed
+      // Trigger customer sync if not completed. It runs after the install
+      // response is sent, so Vercel is asked to keep the function alive for it.
       if (!shopSettings?.customersInitialSynced) {
         console.log(`[AfterAuth] Starting initial customer sync for ${session.shop}`);
-        syncCustomersInBackground(session.shop, admin).catch((error) => {
-          console.error(`[AfterAuth] Customer sync failed for ${session.shop}:`, error);
-        });
+        waitUntil(
+          syncCustomersInBackground(session.shop, admin).catch((error) => {
+            console.error(`[AfterAuth] Customer sync failed for ${session.shop}:`, error);
+          }),
+        );
       } else {
         console.log(`[AfterAuth] Customers already synced for ${session.shop}, skipping re-sync`);
       }
@@ -297,7 +307,7 @@ const shopify = shopifyApp({
 });
 
 export default shopify;
-export const apiVersion = ApiVersion.January25;
+export const apiVersion = SHOPIFY_API_VERSION;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;

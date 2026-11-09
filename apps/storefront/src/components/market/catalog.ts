@@ -93,8 +93,11 @@ export function parseBrowseParams(sp: URLSearchParams): CatalogQuery {
   };
 }
 
-/** Query string for GET /api/market/catalog from a CatalogQuery. */
-export function buildCatalogSearch(q: CatalogQuery, limit = PAGE_SIZE): string {
+/** Query string for GET /api/market/catalog from a CatalogQuery.
+ * `sameLanguageImages` asks for a Japanese card's own-language official
+ * image; only a caller that prints its label and Japanese credit beside it
+ * (the /market grid and table) sets it. */
+export function buildCatalogSearch(q: CatalogQuery, limit = PAGE_SIZE, { sameLanguageImages = false } = {}): string {
   const params = new URLSearchParams({
     game: q.game,
     sort: q.sort,
@@ -103,6 +106,7 @@ export function buildCatalogSearch(q: CatalogQuery, limit = PAGE_SIZE): string {
   });
   if (q.set) params.set("set", q.set);
   if (q.q) params.set("q", q.q);
+  if (sameLanguageImages) params.set("images", "same-language");
   return params.toString();
 }
 

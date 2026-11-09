@@ -1,0 +1,117 @@
+{
+  "file": "png/rewardspro_social_linkedin-cover_navy_1512x256_20261107_v01.png",
+  "brand": "RewardsPro",
+  "campaign": "social",
+  "asset": "linkedin-cover",
+  "variant": "navy",
+  "brief_id": "STRATEGY.md §7 A3",
+  "status": "PROPOSAL for Yu: not approved, not published",
+  "size": {
+    "width": 1512,
+    "height": 256
+  },
+  "bytes": 13373,
+  "sha256": "3d8483c34f72bd3f3b33f663d09b094fa0643607dcb1cb7bc0f958f1779311b0",
+  "format": "PNG, opaque, 3 channels, ICC profile embedded (sRGB)",
+  "review_only": false,
+  "max_bytes": 3000000,
+  "under_limit": true,
+  "platforms": [
+    "LinkedIn Page cover (1512x256; PNG or JPEG ≤3 MB [V] LinkedIn help a563309, which also recommends JPEG over PNG)"
+  ],
+  "use": "LinkedIn Page cover. One of three grounds; Yu picks (README, Doubt 1).",
+  "safe_before_g0": null,
+  "safe_before_g0_reason": "No product claim, but on navy the mark misses the kit's own |Lc| 30 bar: Yu's call (README, Doubt 1).",
+  "claim_ids": [],
+  "claim_status_at_build": {},
+  "draft": false,
+  "blockers": [],
+  "text_on_image": [
+    "RewardsPro (the kit's outlined wordmark in the reversed horizontal lockup)"
+  ],
+  "alt_text": "The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on a navy ground. No other text.",
+  "alt_chars": 128,
+  "contrast": [
+    {
+      "text": "logo lockup-horizontal-reversed (exempt from WCAG)",
+      "colours": "#658aad on #1a3e5c",
+      "wcag": 3.07,
+      "apca_lc": -29.34,
+      "needs": null,
+      "pass": null
+    },
+    {
+      "text": "logo lockup-horizontal-reversed (exempt from WCAG)",
+      "colours": "#17bebb on #1a3e5c",
+      "wcag": 4.83,
+      "apca_lc": -48.72,
+      "needs": null,
+      "pass": null
+    },
+    {
+      "text": "logo lockup-horizontal-reversed (exempt from WCAG)",
+      "colours": "#ffffff on #1a3e5c",
+      "wcag": 11.13,
+      "apca_lc": -99.34,
+      "needs": null,
+      "pass": null
+    }
+  ],
+  "logo_display": [
+    {
+      "logo": "lockup-horizontal-reversed",
+      "native": "508.33x100 px",
+      "shown_at": "390 CSS px across 1512 source px [I] (phone feed width)",
+      "css_width": 131.12,
+      "css_cap_height": 12.9,
+      "css_height": 25.79,
+      "kit_minimum": "130 px wide, cap height 12 px",
+      "ok": true
+    }
+  ],
+  "notes": "Ground #1A3E5C (navy, as STRATEGY.md §7 names it). The reversed lockup's R shape #658AAD clears 3:1 (3.07:1) but misses the kit's APCA bar for a mark on a dark ground (|Lc| 29.34 against 30; kit/BRAND.md \"Colour versions\"). Logos are exempt from WCAG; this is Yu's call.",
+  "master": {
+    "path": "masters/rewardspro_social_linkedin-cover_navy_1512x256_20261107_v01.svg",
+    "sha256": "71ed353a6fc3892b94d8e3325311ab080b3c8d4a9931940468121707f3918b12",
+    "source": "src/rewardspro_social_linkedin-cover_navy_1512x256_20261107_v01.src.svg"
+  },
+  "inputs": [
+    {
+      "path": "kit/colour/tokens.json",
+      "sha256": "538dd5aeefcaa3c215ba3866a5a807366354e759170a220a657cdda42cb0c00a",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. From the 2026-10-27 kit rebuild (676c10b4); not covered by an approval.",
+      "note": "Every token used here has the same value as in the approved 2026-10-20 tokens, except dark.bg: #09110F came with the rebuild as the dark landing's ink (it was neutral 950, #1B1D1F)."
+    },
+    {
+      "path": "kit/logo/lockup-horizontal-reversed.svg",
+      "sha256": "f3440b861495ff5ae25c17ec84ece502442fdfec30609e1f8ed49d828170e665",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+    }
+  ],
+  "kernel_sha256": {
+    "kernel.toml": "3ca10d6949ee134102b27f53d35e02253c6852e4474647b3c4a23193200a3f22",
+    "brand.json": "713ff39ee0a33444848b58298a81f8ec59d828142cb2759dc593933b3aa0f657",
+    "kit/.brandkit-fingerprint": "bdb0874b5c9df2937c859d43c3d0e33dbfb8cf10e6fecc3a1408cef718b85265"
+  },
+  "tools": {
+    "render.mjs": "render.mjs v01 (2026-11-07, fix pass 1)",
+    "node": "v26.0.0",
+    "sharp": "0.34.5",
+    "libvips": "8.17.3",
+    "librsvg": "2.61.2",
+    "vectorcraft-cli": "vectorcraft-cli 0.21.0",
+    "font": "Inter Regular and SemiBold as bundled in vectorcraft-cli (OFL-1.1, github.com/rsms/inter; vectorcraft-cli ASSETS.md rows assets/fonts/Inter-*.ttf), outlined to paths"
+  },
+  "fonts_resolved": [],
+  "text_measured": [],
+  "ai_involvement": "none",
+  "ai_involvement_note": "No generative-AI image, texture or text-to-image step, and no AI-written words on the image. A Claude Code agent wrote this layout code and chose the placement; every shape is the kit's own path data or a plain rectangle.",
+  "jurisdictions": [
+    "UK"
+  ],
+  "channel": "social (no account exists yet)",
+  "gate_report": null,
+  "approval_id": null,
+  "publish_url": null,
+  "created": "2026-11-07"
+}

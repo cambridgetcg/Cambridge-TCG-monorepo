@@ -41,8 +41,11 @@ describe("robots.txt after Quiet Doors", () => {
     expect(robots).not.toContain("contact identified bots");
     expect(robots).toContain("# Limits are stated here first; a change can take up to 24 hours to bind.");
   });
-  it("changes no rule line", () => {
-    const rules = (t: string[]) => t.filter((l) => l && !l.startsWith("#"));
+  it("changes no rule line, beyond the ordering and /login of 2026-11-06", () => {
+    // 2026-11-06 moved every Disallow above "Allow: /" for first-match
+    // parsers and widened "/login/" to "/login"; no rule was added or lost.
+    const rules = (t: string[]) => t.filter((l) => l && !l.startsWith("#"))
+      .map((l) => (l === "Disallow: /login/" ? "Disallow: /login" : l)).sort();
     expect(rules(robots.split("\n"))).toEqual(rules(before));
   });
 });

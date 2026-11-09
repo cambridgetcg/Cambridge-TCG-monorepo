@@ -8,6 +8,7 @@ import { syncCustomersInBackground } from "~/services/background-customer-sync.s
 import { sendCampaignEmails } from "~/services/email-notifications.server";
 import { verifyUnsubscribeToken } from "~/services/marketing-consent.server";
 import { sendMarketingEmail } from "~/services/marketing-email.server";
+import { encryptSecret } from "~/utils/encryption.server";
 import { server } from "../../mocks/server";
 import { hasTestDatabase, resetDatabase } from "./database";
 import { seedOfflineSession, signedWebhook } from "./shopify";
@@ -113,8 +114,9 @@ describe.skipIf(!hasTestDatabase)("email marketing consent on Postgres", () => {
 
   it("refuses rather than pretends for shops that market through Klaviyo", async () => {
     const sent = mockSendGrid();
+    // Stored the way the app saves it: a key it can't read counts as no key
     await prisma.emailSettings.create({
-      data: { shop: SHOP, senderName: "Shop", senderEmail: "shop@example.test", emailProvider: "KLAVIYO", klaviyoEnabled: true, klaviyoApiKey: "pk" },
+      data: { shop: SHOP, senderName: "Shop", senderEmail: "shop@example.test", emailProvider: "KLAVIYO", klaviyoEnabled: true, klaviyoApiKey: encryptSecret("pk") },
     });
     const yes = await customer("yes@example.test", { acceptsMarketing: true });
 

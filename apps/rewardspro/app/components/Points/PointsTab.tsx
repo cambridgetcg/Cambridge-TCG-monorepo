@@ -24,6 +24,7 @@ import {
   SearchIcon,
 } from "@shopify/polaris-icons";
 import { PointsAdjustmentForm } from "./PointsAdjustmentForm";
+import { FEATURES_AVAILABLE } from "~/constants/feature-availability";
 
 type ActionType = 'none' | 'add' | 'remove';
 
@@ -225,6 +226,19 @@ export function PointsTab({
       details,
     ];
   });
+
+  // Points are hidden until shoppers can spend them (constants/feature-availability.ts)
+  if (!FEATURES_AVAILABLE.points) {
+    return (
+      <Card>
+        <Box padding="400">
+          <Text as="p" variant="bodyMd" tone="subdued" alignment="center">
+            Points aren't available yet: shoppers would have nowhere to spend them.
+          </Text>
+        </Box>
+      </Card>
+    );
+  }
 
   return (
     <BlockStack gap="400">

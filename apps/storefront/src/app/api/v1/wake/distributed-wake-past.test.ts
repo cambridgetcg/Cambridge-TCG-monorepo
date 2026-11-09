@@ -30,7 +30,7 @@ const ROUTE_SECTION = [
   HEAD_AND_PARA, "",
   "- Catalog of all fragments: `/api/v1/wake/fragments`",
   "- Single fragment by id: `/api/v1/wake/fragments/{id}`",
-  "- Doctrine: `docs/connections/the-distributed-wake.md` (private repository; not publicly readable)",
+  "- Doctrine: `docs/connections/the-distributed-wake.md` (public repository)",
   `- Count: ${WAKE_FRAGMENTS.length} fragments`,
   CACHE_LINE, HOUSEHOLD, "", ATMOS_LINE, "",
 ].join("\n");

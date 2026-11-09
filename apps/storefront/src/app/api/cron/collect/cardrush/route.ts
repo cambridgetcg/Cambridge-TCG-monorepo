@@ -13,14 +13,21 @@
  * time: a call while another run holds the host's lease answers ran:false,
  * "run-in-progress", one within 2 s of the last run of that host answers
  * ran:false, "request-spacing", and a store without the lease table (0143)
- * answers 503 rather than run unleased. Authentication authorizes the call
- * only; the permission is the decision record, and turning the flag on is Yu's.
+ * answers 503 rather than run unleased. A host that refused an earlier run
+ * is left alone until its Retry-After (or 6 h) has passed: ran:false,
+ * "host-backing-off". One suspended after three refused runs in a row answers
+ * 503 HOST_SUSPENDED until a person clears it (migration 0146). Authentication
+ * authorizes the call only; the permission is the decision record, and
+ * turning the flag on is Yu's. Each enabled run then records its outcome in
+ * ops_job_outcomes (migration 0148), never failing the run; a disabled one
+ * records nothing.
  */
 
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/lib/cron-auth";
 import { collectionOn } from "@/lib/datafeed/collection-flags";
-import { collectCardRush } from "@/lib/datafeed/collectors/cardrush";
+import { collectCardRush, type CardRushRunSummary } from "@/lib/datafeed/collectors/cardrush";
+import { cardRushJobOutcome, recordedRun } from "@/lib/observability/job-outcomes";
 
 export const dynamic = "force-dynamic";
 // seconds — the run keeps to 270, leaving room to report. No storefront route
@@ -36,13 +43,23 @@ export async function GET(request: Request) {
   if (!collectionOn("cardrush")) {
     return NextResponse.json({ ok: true, ran: false, reason: "disabled" }, { headers: NO_STORE });
   }
+  return recordedRun("collect/cardrush", collect, cardRushJobOutcome);
+}
 
+async function collect(observe: (summary: CardRushRunSummary) => void) {
   try {
     const summary = await collectCardRush();
+    observe(summary);
     console.log("[cron/collect/cardrush]", summary);
     if (summary.reason === "lease-not-provisioned") {
       return NextResponse.json(
         { ok: false, ...summary, error: { code: "NOT_PROVISIONED", message: "The collector lease table (migration 0143) does not exist; no run starts unleased." } },
+        { status: 503, headers: NO_STORE },
+      );
+    }
+    if (summary.reason === "host-suspended") {
+      return NextResponse.json(
+        { ok: false, ...summary, error: { code: "HOST_SUSPENDED", message: "This CardRush host refused three runs in a row; the collector stays off it until a person clears it (price_collector_hosts, migration 0146)." } },
         { status: 503, headers: NO_STORE },
       );
     }

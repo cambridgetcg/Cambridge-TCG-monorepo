@@ -30,6 +30,7 @@
 
 import { jsonResponse, FRESHNESS } from "@/lib/data-pantry";
 import { scheduledCollection } from "@/lib/datafeed/collection-flags";
+import { trafficPullOn } from "@/lib/traffic/pull";
 
 export const dynamic = "force-static";
 export const revalidate = 3600;
@@ -55,6 +56,10 @@ const CATALOG_SIZE_ESTIMATE = {
 
 // Static route: read when the page is built, as the deployment's flags stand.
 const SCHEDULED_COLLECTION = scheduledCollection();
+// While the hourly traffic pull runs, requests per UTC hour are counted for
+// the admin monitor (docs/operations/monitoring.md), so "not measured" would
+// be false; they are still not published.
+const LOAD_COUNTED = trafficPullOn();
 
 /** Recommended polite-poll cadence by auth class. */
 const RECOMMENDED_PACE = {
@@ -186,10 +191,14 @@ export async function GET(): Promise<Response> {
 
     peak_hours_utc: {
       known: false,
-      note:
-        "no peak-hour telemetry yet — the platform does not currently " +
-        "publish load patterns. Recommended pace is constant across all " +
-        "hours. Substrate-honest gap; named in /api/v1/gaps when shipped.",
+      note: LOAD_COUNTED
+        ? "no published peak-hour telemetry — requests per UTC hour by route " +
+          "group are counted internally, as aggregate counts only " +
+          "(/privacy#aggregate-counts), and are not published. Recommended " +
+          "pace is constant across all hours."
+        : "no peak-hour telemetry yet — the platform does not currently " +
+          "publish load patterns. Recommended pace is constant across all " +
+          "hours. Substrate-honest gap; named in /api/v1/gaps when shipped.",
     },
 
     bandwidth_floors_kb_per_response: {
@@ -267,7 +276,9 @@ export async function GET(): Promise<Response> {
     does_not_include: [
       "live per-bearer-token quota state (agents currently track their own usage)",
       "live catalog-size counts (the as_of estimate refreshes hourly; live counts via /api/v1/sources)",
-      "peak-hour telemetry (the platform does not currently measure load patterns)",
+      LOAD_COUNTED
+        ? "peak-hour telemetry (requests per UTC hour are counted internally as aggregate counts and not published)"
+        : "peak-hour telemetry (the platform does not currently measure load patterns)",
       "guaranteed-completion windows for bulk crawls (best-effort only)",
       "throttling decisions made about your specific User-Agent (no per-agent state)",
     ],

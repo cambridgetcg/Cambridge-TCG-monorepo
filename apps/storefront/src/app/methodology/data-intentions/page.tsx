@@ -37,7 +37,7 @@ export default function DataIntentionsMethodology() {
         ingestion code. Legacy adapters must pass the same intake before they
         are activated or their data receives a new publication path. The gate is the
         source-intake framework,{" "}
-        <code>docs/methodology/source-intake.md</code> (private repository). It
+        <code>docs/methodology/source-intake.md</code> (public repository). It
         runs four checks in order and forces the reasoning to be recorded,
         not left in someone&apos;s head:
       </p>
@@ -200,7 +200,7 @@ export default function DataIntentionsMethodology() {
 
       <blockquote>
         <strong>Where this lives.</strong> The gate is{" "}
-        <code>docs/methodology/source-intake.md</code> (private repository). The
+        <code>docs/methodology/source-intake.md</code> (public repository). The
         declared sources, each with its tier and terms, are inspectable
         at <Link href="/api/v1/sources">/api/v1/sources</Link>. Sold comps are
         visibly paused at <Link href="/api/v1/sold-comps">/api/v1/sold-comps</Link>.

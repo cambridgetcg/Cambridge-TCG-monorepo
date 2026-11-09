@@ -38,19 +38,25 @@ describe("advisory-only plan capacities", () => {
     expect(source).toContain("return createFn(tx)");
   });
 
-  it("never locks or refuses email because of plan capacity", () => {
+  it("never locks or refuses a shopper's own account email because of plan capacity", () => {
     const usageSource = read("services/email-usage-control.server.ts");
     const providerSource = read("services/email-provider.server.ts");
-    const marketingSource = read("services/marketing-email.server.ts");
 
     expect(usageSource).not.toContain("allowed: false");
     expect(usageSource).not.toContain("isLocked: true");
     expect(usageSource).not.toContain("upgradeRequired: true");
     expect(providerSource).not.toContain("if (!usageCheck.allowed)");
     expect(providerSource).toContain("await reportEmailCapacity(shop, 1)");
-    // Marketing sends report capacity for the whole send and never refuse on it
-    expect(marketingSource).toContain("await checkEmailLimit(shop, customers.length)");
-    expect(marketingSource).not.toContain(".allowed");
+  });
+
+  it("stops marketing email at the shop's monthly email limit", () => {
+    const marketingSource = read("services/marketing-email.server.ts");
+
+    // The free app pays for every marketing email: the emails are counted
+    // before sending, and a send that would go past the limit is refused
+    // whole (test/integration/postgres/scheduled-campaigns)
+    expect(marketingSource).toContain("reservation = await reserveEmails(shop, customers.length)");
+    expect(marketingSource).toContain("if (!reservation.reserved) return refused(");
   });
 
   it("retains the Corporate gate for white-label controls", () => {

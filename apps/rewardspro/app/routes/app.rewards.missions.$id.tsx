@@ -35,6 +35,7 @@ import {
 } from "../services/challenge-management.server";
 import {
   TEMPLATES_BY_CADENCE,
+  MISSION_REWARD_TYPES,
   calculateMissionDates,
   type MissionTemplate,
   type MissionCadence,
@@ -101,14 +102,6 @@ const OBJECTIVE_TYPES: { value: ChallengeObjectiveType; label: string }[] = [
   { value: "PRODUCT_PURCHASE", label: "Purchase Products" },
   { value: "REVIEW", label: "Submit Reviews" },
   { value: "STREAK", label: "Purchase Streak" },
-];
-
-const REWARD_TYPES: { value: ChallengeRewardType; label: string }[] = [
-  { value: "POINTS", label: "Points" },
-  { value: "STORE_CREDIT", label: "Store Credit" },
-  { value: "DISCOUNT", label: "Discount Code" },
-  { value: "TIER_UPGRADE", label: "Tier Upgrade" },
-  { value: "CUSTOM", label: "Custom Reward" },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; tone: "info" | "success" | "warning" | "attention" | "critical" }> = {
@@ -436,7 +429,7 @@ export default function ChallengeDetailPage() {
 
   // Reward modal state
   const [showRewardModal, setShowRewardModal] = useState(false);
-  const [rewardType, setRewardType] = useState<string>(data.challenge?.reward?.rewardType || "POINTS");
+  const [rewardType, setRewardType] = useState<string>(data.challenge?.reward?.rewardType || "CUSTOM");
   const [rewardDescription, setRewardDescription] = useState(data.challenge?.reward?.description || "");
   const [rewardAmount, setRewardAmount] = useState(
     (data.challenge?.reward?.rewardValue as any)?.amount?.toString() || "100"
@@ -674,8 +667,8 @@ export default function ChallengeDetailPage() {
             </Layout.Section>
           )}
 
-          {/* Template Selector (for new missions) */}
-          {data.isNew && data.templates && (
+          {/* Template Selector (for new missions with templates on offer) */}
+          {data.isNew && data.templates && Object.values(data.templates).some((list) => list.length > 0) && (
             <Layout.Section>
               <Card>
                 <BlockStack gap="400">
@@ -919,7 +912,7 @@ export default function ChallengeDetailPage() {
           <FormLayout>
             <Select
               label="Reward Type"
-              options={REWARD_TYPES.map((r) => ({
+              options={MISSION_REWARD_TYPES.map((r) => ({
                 label: r.label,
                 value: r.value,
               }))}
@@ -930,7 +923,7 @@ export default function ChallengeDetailPage() {
               label="Description"
               value={rewardDescription}
               onChange={setRewardDescription}
-              placeholder="e.g., Earn 500 bonus points!"
+              placeholder="e.g., A free gift with your next order"
               autoComplete="off"
             />
             {(rewardType === "POINTS" || rewardType === "STORE_CREDIT" || rewardType === "DISCOUNT") && (

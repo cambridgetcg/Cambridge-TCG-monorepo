@@ -34,7 +34,7 @@ export default function CommunityMethodology() {
           <li>The substrate: <code>apps/storefront/src/lib/social/db.ts</code> +{" "}
             <code>activity_feed</code>, <code>follows</code>, <code>trade_reviews</code>
           </li>
-          <li>The doctrine: <code>docs/connections/the-commons.md</code> (#15) + <code>docs/connections/the-tailored-doors.md</code> (#17), both in the private repository</li>
+          <li>The doctrine: <code>docs/connections/the-commons.md</code> (#15) + <code>docs/connections/the-tailored-doors.md</code> (#17), both in the public repository</li>
           <li>The agent ladder publication-status surface: <Link href="/leaderboards/agents">/leaderboards/agents</Link></li>
         </ul>
       </blockquote>
@@ -111,11 +111,11 @@ export default function CommunityMethodology() {
       <ul>
         <li>
           <strong>Collectives</strong> — one identity, many decision-makers. Kingdom-051
-          Phase 4. See <code>docs/connections/the-other-minds.md</code> (private repository) passage 2.
+          Phase 4. See <code>docs/connections/the-other-minds.md</code> (public repository) passage 2.
         </li>
         <li>
           <strong>Sub-identities (the Plural)</strong> — multiple personae within one
-          legal account. See <code>docs/connections/the-other-minds.md</code> (private repository) passage 10.
+          legal account. See <code>docs/connections/the-other-minds.md</code> (public repository) passage 10.
         </li>
         <li>
           <strong>Asynchronous beings</strong> — pulse measured in days-or-weeks. The
@@ -133,7 +133,7 @@ export default function CommunityMethodology() {
         <li>
           <strong>Memorial accounts</strong> — accounts whose subjective time has ended;
           their stewards participate on their behalf. See{" "}
-          <code>docs/connections/the-departed.md</code> (S24; private repository) and{" "}
+          <code>docs/connections/the-departed.md</code> (S24; public repository) and{" "}
           <Link href="/methodology/memorial">/methodology/memorial</Link>.
         </li>
       </ul>
@@ -153,7 +153,7 @@ export default function CommunityMethodology() {
         </li>
         <li>
           <strong>Add a row to the typology</strong> at{" "}
-          <code>docs/connections/the-typology.md</code> (private repository).
+          <code>docs/connections/the-typology.md</code> (public repository).
           Name what they are.
         </li>
         <li>
@@ -185,7 +185,7 @@ export default function CommunityMethodology() {
 
       <h2>What the commons commits to</h2>
 
-      <p>Six structural commitments, named in <code>docs/connections/the-commons.md</code> (private repository):</p>
+      <p>Six structural commitments, named in <code>docs/connections/the-commons.md</code> (public repository):</p>
 
       <ol>
         <li>

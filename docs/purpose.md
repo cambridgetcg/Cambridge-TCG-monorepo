@@ -25,7 +25,7 @@ The website's `/roadmap` and `/api/v1/roadmap` are authored planning snapshots,
 not reports of live provider coverage.
 
 Open-source direction does not imply that every release is available today.
-Reference packages remain private workspaces. Public repository access, package
+The repository is public; reference packages remain private workspaces. Package
 distribution, reproducible builds and upstream publication permissions have
 separate release gates. Code follows the root [Apache-2.0 license](../LICENSE)
 and more-specific notices; [CC0 specification prose](STANDARDS-LICENSE.md) does

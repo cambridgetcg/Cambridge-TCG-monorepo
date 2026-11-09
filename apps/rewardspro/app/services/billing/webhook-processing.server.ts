@@ -286,28 +286,27 @@ export function extractTimestamps(
 
 /**
  * Clean up old processed webhook records (TTL: 7 days)
+ *
+ * Throws on failure, so the webhook-cleanup cron answers 500 instead of
+ * reporting that it deleted nothing.
  */
 export async function cleanupOldWebhooks(): Promise<number> {
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  try {
-    const result = await prisma.processedWebhook.deleteMany({
-      where: {
-        receivedAt: { lt: cutoff },
-        status: { in: ["COMPLETED", "FAILED"] }, // Don't delete still-processing
-      },
-    });
+  const result = await prisma.processedWebhook.deleteMany({
+    where: {
+      receivedAt: { lt: cutoff },
+      status: { in: ["COMPLETED", "FAILED"] }, // Don't delete still-processing
+    },
+  });
 
-    console.log(`[WebhookProcessing] Cleaned up ${result.count} old webhook records`);
-    return result.count;
-  } catch (error) {
-    console.error("[WebhookProcessing] Cleanup failed:", error);
-    return 0;
-  }
+  console.log(`[WebhookProcessing] Cleaned up ${result.count} old webhook records`);
+  return result.count;
 }
 
 /**
- * Get webhook processing statistics
+ * Get webhook processing statistics. Throws on failure rather than
+ * reporting zeros.
  */
 export async function getWebhookStats(shop?: string): Promise<{
   total: number;
@@ -317,17 +316,12 @@ export async function getWebhookStats(shop?: string): Promise<{
 }> {
   const where = shop ? { shop } : {};
 
-  try {
-    const [total, completed, failed, processing] = await Promise.all([
-      prisma.processedWebhook.count({ where }),
-      prisma.processedWebhook.count({ where: { ...where, status: "COMPLETED" } }),
-      prisma.processedWebhook.count({ where: { ...where, status: "FAILED" } }),
-      prisma.processedWebhook.count({ where: { ...where, status: "PROCESSING" } }),
-    ]);
+  const [total, completed, failed, processing] = await Promise.all([
+    prisma.processedWebhook.count({ where }),
+    prisma.processedWebhook.count({ where: { ...where, status: "COMPLETED" } }),
+    prisma.processedWebhook.count({ where: { ...where, status: "FAILED" } }),
+    prisma.processedWebhook.count({ where: { ...where, status: "PROCESSING" } }),
+  ]);
 
-    return { total, completed, failed, processing };
-  } catch (error) {
-    console.error("[WebhookProcessing] Failed to get stats:", error);
-    return { total: 0, completed: 0, failed: 0, processing: 0 };
-  }
+  return { total, completed, failed, processing };
 }
