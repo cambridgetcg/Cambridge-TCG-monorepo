@@ -22,8 +22,11 @@
         its own Rows line.
 
       Publishing rule (WORK.md, RP-09). A block or sub-block ships only when every row its Rows line names is
-      "verified" with a second session's concur, every suffixed part is recorded in its row and checked with it,
-      and its "Also waits for" line is met. Otherwise it is deleted, not hedged.
+      "verified" with a second session's concur and lists this page's channel in its channels, every suffixed part
+      is recorded in its row and checked with it, and its "Also waits for" line is met. Otherwise it is deleted, not
+      hedged. This page's channel is "docs" (the ledger's channel list), or "landing" if RP-06 rules that /help/ is
+      part of the landing. On main, of the existing rows this page uses, only rp-store-credit and rp-vip-tiers list
+      "docs", and rp-scope, rp-import-past, rp-switch-off and rp-help-in-settings list neither.
 
       Outside every block, so rebuilt from the shipped set at review-pack time:
       - the title, meta description, og:title and og:description: they name only sections that ship;
@@ -31,15 +34,19 @@
       - the header and footer: RP-08's shared bytes, with the company number and registered office; the footer's
         maker line carries rp-maker.
 
-      The deploy copy carries no comments. After the deletions, strip every HTML comment, then hash the stripped
-      bytes for Yu's review pack. These notes are for review only and never ship.
+      The deploy copy carries no comments and no suffixes. After the deletions, check each Rows line against its
+      block's data-claims. Then rewrite every data-claim to the row ids as RP-06 recorded them, or to bare row ids,
+      so no suffix ships: ":pr187" would put a PR number in public bytes, and ":uN" counts uncertainty lines that
+      RP-06's narrowings can renumber. Check that every remaining id is verified and lists this page's channel.
+      Then strip every HTML comment, and hash the stripped bytes for Yu's review pack. These notes are for review
+      only and never ship.
 
       Code locators are apps/rewards paths at origin/main 5c953f5c (the branch base 2fe85336 plus #157 and #148).
     -->
     <title>Help: set up cashback and VIP tiers – RewardsPro</title>
     <meta
       name="description"
-      content="How RewardsPro works for Shopify stores: setup, which orders earn cashback, spending credit when signed in or with Shop Pay, VIP tiers, refunds and cost."
+      content="How RewardsPro works for Shopify stores: setup, what earns cashback, spending credit (new customer accounts or Shop Pay), VIP tiers, refunds and cost."
     />
     <link rel="canonical" href="https://rewardspro.io/help/" />
     <meta name="robots" content="index,follow" />
@@ -54,7 +61,7 @@
     <meta property="og:title" content="Help: set up cashback and VIP tiers – RewardsPro" />
     <meta
       property="og:description"
-      content="How RewardsPro works for Shopify stores: setup, which orders earn cashback, spending credit when signed in or with Shop Pay, VIP tiers, refunds and cost."
+      content="How RewardsPro works for Shopify stores: setup, what earns cashback, spending credit (new customer accounts or Shop Pay), VIP tiers, refunds and cost."
     />
     <meta property="og:url" content="https://rewardspro.io/help/" />
     <meta name="twitter:card" content="summary" />
@@ -332,15 +339,22 @@
       <!-- BEGIN block:before-you-start
            Rows: sh-sc-signin-legacy; sh-sc-subscriptions (new) and sh-sc-channels:u1 (MESSAGING section 7: RP-06 adds
            sh-sc-subscriptions with this sentence, or widens sh-sc-channels, whose u1 holds the fact); rp-no-order-rules
-           (new); rp-home-spend-check (new; MESSAGING section 7); rp-setup-steps:scope (Home's three checks; PR #187's
-           second read: that rule is Home's, and Shopify also lets a buyer spend with Shop Pay); rp-setup-steps:src (its
-           Help Center source quotes the two settings sentences); sh-sc-checkout-option (new). Home's "doesn't check
-           the Apply store credit option" is among MESSAGING section 7's limits for rp-home-spend-check.
+           (new); rp-home-spend-check (new; MESSAGING section 7), rp-home-spend-check:variant (see below);
+           rp-setup-steps:scope (Home's three checks; PR #187's second read: that rule is Home's, and Shopify also lets
+           a buyer spend with Shop Pay); rp-setup-steps:src (its Help Center source quotes the two settings sentences);
+           sh-sc-checkout-option (new). Home's "doesn't check the Apply store credit option" is among MESSAGING section
+           7's limits for rp-home-spend-check.
            Code: app/shopify/shop-checks.server.ts:96-103; app/admin/home-rules.ts:185-189, 209-215;
            app/routes/app._index.tsx:540.
+           rp-home-spend-check:variant: MESSAGING section 7's limit says Home shows "Store credit: Shopify didn't say".
+           That label is in the Running card, which shows only while Home is at least 784 px wide
+           (app._index.tsx:66, 533, 540). Narrower, Home shows a one-line summary with no check line, and with no
+           answer it says only "Cashback is on." or "Cashback is off." (app._index.tsx:438; home-rules.ts:67-68). So
+           the page says what holds at both widths; RP-06 adopts the wording or refuses it.
            The three limits are wf8 FOCUS section 2.4's, said first. If any limit row is held, hold the whole block,
            and consider holding the page: a limit found later reads as a hidden cost (DESIGN.md "Voice").
-           The sh-* rows go stale after review_after 2026-12-07: re-read them, and update the "as read on" date. -->
+           The sh-* rows go stale after review_after 2026-12-07: re-read them from a saved capture or Yu's paste,
+           never a scripted read of help.shopify.com, and update the "as read on" date. -->
       <section id="before-you-start" aria-labelledby="before-you-start-title">
         <h2 id="before-you-start-title">What should you know before you start?</h2>
         <p data-claim="sh-sc-signin-legacy sh-sc-subscriptions sh-sc-channels:u1 rp-no-order-rules">Three limits:</p>
@@ -357,7 +371,7 @@
         <p>
           <span data-claim="rp-home-spend-check rp-setup-steps:scope">RewardsPro's Home checks three Shopify settings: store credit turned on, new customer accounts, and visible sign-in links.</span>
           <span data-claim="rp-home-spend-check">Home warns you when Shopify shows one of these still needs doing, with a banner that starts "Buyers can't spend their store credit yet".</span>
-          <span data-claim="rp-home-spend-check">When Shopify doesn't fully answer, Home shows "Store credit: Shopify didn't say" and no banner.</span>
+          <span data-claim="rp-home-spend-check:variant">When Shopify doesn't fully answer, Home shows no banner and doesn't show these checks as passing.</span>
           <span data-claim="rp-home-spend-check">Home doesn't check the Apply store credit option that Shopify's help page describes.</span>
         </p>
         <div class="rule">
@@ -381,7 +395,10 @@
            Code: app/routes/app._index.tsx:363-411 (the card; Switch cashback on is disabled until a tier exists,
            :398); app/lib/tiers.server.ts:337-357; prisma/schema.prisma:146; app/admin/home-rules.ts:131;
            app/shopify/bulk-import.server.ts (365 or 60 days).
-           Draft PR #192 (RP-24) would add a setup guide to Home. If it merges first, re-read this block. -->
+           Draft PR #192 (RP-24) would add a setup guide to Home. If it merges first, re-read this block.
+           Draft PR #206 (RP-25) restarts a past-orders import whose start was lost: on main the hourly backstop's
+           grace is timed from connection.updatedAt, which the sweep rewrites (bulk-import.server.ts:352-355; #206's
+           body). If it merges first, re-read the import sentences. -->
       <section id="setup" aria-labelledby="setup-title">
         <h2 id="setup-title">How do you set up RewardsPro?</h2>
         <p>
@@ -457,6 +474,10 @@
              rp-widget (#187's second sentence, word for word); rp-widget:u3, rp-widget:u4, rp-widget:u6;
              rp-widget:src (rewards-widget.js:169: no guest rate at a 0% base; #187 asks the scope to carry it);
              rp-widget:pr187 (a one-tier store, or a customer in the top tier, sees "You are on the top tier").
+             Draft PR #205 (RP-25) changes what a known customer not yet placed in a tier sees. On main the widget
+             shows the tier their spend qualifies for (api.proxy.$.tsx:74, qualify), while the engine pays them the
+             lowest tier until the tier pass places them (#205's body); with #205 they see the lowest tier until
+             placed. If it merges first, re-read this sub-block.
              Also waits for: the rest of gate C, or Yu counting gates.md:21. -->
         <h3 id="widget-what-customers-see">What do customers see?</h3>
         <p>
@@ -478,7 +499,11 @@
         <!-- BEGIN sub:widget-troubleshooting
              Rows: rp-widget:u5 (the proxy path), rp-setup-steps:u4 (another path already held; the owner set it back),
              rp-contact-delivers.
-             Seen on production twice: switch.md:80 and gates.md:45 (/apps/rewardspro-1). The fix is switch.md:230
+             Seen twice with the production app, on two development stores, each after an old draft app's install held
+             /apps/rewardspro: switch.md:80, 230 and gates.md:45 (/apps/rewardspro-1). The rows record sightings,
+             not a rule for how Shopify picks the other path (a reviewer read shopify.dev's app proxy page on
+             2026-11-09 and found none), so the page states no cause: "On some stores" is the rows' "A store can
+             already hold another app proxy path". The fix is switch.md:230
              (WIDGET-6): "Check it in the store's Settings, Apps, ... set it back with Customize URL (the store's
              owner)". Shopify's admin shows the app's name with a space, a spelling the page doesn't use, so the page
              says "the app's page".
@@ -486,7 +511,7 @@
         <h3 id="widget-troubleshooting">What if signed-in customers don't see the widget?</h3>
         <p>
           <span data-claim="rp-widget:u5">The signed-in widget needs RewardsPro's app proxy path, /apps/rewardspro.</span>
-          <span data-claim="rp-widget:u5 rp-setup-steps:u4">If another app already holds that path on your store, Shopify gives RewardsPro a different one, such as /apps/rewardspro-1, and the signed-in widget stays hidden while Home still says the widget is on.</span>
+          <span data-claim="rp-widget:u5 rp-setup-steps:u4">On some stores RewardsPro's path is different, such as /apps/rewardspro-1, and then the signed-in widget stays hidden while Home still says the widget is on.</span>
           <span data-claim="rp-setup-steps:u4 rp-widget:u5">The store's owner can see the path on the app's page under Settings &gt; Apps in Shopify admin, and set it back to /apps/rewardspro with <strong>Customize URL</strong>.</span>
           <span data-claim="rp-contact-delivers">If the widget still doesn't show, email contact@rewardspro.io.</span>
         </p>
@@ -611,7 +636,8 @@
            (the row's sentence without "only", which MESSAGING section 4 checks mechanically; D500-B words it "the
            full balance held in the checkout's currency"); sh-sc-channels (the second half of its sentence; the POS
            half is left to the source link, so the page doesn't read as "works with POS", which is held).
-           The sh-* rows go stale after review_after 2026-12-07: re-read them, and update the "as read on" date. -->
+           The sh-* rows go stale after review_after 2026-12-07: re-read them from a saved capture or Yu's paste,
+           never a scripted read of help.shopify.com, and update the "as read on" date. -->
       <section id="spending" aria-labelledby="spending-title">
         <h2 id="spending-title">How do customers spend their store credit?</h2>
         <div class="rule">
@@ -717,6 +743,11 @@
            buyer, an order edited to add items).
            The four limits keep the first sentence true outside #187's revised scope, so they ship with it or the whole
            block waits. Whether to publish them or fix the code first is Yu's question 2.
+           A possible fifth limit while main behaves this way (#195, open): a refund with no items is valued only on
+           its SUCCESS money (order-source.server.ts:354, 462-463), so one whose money is still pending when it is read
+           takes nothing back, and #195 traces that it is never read again. No row carries it yet, so the page doesn't
+           say it; it is in Yu's question 2. Draft PR #206 (RP-25, stacked on #205) fixes it: if #206 merges first,
+           re-read this block, the first limit included.
            Code: app/lib/order-facts.ts:99-120; app/lib/refunds.server.ts:1-34, 278-284; app/lib/payouts.server.ts:257;
            app/shopify/order-source.server.ts:328-332, 349-352, 462-463, 540, 674-675, 726-733;
            app/shopify/store-credit-rail.server.ts:363-370; app/routes/webhooks.orders.cancelled.tsx:1-5. -->
@@ -750,7 +781,8 @@
            Rows: rp-merchant-funds, rp-merchant-funds:u1 (the cost lands when the credit is spent); sh-sc-fee (its
            sentence, word for word), sh-sc-fee:u1 ("The rate depends on your Shopify plan", which the row keeps inside
            itself).
-           The sh-* rows go stale after review_after 2026-12-07: re-read them, and update the "as read on" date. -->
+           The sh-* rows go stale after review_after 2026-12-07: re-read them from a saved capture or Yu's paste,
+           never a scripted read of help.shopify.com, and update the "as read on" date. -->
       <section id="cost" aria-labelledby="cost-title">
         <h2 id="cost-title">What does it cost you?</h2>
 
