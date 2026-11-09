@@ -218,24 +218,32 @@ const SIGNED_IN = /signed[ -]in/i;
 /** What buyers spent on orders, which the tiers measure: not spending credit, so no limit goes with it. */
 const ORDER_SPEND = /their spend grows|what they spent|the highest spend/gi;
 
+/** The attributes whose text is shown or spoken: a section's or the page's heading, and a label. */
+const SPOKEN = ["heading", "accessibilityLabel", "aria-label"];
+
 /**
  * Every mention of spending on the page that has no sign-in limit with it:
- * an element whose own text says spend or spent must say "signed in" itself,
- * or sit in a tile (s-box), or else a section, that does. Also the number of
- * mentions looked at, so a step with none can't pass by saying nothing.
+ * an element whose own text, or one of its SPOKEN attributes, says spend or
+ * spent must say "signed in" itself, or sit in a tile (s-box), or else a
+ * section, that does. An attribute outside both (the page's heading) is its
+ * own container: it must say it itself. Also the number of mentions looked
+ * at, so a step with none can't pass by saying nothing.
  */
 function spendingWithoutLimit(): { mentions: number; unlimited: string[] } {
   const unlimited: string[] = [];
   let mentions = 0;
   for (const element of document.body.querySelectorAll("*")) {
-    const own = [...element.childNodes]
+    const text = [...element.childNodes]
       .filter((node) => node.nodeType === Node.TEXT_NODE)
       .map((node) => node.textContent)
       .join("");
-    if (!/spen[dt]/i.test(own.replace(ORDER_SPEND, ""))) continue;
-    mentions++;
-    const around = element.closest("s-box") ?? element.closest("s-section");
-    if (!SIGNED_IN.test(own) && !SIGNED_IN.test(around?.textContent ?? "")) unlimited.push(own);
+    const attributes = SPOKEN.map((name) => element.getAttribute(name) ?? "");
+    for (const own of [text, ...attributes]) {
+      if (!/spen[dt]/i.test(own.replace(ORDER_SPEND, ""))) continue;
+      mentions++;
+      const around = element.closest("s-box") ?? element.closest("s-section");
+      if (!SIGNED_IN.test(own) && !SIGNED_IN.test(around?.textContent ?? "")) unlimited.push(own);
+    }
   }
   return { mentions, unlimited };
 }

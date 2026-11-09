@@ -138,8 +138,9 @@ describe("the ladder", () => {
     expect(example("4300", "JPY")).toBe("5000");
     // Halfway between two steps it rounds up: 15 between 10 and 20, 3.5 between 2 and 5
     expect(["15", "3.5", "150"].map((median) => example(median))).toEqual(["20", "5", "200"]);
-    // No smaller than 1, as before
+    // No smaller than 1, as before; just above 1, the nearer step is 1, not 2 (R27: "tiny" is a median <= 1)
     expect(["0", "0.3", "1"].map((median) => example(median))).toEqual(["1", "1", "1"]);
+    expect(example("1.2")).toBe("1");
     expect(exampleOrder(null, "GBP")?.toFixed()).toBe("100");
     expect(exampleOrder(null, "JPY")).toBeNull();
   });

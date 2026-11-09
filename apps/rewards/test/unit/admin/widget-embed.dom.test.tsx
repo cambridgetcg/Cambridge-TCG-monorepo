@@ -81,15 +81,14 @@ describe("useWidgetEmbed", () => {
   });
 
   it("stays unknown when App Bridge throws at once, on the first ask", async () => {
-    vi.stubGlobal("shopify", {
-      app: {
-        extensions: vi.fn(() => {
-          throw new Error("App Bridge is not ready");
-        }),
-      },
+    const throwing = vi.fn(() => {
+      throw new Error("App Bridge is not ready");
     });
+    vi.stubGlobal("shopify", { app: { extensions: throwing } });
     render(<Probe />);
     await act(async () => {});
+    // It was asked, and its throw left the answer unknown
+    expect(throwing).toHaveBeenCalledTimes(1);
     screen.getByText("null");
   });
 

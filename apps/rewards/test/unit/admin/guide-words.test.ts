@@ -2,14 +2,10 @@ import { describe, expect, it } from "vitest";
 import { GUIDE, periodLabel } from "~/admin/guide-words";
 
 /**
- * Every sentence the setup guide shows (RP-24): the house rules hold over all
- * of them, the period is the import's own, and the picture's spoken summary
- * counts buyers as the page does.
- */
-/**
  * Sample arguments for each of GUIDE's functions, by its key. The house-rules
  * test calls every function with these, and fails on a function missing
- * here, so a new word that takes arguments brings its samples with it.
+ * here, so a new word that takes arguments brings its samples with it; a
+ * sample whose function is gone fails it too, so the table can't drift.
  */
 const SAMPLES: Record<string, unknown[]> = {
   progress: [1],
@@ -44,11 +40,18 @@ function sentencesOf(value: unknown, key: string, missing: string[]): string[] {
   throw new Error(`GUIDE.${key} is neither a sentence, a list nor a function`);
 }
 
+/**
+ * Every sentence the setup guide shows (RP-24): the house rules hold over all
+ * of them, the period is the import's own, and the picture's spoken summary
+ * counts buyers as the page does.
+ */
 describe("guide words", () => {
   it("keeps the house rules in every sentence", () => {
     const missing: string[] = [];
     const sentences = Object.entries(GUIDE).flatMap(([key, value]) => sentencesOf(value, key, missing));
     expect(missing).toEqual([]);
+    // And no sample is left over from a function renamed or removed
+    expect(Object.keys(SAMPLES).filter((key) => typeof (GUIDE as Record<string, unknown>)[key] !== "function")).toEqual([]);
     // Every function's sentences are there, not only the plain ones
     expect(sentences).toContain(GUIDE.cost("£1", "12 months"));
 
