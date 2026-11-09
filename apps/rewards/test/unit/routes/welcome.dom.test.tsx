@@ -946,6 +946,24 @@ describe("Focus across the guide", () => {
     expect(active).not.toBe(document.body);
     expect(active.contains(refusal)).toBe(true);
     expect(active.contains(button(GUIDE.switchOn))).toBe(true);
+    // Named by its button, not "Go live" again: the checks above already are
+    expect(active.getAttribute("aria-label")).toBe(GUIDE.switchOn);
+  });
+
+  // F6-F1: cashback paused in another tab, seen by the try-it's poll, takes nothing the merchant is on
+  it("leaves focus where it is when a poll finds cashback off", async () => {
+    stubAppBridge("available");
+    let running = true;
+    await renderWelcome(live(), { next: () => (running ? live() : step3()) });
+    const checkAgain = button(GUIDE.checkAgain);
+    checkAgain.setAttribute("tabindex", "-1");
+    act(() => checkAgain.focus());
+    running = false;
+    await act(async () => {
+      await refresh!();
+    });
+    await screen.findByText(GUIDE.switchOn);
+    expect(document.activeElement).toBe(checkAgain);
   });
 
   it("leaves focus alone on a page that opens with cashback on", async () => {

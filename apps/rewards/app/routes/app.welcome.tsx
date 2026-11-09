@@ -770,8 +770,8 @@ function StepThree({
           </s-section>
         </FocusTarget>
       ) : (
-        // No heading of its own: named as the step it ends
-        <FocusTarget target={switchTarget} label={GUIDE.steps[2]}>
+        // No heading of its own: named by its button, since the checks above are already "Go live"
+        <FocusTarget target={switchTarget} label={GUIDE.switchOn}>
           <s-section>
             <s-stack gap="base">
               {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
@@ -868,8 +868,8 @@ export default function Welcome() {
   const chosen = tryIt.find((order) => order.orderId === picked) ?? null;
 
   // Focus follows what replaced the control pressed (I-4): the new step's heading when the step changes,
-  // "Cashback is on" once it is, and the switch's section, with its refusal, if it goes off again (F5-F2);
-  // none of them when the page opens
+  // "Cashback is on" once it is, and the switch's section, with its refusal, if it goes off again and took
+  // focus with it (F5-F2; cashback paused in another tab moves nothing, F6-F1); none of them when the page opens
   const stepTarget = useRef<HTMLDivElement>(null);
   const liveTarget = useRef<HTMLDivElement>(null);
   const switchTarget = useRef<HTMLDivElement>(null);
@@ -882,7 +882,7 @@ export default function Welcome() {
   const wasLive = useRef(isLive);
   useEffect(() => {
     if (isLive && !wasLive.current) focusOn(liveTarget);
-    if (!isLive && wasLive.current) focusOn(switchTarget);
+    if (!isLive && wasLive.current && (document.activeElement === null || document.activeElement === document.body)) focusOn(switchTarget);
     wasLive.current = isLive;
   }, [isLive]);
 
