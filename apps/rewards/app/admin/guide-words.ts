@@ -64,6 +64,8 @@ export const GUIDE = {
   saveTiers: "Save tiers",
   defaultNames: ["Bronze", "Silver", "Gold"] as const,
   checksHeading: "Before you switch on",
+  /** The same checks once cashback is on (M-3) */
+  checksHeadingLive: "Your store's checks",
   /** Step 3's store-credit check, worded with who can spend (spec 5); Home's row still says "Store credit can be spent" */
   storeCreditYes: "Signed-in buyers can spend store credit",
   storeCreditNo: "Signed-in buyers can't spend store credit yet",
@@ -93,5 +95,7 @@ export const GUIDE = {
   tryItNone: "No orders since you switched on yet.",
   openOrder: "Open the order",
   goHome: "Go to Home",
-  emails: "Shopify emails a buyer about store credit only if buyer emails are switched on in Settings.",
+  emails: "Shopify emails a buyer about store credit only if buyer emails are switched on in RewardsPro's Settings.",
+  /** The part of `emails` the page links to RewardsPro's Settings page (M-8) */
+  emailsSettings: "RewardsPro's Settings",
 } as const;

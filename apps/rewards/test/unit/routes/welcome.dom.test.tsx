@@ -196,6 +196,9 @@ const shown = (name: string) => {
   return element.value ?? element.getAttribute("value");
 };
 
+/** Step 3's line about buyer emails, with its Settings link. */
+const emailsLine = () => [...document.querySelectorAll("s-text")].find((text) => text.textContent?.startsWith("Shopify emails a buyer")) ?? null;
+
 /** A button by its text. */
 const button = (text: string) => [...document.querySelectorAll("s-button")].find((b) => b.textContent === text)!;
 
@@ -770,7 +773,7 @@ describe("Step 3: Go live", () => {
     screen.getByText(GUIDE.tryItHeading);
     screen.getByText(GUIDE.tryItSteps("£0.17")[0]);
     expect(screen.getByText(GUIDE.tryItSteps("£0.17")[0]).textContent).toContain("at least £0.17");
-    screen.getByText(GUIDE.emails);
+    expect(emailsLine()?.textContent).toBe(GUIDE.emails);
     expect(button(GUIDE.goHome).getAttribute("href")).toBe("/app");
     expect(button(GUIDE.finishLater)).toBeUndefined();
     expect(button(GUIDE.switchOn)).toBeUndefined();
@@ -824,6 +827,27 @@ describe("Step 3: Go live", () => {
     screen.getByText("Waiting");
     expect(document.querySelector('s-link[href="/app/orders/o1"]')).not.toBeNull();
     expect(screen.queryByText("Issued")).toBeNull();
+  });
+
+  // M-3: once on, the checks are no longer "before" anything
+  it("heads the checks neutrally once cashback is on", async () => {
+    const checksHeading = () => document.querySelector("s-section[heading]")?.getAttribute("heading");
+    await renderWelcome(step3(), { answer: () => new Promise(() => {}) });
+    expect(checksHeading()).toBe(GUIDE.checksHeading);
+    await click(button(GUIDE.switchOn));
+    expect(checksHeading()).toBe(GUIDE.checksHeadingLive);
+    cleanup();
+    await renderWelcome(live());
+    expect(checksHeading()).toBe(GUIDE.checksHeadingLive);
+    expect(document.querySelector(`s-section[heading="${GUIDE.checksHeading}"]`)).toBeNull();
+  });
+
+  // M-8: the buyer emails switch is RewardsPro's, not Shopify's Settings
+  it("links RewardsPro's Settings from the line about buyer emails", async () => {
+    await renderWelcome(live());
+    expect(emailsLine()?.textContent).toBe(GUIDE.emails);
+    const link = emailsLine()!.querySelector("s-link")!;
+    expect([link.textContent, link.getAttribute("href"), link.getAttribute("target")]).toEqual([GUIDE.emailsSettings, "/app/settings", null]);
   });
 
   it("follows a lone order without asking which", async () => {

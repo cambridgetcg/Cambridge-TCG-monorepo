@@ -361,6 +361,18 @@ function WidgetRow({ widget, themeEditorUrl }: { widget: WidgetEmbed; themeEdito
   );
 }
 
+/** Where buyer emails are switched on: the words' own sentence, its "RewardsPro's Settings" linked there (M-8). */
+function EmailsLine() {
+  const [before, after] = GUIDE.emails.split(GUIDE.emailsSettings);
+  return (
+    <s-text color="subdued">
+      {before}
+      <s-link href="/app/settings">{GUIDE.emailsSettings}</s-link>
+      {after}
+    </s-text>
+  );
+}
+
 /** The chosen try-it order: what happened to its cashback, and where to see it. */
 function TryItResult({ order }: { order: TryItOrder }) {
   return (
@@ -641,7 +653,7 @@ function StepThree({
   const minimum = d.firstPercent === null ? null : minEarningBase(d.firstPercent, d.currency);
   return (
     <>
-      <s-section heading={GUIDE.checksHeading}>
+      <s-section heading={isLive ? GUIDE.checksHeadingLive : GUIDE.checksHeading}>
         <s-stack gap="base">
           <s-stack gap="small-200">
             <Check ok={goLive.storeCredit} yes={GUIDE.storeCreditYes} no={GUIDE.storeCreditNo} unknown={GUIDE.storeCreditUnknown} />
@@ -697,7 +709,7 @@ function StepThree({
               </s-choice-list>
             ) : null}
             {chosen ? <TryItResult order={chosen} /> : null}
-            <s-text color="subdued">{GUIDE.emails}</s-text>
+            <EmailsLine />
             <s-stack direction="inline" justifyContent="end">
               <s-button variant="primary" href="/app">
                 {GUIDE.goHome}

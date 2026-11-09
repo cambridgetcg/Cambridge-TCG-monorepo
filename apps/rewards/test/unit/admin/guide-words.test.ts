@@ -62,6 +62,12 @@ describe("guide words", () => {
     }
   });
 
+  // M-8: the page links this phrase in the emails line, so it is there once
+  it("names RewardsPro's Settings once in the line about buyer emails", () => {
+    expect(GUIDE.emailsSettings).toBe("RewardsPro's Settings");
+    expect(GUIDE.emails.split(GUIDE.emailsSettings)).toHaveLength(2);
+  });
+
   it("says the import's own period", () => {
     expect([365, 60].map(periodLabel)).toEqual(["12 months", "60 days"]);
   });
