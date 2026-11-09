@@ -149,6 +149,16 @@ answer is true once A lands (see the merge order below).
   dated record. It still carries old guide dates. `build-llms-full.mjs` was not
   run, because it fetches production.
 
+**The 2026-11-09 refresh** (agents, merge commits only, no rebase). A merged
+`main` at 5c953f5c. B then merged the refreshed A, so B now carries A and
+`main`, and C and the phase 2 drafts branch (#113) each merged the refreshed
+branch below. The stack is linear, A → B → C → #113, and D, which merged
+`main`, stays apart. Landing B now lands A too. Merge A first with a merge
+commit: after a squash or rebase of A, B would bring A's original commits in
+beside the new copy. B also gained migration 0150 (agent.revoke_key in the
+daily MCP count), to be applied before B deploys. The table above and
+[Checks run](#checks-run) record the branches before this refresh.
+
 ## The five reopening requirements
 
 The register route lists five conditions for reopening self-serve
