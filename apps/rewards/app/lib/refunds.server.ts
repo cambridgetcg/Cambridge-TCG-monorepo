@@ -31,6 +31,12 @@
  * recorded, for idempotency, and the spend is left as it is. Any other
  * refund of an imported order came after Shopify read it, and counts
  * (Ruling 54).
+ *
+ * A refund of money with no items whose money is still on its way
+ * (`moneyPending`, #195) is recorded at what has succeeded and marked
+ * (`moneyPendingSince`): its spend falls by that now, and its take-back
+ * waits until its money settles. A refund the import's file listed is never
+ * marked.
  */
 import type { PayoutState, Prisma, PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
@@ -133,10 +139,14 @@ export async function recordRefundInTransaction(
   const { merchantId, connectionId } = conn;
   const orderRef = await tx.order.findUnique({
     where: { connectionId_externalOrderId: { connectionId, externalOrderId } },
-    select: { id: true },
+    select: { id: true, source: true, importRefundIds: true },
   });
   if (!orderRef) return { status: "order_not_recorded" };
   const orderId = orderRef.id;
+  // Counted already by the import's quantities (Ruling 54)
+  const listed = orderRef.source === "import" && orderRef.importRefundIds.includes(refund.externalRefundId);
+  // Its money still on its way (#195): recorded at what has succeeded, its take-back left to settleRefundMoney
+  const marked = refund.moneyPending && !listed;
 
   // The cashback entry is written with the order, in its transaction, so an
   // order this refund can see already has it (or never will).
@@ -161,6 +171,7 @@ export async function recordRefundInTransaction(
         shopProductAmount: refund.productValue.shopAmount.toFixed(),
         refundedAt: refund.refundedAt,
         appliedBeforeCashback: o.appliedBeforeCashback,
+        moneyPendingSince: marked ? o.now : null,
       },
     ],
     skipDuplicates: true,
@@ -173,8 +184,6 @@ export async function recordRefundInTransaction(
   const order = await tx.order.findUniqueOrThrow({
     where: { id: orderId },
     select: {
-      source: true,
-      importRefundIds: true,
       customerId: true,
       customer: { select: { redactedAt: true } },
       productAmount: true,
@@ -188,13 +197,11 @@ export async function recordRefundInTransaction(
     include: { payout: true },
   });
   const credit = cashback?.payout ?? null;
-  // Decided before anything is written; a throw rolls the refund row back.
-  const effect: Effect = credit ? effectOf(credit, o.now) : "none";
   const nothing = { status: "recorded", takenBack: new Money(0), reversalPayoutId: null, customerId: order.customerId } as const;
 
   // Counted already by the import's quantities. An imported order earns no
   // cashback, so there is nothing to take back either.
-  if (order.source === "import" && order.importRefundIds.includes(refund.externalRefundId)) return nothing;
+  if (listed) return nothing;
 
   const refunded = fromDb(order.refundedProductAmount).plus(refund.productValue.amount);
   const shopRefunded = fromDb(order.shopRefundedProductAmount).plus(refund.productValue.shopAmount);
@@ -202,7 +209,11 @@ export async function recordRefundInTransaction(
     where: { id: orderId },
     data: { refundedProductAmount: refunded.toFixed(), shopRefundedProductAmount: shopRefunded.toFixed() },
   });
+  // Its spend falls by what has succeeded now; its one take-back waits until its money settles (#195)
+  if (marked) return nothing;
 
+  // A throw rolls the refund row and the spend back.
+  const effect: Effect = credit ? effectOf(credit, o.now) : "none";
   // No cashback (off, test, import or nothing earned), or none given: spend only.
   if (!cashback || !credit || effect === "none") return nothing;
 

@@ -56,7 +56,13 @@ function refundFacts(n: number, product: string, shopProduct = product, complete
     productValue: pair(product, shopProduct),
     refundedAt: new Date(Date.UTC(2026, 10, 4, 13, n)),
     completesOrder,
+    moneyPending: false,
   };
+}
+
+/** Refund `n` of money with no items whose money is still on its way: worth only the `product` that has succeeded so far (#195). */
+function pendingRefund(n: number, product = "0.00", shopProduct = product): RefundFacts {
+  return { ...refundFacts(n, product, shopProduct), moneyPending: true };
 }
 
 /** An installed GBP shop with cashback on and one 5% tier. */
@@ -222,6 +228,8 @@ describe.skipIf(!hasTestDatabase)("recordRefund", () => {
         externalRefundId: "gid://shopify/Refund/1",
         refundedAt: refundFacts(1, "20.00").refundedAt,
         appliedBeforeCashback: false,
+        moneyPendingSince: null,
+        moneyCheckedAt: null,
       });
       expect([money(refundRow.productAmount), money(refundRow.shopProductAmount)]).toEqual(["20.00", "20.00"]);
 
@@ -764,6 +772,83 @@ describe.skipIf(!hasTestDatabase)("recordRefund", () => {
 
       expect(await moneyOf(late.orderId)).toEqual({ refunded: "20.00", shopRefunded: "20.00", cashback: null, credit: null, reversals: [] });
       expect(await prisma.refund.findFirstOrThrow()).toMatchObject({ appliedBeforeCashback: true });
+    });
+  });
+
+  describe("money still on its way (#195)", () => {
+    const marks = async () =>
+      (await prisma.refund.findMany({ orderBy: { externalRefundId: "asc" } })).map((r) => ({
+        refund: r.externalRefundId,
+        product: money(r.productAmount),
+        moneyPendingSince: r.moneyPendingSince,
+      }));
+
+    it("a fully pending money-only refund is recorded at £0 and marked, and takes nothing back yet", async () => {
+      const { conn, orderId, customerId } = await recordedOrder();
+
+      const result = await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+
+      expect(result).toEqual({ status: "recorded", takenBack: expect.anything(), reversalPayoutId: null, customerId });
+      if (result.status !== "recorded") throw new Error("unreachable");
+      expect(result.takenBack.toFixed(2)).toBe("0.00");
+      expect(await moneyOf(orderId)).toEqual({
+        refunded: "0.00",
+        shopRefunded: "0.00",
+        cashback: "2.50",
+        credit: { state: "pending", amount: "2.50" },
+        reversals: [],
+      });
+      expect(await marks()).toEqual([{ refund: "gid://shopify/Refund/1", product: "0.00", moneyPendingSince: NOW }]);
+      expect((await prisma.refund.findFirstOrThrow()).moneyCheckedAt).toBeNull();
+    });
+
+    it("partly settled when recorded: spend falls by the successful part now, and its take-back waits", async () => {
+      const { conn, orderId } = await recordedOrder();
+
+      await recordRefund(conn, ORDER, pendingRefund(1, "5.00"), undefined, NOW);
+
+      expect(await moneyOf(orderId)).toEqual({
+        refunded: "5.00",
+        shopRefunded: "5.00",
+        cashback: "2.50",
+        credit: { state: "pending", amount: "2.50" },
+        reversals: [],
+      });
+      expect(await marks()).toEqual([{ refund: "gid://shopify/Refund/1", product: "5.00", moneyPendingSince: NOW }]);
+    });
+
+    it("a marked refund recorded while its credit is being sent records, with no RefundRetryLater", async () => {
+      const { conn, orderId, payoutId } = await recordedOrder();
+      await setCredit(payoutId, { state: "sending", claimedAt: new Date(NOW.getTime() - MINUTE) });
+
+      const result = await recordRefund(conn, ORDER, pendingRefund(1, "5.00"), undefined, NOW);
+
+      expect(result).toMatchObject({ status: "recorded", reversalPayoutId: null });
+      expect(await moneyOf(orderId)).toMatchObject({ refunded: "5.00", credit: { state: "sending", amount: "2.50" }, reversals: [] });
+      expect(await marks()).toEqual([{ refund: "gid://shopify/Refund/1", product: "5.00", moneyPendingSince: NOW }]);
+    });
+
+    it("a redelivery of a marked refund writes nothing", async () => {
+      const { conn } = await recordedOrder();
+      await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+      const before = await prisma.refund.findMany();
+
+      expect(await recordRefund(conn, ORDER, pendingRefund(1), undefined, new Date(NOW.getTime() + MINUTE))).toEqual({ status: "already_recorded" });
+
+      expect(await prisma.refund.findMany()).toEqual(before);
+    });
+
+    it("an imported order's refund its bulk file listed is never marked; one it didn't list is", async () => {
+      const { conn, orderId } = await recordedOrder({ importRefundIds: ["gid://shopify/Refund/1"] }, "import");
+
+      await recordRefund(conn, ORDER, pendingRefund(1), undefined, NOW);
+      await recordRefund(conn, ORDER, pendingRefund(2, "3.00"), undefined, NOW);
+
+      expect(await marks()).toEqual([
+        { refund: "gid://shopify/Refund/1", product: "0.00", moneyPendingSince: null },
+        { refund: "gid://shopify/Refund/2", product: "3.00", moneyPendingSince: NOW },
+      ]);
+      expect(await moneyOf(orderId)).toMatchObject({ refunded: "3.00", cashback: null, reversals: [] });
     });
   });
 });

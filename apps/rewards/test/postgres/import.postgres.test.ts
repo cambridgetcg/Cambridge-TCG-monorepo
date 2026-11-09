@@ -608,6 +608,7 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       externalRefundId: id,
       refundedAt: new Date(),
       completesOrder: false,
+      moneyPending: false,
       productValue: { amount: new Money(amount), shopAmount: new Money(amount) },
     });
     const refundOf9002 = async () =>

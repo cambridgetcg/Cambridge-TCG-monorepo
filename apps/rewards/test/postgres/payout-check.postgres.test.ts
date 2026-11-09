@@ -736,7 +736,7 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
           if (refundGid === BROKEN) throw broken;
           return {
             orderGid: "gid://shopify/Order/5001",
-            refund: { externalRefundId: FINE, refundedAt: new Date(Date.now() - 20 * MINUTE), completesOrder: false, productValue: pair("20.00") },
+            refund: { externalRefundId: FINE, refundedAt: new Date(Date.now() - 20 * MINUTE), completesOrder: false, moneyPending: false, productValue: pair("20.00") },
           };
         },
         recentlyUpdatedOrders: async () => [
