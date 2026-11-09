@@ -27,8 +27,9 @@ export const GUIDE = {
     "It's a balance in the buyer's Shopify account. RewardsPro adds cashback to it when an order is paid, and buyers spend it at checkout on a later order when they're signed in to their account. You can see a buyer's balance on their page in Shopify.",
   creditCurrency: "Credit is spent in the currency it was earned in.",
   nextTimeTitle: "Earned now, spent next time",
-  nextTimeBody: "It isn't a discount: the price of today's order stays the same. The credit gives the buyer a reason to come back.",
-  example: (order: string, credit: string) => `Order ${order}, then ${credit} in store credit, spent on the next order`,
+  nextTimeBody:
+    "It isn't a discount: the price of today's order stays the same. The credit gives the buyer a reason to come back: they spend it on a later order when signed in to their account.",
+  example: (order: string, credit: string) => `Order ${order}, then ${credit} in store credit, spent on the next order when they're signed in`,
   tiersIntro: (period: string) =>
     `Buyers move up a tier as their spend grows. Where each tier starts is suggested from your orders over the last ${period}.`,
   tiersFallback: "These are starting suggestions. Change any of them.",
@@ -54,8 +55,9 @@ export const GUIDE = {
   saveTiers: "Save tiers",
   defaultNames: ["Bronze", "Silver", "Gold"] as const,
   checksHeading: "Before you switch on",
-  storeCreditYes: "Store credit can be spent",
-  storeCreditNo: "Store credit can't be spent yet",
+  /** Step 3's store-credit check, worded with who can spend (spec 5); Home's row still says "Store credit can be spent" */
+  storeCreditYes: "Signed-in buyers can spend store credit",
+  storeCreditNo: "Signed-in buyers can't spend store credit yet",
   storeCreditUnknown: "Store credit: Shopify didn't say",
   widgetYes: "Widget is on",
   widgetNo: "Widget is off",

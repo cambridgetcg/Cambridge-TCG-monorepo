@@ -190,6 +190,33 @@ const click = (element: Element) =>
 /** The polite live region's text. */
 const liveText = () => document.querySelector('[role="status"]')?.textContent ?? null;
 
+/** The sign-in limit on spending credit (spec 5), as the guide words it: "signed in" or "Signed-in". */
+const SIGNED_IN = /signed[ -]in/i;
+/** What buyers spent on orders, which the tiers measure: not spending credit, so no limit goes with it. */
+const ORDER_SPEND = /their spend grows|what they spent|the highest spend/gi;
+
+/**
+ * Every mention of spending on the page that has no sign-in limit with it:
+ * an element whose own text says spend or spent must say "signed in" itself,
+ * or sit in a tile (s-box), or else a section, that does. Also the number of
+ * mentions looked at, so a step with none can't pass by saying nothing.
+ */
+function spendingWithoutLimit(): { mentions: number; unlimited: string[] } {
+  const unlimited: string[] = [];
+  let mentions = 0;
+  for (const element of document.body.querySelectorAll("*")) {
+    const own = [...element.childNodes]
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent)
+      .join("");
+    if (!/spen[dt]/i.test(own.replace(ORDER_SPEND, ""))) continue;
+    mentions++;
+    const around = element.closest("s-box") ?? element.closest("s-section");
+    if (!SIGNED_IN.test(own) && !SIGNED_IN.test(around?.textContent ?? "")) unlimited.push(own);
+  }
+  return { mentions, unlimited };
+}
+
 beforeEach(() => {
   Object.defineProperty(document, "hidden", { value: false, configurable: true });
 });
@@ -244,6 +271,27 @@ describe("The guide, every step", () => {
       window.dispatchEvent(new Event("focus"));
     });
     expect(usePolling).toHaveBeenLastCalledWith(true, 10_000, { forMs: undefined, restartKey: "running::1" });
+  });
+
+  // Spec 5 (I-1): a guest can't spend store credit, so every mention of spending says who can
+  it("says the sign-in limit wherever it mentions spending, on every step", async () => {
+    const banner = "Buyers can't spend their store credit yet: store credit is turned off in Settings > Customer accounts.";
+    const pages: Array<[string, WelcomeData]> = [
+      ["step 1", welcomeData({ multiCurrency: true })],
+      ["step 2", step2()],
+      ["step 3", step3()],
+      ["step 3, store credit off", step3({ storeCredit: false, storeCreditBanner: banner })],
+      ["step 3, live", live({ tryIt: [ORDER_1001] })],
+    ];
+    for (const [page, data] of pages) {
+      stubAppBridge("available");
+      await renderWelcome(data);
+      const found = spendingWithoutLimit();
+      expect(found.unlimited, page).toEqual([]);
+      // Step 2 mentions only what buyers spent on orders
+      if (page !== "step 2") expect(found.mentions, page).toBeGreaterThan(0);
+      cleanup();
+    }
   });
 
   it("follows the tier pass for two minutes, and stops once nothing is moving", async () => {
