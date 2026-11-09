@@ -70,6 +70,12 @@
 # - New rows, all proposed: sh-sc-subscriptions, rp-no-order-rules and rp-maker-also-sells (MESSAGING.md §7; wf8 fit.md
 #   §8.3 and feedback.md §9, FB-9; ROADMAP Pre-7), and the starred rows of the onboarding plan's PR-1 and PR-2:
 #   rp-widget-settings, rp-guest-hidden-when-off, rp-customer-required and rp-no-cashback-cases.
+# - After this read, origin/main moved to 5c953f5c: #157 merged (1c49ed0a). It rewrote Home's Running sentence
+#   (home-rules.ts:49), put the cashback-base sentence in words.ts as CASHBACK_BASE for Home and Tiers, and moved lines
+#   in app._index.tsx (+1 after :379, +2 after :413), app.tiers.tsx (-3 after :353) and words.ts (+8 after :32). No
+#   locator of the two verified rows is in those files. Locators marked @6f3a57b6 or @2fe85336 stay true at those
+#   commits; the rows that quote those files (rp-paid-trigger's uncertainty, rp-cashback-base, rp-tier-window,
+#   rp-setup-steps, rp-switch-off, rp-review-ask, rp-import-past, rp-widget-settings) need re-quoting at the new main.
 #
 # Conventions:
 # - Locators are repo-relative. "@6f3a57b6" means read at that commit, and sha256 is then the hash
@@ -487,7 +493,7 @@ uncertainties = [
   "The test order was a draft order marked as paid. That it was not fulfilled when credited is our inference [I]: the record doesn't state its fulfilment.",
   "Only orders with a customer attached, while cashback is on and a tier exists; test, cancelled and pre-install orders earn nothing (record-order.server.ts:61-69, 92), and so do orders past the read limits (rp-store-credit). Since 2026-11-09 the sentence says only what triggers an earning order; which orders earn nothing are rp-no-cashback-cases and rp-customer-required.",
   "A send that fails is retried with back-off and becomes 'needs a look' after 24 hours (payouts.server.ts), so 'added when paid' is the normal path, not a guarantee.",
-  "The app's own Home sentence reads 'On: every paid order earns cashback as store credit.' (apps/rewards/app/admin/home-rules.ts:49), but test orders (record-order.server.ts:66), cancelled orders (:67), orders from before install (:62-65), orders while no tier exists (:69), orders with no customer attached (:92) and orders paid fully with store credit (staging-run.md:25, check D) earn nothing. Never copy it into marketing; an agent PR could correct it. 2026-11-09: PR #157 (open, unmerged) rewrites it; until it merges, :49 at 2fe85336 is unchanged.",
+  "The app's own Home sentence reads 'On: every paid order earns cashback as store credit.' (apps/rewards/app/admin/home-rules.ts:49), but test orders (record-order.server.ts:66), cancelled orders (:67), orders from before install (:62-65), orders while no tier exists (:69), orders with no customer attached (:92) and orders paid fully with store credit (staging-run.md:25, check D) earn nothing. Never copy it into marketing; an agent PR could correct it. 2026-11-09: PR #157 rewrote it and merged after this read (1c49ed0a); :49 at 2fe85336 still has the old sentence.",
 ]
 contrary_evidence = []
 commercial_interest = "We make RewardsPro."
@@ -497,7 +503,9 @@ correction_url = ""
 
 [[claim]]
 # Added 2026-11-09 (RP-06): a starred row of the onboarding plan's PR-2 (wf4 ONBOARDING.md §7.1, its "On:" line) and of
-# wf2's /help/#earning and IA4. PR #157 (open) says the same in its Running sentence.
+# wf2's /help/#earning and IA4. PR #157's Running sentence, merged after this read (home-rules.ts at 1c49ed0a), names
+# the same case: "Some earn nothing, such as test orders, orders with no customer attached and orders placed before
+# RewardsPro was installed."
 id = "rp-customer-required"
 claim = "Orders with no customer attached earn nothing."
 scope = "The rebuilt app (apps/rewards): an order Shopify gives with no customer is neither recorded nor paid cashback, and adds nothing to tier spend."
@@ -625,6 +633,7 @@ uncertainties = [
   "Tax: the product price is as Shopify gives it, so it includes VAT only where the shop's prices include tax. No tax-exclusive order has been run (staging-run.md:44; switch.md:262 @6bd092cb). Don't mention tax-exclusive stores.",
   "The rate is the tier the customer held before this order counted (record-order.server.ts:77-79, 149).",
   "C1's worked example is staging check B. Whether C1 also needs the production check B is the verifier's call; the card's date line must say which store and date it was checked on.",
+  "2026-11-09: since #157 merged (1c49ed0a, after this round's read at 2fe85336), the app's own sentence is words.ts CASHBACK_BASE: 'Cashback is paid on the product price after discounts, less anything paid with store credit or gift cards. Shipping, duties, tips and gift cards bought earn nothing.' The app.tiers.tsx:354-357 source above is history, and this row's sentence is no longer the app's word for word.",
 ]
 contrary_evidence = []
 commercial_interest = "We make RewardsPro."
