@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useId } from "react";
-import { type ShouldRevalidateFunctionArgs, createRoutesStub, data, useRevalidator } from "react-router";
+import { type NavigateFunction, type ShouldRevalidateFunctionArgs, createRoutesStub, data, redirect, useNavigate, useRevalidator } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GUIDE } from "~/admin/guide-words";
 import { MAX_BINS } from "~/lib/ladder";
@@ -18,16 +18,19 @@ vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
 
 // What the page asks of polling is recorded, with the hook it came from
 // (useId, one per call site), and the page's revalidator is kept so a test
-// can refresh the page's data as a poll would
+// can refresh the page's data as a poll would; its navigate too, so a test
+// can follow a link as App Bridge does in the admin (shopify:navigate)
 const usePolling = vi.fn();
 const pollingSites: string[] = [];
 let refresh: (() => Promise<void>) | null = null;
+let navigateTo: NavigateFunction | null = null;
 vi.mock("~/admin/polling", async (original) => ({
   ...(await original<typeof import("~/admin/polling")>()),
   usePolling: (...args: unknown[]) => {
     usePolling(...args);
     pollingSites.push(useId());
     refresh = useRevalidator().revalidate;
+    navigateTo = useNavigate();
   },
 }));
 
@@ -247,6 +250,8 @@ afterEach(() => {
   usePolling.mockClear();
   pollingSites.length = 0;
   refresh = null;
+  navigateTo = null;
+  vi.restoreAllMocks();
 });
 
 describe("The guide, every step", () => {
@@ -866,6 +871,65 @@ describe("Step 3: Go live", () => {
     await renderWelcome(live({ firstPercent: 0 }));
     screen.getByText(GUIDE.tryItNoRate);
     expect(screen.queryByText(/at least/)).toBeNull();
+  });
+});
+
+// I-4: each control here is removed by the change it makes, so focus moves on to what replaced it
+describe("Focus across the guide", () => {
+  /** The section headed `heading`, which holds focus or sits in the element that does. */
+  const focusIsOn = (heading: string) => {
+    const section = document.querySelector(`s-section[heading="${heading}"]`);
+    const active = document.activeElement;
+    return section !== null && active !== null && active !== document.body && (active.contains(section) || section.contains(active));
+  };
+
+  it("leaves focus alone when the guide opens", async () => {
+    await renderWelcome(step2());
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("moves focus to the new step after Next, without scrolling", async () => {
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    await renderWelcome(welcomeData(), { next: () => step2() });
+    await act(async () => {
+      await navigateTo!(button(GUIDE.next).getAttribute("href")!);
+    });
+    await screen.findByText(GUIDE.saveTiers);
+    expect(focusIsOn(GUIDE.steps[1])).toBe(true);
+    expect(focus).toHaveBeenLastCalledWith({ preventScroll: true });
+    // A step's focus says which step it is
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(GUIDE.steps[1]);
+  });
+
+  it("moves focus to step 3 after a save", async () => {
+    await renderWelcome(step2(), { answer: () => redirect("/app/welcome?step=3"), next: () => step3() });
+    await click(button(GUIDE.saveTiers));
+    await screen.findByText(GUIDE.switchOn);
+    expect(focusIsOn(GUIDE.checksHeading)).toBe(true);
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(GUIDE.steps[2]);
+  });
+
+  it("moves focus to Cashback is on after Switch cashback on", async () => {
+    await renderWelcome(step3(), { answer: () => new Promise(() => {}) });
+    await click(button(GUIDE.switchOn));
+    expect(focusIsOn(GUIDE.liveHeading)).toBe(true);
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(GUIDE.liveHeading);
+  });
+
+  it("leaves focus alone on a page that opens with cashback on", async () => {
+    await renderWelcome(live());
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("moves focus to the first field with an error after a refused save", async () => {
+    await renderWelcome(step2(), {
+      answer: async () => data({ ok: false, errors: { rows: [{}, { minSpend: TIER_ERRORS.ladderOrder }, { name: "Enter a name." }] } }, { status: 422 }),
+    });
+    // Polaris's fields take focus (they hand it to their input); jsdom's stand-ins need a tabindex for it
+    for (const element of document.querySelectorAll("s-text-field, s-money-field, s-number-field")) element.setAttribute("tabindex", "-1");
+    await click(button(GUIDE.saveTiers));
+    await waitFor(() => expect(field("minSpend1").getAttribute("error")).toBe(TIER_ERRORS.ladderOrder));
+    expect(document.activeElement).toBe(field("minSpend1"));
   });
 });
 

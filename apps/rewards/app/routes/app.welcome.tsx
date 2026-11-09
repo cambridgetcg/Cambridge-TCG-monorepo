@@ -1,5 +1,5 @@
 import type { Decimal } from "decimal.js";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
 import { data, redirect, useFetcher, useLoaderData, useLocation, useNavigate } from "react-router";
 
@@ -434,55 +434,76 @@ function useTierFields(d: WelcomeData) {
 
 type TierFields = ReturnType<typeof useTierFields>;
 
+/** Where focus goes when a step, or "Cashback is on", replaces the control that was pressed (I-4). */
+type Target = RefObject<HTMLDivElement | null>;
+
+/**
+ * A section's focus target: s-section draws its heading itself, where it
+ * can't take focus, so focus goes to this wrapper, named as the heading is
+ * for a screen reader. It moves without scrolling, as on the Tiers page.
+ */
+function FocusTarget({ target, label, children }: { target: Target; label: string; children: ReactNode }) {
+  return (
+    <div ref={target} tabIndex={-1} role="group" aria-label={label}>
+      {children}
+    </div>
+  );
+}
+
+const focusOn = (target: Target) => target.current?.focus({ preventScroll: true });
+
 /**
  * Step 1, How it works: what store credit is and why it brings buyers back,
  * then Next or the Tiers page. Read from Settings, the page's own heading
  * names it, so its section has none.
  */
-function StepOne({ d, finishLater }: { d: WelcomeData; finishLater: ReactNode }) {
+function StepOne({ d, target, finishLater }: { d: WelcomeData; target: Target; finishLater: ReactNode }) {
   const money = moneyIn(d.currency);
   const order = exampleOrder(d.medianOrder === null ? null : new Money(d.medianOrder), d.currency);
   return (
-    <s-section heading={d.reading ? undefined : GUIDE.steps[0]}>
-      <s-stack gap="base">
-        <s-query-container containerName="tiles">
-          <s-grid gridTemplateColumns={`${TILES_SIDE_BY_SIDE} 1fr 1fr, 1fr`} gap="base">
-            <s-box padding="base" border="base" borderRadius="base">
-              <s-stack gap="small-200">
-                <s-heading>{GUIDE.creditTitle}</s-heading>
-                <s-paragraph>{GUIDE.creditBody}</s-paragraph>
-                {d.multiCurrency ? <s-paragraph>{GUIDE.creditCurrency}</s-paragraph> : null}
-              </s-stack>
-            </s-box>
-            <s-box padding="base" border="base" borderRadius="base">
-              <s-stack gap="small-200">
-                <s-heading>{GUIDE.nextTimeTitle}</s-heading>
-                <s-paragraph>{GUIDE.nextTimeBody}</s-paragraph>
-                {order === null ? null : (
-                  <s-text color="subdued">{GUIDE.example(money(order), money(cashbackFor(order, d.firstPercent ?? 3, d.currency)))}</s-text>
-                )}
-              </s-stack>
-            </s-box>
-          </s-grid>
-        </s-query-container>
-        <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
-          {finishLater}
-          {d.editable ? (
-            <s-button variant="primary" href="/app/welcome?step=2">
-              {GUIDE.next}
-            </s-button>
-          ) : (
-            <s-link href="/app/tiers">{GUIDE.editTiers}</s-link>
-          )}
+    <FocusTarget target={target} label={d.reading ? GUIDE.howItWorks : GUIDE.steps[0]}>
+      <s-section heading={d.reading ? undefined : GUIDE.steps[0]}>
+        <s-stack gap="base">
+          <s-query-container containerName="tiles">
+            <s-grid gridTemplateColumns={`${TILES_SIDE_BY_SIDE} 1fr 1fr, 1fr`} gap="base">
+              <s-box padding="base" border="base" borderRadius="base">
+                <s-stack gap="small-200">
+                  <s-heading>{GUIDE.creditTitle}</s-heading>
+                  <s-paragraph>{GUIDE.creditBody}</s-paragraph>
+                  {d.multiCurrency ? <s-paragraph>{GUIDE.creditCurrency}</s-paragraph> : null}
+                </s-stack>
+              </s-box>
+              <s-box padding="base" border="base" borderRadius="base">
+                <s-stack gap="small-200">
+                  <s-heading>{GUIDE.nextTimeTitle}</s-heading>
+                  <s-paragraph>{GUIDE.nextTimeBody}</s-paragraph>
+                  {order === null ? null : (
+                    <s-text color="subdued">{GUIDE.example(money(order), money(cashbackFor(order, d.firstPercent ?? 3, d.currency)))}</s-text>
+                  )}
+                </s-stack>
+              </s-box>
+            </s-grid>
+          </s-query-container>
+          <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
+            {finishLater}
+            {d.editable ? (
+              <s-button variant="primary" href="/app/welcome?step=2">
+                {GUIDE.next}
+              </s-button>
+            ) : (
+              <s-link href="/app/tiers">{GUIDE.editTiers}</s-link>
+            )}
+          </s-stack>
         </s-stack>
-      </s-stack>
-    </s-section>
+      </s-section>
+    </FocusTarget>
   );
 }
 
 /** Step 2, Your tiers: the picture, the three tiers' fields, the counts and cost from them, and Save. */
 function StepTwo({
   d,
+  target,
   fields,
   rowErrors,
   saveError,
@@ -492,6 +513,7 @@ function StepTwo({
   finishLater,
 }: {
   d: WelcomeData;
+  target: Target;
   fields: TierFields;
   rowErrors: LadderErrors["rows"] | null;
   saveError: string | undefined;
@@ -520,113 +542,132 @@ function StepTwo({
   const beyondPicture = ladder !== null && valid !== null && valid.some((start) => start > (MAX_BINS - 1) * ladder.binWidth);
   const showPicture = ladder !== null && d.importState === "done" && d.importedOrders > 0;
 
+  // After a refused save, focus goes to the first field with an error (I-4); Polaris's fields take focus, as on Tiers
+  const fieldElements = useRef<Record<string, HTMLElement | null>>({});
+  const fieldRef = (name: string) => (element: HTMLElement | null) => {
+    fieldElements.current[name] = element;
+  };
+  useEffect(() => {
+    if (!rowErrors) return;
+    const errored = rowErrors.flatMap((row, i) => (["name", "minSpend", "percent"] as const).filter((key) => row[key]).map((key) => `${key}${i}`));
+    const first = errored.find((name) => fieldElements.current[name]);
+    if (first) fieldElements.current[first]?.focus();
+  }, [rowErrors]);
+
   return (
-    <s-section heading={GUIDE.steps[1]}>
-      <s-stack gap="base">
-        {ladder ? <s-paragraph>{tiersSentence(d, ladder)}</s-paragraph> : null}
-        {d.importLines.map((line) => (
-          <s-text key={line} color="subdued">
-            {line}
-          </s-text>
-        ))}
-        {d.importState === "running" ? <s-text color="subdued">{GUIDE.importRunning(d.importedOrders)}</s-text> : null}
-        {showPicture ? (
-          <s-stack gap="small-200">
-            <s-text>{GUIDE.chartLabel(d.period)}</s-text>
-            <LadderChart
-              ariaLabel={
-                counts && valid ? GUIDE.chartSummary(GUIDE.chartLabel(d.period), counts, money(valid[0]), money(valid[1])) : GUIDE.chartLabel(d.period)
-              }
-              // Only the range where 99% of buyers spend, the rest folded into its last bar (R21);
-              // counts, cost and beyondPicture keep the full MAX_BINS grid, and a start beyond the
-              // shown range is drawn on its edge (LadderChart's lineX)
-              buyers={pictureBins(ladder.buyers)}
-              binWidth={ladder.binWidth}
-              // The gridded starts (onGrid), not the typed ones, so it shades what the counts count (R15)
-              starts={gridStarts ? [gridStarts[1], gridStarts[2]] : null}
-              formatAmount={money}
-              onStartsChange={fields.dragStarts}
-            />
-          </s-stack>
-        ) : null}
-        <s-query-container containerName="tiers">
-          <s-stack gap="base">
-            {[0, 1, 2].map((i) => (
-              <s-grid key={i} gridTemplateColumns={`${ROW_IN_LINE} 2fr 2fr 1fr, 1fr`} gap="base" alignItems="start">
-                <s-text-field
-                  label={GUIDE.rowName(i + 1)}
-                  name={`name${i}`}
-                  maxLength={d.nameMax}
-                  value={names[i]}
-                  error={rowErrors?.[i]?.name}
-                  onInput={(event) => fields.setName(i, event.currentTarget.value)}
-                />
-                {i === 0 ? (
-                  <s-stack gap="small-300">
-                    <s-text>{GUIDE.firstStart(money(0))}</s-text>
-                    <s-text color="subdued">{GUIDE.firstTier}</s-text>
-                  </s-stack>
-                ) : (
-                  // Polaris's money field has no step, so whole amounts are the save's rule, said as Tiers says it
-                  <s-money-field
-                    label={GUIDE.rowStart(i + 1)}
-                    name={`minSpend${i}`}
-                    currencyCode={d.currency as HTMLElementTagNameMap["s-money-field"]["currencyCode"]}
-                    min={0}
-                    value={starts[i - 1]}
-                    details={GUIDE.wholeAmounts}
-                    error={rowErrors?.[i]?.minSpend}
-                    onInput={(event) => fields.typeStart(i === 1 ? 0 : 1, event.currentTarget.value)}
-                  />
-                )}
-                <s-number-field
-                  label={GUIDE.rowRate(i + 1)}
-                  name={`percent${i}`}
-                  suffix="%"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={percents[i]}
-                  error={rowErrors?.[i]?.percent}
-                  onInput={(event) => fields.setPercent(i, event.currentTarget.value)}
-                />
-              </s-grid>
-            ))}
-          </s-stack>
-        </s-query-container>
-        {/* Announced as they change; there from the first render, empty, so the first figures are announced too */}
-        <s-box accessibilityRole="status">
-          {counts ? (
+    <FocusTarget target={target} label={GUIDE.steps[1]}>
+      <s-section heading={GUIDE.steps[1]}>
+        <s-stack gap="base">
+          {ladder ? <s-paragraph>{tiersSentence(d, ladder)}</s-paragraph> : null}
+          {d.importLines.map((line) => (
+            <s-text key={line} color="subdued">
+              {line}
+            </s-text>
+          ))}
+          {d.importState === "running" ? <s-text color="subdued">{GUIDE.importRunning(d.importedOrders)}</s-text> : null}
+          {showPicture ? (
             <s-stack gap="small-200">
-              {counts.map((count, i) => (
-                <s-text key={i}>{GUIDE.tierCount(names[i].trim() || GUIDE.defaultNames[i], count)}</s-text>
-              ))}
-              {cost ? <s-text>{GUIDE.cost(money(cost), d.period)}</s-text> : null}
-              {beyondPicture ? <s-text color="subdued">{GUIDE.beyondPicture}</s-text> : null}
+              <s-text>{GUIDE.chartLabel(d.period)}</s-text>
+              <LadderChart
+                ariaLabel={
+                  counts && valid ? GUIDE.chartSummary(GUIDE.chartLabel(d.period), counts, money(valid[0]), money(valid[1])) : GUIDE.chartLabel(d.period)
+                }
+                // Only the range where 99% of buyers spend, the rest folded into its last bar (R21);
+                // counts, cost and beyondPicture keep the full MAX_BINS grid, and a start beyond the
+                // shown range is drawn on its edge (LadderChart's lineX)
+                buyers={pictureBins(ladder.buyers)}
+                binWidth={ladder.binWidth}
+                // The gridded starts (onGrid), not the typed ones, so it shades what the counts count (R15)
+                starts={gridStarts ? [gridStarts[1], gridStarts[2]] : null}
+                formatAmount={money}
+                onStartsChange={fields.dragStarts}
+              />
             </s-stack>
           ) : null}
-        </s-box>
-        {saveError ? (
-          <s-stack direction="inline" gap="small-200" alignItems="center">
-            <s-text tone="critical">{saveError}</s-text>
-            {ladderRefused ? <s-link href="/app/tiers">{GUIDE.editTiers}</s-link> : null}
+          <s-query-container containerName="tiers">
+            <s-stack gap="base">
+              {[0, 1, 2].map((i) => (
+                <s-grid key={i} gridTemplateColumns={`${ROW_IN_LINE} 2fr 2fr 1fr, 1fr`} gap="base" alignItems="start">
+                  <s-text-field
+                    ref={fieldRef(`name${i}`)}
+                    label={GUIDE.rowName(i + 1)}
+                    name={`name${i}`}
+                    maxLength={d.nameMax}
+                    value={names[i]}
+                    error={rowErrors?.[i]?.name}
+                    onInput={(event) => fields.setName(i, event.currentTarget.value)}
+                  />
+                  {i === 0 ? (
+                    <s-stack gap="small-300">
+                      <s-text>{GUIDE.firstStart(money(0))}</s-text>
+                      <s-text color="subdued">{GUIDE.firstTier}</s-text>
+                    </s-stack>
+                  ) : (
+                    // Polaris's money field has no step, so whole amounts are the save's rule, said as Tiers says it
+                    <s-money-field
+                      ref={fieldRef(`minSpend${i}`)}
+                      label={GUIDE.rowStart(i + 1)}
+                      name={`minSpend${i}`}
+                      currencyCode={d.currency as HTMLElementTagNameMap["s-money-field"]["currencyCode"]}
+                      min={0}
+                      value={starts[i - 1]}
+                      details={GUIDE.wholeAmounts}
+                      error={rowErrors?.[i]?.minSpend}
+                      onInput={(event) => fields.typeStart(i === 1 ? 0 : 1, event.currentTarget.value)}
+                    />
+                  )}
+                  <s-number-field
+                    ref={fieldRef(`percent${i}`)}
+                    label={GUIDE.rowRate(i + 1)}
+                    name={`percent${i}`}
+                    suffix="%"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={percents[i]}
+                    error={rowErrors?.[i]?.percent}
+                    onInput={(event) => fields.setPercent(i, event.currentTarget.value)}
+                  />
+                </s-grid>
+              ))}
+            </s-stack>
+          </s-query-container>
+          {/* Announced as they change; there from the first render, empty, so the first figures are announced too */}
+          <s-box accessibilityRole="status">
+            {counts ? (
+              <s-stack gap="small-200">
+                {counts.map((count, i) => (
+                  <s-text key={i}>{GUIDE.tierCount(names[i].trim() || GUIDE.defaultNames[i], count)}</s-text>
+                ))}
+                {cost ? <s-text>{GUIDE.cost(money(cost), d.period)}</s-text> : null}
+                {beyondPicture ? <s-text color="subdued">{GUIDE.beyondPicture}</s-text> : null}
+              </s-stack>
+            ) : null}
+          </s-box>
+          {saveError ? (
+            <s-stack direction="inline" gap="small-200" alignItems="center">
+              <s-text tone="critical">{saveError}</s-text>
+              {ladderRefused ? <s-link href="/app/tiers">{GUIDE.editTiers}</s-link> : null}
+            </s-stack>
+          ) : null}
+          <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
+            <s-button href={stepHref(1, search)}>{GUIDE.back}</s-button>
+            {finishLater}
+            <s-button variant="primary" loading={saveBusy} onClick={onSave}>
+              {GUIDE.saveTiers}
+            </s-button>
           </s-stack>
-        ) : null}
-        <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
-          <s-button href={stepHref(1, search)}>{GUIDE.back}</s-button>
-          {finishLater}
-          <s-button variant="primary" loading={saveBusy} onClick={onSave}>
-            {GUIDE.saveTiers}
-          </s-button>
         </s-stack>
-      </s-stack>
-    </s-section>
+      </s-section>
+    </FocusTarget>
   );
 }
 
 /** Step 3, Go live: the checks, then the switch, then once on the try-it with one order. */
 function StepThree({
   d,
+  target,
+  liveTarget,
   goLive,
   widget,
   isLive,
@@ -638,6 +679,9 @@ function StepThree({
   finishLater,
 }: {
   d: WelcomeData;
+  target: Target;
+  /** "Cashback is on", where focus goes once it is */
+  liveTarget: Target;
   goLive: GoLiveData;
   widget: WidgetEmbed;
   isLive: boolean;
@@ -653,70 +697,74 @@ function StepThree({
   const minimum = d.firstPercent === null ? null : minEarningBase(d.firstPercent, d.currency);
   return (
     <>
-      <s-section heading={isLive ? GUIDE.checksHeadingLive : GUIDE.checksHeading}>
-        <s-stack gap="base">
-          <s-stack gap="small-200">
-            <Check ok={goLive.storeCredit} yes={GUIDE.storeCreditYes} no={GUIDE.storeCreditNo} unknown={GUIDE.storeCreditUnknown} />
-            {goLive.storeCredit === false && goLive.storeCreditBanner ? (
-              <s-text>
-                {goLive.storeCreditBanner}{" "}
-                {goLive.storeCreditLink ? (
-                  <s-link href={goLive.storeCreditLink.href} target="_top">
-                    {goLive.storeCreditLink.label}
-                  </s-link>
-                ) : null}
-              </s-text>
-            ) : null}
-          </s-stack>
-          <WidgetRow widget={widget} themeEditorUrl={d.themeEditorUrl} />
-          {d.placing ? <s-paragraph>{GUIDE.placing}</s-paragraph> : null}
-        </s-stack>
-      </s-section>
-
-      {isLive ? (
-        <s-section heading={GUIDE.liveHeading}>
+      <FocusTarget target={target} label={GUIDE.steps[2]}>
+        <s-section heading={isLive ? GUIDE.checksHeadingLive : GUIDE.checksHeading}>
           <s-stack gap="base">
-            <s-heading>{GUIDE.tryItHeading}</s-heading>
-            {minimum === null ? (
-              <s-paragraph>{GUIDE.tryItNoRate}</s-paragraph>
-            ) : (
-              <>
-                <s-ordered-list>
-                  {GUIDE.tryItSteps(money(minimum)).map((line) => (
-                    <s-list-item key={line}>{line}</s-list-item>
-                  ))}
-                </s-ordered-list>
-                <s-link href={d.draftOrderUrl} target="_blank">
-                  {GUIDE.draftOrder}
-                </s-link>
-              </>
-            )}
-            {goLive.tryIt.length === 0 ? <s-text color="subdued">{GUIDE.tryItNone}</s-text> : null}
-            {goLive.tryIt.length > 1 ? (
-              <s-choice-list
-                label={GUIDE.tryItPick}
-                name="tryIt"
-                onChange={(event) => {
-                  const [value] = event.currentTarget.values;
-                  onPick(value ?? null);
-                }}
-              >
-                {goLive.tryIt.map((option) => (
-                  <s-choice key={option.orderId} value={option.orderId} selected={option.orderId === chosen?.orderId}>
-                    {option.name}
-                  </s-choice>
-                ))}
-              </s-choice-list>
-            ) : null}
-            {chosen ? <TryItResult order={chosen} /> : null}
-            <EmailsLine />
-            <s-stack direction="inline" justifyContent="end">
-              <s-button variant="primary" href="/app">
-                {GUIDE.goHome}
-              </s-button>
+            <s-stack gap="small-200">
+              <Check ok={goLive.storeCredit} yes={GUIDE.storeCreditYes} no={GUIDE.storeCreditNo} unknown={GUIDE.storeCreditUnknown} />
+              {goLive.storeCredit === false && goLive.storeCreditBanner ? (
+                <s-text>
+                  {goLive.storeCreditBanner}{" "}
+                  {goLive.storeCreditLink ? (
+                    <s-link href={goLive.storeCreditLink.href} target="_top">
+                      {goLive.storeCreditLink.label}
+                    </s-link>
+                  ) : null}
+                </s-text>
+              ) : null}
             </s-stack>
+            <WidgetRow widget={widget} themeEditorUrl={d.themeEditorUrl} />
+            {d.placing ? <s-paragraph>{GUIDE.placing}</s-paragraph> : null}
           </s-stack>
         </s-section>
+      </FocusTarget>
+
+      {isLive ? (
+        <FocusTarget target={liveTarget} label={GUIDE.liveHeading}>
+          <s-section heading={GUIDE.liveHeading}>
+            <s-stack gap="base">
+              <s-heading>{GUIDE.tryItHeading}</s-heading>
+              {minimum === null ? (
+                <s-paragraph>{GUIDE.tryItNoRate}</s-paragraph>
+              ) : (
+                <>
+                  <s-ordered-list>
+                    {GUIDE.tryItSteps(money(minimum)).map((line) => (
+                      <s-list-item key={line}>{line}</s-list-item>
+                    ))}
+                  </s-ordered-list>
+                  <s-link href={d.draftOrderUrl} target="_blank">
+                    {GUIDE.draftOrder}
+                  </s-link>
+                </>
+              )}
+              {goLive.tryIt.length === 0 ? <s-text color="subdued">{GUIDE.tryItNone}</s-text> : null}
+              {goLive.tryIt.length > 1 ? (
+                <s-choice-list
+                  label={GUIDE.tryItPick}
+                  name="tryIt"
+                  onChange={(event) => {
+                    const [value] = event.currentTarget.values;
+                    onPick(value ?? null);
+                  }}
+                >
+                  {goLive.tryIt.map((option) => (
+                    <s-choice key={option.orderId} value={option.orderId} selected={option.orderId === chosen?.orderId}>
+                      {option.name}
+                    </s-choice>
+                  ))}
+                </s-choice-list>
+              ) : null}
+              {chosen ? <TryItResult order={chosen} /> : null}
+              <EmailsLine />
+              <s-stack direction="inline" justifyContent="end">
+                <s-button variant="primary" href="/app">
+                  {GUIDE.goHome}
+                </s-button>
+              </s-stack>
+            </s-stack>
+          </s-section>
+        </FocusTarget>
       ) : (
         <s-section>
           <s-stack gap="base">
@@ -812,6 +860,22 @@ export default function Welcome() {
   if (tryIt.length === 1 && picked !== tryIt[0].orderId) setPicked(tryIt[0].orderId);
   const chosen = tryIt.find((order) => order.orderId === picked) ?? null;
 
+  // Focus follows what replaced the control pressed (I-4): the new step's heading when the step changes, and
+  // "Cashback is on" once it is; neither when the page opens
+  const stepTarget = useRef<HTMLDivElement>(null);
+  const liveTarget = useRef<HTMLDivElement>(null);
+  const shownStep = useRef(d.step);
+  useEffect(() => {
+    if (shownStep.current === d.step) return;
+    shownStep.current = d.step;
+    focusOn(stepTarget);
+  }, [d.step]);
+  const wasLive = useRef(isLive);
+  useEffect(() => {
+    if (isLive && !wasLive.current) focusOn(liveTarget);
+    wasLive.current = isLive;
+  }, [isLive]);
+
   const importRunning = d.importState === "running";
   const switchedOnAt = d.goLive?.switchedOnAt ?? null;
   // Followed whatever the order's status: a settled one can still be refunded, which takes the credit back off (R14)
@@ -842,13 +906,15 @@ export default function Welcome() {
         </s-stack>
       </s-section>
 
-      {d.step === 1 ? <StepOne d={d} finishLater={finishLater} /> : null}
+      {d.step === 1 ? <StepOne d={d} target={stepTarget} finishLater={finishLater} /> : null}
       {d.step === 2 ? (
-        <StepTwo d={d} fields={fields} rowErrors={rowErrors} saveError={saveError} ladderRefused={Boolean(ladderErrors?.form)} saveBusy={saveBusy} onSave={save} finishLater={finishLater} />
+        <StepTwo d={d} target={stepTarget} fields={fields} rowErrors={rowErrors} saveError={saveError} ladderRefused={Boolean(ladderErrors?.form)} saveBusy={saveBusy} onSave={save} finishLater={finishLater} />
       ) : null}
       {d.step === 3 && d.goLive ? (
         <StepThree
           d={d}
+          target={stepTarget}
+          liveTarget={liveTarget}
           goLive={d.goLive}
           widget={widget}
           isLive={isLive}
