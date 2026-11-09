@@ -25,6 +25,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import type { Decimal } from "decimal.js";
 import prisma, { databaseSchema } from "~/db.server";
 import { acquireCronLock, releaseCronLock } from "./cron.server";
+import { WHOLE_AMOUNT } from "./ladder";
 import { Money, fromDb } from "./money";
 import { UUID } from "./uuid";
 import { waitUntil } from "./wait-until.server";
@@ -430,9 +431,6 @@ export async function tierPassPending(connectionId: string): Promise<boolean> {
 /** The longest a tier's name may be, in characters. */
 export const TIER_NAME_MAX = 40;
 
-/** A whole minimum spend in the shop's currency: numeric(19,4) holds 15 digits before the point, the form takes 12. */
-const WHOLE_AMOUNT = /^\d{1,12}$/;
-
 /** A tier change's problems: by field, or `form` for the whole change. */
 export type TierErrors = Partial<Record<"name" | "minSpend" | "percent" | "form", string>>;
 
@@ -446,7 +444,18 @@ export const TIER_ERRORS = {
   changed: "This tier changed since you opened it. Reload the page.",
   lowest: "The lowest tier can't be deleted: every buyer starts there.",
   busy: "The tier couldn't be deleted just now. Try again.",
+  ladderOrder: "Start each tier above the one before.",
+  ladderStale: "Your tiers changed since you opened this page. Edit them on the Tiers page.",
+  ladderShape: "Set up exactly three tiers.",
 } as const;
+
+/** A tier's name as typed, trimmed, with its problem if it has one: 1 to TIER_NAME_MAX characters. */
+function tierName(value: unknown): { name: string; error?: string } {
+  const name = typeof value === "string" ? value.trim() : "";
+  if (name === "") return { name, error: TIER_ERRORS.nameMissing };
+  if ([...name].length > TIER_NAME_MAX) return { name, error: TIER_ERRORS.nameTooLong };
+  return { name };
+}
 
 /**
  * A tier change runs under its merchant's row, taken FOR NO KEY UPDATE:
@@ -523,9 +532,8 @@ export async function saveTier(
   if (!UUID.test(merchantId) || (input.id !== null && !UUID.test(input.id))) return gone;
 
   const errors: TierErrors = {};
-  const name = typeof input.name === "string" ? input.name.trim() : "";
-  if (name === "") errors.name = TIER_ERRORS.nameMissing;
-  else if ([...name].length > TIER_NAME_MAX) errors.name = TIER_ERRORS.nameTooLong;
+  const { name, error: nameError } = tierName(input.name);
+  if (nameError) errors.name = nameError;
   const typedMin = typeof input.minSpend === "string" ? input.minSpend.trim() : "";
   const minSpend = WHOLE_AMOUNT.test(typedMin) ? new Prisma.Decimal(typedMin) : null;
   const percent = parseBaseRate(input.percent);
@@ -563,6 +571,86 @@ export async function saveTier(
       select: { id: true },
     });
     return { ok: true as const, tierId: created.id, movesBuyers: true };
+  }, TIER_CHANGE_TRANSACTION);
+}
+
+/** One row of the guide's ladder (RP-24), its fields as typed. */
+export type LadderRowInput = { name: unknown; minSpend: unknown; percent: unknown };
+
+/** A ladder save's problems: each row's by field, as saveTier's, and `form` for the whole ladder. */
+export type LadderErrors = { rows: [TierErrors, TierErrors, TierErrors]; form?: string };
+
+/**
+ * Whether the guide may write a store's ladder (RP-24): one with no tiers,
+ * or with only the first tier Home's old card makes (BASE_TIER_NAME at 0)
+ * while cashback is off. The guide never rewrites a live ladder.
+ */
+export function isFreshLadder(tiers: TierRow[], running: boolean): boolean {
+  if (tiers.length === 0) return true;
+  return tiers.length === 1 && tiers[0].name === BASE_TIER_NAME && tiers[0].minSpend.isZero() && !running;
+}
+
+/**
+ * Save the guide's three tiers in one go (RP-24), from its fields as typed,
+ * lowest first. Each row is checked by saveTier's rules (a name of 1 to
+ * TIER_NAME_MAX characters, trimmed; a whole percent from 0 to 100; for rows
+ * 2 and 3 a whole start of 0 or more), tier 1 starts at 0 whatever its row
+ * says, and each start must be above the one before; every row's problems
+ * come back at once and nothing is written. Then, in one transaction under
+ * the merchant's row (FOR UPDATE, as setBaseRate), the store must still be
+ * fresh (isFreshLadder), else `form: ladderStale` and nothing is written: a
+ * tier saved meanwhile, from the Tiers page or another tab, wins. Home's
+ * lone tier is kept by id, renamed and given tier 1's rate (its start stays
+ * 0), or tier 1 is created at 0; tiers 2 and 3 are created above it. The
+ * caller then asks for a tier pass and writes the widget config: new tiers
+ * always move buyers.
+ */
+export async function saveLadder(
+  merchantId: string,
+  rows: LadderRowInput[],
+  db: PrismaClient = prisma,
+): Promise<{ ok: true; tierIds: [string, string, string] } | { ok: false; errors: LadderErrors }> {
+  const refused = (form: string) => ({ ok: false as const, errors: { rows: [{}, {}, {}] as LadderErrors["rows"], form } });
+  if (!Array.isArray(rows) || rows.length !== 3) return refused(TIER_ERRORS.ladderShape);
+  if (!UUID.test(merchantId)) return refused(TIER_ERRORS.ladderStale);
+
+  const errors: LadderErrors["rows"] = [{}, {}, {}];
+  let below = new Prisma.Decimal(0);
+  const ladder = rows.map((row, i) => {
+    const rowErrors = errors[i];
+    const { name, error: nameError } = tierName(row.name);
+    if (nameError) rowErrors.name = nameError;
+    let minSpend = new Prisma.Decimal(0);
+    if (i > 0) {
+      const typedMin = typeof row.minSpend === "string" ? row.minSpend.trim() : "";
+      if (!WHOLE_AMOUNT.test(typedMin)) rowErrors.minSpend = TIER_ERRORS.minSpend;
+      else {
+        minSpend = new Prisma.Decimal(typedMin);
+        if (!minSpend.gt(below)) rowErrors.minSpend = TIER_ERRORS.ladderOrder;
+        below = minSpend;
+      }
+    }
+    const percent = parseBaseRate(row.percent);
+    if (percent === null) rowErrors.percent = TIER_ERRORS.percent;
+    return { name, minSpend, cashbackPercent: new Prisma.Decimal(percent ?? 0) };
+  });
+  if (errors.some((rowErrors) => Object.keys(rowErrors).length > 0)) return { ok: false, errors: { rows: errors } };
+
+  return db.$transaction(async (tx) => {
+    await lockMerchantTiers(tx, merchantId, "FOR UPDATE");
+    const tiers = byMinimum(await readTiers(tx, merchantId));
+    const { running } = await tx.merchant.findUniqueOrThrow({ where: { id: merchantId }, select: { running: true } });
+    if (!isFreshLadder(tiers, running)) return refused(TIER_ERRORS.ladderStale);
+
+    const [first, second, third] = ladder;
+    const [lone] = tiers;
+    // Home's lone tier keeps its id and its start of 0
+    if (lone) await tx.tier.update({ where: { id: lone.id }, data: { name: first.name, cashbackPercent: first.cashbackPercent } });
+    const firstId = lone ? lone.id : (await tx.tier.create({ data: { merchantId, ...first, position: 0 }, select: { id: true } })).id;
+    // Rising starts, created in order, never meet the unique (merchant_id, min_spend) index
+    const secondId = (await tx.tier.create({ data: { merchantId, ...second, position: 1 }, select: { id: true } })).id;
+    const thirdId = (await tx.tier.create({ data: { merchantId, ...third, position: 2 }, select: { id: true } })).id;
+    return { ok: true as const, tierIds: [firstId, secondId, thirdId] as [string, string, string] };
   }, TIER_CHANGE_TRANSACTION);
 }
 

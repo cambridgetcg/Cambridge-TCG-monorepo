@@ -150,6 +150,8 @@ model Merchant {
   reviewPromptShownAt     DateTime?  @map("review_prompt_shown_at")
   /// When Home first saw every setup step done (Ruling 60); the setup card stays closed after.
   setupCompletedAt        DateTime?  @map("setup_completed_at")
+  /// When the merchant pressed Finish later in the setup guide (RP-24); the guide stays away after.
+  guideDismissedAt        DateTime?  @map("guide_dismissed_at")
   createdAt               DateTime   @default(now()) @map("created_at")
   updatedAt               DateTime   @updatedAt @map("updated_at")
 
