@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import prisma from "~/db.server";
 import { guideDue } from "~/lib/guide.server";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
-import { TIER_ERRORS, TIER_NAME_MAX } from "~/lib/tiers.server";
+import { TIER_ERRORS, TIER_NAME_MAX, requestTierPass } from "~/lib/tiers.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import { pollImport } from "~/shopify/bulk-import.server";
 import type { GraphqlClient } from "~/shopify/graphql";
@@ -23,6 +23,11 @@ vi.mock("~/admin/require-merchant.server", () => ({ requireMerchant: vi.fn() }))
 vi.mock("~/shopify/bulk-import.server", async (original) => {
   const actual = await original<typeof import("~/shopify/bulk-import.server")>();
   return { ...actual, pollImport: vi.fn(actual.pollImport) };
+});
+// The real requestTierPass, watched for one tier pass per saved ladder (8-F4)
+vi.mock("~/lib/tiers.server", async (original) => {
+  const actual = await original<typeof import("~/lib/tiers.server")>();
+  return { ...actual, requestTierPass: vi.fn(actual.requestTierPass) };
 });
 
 const SHOP = "welcome-test.myshopify.com";
@@ -182,6 +187,7 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
     await flushWaitUntil();
     requireMerchant?.mockReset();
     vi.mocked(pollImport).mockClear();
+    vi.mocked(requestTierPass).mockClear();
     vi.restoreAllMocks();
   });
 
@@ -355,6 +361,9 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       expect(redirect.status).toBe(302);
       expect(redirect.headers.get("Location")).toBe("/app/welcome?step=3&shop=s&host=h");
       expect(await passRequestedAt()).toBeInstanceOf(Date);
+      // One tier pass for the one save
+      expect(requestTierPass).toHaveBeenCalledTimes(1);
+      expect(requestTierPass).toHaveBeenCalledWith(conn.connectionId);
       expect(widgetValues(admin)).toEqual([{ running: false, basePercent: 3 }]);
       await flushWaitUntil();
       const tiers = await prisma.tier.findMany({ where: { merchantId: conn.merchantId }, orderBy: { position: "asc" } });
@@ -381,6 +390,7 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       expect(result.errors?.rows[2].percent).toBeTruthy();
       expect(await prisma.tier.count({ where: { merchantId: conn.merchantId } })).toBe(0);
       expect(await passRequestedAt()).toBeNull();
+      expect(requestTierPass).not.toHaveBeenCalled();
       expect(widgetValues(admin)).toEqual([]);
     });
 
@@ -393,13 +403,17 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       expect(result).toMatchObject({ ok: false, errors: { form: TIER_ERRORS.ladderStale }, status: 409 });
       expect((await prisma.tier.findMany({ where: { merchantId: conn.merchantId } })).map((t) => t.name).sort()).toEqual(["Bronze", "Gold"]);
       expect(await passRequestedAt()).toBeNull();
+      expect(requestTierPass).not.toHaveBeenCalled();
       expect(widgetValues(admin)).toEqual([]);
     });
 
     it("switches on, records setup done, tells the widget, and stays on step 3 with the try-it", async () => {
       await saveLadder();
+      expect(requestTierPass).toHaveBeenCalledTimes(1);
       const admin = fakeAdmin();
       expect(await act({ intent: "running", running: "on" }, admin)).toEqual({ ok: true });
+      // Switching on moves no one: still the save's one pass
+      expect(requestTierPass).toHaveBeenCalledTimes(1);
       const merchant = await merchantOf();
       expect(merchant.running).toBe(true);
       expect(merchant.setupCompletedAt).toBeInstanceOf(Date);

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useId } from "react";
 import { type ShouldRevalidateFunctionArgs, createRoutesStub, data, useRevalidator } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GUIDE } from "~/admin/guide-words";
@@ -15,14 +16,17 @@ import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
 vi.mock("~/db.server", () => ({ default: {}, databaseSchema: "rewards" }));
 vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
 
-// What the page asks of polling is recorded, and the page's revalidator is
-// kept so a test can refresh the page's data as a poll would
+// What the page asks of polling is recorded, with the hook it came from
+// (useId, one per call site), and the page's revalidator is kept so a test
+// can refresh the page's data as a poll would
 const usePolling = vi.fn();
+const pollingSites: string[] = [];
 let refresh: (() => Promise<void>) | null = null;
 vi.mock("~/admin/polling", async (original) => ({
   ...(await original<typeof import("~/admin/polling")>()),
   usePolling: (...args: unknown[]) => {
     usePolling(...args);
+    pollingSites.push(useId());
     refresh = useRevalidator().revalidate;
   },
 }));
@@ -233,6 +237,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   usePolling.mockClear();
+  pollingSites.length = 0;
   refresh = null;
 });
 
@@ -306,17 +311,24 @@ describe("The guide, every step", () => {
     expect(loads.count).toBe(0);
   });
 
+  // 9-F7: a second usePolling, in the page or in a step, would be a second call site
   it("polls once for the page, and restarts when the merchant returns", async () => {
     stubAppBridge("available");
     await renderWelcome(step2({ importState: "running", importedOrders: 40 }));
-    // One call for the whole page, on each render
-    expect(new Set(usePolling.mock.calls.map((call) => call[1]))).toEqual(new Set([10_000]));
     expect(usePolling).toHaveBeenLastCalledWith(true, 10_000, { forMs: undefined, restartKey: "running::0" });
+    const firstRenders = usePolling.mock.calls.length;
 
+    // Coming back re-renders the page
     await act(async () => {
       window.dispatchEvent(new Event("focus"));
     });
+    expect(usePolling.mock.calls.length).toBeGreaterThan(firstRenders);
     expect(usePolling).toHaveBeenLastCalledWith(true, 10_000, { forMs: undefined, restartKey: "running::1" });
+    // Across every render, every call came from one hook, and each asked for the page's one poll
+    expect(new Set(pollingSites).size).toBe(1);
+    for (const [i, call] of usePolling.mock.calls.entries()) {
+      expect(call, `call ${i}`).toEqual([true, 10_000, { forMs: undefined, restartKey: i < firstRenders ? "running::0" : expect.stringMatching(/^running::[01]$/) }]);
+    }
   });
 
   // Spec 5 (I-1): a guest can't spend store credit, so every mention of spending says who can
