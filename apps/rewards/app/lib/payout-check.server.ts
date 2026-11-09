@@ -20,7 +20,8 @@
  *    and, once the money has succeeded or failed, writes the refund's one
  *    take-back (sent by a later run's step 2, as the sweep's are). One still
  *    pending after MONEY_PENDING_FOR_MS is cleared with what succeeded and
- *    counted as one problem, naming its order by its Shopify name.
+ *    counted as one problem, naming its order by its Shopify name; one
+ *    Shopify no longer has is cleared from what is stored, and counted too.
  * 4. Sweep each active store, the one least recently swept first (OPERATIONS-6),
  *    for orders updated in the last SWEEP_DAYS (never before its install):
  *    the backstop for orders, refunds and cancellations whose webhooks
@@ -297,10 +298,13 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
  * problem and the refund stays marked (a ReadLimit is only logged), until
  * MONEY_PENDING_FOR_MS after it was marked: then it is settled with what has
  * succeeded, from its read if there is one, else from its stored value, and
- * counted as one problem by its order's Shopify name. A settle the credit's
- * state stops (being sent: RefundRetryLater, left for the next run; or a
- * state a refund can't judge, a problem) leaves it marked. The buyers whose
- * spend moved have their tier resolved once each.
+ * counted as one problem by its order's Shopify name. One Shopify answers
+ * it has no longer, or that is now another order's, is settled from its
+ * stored value, logged by its and its order's ids and counted as one
+ * problem (RP25-F3). A settle the credit's state stops (being sent:
+ * RefundRetryLater, left for the next run; or a state a refund can't judge,
+ * a problem) leaves it marked. The buyers whose spend moved have their tier
+ * resolved once each.
  */
 async function settlePendingRefundMoney(ctx: {
   result: PayoutCheckResult;
@@ -362,12 +366,15 @@ async function settlePendingRefundMoney(ctx: {
     const expired = row.moneyPendingSince !== null && now.getTime() - row.moneyPendingSince.getTime() >= MONEY_PENDING_FOR_MS;
 
     let read: RefundFacts | null = null;
+    // Whether Shopify answered that it has no such refund for this order
+    let gone = false;
     // Whether its money may still be on its way: the read says so, or failed
     let stillMoving: boolean;
     try {
       const found = await store.orders.readRefund(row.externalRefundId, { deadline: ctx.deadline });
       // Gone from Shopify, or now another order's: settled from what is stored
       read = found && found.orderGid === order.externalOrderId ? found.refund : null;
+      gone = read === null;
       stillMoving = read?.moneyPending === true;
     } catch (error) {
       // The run's deadline cut the read off: the rest wait for the next run
@@ -388,7 +395,15 @@ async function settlePendingRefundMoney(ctx: {
       if (settled.status === "settled") {
         ctx.result.refundsSettled++;
         moved.add(settled.customerId);
-        if (expired && stillMoving) {
+        if (gone) {
+          // Only what was stored was taken back. For an order deleted in
+          // Shopify that is #201's accepted C5; any other null (an access
+          // change) would lose the rest just as unseen, so it is counted.
+          // By ids only, never the buyer.
+          const cleared = new Error(`Shopify has no ${what} any more: it was settled from its stored value`);
+          console.warn(`[payout-check] ${cleared.message}`);
+          ctx.problem(cleared);
+        } else if (expired && stillMoving) {
           // One problem, naming the order by its Shopify name for the merchant, never the buyer
           const late = new Error(
             `The money of refund ${row.externalRefundId} of order ${order.name} for ${shop} was still on its way after 30 days: only what succeeded was taken back`,

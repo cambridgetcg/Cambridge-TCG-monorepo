@@ -1080,17 +1080,31 @@ describe.skipIf(!hasTestDatabase)("the hourly payout check", () => {
       expect(await reversalsOf()).toEqual([[refundGid(1), "-0.25"]]);
     });
 
-    it("a read of a refund Shopify no longer has, or that is now another order's, is cleared from its stored value", async () => {
+    it("a read of a refund Shopify no longer has, or that is now another order's, is cleared from its stored value, logged by ids and counted once each (RP25-F3)", async () => {
       await markedRefunds([refundFacts(1, "5.00", true), refundFacts(2, "4.00", true)]);
       const shopify = shopifyReads(new Map([[refundGid(2), refundFacts(2, "20.00", false)]]), () => "gid://shopify/Order/9999");
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-      await expect(check(shopify.railFor)).resolves.toMatchObject({ refundsSettled: 2, problems: 0 });
+      try {
+        const result = await check(shopify.railFor);
 
-      expect((await prisma.order.findFirstOrThrow()).refundedProductAmount.toFixed(2)).toBe("9.00");
-      expect(await reversalsOf()).toEqual([
-        [refundGid(1), "-0.25"],
-        [refundGid(2), "-0.20"],
-      ]);
+        expect(result).toMatchObject({ refundsSettled: 2, problems: 2 });
+        expect(String(result.firstProblem)).toContain(refundGid(1));
+        expect((await prisma.order.findFirstOrThrow()).refundedProductAmount.toFixed(2)).toBe("9.00");
+        expect(await reversalsOf()).toEqual([
+          [refundGid(1), "-0.25"],
+          [refundGid(2), "-0.20"],
+        ]);
+        // One line each, by the refund's and the order's ids, never the buyer
+        const lines = warn.mock.calls.map((call) => call.map(String).join(" "));
+        expect(lines).toEqual([
+          expect.stringMatching(new RegExp(`${refundGid(1)}.*gid://shopify/Order/5001`)),
+          expect.stringMatching(new RegExp(`${refundGid(2)}.*gid://shopify/Order/5001`)),
+        ]);
+        expect(lines.every((line) => !noIds(line).includes(BUYER))).toBe(true);
+      } finally {
+        warn.mockRestore();
+      }
     });
 
     it("a settle that throws a non-retry error is one problem, the row stays marked, and the next row is still settled", async () => {
