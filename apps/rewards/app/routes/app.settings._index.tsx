@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "re
 import { data, useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
+import { GUIDE } from "~/admin/guide-words";
 import { requireMerchant } from "~/admin/require-merchant.server";
 import { setNotifyBuyers } from "~/lib/merchant.server";
 
@@ -65,7 +66,7 @@ export default function Settings() {
       <s-section heading="Help">
         <s-stack gap="small-200">
           {/* The setup guide's first step, to read: it sends nobody anywhere (RP-24) */}
-          <s-link href="/app/welcome?step=1&read=1">How RewardsPro works</s-link>
+          <s-link href="/app/welcome?step=1&read=1">{GUIDE.howItWorks}</s-link>
           <s-text>
             Email us at <s-link href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</s-link>
           </s-text>

@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { GUIDE } from "~/admin/guide-words";
 import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
 
 // The pages' loaders are replaced by the stub's hydration data; nothing here
@@ -90,7 +91,9 @@ describe("Settings", () => {
   it("links to the data requests, to the guide's first step for reading and to help by email, and to no docs", async () => {
     await renderSettings(false);
     expect(document.querySelector('s-link[href="/app/settings/privacy"]')?.textContent).toBe("Customer data requests");
-    expect(document.querySelector('s-link[href="/app/welcome?step=1&read=1"]')?.textContent).toBe("How RewardsPro works");
+    // The guide's own words, so the link and the page it opens say the same
+    expect(GUIDE.howItWorks).toBe("How RewardsPro works");
+    expect(document.querySelector('s-link[href="/app/welcome?step=1&read=1"]')?.textContent).toBe(GUIDE.howItWorks);
     expect(document.querySelector('s-link[href="mailto:contact@rewardspro.io"]')?.textContent).toBe("contact@rewardspro.io");
     expect([...document.querySelectorAll("s-link")].map((link) => link.getAttribute("href"))).toEqual([
       "/app/settings/privacy",

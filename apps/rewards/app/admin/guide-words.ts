@@ -16,6 +16,8 @@ const buyers = (n: number) => (n === 1 ? "1 buyer" : `${new Intl.NumberFormat("e
 
 export const GUIDE = {
   heading: "Set up RewardsPro",
+  /** Step 1 read from Settings (its Help link says the same): the page's heading, without the setup's frame */
+  howItWorks: "How RewardsPro works",
   steps: ["How it works", "Your tiers", "Go live"] as const,
   progress: (step: number) => `Step ${step} of 3`,
   finishLater: "Finish later",

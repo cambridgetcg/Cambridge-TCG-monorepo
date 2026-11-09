@@ -69,6 +69,8 @@ async function afterChange(admin: GraphqlClient, conn: ConnectionContext, movesB
 
 export type WelcomeData = {
   step: 1 | 2 | 3;
+  /** Opened from Settings' "How RewardsPro works" (`?read=1`): step 1 to read, without the setup's progress, step names or Finish later */
+  reading: boolean;
   /** The guide may write the store's ladder and the merchant isn't reading: step 2 and step 1's Next are offered */
   editable: boolean;
   /** The store has tiers: step 3 is offered (it writes no tiers) */
@@ -176,6 +178,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   return {
     step,
+    reading,
     editable,
     canGoLive,
     running: conn.running,
@@ -358,12 +361,16 @@ function useTierFields(d: WelcomeData) {
 
 type TierFields = ReturnType<typeof useTierFields>;
 
-/** Step 1, How it works: what store credit is and why it brings buyers back, then Next or the Tiers page. */
+/**
+ * Step 1, How it works: what store credit is and why it brings buyers back,
+ * then Next or the Tiers page. Read from Settings, the page's own heading
+ * names it, so its section has none.
+ */
 function StepOne({ d, finishLater }: { d: WelcomeData; finishLater: ReactNode }) {
   const money = moneyIn(d.currency);
   const order = exampleOrder(d.medianOrder === null ? null : new Money(d.medianOrder), d.currency);
   return (
-    <s-section heading={GUIDE.steps[0]}>
+    <s-section heading={d.reading ? undefined : GUIDE.steps[0]}>
       <s-stack gap="base">
         <s-query-container containerName="tiles">
           <s-grid gridTemplateColumns={`${TILES_SIDE_BY_SIDE} 1fr 1fr, 1fr`} gap="base">
@@ -671,7 +678,8 @@ export default function Welcome() {
     if (finished) navigate("/app");
   }, [finished, navigate]);
   const finishBusy = finishFetcher.state !== "idle";
-  const finishLater = (
+  // Reading from Settings leaves nothing to finish
+  const finishLater = d.reading ? null : (
     <s-button
       loading={finishBusy}
       onClick={() => {
@@ -727,17 +735,21 @@ export default function Welcome() {
   });
 
   return (
-    <s-page heading={GUIDE.heading} inlineSize="base">
+    <s-page heading={d.reading ? GUIDE.howItWorks : GUIDE.heading} inlineSize="base">
       <s-section>
         <s-stack gap="small-200">
-          <s-progress value={d.step} max={3} accessibilityLabel={GUIDE.progress(d.step)} />
-          <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="small-200">
-            {GUIDE.steps.map((name, i) => (
-              <s-text key={name} type={i + 1 === d.step ? "strong" : "generic"} color={i + 1 === d.step ? "base" : "subdued"}>
-                {name}
-              </s-text>
-            ))}
-          </s-grid>
+          {d.reading ? null : (
+            <>
+              <s-progress value={d.step} max={3} accessibilityLabel={GUIDE.progress(d.step)} />
+              <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="small-200">
+                {GUIDE.steps.map((name, i) => (
+                  <s-text key={name} type={i + 1 === d.step ? "strong" : "generic"} color={i + 1 === d.step ? "base" : "subdued"}>
+                    {name}
+                  </s-text>
+                ))}
+              </s-grid>
+            </>
+          )}
           {/* Step 3 shows it among its checks */}
           {d.step === 3 ? null : <WidgetCheck on={widget.on} />}
         </s-stack>

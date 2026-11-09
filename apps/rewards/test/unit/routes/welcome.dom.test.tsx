@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRoutesStub, useRevalidator } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GUIDE } from "~/admin/guide-words";
@@ -94,6 +94,7 @@ const ORDER_1002 = {
 
 const welcomeData = (o: Partial<WelcomeData> = {}): WelcomeData => ({
   step: 1,
+  reading: false,
   editable: true,
   canGoLive: false,
   running: false,
@@ -158,7 +159,7 @@ async function renderWelcome(
     { id: "routes/app._index", path: "/app", Component: () => <p>Home page</p> },
   ]);
   render(<Stub initialEntries={[`/app/welcome?step=${first.step}`]} hydrationData={{ loaderData: { "routes/app.welcome": first } }} />);
-  await screen.findByText(GUIDE.steps[0]);
+  await waitFor(() => expect(document.querySelector("s-page")).not.toBeNull());
   // Let the widget check settle
   await act(async () => {});
 }
@@ -337,6 +338,32 @@ describe("Step 1: How it works", () => {
     await renderWelcome(welcomeData({ editable: false, canGoLive: true }));
     expect(button(GUIDE.next)).toBeUndefined();
     expect(document.querySelector('s-link[href="/app/tiers"]')?.textContent).toBe(GUIDE.editTiers);
+  });
+});
+
+describe("Reading from Settings", () => {
+  // I-3: How RewardsPro works, as Settings opens it: step 1 to read, sending nobody anywhere
+  const reading = () => welcomeData({ reading: true, editable: false, canGoLive: true, running: true });
+
+  it("shows step 1 under How RewardsPro works, without the setup's frame", async () => {
+    stubAppBridge("available");
+    await renderWelcome(reading());
+    expect(document.querySelector("s-page")?.getAttribute("heading")).toBe(GUIDE.howItWorks);
+    screen.getByText(GUIDE.creditTitle);
+    screen.getByText(GUIDE.nextTimeTitle);
+    // No progress, no step names (as text or as a heading), no Finish later and no Next
+    expect(document.querySelector("s-progress")).toBeNull();
+    const headings = [...document.querySelectorAll("[heading]")].map((element) => element.getAttribute("heading"));
+    for (const name of GUIDE.steps) {
+      expect(screen.queryByText(name)).toBeNull();
+      expect(headings).not.toContain(name);
+    }
+    expect(screen.queryByText(GUIDE.heading)).toBeNull();
+    expect(button(GUIDE.finishLater)).toBeUndefined();
+    expect(button(GUIDE.next)).toBeUndefined();
+    // The Tiers link and the widget's status stay
+    expect(document.querySelector('s-link[href="/app/tiers"]')?.textContent).toBe(GUIDE.editTiers);
+    screen.getByText(GUIDE.widgetNo);
   });
 });
 

@@ -203,6 +203,18 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       expect(await load("/app/welcome?step=3")).toMatchObject({ step: 3, canGoLive: true });
     });
 
+    // I-3: Settings' "How RewardsPro works" link opens step 1 to read, and the page is told so
+    it("says the merchant is reading for Settings' link, and only then", async () => {
+      expect(await load("/app/welcome?step=1&read=1")).toMatchObject({ reading: true, step: 1, editable: false });
+      for (const path of ["/app/welcome", "/app/welcome?step=1", "/app/welcome?step=2", "/app/welcome?step=1&read=0"]) {
+        expect(await load(path), path).toMatchObject({ reading: false });
+      }
+      await seedTier(conn, "Bronze", "0", "3", 0);
+      await prisma.merchant.update({ where: { id: conn.merchantId }, data: { running: true } });
+      expect(await load("/app/welcome?step=1&read=1")).toMatchObject({ reading: true, step: 1 });
+      expect(await load("/app/welcome?step=1")).toMatchObject({ reading: false, step: 1 });
+    });
+
     it("lets a store with only Home's paused Everyone tier build its ladder, but not once cashback is on", async () => {
       await seedTier(conn, "Everyone", "0", "6", 0);
       expect(await load("/app/welcome?step=2")).toMatchObject({ step: 2, editable: true, canGoLive: true });
