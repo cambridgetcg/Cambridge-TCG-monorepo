@@ -13,7 +13,7 @@ describe('scheduling copy', () => {
     expect(scheduledCollection({ DATA_COLLECT_CARDMARKET: 'off', DATA_COLLECT_TCGPLAYER: 'ON' })).toBeNull();
     expect(scheduledCollection({ DATA_COLLECT_CARDMARKET: 'on' })).toBe("Cardmarket's One Piece files daily");
     expect(scheduledCollection({ DATA_COLLECT_CARDMARKET: 'on', DATA_COLLECT_CARDRUSH: 'on', DATA_COLLECT_TCGPLAYER: 'on' })).toBe(
-      "Cardmarket's One Piece files daily, CardRush product pages every two hours (one host per run) and TCGplayer price guides hourly (stalest sets first)",
+      "Cardmarket's One Piece files daily, CardRush product pages every two hours (one host per run) and TCGplayer price guides hourly (product lines in turn, each line's stalest sets first)",
     );
   });
 

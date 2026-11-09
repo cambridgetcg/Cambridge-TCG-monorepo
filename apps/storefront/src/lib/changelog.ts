@@ -95,19 +95,130 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
-  // ── 2026-10-29 ─────────────────────────────────────────────────────────
+  // ── 2026-11-09 ─────────────────────────────────────────────────────────
   {
     id: "agent-key-holder-revocation-typed-refusals",
-    date: "2026-10-29",
+    date: "2026-11-09",
     kind: "endpoint-modified",
     impact: "additive",
     surface: "/api/mcp + /api/mcp/catalog + /api/v1/tools + /api/v1/manifest + /api/openapi.json + /.well-known/{mcp,mcp-config,cambridge-tcg}.json",
     summary:
       "Added agent.revoke_key, with which any agent key's holder ends that key; gate refusals now carry a typed object, 401s send WWW-Authenticate, and a failed key lookup answers 503 instead of a framework 500.",
     detail:
-      "agent.revoke_key works as a dotted method or through tools/call. The presented key is its only authentication; it ends that key and nothing else, works whatever the agent's registration or status, and is not rate-limited. Without confirm: true it is a preview that writes nothing; the input schema declares confirm as a plain boolean, and only true acts. An unknown string and an already-revoked key get the same not-active answer, which carries only its message and docs link. A preview of a live key and a performed revocation list what is kept, by field name only, with inventory_version 2026-10-29.3, evidence_state 'derived from source; production not observed' and a completeness note: an agent wrote the inventory from the source and it may be incomplete. Their replacement text and the preview's this_key_future_authority follow the agent's status: only an active operator-managed agent is told a new key can be minted. Gate refusals (401, 403, 429 and the new 503) add {reason_code, retryable, terminal, next_actions, docs} and sometimes exit_paths, in JSON-RPC error.data or, on a tools/call result with isError, in _meta under cambridgetcg.com/refusal. JSON-RPC codes are unchanged. Two messages changed: the malformed-header 401 and the self-serve denial. A 401 adds a WWW-Authenticate Bearer challenge, and 429 keeps Retry-After. A failed key lookup used to escape as an unhandled framework 500 with no JSON-RPC body; it is now HTTP 503 with code -32603 and reason_code auth_unavailable. A token that is not exactly ctcg_agt_ plus 22 base62 characters is refused before any lookup; every key minted from this repository has that shape. agent.self adds review_submissions and self_lifecycle. Its operational_metadata_writes, like read_only_scope in GET /api/mcp and the discovery documents, now names the revocation write. GET /api/mcp adds a revocation block, and initialize's instructions add one sentence. Value changes: the operator-managed access string in mcp-config.json and cambridge-tcg.json said 'writes paused' while Coverage Hunt review submissions were open, and now reads 'authenticated and account-linked reads; domain writes paused; bounded Coverage Hunt review submissions'. controller_model in mcp.json and mcp-config.json no longer says a self-serve agent is controlled by its bearer-key holder. It now opens with the sentence cambridge-tcg.json serves as holder_scope beside controller 'bearer-key-holder': the controller is labelled as the key holder, whose only in-band control is ending its own key, and archival, erasure and profile changes are not holder-authenticated. The storefront.mcp description in /api/v1/manifest and /llms.txt, and the POST /api/mcp description in /api/openapi.json, now name the Coverage Hunt review submissions and agent.revoke_key. The agent_suspended refusal's request_review action says no review procedure is written down yet. The discovery documents add revocation, review_submissions and self_lifecycle beside their existing fields. /api/mcp/catalog lists agent.revoke_key with a new authority value, key-holder, and accepts ?category=coverage. Self-serve registration stays paused and its reopening requirements are unchanged.",
+      "agent.revoke_key works as a dotted method or through tools/call. The presented key is its only authentication; it ends that key and nothing else, works whatever the agent's registration or status, and is not rate-limited. Without confirm: true it is a preview that writes nothing; the input schema declares confirm as a plain boolean, and only true acts. An unknown string and an already-revoked key get the same not-active answer, which carries only its message and docs link. A preview of a live key and a performed revocation list what is kept, by field name only, with inventory_version 2026-10-29.3, evidence_state 'derived from source; production not observed' and a completeness note: an agent wrote the inventory from the source and it may be incomplete. Their replacement text and the preview's this_key_future_authority follow the agent's status: only an active operator-managed agent is told a new key can be minted. Gate refusals (401, 403, 429 and the new 503) add {reason_code, retryable, terminal, next_actions, docs} and sometimes exit_paths, in JSON-RPC error.data or, on a tools/call result with isError, in _meta under cambridgetcg.com/refusal. JSON-RPC codes are unchanged. Two messages changed: the malformed-header 401 and the self-serve denial. A 401 adds a WWW-Authenticate Bearer challenge, and 429 keeps Retry-After. A failed key lookup used to escape as an unhandled framework 500 with no JSON-RPC body; it is now HTTP 503 with code -32603 and reason_code auth_unavailable. A token that is not exactly ctcg_agt_ plus 22 base62 characters is refused before any lookup; every key minted from this repository has that shape. agent.self adds review_submissions and self_lifecycle. Its operational_metadata_writes, read_only_scope in GET /api/mcp, mcp.json and mcp-config.json now publish one list: the two lines mcp.json has published since 2026-11-06 (rate-limit bucket, last-used timestamp), then the revocation write, then the daily MCP count's line while that count is on. GET /api/mcp and mcp-config.json had their own wording for the first two lines and now use mcp.json's; agent.self's recorded_about_this_key still quotes those two lines. agent.revoke_key joins the daily MCP count's tool words (migration 0150, which widens mcp_daily's tool CHECK). It runs before the gate authenticates an actor, so it is counted as not authenticated. Apply 0150 before deploying this: while OPS_MCP_DAILY is on, the count writes a batch in one statement, and a database without 0150 refuses a batch holding a revocation and the whole batch is dropped. GET /api/mcp adds a revocation block, and initialize's instructions add one sentence. Value changes: the operator-managed access string in mcp-config.json and cambridge-tcg.json said 'writes paused' while Coverage Hunt review submissions were open, and now reads 'authenticated and account-linked reads; domain writes paused; bounded Coverage Hunt review submissions'. controller_model in mcp.json and mcp-config.json no longer says a self-serve agent is controlled by its bearer-key holder. It now opens with the sentence cambridge-tcg.json serves as holder_scope beside controller 'bearer-key-holder': the controller is labelled as the key holder, whose only in-band control is ending its own key, and archival, erasure and profile changes are not holder-authenticated. The storefront.mcp description in /api/v1/manifest and /llms.txt, and the POST /api/mcp description in /api/openapi.json, now name the Coverage Hunt review submissions and agent.revoke_key. The agent_suspended refusal's request_review action says no review procedure is written down yet. The discovery documents add revocation, review_submissions and self_lifecycle beside their existing fields. /api/mcp/catalog lists agent.revoke_key with a new authority value, key-holder, and accepts ?category=coverage. Self-serve registration stays paused and its reopening requirements are unchanged.",
     related_urls: ["/api/mcp", "/methodology/agents", "/.well-known/mcp-config.json"],
   },
+  // ── 2026-11-06 ─────────────────────────────────────────────────────────
+  {
+    id: "production-alias-api-to-apex",
+    date: "2026-11-06",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "cambridgetcg-storefront.vercel.app/api/*",
+    summary:
+      "The production alias no longer serves API reads: a GET or HEAD to /api/* there answers 308 to the same path on https://cambridgetcg.com, and so does every method to /api/v1/feedback, /api/v1/peers and /api/mcp.",
+    detail:
+      "Yu chose this on 2026-11-05 so that API traffic passes Cloudflare's firewall and rate rules. A request that would be redirected but carries Authorization answers 421 with the apex URL instead, because clients drop that header on a cross-host redirect. Other POSTs (webhooks) and /api/cron/* are unchanged, as are per-deployment hosts. Callers that used the alias should call https://cambridgetcg.com.",
+    related_urls: ["/api/v1/status"],
+  },
+  {
+    id: "agent-doors-opt-in",
+    date: "2026-11-06",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/feedback, /api/v1/peers, /api/mcp (agent.self), /robots.txt, /privacy",
+    summary:
+      "Doors an agent may use if it wants to: a feedback door with a holder key to read the answer or erase the message, a counted hello on /api/v1/peers that stores nothing about the caller, and agent.self listing what is recorded about the calling key.",
+    detail:
+      "The feedback door and the counted hello ship switched off and open only after /privacy names them (it now does, with Cloudflare as a recipient and the aggregate counts the internal monitor keeps). agent.self's recorded_about_this_key is live and collects nothing new. robots.txt now lists each group's disallows before Allow: /, so first-match parsers honour them, and Disallow: /login covers /login itself.",
+    related_urls: ["/privacy#feedback-door", "/privacy#aggregate-counts", "/.well-known/mcp.json"],
+  },
+  // ── 2026-10-30 ─────────────────────────────────────────────────────────
+  {
+    id: "tcgplayer-pokemon-line",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (TCGplayer rows), /api/v1/sources/tcgplayer",
+    summary:
+      "TCGplayer's English Pokemon price guides (220 sets) are now collected beside One Piece and Pokemon Japan, and the collector takes product lines in turn so no line starves.",
+    detail:
+      "Display only on /prices, credited to TCGplayer; Pokemon rows stay unmapped until a reviewed Pokemon set crosswalk exists. The request rate is unchanged (TCGplayer's Crawl-delay 10), so the lines share the same hourly budget: One Piece sets are re-read about every 17 h, English Pokemon about every 42 h, Pokemon Japan about every 87 h.",
+    related_urls: ["/api/v1/sources/tcgplayer", "/prices"],
+  },
+  {
+    id: "official-images-japanese-starter-decks",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices, /market (Japanese official images)",
+    summary:
+      "The Japanese official-image lane also covers One Piece starter and ultimate decks (ST-01 to ST-36), the family deck set, limited-product cards and promotion cards, as Bandai's Japanese card list lists them.",
+    detail:
+      "The first Japanese collection read boosters, extra and premium boosters only, while CardRush's first live run mapped starter-deck cards. The new series are collected with the same tool and rules.",
+    related_urls: ["/legal/card-images"],
+  },
+  {
+    id: "prices-card-names",
+    date: "2026-10-30",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Each /prices row can show its CTCG-NAMES-v1 card name beside the raw source title, e.g. お玉 · vendor · CardRush, with any illustrator credit, for people and agents to check the card.",
+    detail:
+      "The name comes from the source's versioned vendor rule and is labelled vendor, never official. Rows whose title the rule refuses, Cardmarket sealed products, and CardRush titles with a language marker show no name. Elements carry data-name, data-name-key, data-name-lang, data-name-status and data-name-rule. Display only: no API or download changes.",
+    related_urls: ["/prices", "/methodology/card-names"],
+  },
+  {
+    id: "official-images-japanese-lane",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/universal/card/[sku] image_same_language, /prices, /market",
+    summary:
+      "A Japanese card can show its own-language official sample image: source bandai-jp, self-hosted with the Japanese credit line and takedown, as Yu chose on 2026-10-30. The universal card gains image_same_language; image_url and image_reference keep their English meaning.",
+    detail:
+      "Built inert: no Japanese image exists until Bandai's Japanese card lists are read and the images uploaded, and each of those acts needs Yu's word. OFFICIAL_IMAGES_JA=off hides the lane. A match is by SKU syntax only, base prints only, and labelled so. Record: docs/decisions/2026-10-30-japanese-official-images.md.",
+    related_urls: ["/legal/card-images", "/prices"],
+  },
+  {
+    id: "cardrush-listing-image-product-path",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (CardRush rows)",
+    summary:
+      "CardRush listing images are recorded again: a live listing's og:image takes the plain /data/<host>/product/<file> form, which the collector and migration 0145 had refused, so the first live run linked no image.",
+    detail:
+      "The validator and the table's CHECK (migration 0147) now accept that form beside the resized /_/<hex> form, with the same limits: https, the listing's own host and directory, one plain file name, an image type. Still a link, never a copy, shown only when the member opens it.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
+  {
+    id: "cardrush-title-rule-2",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (CardRush rows), /api/v1/sources/cardrush",
+    summary:
+      "CardRush title rule cardrush-title/2: an English listing written like ウタ(英語版/illust:…)【R】{OP01-005} now maps exactly to its -en SKU. Japanese titles map exactly as under /1; Chinese listings stay ambiguous, because a zh SKU cannot tell Simplified from Traditional.",
+    detail:
+      "Rows already stored keep crosswalk version cardrush-title/1; a listing's next read writes a /2 row. A card that CardRush lists in both Japanese and English has two SKUs on one source, so it drops out of CardRush's premium rows under the existing method. A bare (簡体字版) row that /1 mapped exact becomes ambiguous at its next read.",
+    related_urls: ["/api/v1/sources/cardrush"],
+  },
+  {
+    id: "prices-image-language",
+    date: "2026-10-30",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Each /prices identity image now says how its language and printing relate to the row: this printing, an English base print for a parallel, a different language, a pooled source-product row, or the CardRush listing's own image.",
+    detail:
+      "Images carry data-image-source, data-image-lang, data-row-lang, data-relationship, data-scope and, for official images, data-depicted-sku, so an agent reading the page can tell. An official match is by SKU syntax only, and the label says so. The member API, downloads and /api/v1/market/* are unchanged.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
+  // ── 2026-10-29 ─────────────────────────────────────────────────────────
   {
     id: "source-collector-hosts",
     date: "2026-10-29",

@@ -71,39 +71,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   
   // Generate CSP nonce for inline scripts
   const nonce = crypto.randomBytes(16).toString('base64');
-  
-  // Security headers
-  const headers = new Headers();
-  
-  // Content Security Policy with nonce for Shopify embedded apps
-  // Updated to allow Vercel Analytics, Speed Insights, and Google Analytics 4
-  const cspDirectives = [
-    `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' https://cdn.shopify.com https://cdn.shopifycdn.net https://va.vercel-scripts.com https://www.googletagmanager.com https://www.google-analytics.com`,
-    `style-src 'self' 'unsafe-inline' https://cdn.shopify.com https://cdn.shopifycdn.net`,
-    `img-src 'self' data: https: blob: https://www.google-analytics.com https://www.googletagmanager.com`,
-    `font-src 'self' data: https://cdn.shopify.com`,
-    `connect-src 'self' https://*.myshopify.com wss://*.myshopify.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://*.ingest.de.sentry.io`,
-    `frame-ancestors https://*.myshopify.com https://admin.shopify.com`,
-    `form-action 'self'`,
-    `base-uri 'self'`,
-    `object-src 'none'`,
-    `upgrade-insecure-requests`
-  ];
-  headers.set('Content-Security-Policy', cspDirectives.join('; '));
-  
-  // Additional security headers
-  headers.set('X-Frame-Options', 'ALLOWFROM https://admin.shopify.com');
-  headers.set('X-Content-Type-Options', 'nosniff');
-  headers.set('X-XSS-Protection', '1; mode=block');
-  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-  
-  // Strict Transport Security (HSTS)
-  if (process.env.NODE_ENV === 'production') {
-    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-  }
-  
+
+  // Response headers are set in entry.server.tsx (security headers) and by
+  // Shopify's addDocumentResponseHeaders (the frame-ancestors CSP that allows
+  // embedding in admin.shopify.com and the shop's domain). Headers on this
+  // loader's response are never sent: root exports no `headers` function.
+
   // Pass the API key, device info, and analytics config to the client
   return json({
     apiKey: process.env.SHOPIFY_API_KEY || "",
@@ -118,7 +91,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     sentryDsn: (process.env.SENTRY_DSN || "").trim(),
     nodeEnv: (process.env.NODE_ENV || "").trim(),
     shopifyShop: (process.env.SHOPIFY_SHOP_DOMAIN || "").trim(),
-  }, { headers });
+  });
 };
 
 export default function App() {

@@ -29,7 +29,8 @@ const migration = (name: string) => readFile(new URL(`../../../../drizzle/${name
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`../../../../../../packages/data-ingest/src/tcgplayer/__tests__/fixtures/${name}`, import.meta.url), 'utf8'));
 let admin: Pool;
 
-const lines = TCGPLAYER_PRODUCT_LINES.filter(line => line.slug === 'one-piece-card-game' || line.slug === 'pokemon-japan');
+// Every collected line: One Piece, Pokemon and Pokemon Japan, in that order.
+const lines = TCGPLAYER_PRODUCT_LINES.filter(line => line.collect);
 const row = (productID: number, number: string, game = 'One Piece Card Game', condition = 'Near Mint') =>
   ({ productID, productConditionID: 0, condition, game, isSupplemental: false, lowPrice: 0.5, marketPrice: 1.25, number, printing: 'Normal', productName: `Card ${productID}`, rarity: 'Common', sales: 0, set: 'Synthetic', setAbbrv: 'X', type: 'Cards' });
 const guide = (rows: unknown[]) => ({ count: rows.length, total: rows.length, result: rows });
@@ -44,6 +45,12 @@ const guides: Record<number, unknown> = {
   23598: fixture('price-guide-23598-sv1a.json'),
   23599: guide([row(900007, '001/165', 'Pokemon Japan', 'Near Mint - Japanese')]),
   24172: guide([]),
+  24448: fixture('price-guide-24448-pfl.json'),
+  604: guide([row(900008, '4/102', 'Pokemon')]),
+  1423: guide([row(900009, '001', 'Pokemon')]),
+  24529: guide([row(900010, '001/030', 'Pokemon', 'Lightly Played')]),
+  // Released 2026-11-06, after the probe: no rows yet.
+  24831: guide([]),
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 /** A stand-in for the run's fetcher: the clock moves `step` per request, as
@@ -108,27 +115,42 @@ describe.skipIf(!localUrl)('TCGplayer collector PostgreSQL integration (explicit
     if (admin) { await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`); await admin.end(); }
   });
 
-  it('reads never-read sets first, newest release first, one named batch per set, and writes their crosswalks', async () => {
+  it('reads each line\'s never-read sets first, newest release first, the lines taking turns, one named batch per set, and writes their crosswalks', async () => {
     const clock = { at: Date.parse('2026-10-28T16:00:00.000Z') };
     const fetcher = source(clock, 10_000);
     const run = await collect({ fetcher, now: () => clock.at, lines });
-    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'all-sets-read', runAt: '2026-10-28T16:00:00.000Z', requests: 16, setsListed: 9, errors: [] });
+    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'all-sets-read', runAt: '2026-10-28T16:00:00.000Z', requests: 23, setsListed: 14, errors: [] });
     expect(fetcher.urls).toEqual([
       // robots.txt for every host, read this run, before any data.
       ...ROBOTS,
       'https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=68&active=true',
+      'https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=3&active=true',
       'https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=85&active=true',
-      'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/68/',
-      guideUrl(24664, 110), guideUrl(24537, 110),
-      'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/85/',
-      guideUrl(23599, 143), guideUrl(23598, 143),
-      guideUrl(3189, 110), guideUrl(17659, 110), guideUrl(17675, 110), guideUrl(24172, 143),
+      // One set a line a round, the line read least recently first: Pokemon and Pokemon Japan, never read
+      // (Pokemon's next set the newer release), then One Piece, whose Romance Dawn was read earlier today.
+      // Within a line, never-read sets go newest release first.
+      'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/3/', guideUrl(24831, 1),
+      'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/85/', guideUrl(23599, 143),
+      'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/68/', guideUrl(24664, 110),
+      guideUrl(24529, 1), guideUrl(23598, 143), guideUrl(24537, 110),
+      guideUrl(24448, 1), guideUrl(24172, 143), guideUrl(3189, 110),
+      guideUrl(604, 1), guideUrl(17659, 110),
+      guideUrl(1423, 1), guideUrl(17675, 110),
       // Read before, so last.
       guideUrl(3188, 110),
     ]);
     const batches = (await state.pool.query(`SELECT ingest_key, source_rows FROM member_price_batches WHERE ingest_key LIKE '%:2026-10-28T16:00:00.000Z' ORDER BY id`)).rows;
-    expect(batches.map(batch => batch.ingest_key)).toEqual([24664, 24537, 23599, 23598, 3189, 17659, 17675, 24172, 3188].map(id => `tcgplayer:${id}:2026-10-28T16:00:00.000Z`));
+    expect(batches.map(batch => batch.ingest_key)).toEqual([24831, 23599, 24664, 24529, 23598, 24537, 24448, 24172, 3189, 604, 17659, 1423, 17675, 3188].map(id => `tcgplayer:${id}:2026-10-28T16:00:00.000Z`));
     expect(batches.find(batch => batch.ingest_key.startsWith('tcgplayer:24172:'))!.source_rows).toBe(0);
+    // The English Pokemon line's guide is stored as read, every row unmapped (slash numbers name no set).
+    const pokemon = (await state.pool.query(`SELECT o.game, o.language, o.mapping_status, o.sku, o.finish, count(*)::int AS n FROM member_price_observations o JOIN member_price_batches b ON b.id = o.batch_id
+      WHERE b.ingest_key = 'tcgplayer:24448:2026-10-28T16:00:00.000Z' GROUP BY 1, 2, 3, 4, 5 ORDER BY 5`)).rows;
+    expect(pokemon).toEqual([
+      { game: 'pokemon', language: 'en', mapping_status: 'unmapped', sku: null, finish: 'holofoil', n: 9 },
+      { game: 'pokemon', language: 'en', mapping_status: 'unmapped', sku: null, finish: 'normal', n: 9 },
+      { game: 'pokemon', language: 'en', mapping_status: 'unmapped', sku: null, finish: 'reverse-holofoil', n: 7 },
+    ]);
+    expect(run.sets.find(set => set.setId === 24448)).toMatchObject({ line: 'pokemon', observations: 25, inserted: 25, mapped: 0, setCode: null });
     expect(run.sets.find(set => set.setId === 3188)).toMatchObject({ observations: 12, inserted: 12, mapped: 6, setCode: 'op01', duplicate: false });
 
     // Set crosswalks only where the number prefix is TCGplayer's own abbreviation.
@@ -165,14 +187,18 @@ describe.skipIf(!localUrl)('TCGplayer collector PostgreSQL integration (explicit
     expect(joined).toEqual(['op01', 'op16', 'st01']);
   });
 
-  it('starts the next run with the sets read longest ago, and stops before the budget runs out', async () => {
+  it('starts the next run with the line read least recently, each line\'s set read longest ago, and stops before the budget runs out', async () => {
     await spacingPassed();
     const clock = { at: Date.parse('2026-10-28T17:00:00.000Z') };
-    const fetcher = source(clock, 24_500);
+    const fetcher = source(clock, 21_000);
     const run = await collect({ fetcher, now: () => clock.at, lines });
-    // Ten requests (three of them robots.txt) take 245 s of the 270; 25 s is too little to begin another set.
-    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'budget', requests: 10, elapsedMs: 245_000 });
-    expect(run.sets.map(set => set.setId)).toEqual([24664, 24537, 23599]);
+    // Twelve requests (robots.txt, the set lists and the product types three each, and three sets)
+    // take 252 s of the 270; 18 s is too little to begin another set.
+    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'budget', requests: 12, elapsedMs: 252_000 });
+    // Pokemon Japan's last set in the first run (24172) came before Pokemon's (1423) and One Piece's
+    // (3188), so it goes first, then Pokemon, then One Piece; each with its first run's first set,
+    // now its stalest.
+    expect(run.sets.map(set => set.setId)).toEqual([23599, 24831, 24664]);
     // An unchanged mapping is left as it is, not rewritten.
     expect(run.crosswalks).toMatchObject({ setWritten: 0, productWritten: 0, failed: 0 });
     expect(run.crosswalks.productUnchanged).toBeGreaterThan(0);
@@ -184,13 +210,19 @@ describe.skipIf(!localUrl)('TCGplayer collector PostgreSQL integration (explicit
     const fetcher = source(clock, 10_000, guideUrl(3189, 110));
     const before = (await state.pool.query('SELECT count(*)::int AS n FROM member_price_batches')).rows[0].n;
     const run = await collect({ fetcher, now: () => clock.at, lines });
-    // The second run re-read 24664, 24537 and 23599, so 23598 and then 3189
-    // are now the stalest. 23598 is written; 3189 is refused and the run ends.
-    expect(run).toMatchObject({ status: 'source-unavailable', stoppedBy: 'source-unavailable', requests: 9, unavailable: { reason: 'http-429', status: 429, url: guideUrl(3189, 110), refused: true } });
-    expect(fetcher.urls.slice(5)).toEqual(['https://mpapi.tcgplayer.com/v2/Product/ProductTypes/85/', guideUrl(23598, 143), 'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/68/', guideUrl(3189, 110)]);
-    expect(run.sets.map(set => set.setId)).toEqual([23598]);
+    // The second run read Pokemon Japan's 23599, Pokemon's 24831 and One Piece's 24664 in that order,
+    // so the lines keep that order; each line's set read longest ago goes first. One Piece's second
+    // set, 3189, is refused and the run ends.
+    expect(run).toMatchObject({ status: 'source-unavailable', stoppedBy: 'source-unavailable', requests: 15, unavailable: { reason: 'http-429', status: 429, url: guideUrl(3189, 110), refused: true } });
+    expect(fetcher.urls.slice(6)).toEqual([
+      'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/85/', guideUrl(23598, 143),
+      'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/3/', guideUrl(24529, 1),
+      'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/68/', guideUrl(24537, 110),
+      guideUrl(24172, 143), guideUrl(24448, 1), guideUrl(3189, 110),
+    ]);
+    expect(run.sets.map(set => set.setId)).toEqual([23598, 24529, 24537, 24172, 24448]);
     const after = (await state.pool.query('SELECT count(*)::int AS n FROM member_price_batches')).rows[0].n;
-    expect(after - before).toBe(1);
+    expect(after - before).toBe(5);
   });
 
   it('runs one of two overlapping runs; the other makes no request at all', async () => {

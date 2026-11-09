@@ -4,7 +4,7 @@
  * Cleans up expired Shopify sessions from the database to prevent bloat.
  * Sessions that have passed their expiry date are permanently deleted.
  *
- * Schedule: Daily at 4 AM UTC
+ * Schedule: daily at 06:00 UTC ("0 6 * * *" in vercel.json)
  * Endpoint: GET /api/cron/session-cleanup
  *
  * @security Requires CRON_SECRET header
@@ -14,15 +14,12 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import prisma from "~/db.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { cronFailed, monitoredCron } from "~/services/cron-monitor.server";
 
 // Cleanup configuration
 const CONFIG = {
   // Delete sessions expired more than this many hours ago (buffer for timezone issues)
   EXPIRY_BUFFER_HOURS: 24,
-  // Maximum sessions to delete per run (prevent timeout)
-  BATCH_SIZE: 1000,
-  // Also delete sessions without expiry that are older than this many days
-  ORPHAN_SESSION_DAYS: 90,
 };
 
 interface CleanupStats {
@@ -32,7 +29,7 @@ interface CleanupStats {
   totalAfter: number;
 }
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = monitoredCron("session-cleanup", async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -76,7 +73,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           totalSessions: totalBefore,
           expiredSessions: expiredCount,
           orphanSessions: orphanCount,
-          config: CONFIG,
         },
         timestamp: new Date().toISOString(),
       });
@@ -121,7 +117,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       job: "session-cleanup",
       dryRun,
       result: stats,
-      config: CONFIG,
       durationMs: duration,
       timestamp: new Date().toISOString(),
     });
@@ -129,6 +124,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const duration = Date.now() - startTime;
 
     console.error("[SessionCleanupCron] Job failed:", error);
+    cronFailed(request, error);
 
     return json(
       {
@@ -141,4 +137,4 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       { status: 500 }
     );
   }
-};
+});

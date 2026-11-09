@@ -1,0 +1,328 @@
+{
+  "file": "png/rewardspro_social_rule-card_claim-rp-cashback-base+rp-store-credit-draft_1080x1350_20261107_v01.png",
+  "brand": "RewardsPro",
+  "campaign": "social",
+  "asset": "rule-card",
+  "variant": "claim-rp-cashback-base+rp-store-credit-draft",
+  "brief_id": "STRATEGY.md §7 A7 (C1, §6.2)",
+  "status": "PROPOSAL for Yu: not approved, not published",
+  "size": {
+    "width": 1080,
+    "height": 1350
+  },
+  "bytes": 176223,
+  "sha256": "76ef05026e9299d5e48e7a1c73f648459ab37fe8290cbfb8cb9a5038d8736ddd",
+  "format": "PNG, opaque, 3 channels, ICC profile embedded (sRGB)",
+  "review_only": false,
+  "max_bytes": 2000000,
+  "under_limit": true,
+  "platforms": [
+    "LinkedIn image post (4:5)"
+  ],
+  "use": "Review only. Shows the layout and wording for Yu; never post a draft. render.mjs drops the bands only when every claim is verified, inside its review_after date and cleared for social-post, and no placeholder is left.",
+  "safe_before_g0": false,
+  "claim_ids": [
+    "rp-cashback-base",
+    "rp-store-credit"
+  ],
+  "claim_status_at_build": {
+    "rp-cashback-base": {
+      "status": "proposed",
+      "review_after": "2027-02-07",
+      "social_post": true,
+      "postable": false,
+      "why": "unverified"
+    },
+    "rp-store-credit": {
+      "status": "proposed",
+      "review_after": "2027-02-07",
+      "social_post": true,
+      "postable": false,
+      "why": "unverified"
+    }
+  },
+  "draft": true,
+  "blockers": [
+    "a check date"
+  ],
+  "text_on_image": [
+    "DRAFT · NOT FOR POSTING",
+    "Cashback, paid as Shopify store credit",
+    "How cashback is worked out",
+    "Cashback is paid on the product price after discounts. Shipping, and anything paid with store credit or gift cards, earns nothing.",
+    "Test store, prices including VAT:",
+    "£600 of products, £60 off, £10 shipping. Cashback on £540. At 5%: £27.00.",
+    "Checked with a test build on our development store, <D Month YYYY>.",
+    "RewardsPro (kit lockup, bottom left)",
+    "Needs verified claims: rp-cashback-base, rp-store-credit · a check date"
+  ],
+  "alt_text": "Draft, not for posting. RewardsPro: \"How cashback is worked out\". Paid as Shopify store credit, on the product price after discounts; shipping, and store-credit or gift-card payments, earn nothing. Example: £600 of products, £60 off, £10 shipping: 5% of £540, £27.00. Test build; date still to fill.",
+  "alt_chars": 299,
+  "contrast": [
+    {
+      "text": "kicker",
+      "colours": "#007c7a on #ffffff",
+      "size_px": 32,
+      "weight": "SemiBold",
+      "wcag": 5.04,
+      "apca_lc": 74.27,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "head",
+      "colours": "#1b1d1f on #ffffff",
+      "size_px": 76,
+      "weight": "SemiBold",
+      "wcag": 16.91,
+      "apca_lc": 103.84,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "body",
+      "colours": "#1b1d1f on #ffffff",
+      "size_px": 42,
+      "weight": "Regular",
+      "wcag": 16.91,
+      "apca_lc": 103.84,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "ex-label",
+      "colours": "#525659 on #eaebec",
+      "size_px": 32,
+      "weight": "Regular",
+      "wcag": 6.21,
+      "apca_lc": 73.84,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "ex",
+      "colours": "#1b1d1f on #eaebec",
+      "size_px": 38,
+      "weight": "Regular",
+      "wcag": 14.16,
+      "apca_lc": 91.9,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "note",
+      "colours": "#686c70 on #ffffff",
+      "size_px": 28,
+      "weight": "Regular",
+      "wcag": 5.29,
+      "apca_lc": 76.34,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "note",
+      "colours": "#007c7a on #ffffff",
+      "size_px": 28,
+      "weight": "Regular",
+      "wcag": 5.04,
+      "apca_lc": 74.27,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "band-top",
+      "colours": "#1b1d1f on #17bebb",
+      "size_px": 24,
+      "weight": "SemiBold",
+      "wcag": 7.34,
+      "apca_lc": 56.91,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "band-bottom",
+      "colours": "#1b1d1f on #17bebb",
+      "size_px": 21,
+      "weight": "Regular",
+      "wcag": 7.34,
+      "apca_lc": 56.91,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "logo lockup-horizontal (exempt from WCAG)",
+      "colours": "#1a3e5c on #ffffff",
+      "wcag": 11.13,
+      "apca_lc": 95.52,
+      "needs": null,
+      "pass": null
+    },
+    {
+      "text": "logo lockup-horizontal (exempt from WCAG)",
+      "colours": "#17bebb on #ffffff",
+      "wcag": 2.3,
+      "apca_lc": 44.85,
+      "needs": null,
+      "pass": null
+    }
+  ],
+  "logo_display": [
+    {
+      "logo": "lockup-horizontal",
+      "native": "376.17x74 px",
+      "shown_at": "390 CSS px across 1080 source px [I] (phone feed width)",
+      "css_width": 135.84,
+      "css_cap_height": 13.36,
+      "css_height": 26.72,
+      "kit_minimum": "130 px wide, cap height 12 px",
+      "ok": true
+    }
+  ],
+  "notes": null,
+  "master": {
+    "path": "masters/rewardspro_social_rule-card_claim-rp-cashback-base+rp-store-credit-draft_1080x1350_20261107_v01.svg",
+    "sha256": "84f27b5dd4da2ca375e9453087163fca20dd48509759a9c46a956688be8e1dc1",
+    "source": "src/rewardspro_social_rule-card_claim-rp-cashback-base+rp-store-credit-draft_1080x1350_20261107_v01.src.svg"
+  },
+  "inputs": [
+    {
+      "path": "kit/colour/tokens.json",
+      "sha256": "538dd5aeefcaa3c215ba3866a5a807366354e759170a220a657cdda42cb0c00a",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. From the 2026-10-27 kit rebuild (676c10b4); not covered by an approval.",
+      "note": "Every token used here has the same value as in the approved 2026-10-20 tokens, except dark.bg: #09110F came with the rebuild as the dark landing's ink (it was neutral 950, #1B1D1F)."
+    },
+    {
+      "path": "kit/logo/lockup-horizontal.svg",
+      "sha256": "33042d204485d9a867c05518d77a41eb26e671ea3fa1e06997c16a970d5cc79d",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+    }
+  ],
+  "kernel_sha256": {
+    "kernel.toml": "3ca10d6949ee134102b27f53d35e02253c6852e4474647b3c4a23193200a3f22",
+    "brand.json": "713ff39ee0a33444848b58298a81f8ec59d828142cb2759dc593933b3aa0f657",
+    "kit/.brandkit-fingerprint": "bdb0874b5c9df2937c859d43c3d0e33dbfb8cf10e6fecc3a1408cef718b85265"
+  },
+  "tools": {
+    "render.mjs": "render.mjs v01 (2026-11-07, fix pass 1)",
+    "node": "v26.0.0",
+    "sharp": "0.34.5",
+    "libvips": "8.17.3",
+    "librsvg": "2.61.2",
+    "vectorcraft-cli": "vectorcraft-cli 0.21.0",
+    "font": "Inter Regular and SemiBold as bundled in vectorcraft-cli (OFL-1.1, github.com/rsms/inter; vectorcraft-cli ASSETS.md rows assets/fonts/Inter-*.ttf), outlined to paths"
+  },
+  "fonts_resolved": [
+    "Inter Regular (exact)",
+    "Inter SemiBold (exact)"
+  ],
+  "text_measured": [
+    {
+      "id": "kicker-0",
+      "width": 592.94,
+      "right": 682.55,
+      "top": 167.61,
+      "bottom": 198.66
+    },
+    {
+      "id": "head-0",
+      "width": 526.54,
+      "right": 620.1,
+      "top": 234.71,
+      "bottom": 290.85
+    },
+    {
+      "id": "head-1",
+      "width": 478.94,
+      "right": 571.28,
+      "top": 318.07,
+      "bottom": 376.85
+    },
+    {
+      "id": "body-0",
+      "width": 750.24,
+      "right": 840.74,
+      "top": 438.44,
+      "bottom": 478.57
+    },
+    {
+      "id": "body-1",
+      "width": 769.64,
+      "right": 859.48,
+      "top": 498.01,
+      "bottom": 539.06
+    },
+    {
+      "id": "body-2",
+      "width": 674.28,
+      "right": 765.52,
+      "top": 558.01,
+      "bottom": 599.06
+    },
+    {
+      "id": "body-3",
+      "width": 279.75,
+      "right": 369.88,
+      "top": 618.44,
+      "bottom": 659.06
+    },
+    {
+      "id": "ex-label-0",
+      "width": 480.64,
+      "right": 610.17,
+      "top": 755.95,
+      "bottom": 786.91
+    },
+    {
+      "id": "ex-0",
+      "width": 716.71,
+      "right": 846.75,
+      "top": 817.06,
+      "bottom": 854.2
+    },
+    {
+      "id": "ex-1",
+      "width": 622.45,
+      "right": 752.72,
+      "top": 875.91,
+      "bottom": 904.54
+    },
+    {
+      "id": "note-0",
+      "width": 685.11,
+      "right": 774.78,
+      "top": 1002.96,
+      "bottom": 1029.71
+    },
+    {
+      "id": "note-1",
+      "width": 236.87,
+      "right": 327.24,
+      "top": 1041.63,
+      "bottom": 1062.33
+    },
+    {
+      "id": "band-top-0",
+      "width": 317.24,
+      "right": 698.86,
+      "top": 19.31,
+      "bottom": 37.27
+    },
+    {
+      "id": "band-bottom-0",
+      "width": 711.22,
+      "right": 896.02,
+      "top": 1314,
+      "bottom": 1334.29
+    }
+  ],
+  "ai_involvement": "assistive",
+  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by Yu before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
+  "jurisdictions": [
+    "UK"
+  ],
+  "channel": "social (no account exists yet)",
+  "gate_report": null,
+  "approval_id": null,
+  "publish_url": null,
+  "created": "2026-11-07"
+}

@@ -1,0 +1,98 @@
+{%- comment -%}
+  RewardsPro widget (spec 5): one app embed on the body. The file name and
+  target are the released block's, so the merchant's embed survives.
+
+  A signed-in buyer's widget asks the app proxy for their tier and credit;
+  Shopify adds the signed shop and buyer to that request, so nothing about
+  the buyer is printed here. A guest's widget reads the app's widget
+  metafield (rewards.config: running, basePercent) and asks no server.
+  The script builds the widget from these attributes, with textContent only.
+{%- endcomment -%}
+{%- assign rewards_accent = block.settings.accent | default: '#17BEBB' -%}
+<div
+  class="rw"
+  hidden
+  data-rewards-widget
+  data-look="{{ block.settings.look | escape }}"
+  data-locale="{{ request.locale.iso_code }}"
+  style="--rw-accent: {{ rewards_accent | escape }}"
+  {% if customer %}
+    data-state="customer"
+    data-endpoint="/apps/rewardspro/membership"
+    data-currency="{{ cart.currency.iso_code }}"
+  {% else %}
+    data-state="guest"
+    data-running="{{ app.metafields.rewards.config.value.running }}"
+    data-base-percent="{{ app.metafields.rewards.config.value.basePercent }}"
+    data-message="{{ block.settings.guest_message | escape }}"
+    data-cta-text="{{ block.settings.guest_cta_text | escape }}"
+    data-cta-url="{{ block.settings.guest_cta_url | escape }}"
+    data-login-url="{{ routes.account_login_url }}"
+  {% endif %}
+  data-t-button="{{ 'rewards_widget.button' | t }}"
+  data-t-tier="{{ 'rewards_widget.tier' | t }}"
+  data-t-earn="{{ 'rewards_widget.earn' | t }}"
+  data-t-balance="{{ 'rewards_widget.balance' | t }}"
+  data-t-balance-unknown="{{ 'rewards_widget.balance_unknown' | t }}"
+  data-t-to-next="{{ 'rewards_widget.to_next' | t }}"
+  data-t-progress="{{ 'rewards_widget.progress' | t }}"
+  data-t-top="{{ 'rewards_widget.top' | t }}"
+  data-t-spend="{{ 'rewards_widget.spend' | t }}"
+  data-t-guest-message="{{ 'rewards_widget.guest_message' | t }}"
+  data-t-guest-earn="{{ 'rewards_widget.guest_earn' | t }}"
+  data-t-guest-cta="{{ 'rewards_widget.guest_cta' | t }}"
+></div>
+<script src="{{ 'rewards-widget.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "RewardsPro Widget",
+  "target": "body",
+  "stylesheet": "rewards-widget.css",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Guests"
+    },
+    {
+      "type": "text",
+      "id": "guest_message",
+      "label": "Guest message",
+      "info": "Leave empty to show: Sign in to see your rewards"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_text",
+      "label": "Guest button text",
+      "info": "Leave empty to show: Sign in"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_url",
+      "label": "Guest button link",
+      "info": "Leave empty to use the store's sign-in page"
+    },
+    {
+      "type": "header",
+      "content": "Look"
+    },
+    {
+      "type": "select",
+      "id": "look",
+      "label": "Colours",
+      "options": [
+        { "value": "light", "label": "Light" },
+        { "value": "dark", "label": "Dark" }
+      ],
+      "default": "light"
+    },
+    {
+      "type": "color",
+      "id": "accent",
+      "label": "Accent",
+      "info": "Fills the progress bar. Text never uses it.",
+      "default": "#17BEBB"
+    }
+  ]
+}
+{% endschema %}

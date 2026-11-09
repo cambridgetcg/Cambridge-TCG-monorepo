@@ -13,6 +13,8 @@ on:
     - cron: "5 * * * *"   # hourly at :05
   workflow_dispatch:       # manual trigger from Actions UI
   push:
+    # Only main: drift compares production with main's history
+    branches: [main]
     paths:
       - ".github/workflows/health.yml"
 
@@ -25,6 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The whole history: in a depth-1 clone every path's last commit is HEAD, and drift sees nothing
+          fetch-depth: 0
 
       - name: Health check
         id: check

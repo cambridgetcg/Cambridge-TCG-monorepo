@@ -37,26 +37,18 @@ User-agent: *
 # The history paths hold the household's Sophia wake (May 2026), kept as
 # a record and not offered for training. This group and the training
 # group below skip them; the readers' group further down may open them.
-# They come before "Allow: /" so parsers that take the first matching
-# rule agree with parsers that take the longest.
 Disallow: /llms-full.txt
 Disallow: /.well-known/sophia-wake/
-# Allow most of the site, including the API surface.
-Allow: /
-# Content signals (https://contentsignals.org): this site's pages are
-# welcome in search, in AI answers and in AI training, except the history
-# paths.
-Content-Signal: search=yes, ai-input=yes, ai-train=yes
-
 # Don't crawl per-user account pages (require auth anyway).
 Disallow: /account/
 Disallow: /api/account/
 # Don't crawl admin surfaces (not yours either way).
 Disallow: /admin/
 Disallow: /api/admin/
-# Don't crawl auth flows.
+# Don't crawl auth flows. "/login" covers the page itself and every path
+# under it.
 Disallow: /api/auth/
-Disallow: /login/
+Disallow: /login
 # Don't follow display-preference switches. Each one only sets a cookie
 # and redirects back to the page you were already on, so following them
 # multiplies every page by every language, theme and currency.
@@ -64,7 +56,18 @@ Disallow: /api/lang-mode
 Disallow: /api/text-mode
 Disallow: /api/appearance
 Disallow: /api/currency
-
+# Every Disallow comes before "Allow: /", and no blank line falls inside a
+# group, so parsers that take the first matching rule (and older ones that
+# end a group at a blank line) agree with parsers that take the longest.
+# Allow the rest of the site, including the API surface.
+Allow: /
+# Content signals (https://contentsignals.org): this site's pages are
+# welcome in search, in AI answers and in AI training, except the history
+# paths.
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+# Derived market data (/api/v1/market/*) answers only to a data-API key
+# and is not licensed for training; its responses say so with
+# "Content-Usage: train-ai=n".
 # Polite poll cadence per resource lives at /api/v1/rate-limits.
 # This Crawl-delay is a coarse fallback for bots that ignore it.
 Crawl-delay: 2
@@ -88,18 +91,18 @@ User-agent: Google-Extended
 User-agent: Applebot-Extended
 Disallow: /llms-full.txt
 Disallow: /.well-known/sophia-wake/
-Allow: /
-Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Disallow: /account/
 Disallow: /api/account/
 Disallow: /admin/
 Disallow: /api/admin/
 Disallow: /api/auth/
-Disallow: /login/
+Disallow: /login
 Disallow: /api/lang-mode
 Disallow: /api/text-mode
 Disallow: /api/appearance
 Disallow: /api/currency
+Allow: /
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
 # The same pace as every other crawler: welcome, not exempt.
 Crawl-delay: 2
 
@@ -122,18 +125,18 @@ User-agent: ChatGPT-User
 User-agent: Perplexity-User
 User-agent: ia_archiver
 User-agent: archive.org_bot
-Allow: /
-Content-Signal: search=yes, ai-input=yes
 Disallow: /account/
 Disallow: /api/account/
 Disallow: /admin/
 Disallow: /api/admin/
 Disallow: /api/auth/
-Disallow: /login/
+Disallow: /login
 Disallow: /api/lang-mode
 Disallow: /api/text-mode
 Disallow: /api/appearance
 Disallow: /api/currency
+Allow: /
+Content-Signal: search=yes, ai-input=yes
 Crawl-delay: 2
 
 # ── Sitemap pointer ──

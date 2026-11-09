@@ -65,6 +65,7 @@ import {
 import { getEntitlements } from "../services/entitlements.server";
 import { getShopSettings, getShopTiers, getTierDistribution } from "../services/shop-data-provider.server";
 import { trackCashbackAdjusted } from "../services/klaviyo-events.server";
+import { privacySafeConsole, privacySafeLogTemplate } from "~/utils/pii-masker";
 import {
   getCustomerOrderSummariesBatch,
   type ActivityStatus,
@@ -1743,7 +1744,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Process each customer - collect newTierIds for batch lookup later
       for (const customer of allCustomers) {
         try {
-          console.log(`[RECALCULATE ALL] Processing customer ${results.processed + 1}/${allCustomers.length}: ${customer.email}`);
+          privacySafeConsole.log(privacySafeLogTemplate`[RECALCULATE ALL] Processing customer ${results.processed + 1}/${allCustomers.length}: ${customer.email}`);
 
           // OPTIMIZED: Use tier from included relation instead of separate query
           const previousTierName = customer.currentTier?.name || null;
@@ -1776,7 +1777,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         } catch (error) {
           results.errors++;
           results.processed++;
-          console.error(`  ❌ Error processing ${customer.email}:`, error);
+          privacySafeConsole.error(privacySafeLogTemplate`  ❌ Error processing ${customer.email}:`, error);
 
           results.details.push({
             customerId: customer.id,
@@ -3728,13 +3729,17 @@ export default function Customers() {
               <Select
                 label="Evaluation Period"
                 options={
+                  // Tier spend is the Order rows RewardsPro holds, less refunds
+                  // (services/tier-calculation.server.ts): install syncs
+                  // customers, never orders. ANNUAL counts those from the 12
+                  // months up to today, not a calendar year
                   data.hasAnnualEval
                     ? [
-                        { label: "Annual (resets yearly)", value: "ANNUAL" },
-                        { label: "Lifetime (cumulative)", value: "LIFETIME" },
+                        { label: "Last 12 months (rolling)", value: "ANNUAL" },
+                        { label: "Lifetime (all recorded orders)", value: "LIFETIME" },
                       ]
                     : [
-                        { label: "Lifetime (cumulative)", value: "LIFETIME" },
+                        { label: "Lifetime (all recorded orders)", value: "LIFETIME" },
                       ]
                 }
                 value={tierFormData.evaluationPeriod}
@@ -3742,7 +3747,7 @@ export default function Customers() {
                 helpText={
                   !data.hasAnnualEval
                     ? "Annual evaluation is unavailable under the existing agreement. Paid plans aren't offered right now."
-                    : "Choose how tier status is calculated: annually reset or lifetime cumulative"
+                    : "Both count the orders RewardsPro has recorded for a customer, less refunds: orders paid since you installed the app, plus orders from the past 12 months that you bring in with Sync Orders. Last 12 months counts orders placed in the 12 months up to today, so an order stops counting a year after it was placed. Lifetime counts every recorded order."
                 }
               />
             </FormLayout>

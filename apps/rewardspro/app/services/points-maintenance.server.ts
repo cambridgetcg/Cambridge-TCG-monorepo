@@ -11,10 +11,10 @@
  */
 
 import { jsonObject } from "~/utils/json-object";
+import { privacySafeConsole, privacySafeLogTemplate } from "~/utils/pii-masker";
 import prisma from "~/db.server";
 import { expirePoints } from "./points-ledger.server";
 import { getPointsConfig, getExpirationSettings } from "./points-config.server";
-import type { Prisma } from "@prisma/client";
 
 // ============================================
 // TYPES
@@ -188,7 +188,7 @@ export async function sendExpirationWarnings(shop: string): Promise<{
       customersSentWarning++;
       totalPointsExpiring += expiring.total;
     } catch (error) {
-      console.error(`[PointsMaintenance] Failed to send warning to ${customer.email}:`, error);
+      privacySafeConsole.error(privacySafeLogTemplate`[PointsMaintenance] Failed to send warning to ${customer.email}:`, error);
     }
   }
 
@@ -213,7 +213,7 @@ async function queueExpirationWarningEmail(
     (expiring.earliestExpiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
 
-  console.log(`[PointsMaintenance] Queuing expiration warning email:`, {
+  privacySafeConsole.log(`[PointsMaintenance] Queuing expiration warning email:`, {
     shop,
     customerId: customer.id,
     email: customer.email,

@@ -93,13 +93,17 @@ export async function generateMetadata({
   const description = card.set_name
     ? `Order-book record for ${card.card_name} (${card.card_number}, ${card.set_name}). New paid orders were retired on 23 September 2026; reference data and existing records remain.`
     : `Order-book record for ${card.card_name} (${card.card_number}). New paid orders were retired on 23 September 2026.`;
+  // A Japanese official image is not offered as the share image: a social
+  // platform would fetch and cache it without its credit, beyond any takedown
+  // (docs/decisions/2026-10-30-japanese-official-images.md). The English
+  // og:image is unchanged, a gap recorded there.
   return {
     title,
     description,
     openGraph: {
       title,
       description,
-      images: card.image_url ? [{ url: card.image_url }] : [SHARE_CARD],
+      images: card.image_url && card.image_language !== "ja" ? [{ url: card.image_url }] : [SHARE_CARD],
     },
   };
 }

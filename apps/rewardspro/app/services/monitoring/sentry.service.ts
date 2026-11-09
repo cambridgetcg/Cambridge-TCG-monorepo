@@ -12,8 +12,8 @@
  * - Integration monitoring for external APIs
  *
  * Architecture:
- * - Complements Datadog (APM) and Better Stack (Logs)
- * - Sentry focuses on: Error tracking, Session Replay, Release Health
+ * - Complements Better Stack (Logs)
+ * - Sentry focuses on: Error tracking, Release Health (no session replay)
  *
  * @see https://docs.sentry.io/platforms/javascript/guides/remix/
  */

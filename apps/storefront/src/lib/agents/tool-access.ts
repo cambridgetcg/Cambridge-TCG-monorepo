@@ -47,11 +47,20 @@ const OPERATOR_MANAGED_REVIEW_TOOLS = new Set(["coverage.hunt.contribute"]);
  *  self-lifecycle carve-out, never by canInvokeAgentTool's path. */
 export const SELF_LIFECYCLE_TOOLS: ReadonlySet<string> = new Set(["agent.revoke_key"]);
 
-/** Operational metadata an authenticated key can cause to be written. None of
- *  it is domain state; the same list holds for every registration kind. */
+/** The first two lines below, as /.well-known/mcp.json has published them
+ *  since 2026-11-06. agent.self's recorded_about_this_key quotes them back
+ *  (self-record.ts), so each item it reads says where it is listed. */
+export const LISTED_BUCKETS = "per-key rate-limit bucket for allowed authenticated calls";
+export const LISTED_LAST_USED = "agent key last-used timestamp after successful authenticated calls";
+
+/** Operational metadata a key can cause the gate to write. None of it is
+ *  domain state; the same list holds for every registration kind. This is
+ *  the one list: agent.self, GET /api/mcp and the discovery documents
+ *  publish it through operationalMetadataWrites (operational-metadata.ts),
+ *  which adds the daily MCP count's line while that count is on. */
 export const AGENT_OPERATIONAL_METADATA_WRITES: readonly string[] = [
-  "one per-key rate-limit bucket for each permitted authenticated call",
-  "agent_keys.last_used_at after a successful authenticated call",
+  LISTED_BUCKETS,
+  LISTED_LAST_USED,
   "agent_keys.revoked_at and revoked_reason for this key when its holder calls agent.revoke_key with confirm: true",
 ];
 

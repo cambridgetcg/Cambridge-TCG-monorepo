@@ -66,11 +66,11 @@ import {
 import { deckSave, deckListMine } from "@/lib/agents/write-tools";
 import {
   AGENT_KEY_REVOCATION,
-  AGENT_OPERATIONAL_METADATA_WRITES,
   AGENT_REVOKE_KEY_INPUT_SCHEMA,
   canInvokeAgentTool,
   SELF_LIFECYCLE_TOOLS,
 } from "@/lib/agents/tool-access";
+import { operationalMetadataWrites } from "@/lib/agents/operational-metadata";
 import {
   revokePresentedKey,
   type KeyRevocationOutcome,
@@ -92,6 +92,12 @@ import {
 } from "@/lib/agents/refusals";
 import { REPOSITORY_NOTE } from "@/lib/repository";
 import type { AgentActor } from "@/lib/agents/auth";
+import {
+  countMcpRequest,
+  mcpMethodAndTool,
+  unseenMcpRequest,
+  type McpRequestSeen,
+} from "@/lib/observability/mcp-daily";
 
 interface JsonRpcRequest {
   jsonrpc?: "2.0";
@@ -199,7 +205,7 @@ const TOOLS: Record<string, ToolHandler> = {
 };
 
 const TOOL_DESCRIPTIONS: Record<string, string> = {
-  "agent.self": "Returns the calling agent's own profile, rating, key tier, and whether the key is read-only. Account UUIDs are never returned.",
+  "agent.self": "Returns the calling agent's own profile, rating, key tier, and whether the key is read-only, and what the gate records about the calling key: its minute rate-limit buckets, last-used time, tier limit and how long each is kept. Collects nothing new. Account UUIDs are never returned.",
   "agent.revoke_key":
     "Ends only the presented key: the bearer key on this request stops authenticating here. Irreversible. Other keys, the agent profile and shared records are not changed. " +
     // Built from the same cases the answer chooses from, so the two agree.
@@ -506,7 +512,9 @@ function toolErrorResponse(
   return NextResponse.json(rpcError(id, ERR_TOOL_ERROR, message, refusal), { status });
 }
 
-async function handlePost(request: Request) {
+/** `seen` collects the words the daily count records (method, tool, whether
+ *  the bearer resolved); it never holds the key, the agent or the body. */
+async function handlePost(request: Request, seen: McpRequestSeen) {
   const declaredLength = request.headers.get("content-length");
   if (declaredLength !== null) {
     const parsedLength = Number(declaredLength);
@@ -556,6 +564,7 @@ async function handlePost(request: Request) {
 
   const method = body.method;
   const params = body.params ?? {};
+  Object.assign(seen, mcpMethodAndTool(method, params.name, (name) => Object.hasOwn(TOOLS, name)));
 
   // ── tools/call (MCP-spec) — unwrap to dotted-name dispatch ────────────
   // `tools/call` carries `{name: "<dotted-name>", arguments: {...}}`. The
@@ -647,9 +656,13 @@ async function handlePost(request: Request) {
   // archived agent's holder can still end its key. This is the only path
   // that runs the tool. Under tools/call, confirm is read only from
   // params.arguments; a confirm beside the name previews.
+  // The daily count records it with seen.authenticated left false: this
+  // path runs before the gate resolves an actor, so no key authenticated
+  // in the gate's sense, whatever the revocation did.
   if (SELF_LIFECYCLE_TOOLS.has(dispatchName)) {
     const presented = parseAgentBearer(authHeader);
     if (presented.kind !== "token") {
+      seen.outcome = "unauthenticated";
       return authFailureResponse(body.id, unparsedBearerFailure(presented.kind), authHeader);
     }
     const outcome = await revokePresentedKey(presented.token, {
@@ -675,8 +688,12 @@ async function handlePost(request: Request) {
       { status: 503 },
     );
   }
-  if (!auth.ok) return authFailureResponse(body.id, auth, authHeader);
+  if (!auth.ok) {
+    seen.outcome = "unauthenticated";
+    return authFailureResponse(body.id, auth, authHeader);
+  }
   const actor = auth.actor;
+  seen.authenticated = true;
 
   if (isMcpCall && !dispatchName) {
     return NextResponse.json(
@@ -734,6 +751,7 @@ async function handlePost(request: Request) {
     });
   } catch (err) {
     if (err instanceof ToolError) {
+      seen.outcome = err.status === 403 ? "forbidden" : "tool-error";
       return toolErrorResponse(body.id, isMcpCall, err.message, err.status);
     }
     console.error("[mcp]", dispatchName, err);
@@ -744,8 +762,12 @@ async function handlePost(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const response = await handlePost(request);
+  const seen = unseenMcpRequest();
+  const response = await handlePost(request, seen);
   response.headers.set("Cache-Control", "private, no-store");
+  // Counted after the response, only while OPS_MCP_DAILY is on
+  // (lib/observability/mcp-daily.ts); it never changes this answer.
+  countMcpRequest(seen, response.status);
   return response;
 }
 
@@ -782,8 +804,9 @@ export async function GET() {
     },
     read_only_scope: {
       domain_state: true,
-      // The same for every registration kind (see describeAgentToolGrant).
-      operational_metadata_writes: [...AGENT_OPERATIONAL_METADATA_WRITES],
+      // The same for every registration kind (see describeAgentToolGrant),
+      // plus the daily MCP count's line while it is on.
+      operational_metadata_writes: operationalMetadataWrites(),
     },
     revocation: { ...AGENT_KEY_REVOCATION },
     stdio_bridge: {

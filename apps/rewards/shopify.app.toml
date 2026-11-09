@@ -1,0 +1,61 @@
+# The released app, Rewards Pro (plan task B1). It keeps the released app's
+# identity, so a deploy from here updates the same app in place, with the
+# trimmed scopes and 2026-10 webhooks the staging run proved. It is deployed
+# and released only at the trimmed release (docs/switch.md, B3), on Yu's yes.
+# Never run `shopify app dev` against this file: `pnpm dev` uses
+# shopify.app.staging.toml.
+# https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "026ce3bf073bed0e44ae8eab09d1ae3a"
+name = "Rewards Pro"
+handle = "RewardsproMembership"
+application_url = "https://rewardspro-production.vercel.app"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = false
+
+[webhooks]
+api_version = "2026-10"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/paid" ]
+  uri = "/webhooks/orders/paid"
+
+  # Money returned on a refund or a cancellation arrives here
+  [[webhooks.subscriptions]]
+  topics = [ "refunds/create" ]
+  uri = "/webhooks/orders/refunded"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/cancelled" ]
+  uri = "/webhooks/orders/cancelled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+[access_scopes]
+# The write scope also grants read_store_credit_account_transactions (Shopify:
+# "Any scope that writes a resource also grants read access to it")
+scopes = "read_customers,read_orders,read_all_orders,read_store_credit_accounts,write_store_credit_account_transactions,write_app_proxy"
+
+[auth]
+redirect_urls = [ "https://rewardspro-production.vercel.app/auth/callback" ]
+
+# The widget calls /apps/rewardspro/membership: keep this path (docs/switch.md)
+[app_proxy]
+url = "https://rewardspro-production.vercel.app/api/proxy"
+subpath = "rewardspro"
+prefix = "apps"
+
+[pos]
+embedded = false

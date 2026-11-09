@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import type * as FeatureAvailability from '~/constants/feature-availability';
 
 // Mock Remix hooks
 const mockFetcher = {
@@ -12,6 +13,13 @@ const mockFetcher = {
 vi.mock('@remix-run/react', () => ({
   useFetcher: () => mockFetcher,
 }));
+
+// Points are off today (feature-availability-copy.test.ts covers that note);
+// these tests cover the add and remove controls for when they return
+vi.mock('~/constants/feature-availability', async (importOriginal) => {
+  const actual = await importOriginal<typeof FeatureAvailability>();
+  return { ...actual, FEATURES_AVAILABLE: { ...actual.FEATURES_AVAILABLE, points: true } };
+});
 
 // Mock Polaris components
 vi.mock('@shopify/polaris', () => ({

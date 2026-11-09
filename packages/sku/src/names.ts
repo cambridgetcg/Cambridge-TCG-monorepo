@@ -259,9 +259,9 @@ export interface CardNameRefusal {
 /** The markers each vendor rule knows; any other token refuses. A rule's
  * list changes only with its version. */
 export const CARD_NAME_MARKERS = {
-  /** The language markers the CardRush collector reads (LANGUAGE_MARKERS in
-   * packages/data-ingest/src/cardrush/member-prices.ts). Copied, not
-   * imported: this package depends on no other. */
+  /** The language markers the CardRush collector reads
+   * (CARDRUSH_LANGUAGE_MARKERS in packages/data-ingest/src/cardrush/member-prices.ts).
+   * Copied, not imported: this package depends on no other. */
   cardrush_language: ["英語版", "韓国語版", "中国語版", "簡体字版", "繁体字版"],
   /** Tokens of CardRush's trailing (…) group besides illust:<credit> and the
    * language markers. パラレル, 漫画絵 and 和柄 are in the 2026-10-28

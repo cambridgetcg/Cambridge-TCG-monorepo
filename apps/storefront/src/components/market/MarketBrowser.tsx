@@ -7,6 +7,7 @@ import { Badge, EmptyState, ErrorAlert, Icon, Money, Palettes, WhyLink } from "@
 import { useVoice } from "@/lib/wardrobe/context";
 import { weatherClass } from "@/lib/wardrobe/weather";
 import type { ImageReference } from "@/lib/cards/image-reference";
+import { imageCreditLang, marketImageLabel, type MarketImageFields } from "@/lib/cards/image-labels";
 import {
   buildBrowseUrl,
   buildCatalogSearch,
@@ -31,15 +32,13 @@ import {
  * Older/catalogue-only images retain an explicit unverified label; a URL alone
  * must never become an exact-printing or source-rights claim.
  */
-type CatalogCardWithImage = CatalogCard & {
+type CatalogCardWithImage = CatalogCard & MarketImageFields & {
   image_attribution?: string | null;
   image_reference?: ImageReference | null;
 };
 
 function imageLabel(card: CatalogCardWithImage): string {
-  return card.image_reference
-    ? "English reference image · printing not verified"
-    : "Catalog image · source and printing unverified";
+  return marketImageLabel(card);
 }
 
 function imageAlt(card: CatalogCardWithImage): string {
@@ -95,7 +94,9 @@ export default function MarketBrowser({
     abortRef.current = controller;
     setLoading(true);
     try {
-      const res = await fetch(`/api/market/catalog?${buildCatalogSearch(q)}`, {
+      // This grid and table print each image's label and credit, so they
+      // ask for a Japanese card's own-language image.
+      const res = await fetch(`/api/market/catalog?${buildCatalogSearch(q, PAGE_SIZE, { sameLanguageImages: true })}`, {
         signal: controller.signal,
       });
       const body = await res.json().catch(() => null);
@@ -479,6 +480,7 @@ function CatalogTable({
                       {/* Reference status and copyright stay beside the thumb. */}
                       {card.image_url && card.image_attribution && (
                         <span
+                          lang={imageCreditLang(card)}
                           className="block text-[9px] text-ink-faint leading-tight truncate max-w-[220px]"
                           title={card.image_attribution}
                         >
@@ -567,7 +569,7 @@ function CatalogGrid({
                 />
                 <figcaption className="mt-2 text-[10px] leading-snug text-ink-muted">
                   <span className="block">{imageLabel(card)}</span>
-                  {card.image_attribution && <span className="mt-1 block text-ink-faint">{card.image_attribution}</span>}
+                  {card.image_attribution && <span lang={imageCreditLang(card)} className="mt-1 block text-ink-faint">{card.image_attribution}</span>}
                 </figcaption>
               </figure>
             ) : (
