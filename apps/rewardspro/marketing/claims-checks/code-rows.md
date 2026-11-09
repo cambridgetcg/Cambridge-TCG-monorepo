@@ -8,6 +8,12 @@ using the same evidence (WORK.md §2.6). After that, RP-06 updates `claims.toml`
 does not change it. Whether a `gates.md` record counts as G0 is Yu's Pre-1/D6 decision, not this file's. Where a
 `MISSING:` source now has a record on main, this file gives the record as a **candidate** only.
 
+**Second read, 2026-11-09.** A different lab session (`74cb7025`) read every row on #165. It concurred with 17 and
+challenged the proposed sentence of 4: rp-cashback-base, rp-refund-takeback, rp-review-ask and rp-widget. This session
+re-read each challenge's lines at 9efc2f34 and agrees with all four. Those rows now carry revised sentences, marked
+**Revised after challenge**, and each needs a concur on its new wording. The second read's corrective notes on other
+rows are folded in below, marked "(second read)".
+
 ## How it was checked
 
 1. **Hashes, in code.** Each source with a file locator was hashed as `git show <commit>:<path> | sha256`, at
@@ -41,8 +47,8 @@ narrower sentence, which is given. **fails** means the code contradicts it. No r
 |---|---|---|---|
 | rp-store-credit | holds | `app/lib/record-order.server.ts:230` `rail: "shopify_store_credit"` | Concur; D6 (candidate `gates.md:20`) |
 | rp-paid-trigger | narrow | `app/routes/webhooks.orders.paid.tsx:55` | New sentence; concur; D6 (`gates.md:20`, `:40`) |
-| rp-cashback-base | narrow | `app/lib/order-facts.ts:81` `baseOf(...)` | New sentence; gift-card order never run; concur; D6 (`gates.md:20`, `:22`, `:44`) |
-| rp-refund-takeback | narrow | `app/lib/payouts.server.ts:257` `Money.min(amount, held)` | New sentence and scope; concur; D6 (`gates.md:23`, `:24`) |
+| rp-cashback-base | narrow | `app/lib/order-facts.ts:81` `baseOf(...)` | Revised sentence (challenged); gift-card order never run; concur on the revision; D6 (`gates.md:20`, `:22`, `:44`) |
+| rp-refund-takeback | narrow | `app/lib/payouts.server.ts:257` `Money.min(amount, held)` | New sentence, revised scope (challenged); concur on the revision; D6 (`gates.md:23`, `:24`) |
 | rp-merchant-funds | holds (code part) | `app/shopify/store-credit-rail.server.ts:307` | Air re-read of the help.shopify.com capture; concur |
 | rp-vip-tiers | narrow | `app/lib/tiers.server.ts:236`, reached only when no lock applies (`:233-235`) | New sentence; no downgrade observed; concur; D6 (`gates.md:19`, `:25`) |
 | rp-tier-window | narrow | `app/lib/tiers.server.ts:101` | New sentence; a window change never observed; concur; D6 |
@@ -50,10 +56,10 @@ narrower sentence, which is given. **fails** means the code contradicts it. No r
 | rp-import-past | narrow | `app/shopify/install.server.ts:53-55` | New sentence; concur; D6 (`gates.md:34`, `:27`) |
 | rp-setup-steps | holds | `app/routes/app._index.tsx:363` | A capture of the card; concur |
 | rp-switch-off | holds | `app/lib/record-order.server.ts:68` and `app/lib/tiers.server.ts:96-103` | The tier half observed on production; concur; D6 (`gates.md:26`) |
-| rp-review-ask | narrow | `app/lib/stats.server.ts:242` | New sentence; guard test; concur |
+| rp-review-ask | narrow | `app/lib/stats.server.ts:242` | Revised sentence (challenged); guard test; concur on the revision |
 | rp-help-in-settings | holds | `app/routes/app.settings._index.tsx:67` | A capture of Settings > Help; concur |
 | rp-contact-delivers | narrow (code shows publication only) | `app/routes/app.settings._index.tsx:16` | Yu's outside delivery test; concur |
-| rp-widget | narrow | `extensions/rewards-widget/assets/rewards-widget.js:137`, `:169` | New sentence; rest of gate C; concur; D6 (`gates.md:21`) |
+| rp-widget | narrow | `extensions/rewards-widget/assets/rewards-widget.js:137`, `:169` | Revised sentence (challenged); rest of gate C; concur on the revision; D6 (`gates.md:21`) |
 | rp-live-release | holds | `docs/switch.md:85` | Concur; rp-production-rebuild |
 | rp-no-tier-products | holds | `shopify.app.toml:49` (six scopes) | Guard test, or accept the scope pin; D9; concur |
 | rp-no-own-email | holds | `app/shopify/store-credit-rail.server.ts:307` (`notify`) | Yu's data-request email decision; guard test; concur |
@@ -62,7 +68,8 @@ narrower sentence, which is given. **fails** means the code contradicts it. No r
 | rp-scope | holds | `app/lib/record-order.server.ts:230` and `shopify.app.toml:49` | Exact grep patterns recorded; guard test; concur |
 
 Paths are relative to `apps/rewards/` unless they start with `apps/`. "D6" means Yu's choice of G0's form (ROADMAP
-Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
+Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only. Where a row says "concur", the second read
+(`74cb7025`) has given it for the verdict; the four challenged rows still need one for their revised wording.
 
 ## Findings that cut across rows
 
@@ -78,27 +85,48 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   - an order paid with a gift card;
   - a tipped order (accepted from tests, `gates.md:43`);
   - a money-only refund on a tax-exclusive shop;
+  - an order edit that adds items after payment (only removals ran, `gates.md:41-42`);
   - the widget's progress line on production;
   - the setup card and Settings > Help, as captures;
   - a test message to contact@ seen arriving.
-- **A possible live observation.** On rewardsprotesting the imported buyer "Rewards Pro" is in Gold on five orders
-  dated 19–24 Nov 2025 (`gates.md:34`). If the store uses "Last 12 months" and that buyer places no new order, the
-  nightly tier passes around 19–25 Nov 2026 should move them down. That would be the first recorded downgrade for
-  `rp-vip-tiers`. The store's window is not recorded, so this is an inference.
+- **A possible live observation, probably unseeable.** On rewardsprotesting the imported buyer "Rewards Pro" is in
+  Gold on five orders dated 19–24 Nov 2025 (`gates.md:34`). If the store uses "Last 12 months" and that buyer places
+  no new order, the nightly tier passes around 19–25 Nov 2026 should move them down. The store's window is not
+  recorded, so this is an inference. (Second read:) the same buyer is check I's erasure subject (`gates.md:10`,
+  `:27`), with customers/redact due around 17 Nov. Once erased, the buyer panel has no buyer (`stats.server.ts:478-485`),
+  so the downgrade can't be seen from the admin. A visible downgrade is easier made by hand: refund a Gold test
+  buyer's order below the threshold, and refunds/create resolves the tier at once
+  (`app/routes/webhooks.orders.refunded.tsx:102`).
+- **Order edits that add items after payment (second read; re-read here).** An order's product value is written
+  once, when orders/paid records it (`record-order.server.ts:177`). A repeat delivery writes nothing
+  (`:197-204`), and no order-edit topic is subscribed (`shopify.app.toml`). So an item added by an edit after
+  payment earns nothing. Refunding that item is a worse problem. readRefund values the refund on the order's lines
+  as they are today (`order-source.server.ts:726-733`, through `boughtValue`, `:502-507`). The take-back then divides
+  by, and checks completion against, the product value stored at payment (`refunds.server.ts:212`, `:217`). Example
+  at 5%: £100 paid, £5 earned; an edit adds a £100 item, which earns nothing; refunding the added item counts as
+  £100 of £100 refunded, completes the order and takes back all £5, although the £100 item that earned it was kept.
+  This is code reading only and has never been run. It affects rp-cashback-base, rp-refund-takeback and
+  rp-vip-tiers. The second-read session has told Yu and won't file it for the rewards lane without his word.
 - **Locators that moved:**
   - `docs/switch.md`: lines after :248 moved by 2. For example :259 → :261, :262 → :264, :263 → :265, :267 → :269
-    and :269 → :271. :298 is now :300 and reads "OK" (row 7b is closed by `gates.md:40`).
+    and :269 → :271. :298 is now :300 and reads "OK" (row 7b is closed by `gates.md:40`). The same diff also
+    edits old :291, now :293, row 3, to "OK" (second read); no ledger row cites it.
   - `app/shopify/order-source.server.ts` changed in #156; the ledger cites it only in uncertainties.
     - The read limits moved: :572 → :643, :590 → :661 and :603-604 → :674-675. The refund limits moved too:
-      :308-312 → :328-332 and :344-347 → :351-352.
+      :308-312 → :328-332 and :344-347 → :349-352, which throws at :351-352.
     - Since #156, `refundMoney` runs for every refund (`:462`), so the 20-transaction and 20-shipping-line limit
       now applies to item refunds, not only to money-only ones.
+    - (Second read:) readOrder and readRefund value all of an order's refunds together (`:540`, `:731`), so one
+      refund past a limit blocks every later refund of that order.
   - `social/STRATEGY.md`: the data-request email decision the ledger cites at :58 and :506 is now at :79 and :528.
 - **Negative rows have no guard test.** That covers rp-no-own-email, rp-no-chance, rp-no-points, rp-scope,
   rp-no-tier-products and rp-review-ask's "nothing is offered".
   - `test/unit/config/production-toml.test.ts:81-93` pins the six scopes. It would fail on a new products,
     discounts or gift-card scope, but not on a reward kept inside the app's own data, a mail library or a billing
-    call.
+    call. (Second read:) it reads only `access_scopes.scopes`, so an `optional_scopes` entry, `graphql.ts` or the
+    `SCOPES` env (`shopify.server.ts:37`) would pass it: a backstop, not a guard.
+  - Partial pins exist for rp-no-own-email's default-off half: `settings.dom.test.tsx:57-63`,
+    `settings-page.postgres.test.ts:135` and `send-payout.postgres.test.ts:173` (second read).
   - Whether to add a hard guard is Yu's choice (AGENTS.md principle 8). If he wants one, it would be a small agent
     PR in `apps/rewards/test/`. A merge there deploys production.
 - **Two of the app's own sentences overclaim:**
@@ -112,9 +140,9 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
 ### rp-store-credit: holds
 
 - **Rests on:** `app/lib/record-order.server.ts:230` @9efc2f34, `rail: "shopify_store_credit",`. The payout enum has
-  one value (`prisma/schema.prisma:89-90`), and the rail sends only `storeCreditAccountCredit` on the store's own
-  customer (`app/shopify/store-credit-rail.server.ts:306-307`). No discount, gift-card or billing mutation exists
-  (grep 0).
+  one value (`prisma/schema.prisma:89-90`), and the rail credits only through `storeCreditAccountCredit` on the
+  store's own customer (`app/shopify/store-credit-rail.server.ts:306-307`); the same rail debits take-backs (`:307`,
+  second read). No discount, gift-card or billing mutation exists (grep 0).
 - **Locators:** all same-hash and still say what they cite. `docs/switch.md:77` is unchanged.
 - **MISSING → candidate:** B4 check B, at `apps/rewards/docs/gates.md:20`: "#1011 … The shopper got £19.98 in store
   credit within 3 s: 5% of £399.60".
@@ -122,6 +150,7 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   - "Not yet observed end to end on a dev store since the 2026-10-19 rebuild."
   - "no production refund yet" (now `gates.md:23-24`).
   - The read-limit lines in `order-source.server.ts`, which moved (see the cross-row findings).
+  - `claims.toml:73`, "B4 check B is still to run" (second read; check B is `gates.md:20`).
 - **Still between it and verified:** a concur; D6; screenshots of a credit need the app's name fixed or cropped,
   because Shopify's timeline shows "Rewards Pro" (`shopify.app.toml:10`).
 
@@ -163,8 +192,12 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
     For £100 of products plus £10 of shipping with £10 of credit applied, the base is £90, not £100.
   - **Tenders by gateway name.** They are recognised by name (`order-source.server.ts:206-210`). A third-party
     gift-card gateway named another way would earn. This is code reading only.
-- **Proposed sentence:** "Cashback is paid on the product price after discounts, less any part of the order paid
-  with store credit or gift cards. Shipping, and gift cards bought as products, earn nothing."
+  - **Items added by an edit after payment** (second read's challenge). The base is written once, at payment
+    (`record-order.server.ts:177-182`), so an added item earns nothing (see the cross-row finding).
+- **Proposed sentence, revised after challenge:** "Cashback is paid on the product price after discounts, as the
+  order stood when it was paid, less any part of the order paid with store credit or gift cards. Shipping, and gift
+  cards bought as products, earn nothing." The first version left out "as the order stood when it was paid" and was
+  false for an item added after payment.
 - **Candidates:**
   - `gates.md:20` (B: "5% of £399.60, the product price after the discount, with shipping earning nothing");
   - `gates.md:22` (D: #1013, paid fully with store credit, earned nothing);
@@ -172,8 +205,11 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
 - **Stale:**
   - The scope "observed on a tax-inclusive GBP store only". A tax-exclusive GBP order (`gates.md:44`) and a USD
     presentment order (`gates.md:32`) are now recorded.
-  - "Orders edited before or after payment haven't been run" (now `gates.md:41-42`).
+  - The tax uncertainty (`claims.toml:416`), "No tax-exclusive order has been run" (now `gates.md:44`).
   - The tipped order is still not run: it was "Accepted from tests (Yu)" (`gates.md:43`).
+- **Not stale, corrected after challenge:** the edit uncertainty (`claims.toml:415`) stays. The first version of this
+  file called it stale, but `gates.md:41-42` ran removals only; an item added after payment hasn't run and earns
+  nothing by code.
 - **Still between:**
   - No order paid with a gift card has ever run.
   - C1's worked example uses staging figures (£540, £27.00), while production B used £399.60 and £19.98.
@@ -192,11 +228,16 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   3. A refund too large to read takes nothing back. That covers more than 100 lines (`order-source.server.ts:328-332`),
      20 or more transactions or shipping lines on any refund (`:351-352`, called at `:462`), or the 20th refund
      (`:674-675`). refunds/create answers 500, and the sweep logs it while the order is inside 3 days
-     (`payout-check.server.ts:57`).
+     (`payout-check.server.ts:56`).
   4. An erased buyer's take-back is closed (`refunds.server.ts:278-284`).
+  5. (Second read's challenge.) Refunding an item added by an edit after payment takes back more than its share,
+     up to all of the order's cashback, because the refund is valued on today's lines against the product value
+     stored at payment (see the cross-row finding).
 - **Proposed sentence:** "When items are refunded, RewardsPro takes back their share of the cashback, up to the
   store credit the customer still holds in the order's currency. A refund of shipping alone takes nothing back."
-  The scope should also carry "on stores whose prices include tax" until Ruling 12's bend is fixed or accepted.
+- **Scope, revised after challenge:** "on stores whose prices include tax (until Ruling 12's bend is fixed or
+  accepted), for orders not edited to add items after payment (until that is fixed)". The first version carried only
+  the tax limit.
 - **Candidates:**
   - `gates.md:23` (E: "Refunding 1 of #1011's 2 items took back £9.99, half of the £19.98.");
   - `gates.md:24` (F: "asked for £9.99 and took the £8.99 left");
@@ -217,6 +258,8 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   the store's own customer, made through that store's own admin session (`rail-for.server.ts:27-28`). The app has
   no billing or payment code (grep 0 for `appSubscriptionCreate|appPurchaseOneTime|usageRecord`) and sets no expiry.
 - **Not checkable from the lab:** the help.shopify.com sentence that "you fund" rests on.
+- **Understated (second read):** the uncertainty "as part-payment of their orders" (`claims.toml:581`); credit paid
+  whole orders on production (`gates.md:22`, `:32`).
 - **Still between:**
   - An Air session re-reads the capture inside review_after.
   - A concur.
@@ -245,7 +288,8 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   - "Still missing on production: B4 checks A and G" and "(absent at 6bd092cb)".
   - "Moves happen after each paid order, refund and cancellation … and in the nightly pass" is incomplete. A tier
     delete, the first base-rate save and the end of the import also move buyers (`app.tiers.tsx:136`,
-    `app._index.tsx:178`, `bulk-import.server.ts:393`).
+    `app._index.tsx:178`, `bulk-import.server.ts:393`), and so does the hourly sweep (`payout-check.server.ts:331`,
+    `:410`). (Second read:) it was already incomplete at 6f3a57b6, so it is an omission, not stale.
 - **Still between:** no downgrade observed (see the live observation above); a concur; D6.
 
 ### rp-tier-window: narrow
@@ -256,14 +300,16 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   recorded orders. It falls short:
   - when the import ran at 60 days (no `read_all_orders`; `bulk-import.server.ts:89`), failed, or skipped unreadable
     orders (`home-rules.ts:129`);
-  - for a reinstall gap longer than the sweep's 3 days (`payout-check.server.ts:56`, `:264`), and the import doesn't
-    run again.
+  - possibly for a reinstall gap longer than the sweep's 3 days (`payout-check.server.ts:56`, `:264`). (Second
+    read:) a gap past shop/redact's 48 hours normally ends in erasure, and a later install then imports afresh
+    (`erasure.server.ts:96-98`), so the first version's "the import doesn't run again" overstated.
 - **Proposed sentence:** "Tiers count a loyal customer's spend over the last 12 months or over all time, from the
   orders RewardsPro has recorded: those since install, and past orders from up to 12 months before it."
 - **Candidate (partial):** `gates.md:34` (P: the import ran at 365 days). P doesn't tell the two windows apart: the
   imported orders fall inside both, and the store's window isn't recorded.
-- **Stale:** uncertainty 4. Both edits ran on production (`gates.md:41-42`). The after-payment double count was real
-  (#1017) and was fixed in #156. `switch.md:263` is now `:265`.
+- **Partly stale:** uncertainty 4. Both removal edits ran on production (`gates.md:41-42`). The after-payment double
+  count was real (#1017) and was fixed in #156. An item added after payment hasn't run and never counts towards
+  spend by code (`record-order.server.ts:177`). `switch.md:263` is now `:265`.
 - **Still between:**
   - A window change observed on a dev store (not among B4 A–P).
   - The 365-day horizon for other installs is still an inference [I].
@@ -280,9 +326,9 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
 
   The control shows only when the store has tiers (`app.customers.$id.tsx:168`). Customer rows are created only by
   recordOrder (`record-order.server.ts:120`), which matches the scope.
-- **Stale:** uncertainty 1 is incomplete. A lock also ends when its tier is deleted (`tiers.server.ts:602`; the
-  dialog says "Buyers locked to … go back to automatic.", `app.tiers.tsx:162`) or when the buyer is erased
-  (`erasure.server.ts:215`).
+- **Incomplete (already at 6f3a57b6, so not stale; second read):** uncertainty 1. A lock also ends when its tier is
+  deleted (`tiers.server.ts:602`; the dialog says "Buyers locked to … go back to automatic.", `app.tiers.tsx:162`) or
+  when the buyer is erased (`erasure.server.ts:215`). An erased buyer has no panel (`stats.server.ts:478-485`).
 - **Still between:**
   - A lock and a "Return to automatic" observed on a dev store. This isn't among B4 A–P; a natural check is to lock
     a Gold member to "Everyone" and see the next order earn 5%.
@@ -309,6 +355,8 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
 - **Stale:**
   - "Unobserved with real imported orders (B4 P)" and the `MISSING:` text.
   - Uncertainty 3 understates the failure path: `:129` is the whole-import failure, not only "some orders" (`:128`).
+    It is understated rather than stale (second read), and `:129` shows only when no orders came in (`:141`).
+  - (Second read:) money-only refunds from before the import count as spend (`bulk-import.server.ts:19-21`).
 - **Still between:** the 365-day horizon for other installs [I]; a concur; D6.
 
 ### rp-setup-steps: holds
@@ -322,7 +370,9 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
      (`home-rules.ts:22`).
 
   A new store starts switched off with no tiers (`prisma/schema.prisma:146`). The scope's three Shopify-admin
-  prerequisites are exactly those the code checks (`shop-checks.server.ts:97-99`).
+  prerequisites are exactly those the code checks (`shop-checks.server.ts:97-99`). (Second read:) the scope's "only
+  once … new customer accounts" is Home's rule; Shopify also lets a buyer spend credit using Shop Pay
+  (`shop-checks.server.ts:4-6`).
 - **Candidate (partial, not a capture):** `gates.md:28` ("cashback on, all three checks pass") and `gates.md:9`
   ("Everyone" at 5%) replace the `[I]` that steps 1–2 were done on production.
 - **Still between:**
@@ -339,7 +389,7 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
 - **Candidate (one half only):** `gates.md:26` (H: "With cashback off, #1014 (£222.00) earned nothing … nothing was
   owed."). It does not record #1014 adding to tier spend; that half is observed only on staging
   (`staging-run.md:29`).
-- **Stale, for the replies:**
+- **For the replies** (not stale: the file is identical since 6f3a57b6; second read):
   - Uncertainty 1, "Orders paid while it's off never earn later", overstates. The switch is read when the order is
     recorded (`record-order.server.ts:107-109`), so a redelivered or swept order recorded after cashback is back on
     does earn. The accurate form is "orders recorded while it's off never earn later".
@@ -356,12 +406,15 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   - The seven days run from `merchant.createdAt`, set at the first open. A reinstall keeps the row
     (`merchant.server.ts:55-58`; `gates.md:28` "The store's rows stayed"), so days without the app count.
     "Seven days with the app" overstates.
-  - The request also stops on "already-reviewed" (`home-rules.ts:44`), which Shopify doesn't show.
+  - The request also stops when Shopify answers "already-reviewed" (`home-rules.ts:44`), which Shopify doesn't show.
+    Only Shopify's answer counts (`app._index.tsx:192-195`, `:271-273`): a merchant who reviews through the card's
+    own link (`:516`) gets the card again on the next visit (`:511`), as the second read's challenge showed.
   - "Nothing is offered" holds in code. The card's words are "A review helps other merchants find RewardsPro.",
     "Leave a review" and "Dismiss" (`app._index.tsx:511-525`), and the incentive grep finds 0.
-- **Proposed sentence:** "RewardsPro asks for a review only after your store's third cashback entry, and no sooner
-  than seven days after you first opened the app. It stops once you dismiss it, Shopify has shown its request, or
-  you have already reviewed the app. Nothing is offered for a review."
+- **Proposed sentence, revised after challenge:** "RewardsPro asks for a review only after your store's third
+  cashback entry, and no sooner than seven days after you first opened the app. It stops once you dismiss it,
+  Shopify has shown its request, or Shopify says you have already reviewed the app. Nothing is offered for a review."
+  The first version said "or you have already reviewed the app", which is false for a review left through the link.
 - **Note:** while the request is due, it is asked on every Home visit. STRATEGY's "asks once" is false; the sentence
   above doesn't say "once". If RP-13 changes the timing, this row is re-read after it merges (#165).
 - **Inference [I]:** rewardsprotesting's merchant row dates from 2026-11-06 and has more than three cashback
@@ -375,7 +428,8 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   `<s-section heading="Help">` (`:65`), with `CONTACT_EMAIL = "contact@rewardspro.io"` (`:16`).
   - Nothing hides it; Settings is in the nav (`app.tsx:36`).
   - `test/unit/routes/settings.dom.test.tsx:89-95` pins the link and that there is no docs link.
-  - It is the only email address in `apps/rewards`.
+  - It is the only email address in `apps/rewards/app/` and `extensions/`; the tests hold `@example.com` fixtures
+    (second read).
 - **Still between:** the A10 Settings capture; a concur; it travels with rp-contact-delivers.
 
 ### rp-contact-delivers: narrow (the code shows publication only)
@@ -384,8 +438,9 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   Code can show that the address is published and is the only one. It can't show that mail sent there arrives,
   which is what "reach us" says.
 - **Recommendation:** keep the sentence as written and leave it unverified until Yu's outside test passes
-  (STRATEGY.md §13 step 10, after the DNS sitting). The narrow form ("Our contact address is contact@rewardspro.io,
-  shown in the app's Help section") only repeats rp-help-in-settings.
+  (STRATEGY.md §13 step 10). STRATEGY puts that test before the DNS step (12); running it again after the DNS
+  sitting is this file's advice, not STRATEGY's order (second read). The narrow form ("Our contact address is
+  contact@rewardspro.io, shown in the app's Help section") only repeats rp-help-in-settings.
 - **Not checkable from the lab:** the listing's support-email attribute and the mail DNS.
 
 ### rp-widget: narrow
@@ -403,10 +458,15 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
     calls a minute (`:16`, `:197`; `proxy.server.ts:45`), or on a proxy path other than `/apps/rewardspro`
     (`membership_widget.liquid:21`; seen again in `gates.md:45`).
   - **Merchant's own words.** The merchant's guest words and link replace the sign-in prompt (`:165`, `:173-174`).
-- **Proposed sentence:** "While cashback is on, a widget you turn on in your theme editor shows signed-in customers
-  their tier, cashback rate and store credit, and how far they are from the next tier when there is one they can
-  reach. Guests see your base rate and a sign-in prompt." The scope should carry the proxy-path limit and the 0%-base
-  case.
+  - **No amount** (second read's challenge). When Shopify can't give a balance in the cart's currency, the panel
+    shows no amount, only "Your store credit shows at checkout" (`:141-150`). That includes a buyer whose only credit
+    is in another currency (`shopify/live-balance.server.ts:92-97`), seen on production (`gates.md:32`), as well as a
+    slow or refused read.
+- **Proposed sentence, revised after challenge:** "While cashback is on, a widget you turn on in your theme editor
+  shows signed-in customers their tier and cashback rate, their store credit in the currency they are shopping in
+  when Shopify returns it, and how far they are from the next tier when there is one they can reach. Guests see your
+  base rate and a sign-in prompt." The scope should carry the proxy-path limit and the 0%-base case. The first
+  version said plainly that customers see "their … store credit", which is false when no amount comes back.
 - **Candidates:**
   - `gates.md:21` (C: "Pass" on Yu's iPhone, signed in, as a guest and in Dark). It still states no 390 px, no Light
     and no product page, and C is not among Yu's acceptances at `gates.md:12`.
@@ -430,8 +490,9 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   - `gates.md:7` ("version `rewardspromembership-217`, served by `rewardspro-production` from `apps/rewards` at
     main");
   - `gates.md:28` (Yu reinstalled from the App Store: "the same 8 scopes, and Home as before").
-- **Stale:** "Still open … Lighthouse … and gate C at 390 px". Lighthouse is now accepted, not run (`gates.md:51`), C
-  is recorded as Pass, and `:259` is now `:261`.
+- **Stale, in part:** "Still open … Lighthouse … and gate C at 390 px". Lighthouse is now accepted, not run
+  (`gates.md:51`), and `:259` is now `:261`. C is recorded as Pass, but `gates.md:21` records it without 390 px, Light
+  or a product page (second read), so the "gate C at 390 px" clause should be reworded, not dropped.
 - **Still between:**
   - A concur.
   - rp-production-rebuild.
@@ -450,7 +511,8 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
 - **Locators:** the spec `:51` is at b0b18bd1 only (not on main). The RESOLVED note's `switch.md:205` is now `:235`.
 - **Still between:**
   - A guard test, or RP-06 accepting the scope pin (`production-toml.test.ts:81-93`) as one; it doesn't catch a
-    billing call.
+    billing call, and it reads only `access_scopes.scopes`, so an `optional_scopes` entry would pass it (second
+    read).
   - Yu's D9.
   - The listing's tier-product text (Yu's S1 fix).
   - A concur.
@@ -463,7 +525,8 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
   time (`payouts.server.ts:229`, `:241`).
 - **Greps at main:**
   - The mail-library grep is 0, and there is no mail library in `package.json`.
-  - A wider grep (`resend|ses|sendMail|…`) hits only comments, the mailto link and payout "resend" wording.
+  - A wider grep (`resend|ses|sendMail|…`) hits only comments, the mailto link, payout "resend" wording and
+    Sentry's `beforeSend` config (`entry.server.tsx:30-31`, second read).
 - **Scope note:** Sentry's alert email goes to Yu as the maker (`handle-error.server.ts:3-4`). That is outside "no
   email to shoppers or merchants", but the row could say so in one line.
 - **Stale:**
@@ -535,11 +598,14 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only.
 
 ## Next
 
-- **Concur:** a different session reads these verdicts against the same lines and posts `concur:` or `challenge:`
-  per row on #165. The lab or an Air session can do it; this session can't.
-- **RP-06 (Air):** apply the concurred verdicts, the new sentences where taken, the candidate `gates.md` locators
-  under D6, and the moved line numbers.
+- **Concur:** done for the verdicts. The second read (`74cb7025`, 2026-11-09) concurred with 17 rows and challenged
+  4 sentences. The four revised sentences above need a concur on their new wording from a session other than
+  `2f4c6449`.
+- **RP-06 (Air):** apply the concurred verdicts, the new sentences where taken (the revised ones once concurred), the
+  candidate `gates.md` locators under D6, and the moved line numbers.
 - **For Yu:**
   - D6 (whether `gates.md` counts as G0).
   - Whether the negative rows need a guard test (AGENTS.md principle 8).
   - The data-request email decision behind rp-no-own-email.
+  - The order-edit finding (cross-row): whether to fix it, and in which lane. Until then the revised scopes keep
+    edited orders out of the sentences.
