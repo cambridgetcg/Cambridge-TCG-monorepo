@@ -764,10 +764,12 @@ export default function Welcome() {
     );
   };
 
-  // Step 3: on at once when pressed, as Home's switch is; the action's answer settles it
+  // Step 3: on at once when pressed, as Home's switch is; the action's answer settles it. A refusal
+  // gives the switch back while the page reloads, busy, so it isn't pressed twice (9-F8)
   const switchBusy = switchFetcher.state !== "idle";
-  const isLive = d.running || switchFetcher.formData?.get("intent") === "running";
   const switchAnswer = switchFetcher.data;
+  const switchRefused = switchFetcher.state === "loading" && switchAnswer?.ok === false;
+  const isLive = d.running || (switchFetcher.formData?.get("intent") === "running" && !switchRefused);
   const switchError = switchAnswer && !switchAnswer.ok && "error" in switchAnswer ? switchAnswer.error : null;
   const switchOn = () => {
     if (!switchBusy) switchFetcher.submit({ intent: "running", running: "on" }, { method: "post" });

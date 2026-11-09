@@ -692,7 +692,28 @@ describe("Step 3: Go live", () => {
     expect(on.hasAttribute("disabled")).toBe(false);
 
     await click(on);
+    // On at once: the switch is gone and the live section shows while the post is in flight
+    expect(button(GUIDE.switchOn)).toBeUndefined();
+    expect(document.querySelector(`s-section[heading="${GUIDE.liveHeading}"]`)).not.toBeNull();
     await click(on);
+    expect(posted).toEqual([{ intent: "running", running: "on" }]);
+  });
+
+  // 9-F8: a refused switch-on gives the switch back at once, and it posts once while the page reloads
+  it("gives the switch back on a refusal, and doesn't post again while the page reloads", async () => {
+    const posted: Array<Record<string, string>> = [];
+    await renderWelcome(step3(), {
+      posted,
+      answer: async () => ({ ok: false, error: GUIDE.saveTiersFirst }),
+      // The reload after the refusal never ends, so the switch stays busy
+      next: () => new Promise<WelcomeData>(() => {}) as unknown as WelcomeData,
+    });
+    await click(button(GUIDE.switchOn));
+    await screen.findByText(GUIDE.saveTiersFirst);
+    expect(document.querySelector(`s-section[heading="${GUIDE.liveHeading}"]`)).toBeNull();
+    const again = button(GUIDE.switchOn);
+    expect(again.hasAttribute("loading")).toBe(true);
+    await click(again);
     expect(posted).toEqual([{ intent: "running", running: "on" }]);
   });
 
