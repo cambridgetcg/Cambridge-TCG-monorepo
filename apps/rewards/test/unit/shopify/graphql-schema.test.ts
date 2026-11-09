@@ -27,8 +27,8 @@ import * as graphqlModule from "~/shopify/graphql";
  * `pnpm schema:admin` (scripts/fetch-admin-schema.ts); no network here.
  *
  * Beyond the schema: page sizes are literals of at most 250, every document
- * lives in app/shopify/graphql.ts, and every operation a test mock answers
- * exists. Each check is a small function below, run once on the real
+ * lives in app/shopify/graphql.ts, and every operation a test mock or
+ * stand-in client answers exists. Each check is a small function below, run once on the real
  * documents and once on a seeded bad input, so none of them passes by
  * matching nothing. Query cost is not checked (still counted by hand).
  */
@@ -151,22 +151,45 @@ function exportProblems(module: Record<string, unknown>): string[] {
   });
 }
 
-const MOCK = /\.(query|mutation)\(\s*["'`]([A-Za-z_]\w*)["'`]/g;
+/** MSW's `.query("Name"` / `.mutation("Name"`, which also says the kind. */
+const MOCK = /\.(?<kind>query|mutation)\(\s*["'`](?<name>[A-Za-z_]\w*)["'`]/g;
 
-/** Every operation a test mock answers (MSW's `.query("Name"` / `.mutation("Name"`) is a real document of that kind. */
+/**
+ * Stand-in clients that read the operation name out of the query text and
+ * answer by it, which say only the name: `case "RewardsX":` in a switch,
+ * `query.includes("RewardsX")`, and `operation === "RewardsX"` (or `!==`).
+ */
+const BY_NAME = [
+  /\bcase\s+["'`](?<name>Rewards\w*)["'`]\s*:/g,
+  /\.includes\(\s*["'`](?<name>Rewards\w*)["'`]\s*\)/g,
+  /\boperation\s*[!=]==?\s*["'`](?<name>Rewards\w*)["'`]/g,
+];
+
+/**
+ * Every operation a test mock answers is a real document: of that kind for an
+ * MSW mock, by name alone for a stand-in client.
+ */
 function mockProblems(files: { path: string; text: string }[], kinds: Map<string, string>): string[] {
   const problems: string[] = [];
   for (const { path, text } of files) {
-    for (const [, kind, name] of text.matchAll(MOCK)) {
+    for (const { groups } of text.matchAll(MOCK)) {
+      const { kind, name } = groups as { kind: string; name: string };
       const real = kinds.get(name);
       if (real === undefined) problems.push(`${path}: mocks ${kind} ${name}, which no document in ${GRAPHQL_TS} is`);
       else if (real !== kind) problems.push(`${path}: mocks ${name} as a ${kind}, but it is a ${real}`);
+    }
+    for (const pattern of BY_NAME) {
+      for (const { groups } of text.matchAll(pattern)) {
+        const name = (groups as { name: string }).name;
+        if (!kinds.has(name)) problems.push(`${path}: answers ${name}, which no document in ${GRAPHQL_TS} is`);
+      }
     }
   }
   return problems;
 }
 
-const mockedNames = (files: { path: string; text: string }[]) => new Set(files.flatMap(({ text }) => [...text.matchAll(MOCK)].map((m) => m[2])));
+const namesMatching = (files: { path: string; text: string }[], pattern: RegExp) =>
+  new Set(files.flatMap(({ text }) => [...text.matchAll(pattern)].map((m) => (m.groups as { name: string }).name)));
 
 // ---- the real inputs ----
 
@@ -236,7 +259,7 @@ describe(`the Admin documents, against the committed ${VERSION} schema`, () => {
 
   it("are what every test mock answers", () => {
     const files = testFiles();
-    expect(mockedNames(files).size).toBeGreaterThan(0);
+    for (const pattern of [MOCK, ...BY_NAME]) expect(namesMatching(files, pattern).size, `${pattern} matches no test file`).toBeGreaterThan(0);
     expect(mockProblems(files, realKinds)).toEqual([]);
   });
 });
@@ -366,6 +389,32 @@ describe("the checks catch", () => {
     expect(mockProblems(files, realKinds)).toEqual([
       `test/postgres/example.postgres.test.ts: mocks query RewardsNope, which no document in ${GRAPHQL_TS} is`,
       "test/postgres/example.postgres.test.ts: mocks RewardsCredit as a query, but it is a mutation",
+    ]);
+  });
+
+  it("a stand-in client answering, by name, an operation that doesn't exist", () => {
+    const files = [
+      {
+        path: "test/postgres/example.postgres.test.ts",
+        text: [
+          "const name = /(?:query|mutation)\\s+(\\w+)/.exec(query)?.[1];",
+          "switch (name) {",
+          '  case "RewardsBalance":',
+          "    return {};",
+          '  case "RewardsNope":',
+          "    return {};",
+          "}",
+          'if (query.includes("RewardsGone")) ask();',
+          'if (operation !== "RewardsOld") throw new Error("no");',
+          'calls.filter((call) => call.operation === "RewardsCustomerNames");',
+        ].join("\n"),
+      },
+    ];
+
+    expect(mockProblems(files, realKinds)).toEqual([
+      `test/postgres/example.postgres.test.ts: answers RewardsNope, which no document in ${GRAPHQL_TS} is`,
+      `test/postgres/example.postgres.test.ts: answers RewardsGone, which no document in ${GRAPHQL_TS} is`,
+      `test/postgres/example.postgres.test.ts: answers RewardsOld, which no document in ${GRAPHQL_TS} is`,
     ]);
   });
 });
