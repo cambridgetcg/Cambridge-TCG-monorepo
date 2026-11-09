@@ -43,7 +43,11 @@ export const IMPORT_CHUNK = 500;
 export const MAX_IMPORT_RESTARTS = 3;
 /** The longest one Shopify call of the import waits (startImport runs inside an app open). */
 const CALL_TIMEOUT_MS = 5000;
-/** A running import with no operation id has lost its start once it has waited this long. */
+/**
+ * A running import with no operation id has lost its start this long after
+ * its launch was claimed (`importLaunchedAt`), whatever else has written the
+ * row since: the hourly sweep stamps it seconds before it polls imports.
+ */
 const START_GRACE_MS = 5 * 60 * 1000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -80,8 +84,8 @@ async function grantedScopes(admin: GraphqlClient, timeoutMs: number): Promise<S
 /**
  * Starts the bulk query of a running import whose operation id is empty,
  * and stores the id and horizon. A failure is stored as the import's error
- * and thrown; the import then waits START_GRACE_MS and is started again by a
- * poll, as one more attempt.
+ * and thrown; the import then waits START_GRACE_MS from its claim's
+ * `importLaunchedAt` and is started again by a poll, as one more attempt.
  */
 async function launch(admin: GraphqlClient, connectionId: string, installedAt: Date, timeoutMs: number): Promise<void> {
   const waiting = { id: connectionId, importState: "running" as const, importOperationId: null };
@@ -123,6 +127,7 @@ export async function startImport(admin: GraphqlClient, connectionId: string, in
       importedCount: 0,
       importError: null,
       importFileRefusals: 0,
+      importLaunchedAt: new Date(),
     },
   });
   if (count === 0) return;
@@ -140,13 +145,19 @@ type ImportRow = {
   importError: string | null;
   importFileRefusals: number;
   tierPassRequestedAt: Date | null;
-  updatedAt: Date;
+  importLaunchedAt: Date | null;
 };
 
 /**
  * Start the bulk query again (`reason` is why), or, after MAX_IMPORT_RESTARTS
  * restarts, end the import as failed with `reason` as its error. Conditional
  * on the operation and attempts as read, so two polls restart it once.
+ * Throws when the relaunch fails, after the claim: the import is running
+ * with no operation, the claim's new grace stands, and launch has stored the
+ * failure as its error. Every failure is wrapped in an Error, a thrown
+ * Response (the embedded admin's answer to any Shopify HTTP error) included,
+ * so a 5xx or 429 during a relaunch from Home is logged there and never
+ * thrown from its loader; the hourly job counts it as a problem.
  */
 async function restart(admin: GraphqlClient, row: ImportRow, reason: string, timeoutMs: number): Promise<"running" | "failed"> {
   const asRead = { id: row.id, importState: "running" as const, importOperationId: row.importOperationId, importAttempts: row.importAttempts };
@@ -157,13 +168,20 @@ async function restart(admin: GraphqlClient, row: ImportRow, reason: string, tim
   }
   const { count } = await prisma.connection.updateMany({
     where: asRead,
-    data: { importOperationId: null, importCursor: 0, importAttempts: { increment: 1 }, importError: reason, importFileRefusals: 0 },
+    data: {
+      importOperationId: null,
+      importCursor: 0,
+      importAttempts: { increment: 1 },
+      importError: reason,
+      importFileRefusals: 0,
+      importLaunchedAt: new Date(),
+    },
   });
   if (count === 0) return "running";
   try {
     await launch(admin, row.id, row.installedAt, timeoutMs);
   } catch (error) {
-    console.error(`[import] Could not start the past-orders import of ${row.externalAccountId} again: ${messageOf(error)}`);
+    throw new Error(`The bulk query could not be started again: ${messageOf(error)}`, { cause: error });
   }
   return "running";
 }
@@ -315,9 +333,14 @@ async function writeFile(
  *   `importedCount`, and `importError` to how many of the file's orders could
  *   not be read (null when none). A tier pass the deadline cuts short is left
  *   to the nightly pass (`tierPassRequestedAt`).
+ * - no operation id (a start that failed or was cut off): `running` for
+ *   START_GRACE_MS after `importLaunchedAt`, while the start may still be in
+ *   flight; after it, or with no launch time (a row claimed by an older
+ *   build, or reactivated), the start is lost and is started again.
  * - FAILED, CANCELED or EXPIRED (or a file that can't be read, BulkFileError):
  *   start it again, up to MAX_IMPORT_RESTARTS times, then `failed` with the error.
- * Throws when Shopify or the file can't be reached; the next poll tries again.
+ * Throws when Shopify or the file can't be reached, the next poll trying
+ * again, and when a restart's relaunch fails (restart).
  */
 export async function pollImport(
   admin: GraphqlClient,
@@ -338,7 +361,7 @@ export async function pollImport(
       importError: true,
       importFileRefusals: true,
       tierPassRequestedAt: true,
-      updatedAt: true,
+      importLaunchedAt: true,
     },
   });
   if (row.importState === "done" || row.importState === "failed") return row.importState;
@@ -350,8 +373,10 @@ export async function pollImport(
   }
 
   if (row.importOperationId === null) {
-    // A start in flight, or one that failed or was cut off before its id was stored
-    if (Date.now() - row.updatedAt.getTime() < START_GRACE_MS) return "running";
+    // A start in flight, or one that failed or was cut off before its id was
+    // stored. Timed from the claim's own stamp, never the row's last write.
+    const launchedAt = row.importLaunchedAt?.getTime();
+    if (launchedAt !== undefined && Date.now() - launchedAt < START_GRACE_MS) return "running";
     return restart(admin, row, row.importError ?? "The bulk query could not be started", timeout());
   }
   const operation = asRecord((await ask(admin, RewardsBulkStatus, { id: row.importOperationId }, timeout())).bulkOperation);
@@ -414,9 +439,13 @@ export async function pollImport(
  * it), through its offline session (unauthenticated.admin, which refreshes
  * an expiring token), until `deadline`. One store failing is logged and never
  * stops the others; it is counted in `failed`, with the first error, so the
- * hourly run is recorded as partial (A17-F3). `polled` counts the polls that
- * finished. A store whose token another call is renewing right now is left
- * for the next run, as no failure (Ruling 85).
+ * hourly run is recorded as partial (A17-F3). A restart whose relaunch fails
+ * is counted there too. So a lost start is a problem only when its relaunch,
+ * after the grace, fails; one inside its grace is normal. That deliberately
+ * narrows the audit's "count a start still missing after the grace" (RP-25):
+ * a start found missing is started again, and counted only if that fails.
+ * `polled` counts the polls that finished. A store whose token another call
+ * is renewing right now is left for the next run, as no failure (Ruling 85).
  */
 export async function pollRunningImports(deadline: number): Promise<{ polled: number; failed: number; firstProblem?: unknown }> {
   const running = await prisma.connection.findMany({

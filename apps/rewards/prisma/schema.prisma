@@ -190,6 +190,10 @@ model Connection {
   importError          String?          @map("import_error")
   /// Polls in a row whose bulk file answered 4xx; the second ends the attempt.
   importFileRefusals   Int              @default(0) @map("import_file_refusals")
+  /// When startImport or a restart last claimed a launch of the bulk query: a running import with no operation id has lost its
+  /// start 5 minutes after it, whatever else has written the row since. Null on rows claimed before this column and after a
+  /// reactivation, which count as lost.
+  importLaunchedAt     DateTime?        @map("import_launched_at")
   /// When the merchant dismissed the import's outcome on Home; the setup card shows it until then.
   importDismissedAt    DateTime?        @map("import_dismissed_at")
   lastTierPassAt       DateTime?        @map("last_tier_pass_at")
