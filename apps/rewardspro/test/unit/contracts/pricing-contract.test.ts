@@ -209,11 +209,14 @@ describe("RewardsPro pricing contract", () => {
       "utf8",
     );
 
-    // Shops that still hold a paid agreement keep their records, cancellation, refunds and support
-    // (docs/decisions/2026-10-20-rewardspro-free-only-relaunch.md), so the landing still tells them so
-    // and links to it from the header. Merchant-facing copy doesn't talk about retirement (same record).
+    // Two frozen stores still hold paid charges from the old app until Yu cancels them in B4
+    // (apps/rewards/docs/switch.md, Decision 20). The rebuild that production runs has no billing code
+    // and no records page, and the old app's records sit only in schema `rewardspro` until B5, so the
+    // landing promises those shops only a way to reach us, linked from the header. Merchant-facing
+    // copy doesn't talk about retirement (docs/decisions/2026-10-20-rewardspro-free-only-relaunch.md).
+    // This check, the section and its header link go once B4 has cancelled both charges.
     expect(landing).toContain(
-      "If your store has an existing paid agreement with RewardsPro, its records, cancellation, refunds and support remain available under the agreed terms.",
+      "If your store has an existing paid agreement for RewardsPro, write to us about its records or about cancelling it.",
     );
     expect(landing).toContain('href="/#existing-agreements"');
     expect(landing).toContain('id="existing-agreements"');
