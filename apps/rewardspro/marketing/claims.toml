@@ -48,13 +48,15 @@
 #   ladder.server.ts and ladder.ts, a migration and four test files. Of the new files only ladder.ts is cited
 #   (rp-vip-tiers, @2fe85336). Over the three new code files at 2fe85336 every absence pattern of the negative rows
 #   gives 0, except the word 'tags' (one monitoring tag, guide.server.ts:77). In tiers.server.ts an import at :28 moves
-#   the old :28-432 down one line; past that, lines moved by -2, +9 and +8 (hunks at old :433, :448-450, :526, :568), so
-#   tiers.server.ts lines marked "@2fe85336" are numbered as at 2fe85336, and those marked @6f3a57b6 or "at 9efc2f34"
-#   as at those commits. schema.prisma gained two lines after :152. Every other apps/rewards file this ledger cites
-#   with a sha256 hashes the same at 2fe85336 as at the commit cited, except docs/switch.md (sha256 72ad5424…, the same
-#   at 9efc2f34; lines after :248 moved by 2) and the deleted webhooks.orders.fulfilled.tsx. order-source.server.ts,
-#   cited in uncertainties only, changed in #156: its read limits moved from :572, :590, :603-604 to :643, :661,
-#   :674-675.
+#   the old :28-432 down one line; past that, the old :436-448 moved by -2, :449-450 by +1, :451-525 by +9, :529-568 by
+#   +8 and everything after :568 by +88 (hunks at old :433-435, :448, :450, :526-528 and :568; corrected 2026-11-09,
+#   was '-2, +9 and +8', which left out the +1 and the +88; no cited line was wrong for it), so tiers.server.ts lines
+#   marked "@2fe85336" are numbered as at 2fe85336, and those marked @6f3a57b6 or "at 9efc2f34" as at those commits.
+#   schema.prisma gained two lines after :152. Every other apps/rewards file this ledger cites with a sha256 hashes the
+#   same at 2fe85336 as at the commit cited, except docs/switch.md (sha256 72ad5424…, the same at 9efc2f34; lines after
+#   :248 moved by 2) and the deleted webhooks.orders.fulfilled.tsx. order-source.server.ts, cited only in uncertainties
+#   before this round (this round also cites it in two sources, rp-paid-trigger's :743 and rp-customer-required's
+#   :270-276, both @2fe85336), changed in #156: its read limits moved from :572, :590, :603-604 to :643, :661, :674-675.
 # - apps/rewards/docs/gates.md, the B4 record (#158, merged 2026-11-07 17:59 UTC, 13 minutes before this kit), is on
 #   main: sha256 a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900 at 9efc2f34 and at 2fe85336. Rows that
 #   said it was absent now cite its lines, as candidates where a row waits on the form of G0 (Yu's D6, ROADMAP Pre-1).
@@ -66,15 +68,17 @@
 #   same at 17f978bb and 2c0e2c17 (compared row by row; only rp-no-tier-products' list gained a note). #187 is an open
 #   draft: the issue comment is the durable record of the concur, and #187 should merge before or with this file.
 #   This writer re-read each applied row's load-bearing lines at 2fe85336 first.
-# - Verified: rp-store-credit and rp-paid-trigger (narrowed). Each has RP-05's check, the concur, and the production
-#   record claims-map.md asks for: test order #1010 (switch.md:77) and B4 check B (gates.md:20), which meets its "if D6
-#   picks B4" condition as well. This goes further than RP-05's file, which lists D6 as still between each row and
-#   verified (and, for rp-paid-trigger, the [I] that the credited orders were unfulfilled). Each row's status comment
-#   says why this writer reads claims-map.md:43-44 and :102-105 as met in both D6 forms. That reading is this session's
-#   alone, so the flips hold only if the second session that reads this file before merge concurs on it (and on
-#   rp-production-rebuild's first check, which both rows' production records lean on); otherwise both go back to
-#   proposed. The other 15 concurred rows stay proposed. Each waits on the form of G0 (Yu's D6), an observation, a guard
-#   test or a decision of Yu's; each row's 2026-11-09 comment says which, and from whom.
+# - No row is verified yet. rp-store-credit and rp-paid-trigger (narrowed) are proposed for verified: each has RP-05's
+#   check, the concur, and the production record claims-map.md asks for, test order #1010 (switch.md:77) and B4 check B
+#   (gates.md:20), which meets its "if D6 picks B4" condition as well. That goes further than RP-05's file, which lists
+#   D6 as still between each row and verified (and, for rp-paid-trigger, the [I] that the credited orders were
+#   unfulfilled). Each row's status comment says why this writer reads claims-map.md:43-44 and :102-105 as met in both
+#   D6 forms. That reading is this session's alone. RP-06's first draft flipped both rows on it; the review of that draft
+#   held that one session's reading can't meet the gate (WORK.md:28-30), so both went back to proposed the same day. They
+#   move to verified once a session other than 5b65f404 concurs on #166 on the reading and on rp-production-rebuild's
+#   first check, which both rows' production records lean on, or once Yu's D6 settles it. The other 15 concurred rows
+#   stay proposed too. Each waits on the form of G0 (Yu's D6), an observation, a guard test or a decision of Yu's; each
+#   row's 2026-11-09 comment says which, and from whom.
 # - Concurred narrowed sentences applied to rows that stay proposed: rp-vip-tiers, rp-tier-window, rp-import-past.
 #   rp-contact-delivers keeps its sentence (RP-05's advice). The four challenged rows keep theirs; the revised wording
 #   sits in a comment until a session other than 2f4c6449 concurs on it.
@@ -83,20 +87,22 @@
 #   their text (ROADMAP.md §3, "How agents check rows"). No capture was re-fetched. That is the evidence check; each row
 #   stays proposed until another session concurs on it (#166, "Done when"). One page was fetched in this round: a
 #   read-only GET of https://shopify.dev/docs/apps/launch/marketing/shopify-brand-assets at about 21:28 UTC on 2026-11-09
-#   (shopify.dev may be read since Yu's word of 2026-11-08, on #166). The command wasn't kept, so which User-Agent it sent
-#   isn't on record [U]. Its body (sha256 54a163ca…) has the three badge sentences rp-on-app-store quotes, as the saved
+#   (shopify.dev may be read since Yu's word of 2026-11-08, on #166). It sent a generic User-Agent, as the session's tool
+#   log records (corrected 2026-11-09; was: 'The command wasn't kept, so which User-Agent it sent isn't on record [U]').
+#   Its body (sha256 54a163ca…) has the three badge sentences rp-on-app-store quotes, as the saved
 #   copy (1dadf3ef…) does. No row cites it. Nothing else was fetched; apps.shopify.com and help.shopify.com weren't opened.
 # - New rows, all proposed: sh-sc-subscriptions, rp-no-order-rules and rp-maker-also-sells (MESSAGING.md §7; wf8 fit.md
 #   §8.3 and feedback.md §9, FB-9; ROADMAP Pre-7), and the starred rows of the onboarding plan's PR-1 and PR-2:
 #   rp-widget-settings, rp-guest-hidden-when-off, rp-customer-required and rp-no-cashback-cases.
-# - After this read, origin/main moved to 5c953f5c: #157 merged (1c49ed0a). It rewrote Home's Running sentence
+# - After this read, origin/main moved to 5c953f5c: #157 merged at 1c49ed0a, then #148 at 5c953f5c, which touches only
+#   apps/storefront/marketing. #157 rewrote Home's Running sentence
 #   (home-rules.ts:49 is now :49-51, so later lines move by +2), put the cashback-base sentence in words.ts as
 #   CASHBACK_BASE for Home and Tiers (words.ts +8 after :32), and changed app._index.tsx (+1 after :379; :414 rewritten
 #   as :415-417, adding 'These orders earn no cashback.') and app.tiers.tsx (:354-357 become one line, so later lines
-#   move by -3: :361-409 is now :358-406, :411-431 is :408-428 and :430 is :427). No source of the two verified rows is
-#   in those files; rp-paid-trigger's last uncertainty quotes home-rules.ts:49 as history. Locators marked @6f3a57b6 or
-#   @2fe85336 stay true at those commits; the rows that cite those files need re-quoting at the new main:
-#   rp-paid-trigger's uncertainty, rp-vip-tiers (app.tiers.tsx :361-409, :411-431, :430), rp-cashback-base,
+#   move by -3: :361-409 is now :358-406, :411-431 is :408-428 and :430 is :427). No source of rp-store-credit or
+#   rp-paid-trigger is in those files; rp-paid-trigger's last uncertainty quotes home-rules.ts:49 as history.
+#   Locators marked @6f3a57b6 or @2fe85336 stay true at those commits; the rows that cite those files need re-quoting
+#   at the new main: rp-paid-trigger's uncertainty, rp-vip-tiers (app.tiers.tsx :361-409, :411-431, :430), rp-cashback-base,
 #   rp-tier-window, rp-setup-steps, rp-switch-off, rp-review-ask, rp-import-past, rp-widget-settings and
 #   rp-no-order-rules (app.tiers.tsx :361-409). Lines before :354 of app.tiers.tsx and before :380 of app._index.tsx
 #   don't move (rp-vip-tiers' :80, :136 and :178; rp-tier-lock's :162).
@@ -129,24 +135,28 @@ claim = "RewardsPro pays cashback as Shopify store credit."
 # Scope as written 2026-10-20: "RewardsPro app, all merchants on the Free plan" (the rebuild has no plans).
 scope = "The rebuilt RewardsPro app (apps/rewards), on a store with cashback switched on and at least one tier"
 kind = "product-behaviour"
-# Verified 2026-11-09 (RP-06). RP-05 checked it at 9efc2f34 (lab 2f4c6449: holds, resting on record-order.server.ts:230,
-# rail "shopify_store_credit"), and the second read concurred (lab 74cb7025 on #165, 2026-11-09). The production record
-# claims-map.md asks for is in: test order #1010 (switch.md:77) and B4 check B (gates.md:20), so it holds whichever form
-# Yu gives G0 (D6). This writer re-read record-order.server.ts:230 and :234-235, store-credit-rail.server.ts:306-307,
-# schema.prisma:89-90 and webhooks.orders.paid.tsx:55-64 at 2fe85336. Verified is not published: every surface still
-# waits for its own gates (STRATEGY.md S2, REVIEW.md).
-# 2026-11-09, where this goes further than RP-05 (stated, as the review of RP-06's first draft asked): RP-05's file
-# lists "a concur; D6" as still between this row and verified (code-rows.md, rp-store-credit, "Still between"). This
+# 2026-11-09 (RP-06): flip to verified proposed on the reading below; the row stays proposed until another session
+# concurs on it. RP-05 checked it at 9efc2f34 (lab 2f4c6449: holds, resting on record-order.server.ts:230, rail
+# "shopify_store_credit"), and the second read concurred (lab 74cb7025 on #165, 2026-11-09). The production record
+# claims-map.md asks for: test order #1010 (switch.md:77) and B4 check B (gates.md:20). This writer re-read
+# record-order.server.ts:230 and :234-235, store-credit-rail.server.ts:306-307, schema.prisma:89-90 and
+# webhooks.orders.paid.tsx:55-64 at 2fe85336.
+# The reading, where it goes further than RP-05: RP-05's file lists "a concur; D6" as still between this row and
+# verified (code-rows.md, rp-store-credit, "Still between"), and the second read's concur doesn't mention D6. This
 # writer reads claims-map.md's own test for the row, "2nd session reads the record. If D6 makes B4 A–P the form of G0,
 # B4 B too" (claims-map.md:43, :102-105), as met in both of Yu's D6 forms. The narrow form asks this row for the
 # production test order, which is switch.md:77; the B4 form asks for B4 check B as well, which is gates.md:20, a Pass.
 # Neither form asks this row for more, and the open parts of G0 (I's erasure, the refund half) are other rows'. The
-# reading is one session's (air 5b65f404); neither RP-05 (2f4c6449) nor the second read (74cb7025) has given it. So the
-# flip holds only if the second session that reads RP-06's PR before merge, any session but 5b65f404, concurs on this
-# reading; otherwise the row goes back to proposed. The production records count for the rebuilt app because the
-# switch record and gates.md:7 say production serves apps/rewards (rp-production-rebuild, proposed, with its first
-# check recorded 2026-11-09); that concur covers it too.
-status = "verified"
+# production records count for the rebuilt app because the switch record and gates.md:7 say production serves
+# apps/rewards (rp-production-rebuild, proposed, with its first check recorded 2026-11-09).
+# The reading is one session's (air 5b65f404); neither RP-05 (2f4c6449) nor the second read (74cb7025) has given it.
+# RP-06's first draft flipped the row on it anyway, with the departure stated. The review of that draft held that a
+# stated departure doesn't meet the gate: a row counts as true only once a different session has checked the same
+# evidence and said so (WORK.md:28-30; #166's gate). So the row went back to proposed the same day. Still needs: a
+# concur on #166, from any session but 5b65f404, on this reading and on rp-production-rebuild's first check; or Yu's
+# D6, which settles the form of G0 either way. Verified would still not be published: every surface waits for its own
+# gates (STRATEGY.md S2, REVIEW.md).
+status = "proposed"
 # Channels as written 2026-10-20: og-card, listing, landing, docs. social-profile and social-post added 2026-11-07.
 channels = ["og-card", "listing", "landing", "docs", "social-profile", "social-post"]
 sources = [
@@ -173,7 +183,7 @@ uncertainties = [
   "Very large orders can't be read, so they are never recorded and earn nothing: more than 2,500 lines (25 pages of 100), 200 or more payment transactions, or 20 or more refunds when read (app/shopify/order-source.server.ts:44, 54, 56, 572, 590, 603-604 at 6f3a57b6; :44, 54, 56, 643, 661, 674-675 @2fe85336). orders/paid answers 500 for them (app/routes/webhooks.orders.paid.tsx:48-51), and the hourly sweep leaves an order past the refund limit (app/lib/payout-check.server.ts:248-250, 302-304) and logs the others as a problem (:306-309). Code reading; never observed.",
   "Customers can spend the credit only where Shopify allows (sh-sc-signin-legacy, sh-sc-channels). Pair them where space allows.",
   "Shopify's timeline names the app 'Rewards Pro' (switch.md:77 @6bd092cb; the admin name in shopify.app.toml:10), a banned spelling. Crop it or get the name fixed before any screenshot of a credit is public.",
-  "2026-11-09: verified on the claims writer's reading that the production record claims-map.md asks for is in under either form of G0 (the status comment). RP-05 listed Yu's D6 as still open for this row. If the second session reading RP-06's PR doesn't concur on that reading, the row returns to proposed before merge.",
+  "2026-11-09: proposed for verified on the claims writer's reading that the production record claims-map.md asks for is in under either form of G0 (the status comment). RP-05 listed Yu's D6 as still open for this row. It moves to verified only when a session other than air 5b65f404 concurs on that reading on #166, or Yu's D6 settles it.",
 ]
 contrary_evidence = []
 commercial_interest = "We make RewardsPro."
@@ -346,13 +356,12 @@ scope = "Compatibility wording only (Partner Program Agreement Part C, C.2 §3, 
 kind = "status"
 # 2026-11-09 (RP-06), capture comparison by a session other than the makers': the listing copy (126aa3b4…) has the app
 # name 'RewardsPro' and the category 'Loyalty and rewards'. The PPA's raw body (ef9a85bd…; the 12:04, 12:06 and 12:33
-# UTC copies are byte-identical) has 'Last updated February 27, 2026', the C.2 heading 'Additional Terms Applicable to
-# App Developers' with item 3, 'Additional Shopify Trademark Use Rights for App Developers', and its sentence word for
-# word, and Part A's 'Notwithstanding Section 5.2, Partners will not: use the Shopify Trademarks … in Partner's business
-# name, logo, branding, advertising, social media or domain name (including without limitation top-level domains,
-# sub-domains and page URLs) … unless granted express written permission by Shopify in advance of each use'. The
-# shopify.dev brand-assets copy (1dadf3ef…) has all three badge sentences. Every quoted part matched. Stays proposed
-# until another session concurs on this comparison (#166).
+# UTC copies are byte-identical) has 'Last updated February 27, 2026', Part C's C.2 section for app developers with
+# item 3, 'Additional Shopify Trademark Use Rights for App Developers', and its sentence word for word, and the Part A
+# §5.3 passage the source quotes, word for word around its elisions. The shopify.dev brand-assets copy (1dadf3ef…) has
+# all three badge sentences. Every quoted part matched. Stays proposed until another session concurs on this
+# comparison (#166). (Edited 2026-11-09: the first draft of this comment quoted more of the PPA than the source
+# carries; the captures stay private beyond the quotes the rows already hold.)
 status = "proposed"
 channels = ["listing", "landing", "social-profile", "social-post", "community", "outreach"]
 sources = [
@@ -519,9 +528,10 @@ id = "rp-paid-trigger"
 claim = "For an order that earns cashback, payment is what triggers it; RewardsPro doesn't wait for the order to be fulfilled."
 scope = "The rebuilt app, on a store with cashback switched on and at least one tier; orders with a customer attached"
 kind = "product-behaviour"
-# Verified 2026-11-09 (RP-06). RP-05 checked it at 9efc2f34 (lab 2f4c6449: narrow, resting on
+# 2026-11-09 (RP-06): flip to verified proposed on the reading below; the row stays proposed until another session
+# concurs on it. RP-05 checked it at 9efc2f34 (lab 2f4c6449: narrow, resting on
 # webhooks.orders.paid.tsx:55, recordOrder(conn, facts, "live")), and the second read concurred on the narrowed
-# sentence (lab 74cb7025 on #165, 2026-11-09). The production record claims-map.md asks for is in: #1010 (switch.md:77)
+# sentence (lab 74cb7025 on #165, 2026-11-09). The production record claims-map.md asks for: #1010 (switch.md:77)
 # and B4 check B (gates.md:20), plus #1016, credited only once it was marked paid (gates.md:41). This writer re-read at
 # 2fe85336: webhooks.orders.paid.tsx:1-13, 55-64; record-order.server.ts:234-235 (nextAttemptAt: now); shopify.app.toml
 # :21-44 (orders/paid is the only topic that records an order; refunds/create and orders/cancelled act on orders
@@ -530,18 +540,19 @@ kind = "product-behaviour"
 # orders it finds, lists paid, partly refunded and refunded orders only). No timing words: the uncertainties still ban
 # "instant", "within seconds" and "real-time". (The 2026-11-09 first draft of this comment said "the only order topic"
 # and "'fulfill' appears nowhere in app/"; both were imprecise.)
-# 2026-11-09, where this goes further than RP-05 (stated, as the review of RP-06's first draft asked): RP-05's file
-# lists as still between this row and verified "that the credited orders were unfulfilled when credited is still an
-# inference [I]; a concur; D6" (code-rows.md, rp-paid-trigger). This writer reads claims-map.md's test for the row,
+# The reading, where it goes further than RP-05: RP-05's file lists as still between this row and verified "that the
+# credited orders were unfulfilled when credited is still an inference [I]; a concur; D6" (code-rows.md,
+# rp-paid-trigger), and the second read's concur doesn't mention D6. This writer reads claims-map.md's test for the row,
 # "2nd session reads the record; B4 B if D6 picks B4" (claims-map.md:44, :102-105), as met in both D6 forms: the
 # narrow form asks for the production test order (switch.md:77), the B4 form adds B4 check B (gates.md:20, a Pass).
 # The [I] stays an uncertainty below: "doesn't wait for the order to be fulfilled" rests on the code (no fulfilment
 # topic; the payout is created when the order is recorded), and the records show credit landing within seconds of the
 # order being marked paid, with no fulfilment step recorded. The reading is one session's (air 5b65f404); RP-05 and the
-# second read haven't given it. So the flip holds only if the second session that reads RP-06's PR before merge, any
-# session but 5b65f404, concurs on it, and on rp-production-rebuild's first check; otherwise the row goes back to
-# proposed.
-status = "verified"
+# second read haven't given it. RP-06's first draft flipped the row on it anyway, with the departure stated; the review
+# of that draft held that this doesn't meet the gate (WORK.md:28-30; #166's gate), so the row went back to proposed the
+# same day. Still needs: a concur on #166, from any session but 5b65f404, on this reading (the [I] included) and on
+# rp-production-rebuild's first check; or Yu's D6.
+status = "proposed"
 channels = ["listing", "landing", "social-profile", "social-post"]
 sources = [
   { locator = "apps/rewards/app/routes/webhooks.orders.paid.tsx:1-13, 55-64 @6f3a57b6 (orders/paid records the order, then sends the credit right after answering Shopify)", observed_at = "2026-11-07", sha256 = "86fb16f53791c696a9a0f08493d0910066a4018575940ec0f5fb7fc396798d33" },
@@ -565,7 +576,7 @@ uncertainties = [
   "2026-11-09, inferred [I]: the trigger is Shopify marking the order paid (orders/paid; the sweep lists only paid, partly refunded and refunded orders, order-source.server.ts:743 @2fe85336, so an order whose payment is only authorised isn't recorded). Where a store captures payment later, for example when it fulfils, or marks a manual payment such as cash on delivery as paid later, cashback follows that moment, which can be at or after fulfilment. Shopify's capture settings weren't read for this row (help.shopify.com is off limits; no shopify.dev page was read for it). So never 'before you ship' or 'as soon as the order is placed'.",
   "A send that fails is retried with back-off and becomes 'needs a look' after 24 hours (payouts.server.ts), so 'added when paid' is the normal path, not a guarantee.",
   "The app's own Home sentence reads 'On: every paid order earns cashback as store credit.' (apps/rewards/app/admin/home-rules.ts:49), but test orders (record-order.server.ts:66), orders already cancelled when recorded (:67), orders from before install (:62-65), orders while no tier exists (:69), orders with no customer attached (:92) and orders paid fully with store credit (staging-run.md:25, check D) earn nothing. Never copy it into marketing; an agent PR could correct it. 2026-11-09: PR #157 rewrote it and merged after this read (1c49ed0a); :49 at 2fe85336 still has the old sentence.",
-  "2026-11-09: verified on the claims writer's reading that the production record claims-map.md asks for is in under either form of G0 (the status comment). RP-05 listed Yu's D6 and the unfulfilled-when-credited [I] as still open for this row. If the second session reading RP-06's PR doesn't concur on that reading, the row returns to proposed before merge.",
+  "2026-11-09: proposed for verified on the claims writer's reading that the production record claims-map.md asks for is in under either form of G0 (the status comment). RP-05 listed Yu's D6 and the unfulfilled-when-credited [I] as still open for this row. It moves to verified only when a session other than air 5b65f404 concurs on that reading on #166, or Yu's D6 settles it.",
 ]
 contrary_evidence = []
 commercial_interest = "We make RewardsPro."
@@ -975,8 +986,9 @@ kind = "price"
 # 2fe85336) and concurred (lab 74cb7025 on #165). Capture part compared by this writer, a session other than the
 # makers': the saved help-page copy (GET 11:46 UTC) hashes to 0a002097…, and both quoted phrases are in its text, as
 # they are in the 12:06 and 12:28 UTC copies (3ee6ac68…, 83d484a4…). The first quote is the start of a longer sentence
-# that ends '… at checkout when signed in to your online store through customer accounts.' (sh-sc-signin-legacy
-# carries that condition); the second is the last of the page's examples of when to issue store credit. Stays proposed
+# whose end limits it to customers signed in to the online store through customer accounts (our paraphrase;
+# sh-sc-signin-legacy carries that condition); the second is the last of the page's examples of when to issue store
+# credit. Stays proposed
 # until another session concurs on this comparison (#166). From: any session other than air 5b65f404.
 status = "proposed"
 channels = ["og-card", "listing", "landing", "social-profile", "social-post", "community", "outreach"]
@@ -1007,9 +1019,10 @@ claim = "RewardsPro sends no email. One setting, off by default, asks Shopify to
 scope = "The rebuilt app (apps/rewards): no email to shoppers or merchants, until Yu's data-request email decision (switch.md:62, 269 @6bd092cb). If he chooses an email to the shop owner, this sentence must change before it is verified (contrary_evidence)."
 kind = "negative"
 # 2026-11-09 (RP-06): RP-05 holds (lab 2f4c6449, resting on store-credit-rail.server.ts:307, notify only on credits;
-# unchanged at 2fe85336); concurred (lab 74cb7025 on #165). The help-page copy (0a002097…) has 'If you select Notify
-# customer when issuing store credit, then the customer receives an email notification, which you can customize in the
-# Customer notifications settings'. Stays proposed, as this row's own uncertainty requires. Still needs: Yu's
+# unchanged at 2fe85336); concurred (lab 74cb7025 on #165). The help-page copy (0a002097…) says that choosing
+# 'Notify customer' when issuing store credit sends the customer an email, which the merchant can customise in
+# Customer notifications (our paraphrase, as in the source below). Stays proposed, as this row's own uncertainty
+# requires. Still needs: Yu's
 # data-request email decision (ROADMAP Now-5; switch.md:271 @2fe85336, was :269), then a reword if he picks an email,
 # then a guard test (an agent PR; Yu merges). From: Yu first. Sentry's alert email to the maker (handle-error.server.ts)
 # is outside 'no email to shoppers or merchants' (RP-05's scope note).
@@ -1196,10 +1209,10 @@ claim = "Store credit can be spent on the online store, POS and Shop, but not on
 scope = "Shopify's platform rule, as the Help Center states it on the date read"
 kind = "product-behaviour"
 # 2026-11-09 (RP-06), capture comparison by a session other than the Clerk's: both quoted passages are in the 11:46 UTC
-# copy's text word for word (0a002097…), and in the 12:06 and 12:28 UTC copies. So are the two the uncertainties
-# paraphrase: 'Store credit is available for Shopify B2B and can be added to company locations. If you add store credit
-# to a customer profile, then this store credit can be used only in a D2C online store …' and the subscription
-# sentence, which now has its own row (sh-sc-subscriptions). Stays proposed until another session concurs (#166).
+# copy's text word for word (0a002097…), and in the 12:06 and 12:28 UTC copies. So are the two passages the
+# uncertainties paraphrase: the B2B one (credit on a customer profile works only in a D2C store, not a B2B online store)
+# and the subscription one, which now has its own row (sh-sc-subscriptions). Stays proposed until another session
+# concurs (#166).
 status = "proposed"
 channels = ["listing", "landing", "social-post"]
 sources = [
