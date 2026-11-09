@@ -205,8 +205,8 @@ False: there are no tier products (`rp-no-tier-products`).
 - **Recommended:** write one line in #162 giving your exception to the claims gate for this line (gate G1), and
   paste §5's F3 line (77 characters) as Feature 3. Why: it replaces a line known to be false with one the code backs
   (`app/lib/payouts.server.ts:256-257`) and production refunds E and F showed (`docs/gates.md:23-24`). It is
-  unverified, like the lines S1 keeps, but it stays inside #187's revised sentence. If that sentence has been
-  challenged again by the day, take the other path.
+  unverified, like the lines S1 keeps, and it shortens #187's revised sentence: it leaves out "in the order's
+  currency" and the row's scope (§5). If that sentence has been challenged again by the day, take the other path.
 - **Otherwise:** leave Feature 3 as it is, finish the other steps, and say so in #162. It then stays until
   `rp-refund-takeback` verifies.
 
@@ -361,8 +361,10 @@ protected-customer-data]. Editing an existing request may look different [U].
 **Reasons.** Shopify asks for a reason for each field ("provide your reasons for using them") [V]. The request on
 file was made for the old app [I], which had marketing email of its own (`apps/rewardspro/CLAUDE.md`) [V]; what its
 reasons say is [U]. Read the reasons on file for Name and Email, and replace any that describe the old app with the
-texts below. They go to Shopify's reviewers, not onto the listing, so they carry code locators (above); the Name
-reason's proposed row is `rp-no-shopper-names`* (MESSAGING §7).
+texts below. Read the reason for Protected customer data itself too (Shopify's step 4): if it describes the old app,
+change it to what the rebuild does, or note it in #162 for an agent to draft a replacement. The reasons go to
+Shopify's reviewers, not onto the listing, so they carry code locators (above); the Name reason's proposed row is
+`rp-no-shopper-names`* (MESSAGING §7).
 
 Name · 275 characters (limit unconfirmed: check the field's own counter)
 ```text
@@ -401,8 +403,7 @@ edit **shows live**, not today.
 
 ### 21 · Same sitting, not the listing (about 10 minutes)
 
-ROADMAP §5 Now-4, because the listing is installable today and the new search terms make it easier to find. Both
-are your call; no agent acts on either.
+ROADMAP §5 Now-4, because the listing is installable today. Both are your call; no agent acts on either.
 - **PITR** (about US$100 a month; `apps/rewards/docs/switch.md` row 9; GROWTH G10), or your written acceptance of
   going without. To accept, one line in #162 in your own words is enough, for example "Now-4: I accept running
   without PITR until (an event or a date)."
@@ -414,9 +415,9 @@ are your call; no agent acts on either.
 ## 4. After you submit: the live date and the 30-day reminder
 
 1. **Note the date it shows live.** When Shopify's review passes, open the public listing yourself, logged out,
-   and check that the old Feature 3 is gone. Write the date in #162 as `live: YYYY-MM-DD`. The "before" picture,
-   the mirrors' 30 days and Sidekick's source all run from that date, not from the day you submitted
-   (`GROWTH.md` §4.2 act 2). Agents don't open the listing.
+   and check that your deletions show, for example that the tier-product clause is gone. Write the date in #162
+   as `live: YYYY-MM-DD`. The "before" picture, the mirrors' 30 days and Sidekick's source all run from that date,
+   not from the day you submitted (`GROWTH.md` §4.2 act 2). Agents don't open the listing.
 2. **In the same look,** read the Data access section: are Phone and Address gone, and do the device-data and
    store-owner lines remain? Where those two lines come from is still [U] (listing-delta §9).
 3. **The mirrors' 30-day reminder.** Put a reminder in your calendar for the live date plus 30 days. Then look once
