@@ -2,9 +2,11 @@
  * Public health check: process liveness plus database readiness, carried
  * from apps/rewardspro (the hourly deploy-health check probes it).
  *
- * Answers 200 only when the database answered a bounded read of one of the
- * app's own tables (probeDatabase: schema and grants, not only the host),
- * and 503 otherwise, so an outage is visible to uptime checks. It never inspects the
+ * Answers 200 only when the database answered bounded reads of the app's
+ * own tables (probeDatabase: schema and grants, not only the host, and one
+ * full merchant row and one full connection row, so a column the deployed
+ * code knows and the database lacks shows here), and 503 otherwise, so an
+ * outage is visible to uptime checks. It never inspects the
  * request and never returns configuration or error detail. One probe result
  * is shared for a few seconds per instance, so public traffic cannot turn
  * into database load.
