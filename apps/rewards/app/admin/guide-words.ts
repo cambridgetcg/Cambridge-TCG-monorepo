@@ -52,6 +52,8 @@ export const GUIDE = {
   cashback: "Cashback",
   name: "Name",
   buyers,
+  /** One tier's count on step 2, under the name typed for it. */
+  tierCount: (name: string, n: number) => `${name}: ${buyers(n)}`,
   cost: (amount: string, period: string) =>
     `At these rates, the orders you brought in from the last ${period} would have earned buyers about ${amount} in store credit. This is an estimate: past orders earn no cashback.`,
   saveTiers: "Save tiers",

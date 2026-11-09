@@ -20,6 +20,7 @@ const SAMPLES: Record<string, unknown[]> = {
   chartSummary: ["Buyers", [7, 3, 1], "£200", "£500"],
   andAbove: ["£820"],
   buyers: [1200],
+  tierCount: ["Bronze", 1200],
   cost: ["£1", "12 months"],
   tryItSteps: ["£0.17"],
 };
@@ -63,6 +64,11 @@ describe("guide words", () => {
 
   it("counts buyers", () => {
     expect([1, 2, 1200].map(GUIDE.buyers)).toEqual(["1 buyer", "2 buyers", "1,200 buyers"]);
+  });
+
+  it("counts a tier's buyers under its name", () => {
+    expect(GUIDE.tierCount("Bronze", 1)).toBe("Bronze: 1 buyer");
+    expect(GUIDE.tierCount("Gold Club", 1200)).toBe("Gold Club: 1,200 buyers");
   });
 
   it("labels the picture's last bar, which holds every spend above its start", () => {

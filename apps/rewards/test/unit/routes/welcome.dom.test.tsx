@@ -188,8 +188,8 @@ const click = (element: Element) =>
     fireEvent.click(element);
   });
 
-/** The polite live region's text. */
-const liveText = () => document.querySelector('[role="status"]')?.textContent ?? null;
+/** The live region's text: a Polaris box in the status role, polite. */
+const liveText = () => document.querySelector('s-box[accessibilityRole="status"]')?.textContent ?? null;
 
 /** The sign-in limit on spending credit (spec 5), as the guide words it: "signed in" or "Signed-in". */
 const SIGNED_IN = /signed[ -]in/i;
@@ -441,15 +441,15 @@ describe("Step 2: Your tiers", () => {
   it("updates the buyer counts and the cost as a start changes, in a live region", async () => {
     await renderWelcome(step2());
     // 10 below 200; 6 + 3 from 200; 2 from 500. 100 at 3%, 500 at 5%, 400 at 8%
-    expect(liveText()).toContain(`Bronze: ${GUIDE.buyers(10)}`);
-    expect(liveText()).toContain(`Silver: ${GUIDE.buyers(9)}`);
-    expect(liveText()).toContain(`Gold: ${GUIDE.buyers(2)}`);
+    expect(liveText()).toContain(GUIDE.tierCount("Bronze", 10));
+    expect(liveText()).toContain(GUIDE.tierCount("Silver", 9));
+    expect(liveText()).toContain(GUIDE.tierCount("Gold", 2));
     expect(liveText()).toContain(GUIDE.cost("£60.00", "12 months"));
 
     await type(field("minSpend1"), "300");
     // 10 + 6 below 300; 3 from 300; 2 from 500. 400 at 3%, 200 at 5%, 400 at 8%
-    expect(liveText()).toContain(`Bronze: ${GUIDE.buyers(16)}`);
-    expect(liveText()).toContain(`Silver: ${GUIDE.buyers(3)}`);
+    expect(liveText()).toContain(GUIDE.tierCount("Bronze", 16));
+    expect(liveText()).toContain(GUIDE.tierCount("Silver", 3));
     expect(liveText()).toContain(GUIDE.cost("£54.00", "12 months"));
     // The picture says the same to a screen reader
     expect(document.querySelector('svg[role="img"]')?.getAttribute("aria-label")).toBe(
@@ -461,8 +461,8 @@ describe("Step 2: Your tiers", () => {
     await renderWelcome(step2());
     // 255 falls in the 250-259 bin, whose 6 buyers count from it
     await type(field("minSpend1"), "255");
-    expect(liveText()).toContain(`Bronze: ${GUIDE.buyers(10)}`);
-    expect(liveText()).toContain(`Silver: ${GUIDE.buyers(9)}`);
+    expect(liveText()).toContain(GUIDE.tierCount("Bronze", 10));
+    expect(liveText()).toContain(GUIDE.tierCount("Silver", 9));
     expect(shown("minSpend1")).toBe("255");
     expect(liveText()).not.toContain(GUIDE.beyondPicture);
   });
@@ -476,8 +476,8 @@ describe("Step 2: Your tiers", () => {
     // A start above the picture but within the grid is drawn on its edge, and counted where it is
     await type(field("minSpend2"), "1000");
     expect(svg.querySelectorAll("g")[1].querySelector("line")?.getAttribute("x1")).toBe("77");
-    expect(liveText()).toContain(`Silver: ${GUIDE.buyers(11)}`);
-    expect(liveText()).toContain(`Gold: ${GUIDE.buyers(0)}`);
+    expect(liveText()).toContain(GUIDE.tierCount("Silver", 11));
+    expect(liveText()).toContain(GUIDE.tierCount("Gold", 0));
     expect(liveText()).not.toContain(GUIDE.beyondPicture);
   });
 
@@ -488,7 +488,7 @@ describe("Step 2: Your tiers", () => {
     expect(liveText()).not.toContain(GUIDE.beyondPicture);
     await type(field("minSpend2"), "2500");
     expect(liveText()).toContain(GUIDE.beyondPicture);
-    expect(liveText()).toContain(`Gold: ${GUIDE.buyers(0)}`);
+    expect(liveText()).toContain(GUIDE.tierCount("Gold", 0));
   });
 
   it("keeps typed starts across a refresh and moves only untouched ones to the suggestions", async () => {
@@ -541,7 +541,7 @@ describe("Step 2: Your tiers", () => {
     await type(field("minSpend1"), "200");
     expect(liveText()).toBe("");
     await type(field("minSpend2"), "500");
-    expect(liveText()).toContain(`Bronze: ${GUIDE.buyers(10)}`);
+    expect(liveText()).toContain(GUIDE.tierCount("Bronze", 10));
     // The cost in yen: 3 + 25 + 32
     expect(liveText()).toContain(GUIDE.cost("¥60", "12 months"));
   });
@@ -565,12 +565,39 @@ describe("Step 2: Your tiers", () => {
     screen.getByText(TIER_ERRORS.ladderStale);
   });
 
-  it("hides the picture and the cost with no past orders, and says so", async () => {
+  // M-7: no buyer has spent, so there is nothing to count; the tiers and one sentence stay
+  it("hides the picture, the counts and the cost with no past orders, and says so", async () => {
     await renderWelcome(step2({ importedOrders: 0, ladder: ladder({ fromData: false, spenders: 0, buyers: buyers.map(() => 0) }) }));
     screen.getByText(GUIDE.tiersNoOrders);
     expect(document.querySelector('[role="img"]')).toBeNull();
-    expect(liveText()).not.toContain("would have earned");
-    expect(liveText()).toContain(`Bronze: ${GUIDE.buyers(0)}`);
+    expect(["name0", "name1", "name2"].map(shown)).toEqual(["Bronze", "Silver", "Gold"]);
+    // The live region stays, empty
+    expect(liveText()).toBe("");
+  });
+
+  // I-2: partial figures from a running import would understate the cost, and change on every refresh
+  it("keeps the counts and the cost back while the import runs, and announces them once it's done", async () => {
+    let next = step2({ importState: "running", importedOrders: 40 });
+    await renderWelcome(next, { next: () => next });
+    screen.getByText(GUIDE.importRunning(40));
+    // The live region is there, empty, so the first figures are announced when they appear
+    expect(liveText()).toBe("");
+
+    next = step2({ importState: "done", importedOrders: 120 });
+    await act(async () => {
+      await refresh!();
+    });
+    expect(liveText()).toContain(GUIDE.tierCount("Bronze", 10));
+    expect(liveText()).toContain(GUIDE.tierCount("Silver", 9));
+    expect(liveText()).toContain(GUIDE.cost("£60.00", "12 months"));
+  });
+
+  it("keeps a failed import's figures for the orders it brought in", async () => {
+    const failed = "Brought in 40 of your past orders; the rest couldn't be brought in.";
+    await renderWelcome(step2({ importState: "failed", importedOrders: 40, importLines: [failed], ladder: ladder({ fromData: false }) }));
+    screen.getByText(failed);
+    expect(liveText()).toContain(GUIDE.tierCount("Bronze", 10));
+    expect(liveText()).toContain(GUIDE.cost("£60.00", "12 months"));
   });
 
   it("says why the starts are suggestions when there are too few buyers, or Home's words when the import failed", async () => {

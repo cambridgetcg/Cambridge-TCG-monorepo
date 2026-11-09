@@ -455,9 +455,13 @@ function StepTwo({
   const valid = validStarts(starts[0], starts[1]);
   const rates = percents.map(rateOf);
   const gridStarts: Starts | null = ladder && valid ? [0, onGrid(valid[0], ladder.binWidth), onGrid(valid[1], ladder.binWidth)] : null;
-  const counts = ladder && gridStarts ? countsFor(ladder.buyers, ladder.binWidth, gridStarts) : null;
+  // Only from orders that are all in (I-2): a running import's would understate the cost and change on every
+  // refresh. A failed one keeps the figures for what it brought in, which Home's sentence above them says.
+  // And none when no buyer has spent (M-7): three zero counts say nothing.
+  const noSpend = ladder !== null && d.importedOrders === 0 && ladder.buyers.every((n) => n === 0);
+  const counts = ladder && gridStarts && d.importState !== "running" && !noSpend ? countsFor(ladder.buyers, ladder.binWidth, gridStarts) : null;
   const allRates = rates.every((rate) => rate !== null) ? (rates as [number, number, number]) : null;
-  const cost = ladder && gridStarts && allRates && d.importedOrders > 0 ? costFor(ladder.earnBase, ladder.binWidth, gridStarts, allRates, d.currency) : null;
+  const cost = ladder && gridStarts && counts && allRates && d.importedOrders > 0 ? costFor(ladder.earnBase, ladder.binWidth, gridStarts, allRates, d.currency) : null;
   const beyondPicture = ladder !== null && valid !== null && valid.some((start) => start > (MAX_BINS - 1) * ladder.binWidth);
   const showPicture = ladder !== null && d.importState === "done" && d.importedOrders > 0;
 
@@ -532,18 +536,18 @@ function StepTwo({
             ))}
           </s-stack>
         </s-query-container>
-        {/* Announced as they change; there from the first render so the first figures are announced too */}
-        <div role="status">
+        {/* Announced as they change; there from the first render, empty, so the first figures are announced too */}
+        <s-box accessibilityRole="status">
           {counts ? (
             <s-stack gap="small-200">
               {counts.map((count, i) => (
-                <s-text key={i}>{`${names[i].trim() || GUIDE.defaultNames[i]}: ${GUIDE.buyers(count)}`}</s-text>
+                <s-text key={i}>{GUIDE.tierCount(names[i].trim() || GUIDE.defaultNames[i], count)}</s-text>
               ))}
               {cost ? <s-text>{GUIDE.cost(money(cost), d.period)}</s-text> : null}
               {beyondPicture ? <s-text color="subdued">{GUIDE.beyondPicture}</s-text> : null}
             </s-stack>
           ) : null}
-        </div>
+        </s-box>
         {saveError ? <s-text tone="critical">{saveError}</s-text> : null}
         <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
           {finishLater}
