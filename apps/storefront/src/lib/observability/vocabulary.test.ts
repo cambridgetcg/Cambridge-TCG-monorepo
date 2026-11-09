@@ -53,9 +53,12 @@ describe("observability vocabulary", () => {
     for (const [table, column] of LISTS) {
       expect(checkList(table, column).file).toBe(table === "mcp_daily" && column === "tool" ? "0150_mcp_daily_agent_revoke_key.sql" : ORIGIN);
     }
-    // 0150 adds one word and drops none.
-    const before = new RegExp(`CHECK \\(tool ${IN_LIST}`).exec(read(ORIGIN))?.[1];
-    expect(MCP_TOOLS.filter((word) => !words(before!).includes(word))).toEqual(["agent.revoke_key"]);
+    // 0150 adds one word and drops none, so a word dropped from both the code
+    // and 0150 still fails here.
+    const before = words(new RegExp(`CHECK \\(tool ${IN_LIST}`).exec(read(ORIGIN))![1]!);
+    const after = checkList("mcp_daily", "tool").words;
+    expect(after.filter((word) => !before.includes(word))).toEqual(["agent.revoke_key"]);
+    expect(before.filter((word) => !after.includes(word))).toEqual([]);
   });
 
   it("holds route templates, never a concrete path, and no word that could carry an identifier", () => {
