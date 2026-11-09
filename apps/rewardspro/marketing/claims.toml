@@ -43,39 +43,63 @@
 #   because every source was re-read on 2026-11-07, the same three months every other row has.
 #
 # 2026-11-09, this round's claims writer (RP-06, issue #166; an agent session, air claude-code 5b65f404):
-# - Re-based on origin/main 2fe85336. Since RP-05's check at 9efc2f34, apps/rewards changed only in
-#   app/lib/tiers.server.ts (an import at :28 moves the old :28-430 down one line; the RP-24 ladder code follows) and
-#   prisma/schema.prisma (two lines after :152), both from #188. Every other apps/rewards file this ledger cites with a
-#   sha256 hashes the same at 2fe85336 as at the commit cited, except docs/switch.md (sha256 72ad5424…, the same at
-#   9efc2f34; lines after :248 moved by 2) and the deleted webhooks.orders.fulfilled.tsx. order-source.server.ts, cited
-#   in uncertainties only, changed in #156: its read limits moved from :572, :590, :603-604 to :643, :661, :674-675.
+# - Re-based on origin/main 2fe85336. Since RP-05's check at 9efc2f34, #188 (RP-24's data) changed two files this
+#   ledger cites, app/lib/tiers.server.ts and prisma/schema.prisma, and added others: app/lib/guide.server.ts,
+#   ladder.server.ts and ladder.ts, a migration and four test files. Of the new files only ladder.ts is cited
+#   (rp-vip-tiers, @2fe85336). Over the three new code files at 2fe85336 every absence pattern of the negative rows
+#   gives 0, except the word 'tags' (one monitoring tag, guide.server.ts:77). In tiers.server.ts an import at :28 moves
+#   the old :28-432 down one line; past that, lines moved by -2, +9 and +8 (hunks at old :433, :448-450, :526, :568), so
+#   tiers.server.ts lines marked "@2fe85336" are numbered as at 2fe85336, and those marked @6f3a57b6 or "at 9efc2f34"
+#   as at those commits. schema.prisma gained two lines after :152. Every other apps/rewards file this ledger cites
+#   with a sha256 hashes the same at 2fe85336 as at the commit cited, except docs/switch.md (sha256 72ad5424…, the same
+#   at 9efc2f34; lines after :248 moved by 2) and the deleted webhooks.orders.fulfilled.tsx. order-source.server.ts,
+#   cited in uncertainties only, changed in #156: its read limits moved from :572, :590, :603-604 to :643, :661,
+#   :674-675.
 # - apps/rewards/docs/gates.md, the B4 record (#158, merged 2026-11-07 17:59 UTC, 13 minutes before this kit), is on
 #   main: sha256 a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900 at 9efc2f34 and at 2fe85336. Rows that
 #   said it was absent now cite its lines, as candidates where a row waits on the form of G0 (Yu's D6, ROADMAP Pre-1).
 # - RP-05 (#165; draft PR #187 at 2c0e2c17, claims-checks/code-rows.md, sha256 7aabe503…) checked 21 rows at 9efc2f34
-#   (lab session 2f4c6449). A second lab session (74cb7025) concurred on 17 on #165 and challenged the proposed sentence
-#   of 4: rp-cashback-base, rp-refund-takeback, rp-review-ask and rp-widget. Their revised sentences have no concur yet.
+#   (lab session 2f4c6449). A second lab session (74cb7025) read code-rows.md at #187 @17f978bb (sha256 bb7a0930…) and,
+#   in one comment on #165 (issuecomment-6729213387, 2026-11-09 00:17 UTC), concurred on 17 rows and challenged the
+#   proposed sentence of 4: rp-cashback-base, rp-refund-takeback, rp-review-ask and rp-widget. Their revised sentences
+#   (at 2c0e2c17) have no concur yet. For the 17, each row's verdict, proposed sentence and "still between" line are the
+#   same at 17f978bb and 2c0e2c17 (compared row by row; only rp-no-tier-products' list gained a note). #187 is an open
+#   draft: the issue comment is the durable record of the concur, and #187 should merge before or with this file.
 #   This writer re-read each applied row's load-bearing lines at 2fe85336 first.
 # - Verified: rp-store-credit and rp-paid-trigger (narrowed). Each has RP-05's check, the concur, and the production
 #   record claims-map.md asks for: test order #1010 (switch.md:77) and B4 check B (gates.md:20), which meets its "if D6
-#   picks B4" condition as well. The other 15 concurred rows stay proposed. Each waits on the form of G0 (Yu's D6), an
-#   observation, a guard test or a decision of Yu's; each row's 2026-11-09 comment says which, and from whom.
+#   picks B4" condition as well. This goes further than RP-05's file, which lists D6 as still between each row and
+#   verified (and, for rp-paid-trigger, the [I] that the credited orders were unfulfilled). Each row's status comment
+#   says why this writer reads claims-map.md:43-44 and :102-105 as met in both D6 forms. That reading is this session's
+#   alone, so the flips hold only if the second session that reads this file before merge concurs on it (and on
+#   rp-production-rebuild's first check, which both rows' production records lean on); otherwise both go back to
+#   proposed. The other 15 concurred rows stay proposed. Each waits on the form of G0 (Yu's D6), an observation, a guard
+#   test or a decision of Yu's; each row's 2026-11-09 comment says which, and from whom.
 # - Concurred narrowed sentences applied to rows that stay proposed: rp-vip-tiers, rp-tier-window, rp-import-past.
 #   rp-contact-delivers keeps its sentence (RP-05's advice). The four challenged rows keep theirs; the revised wording
 #   sits in a comment until a session other than 2f4c6449 concurs on it.
 # - Capture-backed rows (rp-maker, rp-on-app-store, rp-merchant-funds and the six sh-* rows): this writer, a different
 #   session from the 2026-11-07 makers, hashed the saved raw copies and found every quoted sentence word for word in
-#   their text (ROADMAP.md §3, "How agents check rows"). Nothing was fetched. That is the evidence check; each row stays
-#   proposed until another session concurs on it (#166, "Done when").
+#   their text (ROADMAP.md §3, "How agents check rows"). No capture was re-fetched. That is the evidence check; each row
+#   stays proposed until another session concurs on it (#166, "Done when"). One page was fetched in this round: a
+#   read-only GET of https://shopify.dev/docs/apps/launch/marketing/shopify-brand-assets at about 21:28 UTC on 2026-11-09
+#   (shopify.dev may be read since Yu's word of 2026-11-08, on #166). The command wasn't kept, so which User-Agent it sent
+#   isn't on record [U]. Its body (sha256 54a163ca…) has the three badge sentences rp-on-app-store quotes, as the saved
+#   copy (1dadf3ef…) does. No row cites it. Nothing else was fetched; apps.shopify.com and help.shopify.com weren't opened.
 # - New rows, all proposed: sh-sc-subscriptions, rp-no-order-rules and rp-maker-also-sells (MESSAGING.md §7; wf8 fit.md
 #   §8.3 and feedback.md §9, FB-9; ROADMAP Pre-7), and the starred rows of the onboarding plan's PR-1 and PR-2:
 #   rp-widget-settings, rp-guest-hidden-when-off, rp-customer-required and rp-no-cashback-cases.
 # - After this read, origin/main moved to 5c953f5c: #157 merged (1c49ed0a). It rewrote Home's Running sentence
-#   (home-rules.ts:49), put the cashback-base sentence in words.ts as CASHBACK_BASE for Home and Tiers, and moved lines
-#   in app._index.tsx (+1 after :379, +2 after :413), app.tiers.tsx (-3 after :353) and words.ts (+8 after :32). No
-#   locator of the two verified rows is in those files. Locators marked @6f3a57b6 or @2fe85336 stay true at those
-#   commits; the rows that quote those files (rp-paid-trigger's uncertainty, rp-cashback-base, rp-tier-window,
-#   rp-setup-steps, rp-switch-off, rp-review-ask, rp-import-past, rp-widget-settings) need re-quoting at the new main.
+#   (home-rules.ts:49 is now :49-51, so later lines move by +2), put the cashback-base sentence in words.ts as
+#   CASHBACK_BASE for Home and Tiers (words.ts +8 after :32), and changed app._index.tsx (+1 after :379; :414 rewritten
+#   as :415-417, adding 'These orders earn no cashback.') and app.tiers.tsx (:354-357 become one line, so later lines
+#   move by -3: :361-409 is now :358-406, :411-431 is :408-428 and :430 is :427). No source of the two verified rows is
+#   in those files; rp-paid-trigger's last uncertainty quotes home-rules.ts:49 as history. Locators marked @6f3a57b6 or
+#   @2fe85336 stay true at those commits; the rows that cite those files need re-quoting at the new main:
+#   rp-paid-trigger's uncertainty, rp-vip-tiers (app.tiers.tsx :361-409, :411-431, :430), rp-cashback-base,
+#   rp-tier-window, rp-setup-steps, rp-switch-off, rp-review-ask, rp-import-past, rp-widget-settings and
+#   rp-no-order-rules (app.tiers.tsx :361-409). Lines before :354 of app.tiers.tsx and before :380 of app._index.tsx
+#   don't move (rp-vip-tiers' :80, :136 and :178; rp-tier-lock's :162).
 #
 # Conventions:
 # - Locators are repo-relative. "@6f3a57b6" means read at that commit, and sha256 is then the hash
@@ -89,6 +113,12 @@
 # - Channels: listing, landing, docs, og-card, social-profile (bios, About, tagline), social-post
 #   (posts, cards, video captions), community (Yu's own words on Shopify Community), outreach,
 #   internal (never public).
+#   Since 2026-11-09 (RP-06, nothing had defined the two): "landing" is every page on rewardspro.io, /help/ included,
+#   because it is the same site and deploy. "docs" is a separate documentation site: docs.rewardspro.io today, which no
+#   surface links (rp-contact-delivers) and which ROADMAP §3 plans to redirect to /help/. A sentence on /help/ needs
+#   "landing"; rows tagged "docs" keep the tag. This is the claims writer's reading; Yu or RP-09 (#169) can change it.
+# - Sessions are named "<device> <first 8 characters of the session id>" (for example "lab 74cb7025"), as in their
+#   claim, concur and challenge comments on the package issues, where the full ids are.
 # - sh-* rows state Shopify's rules, not ours. They get a 30-day review_after (STRATEGY.md §6.3) and
 #   are re-checked before each use.
 
@@ -105,6 +135,17 @@ kind = "product-behaviour"
 # Yu gives G0 (D6). This writer re-read record-order.server.ts:230 and :234-235, store-credit-rail.server.ts:306-307,
 # schema.prisma:89-90 and webhooks.orders.paid.tsx:55-64 at 2fe85336. Verified is not published: every surface still
 # waits for its own gates (STRATEGY.md S2, REVIEW.md).
+# 2026-11-09, where this goes further than RP-05 (stated, as the review of RP-06's first draft asked): RP-05's file
+# lists "a concur; D6" as still between this row and verified (code-rows.md, rp-store-credit, "Still between"). This
+# writer reads claims-map.md's own test for the row, "2nd session reads the record. If D6 makes B4 A–P the form of G0,
+# B4 B too" (claims-map.md:43, :102-105), as met in both of Yu's D6 forms. The narrow form asks this row for the
+# production test order, which is switch.md:77; the B4 form asks for B4 check B as well, which is gates.md:20, a Pass.
+# Neither form asks this row for more, and the open parts of G0 (I's erasure, the refund half) are other rows'. The
+# reading is one session's (air 5b65f404); neither RP-05 (2f4c6449) nor the second read (74cb7025) has given it. So the
+# flip holds only if the second session that reads RP-06's PR before merge, any session but 5b65f404, concurs on this
+# reading; otherwise the row goes back to proposed. The production records count for the rebuilt app because the
+# switch record and gates.md:7 say production serves apps/rewards (rp-production-rebuild, proposed, with its first
+# check recorded 2026-11-09); that concur covers it too.
 status = "verified"
 # Channels as written 2026-10-20: og-card, listing, landing, docs. social-profile and social-post added 2026-11-07.
 channels = ["og-card", "listing", "landing", "docs", "social-profile", "social-post"]
@@ -112,7 +153,7 @@ sources = [
   # Superseded by the rebuild (apps/rewards); kept as history.
   { locator = "apps/rewardspro/app/services/shopify-store-credit.service.ts (code path, not an observed payout)", observed_at = "2026-10-20", sha256 = "" },
   # The 2026-10-20 placeholder, kept as history. Answered on production by B2 step 6.3 (switch.md:77) and B4 check B (gates.md:20), below.
-  { locator = "dev-store test: an order earns cashback that appears as store credit (rp-shopify-deploy)", observed_at = "", sha256 = "" },
+  { locator = "HISTORY, answered by switch.md:77 @6bd092cb and gates.md:20 @2fe85336 (below): dev-store test: an order earns cashback that appears as store credit (rp-shopify-deploy)", observed_at = "", sha256 = "" },
   { locator = "apps/rewards/app/shopify/store-credit-rail.server.ts:287-307 @6f3a57b6 (storeCreditAccountCredit, creditAmount on gid://shopify/Customer/<id>)", observed_at = "2026-11-07", sha256 = "3f47ec43d0f435007aab83df1b9a8a9f49c5270673ffae33cf1339634c687c62" },
   { locator = "apps/rewards/app/lib/record-order.server.ts:207-240 @6f3a57b6 (a cashback ledger entry and a pending credit payout on rail shopify_store_credit)", observed_at = "2026-11-07", sha256 = "73ec1f54ebe3bcfead7a62daef004fe287a33751fd75ea420558ada5e46ba192" },
   { locator = "apps/rewards/app/routes/webhooks.orders.paid.tsx:55-64 @6f3a57b6 (records the order, then sends the payout)", observed_at = "2026-11-07", sha256 = "86fb16f53791c696a9a0f08493d0910066a4018575940ec0f5fb7fc396798d33" },
@@ -122,16 +163,17 @@ sources = [
   # makes B4 A–P the form of G0". gates.md was on main by then (#158); answered below.
   { locator = "apps/rewards/docs/gates.md:20 @2fe85336 (B4 check B on production, on rewardsprotesting: '#1011: 2 × £222.00, a £44.40 discount, £10.00 shipping, marked paid (£409.60). The shopper got £19.98 in store credit within 3 s: 5% of £399.60')", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
   { locator = "apps/rewards/app/lib/record-order.server.ts:230, 234-235 @2fe85336 (the payout's rail is 'shopify_store_credit', created pending with nextAttemptAt: now); apps/rewards/prisma/schema.prisma:89-90 @2fe85336 (PayoutRailKind has the one value shopify_store_credit; schema sha256 346a4184f2851a31813acd418426a07a59c35233be679ee3bc0fd95a6f8d37f5)", observed_at = "2026-11-09", sha256 = "73ec1f54ebe3bcfead7a62daef004fe287a33751fd75ea420558ada5e46ba192" },
-  { locator = "RP-05: apps/rewardspro/marketing/claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-store-credit: holds', lab 2f4c6449, read at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 ('concur (with note): rp-store-credit holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: apps/rewardspro/marketing/claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-store-credit: holds', lab 2f4c6449, read at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17) ('concur (with note): rp-store-credit holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "RESOLVED 2026-11-09 (was: 'Not yet observed end to end on a dev store since the 2026-10-19 rebuild.'): see the next line, and B4 check B on production (gates.md:20).",
   "2026-11-07: the line above is answered for staging (check B on the staging app with a local database, staging-run.md:7-9, 23) and, since the switch record, for production: one test order on rewardsprotesting, a dev store, credited at 5% (switch.md:77 @6bd092cb). 2026-11-09: the B4 record adds check B (gates.md:20), production refunds (E and F, :23-24) and a USD order on a second dev store (N, :32). Both stores are development stores; no real merchant has used the rebuild yet.",
   "The apps/rewardspro locator is superseded by the rebuild (apps/rewards); it stays as history.",
-  "Orders that earn nothing: orders with no customer attached, test orders, cancelled orders, orders before install, imported past orders, and any order while cashback is off or no tier exists (record-order.server.ts:12, 61-69, 92). The code calls a customerless order 'a guest order' (order-facts.ts:36-38), but whether a Shopify guest checkout carries a customer is unobserved: Shopify says every new buyer is added to the customer list (help.shopify.com/en/manual/customers, GET 2026-11-07 12:28 UTC). Never say 'guests don't earn'.",
+  "Orders that earn nothing: orders with no customer attached, test orders, orders already cancelled when recorded, orders before install, imported past orders, orders recorded while cashback is off or while no tier exists, and orders with nothing to pay on, such as one paid fully with store credit (record-order.server.ts:12, 61-69, 92, 157-160). The full list is rp-no-cashback-cases with rp-customer-required. Corrected 2026-11-09 (was: 'cancelled orders' and 'any order while cashback is off'): a paid order cancelled after it was recorded keeps its cashback until a refund takes its share back (webhooks.orders.cancelled.tsx:1-5), and the switch is read when the order is recorded (record-order.server.ts:107-109). The code calls a customerless order 'a guest order' (order-facts.ts:36-38), but whether a Shopify guest checkout carries a customer is unobserved: Shopify says every new buyer is added to the customer list (help.shopify.com/en/manual/customers, GET 2026-11-07 12:28 UTC). Never say 'guests don't earn'.",
   "Very large orders can't be read, so they are never recorded and earn nothing: more than 2,500 lines (25 pages of 100), 200 or more payment transactions, or 20 or more refunds when read (app/shopify/order-source.server.ts:44, 54, 56, 572, 590, 603-604 at 6f3a57b6; :44, 54, 56, 643, 661, 674-675 @2fe85336). orders/paid answers 500 for them (app/routes/webhooks.orders.paid.tsx:48-51), and the hourly sweep leaves an order past the refund limit (app/lib/payout-check.server.ts:248-250, 302-304) and logs the others as a problem (:306-309). Code reading; never observed.",
   "Customers can spend the credit only where Shopify allows (sh-sc-signin-legacy, sh-sc-channels). Pair them where space allows.",
   "Shopify's timeline names the app 'Rewards Pro' (switch.md:77 @6bd092cb; the admin name in shopify.app.toml:10), a banned spelling. Crop it or get the name fixed before any screenshot of a credit is public.",
+  "2026-11-09: verified on the claims writer's reading that the production record claims-map.md asks for is in under either form of G0 (the status comment). RP-05 listed Yu's D6 as still open for this row. If the second session reading RP-06's PR doesn't concur on that reading, the row returns to proposed before merge.",
 ]
 contrary_evidence = []
 commercial_interest = "We make RewardsPro."
@@ -172,7 +214,7 @@ sources = [
   # As the second pass wrote it: "MISSING: B4 checks A and G on rewardsprotesting, in apps/rewards/docs/gates.md (absent at 6bd092cb)". Candidates now, under D6:
   { locator = "apps/rewards/docs/gates.md:19 (A: the widget showed tier 'Everyone') and :25 (G: '#1012 (£222.00) earned £11.10 at 5% and took them past £300; #1015 (£222.00) earned £22.20 at Gold's 10%') @2fe85336, B4 on production; candidates while Yu's D6 is open", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
   { locator = "MISSING: a tier downgrade observed, on any store (staging saw an upgrade only; on production every test buyer ended in the top tier, gates.md:21)", observed_at = "", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-vip-tiers: narrow', lab 2f4c6449, at 9efc2f34; the proposed sentence is the third reader's); concur on #165 by lab 74cb7025, 2026-11-09 ('concur (with note): rp-vip-tiers narrow')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-vip-tiers: narrow', lab 2f4c6449, at 9efc2f34; the proposed sentence is the third reader's); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17) ('concur (with note): rp-vip-tiers narrow')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Tier names in the old listing screenshots are inconsistent; re-shoot during the dev-store test.",
@@ -181,6 +223,7 @@ uncertainties = [
   "Moves happen after each paid order, refund and cancellation (webhooks.orders.paid.tsx:62; webhooks.orders.refunded.tsx:102; webhooks.orders.cancelled.tsx:82), and in the nightly pass at 02:00 UTC (vercel.json:9; it ran on production on 2026-11-07, switch.md:78 @6bd092cb). After a new tier, a new minimum or a window change, a pass runs right after saving and some buyers move overnight (tiers.server.ts:366-382; app.tiers.tsx:430). A rename or a rate change moves no one (tiers.server.ts:513-515). Don't say 'instantly'.",
   "Also moves buyers (RP-05, concurred; an omission since 6f3a57b6): a tier delete, the first base-rate save, the end of the import and the hourly sweep (app.tiers.tsx:136 with :80, app._index.tsx:178, bulk-import.server.ts:393, payout-check.server.ts:331, 410 @2fe85336).",
   "A customer locked to a tier doesn't move (rp-tier-lock). Since 2026-11-09 the sentence says so itself, because the og-card and short fields carry the sentence without its uncertainties.",
+  "2026-11-09, inferred and never run (#190's comment of 2026-11-09 01:26 UTC, lab 74cb7025): an item added to an order after it was recorded, by an edit or by a Shopify returns or POS exchange, never counts towards spend, because the order's product value is written once (record-order.server.ts:177). So an even exchange lowers the buyer's tier spend by the returned item's value although they kept a purchase of the same value, and can move them down. No exchange has been run on any store. Keep worked examples to orders with no edits or exchanges.",
   "Rates are whole percentages from 0 to 100 (tiers.server.ts:35-40 at 6f3a57b6, parseBaseRate). Minimums are whole amounts in the shop's currency (tiers.server.ts:433-434 and 530 at 6f3a57b6, WHOLE_AMOUNT; since #188 the pattern is in app/lib/ladder.ts:24 and used at tiers.server.ts:538 @2fe85336; app.tiers.tsx:386, 'Whole amounts only.'). The code has no cap on the number of tiers, but that hasn't been tried at scale: don't headline 'unlimited tiers'.",
 ]
 contrary_evidence = []
@@ -275,7 +318,7 @@ kind = "status"
 status = "proposed"
 channels = ["listing", "landing", "social-profile", "outreach"]
 sources = [
-  { locator = "https://find-and-update.company-information.service.gov.uk/company/15680297, GET 2026-11-07 (the saved copy rp-maker cites): 'Nature of business (SIC)' lists '47650 - Retail sale of games and toys in specialised stores' and '47910 - Retail sale via mail order houses or via Internet'. Declared activities, not evidence of sales. Matched in the saved copy by this writer, 2026-11-09.", observed_at = "2026-11-07", sha256 = "b2526c431fc20abc56615af6f85ab945a26e7af5cddea60f72b02a26c31b406f" },
+  { locator = "https://find-and-update.company-information.service.gov.uk/company/15680297, GET 2026-11-07 (the saved copy rp-maker cites): its nature-of-business list has SIC 47650 'Retail sale of games and toys in specialised stores' and 47910 'Retail sale via mail order houses or via Internet', the same text MESSAGING.md:753 @2fe85336 already carries. Declared activities, not evidence of sales. Matched in the saved copy by this writer, 2026-11-09.", observed_at = "2026-11-07", sha256 = "b2526c431fc20abc56615af6f85ab945a26e7af5cddea60f72b02a26c31b406f" },
   { locator = "apps/rewardspro/marketing/social/STRATEGY.md:224 @2fe85336: 'Cambridge TCG sells on eBay and Cardmarket only (design README, Yu 2026-10-20).' An agents' file restating Yu, not his own record.", observed_at = "2026-11-09", sha256 = "27bccd61ffe252adb268d0c7ed2a6ee4865e606889f486c83d0d00d78062812f" },
   { locator = "MISSING: a record that the company sells trading cards today (Yu's word, or the shop pages he names), and Yu's settled wording for the line (Pre-7, D-maker)", observed_at = "", sha256 = "" },
 ]
@@ -347,7 +390,7 @@ sources = [
   { locator = "apps/rewards/app/routes/app.settings._index.tsx:16 (CONTACT_EMAIL = 'contact@rewardspro.io'), 65-69 (Help: 'Email us at …') @6f3a57b6", observed_at = "2026-11-07", sha256 = "d57e5c77d232826ae723700afddcd6a34aa3b77b4678fd6c1575d81350b1ef84" },
   { locator = "https://apps.shopify.com/rewards-pro, GET 2026-11-07 11:46 UTC: data-developer-support-email=\"contact@rewardspro.io\"", observed_at = "2026-11-07", sha256 = "126aa3b47a10ed3ad5f6f8e17142ca052a5793e3e95f6f72d1d761939a2c7877" },
   { locator = "MISSING: a test message sent from an outside address and seen arriving (Yu's hand, STRATEGY.md §13 step 10)", observed_at = "", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-contact-delivers: narrow (the code shows publication only)', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-contact-delivers: narrow (the code shows publication only)', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17)", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "That the address is published proves nothing about delivery, and nor do MX records. No profile shows it until the test passes (STRATEGY.md S0).",
@@ -371,8 +414,9 @@ kind = "status"
 # 2026-11-09 (RP-06): RP-05 holds (lab 2f4c6449, switch.md:85; the extensions and the toml unchanged since the release
 # commit 74a0be5a); concurred (lab 74cb7025 on #165). The listing copy (126aa3b4…) has the four 'Data access' items the
 # locator quotes, and also the wider customer-data request contrary_evidence names. Stays proposed. Still needs:
-# rp-production-rebuild verified (no second session has posted a read of the switch record yet; it wasn't among RP-05's
-# rows). From: any session other than the switch record's makers, on #166 or #165. Re-check whenever an extension or
+# rp-production-rebuild verified (it wasn't among RP-05's rows; this writer recorded its first check there on
+# 2026-11-09, and a concur on that read is still to come). From: any session other than 5b65f404 and the switch
+# record's makers, on #166. Re-check whenever an extension or
 # toml change merges without a new Shopify release.
 status = "proposed"
 channels = ["social-post", "landing"]
@@ -382,7 +426,7 @@ sources = [
   { locator = "https://apps.shopify.com/rewards-pro, GET 2026-11-07 11:46 UTC, 'Data access': View customers, View orders (all order history), Edit store credit, Edit Online Store (a path the app controls). That matches apps/rewards/shopify.app.toml:46-49 @6f3a57b6 (six scopes; unchanged at 6bd092cb).", observed_at = "2026-11-07", sha256 = "126aa3b47a10ed3ad5f6f8e17142ca052a5793e3e95f6f72d1d761939a2c7877" },
   { locator = "apps/rewards/shopify.app.toml:46-49 @6f3a57b6 (the six trimmed scopes; unchanged at 6bd092cb)", observed_at = "2026-11-07", sha256 = "6fc288ecf251443909e7be104c6d808eea2b34d065efcc7942140be8973aec34" },
   { locator = "apps/rewards/docs/gates.md:7 ('version rewardspromembership-217, served by rewardspro-production from apps/rewards at main') and :28 (J: Yu reinstalled from the App Store, 'the same 8 scopes, and Home as before') @2fe85336", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-live-release: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-live-release: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17)", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Recorded since 2026-11-07 (switch.md:83-89 @6bd092cb): the release name and date, step 1 (the three tier membership products the old app left on rewardsprotesting, deleted by Yu, :84), the embed staying on (:85), and step 5 (:89, PR #153). Still open from step 4: Lighthouse with the embed off and on, on a store without a storefront password (:243, 259; Yu provides the store), and gate C at 390 px, in Light and on a product page (:244 asks for them; :88 doesn't record them). Those test the widget (rp-widget), not whether this version is live. 2026-11-09: the B4 record lists Lighthouse as 'Accepted (Yu)', not run (gates.md:51), and gate C as Pass without 390 px, Light or a product page (gates.md:21); switch.md:259 is now :261.",
@@ -405,11 +449,21 @@ claim = "(Internal, never public.) Production, the Vercel project rewardspro-pro
 # Scope as the Clerk wrote it 2026-11-07: "Status of the switch (B2). Re-probed before each S2 post."
 scope = "Status of the switch (B2). Re-checked before each S2 post against the switch record and GET /api/health only."
 kind = "status"
+# 2026-11-09 (RP-06), the first check of this row by a session other than its makers (air 5b65f404), as was done for
+# the capture rows: read at 2fe85336, where switch.md:64-90 are the same lines as at 6bd092cb (the file changed only
+# after :248). :71 reads back "Root Directory apps/rewards"; :72, "the deploy commit 3eac13e5 built apps/rewards"; :77,
+# test order #1010 credited on production; :82, #150 and #152, whose changed files are all under apps/rewards (gh pr
+# view: session-storage.server.ts, entry.server.tsx, handle-error.server.ts and their tests). gates.md:7 @2fe85336 adds,
+# for B4, "served by rewardspro-production from apps/rewards at main". Nothing was probed. One stale agent guide says
+# otherwise (contrary_evidence). Stays proposed until another session concurs on this read (on #166). From: any session
+# but 5b65f404. rp-live-release and every negative row rest on it, and so do the production records behind
+# rp-store-credit and rp-paid-trigger.
 status = "proposed"
 channels = ["internal"]
 sources = [
   { locator = "apps/rewards/docs/switch.md:64-82 @6bd092cb (the switch record, B1 to B2 step 6: the deploy commit 3eac13e5 'built apps/rewards', :72; Root Directory 'apps/rewards' read back, :71; test order #1010 credited on production, :77; PRs #150 and #152 'found and fixed on the way', :82)", observed_at = "2026-11-07", sha256 = "9a89a39b5ff950b8c446bdff354e5409481b4dd3a16f18d902a92d8db85114a1" },
   { locator = "apps/rewards/docs/switch.md:48-62 @6f3a57b6 (the before-the-sitting rows answered 2026-11-06; the same lines at 6bd092cb)", observed_at = "2026-11-07", sha256 = "c09c493211eb4050e0548acf47218568c7f2c6631e181b98ed585d9792d6a525" },
+  { locator = "apps/rewards/docs/gates.md:7 @2fe85336 (B4's setup: 'version rewardspromembership-217, served by rewardspro-production from apps/rewards at main')", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
   { locator = "gh pr view 150 (merged 2026-11-06 18:11 UTC): 'Found during the switch's step 6 checks on production.' gh pr view 152 (merged 18:25 UTC): 'Found while checking Sentry during the switch's step 6.' Both fix code that exists only in apps/rewards.", observed_at = "2026-11-07", sha256 = "" },
   # Kept as history. Don't repeat the old-app route probes (uncertainties).
   { locator = "https://rewardspro-production.vercel.app read-only GETs 2026-11-07 11:51 UTC (the Clerk): /api/health 200 {\"status\":\"ok\",\"database\":\"ready\"}; /api/cron/session-health 404 and /api/admin/tier-health 404 (routes only the old app has: apps/rewardspro/app/routes/api.cron.session-health.tsx, api.admin.tier-health.tsx); /api/proxy/membership 400 unsigned (switch.md step 4 expects 400, never 404)", observed_at = "2026-11-07", sha256 = "" },
@@ -421,6 +475,7 @@ uncertainties = [
 ]
 contrary_evidence = [
   "RESOLVED 2026-11-07 by the switch record (switch.md:64-82 @6bd092cb): one phase-1 note (live notes G26) said production is the old app.",
+  "Stale, found 2026-11-09: apps/rewardspro/CLAUDE.md:59-60 @2fe85336 (last changed 2026-11-04, before the switch) still says 'Vercel project rewardspro-production builds apps/rewardspro (region lhr1) from main'. An agent guide, not a record; the switch record (switch.md:71-72) and gates.md:7 outrank it. Its fix belongs to whoever next edits that guide, not this file.",
 ]
 commercial_interest = "We make RewardsPro."
 rights = "n/a"
@@ -443,8 +498,8 @@ sources = [
   { locator = "apps/rewards/docs/staging-run.md:23, 26-27 @6f3a57b6 (checks B, E, F passed on the staging app with a local database: staging only, not G0)", observed_at = "2026-11-07", sha256 = "912006cf06cd7e9b2072598a3a8d09e1aaf83c8c1ebe68b08c0efb9707b3c8b8" },
 ]
 uncertainties = [
-  "Half of the narrow form is recorded: the production test order earned store credit (switch.md:77 @6bd092cb). The refund half is not, so G0 still fails in both of Yu's D6 forms.",
-  "2026-11-09 (RP-06): stale since #158 merged. Both halves of the narrow form are now on record (switch.md:77; gates.md:20, :23-24), and B4 A–P is recorded with I's erasure still open (gates.md:27). Which form counts as G0, and whether Yu's acceptances (gates.md:12) are enough, is his D6. Until he says, this row stays proposed and gets no date.",
+  "SUPERSEDED 2026-11-09 by the next line (was: 'Half of the narrow form is recorded: the production test order earned store credit (switch.md:77 @6bd092cb). The refund half is not, so G0 still fails in both of Yu's D6 forms.').",
+  "2026-11-09 (RP-06): the line above went stale when #158 merged. Both halves of the narrow form are now on record (switch.md:77; gates.md:20, :23-24), and B4 A–P is recorded with I's erasure still open (gates.md:27). Which form counts as G0, and whether Yu's acceptances (gates.md:12) are enough, is his D6. Until he says, this row stays proposed and gets no date.",
   "When it passes, the claim gets the real date, and a second session re-checks each row that waited on it (claims-map.md).",
 ]
 contrary_evidence = []
@@ -469,9 +524,23 @@ kind = "product-behaviour"
 # sentence (lab 74cb7025 on #165, 2026-11-09). The production record claims-map.md asks for is in: #1010 (switch.md:77)
 # and B4 check B (gates.md:20), plus #1016, credited only once it was marked paid (gates.md:41). This writer re-read at
 # 2fe85336: webhooks.orders.paid.tsx:1-13, 55-64; record-order.server.ts:234-235 (nextAttemptAt: now); shopify.app.toml
-# (orders/paid is the only order topic; no orders/fulfilled route remains, and 'fulfill' appears nowhere in app/); and
-# order-source.server.ts:743 (the sweep lists paid, partly refunded and refunded orders only). No timing words: the
-# uncertainties still ban "instant", "within seconds" and "real-time".
+# :21-44 (orders/paid is the only topic that records an order; refunds/create and orders/cancelled act on orders
+# already recorded; no fulfilment topic is subscribed and no route waits for one; app/ mentions fulfilment only in a
+# sweep comment, payout-check.server.ts:290); and order-source.server.ts:743 (the hourly sweep, which also records paid
+# orders it finds, lists paid, partly refunded and refunded orders only). No timing words: the uncertainties still ban
+# "instant", "within seconds" and "real-time". (The 2026-11-09 first draft of this comment said "the only order topic"
+# and "'fulfill' appears nowhere in app/"; both were imprecise.)
+# 2026-11-09, where this goes further than RP-05 (stated, as the review of RP-06's first draft asked): RP-05's file
+# lists as still between this row and verified "that the credited orders were unfulfilled when credited is still an
+# inference [I]; a concur; D6" (code-rows.md, rp-paid-trigger). This writer reads claims-map.md's test for the row,
+# "2nd session reads the record; B4 B if D6 picks B4" (claims-map.md:44, :102-105), as met in both D6 forms: the
+# narrow form asks for the production test order (switch.md:77), the B4 form adds B4 check B (gates.md:20, a Pass).
+# The [I] stays an uncertainty below: "doesn't wait for the order to be fulfilled" rests on the code (no fulfilment
+# topic; the payout is created when the order is recorded), and the records show credit landing within seconds of the
+# order being marked paid, with no fulfilment step recorded. The reading is one session's (air 5b65f404); RP-05 and the
+# second read haven't given it. So the flip holds only if the second session that reads RP-06's PR before merge, any
+# session but 5b65f404, concurs on it, and on rp-production-rebuild's first check; otherwise the row goes back to
+# proposed.
 status = "verified"
 channels = ["listing", "landing", "social-profile", "social-post"]
 sources = [
@@ -485,15 +554,18 @@ sources = [
   { locator = "apps/rewards/docs/switch.md:77 @6bd092cb (production test order #1010, marked paid; step 3 at :205 asks for a draft order marked as paid: 'orders/paid answered 200 in 822 ms, and Shopify shows \"Rewards Pro credited this customer £11.10 GBP\" within the same second'), :298 (spec 9.2 row 7b 'OK; one open': 822 ms on lhr1; open: a delivery that renews the token first, B4)", observed_at = "2026-11-07", sha256 = "9a89a39b5ff950b8c446bdff354e5409481b4dd3a16f18d902a92d8db85114a1" },
   { locator = "apps/rewards/docs/gates.md @2fe85336, B4 on production: :20 (B: #1011 marked paid, credited within 3 s), :40 (row 7b: an orders/paid delivery that renewed the store's token first answered 200 in 1,275 ms; switch.md:300 now reads 'OK'), :41 (#1016, placed unpaid and edited, recorded and credited only once orders/paid landed)", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
   { locator = "apps/rewards/app/routes/webhooks.orders.paid.tsx:55-64 and apps/rewards/app/lib/record-order.server.ts:234-235 @2fe85336, the same bytes as cited above; apps/rewards/app/shopify/order-source.server.ts:743 @2fe85336 (the sweep's search: financial_status paid, partially_refunded or refunded; sha256 76eef1f9…)", observed_at = "2026-11-09", sha256 = "86fb16f53791c696a9a0f08493d0910066a4018575940ec0f5fb7fc396798d33" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-paid-trigger: narrow', with the sentence above, lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 ('concur (with note): rp-paid-trigger narrow … Proposed sentence holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-paid-trigger: narrow', with the sentence above, lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17) ('concur (with note): rp-paid-trigger narrow … Proposed sentence holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
-  "Production timing is one test order: orders/paid answered in 822 ms and the credit landed within the same second (switch.md:77, 298 @6bd092cb). Still open: a delivery that renews the store's token first (row 7b, B4). One order is not a promise: never 'instant', 'within seconds' or 'real-time'.",
+  "Production timing is one test order: orders/paid answered in 822 ms and the credit landed within the same second (switch.md:77, 298 @6bd092cb). SUPERSEDED in part 2026-11-09 by the next line (was: 'Still open: a delivery that renews the store's token first (row 7b, B4).'). One order is not a promise: never 'instant', 'within seconds' or 'real-time'.",
   "2026-11-09: row 7b is closed (gates.md:40: 1,275 ms with a token renewal first; switch.md:300 'OK'). A handful of orders on two development stores is still not a promise: the timing ban above stands, and a failed send can land hours later (payouts.server.ts:40-41, retried for 24 hours).",
   "The test order was a draft order marked as paid. That it was not fulfilled when credited is our inference [I]: the record doesn't state its fulfilment.",
-  "Only orders with a customer attached, while cashback is on and a tier exists; test, cancelled and pre-install orders earn nothing (record-order.server.ts:61-69, 92), and so do orders past the read limits (rp-store-credit). Since 2026-11-09 the sentence says only what triggers an earning order; which orders earn nothing are rp-no-cashback-cases and rp-customer-required.",
+  "Only orders with a customer attached, recorded while cashback is on and a tier exists; test orders, orders already cancelled when recorded and pre-install orders earn nothing (record-order.server.ts:61-69, 92), and so do orders past the read limits (rp-store-credit). Corrected 2026-11-09 (was: 'test, cancelled and pre-install orders earn nothing'): a paid order cancelled after it was recorded keeps its cashback until a refund takes its share back (webhooks.orders.cancelled.tsx:1-5). Since 2026-11-09 the sentence says only what triggers an earning order; which orders earn nothing are rp-no-cashback-cases and rp-customer-required.",
+  "Never the unqualified 'when an order is paid, RewardsPro adds cashback', the Clerk's sentence that RP-05 narrowed: test orders, orders already cancelled when recorded, orders placed before install and orders paid fully with store credit are paid orders that earn nothing. Use this row's sentence, or say beside it which orders earn nothing (rp-no-cashback-cases). On 2026-11-09 the old wording still stands in other makers' files, for their owners to change (not this file's): the A6 milestone card (social/assets/render.mjs:481 and its committed master's meta.json; render.mjs's gate checks a card's ids, not its words), social/claims-map.md:44, MESSAGING.md (:146, 159, 167, 186, 233, 262, 376, 543), social/entity-card.md (:174-226), social/profiles.md (:136, 144) and profiles.json, social/content/replies.md (R-HELD-TIME, :173), social/content/launch-posts.md (:182, 213, 241, 317, 419), social/STRATEGY.md (:151, 256, 278, 331) and social/listing-delta.md (Feature 1, :139), all read at 2fe85336.",
+  "2026-11-09, inferred [I]: the trigger is Shopify marking the order paid (orders/paid; the sweep lists only paid, partly refunded and refunded orders, order-source.server.ts:743 @2fe85336, so an order whose payment is only authorised isn't recorded). Where a store captures payment later, for example when it fulfils, or marks a manual payment such as cash on delivery as paid later, cashback follows that moment, which can be at or after fulfilment. Shopify's capture settings weren't read for this row (help.shopify.com is off limits; no shopify.dev page was read for it). So never 'before you ship' or 'as soon as the order is placed'.",
   "A send that fails is retried with back-off and becomes 'needs a look' after 24 hours (payouts.server.ts), so 'added when paid' is the normal path, not a guarantee.",
-  "The app's own Home sentence reads 'On: every paid order earns cashback as store credit.' (apps/rewards/app/admin/home-rules.ts:49), but test orders (record-order.server.ts:66), cancelled orders (:67), orders from before install (:62-65), orders while no tier exists (:69), orders with no customer attached (:92) and orders paid fully with store credit (staging-run.md:25, check D) earn nothing. Never copy it into marketing; an agent PR could correct it. 2026-11-09: PR #157 rewrote it and merged after this read (1c49ed0a); :49 at 2fe85336 still has the old sentence.",
+  "The app's own Home sentence reads 'On: every paid order earns cashback as store credit.' (apps/rewards/app/admin/home-rules.ts:49), but test orders (record-order.server.ts:66), orders already cancelled when recorded (:67), orders from before install (:62-65), orders while no tier exists (:69), orders with no customer attached (:92) and orders paid fully with store credit (staging-run.md:25, check D) earn nothing. Never copy it into marketing; an agent PR could correct it. 2026-11-09: PR #157 rewrote it and merged after this read (1c49ed0a); :49 at 2fe85336 still has the old sentence.",
+  "2026-11-09: verified on the claims writer's reading that the production record claims-map.md asks for is in under either form of G0 (the status comment). RP-05 listed Yu's D6 and the unfulfilled-when-credited [I] as still open for this row. If the second session reading RP-06's PR doesn't concur on that reading, the row returns to proposed before merge.",
 ]
 contrary_evidence = []
 commercial_interest = "We make RewardsPro."
@@ -519,7 +591,7 @@ sources = [
   { locator = "MISSING: an order with no customer attached, seen earning nothing on a dev store; and whether a Shopify guest checkout carries a customer (OBS-1 in the onboarding plan; claims-map.md, 'Doubts not resolved')", observed_at = "", sha256 = "" },
 ]
 uncertainties = [
-  "Never 'guests don't earn' or 'guests earn'. Shopify's customers page says 'Every time a new customer places an order with your store, their name and other details are added to your customer list.' (help.shopify.com/en/manual/customers, GET 2026-11-07 12:28 UTC, the saved raw copy, sha256 20c2736b…; matched 2026-11-09), so an online guest checkout may well carry a customer [I]. The code's own comment calls customerless orders 'Guest orders' (record-order.server.ts:12).",
+  "Never 'guests don't earn' or 'guests earn'. Shopify says every new buyer is added to the store's customer list (our paraphrase of help.shopify.com/en/manual/customers, GET 2026-11-07 12:28 UTC; the saved raw copy, sha256 20c2736b…, was matched 2026-11-09 and isn't quoted here because it sits in a private capture folder), so an online guest checkout may well carry a customer [I]. The code's own comment calls customerless orders 'Guest orders' (record-order.server.ts:12).",
   "Code reading only. Not yet checked by a second session against the code.",
 ]
 contrary_evidence = []
@@ -588,13 +660,13 @@ sources = [
   # As the second pass wrote it: "MISSING: a window change seen on rewardsprotesting (not among the B4 checks A–P), and B4 check P (placement by the last 12 months of orders)". P is now recorded; the window change isn't.
   { locator = "MISSING: a window change seen on a dev store (not among the B4 checks A–P)", observed_at = "", sha256 = "" },
   { locator = "apps/rewards/docs/gates.md:34 @2fe85336 (P: 'The import ran with a 365-day horizon (read_all_orders granted). Home: \"Done: 2 buyers placed in tiers\"'); a partial candidate under D6, since it doesn't tell the two windows apart and the store's window isn't recorded", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-tier-window: narrow', with the sentence above, lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 ('concur (with note): rp-tier-window narrow … the proposed sentence held')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-tier-window: narrow', with the sentence above, lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17) ('concur (with note): rp-tier-window narrow … the proposed sentence held')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "'All time' counts only orders the app has recorded: those since install, plus the import, which reaches back 12 months before install, or only 60 days if Shopify hasn't granted read_all_orders (bulk-import.server.ts:1-4, 36-39; tiers.server.ts:67-68, 96-103). A store's older spend never counts, so plain 'all time' would tell a store older than a year more than is true.",
   "The grant: production's import on rewardsprotesting ran at 365 days (switch.md:75 @6bd092cb), so Rewards Pro holds read_all_orders. That every new install gets 365 days follows if the grant is per app (switch.md:199 @6bd092cb treats it as one approval in the Partner Dashboard) [I]. Say 'up to 12 months before install', never '12 months of past orders count'.",
   "Spend is the product value after discounts, less refunded product value, in the shop's currency, by order created date; test and cancelled orders don't count (tiers.server.ts:1-10, 84-109). Orders with no customer attached, and orders past the read limits, aren't recorded, so they don't count either (rp-store-credit).",
-  "Orders edited before or after payment carry a known risk: if Shopify's refund for removed items carries no refund lines, the removal counts twice in spend (Ruling 25, switch.md:263 @6bd092cb). Neither edited nor tipped orders have been run (staging-run.md:83). Keep worked examples to unedited, untipped orders.",
+  "PARTLY SUPERSEDED 2026-11-09 by the next line. Orders edited before or after payment carry a known risk: if Shopify's refund for removed items carries no refund lines, the removal counts twice in spend (Ruling 25, switch.md:263 @6bd092cb). Neither edited nor tipped orders have been run (staging-run.md:83). Keep worked examples to unedited, untipped orders.",
   "2026-11-09, partly superseded (RP-05, concurred): both removal edits ran on production; the double count after payment was real (#1017) and #156 fixed it (gates.md:41-42). An item added by an edit after payment never counts towards spend, because the order's product value is written once (record-order.server.ts:177; the product bug is #190). The tipped order was accepted from tests, not run (gates.md:43). switch.md:263 is now :265. Worked examples still use unedited, untipped orders.",
   "A reinstall gap past shop/redact's 48 hours normally ends in erasure, and a later install imports afresh (erasure.server.ts:96-98; RP-05's second read).",
 ]
@@ -625,12 +697,12 @@ sources = [
   # As the second pass wrote it: "MISSING: B4 checks B and D on rewardsprotesting (gates.md, absent at 6bd092cb), and the tax-exclusive order (switch.md:262 @6bd092cb; :230 at 6f3a57b6)". Candidates now, under D6:
   { locator = "apps/rewards/docs/gates.md @2fe85336, on production: :20 (B: '5% of £399.60, the product price after the discount, with shipping earning nothing'), :22 (D: #1013, paid fully with store credit, earned nothing), :44 (a tax-exclusive order on a second dev store: 'Credit £10.00 GBP: 5% of the £200.00 product price, nothing on the VAT or the shipping')", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
   { locator = "MISSING: an order paid with a gift card (never run on staging or production)", observed_at = "", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-cashback-base: narrow', sentence revised after challenge, lab 2f4c6449, at 9efc2f34); on #165, lab 74cb7025: 'challenge: rp-cashback-base — narrow and order-facts.ts:81 @9efc2f34 hold, but the proposed sentence is false for an item an edit adds after payment'. No concur on the revision yet.", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-cashback-base: narrow', sentence revised after challenge, lab 2f4c6449, at 9efc2f34); on #165 (issuecomment-6729213387), lab 74cb7025: 'challenge: rp-cashback-base — narrow and order-facts.ts:81 @9efc2f34 hold, but the proposed sentence is false for an item an edit adds after payment'. No concur on the revision yet.", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Tips, duties and gift cards bought as products earn nothing too (order-facts.ts:52-59). Tips are subtracted from the product value ('then less the order's tips', order-facts.ts:56-57), and no tipped order has been run (staging-run.md:83; B4, switch.md:263 @6bd092cb).",
   "Orders edited before or after payment haven't been run either (staging-run.md:83; Ruling 25's known risk, switch.md:263 @6bd092cb). Keep worked examples to untipped, unedited orders.",
-  "Tax: the product price is as Shopify gives it, so it includes VAT only where the shop's prices include tax. No tax-exclusive order has been run (staging-run.md:44; switch.md:262 @6bd092cb). Don't mention tax-exclusive stores.",
+  "Tax: the product price is as Shopify gives it, so it includes VAT only where the shop's prices include tax. Don't mention tax-exclusive stores. SUPERSEDED in part 2026-11-09 (RP-05 and the second read call it stale; was: 'No tax-exclusive order has been run (staging-run.md:44; switch.md:262 @6bd092cb).'): one tax-exclusive order ran on a second dev store, earning 5% of the product price with nothing on the VAT (gates.md:44 @2fe85336). One order on a dev store still isn't enough to describe tax-exclusive stores.",
   "The rate is the tier the customer held before this order counted (record-order.server.ts:77-79, 149).",
   "C1's worked example is staging check B. Whether C1 also needs the production check B is the verifier's call; the card's date line must say which store and date it was checked on.",
   "2026-11-09: since #157 merged (1c49ed0a, after this round's read at 2fe85336), the app's own sentence is words.ts CASHBACK_BASE: 'Cashback is paid on the product price after discounts, less anything paid with store credit or gift cards. Shipping, duties, tips and gift cards bought earn nothing.' The app.tiers.tsx:354-357 source above is history, and this row's sentence is no longer the app's word for word.",
@@ -664,7 +736,7 @@ sources = [
   { locator = "apps/rewards/docs/staging-run.md:26 (check E: half of £20.00 taken back), :27 (check F: took £16.06 of £27.00, £10.94 shortfall recorded), :36-42 (refund shapes) @6f3a57b6, staging app", observed_at = "2026-11-07", sha256 = "912006cf06cd7e9b2072598a3a8d09e1aaf83c8c1ebe68b08c0efb9707b3c8b8" },
   # As the second pass wrote it: "MISSING: a production refund (G0, rp-shopify-deploy) and B4 checks E and F in gates.md". Candidates now, under D6:
   { locator = "apps/rewards/docs/gates.md @2fe85336, on production: :23 (E: 'Refunding 1 of #1011's 2 items took back £9.99, half of the £19.98.'), :24 (F: 'asked for £9.99 and took the £8.99 left'), :42 (edits after payment, after #156), :44 (a shipping-only refund took nothing back)", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-refund-takeback: narrow', scope revised after challenge, lab 2f4c6449, at 9efc2f34); on #165, lab 74cb7025: 'challenge: rp-refund-takeback — … the sentence fails for an item an edit added after payment'. No concur on the revision yet.", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-refund-takeback: narrow', scope revised after challenge, lab 2f4c6449, at 9efc2f34); on #165 (issuecomment-6729213387), lab 74cb7025: 'challenge: rp-refund-takeback — … the sentence fails for an item an edit added after payment'. No concur on the revision yet.", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Before the credit is sent, a refund reduces the pending credit instead (refunds.server.ts:17-19).",
@@ -672,6 +744,7 @@ uncertainties = [
   "A shipping-only refund takes nothing. Cancelling an order moves no money by itself; the refund does (apps/rewards/app/routes/webhooks.orders.cancelled.tsx:1-5).",
   "Very large refunds can't be read: one of more than 100 lines, or a money-only refund with 20 or more transactions or shipping lines (app/shopify/order-source.server.ts:308-312, 344-347), and so can't refunds on an order past the order's own read limits (rp-store-credit). What then happens to the take-back is not traced here; never observed.",
   "2026-11-09 (RP-05, concurred): those limits are at order-source.server.ts:328-332 and :349-352 @2fe85336, and since #156 the 20-transaction and 20-shipping-line limit applies to every refund, not only money-only ones (refundMoney runs for each, :462). A refund that can't be read takes nothing back. One refund past a limit blocks every later refund of that order, because they are valued together (:540, :731).",
+  "2026-11-09, exchanges (#190's comment of 2026-11-09 01:26 UTC, lab 74cb7025; inferred and never run): a Shopify returns or POS exchange refunds item A and adds replacement B to the order. A was in the recorded base, so its refund takes A's share; an even exchange completes the order by value and takes all the cashback (refunds.server.ts:217), while B, added after recording, earns nothing. Nothing in apps/rewards handles exchanges. RP-05's revised scope names 'orders not edited to add items after payment', which doesn't plainly cover an exchange, so the concur on that scope must say whether exchanges are inside it or carved out (for example 'for orders not edited or exchanged after payment'). Until then no copy describes a return that comes with an exchange.",
 ]
 contrary_evidence = [
   "Known bend, Ruling 12 (apps/rewards/docs/switch.md:46): on a tax-exclusive shop, a money-only refund takes back a few percent too much. Not observed; tax-exclusive shops are untested.",
@@ -698,7 +771,7 @@ sources = [
   { locator = "apps/rewards/app/lib/record-order.server.ts:120-131 @6f3a57b6 (customer rows are created only here, when recordOrder records an order: from orders/paid, the sweep, or the import, app/lib/import.server.ts:41)", observed_at = "2026-11-07", sha256 = "73ec1f54ebe3bcfead7a62daef004fe287a33751fd75ea420558ada5e46ba192" },
   { locator = "apps/rewards/app/lib/record-order.server.ts:149 @6f3a57b6 (a locked tier's rate wins)", observed_at = "2026-11-07", sha256 = "73ec1f54ebe3bcfead7a62daef004fe287a33751fd75ea420558ada5e46ba192" },
   { locator = "MISSING: a lock seen on a dev store. Neither staging-run.md nor the B4 checks A–P include one; add it to the B4 run.", observed_at = "", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-tier-lock: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-tier-lock: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17)", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "A locked customer keeps that tier and its rate whatever their spend, until 'Return to automatic' (tiers.server.ts:233-237).",
@@ -718,7 +791,10 @@ id = "rp-setup-steps"
 # turn on the widget in your theme editor." Narrowed the same day: the card has three steps, but the whole setup can
 # need more in Shopify admin (scope).
 claim = "RewardsPro's setup card has three steps: set a base cashback rate, switch cashback on, and turn on the widget in your theme editor."
-scope = "The rebuilt app's Home setup card ('Set up cashback'), for a new store. The card is not the whole setup: customers can spend the credit only once the store also has store credit turned on, uses new customer accounts and shows sign-in links (settings in Shopify admin, home-rules.ts:183-187), and the signed-in widget needs the app proxy path /apps/rewardspro (switch.md:80, 230 @6bd092cb). Travels with sh-sc-signin-legacy in fields that have room."
+# Scope until 2026-11-09 said customers can spend the credit "only once the store also has store credit turned on, uses
+# new customer accounts and shows sign-in links". The second read's note on #165 (concurred) adds Shop Pay
+# (app/shopify/shop-checks.server.ts:4-6 @2fe85336; sh-sc-signin-legacy), so the scope now says so.
+scope = "The rebuilt app's Home setup card ('Set up cashback'), for a new store. The card is not the whole setup: customers can spend the credit only once the store also has store credit turned on, and the buyer is signed in through new customer accounts (with sign-in links shown) or pays using Shop Pay (settings in Shopify admin, home-rules.ts:183-187; shop-checks.server.ts:4-6 @2fe85336), and the signed-in widget needs the app proxy path /apps/rewardspro (switch.md:80, 230 @6bd092cb). Travels with sh-sc-signin-legacy in fields that have room."
 kind = "product-behaviour"
 # 2026-11-09 (RP-06): RP-05 holds (lab 2f4c6449, resting on app._index.tsx:363, unchanged at 2fe85336); concurred (lab
 # 74cb7025 on #165, noting Shopify also lets a buyer spend credit using Shop Pay, shop-checks.server.ts:4-6). The help
@@ -732,7 +808,7 @@ status = "proposed"
 channels = ["listing", "landing", "social-post"]
 sources = [
   { locator = "apps/rewards/app/routes/app._index.tsx:362-411 @6f3a57b6 (the 'Set up cashback' card: 'Your base cashback rate', 'Switch cashback on', 'Turn on the widget in your theme')", observed_at = "2026-11-07", sha256 = "cf4faa271356ce92d58c119e86efc7f1b90f8f4d42fed45f64b5b70566fc82af" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-setup-steps: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09; candidates (not a capture) gates.md:9 ('Everyone' at 5%) and :28 ('cashback on, all three checks pass') @2fe85336", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-setup-steps: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17); candidates (not a capture) gates.md:9 ('Everyone' at 5%) and :28 ('cashback on, all three checks pass') @2fe85336", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
   { locator = "apps/rewards/app/admin/home-rules.ts:15-23 @6f3a57b6 (the theme editor deep link to the widget embed), 183-187 (the spend problems: 'your store uses legacy customer accounts', 'sign-in links are hidden on your store and at checkout', 'store credit is turned off in Settings > Customer accounts')", observed_at = "2026-11-07", sha256 = "1b3639eaf11b8347b338f7b7dd2d0ee48a93b94647467da693568ba0eb4c577e" },
   { locator = "apps/rewards/docs/switch.md:204 @6bd092cb (step 6.2: 'A new merchant starts switched off with no tiers'; :176 at 6f3a57b6)", observed_at = "2026-11-07", sha256 = "9a89a39b5ff950b8c446bdff354e5409481b4dd3a16f18d902a92d8db85114a1" },
   { locator = "https://help.shopify.com/en/manual/customers/store-credit, GET 2026-11-07 12:28 UTC, HTTP 200: 'In the Customer accounts section, turn on the Store credit toggle button.' and 'In the Payments section of the Shopify Checkout, activate the Apply store credit option'", observed_at = "2026-11-07", sha256 = "83d484a4623bbbb8f1caff73701e0dc87042ba7ef10ece35910c4899f92e8dbb" },
@@ -741,7 +817,7 @@ sources = [
 uncertainties = [
   "How long setup takes is not observed: never 'in minutes'.",
   "Turning on the widget changes the theme's app embeds, so never 'no theme changes'.",
-  "Customers can spend the credit only if store credit is on and the store uses new customer accounts; Home warns when not (home-rules.ts:183-187). Say so where space allows.",
+  "Customers can spend the credit only if store credit is on and they are signed in through new customer accounts or use Shop Pay (shop-checks.server.ts:4-6 @2fe85336; sh-sc-signin-legacy); Home warns when the store's settings stand in the way (home-rules.ts:183-187). Say so where space allows. ('or use Shop Pay' added 2026-11-09, from the second read's note on #165.)",
   "A store can already hold another app proxy path; rewardsprotesting held /apps/rewardspro-1 and the store owner had to set it back (switch.md:80, 230 @6bd092cb). Never 'works out of the box'.",
 ]
 contrary_evidence = []
@@ -778,7 +854,7 @@ sources = [
   # As the Clerk wrote it: "MISSING: B3 recorded (rp-live-release) and gate C on the live theme (switch.md:214 …)". B3 is recorded; gate C is partly run.
   { locator = "MISSING: the rest of gate C as switch.md:244 @6bd092cb asks (390 px wide, Light, a product page; the cart drawer doesn't apply to this store's cart page), and Lighthouse with the embed off and on (:243, 259)", observed_at = "", sha256 = "" },
   { locator = "apps/rewards/docs/gates.md @2fe85336: :21 (C: 'Pass. On Yu's iPhone (B3): signed in, as a guest and in Dark'; 390 px, Light and a product page aren't stated, and C isn't among Yu's acceptances at :12), :45 (the widget and buyer panel on the second store once the proxy path was set back), :51 (Lighthouse 'Accepted (Yu)', not run)", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-widget: narrow', sentence revised after challenge, lab 2f4c6449, at 9efc2f34); on #165, lab 74cb7025: 'challenge: rp-widget — narrow and :137/:169 hold, but … false when the buyer's only credit is in another currency'. No concur on the revision yet.", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-widget: narrow', sentence revised after challenge, lab 2f4c6449, at 9efc2f34); on #165 (issuecomment-6729213387), lab 74cb7025: 'challenge: rp-widget — narrow and :137/:169 hold, but … false when the buyer's only credit is in another currency'. No concur on the revision yet.", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Gate C is partly run (switch.md:88 @6bd092cb): Yu's iPhone, signed in, as a guest and in Dark, on a cart page. Not stated: the width (390 px), Light, a product page. Whether that counts as gate C is the verifier's or Yu's call; until then this row waits.",
@@ -808,9 +884,11 @@ sources = [
   { locator = "apps/rewards/app/admin/home-rules.ts:15-23 @2fe85336 (themeEditorUrl: https://<shop>/admin/themes/current/editor?context=apps&activateAppId=<api key>/membership_widget) and apps/rewards/app/routes/app._index.tsx:406-407 @2fe85336 (step 3's link, 'Turn on the widget in your theme', sha256 cf4faa27…)", observed_at = "2026-11-09", sha256 = "1b3639eaf11b8347b338f7b7dd2d0ee48a93b94647467da693568ba0eb4c577e" },
   { locator = "apps/rewards/extensions/rewards-widget/blocks/membership_widget.liquid:47-97 @2fe85336 (the schema: under 'Guests', 'Guest message', 'Guest button text' and 'Guest button link'; under 'Look', 'Colours' with Light and Dark, and 'Accent', 'Fills the progress bar. Text never uses it.')", observed_at = "2026-11-09", sha256 = "3e20e052c84874ce997886e2335374e6d370ddbdce39fc471c00679e182e4ed4" },
   { locator = "https://shopify.dev/docs/apps/build/online-store/theme-app-extensions/configuration (its Markdown form, saved 2026-11-07 in the research folder's wf2 shopify.dev copies): 'By default, app embed blocks are deactivated after an app is installed. Merchants need to activate app embed blocks in the theme editor, from Theme Settings > App embeds. However, your app can provide merchants with a deep link, post installation, to activate an app embed block automatically.' and 'If a merchant clicks a deep link, then they're taken to the theme editor to preview the app block or app embed block before saving.' Matched in the saved copy by this writer, 2026-11-09.", observed_at = "2026-11-07", sha256 = "3477d71f1c1282d4d98aa5a450275b79f251d41211b5876a6e509a5a0c257a8a" },
-  { locator = "MISSING: the link followed and Save clicked on a dev store with the rebuilt app (no store has shown it yet; the onboarding plan marks it [U]); the G0 sitting re-observes it", observed_at = "", sha256 = "" },
+  { locator = "MISSING: the link followed and Save clicked on a dev store with the rebuilt app (no store has shown it yet; the onboarding plan marks it [U]); the G0 sitting re-observes it. B4 didn't: the theme editor's preview after a settings change is 'Accepted (Yu). The Chrome tool can't click inside the editor's frame.' (apps/rewards/docs/gates.md:50 @2fe85336), so an agent's browser tool can't make this observation; it needs Yu's hand or a capture he takes", observed_at = "", sha256 = "" },
 ]
 uncertainties = [
+  "For the second session to settle, 2026-11-09: the app's own words don't say the link switches the widget on. home-rules.ts:18 @2fe85336 calls it 'The theme editor with the widget embed opened, ready to switch on', and step 3's link reads 'Turn on the widget in your theme' (app._index.tsx:407). The 'switched on' wording comes from Shopify's page, whose deep link activates an app embed block automatically and shows it for preview before saving (the source above). If the code comment is right and the merchant still has to flip the switch, the sentence must change.",
+  "IA1's first sentence, 'Use your live theme: it's the one RewardsPro checks.' (the onboarding plan's PR-1, which RP-10, #170, proposes), has no row. The facts behind it: Home checks the embed in the browser through shopify.app.extensions() (app._index.tsx:39, 207-210 @2fe85336), and shopify.dev's App API page says activation data for theme app extensions comes from the store's published theme only. A row for it needs that page cited by URL, date and hash (the onboarding research holds a saved copy; shopify.dev may also be read) and a second-session check; it isn't added this round.",
   "Turning the widget off (Theme settings > App embeds, switch off, save) is IA1's other line. Shopify's page names that path for activating; that the same switch turns it off is our inference [I], so it isn't in this sentence.",
   "Never 'no theme changes': switching the embed on changes the theme's app embeds (rp-setup-steps).",
   "The guest fields show only to guests, and only while cashback is on (rp-guest-hidden-when-off). A guest field left empty shows the widget's own default (the schema's 'Leave empty to show …' notes).",
@@ -874,7 +952,7 @@ sources = [
   { locator = "apps/rewards/app/routes/app._index.tsx:265-277 (Shopify's reviews.request(), once per visit while due), 189-197 (dismissed or shown is recorded), 511-525 (the card: 'A review helps other merchants find RewardsPro.', 'Leave a review', 'Dismiss') @6f3a57b6", observed_at = "2026-11-07", sha256 = "cf4faa271356ce92d58c119e86efc7f1b90f8f4d42fed45f64b5b70566fc82af" },
   { locator = "apps/rewards/app/admin/home-rules.ts:42-45 @6f3a57b6 (only 'success' or 'already-reviewed' stop the request)", observed_at = "2026-11-07", sha256 = "1b3639eaf11b8347b338f7b7dd2d0ee48a93b94647467da693568ba0eb4c577e" },
   { locator = "/usr/bin/grep -rniE 'referral|birthday|incentiv' over apps/rewards app, extensions, prisma, shopify.app.toml and package.json @6f3a57b6: 0 hits (no incentive attached to a review)", observed_at = "2026-11-07", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-review-ask: narrow', sentence revised after challenge, lab 2f4c6449, at 9efc2f34); on #165, lab 74cb7025: 'challenge: rp-review-ask — narrow stands …, but the proposed \"or you have already reviewed the app\" is false'. No concur on the revision yet.", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-review-ask: narrow', sentence revised after challenge, lab 2f4c6449, at 9efc2f34); on #165 (issuecomment-6729213387), lab 74cb7025: 'challenge: rp-review-ask — narrow stands …, but the proposed \"or you have already reviewed the app\" is false'. No concur on the revision yet.", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Not 'once': while due, each Home visit asks Shopify to show its request and shows the card, until the merchant dismisses the card or Shopify answers 'success' or 'already-reviewed' (app._index.tsx:265-277, 189-197; home-rules.ts:43-44). Post C3 must use this row's wording.",
@@ -905,11 +983,11 @@ channels = ["og-card", "listing", "landing", "social-profile", "social-post", "c
 sources = [
   { locator = "apps/rewards/app/shopify/store-credit-rail.server.ts:304-307 @6f3a57b6 (the credit is issued through the store's own Admin API, on the store's own customer)", observed_at = "2026-11-07", sha256 = "3f47ec43d0f435007aab83df1b9a8a9f49c5270673ffae33cf1339634c687c62" },
   { locator = "https://help.shopify.com/en/manual/customers/store-credit, GET 2026-11-07 11:46 UTC: 'After you issue store credit to a customer, they can apply their store credit at checkout'; examples include 'as a reward or incentive, such as a loyalty or referral program'", observed_at = "2026-11-07", sha256 = "0a002097713eaec6fa7d31f81002541683ac94d59cb00edc1f04429e60daf309" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-merchant-funds: holds (code part)', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 ('concur (with note): rp-merchant-funds holds (code part)')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-merchant-funds: holds (code part)', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17) ('concur (with note): rp-merchant-funds holds (code part)')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
-  "The cost lands when customers spend the credit, as part-payment of their orders. RewardsPro sets no expiry on the credit it gives (store-credit-rail.server.ts:307 has no expiresAt).",
-  "2026-11-09 (the second read's note on #165): 'part-payment' understates. On production, credit paid whole orders (gates.md:22, :32 @2fe85336), so say 'as payment towards their orders'.",
+  "The cost lands when customers spend the credit, as payment towards their orders. RewardsPro sets no expiry on the credit it gives (store-credit-rail.server.ts:307 has no expiresAt).",
+  "Corrected 2026-11-09 (the second read's note on #165; was: '… as part-payment of their orders'): 'part-payment' understates, because on production credit paid whole orders (gates.md:22, :32 @2fe85336).",
   "Shopify's own third-party transaction fee on store-credit payments, for stores created on or after 12 May 2025, is a separate cost (sh-sc-fee).",
   "No tax or accounting advice: how a merchant books store credit is theirs to decide.",
   "kit/web/og.jpg's headline 'Cashback your customers spend in your store' leans on this row, and it is unconditional: Shopify lets customers spend credit only when signed in with customer accounts or Shop Pay, not on legacy accounts, draft or edited orders, or B2B stores (sh-sc-signin-legacy, sh-sc-channels). The brand lane's og.jpg rebuild has to verify the headline against those rows as well as the subtitle.",
@@ -944,7 +1022,7 @@ sources = [
   { locator = "/usr/bin/grep -rniE 'sendgrid|nodemailer|postmark|mailgun|klaviyo|smtp' over apps/rewards app, extensions, prisma, shopify.app.toml and package.json @6f3a57b6: 0 hits; package.json lists no mail library (sha256 is package.json's)", observed_at = "2026-11-07", sha256 = "34156373cb4ff1efdc9fa4fecb31d634c5a6c9f192e8ab6c031d031b47cec525" },
   { locator = "https://help.shopify.com/en/manual/customers/store-credit, GET 2026-11-07 11:46 UTC ('Notify customer' when issuing store credit sends an email notification the merchant can customise)", observed_at = "2026-11-07", sha256 = "0a002097713eaec6fa7d31f81002541683ac94d59cb00edc1f04429e60daf309" },
   { locator = "MISSING: a guard test in apps/rewards that fails if a mail library or mail call appears (agent PR; Yu merges, because a merge deploys production)", observed_at = "", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-no-own-email: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09. Partial pins of the default-off half exist (settings.dom.test.tsx:57-63, settings-page.postgres.test.ts:135, send-payout.postgres.test.ts:173, per the second read); none is a guard for mail.", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-no-own-email: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17). Partial pins of the default-off half exist (settings.dom.test.tsx:57-63, settings-page.postgres.test.ts:135, send-payout.postgres.test.ts:173, per the second read); none is a guard for mail.", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Shopify's email is Shopify's template, which the merchant can edit in Customer notifications.",
@@ -976,7 +1054,7 @@ sources = [
   { locator = "/usr/bin/grep -rniE 'raffle', 'mystery', 'instant.?win', 'CHANCE_MECHANICS', 'lottery|sweepstake|prize draw' over apps/rewards app, extensions, prisma, shopify.app.toml and package.json @6f3a57b6: 0 hits each", observed_at = "2026-11-07", sha256 = "" },
   { locator = "docs/superpowers/specs/2026-11-04-rewardspro-rebuild-design.md:49-50 on origin/docs/rewardspro-rebuild-design @b0b18bd1 (non-goals: points, missions, challenges, raffles, mystery boxes, gift cards)", observed_at = "2026-11-07", sha256 = "dc25b14efcce2d9c5a56cec37562cfabb86a4faf1b2d95a8c5cbdf489beafe94" },
   { locator = "MISSING: a guard test in apps/rewards that fails if chance mechanics appear", observed_at = "", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-no-chance: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 ('concur: rp-no-chance holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-no-chance: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17) ('concur: rp-no-chance holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Absent from the rebuild, not paused. The old app had them paused (apps/rewardspro/app/constants/chance-mechanics.ts:14-18 @6f3a57b6, CHANCE_MECHANICS_PAUSED = true), and its code stays in the repo until B5 deletes it. Since B3, going back to it is a new plan, not the rollback steps (switch.md:216 @6bd092cb). Rests on rp-production-rebuild.",
@@ -1005,7 +1083,7 @@ sources = [
   { locator = "/usr/bin/grep -rniE 'points?.{0,20}(earn|redeem|balance)|redeem' and 'mission|challenge|streak' over apps/rewards app, extensions, prisma, shopify.app.toml and package.json @6f3a57b6: 0 hits each", observed_at = "2026-11-07", sha256 = "" },
   { locator = "docs/superpowers/specs/2026-11-04-rewardspro-rebuild-design.md:49-50 on origin/docs/rewardspro-rebuild-design @b0b18bd1 (non-goals)", observed_at = "2026-11-07", sha256 = "dc25b14efcce2d9c5a56cec37562cfabb86a4faf1b2d95a8c5cbdf489beafe94" },
   { locator = "MISSING: a guard test in apps/rewards", observed_at = "", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-no-points: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 ('concur: rp-no-points holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-no-points: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17) ('concur: rp-no-points holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Public use follows STRATEGY.md D9 (default: don't name removed features). Rests on rp-production-rebuild.",
@@ -1036,7 +1114,7 @@ sources = [
   { locator = "/usr/bin/grep -rniE 'sellingPlan|purchaseOption|productCreate|write_products|membership product|tier product' over apps/rewards app, extensions, prisma, shopify.app.toml and package.json @6f3a57b6: 0 hits", observed_at = "2026-11-07", sha256 = "" },
   { locator = "apps/rewards/shopify.app.toml:46-49 @6f3a57b6 (no product scope among the six)", observed_at = "2026-11-07", sha256 = "6fc288ecf251443909e7be104c6d808eea2b34d065efcc7942140be8973aec34" },
   { locator = "docs/superpowers/specs/2026-11-04-rewardspro-rebuild-design.md:51 on origin/docs/rewardspro-rebuild-design @b0b18bd1 (non-goal: selling tiers as Shopify products, subscriptions, any billing or paid plan)", observed_at = "2026-11-07", sha256 = "dc25b14efcce2d9c5a56cec37562cfabb86a4faf1b2d95a8c5cbdf489beafe94" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-no-tier-products: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-no-tier-products: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17)", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "This row is why S1 deletes the listing's tier-product text. Removing a false sentence needs no public claim; stating the negative in public follows D9.",
@@ -1065,7 +1143,8 @@ sources = [
   { locator = "apps/rewards/prisma/schema.prisma:257-275 @2fe85336 (model Tier: name, minSpend, cashbackPercent and position; no product, collection or channel field)", observed_at = "2026-11-09", sha256 = "346a4184f2851a31813acd418426a07a59c35233be679ee3bc0fd95a6f8d37f5" },
   { locator = "apps/rewards/app/lib/record-order.server.ts:22, 54-71, 149-160 @2fe85336 (the reasons an order earns nothing are import, before_install, test, cancelled, off, no_tier and nothing_to_pay_on; the rate is the buyer's tier's, or their locked tier's; none reads a product, collection or channel)", observed_at = "2026-11-09", sha256 = "73ec1f54ebe3bcfead7a62daef004fe287a33751fd75ea420558ada5e46ba192" },
   { locator = "apps/rewards/app/shopify/graphql.ts:198-286 @2fe85336 (RewardsOrderFacts reads no sellingPlan, sourceName, app, channel, tags, product type or collection)", observed_at = "2026-11-09", sha256 = "f15583e731b4e247561366c89953e282a925962158c2a1f9ff1325926c9643d8" },
-  { locator = "git grep -i -E -c over apps/rewards app, extensions, prisma and shopify.app.toml @2fe85336, 2026-11-09: 'sellingPlan|selling_plan' 0; 'sourceName|source_name|attribution|channelInformation' 0; '\\btags?\\b' 0; 'minimum ?order|minOrder|min_order' 0; 'productType|product_type|vendor' 0; 'collection' 1 (Sentry's dataCollection, entry.server.tsx:20); 'exclude|exclusion' 14, none an order rule", observed_at = "2026-11-09", sha256 = "" },
+  # The first draft recorded "'\btags?\b' 0" from git grep -E, which doesn't support \b here, so that pattern could never match.
+  { locator = "git grep -i -E -c over apps/rewards app, extensions, prisma and shopify.app.toml @2fe85336, 2026-11-09: 'sellingPlan|selling_plan' 0; 'sourceName|source_name|attribution|channelInformation' 0; 'minimum ?order|minOrder|min_order' 0; 'productType|product_type|vendor' 0; 'collection' 1 (Sentry's dataCollection, entry.server.tsx:20); 'exclude|exclusion' 14, none an order rule (TypeScript Exclude types, an excludeTierId argument, SQL EXCLUDED, a comment on tax). Tags: git grep -i -w -E 'tag|tags' (or -P '\\btags?\\b') gives 18, none an order rule: monitoring tags (cron.server.ts 4, webhook-helpers.server.ts 4, telemetry.server.ts 3, session-storage.server.ts 2, guide.server.ts 1, stats.server.ts 1), an encryption authentication tag (encryption.server.ts 1) and DOM element names (rewards-widget.js 2)", observed_at = "2026-11-09", sha256 = "" },
   { locator = "apps/rewards/app/routes/app.tiers.tsx:361-409 @6f3a57b6, unchanged at 2fe85336 (a tier's form: Name, Minimum spend, Cashback) and apps/rewards/app/routes/app.settings._index.tsx:46-70 @2fe85336 (Settings: the buyer-email switch, Privacy, Help; no order rule)", observed_at = "2026-11-09", sha256 = "10bd720b934652bf904bdbc3aff6f44732015c6aa8fc36fab9acb80e541fa70d" },
   { locator = "MISSING: a guard test in apps/rewards that fails if a per-product, per-collection or per-channel rule appears (agent PR; Yu merges, because a merge deploys production)", observed_at = "", sha256 = "" },
 ]
@@ -1235,9 +1314,12 @@ correction_url = ""
 [[claim]]
 # Added 2026-11-09 (RP-06) from wf8 fit.md §8.3 and feedback.md §9 (FB-9), which MESSAGING.md §7 asks for: the
 # recurring-purchase copy and the listing's limit lines need the rule on its own id. Shopify's sentence comes from the
-# saved copies only; nothing was fetched.
+# saved copies only; nothing was fetched for this row.
 id = "sh-sc-subscriptions"
-claim = "Shopify lets store credit pay for the first purchase of a subscription, but not its recurring bills."
+# Claim as first drafted 2026-11-09: "Shopify lets store credit pay for the first purchase of a subscription, but not its
+# recurring bills." Reworded the same day to Shopify's own "initial": "first" is never-say 3 (STRATEGY.md:188), which
+# the checker runs mechanically (MESSAGING.md:307).
+claim = "Shopify lets store credit pay for the initial purchase of a subscription, but not its recurring bills."
 scope = "Shopify's platform rule, as the Help Center states it on the date read. Where only the limit is needed, the copy's shorter form 'Shopify doesn't let store credit pay subscription renewals.' (MESSAGING.md §3 P1, §5.8) states the same rule and is covered by this row. Subscription renewals appear only inside Shopify's limit, never as a RewardsPro feature."
 kind = "product-behaviour"
 status = "proposed"
@@ -1246,7 +1328,7 @@ sources = [
   { locator = "https://help.shopify.com/en/manual/customers/store-credit, GET 2026-11-07 11:46 UTC (the saved raw copy the other sh-* rows cite): under 'Subscription and currency limitations', 'Customers can use store credit towards the initial purchase of a subscription, but not towards recurring subscription bills.' Found word for word in its text by this writer, 2026-11-09, and in the 12:06 UTC copy (sha256 3ee6ac68dcab09017a3613a710b0b1c5bd13d7d165eef069e6c9dc56b5248a41, the one fit.md cites) and the 12:28 UTC copy (83d484a4…).", observed_at = "2026-11-07", sha256 = "0a002097713eaec6fa7d31f81002541683ac94d59cb00edc1f04429e60daf309" },
 ]
 uncertainties = [
-  "Paraphrase: 'first purchase' for Shopify's 'initial purchase', 'recurring bills' for 'recurring subscription bills', and in the short form, 'renewals'.",
+  "Paraphrase: 'initial purchase' is Shopify's word; 'recurring bills' stands for 'recurring subscription bills', and in the short form, 'renewals'.",
   "Shopify's rule, not ours. Whether a subscription app's renewal orders earn cashback is a separate, unobserved question (fit.md's rp-renewals-earn, not added this round).",
   "The same rule sits in sh-sc-channels' uncertainties; this row gives it its own id because the listing's limit lines and the recurring-purchase copy carry it (ROADMAP §4 action 4; MESSAGING.md §3, §5.8).",
   "STRATEGY.md never-say 8 lists 'subscriptions' among old features, so the G4 social checker needs an exception for 'pay subscription renewals' before any block carrying this row is checked (MESSAGING.md §4).",
@@ -1372,7 +1454,7 @@ channels = ["social-post", "outreach"]
 sources = [
   { locator = "apps/rewards/app/routes/app.settings._index.tsx:16 (CONTACT_EMAIL = 'contact@rewardspro.io'), 65-69 (section 'Help': 'Email us at …') @6f3a57b6, unchanged at 6bd092cb", observed_at = "2026-11-07", sha256 = "d57e5c77d232826ae723700afddcd6a34aa3b77b4678fd6c1575d81350b1ef84" },
   { locator = "MISSING: a screenshot of Settings > Help on rewardsprotesting (A10 Settings frame)", observed_at = "", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-help-in-settings: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-help-in-settings: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17)", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Travels with rp-contact-delivers: no reply shows the address before Yu's delivery test has passed.",
@@ -1404,10 +1486,10 @@ sources = [
   # As the second pass wrote it: "MISSING: B4 check H on rewardsprotesting (gates.md, absent at 6bd092cb)". Recorded now, in part:
   { locator = "apps/rewards/docs/gates.md:26 @2fe85336 (H on production: 'With cashback off, #1014 (£222.00) earned nothing … nothing was owed'); a candidate under D6 for the no-cashback half only", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
   { locator = "MISSING: an order paid while cashback is off, seen counting towards tier spend on production (observed on staging only, staging-run.md:29)", observed_at = "", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-switch-off: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-switch-off: holds', lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17)", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
-  "Orders paid while it's off never earn later: switching back on pays nothing for them (staging H: 'nothing was owed later'). Say so if the reply is about pausing.",
+  "SUPERSEDED 2026-11-09 by the next line (was: 'Orders paid while it's off never earn later: switching back on pays nothing for them (staging H: \"nothing was owed later\"). Say so if the reply is about pausing.').",
   "2026-11-09 (RP-05's second read, concurred): the line above overstates. The switch is read when the order is recorded (record-order.server.ts:107-109), so an order paid while it's off but recorded after it's back on, by a redelivery or the sweep, does earn. Say 'orders recorded while it's off never earn later'. Switching off also doesn't stop credit already due from going out: payouts and the sweep don't check the switch.",
   "While it's off the widget hides the guest panel and the rate lines (rp-widget).",
   "What happens to store credit already given is not part of this row (credit stays in Shopify; code reading only).",
@@ -1443,12 +1525,12 @@ sources = [
   # As the second pass wrote it: "MISSING: B4 check P (placement by the last 12 months of orders) on rewardsprotesting. Staging's import brought in 0 orders, because every order there was older than 12 months (staging-run.md:20), so placement from imported orders has never been seen." Recorded now; a candidate under D6:
   { locator = "apps/rewards/docs/gates.md:34 @2fe85336 (P: 'The import ran with a 365-day horizon (read_all_orders granted). Home: \"Done: 2 buyers placed in tiers\"'; the imported buyer was in Gold as soon as Gold was added; 'no credit was issued for imported orders') and :27 (the data request held 5 imported orders, noCashbackReason import, no ledger entries and no payouts)", observed_at = "2026-11-09", sha256 = "a53b38ba75f6a0847780f093c67a59163b7ef0831b4ef1c5701177d679197900" },
   { locator = "apps/rewards/app/shopify/install.server.ts:53-55 and apps/rewards/app/lib/import.server.ts:19-24 @2fe85336 (the import starts on the first open only; it keeps paid and partly refunded orders that aren't test or cancelled)", observed_at = "2026-11-09", sha256 = "e39ec9ae4f9eb680f1361c7cebd87888541efb55f3d6648c0ac87bbad70d1f1e" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-import-past: narrow', with the sentence above, lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 ('concur (with note): rp-import-past narrow … the new sentence holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-import-past: narrow', with the sentence above, lab 2f4c6449, at 9efc2f34); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17) ('concur (with note): rp-import-past narrow … the new sentence holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "'Up to 12 months' holds where Shopify grants read_all_orders; Rewards Pro holds it on rewardsprotesting (switch.md:75 @6bd092cb), and for other installs it is an inference [I] (rp-tier-window). Without it, 60 days.",
   "'The right tier' is the tier the imported spend reaches, once the store has tiers ('They're placed in tiers when you save your base rate', home-rules.ts:145). Unobserved with real imported orders (B4 P).",
-  "Some orders can't be brought in (home-rules.ts:128-129: 'Brought in N of your past orders; the rest couldn't be read.'); orders past the read limits are among them (rp-store-credit).",
+  "Understated, as the next line says (2026-11-09). Some orders can't be brought in (home-rules.ts:128-129: 'Brought in N of your past orders; the rest couldn't be read.'); orders past the read limits are among them (rp-store-credit).",
   "2026-11-09 (RP-05, concurred): the line above understates the failure path. After 3 restarts the import ends 'failed', and Home says 'Your past orders couldn't be brought in, so buyers start in the lowest tier.' (home-rules.ts:129, shown when no orders came in). Money-only refunds made before the import count as spend (bulk-import.server.ts:19-21).",
 ]
 contrary_evidence = []
@@ -1474,7 +1556,7 @@ sources = [
   { locator = "scratchpad wf/p1-truth.md §5 (phase-1 product truth, the absence table: the same greps at 6f3a57b6, plus campaigns, analytics and a customer-account extension)", observed_at = "2026-11-07", sha256 = "" },
   { locator = "docs/superpowers/specs/2026-11-04-rewardspro-rebuild-design.md:49-51 on origin/docs/rewardspro-rebuild-design @b0b18bd1 (non-goals)", observed_at = "2026-11-07", sha256 = "dc25b14efcce2d9c5a56cec37562cfabb86a4faf1b2d95a8c5cbdf489beafe94" },
   { locator = "MISSING: a guard test in apps/rewards that fails if another reward type appears (agent PR; Yu merges, because a merge deploys production)", observed_at = "", sha256 = "" },
-  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-scope: holds', lab 2f4c6449, at 9efc2f34, with each grep re-run there); concur on #165 by lab 74cb7025, 2026-11-09 ('concur: rp-scope holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
+  { locator = "RP-05: claims-checks/code-rows.md on draft PR #187 at 2c0e2c17 ('rp-scope: holds', lab 2f4c6449, at 9efc2f34, with each grep re-run there); concur on #165 by lab 74cb7025, 2026-11-09 (issuecomment-6729213387, read at #187 @17f978bb; the same verdict and sentence at 2c0e2c17) ('concur: rp-scope holds')", observed_at = "2026-11-09", sha256 = "7aabe50391f43f7cf76bedc131a29956ce7b82d6a245b1ca737b539618a07b94" },
 ]
 uncertainties = [
   "Its positive half rests on rp-store-credit and rp-vip-tiers, so it waits on what they wait on (G0).",
