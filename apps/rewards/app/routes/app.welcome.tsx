@@ -669,6 +669,7 @@ function StepThree({
   d,
   target,
   liveTarget,
+  switchTarget,
   goLive,
   widget,
   isLive,
@@ -683,6 +684,8 @@ function StepThree({
   target: Target;
   /** "Cashback is on", where focus goes once it is */
   liveTarget: Target;
+  /** The switch's section, where focus goes back when a switch-on is refused */
+  switchTarget: Target;
   goLive: GoLiveData;
   widget: WidgetEmbed;
   isLive: boolean;
@@ -767,18 +770,21 @@ function StepThree({
           </s-section>
         </FocusTarget>
       ) : (
-        <s-section>
-          <s-stack gap="base">
-            {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
-            <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
-              {finishLater}
-              {/* Whatever the widget says: earning doesn't depend on it */}
-              <s-button variant="primary" disabled={switchBusy} loading={switchBusy} onClick={onSwitchOn}>
-                {GUIDE.switchOn}
-              </s-button>
+        // No heading of its own: named as the step it ends
+        <FocusTarget target={switchTarget} label={GUIDE.steps[2]}>
+          <s-section>
+            <s-stack gap="base">
+              {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
+              <s-stack direction="inline" gap="small-200" justifyContent="end" alignItems="center">
+                {finishLater}
+                {/* Whatever the widget says: earning doesn't depend on it */}
+                <s-button variant="primary" disabled={switchBusy} loading={switchBusy} onClick={onSwitchOn}>
+                  {GUIDE.switchOn}
+                </s-button>
+              </s-stack>
             </s-stack>
-          </s-stack>
-        </s-section>
+          </s-section>
+        </FocusTarget>
       )}
     </>
   );
@@ -861,10 +867,12 @@ export default function Welcome() {
   if (tryIt.length === 1 && picked !== tryIt[0].orderId) setPicked(tryIt[0].orderId);
   const chosen = tryIt.find((order) => order.orderId === picked) ?? null;
 
-  // Focus follows what replaced the control pressed (I-4): the new step's heading when the step changes, and
-  // "Cashback is on" once it is; neither when the page opens
+  // Focus follows what replaced the control pressed (I-4): the new step's heading when the step changes,
+  // "Cashback is on" once it is, and the switch's section, with its refusal, if it goes off again (F5-F2);
+  // none of them when the page opens
   const stepTarget = useRef<HTMLDivElement>(null);
   const liveTarget = useRef<HTMLDivElement>(null);
+  const switchTarget = useRef<HTMLDivElement>(null);
   const shownStep = useRef(d.step);
   useEffect(() => {
     if (shownStep.current === d.step) return;
@@ -874,6 +882,7 @@ export default function Welcome() {
   const wasLive = useRef(isLive);
   useEffect(() => {
     if (isLive && !wasLive.current) focusOn(liveTarget);
+    if (!isLive && wasLive.current) focusOn(switchTarget);
     wasLive.current = isLive;
   }, [isLive]);
 
@@ -916,6 +925,7 @@ export default function Welcome() {
           d={d}
           target={stepTarget}
           liveTarget={liveTarget}
+          switchTarget={switchTarget}
           goLive={d.goLive}
           widget={widget}
           isLive={isLive}

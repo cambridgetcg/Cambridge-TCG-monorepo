@@ -927,6 +927,19 @@ describe("Focus across the guide", () => {
     expect(document.activeElement?.getAttribute("aria-label")).toBe(GUIDE.liveHeading);
   });
 
+  // F5-F2: the refusal takes "Cashback is on" away, so focus goes back to the switch, where the refusal is said
+  it("puts focus back by the switch after a refused Switch cashback on", async () => {
+    await renderWelcome(step3(), { answer: async () => ({ ok: false, error: GUIDE.saveTiersFirst }) });
+    // Not when the page opens with the switch there
+    expect(document.activeElement).toBe(document.body);
+    await click(button(GUIDE.switchOn));
+    const refusal = await screen.findByText(GUIDE.saveTiersFirst);
+    const active = document.activeElement!;
+    expect(active).not.toBe(document.body);
+    expect(active.contains(refusal)).toBe(true);
+    expect(active.contains(button(GUIDE.switchOn))).toBe(true);
+  });
+
   it("leaves focus alone on a page that opens with cashback on", async () => {
     await renderWelcome(live());
     expect(document.activeElement).toBe(document.body);
