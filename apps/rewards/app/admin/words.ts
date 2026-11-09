@@ -30,6 +30,14 @@ export const EXPORT_SEARCH_UNREAD = "Shopify couldn't read all of this search, s
 /** Any page, for an error that isn't one of the app's own answers (BOUNDARY-3). */
 export const SOMETHING_WRONG = "Something went wrong. Reload the page.";
 
+/**
+ * What cashback is paid on, on Home's rate field and the Tiers page: order-facts.ts
+ * cashbackBase (product value after discounts and tips, less store credit and gift
+ * cards paid), with gift-card lines valued at 0 (order-source.server.ts parseOrderNode).
+ */
+export const CASHBACK_BASE =
+  "Cashback is paid on the product price after discounts, less anything paid with store credit or gift cards. Shipping, duties, tips and gift cards bought earn nothing.";
+
 /** The tier window's name: what "Spend counted" covers, on every page and in the CSV (MONEY-4). */
 export const TIER_WINDOW_LABEL: Record<TierWindow, string> = { rolling_12_months: "Last 12 months", lifetime: "All time" };
 
