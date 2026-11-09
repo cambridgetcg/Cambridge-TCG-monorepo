@@ -1,0 +1,7 @@
+# The released extension's identity, so the merchant's widget embed survives
+# (spec 3): Shopify matches the extension by this uid, not by the folder.
+[[extensions]]
+type = "theme"
+name = "RewardsPro Theme Extension"
+handle = "rewardspro-theme-extension"
+uid = "de76c331-60b3-32cf-27d1-40ec03d229db8af03050"

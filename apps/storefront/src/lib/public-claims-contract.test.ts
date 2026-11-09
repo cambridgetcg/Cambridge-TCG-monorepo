@@ -55,7 +55,7 @@ describe("public claims match publication boundaries", () => {
     expect(body.read_only_scope.operational_metadata_writes.join(" "))
       .toContain("rate-limit");
     expect(body.read_only_scope.operational_metadata_writes.join(" "))
-      .toContain("last_used_at");
+      .toContain("last-used");
   });
 
   it("lists review submissions and the key's own exit beside read-only, not as domain writes", async () => {

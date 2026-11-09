@@ -270,6 +270,23 @@ describe("premiums on card identity", () => {
     expect(skips).toMatchObject({ premiumAmbiguousIdentity: 1, premiumTooFewSkus: 1 });
   });
 
+  it("with CardRush English listings exact (cardrush-title/2), pools its languages by card and leaves out a card it lists in both", () => {
+    const cards = (count: number, cardrushLanguage: (i: number) => string) => Array.from({ length: count }, (_, i) => [
+      product("cardrush", `r${i}`, `op-op01-${number(i)}-${cardrushLanguage(i)}`, "3", { language: cardrushLanguage(i) }),
+      product("tcgplayer", `t${i}`, `op-op01-${number(i)}-en`, "4"),
+    ]).flat();
+    const japanese = cards(10, () => "ja");
+    expect(computePremiums(bySku(japanese), emptySkips())).toEqual([expect.objectContaining({ market: "tcgplayer", baseMarket: "cardrush", skuCount: 10, marketLanguages: ["en"], baseLanguages: ["ja"] })]);
+    // One card's English listing beside its Japanese one: CardRush has two SKUs
+    // for that card, so it drops out, and a set at ten cards loses its row.
+    const skips = emptySkips();
+    expect(computePremiums(bySku([...japanese, product("cardrush", "re", "op-op01-005-en", "3.2", { language: "en" })]), skips)).toEqual([]);
+    expect(skips).toMatchObject({ premiumAmbiguousIdentity: 1, premiumTooFewSkus: 1 });
+    // Cards CardRush lists in one language each, some Japanese and some English,
+    // pool into one row whose CardRush side states both.
+    expect(computePremiums(bySku(cards(12, i => (i < 6 ? "ja" : "en"))), emptySkips())).toEqual([expect.objectContaining({ skuCount: 12, marketLanguages: ["en"], baseLanguages: ["en", "ja"] })]);
+  });
+
   it("matches only the same printing language where a game's numbering differs across languages", () => {
     const products = Array.from({ length: 10 }, (_, i) => [
       product("cardmarket", `c${i}`, `pkm-sv01-${number(i)}-en`, "1", { game: "pokemon" }),

@@ -26,7 +26,7 @@ import {
 import { StarFilledIcon, PersonIcon, CheckCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { ModuleStatsCard } from "~/components/DesignSystem/ModuleStatsCard";
-import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
+import { getPointsConfig, updatePointsConfig } from "../services/points-config.server";
 import prisma from "../db.server";
 import { getMissionAnalytics } from "../services/mission-stats.server";
 import { createChallenge } from "../services/challenge-management.server";
@@ -133,14 +133,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const shop = session.shop;
     console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
 
-    // Fetch config and features
-    const [config, features] = await Promise.all([
-      getPointsConfig(shop),
-      getEnabledFeatures(shop),
-    ]);
+    const config = await getPointsConfig(shop);
 
-    // Check if missions/challenges are enabled
-    const missionsEnabled = features.challenges;
+    // The merchant's own missions switch. Missions don't need points switched
+    // on: points are hidden until they can be spent, and the rewards missions
+    // offer today don't use them (constants/feature-availability.ts).
+    const missionsEnabled = config.challengesEnabled;
 
     if (!missionsEnabled) {
       return json<LoaderData>({
@@ -397,6 +395,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 // ============================================
+// NOT LIVE NOTICE
+// ============================================
+
+/**
+ * Shoppers can't see missions yet: the storefront's missions check reads a
+ * switch (PointsConfig.missionsEnabled) that nothing turns on. Fix that check
+ * only once every reward a mission offers can be delivered.
+ */
+function MissionsNotLiveBanner() {
+  return (
+    <Layout.Section>
+      <Banner title="Missions aren't live in your storefront yet" tone="info">
+        <p>You can set missions up here, but shoppers can't see or join them yet.</p>
+      </Banner>
+    </Layout.Section>
+  );
+}
+
+// ============================================
 // MISSION CARD COMPONENT
 // ============================================
 
@@ -626,6 +643,7 @@ export default function MissionsPage() {
           backAction={{ content: "Rewards", url: "/app/rewards" }}
         >
           <Layout>
+            <MissionsNotLiveBanner />
             <Layout.Section>
               <Card>
                 <EmptyState
@@ -679,6 +697,8 @@ export default function MissionsPage() {
         ]}
       >
         <Layout>
+          <MissionsNotLiveBanner />
+
           {/* Stats Cards */}
           <Layout.Section>
             <InlineStack gap="400" wrap>

@@ -10,6 +10,7 @@ import {
   matchRoutes,
 } from "react-router-dom";
 import * as Sentry from "@sentry/remix";
+import { redactSensitiveTelemetryValue } from "./utils/telemetry-redaction";
 
 // Initialize Sentry for browser-side error tracking
 if (process.env.NODE_ENV === 'production') {
@@ -20,9 +21,8 @@ if (process.env.NODE_ENV === 'production') {
     // Performance Monitoring
     tracesSampleRate: 0.2, // Sample 20% of transactions for performance
 
-    // Session Replay (optional - captures user sessions for debugging)
-    replaysSessionSampleRate: 0.1, // 10% of sessions
-    replaysOnErrorSampleRate: 1.0, // 100% of sessions with errors
+    // No session replay: admin pages show shoppers' names and emails, and a
+    // replay would record that page text.
 
     integrations: [
       new Sentry.BrowserTracing({
@@ -41,12 +41,6 @@ if (process.env.NODE_ENV === 'production') {
           matchRoutes
         ),
       }),
-      new Sentry.Replay({
-        // Mask sensitive content in replays
-        maskAllText: false,
-        maskAllInputs: true,
-        blockAllMedia: false,
-      }),
     ],
 
     // Filter out known benign errors
@@ -62,13 +56,8 @@ if (process.env.NODE_ENV === 'production') {
 
     // Sanitize data before sending
     beforeSend(event, _hint) {
-      // Remove sensitive data from URLs
-      if (event.request?.url) {
-        event.request.url = event.request.url.replace(
-          /token=[^&]*/g,
-          'token=[REDACTED]'
-        );
-      }
+      // Remove credentials (id_token, session, hmac, tokens) and shopper emails
+      event = redactSensitiveTelemetryValue(event) as typeof event;
 
       // Remove PII from user context
       if (event.user) {
@@ -84,8 +73,15 @@ if (process.env.NODE_ENV === 'production') {
       return event;
     },
 
+    // Console, fetch and navigation breadcrumbs can carry URLs and shopper emails
+    beforeBreadcrumb(breadcrumb) {
+      return redactSensitiveTelemetryValue(breadcrumb) as typeof breadcrumb;
+    },
+
     // Attach additional context
     beforeSendTransaction(event) {
+      event = redactSensitiveTelemetryValue(event) as typeof event;
+
       // Add custom tags to all transactions
       event.tags = {
         ...event.tags,

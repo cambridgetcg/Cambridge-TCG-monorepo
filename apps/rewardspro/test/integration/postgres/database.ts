@@ -22,3 +22,28 @@ export async function resetDatabase(): Promise<void> {
   const names = tables.map(({ tablename }) => `"${databaseSchema}"."${tablename}"`).join(", ");
   await prisma.$executeRaw`TRUNCATE ${Prisma.raw(names)} RESTART IDENTITY CASCADE`;
 }
+
+const failedCallRestores: Array<() => void> = [];
+
+/**
+ * Make the next call of one Prisma model method reject with `error`, as a
+ * dropped pooled connection would. vi.spyOn can't do this: its restore leaves
+ * the client's model method undefined. Undo with restoreFailedCalls().
+ */
+export function failNextCall(model: "order" | "customerTierState" | "shopSettings", method: string, error: Error): void {
+  const delegate = prisma[model] as unknown as Record<string, (...args: unknown[]) => unknown>;
+  const original = delegate[method];
+  let failed = false;
+  delegate[method] = (...args: unknown[]) => {
+    if (failed) return original(...args);
+    failed = true;
+    return Promise.reject(error);
+  };
+  failedCallRestores.push(() => {
+    delegate[method] = original;
+  });
+}
+
+export function restoreFailedCalls(): void {
+  for (const restore of failedCallRestores.splice(0)) restore();
+}

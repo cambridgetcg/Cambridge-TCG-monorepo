@@ -1,5 +1,13 @@
 # RewardsPro API v2 foundation
 
+**Dormant (2026-11-03).** This foundation was never deployed, and the live
+RewardsPro app does not call it. It is kept for its engine design. Its unused
+AWS deploy job was removed from `.github/workflows/rewardspro-v2.yml`, which
+still validates this package on every pull request. To revive deployment,
+start from that job in git history
+(`git show 653f7d71:.github/workflows/rewardspro-v2.yml`) and the
+[deployment runbook](docs/deployment-runbook.md).
+
 This package is a new backend foundation. It does **not** claim feature, data,
 or business-rule parity with the legacy RewardsPro application.
 

@@ -10,6 +10,8 @@ storefront serves the kit's web files from `public/` (see "On the site").
 | `cambridge-tcg-mark-nav.svg` | The same mark in `currentColor`, sized 1:1 for the nav's `h-8 w-7` box. `Nav.tsx` draws these paths. |
 | `kit/` | What the skill built: `logo/` (SVG, PNG, PDF; on light and on dark), `web/` (favicons, app icons, manifest, head snippet, share card), `social/` (avatars), `colour/` (palette, tokens, Tailwind theme, swatches), `BRAND.md` (how to use it) and `index.html` (review sheet). Never hand-edited. |
 | `marketplaces/` | The eBay shop logo and billboards, made from `kit/` by `build.py`. |
+| `brandkit.json` + `CREDITS.md` | This folder's record in the shared brand-folder format (`brandkit.project/1`): who chose the look and where that is written, the files the site serves from `kit/`, the guards, what a merge deploys, and who made each asset under which licence. |
+| `check.mjs` | Checks the record against the repository: `node apps/storefront/marketing/check.mjs` (Node only, no install). It is copied from the brandkit toolkit, so change it there and copy it again. It runs by hand: making it a CI step is a new guard, and Yu's to choose (AGENTS.md, principle 8). |
 
 ## The look
 

@@ -1,0 +1,503 @@
+// RewardsPro data model (design section 6.2).
+//
+// Plain Postgres: Supabase in production, schema `rewards` owned by role
+// rewards_app. The app connects through app/db.server.ts (driver adapter,
+// verified TLS). The Prisma CLI runs only through scripts/prisma-tls.ts
+// (pnpm migrate:deploy, pnpm migrate:drift), which points both URLs at
+// REWARDS_DIRECT_URL, the session-mode connection migrations need.
+//
+// Conventions:
+// - Tables and columns are snake_case (@@map, @map).
+// - Ids are UUIDs, except Session (the template's `offline_<shop>` ids).
+//   Platform ids are attributes, never keys.
+// - Money is numeric(19,4) next to an ISO currency code.
+// - Every child row carries merchant_id, and its foreign keys are composite
+//   ([merchant_id, x_id] -> [merchant_id, id]), so no row can point at
+//   another merchant's rows.
+// - ledger_entry is append-only: a trigger (in the init migration) refuses
+//   UPDATE and DELETE unless the transaction has SET LOCAL
+//   rewards.erasing = 'on' (the erasure purge).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("REWARDS_DATABASE_URL")
+  directUrl = env("REWARDS_DIRECT_URL")
+}
+
+enum TierWindow {
+  rolling_12_months
+  lifetime
+
+  @@map("tier_window")
+}
+
+enum Platform {
+  shopify
+
+  @@map("platform")
+}
+
+enum ConnectionStatus {
+  active
+  uninstalled
+
+  @@map("connection_status")
+}
+
+enum ImportState {
+  not_started
+  running
+  done
+  failed
+
+  @@map("import_state")
+}
+
+// Named apart from the OrderSource port (app/lib/ports.ts).
+enum OrderSourceKind {
+  live
+  import
+
+  @@map("order_source")
+}
+
+enum NoCashbackReason {
+  import
+  before_install
+  test
+  cancelled
+  off
+  no_tier
+  nothing_to_pay_on
+
+  @@map("no_cashback_reason")
+}
+
+enum LedgerEntryKind {
+  cashback
+  reversal
+  adjustment
+
+  @@map("ledger_entry_kind")
+}
+
+// Named apart from the PayoutRail port (app/lib/ports.ts).
+enum PayoutRailKind {
+  shopify_store_credit
+
+  @@map("payout_rail")
+}
+
+enum PayoutDirection {
+  credit
+  debit
+
+  @@map("payout_direction")
+}
+
+enum PayoutState {
+  pending
+  held
+  sending
+  sent
+  unconfirmed
+  needs_look
+  closed
+  nothing_to_send
+
+  @@map("payout_state")
+}
+
+enum LookReason {
+  refused
+  kept_failing
+  could_not_confirm
+
+  @@map("look_reason")
+}
+
+enum SettledBy {
+  auto
+  merchant
+
+  @@map("settled_by")
+}
+
+enum PrivacyRequestStatus {
+  open
+  downloaded
+  expired
+
+  @@map("privacy_request_status")
+}
+
+model Merchant {
+  id                      String     @id @default(uuid()) @db.Uuid
+  name                    String
+  /// ISO 4217, from Shopify.
+  currency                String
+  /// IANA time zone, from Shopify.
+  timezone                String
+  /// The on switch: off means no new cashback (rule 6).
+  running                 Boolean    @default(false)
+  tierWindow              TierWindow @default(rolling_12_months) @map("tier_window")
+  notifyBuyers            Boolean    @default(false) @map("notify_buyers")
+  reviewPromptDismissedAt DateTime?  @map("review_prompt_dismissed_at")
+  reviewPromptShownAt     DateTime?  @map("review_prompt_shown_at")
+  /// When Home first saw every setup step done (Ruling 60); the setup card stays closed after.
+  setupCompletedAt        DateTime?  @map("setup_completed_at")
+  /// When the merchant pressed Finish later in the setup guide (RP-24); the guide stays away after.
+  guideDismissedAt        DateTime?  @map("guide_dismissed_at")
+  createdAt               DateTime   @default(now()) @map("created_at")
+  updatedAt               DateTime   @updatedAt @map("updated_at")
+
+  connections     Connection[]
+  customers       Customer[]
+  tiers           Tier[]
+  orders          Order[]
+  refunds         Refund[]
+  ledgerEntries   LedgerEntry[]
+  payouts         Payout[]
+  privacyRequests PrivacyRequest[]
+
+  @@map("merchant")
+}
+
+model Connection {
+  id                   String           @id @default(uuid()) @db.Uuid
+  merchantId           String           @map("merchant_id") @db.Uuid
+  platform             Platform
+  /// Canonical `*.myshopify.com` domain.
+  externalAccountId    String           @map("external_account_id")
+  status               ConnectionStatus
+  installedAt          DateTime         @map("installed_at")
+  /// When the current install began: installedAt at first, then each reactivation.
+  activatedAt          DateTime         @map("activated_at")
+  /// The last uninstall; kept on reactivation, so [uninstalledAt, activatedAt) is the gap.
+  uninstalledAt        DateTime?        @map("uninstalled_at")
+  /// The last open (every token exchange); an uninstall from before it is stale.
+  lastAuthAt           DateTime?        @map("last_auth_at")
+  importState          ImportState      @default(not_started) @map("import_state")
+  importOperationId    String?          @map("import_operation_id")
+  importCursor         Int              @default(0) @map("import_cursor")
+  importHorizonDays    Int              @default(365) @map("import_horizon_days")
+  importAttempts       Int              @default(0) @map("import_attempts")
+  importedCount        Int              @default(0) @map("imported_count")
+  importError          String?          @map("import_error")
+  /// Polls in a row whose bulk file answered 4xx; the second ends the attempt.
+  importFileRefusals   Int              @default(0) @map("import_file_refusals")
+  /// When the merchant dismissed the import's outcome on Home; the setup card shows it until then.
+  importDismissedAt    DateTime?        @map("import_dismissed_at")
+  lastTierPassAt       DateTime?        @map("last_tier_pass_at")
+  tierPassRequestedAt  DateTime?        @map("tier_pass_requested_at")
+  /// When the hourly sweep last finished this store (least recently swept first).
+  lastSweptAt          DateTime?        @map("last_swept_at")
+  /// When the widget's settings were last written to the store (syncWidgetConfig); null until the first write, and after one that failed.
+  /// The nightly step visits the oldest first (OPERATIONS-4).
+  widgetConfigSyncedAt DateTime?        @map("widget_config_synced_at")
+  /// The value that write carried, as sent (JSON text): the nightly step skips a store still holding today's value.
+  widgetConfigValue    String?          @map("widget_config_value")
+  /// When a write last failed: a write that started before it records no value (M3e-F1).
+  widgetConfigFailedAt DateTime?        @map("widget_config_failed_at")
+  /// When a write was last tried, however it ended: the nightly step visits the least recently tried first, never-tried first (M3e-F2).
+  widgetConfigTriedAt  DateTime?        @map("widget_config_tried_at")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  merchant        Merchant         @relation(fields: [merchantId], references: [id])
+  customers       Customer[]
+  orders          Order[]
+  refunds         Refund[]
+  ledgerEntries   LedgerEntry[]
+  privacyRequests PrivacyRequest[]
+
+  @@unique([platform, externalAccountId])
+  @@unique([merchantId, id])
+  @@map("connection")
+}
+
+model Customer {
+  id                 String    @id @default(uuid()) @db.Uuid
+  merchantId         String    @map("merchant_id") @db.Uuid
+  connectionId       String    @map("connection_id") @db.Uuid
+  /// Null after shop or customer redact.
+  externalCustomerId String?   @map("external_customer_id")
+  tierId             String?   @map("tier_id") @db.Uuid
+  tierSince          DateTime? @map("tier_since")
+  lockedTierId       String?   @map("locked_tier_id") @db.Uuid
+  resolvedAt         DateTime? @map("resolved_at")
+  redactedAt         DateTime? @map("redacted_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  merchant   Merchant   @relation(fields: [merchantId], references: [id])
+  connection Connection @relation(fields: [merchantId, connectionId], references: [merchantId, id])
+  // Restrict, not Prisma's default SetNull: SetNull would null every column
+  // of the composite key, merchant_id included. A tier is deleted only after
+  // its members have moved (A20).
+  tier       Tier?      @relation("CustomerTier", fields: [merchantId, tierId], references: [merchantId, id], onDelete: Restrict)
+  lockedTier Tier?      @relation("CustomerLockedTier", fields: [merchantId, lockedTierId], references: [merchantId, id], onDelete: Restrict)
+
+  orders        Order[]
+  ledgerEntries LedgerEntry[]
+  payouts       Payout[]
+
+  @@unique([connectionId, externalCustomerId])
+  @@unique([merchantId, id])
+  @@index([merchantId, tierId])
+  // The Customers list and its export: a store's buyers, newest first (OPERATIONS-2)
+  @@index([connectionId, createdAt])
+  @@map("customer")
+}
+
+model Tier {
+  id              String   @id @default(uuid()) @db.Uuid
+  merchantId      String   @map("merchant_id") @db.Uuid
+  name            String
+  minSpend        Decimal  @map("min_spend") @db.Decimal(19, 4)
+  cashbackPercent Decimal  @map("cashback_percent") @db.Decimal(5, 2)
+  position        Int
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  merchant      Merchant   @relation(fields: [merchantId], references: [id])
+  members       Customer[] @relation("CustomerTier")
+  lockedMembers Customer[] @relation("CustomerLockedTier")
+
+  @@unique([merchantId, id])
+  // Each of a merchant's tiers has its own minimum spend (A20).
+  @@unique([merchantId, minSpend])
+  @@map("tier")
+}
+
+/// `order` is a reserved word, so the table is `orders`.
+model Order {
+  id                        String            @id @default(uuid()) @db.Uuid
+  merchantId                String            @map("merchant_id") @db.Uuid
+  connectionId              String            @map("connection_id") @db.Uuid
+  customerId                String            @map("customer_id") @db.Uuid
+  externalOrderId           String            @map("external_order_id")
+  /// Shopify's order name, such as #1001.
+  name                      String
+  source                    OrderSourceKind
+  /// The buyer's (presentment) currency; amounts without `shop` are in it.
+  currency                  String
+  totalAmount               Decimal           @map("total_amount") @db.Decimal(19, 4)
+  productAmount             Decimal           @map("product_amount") @db.Decimal(19, 4)
+  shopProductAmount         Decimal           @map("shop_product_amount") @db.Decimal(19, 4)
+  storeCreditUsed           Decimal           @map("store_credit_used") @db.Decimal(19, 4)
+  shopStoreCreditUsed       Decimal           @map("shop_store_credit_used") @db.Decimal(19, 4)
+  giftCardUsed              Decimal           @map("gift_card_used") @db.Decimal(19, 4)
+  cashbackBase              Decimal           @map("cashback_base") @db.Decimal(19, 4)
+  refundedProductAmount     Decimal           @default(0) @map("refunded_product_amount") @db.Decimal(19, 4)
+  shopRefundedProductAmount Decimal           @default(0) @map("shop_refunded_product_amount") @db.Decimal(19, 4)
+  orderedAt                 DateTime          @map("ordered_at")
+  paidAt                    DateTime          @map("paid_at")
+  cancelledAt               DateTime?         @map("cancelled_at")
+  test                      Boolean
+  noCashbackReason          NoCashbackReason? @map("no_cashback_reason")
+  /// An import order's refunds its bulk file listed, which its quantities already count (Ruling 54).
+  importRefundIds           String[]          @default([]) @map("import_refund_ids")
+  createdAt                 DateTime          @default(now()) @map("created_at")
+  updatedAt                 DateTime          @updatedAt @map("updated_at")
+
+  merchant      Merchant      @relation(fields: [merchantId], references: [id])
+  connection    Connection    @relation(fields: [merchantId, connectionId], references: [merchantId, id])
+  customer      Customer      @relation(fields: [merchantId, customerId], references: [merchantId, id])
+  refunds       Refund[]
+  ledgerEntries LedgerEntry[]
+
+  @@unique([connectionId, externalOrderId])
+  @@unique([merchantId, id])
+  @@index([customerId, orderedAt])
+  // Home's month and 30-day reads of paid orders (OPERATIONS-2)
+  @@index([merchantId, paidAt])
+  // The Orders list: a store's orders, newest first (A22-F6)
+  @@index([connectionId, orderedAt])
+  @@map("orders")
+}
+
+model Refund {
+  id                    String   @id @default(uuid()) @db.Uuid
+  merchantId            String   @map("merchant_id") @db.Uuid
+  connectionId          String   @map("connection_id") @db.Uuid
+  orderId               String   @map("order_id") @db.Uuid
+  externalRefundId      String   @map("external_refund_id")
+  productAmount         Decimal  @map("product_amount") @db.Decimal(19, 4)
+  shopProductAmount     Decimal  @map("shop_product_amount") @db.Decimal(19, 4)
+  refundedAt            DateTime @map("refunded_at")
+  appliedBeforeCashback Boolean  @default(false) @map("applied_before_cashback")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  merchant      Merchant      @relation(fields: [merchantId], references: [id])
+  connection    Connection    @relation(fields: [merchantId, connectionId], references: [merchantId, id])
+  order         Order         @relation(fields: [merchantId, orderId], references: [merchantId, id])
+  ledgerEntries LedgerEntry[]
+
+  @@unique([connectionId, externalRefundId])
+  @@unique([merchantId, id])
+  @@index([merchantId, orderId])
+  @@map("refund")
+}
+
+/// What RewardsPro issued and took back. Append-only (see the header).
+model LedgerEntry {
+  id             String          @id @default(uuid()) @db.Uuid
+  merchantId     String          @map("merchant_id") @db.Uuid
+  connectionId   String          @map("connection_id") @db.Uuid
+  customerId     String          @map("customer_id") @db.Uuid
+  orderId        String?         @map("order_id") @db.Uuid
+  refundId       String?         @map("refund_id") @db.Uuid
+  kind           LedgerEntryKind
+  /// Signed, in `currency`.
+  amount         Decimal         @db.Decimal(19, 4)
+  currency       String
+  /// Signed, in the merchant's currency.
+  shopAmount     Decimal         @map("shop_amount") @db.Decimal(19, 4)
+  tierName       String?         @map("tier_name")
+  ratePercent    Decimal?        @map("rate_percent") @db.Decimal(5, 2)
+  /// `cashback:<order id>`, `reversal:<connection>:<refund id>`, ...
+  idempotencyKey String          @map("idempotency_key")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  merchant   Merchant   @relation(fields: [merchantId], references: [id])
+  connection Connection @relation(fields: [merchantId, connectionId], references: [merchantId, id])
+  customer   Customer   @relation(fields: [merchantId, customerId], references: [merchantId, id])
+  // Restrict for the same reason as Customer.tier.
+  order      Order?     @relation(fields: [merchantId, orderId], references: [merchantId, id], onDelete: Restrict)
+  refund     Refund?    @relation(fields: [merchantId, refundId], references: [merchantId, id], onDelete: Restrict)
+  // At most one: payout.ledger_entry_id is unique, and so is
+  // [merchant_id, ledger_entry_id], which lets Prisma model it one-to-one.
+  payout     Payout?
+
+  @@unique([merchantId, idempotencyKey])
+  @@unique([merchantId, id])
+  // For the foreign keys: a refund's earlier reversals, a buyer's entries,
+  // and the RESTRICT checks of the erasure purge.
+  @@index([merchantId, orderId])
+  @@index([merchantId, customerId])
+  @@index([merchantId, refundId])
+  // Home's month, 30-day and Recent rewards reads (OPERATIONS-2)
+  @@index([merchantId, createdAt])
+  @@map("ledger_entry")
+}
+
+/// Moving one ledger entry's money on the store's own credit system.
+model Payout {
+  id                    String          @id @default(uuid()) @db.Uuid
+  merchantId            String          @map("merchant_id") @db.Uuid
+  ledgerEntryId         String          @unique @map("ledger_entry_id") @db.Uuid
+  customerId            String          @map("customer_id") @db.Uuid
+  rail                  PayoutRailKind
+  direction             PayoutDirection
+  /// Positive, or 0 only when nothing_to_send; `direction` says which way.
+  amount                Decimal         @db.Decimal(19, 4)
+  currency              String
+  state                 PayoutState
+  lookReason            LookReason?     @map("look_reason")
+  attempts              Int             @default(0)
+  nextAttemptAt         DateTime        @map("next_attempt_at")
+  firstFailedAt         DateTime?       @map("first_failed_at")
+  claimedAt             DateTime?       @map("claimed_at")
+  unconfirmedAt         DateTime?       @map("unconfirmed_at")
+  sentAt                DateTime?       @map("sent_at")
+  externalTransactionId String?         @map("external_transaction_id")
+  debitedAmount         Decimal?        @map("debited_amount") @db.Decimal(19, 4)
+  shortfall             Decimal?        @db.Decimal(19, 4)
+  lastError             String?         @map("last_error")
+  settledBy             SettledBy?      @map("settled_by")
+  /// When the hourly check last looked at it while unclear (least recently checked first).
+  lastCheckedAt         DateTime?       @map("last_checked_at")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  merchant    Merchant    @relation(fields: [merchantId], references: [id])
+  ledgerEntry LedgerEntry @relation(fields: [merchantId, ledgerEntryId], references: [merchantId, id])
+  customer    Customer    @relation(fields: [merchantId, customerId], references: [merchantId, id])
+
+  // Redundant with ledgerEntryId's own unique, but the composite relation
+  // needs it to be one-to-one.
+  @@unique([merchantId, ledgerEntryId])
+  @@index([state, nextAttemptAt])
+  @@index([merchantId, customerId])
+  @@map("payout")
+}
+
+// Shopify's session table, exactly the template's columns.
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+/// customers/data_request bookkeeping; the report is built live.
+model PrivacyRequest {
+  id                 String               @id @default(uuid()) @db.Uuid
+  merchantId         String               @map("merchant_id") @db.Uuid
+  connectionId       String               @map("connection_id") @db.Uuid
+  externalCustomerId String?              @map("external_customer_id")
+  shopifyRequestId   String?              @map("shopify_request_id")
+  ordersRequested    String[]             @map("orders_requested")
+  status             PrivacyRequestStatus
+  receivedAt         DateTime             @map("received_at")
+  dueAt              DateTime             @map("due_at")
+  expiresAt          DateTime             @map("expires_at")
+  downloadedAt       DateTime?            @map("downloaded_at")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  merchant   Merchant   @relation(fields: [merchantId], references: [id])
+  connection Connection @relation(fields: [merchantId, connectionId], references: [merchantId, id])
+
+  // A retried customers/data_request opens no second request. A request with
+  // no Shopify id (NULL) never collides: Postgres keeps NULLs distinct.
+  @@unique([connectionId, shopifyRequestId])
+  @@map("privacy_request")
+}
+
+// One lock per cron job (carried columns). A crashed holder's lock expires.
+model CronLock {
+  id         String   @id @default(uuid()) @db.Uuid
+  jobName    String   @unique @map("job_name")
+  lockedAt   DateTime @default(now()) @map("locked_at")
+  expiresAt  DateTime @map("expires_at")
+  instanceId String?  @map("instance_id")
+
+  @@index([expiresAt])
+  @@map("cron_lock")
+}
+
+// The latest run of each cron job per outcome (started, succeeded, ...).
+model CronRun {
+  id           String    @id @default(uuid()) @db.Uuid
+  job          String
+  outcome      String
+  startedAt    DateTime  @map("started_at")
+  finishedAt   DateTime? @map("finished_at")
+  errorMessage String?   @map("error_message") @db.VarChar(500)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@unique([job, outcome])
+  @@map("cron_run")
+}

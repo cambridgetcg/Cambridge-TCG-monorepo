@@ -7,10 +7,12 @@
     "dev:wholesale": "pnpm --filter ./apps/wholesale dev",
     "dev:storefront": "pnpm --filter ./apps/storefront dev",
     "dev:rewardspro": "pnpm --filter ./apps/rewardspro dev",
+    "dev:rewards": "pnpm --filter ./apps/rewards dev",
     "dev:rewardspro-api": "pnpm --filter @cambridge-tcg/rewardspro-api dev",
     "build:wholesale": "pnpm --filter ./apps/wholesale build",
     "build:storefront": "pnpm --filter ./apps/storefront build",
     "build:rewardspro": "pnpm --filter ./apps/rewardspro build",
+    "build:rewards": "pnpm --filter ./apps/rewards build",
     "build:rewardspro-api": "pnpm --filter @cambridge-tcg/rewardspro-api build",
     "test:answering-rhymes": "pnpm --filter @cambridge-tcg/answering-rhymes test",
     "test:opportunity-signal": "pnpm --filter @cambridge-tcg/opportunity-signal test",
@@ -18,9 +20,11 @@
     "test:product-flow": "pnpm --filter @cambridge-tcg/product-flow test",
     "test:product-flow-runtime": "pnpm --filter @cambridge-tcg/product-flow-runtime test",
     "test:rewardspro": "pnpm --filter rewardspro test:unit",
+    "test:rewards": "pnpm --filter rewards test:unit",
+    "test:rewards:postgres": "pnpm --filter rewards test:postgres",
     "test:rewardspro-api": "pnpm --filter @cambridge-tcg/rewardspro-api test",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro' -r exec tsc --noEmit",
+    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro' --filter '!rewards' -r exec tsc --noEmit",
     "audit:tracked-secrets": "node scripts/audit-tracked-secrets.mjs",
     "docs:modules": "node scripts/module-map.mjs --write",
     "audit:modules": "node scripts/module-map.mjs --check",
@@ -119,6 +123,14 @@
         "peerDependenciesMeta": {
           "@types/react": { "optional": true }
         }
+      },
+      "@shopify/polaris-types": {
+        "peerDependencies": {
+          "@types/react": "*"
+        },
+        "peerDependenciesMeta": {
+          "@types/react": { "optional": true }
+        }
       }
     },
     "overrides": {
@@ -139,7 +151,8 @@
       "@visx/text>@types/react": "^18.3.31",
       "@visx/tooltip>@types/react": "^18.3.31",
       "@visx/voronoi>@types/react": "^18.3.31",
-      "@visx/xychart>@types/react": "^18.3.31"
+      "@visx/xychart>@types/react": "^18.3.31",
+      "qs": "^6.16.0"
     }
   }
 }

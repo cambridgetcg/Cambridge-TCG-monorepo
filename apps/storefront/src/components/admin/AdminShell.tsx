@@ -22,6 +22,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/bounty/redemptions",    label: "Redemptions",  group: "ops" },
   { href: "/admin/auctions",              label: "Auctions",     group: "ops" },
   { href: "/admin/verifications",         label: "Verifications", group: "ops" },
+  { href: "/admin/feedback",              label: "Feedback",     group: "ops" },
 
   { href: "/admin/payouts",               label: "Payouts",      group: "money" },
   { href: "/admin/disputes",              label: "Disputes",     group: "money" },
@@ -34,6 +35,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/emails",                label: "Emails",       group: "system" },
   { href: "/admin/og",                    label: "OG Cards",     group: "system" },
   { href: "/admin/emergency",             label: "Emergency",    group: "system" },
+  { href: "/admin/system/monitor",        label: "Monitor",      group: "system" },
 ];
 
 interface AdminShellProps {

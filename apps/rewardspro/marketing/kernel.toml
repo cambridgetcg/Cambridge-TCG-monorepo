@@ -1,0 +1,20 @@
+# RewardsPro brand kernel. Design: business-ecosystem docs/marketing/README.md §4.
+# Changes to ring, positioning, promise or name need Yu's word.
+
+[meta]
+name = "RewardsPro"
+# Prose spellings to avoid. The domain and slug stay lowercase (rewardspro.io, rewardspro).
+banned_spellings = ["Rewards Pro", "Rewardspro", "Rewards-Pro", "RewardPro"]
+status = "relaunching, free-only"   # decision ledger rp-commercial-shape
+ring = "R1"                         # commerce: a house of brands
+tier = "focus"
+review_after = "2027-01-20"
+
+[identity]
+look = "A: navy #1A3E5C and teal #17BEBB, the App Store icon's colours"
+mark = "rewardspro-mark.svg, traced from the App Store icon"
+wordmark_font = "Inter Semi Bold (SIL Open Font License)"
+approved = "approvals.jsonl, 2026-10-20"
+
+# [entity], [voice], [never], [positioning] and [messaging] stay empty until about five merchant
+# interviews exist, rather than being invented (design §4).

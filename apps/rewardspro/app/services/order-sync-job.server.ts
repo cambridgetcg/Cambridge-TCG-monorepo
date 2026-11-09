@@ -2,6 +2,7 @@ import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { Prisma, type OrderFinancialStatus } from "@prisma/client";
 import prisma from "../db.server";
 import { v4 as uuidv4 } from "uuid";
+import { fitsNumeric } from "../utils/fits-numeric";
 
 /**
  * Order Sync Job Service
@@ -771,12 +772,17 @@ async function createNewOrder(
   const isMultiCurrency = shopCurrencyCode && presentmentCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode;
 
   // Calculate exchange rate: presentment / shop (e.g., €100 / £86.21 = 1.16)
-  const exchangeRate = isMultiCurrency && shopAmount > 0
+  const rate = isMultiCurrency && shopAmount > 0
     ? presentmentAmount / shopAmount
     : null;
+  // Kept only when they fit Order.exchangeRate (numeric(10,6)) and
+  // presentmentTotal (numeric(10,2)): an order paid in IDR or VND can pass
+  // them, and must be recorded all the same (as in orders/paid)
+  const exchangeRate = rate !== null && fitsNumeric(rate, 10, 6) ? rate : null;
+  const keepsPresentment = Boolean(isMultiCurrency) && fitsNumeric(presentmentAmount, 10, 2);
 
   if (isMultiCurrency) {
-    console.log(`[Order Sync Job] Multi-currency order ${orderData.name}: ${presentmentCurrencyCode} ${presentmentAmount} → ${shopCurrencyCode} ${shopAmount} (rate: ${exchangeRate?.toFixed(4)})`);
+    console.log(`[Order Sync Job] Multi-currency order ${orderData.name}: ${presentmentCurrencyCode} ${presentmentAmount} → ${shopCurrencyCode} ${shopAmount} (rate: ${rate?.toFixed(4)})`);
   }
 
   await prisma.order.create({
@@ -798,8 +804,8 @@ async function createNewOrder(
       totalRefunded: parseFloat(orderData.totalRefundedSet?.shopMoney?.amount || "0"),
       netAmount: parseFloat(orderData.netPaymentSet?.shopMoney?.amount || orderData.totalPriceSet?.shopMoney?.amount || "0"),
       // Multi-currency tracking fields
-      presentmentCurrency: isMultiCurrency ? presentmentCurrencyCode : null,
-      presentmentTotal: isMultiCurrency ? presentmentAmount : null,
+      presentmentCurrency: keepsPresentment ? presentmentCurrencyCode : null,
+      presentmentTotal: keepsPresentment ? presentmentAmount : null,
       exchangeRate: exchangeRate,
       financialStatus: mapFinancialStatus(orderData.displayFinancialStatus),
       fulfillmentStatus: orderData.displayFulfillmentStatus || null,

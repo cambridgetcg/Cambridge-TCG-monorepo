@@ -12,8 +12,11 @@ import type { DataApiEntitlement } from "./plans";
  * fallback, no URL token. Minute counts live in data_api_rate_buckets and
  * never in member_data_rate_buckets, which the free route saturates at 31.
  * An accepted request adds one to the account's month in
- * data_api_usage_months. Nothing else is recorded: no path, query, IP
- * address or read history.
+ * data_api_usage_months. Metering records nothing else: no path, query, IP
+ * address or read history. (The hourly traffic count, lib/traffic/pull.ts,
+ * counts requests to these routes by route group and status with no key or
+ * account beside them; while few accounts use them, the monitor withholds
+ * those counts, since they could describe one account's use.)
  */
 
 export interface DataApiMinute { limit: number; remaining: number; resetSeconds: number }
