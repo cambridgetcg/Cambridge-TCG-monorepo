@@ -9,7 +9,7 @@ import { hasTestDatabase, resetDatabase } from "./helpers/database";
  * through that transaction, so the schema is never changed for later suites.
  */
 
-const PROBED = ["cronLock", "connection", "merchant"] as const;
+const PROBED = ["cronLock", "connection", "merchant", "refund"] as const;
 type FindFirst = (...args: unknown[]) => Promise<unknown>;
 
 class RolledBack extends Error {}
@@ -64,6 +64,7 @@ describe.skipIf(!hasTestDatabase)("/api/health on Postgres", () => {
   it("answers 200 on an empty database that has every column", async () => {
     await expect(prisma.merchant.count()).resolves.toBe(0);
     await expect(prisma.connection.count()).resolves.toBe(0);
+    await expect(prisma.refund.count()).resolves.toBe(0);
 
     await expect(healthWith()).resolves.toEqual({ status: 200, body: { status: "ok", database: "ready" } });
   });
@@ -88,6 +89,17 @@ describe.skipIf(!hasTestDatabase)("/api/health on Postgres", () => {
     const prismaLog = captureQueryErrorLogs();
 
     await expect(healthWith(dropColumn("connection", "last_auth_at"))).resolves.toMatchObject({ status: 503 });
+
+    expect(error).toHaveBeenCalledWith("[DatabaseHealth] Probe failed", { name: "PrismaClientKnownRequestError", code: "P2022" });
+    expect(prismaLog).toHaveBeenCalledWith(expect.stringContaining("prisma:error"), expect.stringMatching(/does not exist/));
+    await expect(healthWith()).resolves.toMatchObject({ status: 200 });
+  });
+
+  it("answers 503 when a refund column is missing", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const prismaLog = captureQueryErrorLogs();
+
+    await expect(healthWith(dropColumn("refund", "shop_product_amount"))).resolves.toMatchObject({ status: 503 });
 
     expect(error).toHaveBeenCalledWith("[DatabaseHealth] Probe failed", { name: "PrismaClientKnownRequestError", code: "P2022" });
     expect(prismaLog).toHaveBeenCalledWith(expect.stringContaining("prisma:error"), expect.stringMatching(/does not exist/));

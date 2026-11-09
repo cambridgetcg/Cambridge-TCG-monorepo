@@ -1,15 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// The app's client, reduced to the three reads the probe makes
+// The app's client, reduced to the four reads the probe makes
 const cronFindFirst = vi.fn();
 const connectionFindFirst = vi.fn();
 const merchantFindFirst = vi.fn();
+const refundFindFirst = vi.fn();
 const queryRaw = vi.fn();
 vi.mock("~/db.server", () => ({
   default: {
     cronLock: { findFirst: cronFindFirst },
     connection: { findFirst: connectionFindFirst },
     merchant: { findFirst: merchantFindFirst },
+    refund: { findFirst: refundFindFirst },
     $queryRaw: queryRaw,
   },
 }));
@@ -22,6 +24,7 @@ afterEach(() => {
   cronFindFirst.mockReset();
   connectionFindFirst.mockReset();
   merchantFindFirst.mockReset();
+  refundFindFirst.mockReset();
   queryRaw.mockReset();
 });
 
@@ -37,8 +40,9 @@ const missingColumn = (column: string) =>
  * /api/health's database probe (READINESS-3, RP-25): ready only when one of
  * the app's own tables answers, so a URL naming the right host but the wrong
  * schema or role fails the switch's step 4 instead of passing it, and only
- * when a whole merchant row and a whole connection row can be read, so code
- * deployed before its migration turns health red.
+ * when a whole connection row, a whole merchant row and a whole refund row
+ * can be read, so code deployed before its migration on those tables turns
+ * health red.
  */
 describe("probeDatabase", () => {
   it("reads one of the app's own tables, the cheapest way, and is ready when it answers", async () => {
@@ -49,21 +53,25 @@ describe("probeDatabase", () => {
     expect(cronFindFirst).toHaveBeenCalledWith({ select: { id: true } });
   });
 
-  it("reads one full connection row and one full merchant row after cron_lock, one at a time", async () => {
+  it("reads one full connection row, one full merchant row and one full refund row after cron_lock, one at a time", async () => {
     cronFindFirst.mockResolvedValue(null);
     connectionFindFirst.mockResolvedValue(null);
     merchantFindFirst.mockResolvedValue(null);
+    refundFindFirst.mockResolvedValue(null);
 
     await expect(probeDatabase()).resolves.toBe(true);
 
     // No arguments: every column Prisma knows, and a real query even on an empty table
     expect(connectionFindFirst).toHaveBeenCalledWith();
     expect(merchantFindFirst).toHaveBeenCalledWith();
+    expect(refundFindFirst).toHaveBeenCalledWith();
     const [cron] = cronFindFirst.mock.invocationCallOrder;
     const [connection] = connectionFindFirst.mock.invocationCallOrder;
     const [merchant] = merchantFindFirst.mock.invocationCallOrder;
+    const [refund] = refundFindFirst.mock.invocationCallOrder;
     expect(cron).toBeLessThan(connection);
     expect(connection).toBeLessThan(merchant);
+    expect(merchant).toBeLessThan(refund);
   });
 
   it("is not ready when the table can't be read (wrong schema or no grant), and says only the error's name", async () => {
@@ -77,7 +85,7 @@ describe("probeDatabase", () => {
     expect(error).toHaveBeenCalledWith("[DatabaseHealth] Probe failed", { name: "PrismaClientKnownRequestError" });
   });
 
-  it("is not ready when a merchant column is missing, and logs only the error's name and code", async () => {
+  it("is not ready when a merchant column is missing, logs only the error's name and code, and reads no further", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     cronFindFirst.mockResolvedValue(null);
     connectionFindFirst.mockResolvedValue(null);
@@ -86,6 +94,19 @@ describe("probeDatabase", () => {
     await expect(probeDatabase()).resolves.toBe(false);
 
     // Exactly these fields: the message and meta name the column
+    expect(error).toHaveBeenCalledWith("[DatabaseHealth] Probe failed", { name: "PrismaClientKnownRequestError", code: "P2022" });
+    expect(refundFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("is not ready when a refund column is missing", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    cronFindFirst.mockResolvedValue(null);
+    connectionFindFirst.mockResolvedValue(null);
+    merchantFindFirst.mockResolvedValue(null);
+    refundFindFirst.mockRejectedValue(missingColumn("refund.shop_product_amount"));
+
+    await expect(probeDatabase()).resolves.toBe(false);
+
     expect(error).toHaveBeenCalledWith("[DatabaseHealth] Probe failed", { name: "PrismaClientKnownRequestError", code: "P2022" });
   });
 
@@ -125,5 +146,6 @@ describe("probeDatabase", () => {
     expect(cronFindFirst).toHaveBeenCalledTimes(1);
     expect(connectionFindFirst).not.toHaveBeenCalled();
     expect(merchantFindFirst).not.toHaveBeenCalled();
+    expect(refundFindFirst).not.toHaveBeenCalled();
   });
 });

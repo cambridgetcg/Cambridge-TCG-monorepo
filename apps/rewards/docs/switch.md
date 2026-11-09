@@ -171,7 +171,7 @@ Paste it as the value, then clear the clipboard with `pbcopy < /dev/null`. On 20
 Push a commit touching `apps/rewards` to main (the B1 PR stays unmerged). Checks:
 
 - The production deployment is READY. Read its build log once, to see the Output Directory change took.
-- `GET /api/health` answers `200 {"status":"ok","database":"ready"}`. Since F1 the probe reads one of the app's own tables (`cron_lock`), so a URL with the right host but the wrong schema or role answers 503 here instead of passing (READINESS-3).
+- `GET /api/health` answers `200 {"status":"ok","database":"ready"}`. Since F1 the probe reads one of the app's own tables (`cron_lock`), so a URL with the right host but the wrong schema or role answers 503 here instead of passing (READINESS-3). Since RP-25 it also reads one whole row each of `merchant`, `connection` and `refund`, so a column of those three tables that the code knows and the database lacks answers 503 too; a column missing from any other table doesn't show here.
 - A `POST` with a bad HMAC to each webhook URI answers 401: `/webhooks/orders/paid`, `/webhooks/orders/refunded`, `/webhooks/orders/cancelled`, `/webhooks/app/uninstalled`, `/webhooks/app/scopes_update`, `/webhooks/compliance`. (Before B3 the released version also had `/webhooks/orders/create`, `/webhooks/orders/fulfilled`, `/webhooks/customers/create`, `/webhooks/customers/update` and `/webhooks/products/update`; B3 step 5 removed their routes, so they now answer 404.)
 - A webhook signed with the released app's real secret answers 200. A bad HMAC answers 401 whatever secret Vercel holds, so only this proves `SHOPIFY_API_SECRET` is Rewards Pro's (client id `026ce3bf…`), not the staging app's. The CLI's sample `orders/cancelled` names no real store, so the app logs "No store connection for shop.myshopify.com; nothing to do" and answers 200, writing nothing:
 
@@ -283,7 +283,7 @@ As the plan says, plus:
 
 ## A pull request with a migration
 
-**Apply a PR's migration to production and see `migrate:drift` pass, then merge.** A merge to main builds and goes live at once. Code that reads a column production doesn't have yet breaks every webhook, the widget proxy, every admin page and the hourly sweep (`findConnection` reads every merchant column), and `/api/health` answers 503 (RP-25).
+**Apply a PR's migration to production and see `migrate:drift` pass, then merge.** A merge to main builds and goes live at once. Code that reads a column production doesn't have yet breaks every webhook, the widget proxy, every admin page and the hourly sweep (`findConnection` reads every merchant and connection column). `/api/health` answers 503 only when the missing column is in `merchant`, `connection` or `refund`, the three tables whose whole rows it reads; the production build's check below covers every migration (RP-25).
 
 1. **Yu:** from a clean checkout of the PR's head commit, run B2 step 1's item 3 (`migrate:deploy && migrate:drift`). The drift check must exit 0. Migrations are additive and nullable, so the live code runs on the new schema until the merge.
 2. **Ai on Yu's yes:** reads Yu's pasted output (never the URL), then merges.
@@ -316,7 +316,16 @@ COMMIT;
   ```
 
 - If `SET LOCAL ROLE rewards_app` is refused, run `GRANT rewards_app TO postgres;` first, as in B2 step 1.
-- Read back: `select migration_name, checksum, finished_at, rolled_back_at from rewards._prisma_migrations order by migration_name;`. Every row needs `finished_at` set, `rolled_back_at` null, and the checksum `shasum -a 256` prints for its file. This read-back stands in for the drift check until the reset; it does not catch a hand-made schema change outside a migration.
+- Read back the rows: `select migration_name, checksum, finished_at, rolled_back_at from rewards._prisma_migrations order by migration_name;`. Every row needs `finished_at` set, `rolled_back_at` null, and the checksum `shasum -a 256` prints for its file. A row proves only that the INSERT committed, not that the migration's SQL ran with it: the paste line above is a comment, so a transaction with nothing pasted still commits the row, and the build check then passes.
+- Then, after COMMIT, read back what the migration created: its columns from `information_schema.columns` and its indexes from `pg_indexes`, for example
+
+  ```sql
+  select table_name, column_name from information_schema.columns
+    where table_schema = 'rewards' and (table_name, column_name) in (('<table>', '<column>'));
+  select indexname from pg_indexes where schemaname = 'rewards' and indexname in ('<index>');
+  ```
+
+  Every PR with a migration gives the exact read-back queries in its body, with the number of rows each must answer. Both read-backs stand in for the drift check until the reset; neither catches a hand-made schema change outside a migration.
 
 ## Spec 9.2 checklist
 

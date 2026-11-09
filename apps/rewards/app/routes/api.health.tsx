@@ -4,9 +4,11 @@
  *
  * Answers 200 only when the database answered bounded reads of the app's
  * own tables (probeDatabase: schema and grants, not only the host, and one
- * full merchant row and one full connection row, so a column the deployed
- * code knows and the database lacks shows here), and 503 otherwise, so an
- * outage is visible to uptime checks. It never inspects the
+ * whole row each of merchant, connection and refund, so a column of those
+ * three tables that the deployed code knows and the database lacks shows
+ * here; other tables are left to the production build's migration check,
+ * which covers every migration), and 503 otherwise, so an outage is
+ * visible to uptime checks. It never inspects the
  * request and never returns configuration or error detail. One probe result
  * is shared for a few seconds per instance, so public traffic cannot turn
  * into database load.
