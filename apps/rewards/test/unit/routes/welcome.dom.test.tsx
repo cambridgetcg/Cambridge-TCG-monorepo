@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GUIDE } from "~/admin/guide-words";
 import { MAX_BINS } from "~/lib/ladder";
 import { TIER_ERRORS, TIER_NAME_MAX } from "~/lib/tiers.server";
-import type { WelcomeData } from "~/routes/app.welcome";
+import type { GoLiveData, WelcomeData } from "~/routes/app.welcome";
 import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
 
 // The guide's loader and action are replaced by stand-ins; nothing here
@@ -113,19 +113,24 @@ const welcomeData = (o: Partial<WelcomeData> = {}): WelcomeData => ({
   ladder: null,
   everyonePercent: null,
   firstPercent: null,
-  storeCredit: true,
-  storeCreditBanner: null,
-  storeCreditLink: null,
+  goLive: null,
   themeEditorUrl: `https://${SHOP}/admin/themes/current/editor?context=apps&activateAppId=k1/membership_widget`,
   draftOrderUrl: `https://${SHOP}/admin/draft_orders/new`,
   placing: false,
-  switchedOnAt: null,
-  tryIt: [],
   ...o,
 });
 const step2 = (o: Partial<WelcomeData> = {}) => welcomeData({ step: 2, ladder: ladder(), ...o });
-const step3 = (o: Partial<WelcomeData> = {}) => welcomeData({ step: 3, editable: false, canGoLive: true, firstPercent: 3, ...o });
-const live = (o: Partial<WelcomeData> = {}) => step3({ running: true, switchedOnAt: "2026-11-08T10:00:00.000Z", ...o });
+/** Step 3, with its own reads (`g`) beside the page's data (`o`). */
+const step3 = (o: Partial<WelcomeData> = {}, g: Partial<GoLiveData> = {}) =>
+  welcomeData({
+    step: 3,
+    editable: false,
+    canGoLive: true,
+    firstPercent: 3,
+    goLive: { storeCredit: true, storeCreditBanner: null, storeCreditLink: null, switchedOnAt: null, tryIt: [], ...g },
+    ...o,
+  });
+const live = (o: Partial<WelcomeData> = {}, g: Partial<GoLiveData> = {}) => step3({ running: true, ...o }, { switchedOnAt: "2026-11-08T10:00:00.000Z", ...g });
 
 /** App Bridge's `shopify` global, with the widget embed in the given state. */
 function stubAppBridge(status: "active" | "available") {
@@ -338,8 +343,8 @@ describe("The guide, every step", () => {
       ["step 1", welcomeData({ multiCurrency: true })],
       ["step 2", step2()],
       ["step 3", step3()],
-      ["step 3, store credit off", step3({ storeCredit: false, storeCreditBanner: banner })],
-      ["step 3, live", live({ tryIt: [ORDER_1001] })],
+      ["step 3, store credit off", step3({}, { storeCredit: false, storeCreditBanner: banner })],
+      ["step 3, live", live({}, { tryIt: [ORDER_1001] })],
     ];
     for (const [page, data] of pages) {
       stubAppBridge("available");
@@ -729,12 +734,14 @@ describe("Step 3: Go live", () => {
   it("shows store credit's problems with Home's settings link, and the placing note", async () => {
     const banner = "Buyers can't spend their store credit yet: store credit is turned off in Settings > Customer accounts.";
     await renderWelcome(
-      step3({
-        storeCredit: false,
-        storeCreditBanner: banner,
-        storeCreditLink: { label: "Open customer account settings", href: "shopify://admin/settings/customer_accounts" },
-        placing: true,
-      }),
+      step3(
+        { placing: true },
+        {
+          storeCredit: false,
+          storeCreditBanner: banner,
+          storeCreditLink: { label: "Open customer account settings", href: "shopify://admin/settings/customer_accounts" },
+        },
+      ),
     );
     screen.getByText(GUIDE.storeCreditNo);
     screen.getByText(banner);
@@ -758,7 +765,7 @@ describe("Step 3: Go live", () => {
   });
 
   it("shows the smallest earning amount and the chosen order's result after switch-on", async () => {
-    await renderWelcome(live({ tryIt: [ORDER_1002, ORDER_1001] }));
+    await renderWelcome(live({}, { tryIt: [ORDER_1002, ORDER_1001] }));
     expect(document.querySelector(`s-section[heading="${GUIDE.liveHeading}"]`)).not.toBeNull();
     screen.getByText(GUIDE.tryItHeading);
     screen.getByText(GUIDE.tryItSteps("£0.17")[0]);
@@ -789,7 +796,7 @@ describe("Step 3: Go live", () => {
 
   // R14 / 9-F1: the try-it's last step is a refund, which comes after the order has settled
   it("keeps following a settled order, two minutes from each return, to see a refund", async () => {
-    await renderWelcome(live({ tryIt: [ORDER_1002] }));
+    await renderWelcome(live({}, { tryIt: [ORDER_1002] }));
     screen.getByText("Issued");
     expect(usePolling).toHaveBeenLastCalledWith(true, 10_000, { forMs: 120_000, restartKey: "done:2026-11-08T10:00:00.000Z:0" });
     // Back from refunding it in Shopify
@@ -801,11 +808,11 @@ describe("Step 3: Go live", () => {
 
   // 9-F5: the lone order is followed by its id, so a second order coming in doesn't drop it
   it("keeps following the lone order once a newer one comes in", async () => {
-    let next = live({ tryIt: [ORDER_1001] });
+    let next = live({}, { tryIt: [ORDER_1001] });
     await renderWelcome(next, { next: () => next });
     screen.getByText("Waiting");
 
-    next = live({ tryIt: [ORDER_1002, ORDER_1001] });
+    next = live({}, { tryIt: [ORDER_1002, ORDER_1001] });
     await act(async () => {
       await refresh!();
     });
@@ -820,7 +827,7 @@ describe("Step 3: Go live", () => {
   });
 
   it("follows a lone order without asking which", async () => {
-    await renderWelcome(live({ tryIt: [ORDER_1001] }));
+    await renderWelcome(live({}, { tryIt: [ORDER_1001] }));
     expect(document.querySelector("s-choice-list")).toBeNull();
     screen.getByText("Waiting");
     expect(document.querySelector('s-link[href="/app/orders/o1"]')).not.toBeNull();

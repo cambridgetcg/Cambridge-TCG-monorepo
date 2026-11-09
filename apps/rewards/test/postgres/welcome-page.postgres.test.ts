@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
-import { guideDue } from "~/lib/guide.server";
+import { guideDue, guideSwitchedOnAt } from "~/lib/guide.server";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
 import { TIER_ERRORS, TIER_NAME_MAX, requestTierPass } from "~/lib/tiers.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
@@ -23,6 +23,11 @@ vi.mock("~/admin/require-merchant.server", () => ({ requireMerchant: vi.fn() }))
 vi.mock("~/shopify/bulk-import.server", async (original) => {
   const actual = await original<typeof import("~/shopify/bulk-import.server")>();
   return { ...actual, pollImport: vi.fn(actual.pollImport) };
+});
+// The real guideSwitchedOnAt, watched for step 3's reads (8-F3)
+vi.mock("~/lib/guide.server", async (original) => {
+  const actual = await original<typeof import("~/lib/guide.server")>();
+  return { ...actual, guideSwitchedOnAt: vi.fn(actual.guideSwitchedOnAt) };
 });
 // The real requestTierPass, watched for one tier pass per saved ladder (8-F4)
 vi.mock("~/lib/tiers.server", async (original) => {
@@ -188,6 +193,7 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
     requireMerchant?.mockReset();
     vi.mocked(pollImport).mockClear();
     vi.mocked(requestTierPass).mockClear();
+    vi.mocked(guideSwitchedOnAt).mockClear();
     vi.restoreAllMocks();
   });
 
@@ -325,18 +331,35 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       expect(await load("/app/welcome?step=2")).toMatchObject({ everyonePercent: 6, firstPercent: 6 });
     });
 
+    // 8-F3: steps 1 and 2 show neither the store-credit check nor the try-it, so they don't ask for them
+    it("asks Shopify about store credit and reads the switch-on only on step 3", async () => {
+      const storeCreditCalls = (admin: { calls: Call[] }) =>
+        admin.calls.filter((call) => call.operation === "RewardsCustomerAccounts" || call.operation === "RewardsStoreCreditConfig");
+      await seedTier(conn, "Everyone", "0", "3", 0);
+      for (const path of ["/app/welcome", "/app/welcome?step=2", "/app/welcome?step=1&read=1"]) {
+        const admin = fakeAdmin();
+        const data = await load(path, admin);
+        expect(data.step, path).not.toBe(3);
+        expect(data.goLive, path).toBeNull();
+        expect(storeCreditCalls(admin), path).toEqual([]);
+      }
+      expect(guideSwitchedOnAt).not.toHaveBeenCalled();
+
+      const admin = fakeAdmin();
+      const data = await load("/app/welcome?step=3", admin);
+      expect(data.goLive).toMatchObject({ storeCredit: true, switchedOnAt: null, tryIt: [] });
+      expect(storeCreditCalls(admin).map((call) => call.operation).sort()).toEqual(["RewardsCustomerAccounts", "RewardsStoreCreditConfig"]);
+      expect(guideSwitchedOnAt).toHaveBeenCalledTimes(1);
+    });
+
     it("gives step 3 its checks and links", async () => {
       await seedTier(conn, "Everyone", "0", "3", 0);
       const data = await load("/app/welcome?step=3");
       expect(data).toMatchObject({
         step: 3,
-        storeCredit: true,
-        storeCreditBanner: null,
-        storeCreditLink: null,
+        goLive: { storeCredit: true, storeCreditBanner: null, storeCreditLink: null, switchedOnAt: null, tryIt: [] },
         draftOrderUrl: `https://${SHOP}/admin/draft_orders/new`,
         placing: false,
-        switchedOnAt: null,
-        tryIt: [],
       });
       expect(data.themeEditorUrl).toContain(`https://${SHOP}/admin/themes/current/editor`);
     });
@@ -344,13 +367,13 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
     it("says when store credit can't be spent, in Home's words with Home's settings link, and when Shopify didn't say", async () => {
       await seedTier(conn, "Everyone", "0", "3", 0);
       const off = fakeAdmin({ RewardsStoreCreditConfig: { data: { storeCreditConfiguration: { storeCreditEnabled: false } } } });
-      expect(await load("/app/welcome?step=3", off)).toMatchObject({
+      expect((await load("/app/welcome?step=3", off)).goLive).toMatchObject({
         storeCredit: false,
         storeCreditBanner: "Buyers can't spend their store credit yet: store credit is turned off in Settings > Customer accounts.",
         storeCreditLink: { label: "Open customer account settings", href: "shopify://admin/settings/customer_accounts" },
       });
       const unsure = fakeAdmin({ RewardsStoreCreditConfig: { errors: [{ message: "Throttled" }] } });
-      expect(await load("/app/welcome?step=3", unsure)).toMatchObject({ storeCredit: null, storeCreditBanner: null, storeCreditLink: null });
+      expect((await load("/app/welcome?step=3", unsure)).goLive).toMatchObject({ storeCredit: null, storeCreditBanner: null, storeCreditLink: null });
     });
   });
 
@@ -423,8 +446,8 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       const order = await seedOrder(conn, buyer.id, { orderedAt: new Date() });
       const data = await load("/app/welcome?step=3");
       expect(data).toMatchObject({ step: 3, running: true });
-      expect(data.switchedOnAt).not.toBeNull();
-      expect(data.tryIt).toMatchObject([{ orderId: order.id, name: order.name, externalCustomerId: "7001" }]);
+      expect(data.goLive?.switchedOnAt).not.toBeNull();
+      expect(data.goLive?.tryIt).toMatchObject([{ orderId: order.id, name: order.name, externalCustomerId: "7001" }]);
     });
 
     it("lists only orders since this guide's switch-on, even after an old Home setup", async () => {
@@ -442,8 +465,8 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       const fresh = await seedOrder(conn, buyer.id, { orderedAt: new Date() });
 
       const data = await load("/app/welcome?step=3");
-      expect(new Date(data.switchedOnAt!).getTime()).toBeGreaterThan(monthAgo.getTime() + DAY);
-      expect(data.tryIt.map((o) => o.orderId)).toEqual([fresh.id]);
+      expect(new Date(data.goLive!.switchedOnAt!).getTime()).toBeGreaterThan(monthAgo.getTime() + DAY);
+      expect(data.goLive!.tryIt.map((o) => o.orderId)).toEqual([fresh.id]);
     });
 
     it("refuses switching on with no tiers", async () => {

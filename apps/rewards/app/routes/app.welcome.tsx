@@ -97,22 +97,56 @@ export type WelcomeData = {
   everyonePercent: number | null;
   /** Tier 1's rate once saved */
   firstPercent: number | null;
+  /** Step 3's own reads, null on steps 1 and 2, which never show them (8-F3) */
+  goLive: GoLiveData | null;
+  themeEditorUrl: string;
+  /** Shopify's new draft order page, opened in a new tab */
+  draftOrderUrl: string;
+  /** A requested tier pass hasn't reached every buyer yet */
+  placing: boolean;
+};
+
+/** What step 3 asks Shopify and the database for: its store-credit check and the try-it. */
+export type GoLiveData = {
   /** Store credit can be spent: true, false (problems) or null (Shopify didn't say), as Home maps it */
   storeCredit: boolean | null;
   /** Home's store-credit banner text when there are problems */
   storeCreditBanner: string | null;
   /** That banner's link to Shopify's customer account settings, in Home's words */
   storeCreditLink: { label: string; href: string } | null;
-  themeEditorUrl: string;
-  /** Shopify's new draft order page, opened in a new tab */
-  draftOrderUrl: string;
-  /** A requested tier pass hasn't reached every buyer yet */
-  placing: boolean;
-  /** When the guide's switch-on happened (guideSwitchedOnAt), as ISO text */
+  /** When the guide's switch-on happened (guideSwitchedOnAt), as ISO text; null while cashback is off */
   switchedOnAt: string | null;
-  /** Step 3, once switched on: the orders since then */
+  /** Once switched on: the orders since then */
   tryIt: TryItOrder[];
 };
+
+/**
+ * Step 3's checks and try-it: whether buyers can spend store credit, in
+ * Home's words and with Home's link, and the orders since the switch-on.
+ */
+async function readGoLive(admin: GraphqlClient, conn: ConnectionContext, editorUrl: string): Promise<GoLiveData> {
+  const [spend, switchedOn] = await Promise.all([storeCreditSpendProblems(admin, conn.shop), guideSwitchedOnAt(conn.merchantId)]);
+  const tryIt = switchedOn ? await tryItOrders(conn, switchedOn) : [];
+  const creditBanner = homeBanners(
+    {
+      privacyDueAt: null,
+      spendProblems: spend.state === "problems" ? spend.problems : [],
+      needsLook: 0,
+      needsLookOrderId: null,
+      timezone: conn.timezone,
+      themeEditorUrl: editorUrl,
+    },
+    null,
+  ).find((banner) => banner.kind === "store-credit");
+  return {
+    // Ruling 59: null when Shopify couldn't say, shown as not checked
+    storeCredit: spend.state === "ok" ? true : spend.state === "unknown" ? null : false,
+    storeCreditBanner: creditBanner?.text ?? null,
+    storeCreditLink: creditBanner?.link ?? null,
+    switchedOnAt: switchedOn?.toISOString() ?? null,
+    tryIt,
+  };
+}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, conn } = await requireMerchant(request);
@@ -121,7 +155,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const asked = url.searchParams.get("step");
   const now = new Date();
 
-  const [tiers, spend] = await Promise.all([tiersOf(conn.merchantId), storeCreditSpendProblems(admin, conn.shop)]);
+  const tiers = await tiersOf(conn.merchantId);
   let state = await homeState(conn, now);
   if (state.importState === "running") {
     await followImport(admin, conn);
@@ -133,12 +167,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const furthest: WelcomeData["step"] = canGoLive ? 3 : editable ? 2 : 1;
   const step: WelcomeData["step"] = reading ? 1 : asked === "2" ? (editable ? 2 : furthest) : asked === "3" ? (canGoLive ? 3 : furthest) : 1;
 
-  const [basics, ladderData, switchedOn] = await Promise.all([
+  const editorUrl = themeEditorUrl(conn.shop, process.env.SHOPIFY_API_KEY);
+  // Each step reads only what it shows: store credit and the switch-on only on step 3 (8-F3)
+  const [basics, ladderData, goLive] = await Promise.all([
     step === 1 ? readGuideBasics(conn, now) : null,
     step === 2 ? readLadder(conn, now) : null,
-    guideSwitchedOnAt(conn.merchantId),
+    step === 3 ? readGoLive(admin, conn, editorUrl) : null,
   ]);
-  const tryIt = step === 3 && switchedOn ? await tryItOrders(conn, switchedOn) : [];
 
   let ladder: WelcomeData["ladder"] = null;
   if (ladderData) {
@@ -167,18 +202,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }).slice(0, 1)
       : [];
 
-  const editorUrl = themeEditorUrl(conn.shop, process.env.SHOPIFY_API_KEY);
-  const creditBanner = homeBanners(
-    {
-      privacyDueAt: null,
-      spendProblems: spend.state === "problems" ? spend.problems : [],
-      needsLook: 0,
-      needsLookOrderId: null,
-      timezone: conn.timezone,
-      themeEditorUrl: editorUrl,
-    },
-    null,
-  ).find((banner) => banner.kind === "store-credit");
   const [first] = tiers;
 
   return {
@@ -199,15 +222,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // A display percent (numeric(5,2)), never used in arithmetic
     everyonePercent: tiers.length === 1 && first.name === BASE_TIER_NAME ? first.cashbackPercent.toNumber() : null,
     firstPercent: first ? first.cashbackPercent.toNumber() : null,
-    // Ruling 59: null when Shopify couldn't say, shown as not checked
-    storeCredit: spend.state === "ok" ? true : spend.state === "unknown" ? null : false,
-    storeCreditBanner: creditBanner?.text ?? null,
-    storeCreditLink: creditBanner?.link ?? null,
+    goLive,
     themeEditorUrl: editorUrl,
     draftOrderUrl: `https://${conn.shop}/admin/draft_orders/new`,
     placing: state.placing,
-    switchedOnAt: switchedOn?.toISOString() ?? null,
-    tryIt,
   } satisfies WelcomeData;
 };
 
@@ -597,6 +615,7 @@ function StepTwo({
 /** Step 3, Go live: the checks, then the switch, then once on the try-it with one order. */
 function StepThree({
   d,
+  goLive,
   widget,
   isLive,
   switchBusy,
@@ -607,6 +626,7 @@ function StepThree({
   finishLater,
 }: {
   d: WelcomeData;
+  goLive: GoLiveData;
   widget: WidgetEmbed;
   isLive: boolean;
   switchBusy: boolean;
@@ -624,13 +644,13 @@ function StepThree({
       <s-section heading={GUIDE.checksHeading}>
         <s-stack gap="base">
           <s-stack gap="small-200">
-            <Check ok={d.storeCredit} yes={GUIDE.storeCreditYes} no={GUIDE.storeCreditNo} unknown={GUIDE.storeCreditUnknown} />
-            {d.storeCredit === false && d.storeCreditBanner ? (
+            <Check ok={goLive.storeCredit} yes={GUIDE.storeCreditYes} no={GUIDE.storeCreditNo} unknown={GUIDE.storeCreditUnknown} />
+            {goLive.storeCredit === false && goLive.storeCreditBanner ? (
               <s-text>
-                {d.storeCreditBanner}{" "}
-                {d.storeCreditLink ? (
-                  <s-link href={d.storeCreditLink.href} target="_top">
-                    {d.storeCreditLink.label}
+                {goLive.storeCreditBanner}{" "}
+                {goLive.storeCreditLink ? (
+                  <s-link href={goLive.storeCreditLink.href} target="_top">
+                    {goLive.storeCreditLink.label}
                   </s-link>
                 ) : null}
               </s-text>
@@ -659,8 +679,8 @@ function StepThree({
                 </s-link>
               </>
             )}
-            {d.tryIt.length === 0 ? <s-text color="subdued">{GUIDE.tryItNone}</s-text> : null}
-            {d.tryIt.length > 1 ? (
+            {goLive.tryIt.length === 0 ? <s-text color="subdued">{GUIDE.tryItNone}</s-text> : null}
+            {goLive.tryIt.length > 1 ? (
               <s-choice-list
                 label={GUIDE.tryItPick}
                 name="tryIt"
@@ -669,7 +689,7 @@ function StepThree({
                   onPick(value ?? null);
                 }}
               >
-                {d.tryIt.map((option) => (
+                {goLive.tryIt.map((option) => (
                   <s-choice key={option.orderId} value={option.orderId} selected={option.orderId === chosen?.orderId}>
                     {option.name}
                   </s-choice>
@@ -776,15 +796,17 @@ export default function Welcome() {
   };
   // The order followed, by its id: a lone order is taken as picked, so a newer one coming in doesn't drop it (9-F5)
   const [picked, setPicked] = useState<string | null>(null);
-  if (d.tryIt.length === 1 && picked !== d.tryIt[0].orderId) setPicked(d.tryIt[0].orderId);
-  const chosen = d.tryIt.find((order) => order.orderId === picked) ?? null;
+  const tryIt = d.goLive?.tryIt ?? [];
+  if (tryIt.length === 1 && picked !== tryIt[0].orderId) setPicked(tryIt[0].orderId);
+  const chosen = tryIt.find((order) => order.orderId === picked) ?? null;
 
   const importRunning = d.importState === "running";
+  const switchedOnAt = d.goLive?.switchedOnAt ?? null;
   // Followed whatever the order's status: a settled one can still be refunded, which takes the credit back off (R14)
-  const tryItWaiting = d.step === 3 && d.switchedOnAt !== null;
+  const tryItWaiting = d.step === 3 && switchedOnAt !== null;
   usePolling(importRunning || d.placing || tryItWaiting, FOLLOW_MS, {
     forMs: importRunning ? undefined : PASS_FOLLOW_MS,
-    restartKey: `${d.importState}:${d.switchedOnAt ?? ""}:${widget.returns}`,
+    restartKey: `${d.importState}:${switchedOnAt ?? ""}:${widget.returns}`,
   });
 
   return (
@@ -812,9 +834,10 @@ export default function Welcome() {
       {d.step === 2 ? (
         <StepTwo d={d} fields={fields} rowErrors={rowErrors} saveError={saveError} ladderRefused={Boolean(ladderErrors?.form)} saveBusy={saveBusy} onSave={save} finishLater={finishLater} />
       ) : null}
-      {d.step === 3 ? (
+      {d.step === 3 && d.goLive ? (
         <StepThree
           d={d}
+          goLive={d.goLive}
           widget={widget}
           isLive={isLive}
           switchBusy={switchBusy}

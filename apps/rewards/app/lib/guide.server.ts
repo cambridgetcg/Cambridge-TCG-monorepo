@@ -36,6 +36,7 @@ export async function dismissGuide(merchantId: string, now: Date = new Date()): 
  * on and setup is completed; else null. A store that completed setup on Home
  * long ago keeps its first setupCompletedAt (markSetupCompleted), so the
  * ladder the guide saved since stands in for its switch-on.
+ * For a paused store with old tiers that switches on at step 3 this is an older time (R18); the try-it list is still the newest five live orders, from which the merchant picks theirs.
  */
 export async function guideSwitchedOnAt(merchantId: string): Promise<Date | null> {
   if (!UUID.test(merchantId)) return null;
