@@ -40,6 +40,35 @@ for discussion. It decides nothing, and nothing in it is built.
   Nothing proposed changed. A second pass the same day pointed the line
   links at the refreshed tree (`main` with #108 to #110) and corrected what
   `agent.self` returns; it did not re-read every claim.
+- **Built 2026-11-10** by AI agents (Claude Code subagents run by a workflow
+  in session 99296f25) on branch `claude/agent-key-expiry`, cut from
+  `claude/agent-auth-phase2-design` at `81c63959`. They built decisions 1 to 9
+  as follows. 1: per key, chosen at mint by whoever mints it. 2: as
+  recommended (7, 30, 90 or 365 days, a date from tomorrow UTC to 366 days
+  ahead, or never with the warning; the range is enforced in the app and the
+  CHECK says only that expiry comes after creation). 3: 90 days pre-selected.
+  4: only the shared parser; self-serve registration stays closed. 5: as
+  recommended. 6: existing keys unchanged, NULL meaning never. 7: no email;
+  the operator sees `/account/agents` (§9) and the holder the in-band facts
+  (§6), and nothing is sent to anyone. 8: nothing new; the methodology page
+  documents mint, move, check last use, revoke. 9: not now. Decisions 1, 6
+  and 7 were listed for Yu; agents took them as their own calls under Yu's
+  delegation of 2026-10-20 (as the
+  [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)
+  cites it), and they are not Yu's decisions. The others are this page's
+  agent's defaults, also unreviewed by Yu. §8's email, sweep, queue handler,
+  category and email migration are not built. Departures from the proposal
+  below, which is unchanged: a lifetime is `make_interval(hours => 24 * n)`,
+  because a `days` interval follows daylight saving in a non-UTC session;
+  0151 has no `idx_agent_keys_expiring`, which only the unbuilt sweep needed;
+  and the guide keeps its `last_verified` date, which records a person's
+  walk-through, with `revised` moved instead. The §11 rollout rule (apply
+  0151, then deploy; no fallback for a missing column) is written in 0151's
+  header, as 0112 did for its column, and as a condition in the changelog
+  entry. Nothing is merged, no migration is applied, and nothing is
+  deployed. The line links on this page still cite the code
+  before the build (`81c63959`); on this branch, 26 of its 41 line-anchored
+  links now land on lines the build changed, so read them at that commit.
 - **Acts this page does not authorise.** Applying a migration, deploying,
   sending email to operators, or changing the privacy notice. Each needs Yu's
   word for that act.

@@ -226,7 +226,12 @@ Nothing below is built, and none of it has a migration.
   defines it. Candidates: the handle-availability answer at `/account/agents`,
   one handle reused for opponents, Coverage Hunt readers and the
   `X-Agent-Handle` header, `agent.self`'s UUIDs, and room codes.
-- **Key expiry.** Agent keys never expire; member keys expire after 90 days.
+- **Key expiry.** Per-key expiry ([key-expiry.md](key-expiry.md)) was built
+  on 2026-11-10 on branch `claude/agent-key-expiry`, with migration 0151; it
+  was not merged, applied or deployed when this was written. What remains of
+  it: no reminder before a key expires (the plan's §8 email was not built, so
+  nothing is sent), no replace action, no end for keys nobody uses, and no
+  expiry choice for self-serve keys until registration reopens.
 - **`consent.exact-authority`.** Per-key audience, expiry and scope.
 - **Suspension history.** Unsuspend sets `suspended_reason` and
   `suspended_at` to NULL
