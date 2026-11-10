@@ -1,4 +1,5 @@
 import { sendMail } from "@cambridge-tcg/email";
+import { EMAIL_HEAD } from "@/lib/email/layout";
 import type { AuctionShippingAddress } from "./types";
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
@@ -6,16 +7,18 @@ const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com").tr
 
 function emailTemplate(title: string, body: string, ctaText?: string, ctaUrl?: string): string {
   const cta = ctaText && ctaUrl
-    ? `<a href="${ctaUrl}" style="display:inline-block;padding:12px 32px;background:#f59e0b;color:#000;font-weight:700;text-decoration:none;border-radius:8px;font-size:14px;margin-top:16px;">${ctaText}</a>`
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;"><tr><td bgcolor="#201d18" style="background:#201d18;border-radius:8px;"><a href="${ctaUrl}" style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;">${ctaText}</a></td></tr></table>`
     : "";
 
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;padding:32px;background:#171717;border-radius:16px;">
-    <h1 style="color:#fff;font-size:20px;margin:0 0 8px;">Cambridge <span style="color:#34d399;">TCG</span></h1>
-    <h2 style="color:#fff;font-size:16px;margin:0 0 16px;">${title}</h2>
-    <div style="color:#a3a3a3;font-size:14px;line-height:1.6;">${body}</div>
+  return `<!DOCTYPE html><html lang="en">
+${EMAIL_HEAD}
+<body style="margin:0;padding:0 16px;background:#faf8f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#201d18;">
+  <div style="max-width:480px;margin:40px auto;padding:32px;background:#ffffff;border:1px solid #e7e2d8;border-radius:12px;">
+    <h1 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:20px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid #e7e2d8;">Cambridge TCG</h1>
+    <h2 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:16px;font-weight:600;margin:0 0 16px;">${title}</h2>
+    <div style="color:#5e574c;font-size:14px;line-height:1.6;">${body}</div>
     ${cta}
-    <p style="color:#525252;font-size:12px;margin:24px 0 0;">Cambridge TCG — Japanese Trading Cards</p>
+    <p style="color:#5e574c;font-size:12px;margin:24px 0 0;">Cambridge TCG — Japanese Trading Cards</p>
   </div>
 </body></html>`;
 }
@@ -42,7 +45,7 @@ export async function sendOutbidEmail(data: {
   const html = emailTemplate(
     "You've been outbid!",
     `<p>Someone placed a higher bid on <strong>${data.auctionTitle}</strong>.</p>
-     <p>Current price: <strong style="color:#f59e0b;">${data.currentPrice}</strong></p>`,
+     <p>Current price: <strong style="color:#86661c;">${data.currentPrice}</strong></p>`,
     "Bid Again",
     url
   );
@@ -61,7 +64,7 @@ export async function sendWinnerEmail(data: {
   const html = emailTemplate(
     "You won the auction!",
     `<p>Congratulations! You won <strong>${data.auctionTitle}</strong>.</p>
-     <p>Winning price: <strong style="color:#f59e0b;">${data.winningPrice}</strong></p>
+     <p>Winning price: <strong style="color:#86661c;">${data.winningPrice}</strong></p>
      <p>Please complete your payment within 48 hours.</p>`,
     "Pay Now",
     url
@@ -103,10 +106,10 @@ export async function sendAuctionSellerPaidEmail(data: {
       ].filter((line): line is string => !!line)
     : [];
   const addressHtml = addressLines.length > 0
-    ? `<p>Ship to:<br/><strong style="color:#fff;">${addressLines.map(esc).join("<br/>")}</strong></p>`
+    ? `<p>Ship to:<br/><strong style="color:#201d18;">${addressLines.map(esc).join("<br/>")}</strong></p>`
     : "";
   const messageHtml = data.buyerUsername
-    ? `<p>Need to arrange logistics? <a href="${SITE}/account/messages" style="color:#f59e0b;">Message @${esc(data.buyerUsername)}</a> on the platform.</p>`
+    ? `<p>Need to arrange logistics? <a href="${SITE}/account/messages" style="color:#86661c;">Message @${esc(data.buyerUsername)}</a> on the platform.</p>`
     : "";
   const subject = `Payment confirmed — please ship ${data.auctionTitle}`;
   const text = `The winner paid ${data.winningPrice} for "${data.auctionTitle}". Ship to ${dest}.`
@@ -115,10 +118,10 @@ export async function sendAuctionSellerPaidEmail(data: {
     + ` Your payout will be ${data.payout} (no commission — you keep the full sale). Details: ${url}`;
   const html = emailTemplate(
     "Buyer has paid — ship now",
-    `<p>The winner has paid <strong style="color:#f59e0b;">${data.winningPrice}</strong> for <strong>${data.auctionTitle}</strong>.</p>
+    `<p>The winner has paid <strong style="color:#86661c;">${data.winningPrice}</strong> for <strong>${data.auctionTitle}</strong>.</p>
      <p>Ship to: <strong>${dest}</strong>.</p>
      ${addressHtml}${messageHtml}
-     <p>Your payout: <strong style="color:#34d399;">${data.payout}</strong> (no commission — you keep the full sale), released after delivery.</p>`,
+     <p>Your payout: <strong style="color:#36634d;">${data.payout}</strong> (no commission — you keep the full sale), released after delivery.</p>`,
     "Add Tracking",
     url
   );

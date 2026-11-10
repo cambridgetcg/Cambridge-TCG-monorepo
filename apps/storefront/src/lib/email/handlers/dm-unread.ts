@@ -86,8 +86,8 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
     : (conv.sender_name || "Another trader");
   const greeting = conv.recipient_name ? escapeHtml(String(conv.recipient_name)) : "there";
   const preview = conv.last_message_preview
-    ? `<div style="background:#262626;border-radius:8px;padding:12px 14px;margin:16px 0;">
-         <p style="margin:0;font-size:13px;color:#d4d4d4;white-space:pre-wrap;">${escapeHtml(
+    ? `<div style="background:#f3f0e9;border-radius:8px;padding:12px 14px;margin:16px 0;">
+         <p style="margin:0;font-size:13px;color:#201d18;white-space:pre-wrap;">${escapeHtml(
            String(conv.last_message_preview),
          )}</p>
        </div>`
@@ -100,11 +100,11 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
     bodyHtml: `
       <p style="margin:0 0 12px;">Hi ${greeting},</p>
       <p style="margin:0 0 8px;">
-        <strong style="color:#fff;">${escapeHtml(senderLabel)}</strong> sent you a
+        <strong style="color:#201d18;">${escapeHtml(senderLabel)}</strong> sent you a
         direct message. The latest one starts:
       </p>
       ${preview}
-      <p style="margin:0;font-size:13px;color:#a3a3a3;">
+      <p style="margin:0;font-size:13px;color:#5e574c;">
         Replies happen on the site, not over email. To keep your inbox
         quiet we send at most one email per conversation every
         ${DM_EMAIL_WINDOW_HOURS} hours — none once you've read the thread,

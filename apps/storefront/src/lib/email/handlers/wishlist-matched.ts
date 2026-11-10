@@ -93,29 +93,29 @@ export async function handleWishlistMatched(row: QueueRow): Promise<QueueHandler
     bodyHtml: `
       <p style="margin:0 0 12px;">Hi ${greeting},</p>
       <p style="margin:0 0 16px;">
-        <strong style="color:#fff;">${escapeHtml(d.cardName)}</strong>
-        ${d.cardNumber ? `<span style="color:#737373;"> (${escapeHtml(d.cardNumber)})</span>` : ""}
+        <strong style="color:#201d18;">${escapeHtml(d.cardName)}</strong>
+        ${d.cardNumber ? `<span style="color:#5e574c;"> (${escapeHtml(d.cardNumber)})</span>` : ""}
         just became available from ${sourceLabel}
-        ${d.condition && d.condition !== "NM" ? `<span style="color:#a3a3a3;"> · ${escapeHtml(d.condition)}</span>` : ""}
+        ${d.condition && d.condition !== "NM" ? `<span style="color:#5e574c;"> · ${escapeHtml(d.condition)}</span>` : ""}
         at a price under your target.
       </p>
-      <div style="background:#262626;border-radius:8px;padding:14px 16px;margin:16px 0;">
-        <p style="margin:0 0 4px;font-size:13px;color:#a3a3a3;">Listed at</p>
-        <p style="margin:0;font-size:22px;color:#34d399;font-weight:700;">
+      <div style="background:#f3f0e9;border-radius:8px;padding:14px 16px;margin:16px 0;">
+        <p style="margin:0 0 4px;font-size:13px;color:#5e574c;">Listed at</p>
+        <p style="margin:0;font-size:22px;color:#36634d;font-weight:700;">
           £${verified.price.toFixed(2)}
         </p>
-        <p style="margin:6px 0 0;font-size:12px;color:#737373;">
+        <p style="margin:6px 0 0;font-size:12px;color:#5e574c;">
           Your max: £${d.maxPrice.toFixed(2)}
           · ${verified.qty} available
           · source: ${d.source}
         </p>
       </div>
-      <p style="margin:0;font-size:13px;color:#a3a3a3;">
+      <p style="margin:0;font-size:13px;color:#5e574c;">
         P2P listings and wholesale stock move fast. If the match is gone by
         the time you click, it was claimed since we sent this — check your
         wishlist for the next notification.
       </p>
-      <p style="margin:8px 0 0;font-size:12px;color:#737373;">
+      <p style="margin:8px 0 0;font-size:12px;color:#5e574c;">
         We won&apos;t re-send this wish for 7 days. Remove it from your wishlist
         if you&apos;ve bought elsewhere.
       </p>

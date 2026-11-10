@@ -31,8 +31,10 @@ import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
 import { MemberCatalogLink } from "@/components/prices/member-catalog-link";
-import { SHARE_CARD, fixedShareCard } from "@/lib/share-card";
+import { SHARE_CARD, fixedShareCard, shareableImageUrl } from "@/lib/share-card";
 import { JsonLd } from "@/components/site/JsonLd";
+import { CardImage } from "@/lib/ui/CardImage";
+import { CardImagePlaceholder } from "@/lib/ui/CardImagePlaceholder";
 
 interface PageProps {
   params: Promise<{ game: string; set: string; number: string }>;
@@ -67,6 +69,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
   const cardName = state.card.name;
+  const image = shareableImageUrl(state.card.image_url);
   const setCode = state.set.code.toUpperCase();
   return {
     title: `${cardName} ${setCode} ${state.card.card_number} — Structural Catalog`,
@@ -74,7 +77,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: `${cardName} ${setCode} ${state.card.card_number} — Structural Catalog`,
       description: `Structural catalog record for ${cardName}; legacy prices, images, and history are withheld.`,
-      images: state.card.image_url ? [{ url: state.card.image_url }] : [SHARE_CARD],
+      images: image ? [{ url: image }] : [SHARE_CARD],
     },
   };
 }
@@ -136,7 +139,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
         "@context": "https://schema.org",
         "@type": "Product",
         name: `${card.name} - ${config.display_name} ${setCode}`,
-        image: card.image_url ?? undefined,
+        image: shareableImageUrl(card.image_url) ?? undefined,
         description: `${card.name} (${card.card_number}) from ${config.display_name} ${setMeta.name} (${setCode}).`,
         sku: card.sku,
         offers: {
@@ -207,18 +210,16 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
         <header className="grid gap-8 md:grid-cols-[280px_1fr] mb-10">
           {card.image_url ? (
             <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <CardImage
                 src={card.image_url}
                 alt={card.name + " card art"}
                 className="rounded-xl border border-border-subtle w-full max-w-[280px] aspect-[5/7] object-cover bg-surface"
                 loading="eager"
+                placeholderClassName="w-full max-w-[280px]"
               />
             </div>
           ) : (
-            <div className="rounded-xl border border-border-subtle bg-surface aspect-[5/7] flex items-center justify-center text-ink-faint text-xs">
-              No image
-            </div>
+            <CardImagePlaceholder className="w-full max-w-[280px]" />
           )}
 
           <div>

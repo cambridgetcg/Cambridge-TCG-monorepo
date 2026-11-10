@@ -16,6 +16,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CardImage } from "@/lib/ui/CardImage";
+import { CardImagePlaceholder } from "@/lib/ui/CardImagePlaceholder";
 import {
   loadAuctionState,
   auctionStateIsPublic,
@@ -176,12 +178,13 @@ export default async function AuctionReadPage({
           {/* Left: image + seller */}
           <div className="space-y-6">
             {primaryImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={primaryImage} alt={meta.title} className="w-full rounded-xl border border-border-subtle" />
+              <CardImage
+                src={primaryImage}
+                alt={meta.title}
+                className="aspect-[5/7] w-full rounded-xl border border-border-subtle bg-surface object-contain"
+              />
             ) : (
-              <div className="aspect-square w-full bg-surface rounded-xl border border-border-subtle flex items-center justify-center text-ink-faint">
-                No image
-              </div>
+              <CardImagePlaceholder className="w-full" />
             )}
 
             {images.length > 1 && (

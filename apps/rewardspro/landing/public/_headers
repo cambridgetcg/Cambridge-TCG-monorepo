@@ -10,3 +10,17 @@
 
 /sitemap.xml
   Cache-Control: public, max-age=3600
+
+/site.webmanifest
+  Content-Type: application/manifest+json
+
+# RFC 9116 section 3: security.txt is served as text/plain with charset utf-8.
+/.well-known/security.txt
+  Content-Type: text/plain; charset=utf-8
+
+# The project's own *.pages.dev hosts serve the same pages as rewardspro.io; keep them out of search indexes.
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex

@@ -126,8 +126,10 @@ Bring both scripts into the kit, or edit the files by hand.
 3. **Banner ground:** `#1B1D1F` (the agents suggest this one), `#09110F` or navy. **Avatar files:** the kit's own,
    or the copies with the generator-naming text chunks stripped. SETUP 0.3 and assets/README.md disagree on the
    default, so the owner picks.
-4. **The owner's name in a public repo:** most kit files name the owner. Decide whether they move to the git-ignored
-   `../private/` or switch to "the owner" (with D11).
+4. **The owner's name in a public repo:** decided on 2026-11-10 (`../approvals.jsonl`, ledger `rp-owner-naming`):
+   public files say "the owner" in place of his name. His quoted words, identifiers and the placeholders PR #130's
+   guard checks for keep it. So do, for now, `../ROADMAP.md` (RP-19 rewrites it), `../claims.toml` (RP-06),
+   `../kernel.toml` and the rendered SVGs, whose hashes the sidecars record.
 5. **D11, where `marketing/` lives:** this folder is under `apps/rewardspro/`, which switch step B5 deletes.
 6. **Evidence outside git:** many citations point to this session's scratchpad (`wf/p1-*.md`, `ref/`, fetch
    captures). Keep copies, or accept that they will be lost.

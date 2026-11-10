@@ -4,6 +4,12 @@ export const NEW_PAID_COMMERCE_RETIRED_CODE = "NEW_PAID_COMMERCE_RETIRED";
 export const NEW_PAID_COMMERCE_RETIRED_MESSAGE =
   "New paid orders, subscriptions and checkout have been retired. Existing records, settlement, cancellations and refunds remain available.";
 
+/** The same, saying where those records are, for a notice that stands in
+ *  for the site notice (DevBanner's copy says "through your account"), so
+ *  hiding the banner loses nothing. */
+export const NEW_PAID_COMMERCE_RETIRED_NOTICE =
+  "New paid orders, subscriptions and checkout have been retired. Existing records, settlement, cancellations and refunds remain available through your account.";
+
 export class NewPaidCommerceRetiredError extends Error {
   readonly code = NEW_PAID_COMMERCE_RETIRED_CODE;
   readonly status = 410;

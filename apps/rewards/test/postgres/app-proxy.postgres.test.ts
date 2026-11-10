@@ -4,6 +4,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import prisma from "~/db.server";
 import { type ConnectionContext, ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
+import type { MoneyPair, OrderFacts } from "~/lib/order-facts";
+import { recordOrder } from "~/lib/record-order.server";
 import { lockTier, resolveTier, tierSpend } from "~/lib/tiers.server";
 import { signedProxyRequest } from "../helpers/app-proxy";
 import { server } from "../setup";
@@ -388,6 +390,61 @@ describe.skipIf(!hasTestDatabase)("app proxy on Postgres", () => {
     const placed = await (await membership(buyer)).json();
     expect(placed.membership.tier.name).toBe("Silver");
     expect(placed.tierProgress).toMatchObject({ nextTierName: "Gold", amountRemaining: 350, nextTierTarget: 500 });
+  });
+
+  // Rule 2, as recordOrder pays it: a buyer with no tier yet earns the lowest's rate until the tier pass places them
+  it("a known buyer with no tier yet sees the lowest tier's rate, the rate their next order earns, and no way to the tier their spend reached", async () => {
+    await seedShop();
+    const buyer = freshBuyer();
+    // Known from before the store had tiers (the past-orders import), so no tier
+    const { id } = await prisma.customer.create({
+      data: { merchantId: conn.merchantId, connectionId: conn.connectionId, externalCustomerId: buyer },
+      select: { id: true },
+    });
+    // £600 qualifies for Gold; no pass has run
+    await addOrder(id, "600.00", 5);
+    answerShopify({});
+    const before = await rowCounts();
+
+    const body = await (await membership(buyer)).json();
+
+    expect(body.membership).toEqual({ tier: { id: tiers.bronze.id, name: "Bronze", cashbackPercent: 5 }, tierSource: "SPENDING_BASED", configured: true });
+    expect(body.tierProgress).toMatchObject({ ...noNextTier, currentSpending: 600 });
+    // Nothing is written for a widget view
+    await expect(rowCounts()).resolves.toEqual(before);
+    await expect(prisma.customer.findUniqueOrThrow({ where: { id }, select: { tierId: true } })).resolves.toEqual({ tierId: null });
+
+    // The next order earns exactly the rate the widget showed
+    const pair = (amount: string): MoneyPair => ({ amount: new Money(amount), shopAmount: new Money(amount) });
+    const facts: OrderFacts = {
+      externalOrderId: "gid://shopify/Order/9001",
+      name: "#9001",
+      externalCustomerId: buyer,
+      currency: "GBP",
+      shopCurrency: "GBP",
+      test: false,
+      cancelledAt: null,
+      orderedAt: new Date(),
+      paidAt: new Date(),
+      financialStatus: "PAID",
+      total: pair("55.00"),
+      productValue: pair("50.00"),
+      storeCreditUsed: pair("0"),
+      giftCardUsed: pair("0"),
+      refundedProductValue: pair("0"),
+      refunds: [],
+    };
+    const result = await recordOrder(conn, facts, "live");
+    expect(result).toMatchObject({ status: "recorded", customerId: id, noCashback: null });
+    const entry = await prisma.ledgerEntry.findFirstOrThrow({ where: { customerId: id, kind: "cashback" }, select: { tierName: true, ratePercent: true } });
+    expect(entry.tierName).toBe(body.membership.tier.name);
+    expect(entry.ratePercent?.toNumber()).toBe(body.membership.tier.cashbackPercent);
+
+    // Once placed, the widget shows the tier their spend reached
+    await resolveTier(id);
+    const placed = await (await membership(buyer)).json();
+    expect(placed.membership.tier).toEqual({ id: tiers.gold.id, name: "Gold", cashbackPercent: 10 });
+    expect(placed.tierProgress).toMatchObject({ isMaxTier: true, currentSpending: 650 });
   });
 
   it("?currency= picks which of the buyer's own balances to show", async () => {

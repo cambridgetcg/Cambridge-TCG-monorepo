@@ -75,7 +75,7 @@ describe("CardPriceSearchForm", () => {
 
   it("retains explicit labels and native query validation and autofocus", () => {
     const markup = renderToStaticMarkup(
-      <CardPriceSearchForm games={games} autoFocus query="OP01-001" />,
+      <CardPriceSearchForm games={games} game="op" autoFocus query="OP01-001" />,
     );
     const query = markup.match(/<input\b[^>]*>/)?.[0];
 

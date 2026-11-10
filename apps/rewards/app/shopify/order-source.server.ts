@@ -366,6 +366,11 @@ function refundMoney(refund: Rec, order: ParsedOrder): { paid: MoneyPair; moving
  * not yet refunded (`left`, Ruling 20) and never below 0. The refund that
  * completes the order (refundsOf decides it by units) is valued at exactly
  * `left`, so the order's refunds add up to its product value (Ruling 34).
+ *
+ * `ifSettled` is what a refund with no items would be worth, before the cap,
+ * once all its money that hasn't failed succeeded (null for a refund of
+ * items). Its money is still on its way (`moneyPending`, #195) when that,
+ * capped and rounded as its value is, is above its value on either side.
  */
 function refundValue(
   refund: Rec,
@@ -374,11 +379,15 @@ function refundValue(
   left: MoneyPair,
   completesOrder: boolean,
   money: MoneyPair,
+  ifSettled: MoneyPair | null,
 ): RefundFacts {
   const facts = { externalRefundId: text(refund.id, "the refund id"), refundedAt: dateOf(refund.createdAt, "the refund's createdAt"), completesOrder };
-  if (completesOrder) return { ...facts, productValue: clamp(left, left) };
+  if (completesOrder) return { ...facts, productValue: clamp(left, left), moneyPending: false };
   const value = items.length > 0 ? clamp(sum(items.map(({ line, quantity }) => shareOf(line.value, quantity, line.quantity))), left) : clamp(money, left);
-  return { ...facts, productValue: floorPair(value, order) };
+  const productValue = floorPair(value, order);
+  const settled = ifSettled === null ? null : floorPair(clamp(ifSettled, left), order);
+  const moneyPending = settled !== null && (settled.amount.gt(productValue.amount) || settled.shopAmount.gt(productValue.shopAmount));
+  return { ...facts, productValue, moneyPending };
 }
 
 /**
@@ -461,11 +470,14 @@ function refundsOf(order: ParsedOrder, productValue: MoneyPair, refundNodes: Rec
       valued.every((line) => (removed.get(line) ?? 0) + (returned.get(line) ?? 0) >= line.quantity);
     const { paid, moving, moved, shipping } = refundMoney(node, order);
     let money = minus(paid, shipping);
+    // What a refund with no items would be worth once its money settled (#195)
+    let ifSettled: MoneyPair | null = null;
     if (items.length === 0) {
       // Pending money pays back what is owed too; the refund is worth only its successful money beyond that
       const paysBack = least(owed, atLeastZero(minus(moving, shipping)));
       owed = minus(owed, paysBack);
       money = minus(money, paysBack);
+      ifSettled = minus(minus(moving, shipping), paysBack);
     } else {
       const itemValue = sum(items.map(({ line, quantity }) => shareOf(line.value, quantity, line.quantity)));
       if (!moved && items.every((item) => item.restockType === "CANCEL")) {
@@ -479,7 +491,7 @@ function refundsOf(order: ParsedOrder, productValue: MoneyPair, refundNodes: Rec
       }
     }
     refundedMoney = plus(refundedMoney, paid);
-    const refund = refundValue(node, order, items, minus(productValue, refunded), completesOrder, money);
+    const refund = refundValue(node, order, items, minus(productValue, refunded), completesOrder, money, ifSettled);
     refunded = plus(refunded, refund.productValue);
     return refund;
   });

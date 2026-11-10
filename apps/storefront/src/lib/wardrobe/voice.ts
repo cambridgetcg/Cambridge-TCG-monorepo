@@ -71,9 +71,10 @@ const STRINGS = {
     standard: "An open book, waiting for its first line",
     plain: "No open orders",
   },
+  // The retirement itself is said once, where each page puts its notice.
   "market.empty.book.description": {
-    standard: "No open bids or asks on this card. New orders were retired on 23 September 2026.",
-    plain: "There are no bids or asks for this card. New orders are retired.",
+    standard: "No open bids or asks on this card.",
+    plain: "There are no bids or asks for this card.",
   },
   "market.cta.browse": {
     standard: "Browse the pages",

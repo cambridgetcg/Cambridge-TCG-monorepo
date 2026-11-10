@@ -1,9 +1,12 @@
 /**
  * Every Admin API GraphQL document the app sends, under a unique name
- * starting with `Rewards`. Each one is checked against the 2026-10 schema
- * before it is committed; the comment above it gives the access scopes it
- * needs and its hand-computed query cost (Shopify's single-query limit is
- * 1,000 points).
+ * starting with `Rewards`. test/unit/shopify/graphql-schema.test.ts checks
+ * each one against Shopify's 2026-10 schema, committed at
+ * test/fixtures/shopify/admin-2026-10.graphql (refresh with
+ * `pnpm --filter rewards schema:admin`). The comment above each gives the
+ * access scopes it needs and its hand-computed query cost (Shopify's
+ * single-query limit is 1,000 points); query costs are not checked by that
+ * test.
  */
 
 /**
