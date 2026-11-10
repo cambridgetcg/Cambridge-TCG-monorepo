@@ -169,6 +169,11 @@ node render.mjs --raster-only  # png/ and the sidecars from the committed master
 - **To change wording or add a card,** edit the spec in `render.mjs`. Hand-editing an export isn't
   allowed. Bump `VERSION` and `DATE` for a new release, because platforms cache by URL and file.
 
+**The listing feature image** (1600x900) has its own short recipe, with the same tools and look:
+`node feature-image.mjs --out <path.png>`. It draws two example tiers from the app's Tiers page beside the
+line "Give loyal customers cashback to spend in your store" and checks the size, the fonts, the contrast and that
+its alt text fits the form's 64 characters. The PNG is a listing upload, so it goes where `--out` says, outside the repo.
+
 ## Checked on 2026-11-07
 
 - **Pixel size:** `sips` on all 26 PNGs [V]. Every one matches the size in its name.
@@ -233,8 +238,8 @@ node render.mjs --raster-only  # png/ and the sidecars from the committed master
 6. **Not made here, and why:**
    - A5, the link card (`kit/web/og.jpg`), is the brand lane's: it fails the free-pair rule and
      needs a kit rebuild that the owner approves.
-   - A10–A13 (screenshots, recording V1, the YouTube thumbnail, the listing feature image) need real
-     captures from the G0 shot list. None exist yet.
+   - A10–A12 (screenshots, recording V1, the YouTube thumbnail) need real captures from the G0 shot
+     list. A13, the listing feature image, is drawn by `feature-image.mjs` (below), with no capture.
    - A14 is Shopify's own badge file, used unaltered. It isn't redrawn here.
    - A15, the 10-page 1080x1350 LinkedIn document carousel that `content/launch-posts.md` asks for
      (CAR1, calendar week 6): not in STRATEGY §7, and most pages need A10 captures and G0. The owner
