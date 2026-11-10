@@ -268,12 +268,15 @@ describe("the transaction (scripted)", () => {
     const tx = async (sql: string, params: unknown[] = []) => {
       calls.push([sql, params]);
       if (/FROM agents/.test(sql)) return { rows: [{ id: AGENT, public_handle: "agent-one", status: "active", suspended_at: null }], rowCount: 1 };
+      if (/clock_timestamp\(\)/.test(sql)) {
+        const epoch = script.dbEpoch ?? Date.now() / 1000;
+        return { rows: [{ db_now: new Date(epoch * 1000), db_epoch: epoch, expired: false, lapsed: false, lapses_at: null }], rowCount: 1 };
+      }
       if (/FROM agent_signing_keys\s+WHERE id = \$1/.test(sql)) {
         return {
           rows: [{
-            id: "k1", thumbprint: params[3], confirmed_at: new Date(), revoked_at: script.revokedAt ?? null, revoked_by_event: script.revokedAt ? "e0" : null,
-            not_after: null, expired: false, lapsed: false, lapses_at: null, db_now: new Date((script.dbEpoch ?? Date.now() / 1000) * 1000),
-            db_epoch: script.dbEpoch ?? Date.now() / 1000,
+            id: "k1", thumbprint: params[2], confirmed_at: new Date(), revoked_at: script.revokedAt ?? null, revoked_by_event: script.revokedAt ? "e0" : null,
+            not_after: null, created_at: new Date(),
           }],
           rowCount: 1,
         };
@@ -296,9 +299,13 @@ describe("the transaction (scripted)", () => {
     const answer = await submit({ act: signAct(secretKey, kid) });
     expect(answer).toMatchObject({ ok: false, status: 409, verified: true, refusal: { reason_code: "act_replayed" } });
     expect(calls.some(([sql]) => sql.includes("INSERT INTO agent_act_events"))).toBe(false);
-    // Lock order: agent, then signing key, then the nonce.
-    expect(calls.map(([sql]) => sql.match(/FROM agents|FROM agent_signing_keys|INSERT INTO agent_act_nonces/)?.[0]).filter(Boolean).slice(0, 3))
-      .toEqual(["FROM agents", "FROM agent_signing_keys", "INSERT INTO agent_act_nonces"]);
+    // Lock order: agent, then signing key; then the database's clock, read
+    // only once both are held; then the nonce.
+    const step = (sql: string) => (sql.includes("clock_timestamp") ? "clock_timestamp" : sql.match(/FROM agents|FROM agent_signing_keys|INSERT INTO agent_act_nonces/)?.[0]);
+    expect(calls.map(([sql]) => step(sql)).filter(Boolean).slice(0, 4))
+      .toEqual(["FROM agents", "FROM agent_signing_keys", "clock_timestamp", "INSERT INTO agent_act_nonces"]);
+    expect(calls[1][0]).toContain("FOR NO KEY UPDATE");
+    expect(calls[1][0]).not.toMatch(/NOW\(\)|clock_timestamp/);
   });
 
   it("records an act stale by the database's clock, consuming its nonce", async () => {

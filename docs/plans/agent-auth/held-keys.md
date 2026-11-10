@@ -191,6 +191,11 @@ not Yu's:
   `agent_act_events`, in the style of 0141 and 0146; comments that describe
   the sweep as built; and the sweep's index now covers every key never
   confirmed, removed or not, as the sweep's own query does.
+- Steps 8 and 9 read the database's clock with `clock_timestamp()` in a
+  statement that runs once the agent and key rows are locked, one instant
+  for the key's expiry, its pending window and the act's `iat` and `exp`.
+  `NOW()` is the transaction's start, before any wait for those locks, so
+  an act that waited past its `exp` was applied.
 
 **What is off.** `AGENT_SIGNED_ACTS` is off unless set to exactly `on` with
 an audience. Off, both doors answer `signed_acts_closed`, binding is

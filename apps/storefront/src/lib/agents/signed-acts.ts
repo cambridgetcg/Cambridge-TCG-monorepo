@@ -26,9 +26,10 @@
  *   8. Re-check the key: revoked, past not_after, or pending past its window
  *      by the database's clock is signing_key_ended. This is the signing
  *      key's linearization point; the operator's removal takes the same
- *      locks.
- *   9. The database's clock: iat more than 60 s ahead, or now at or past
- *      exp, is act_stale.
+ *      locks. The clock is clock_timestamp(), read after both locks are
+ *      held, so time spent waiting for them counts.
+ *   9. The same instant: iat more than 60 s ahead, or now at or past exp,
+ *      is act_stale.
  *  10. Insert the nonce, keyed on the thumbprint. A conflict is
  *      act_replayed, and a replay writes no event.
  *  11. Record a refusal from 8 or 9. Otherwise confirm a pending key (or
@@ -423,22 +424,31 @@ async function applyVerifiedAct(tx: Tx, signed: ParsedSignedAct, keyRowId: strin
   };
 
   const keyResult = await tx(
-    `SELECT id, thumbprint, confirmed_at, revoked_at, revoked_by_event, not_after, created_at,
-            (not_after IS NOT NULL AND not_after <= NOW()) AS expired,
-            (confirmed_at IS NULL AND created_at <= NOW() - make_interval(days => $3::int)) AS lapsed,
-            created_at + make_interval(days => $3::int) AS lapses_at,
-            NOW() AS db_now,
-            EXTRACT(EPOCH FROM NOW())::float8 AS db_epoch
+    `SELECT id, thumbprint, confirmed_at, revoked_at, revoked_by_event, not_after, created_at
        FROM agent_signing_keys
-      WHERE id = $1 AND agent_id = $2 AND thumbprint = $4
+      WHERE id = $1 AND agent_id = $2 AND thumbprint = $3
       FOR NO KEY UPDATE`,
-    [keyRowId, agent.id, PENDING_SIGNING_KEY_DAYS, header.kid],
+    [keyRowId, agent.id, header.kid],
   );
   const keyRow = keyResult.rows[0];
   // Gone since the lookup (the agent was erased): as if never there.
   if (!keyRow) return refused("act_unverified", false);
-  const serverTime = iso(keyRow.db_now) ?? new Date(nowMs).toISOString();
-  const dbEpoch = Number(keyRow.db_epoch);
+  // The database's clock, read now that both locks are held: NOW() is the
+  // transaction's start, taken before any wait for them. One instant for
+  // the key's expiry, its pending window and the act's time window.
+  const clockResult = await tx(
+    `SELECT c.at AS db_now,
+            EXTRACT(EPOCH FROM c.at)::float8 AS db_epoch,
+            (k.not_after IS NOT NULL AND k.not_after <= c.at) AS expired,
+            (k.confirmed_at IS NULL AND k.created_at <= c.at - make_interval(days => $2::int)) AS lapsed,
+            k.created_at + make_interval(days => $2::int) AS lapses_at
+       FROM agent_signing_keys k, (SELECT clock_timestamp() AS at) c
+      WHERE k.id = $1`,
+    [keyRowId, PENDING_SIGNING_KEY_DAYS],
+  );
+  const clock = clockResult.rows[0] ?? {};
+  const serverTime = iso(clock.db_now) ?? new Date(nowMs).toISOString();
+  const dbEpoch = Number(clock.db_epoch);
 
   // 8. The key, by the database's clock.
   let early: ApplyResult | null = null;
@@ -447,10 +457,10 @@ async function applyVerifiedAct(tx: Tx, signed: ParsedSignedAct, keyRowId: strin
   if (keyRow.revoked_at) {
     endedAt = iso(keyRow.revoked_at);
     revokedByEvent = keyRow.revoked_by_event ? String(keyRow.revoked_by_event) : null;
-  } else if (keyRow.expired === true) {
+  } else if (clock.expired === true) {
     endedAt = iso(keyRow.not_after);
-  } else if (keyRow.lapsed === true) {
-    endedAt = iso(keyRow.lapses_at);
+  } else if (clock.lapsed === true) {
+    endedAt = iso(clock.lapses_at);
   }
   if (endedAt !== null) early = { kind: "refused", code: "signing_key_ended" };
   // 9. Time, by the database's clock.

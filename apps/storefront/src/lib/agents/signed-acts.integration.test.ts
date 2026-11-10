@@ -309,6 +309,60 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     expect(await liveUsageKeys(agentId)).toBe(5);
   });
 
+  it("judges expiry, lapse and staleness by the database's clock after the locks are held, not when the transaction began", async () => {
+    const dbEpoch = async () => Number((await pool.query(`SELECT EXTRACT(EPOCH FROM clock_timestamp())::float8 AS t`)).rows[0].t);
+    /** Holds the agent row while `act` waits for it, until the database's clock passes `until`. */
+    async function behindLock(agentId: string, act: string, until: number) {
+      const { client, pid } = await lockHolder();
+      try {
+        await client.query(`SELECT id FROM agents WHERE id = $1 FOR NO KEY UPDATE`, [agentId]);
+        const pending = submit(act);
+        expect(await blockedBy(pid)).toBe(true);
+        while ((await dbEpoch()) < until + 0.2) await new Promise((resolve) => setTimeout(resolve, 50));
+        await client.query("COMMIT");
+        return await pending;
+      } finally {
+        await client.query("ROLLBACK").catch(() => {});
+        client.release();
+      }
+    }
+
+    // Stale: exp passes while the act waits.
+    const stale = await setup();
+    const iat = Math.floor(Date.now() / 1000);
+    const header = b64u(JSON.stringify({ alg: "Ed25519", typ: "ctcg-act.v1", kid: stale.h.kid }));
+    const payload = b64u(JSON.stringify({ aud: AUD, act: "key.mint", sub: stale.agentId, iat, exp: iat + 1, jti: b64u(crypto.randomBytes(16)), params: usageKey().params }));
+    const shortLived = `${header}.${payload}.${b64u(ed25519.sign(Buffer.from(`${header}.${payload}`), stale.h.secretKey))}`;
+    const staleAnswer = await behindLock(stale.agentId, shortLived, iat + 1);
+    expect(staleAnswer).toMatchObject({ ok: false, status: 400, refusal: { reason_code: "act_stale" } });
+    if (!staleAnswer.ok) expect(Date.parse(staleAnswer.refusal.server_time!) / 1000).toBeGreaterThanOrEqual(iat + 1);
+    expect(await liveUsageKeys(stale.agentId)).toBe(0);
+
+    // Expired: the key's not_after passes while the act waits.
+    const expiring = await setup();
+    const notAfter = (await pool.query(
+      `UPDATE agent_signing_keys SET not_after = clock_timestamp() + interval '1 second' WHERE id = $1 RETURNING EXTRACT(EPOCH FROM not_after)::float8 AS t`,
+      [expiring.signingKeyId],
+    )).rows[0].t as number;
+    const expired = await behindLock(expiring.agentId, sign(expiring.h, expiring.agentId, "signer.check"), notAfter);
+    expect(expired).toMatchObject({ ok: false, status: 403, refusal: { reason_code: "signing_key_ended" } });
+    if (!expired.ok) expect(Math.abs(Date.parse(expired.refusal.ended_at!) - notAfter * 1000)).toBeLessThan(2);
+
+    // Lapsed: a pending key's window closes while its first act waits.
+    const pending = await setup({ confirm: false });
+    const lapsesAt = (await pool.query(
+      `UPDATE agent_signing_keys SET created_at = clock_timestamp() - interval '7 days' + interval '1 second' WHERE id = $1
+       RETURNING EXTRACT(EPOCH FROM created_at + interval '7 days')::float8 AS t`,
+      [pending.signingKeyId],
+    )).rows[0].t as number;
+    expect(await behindLock(pending.agentId, sign(pending.h, pending.agentId, "signer.check"), lapsesAt)).toMatchObject({
+      ok: false, status: 403, refusal: { reason_code: "signing_key_ended" },
+    });
+    expect((await pool.query(`SELECT confirmed_at FROM agent_signing_keys WHERE id = $1`, [pending.signingKeyId])).rows[0].confirmed_at).toBeNull();
+    // Leave no week-old pending key for the sweep's count below.
+    await pool.query(`DELETE FROM agent_signing_keys WHERE id = $1`, [pending.signingKeyId]);
+  }, 20000);
+
   it("never passes five live usage keys when a signed mint races the operator's mint at the cap", async () => {
     for (let round = 0; round < 8; round += 1) {
       const { userId, agentId, h } = await setup();
