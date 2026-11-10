@@ -74,7 +74,7 @@ import { coverageHuntContribute } from "@/lib/agents/coverage-hunt-tools";
 import { playObserve, ToolError } from "@/lib/agents/play-tools";
 import { GET, MCP_MAX_REQUEST_BYTES, POST } from "./route";
 import { toolByName } from "@/lib/agent-tools-catalog";
-import { KEY_REPLACEMENT_CASES } from "@/lib/agents/key-exit-inventory";
+import { KEY_EXPIRED_REPLACEMENT_CASE, KEY_REPLACEMENT_CASES } from "@/lib/agents/key-exit-inventory";
 
 // Built at runtime so no literal key-shaped string sits in the repository.
 const AGENT_TOKEN = "ctcg_agt_" + "Ab1".repeat(7) + "Z";
@@ -715,7 +715,7 @@ describe("agent.revoke_key carve-out", () => {
     expect(tool.description).toContain("Ends only the presented key");
     expect(tool.description).toContain("Irreversible");
     // Every replacement case, never the active operator sentence alone.
-    for (const entry of KEY_REPLACEMENT_CASES) {
+    for (const entry of [...KEY_REPLACEMENT_CASES, KEY_EXPIRED_REPLACEMENT_CASE]) {
       expect(tool.description).toContain(`${entry.label}: ${entry.text}`);
     }
     expect(tool.description).toContain("/account/agents");

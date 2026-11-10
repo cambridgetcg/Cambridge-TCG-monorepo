@@ -45,7 +45,7 @@ vi.mock("@/lib/auth", () => ({ auth: async () => ({ user: { id: state.userId } }
 import { resolveAgentBearer, stampKeyUse } from "./auth";
 import { createAgentWithKey, mintRawToken } from "./creation";
 import { expiredAgentKeySql, liveAgentKeySql, type KeyExpiry } from "./key-expiry";
-import { keyReplacementText } from "./key-exit-inventory";
+import { KEY_EXPIRED_REPLACEMENT_CASE, keyReplacementText } from "./key-exit-inventory";
 import { revokePresentedKey } from "./key-revocation";
 import { archiveAgent } from "./operator-actions";
 import { ARCHIVE_REVOCATION_REASON, HOLDER_REVOCATION_REASON } from "./revocation-reasons";
@@ -629,7 +629,7 @@ describe.skipIf(!target)("agent key revocation isolated PostgreSQL integration",
     } finally { vi.useRealTimers(); }
   });
 
-  it("an expired key: the gate says key_expired ahead of suspension, no stamp, the revoke tool previews it as expired and ends it", async () => {
+  it("an expired key: the gate says key_expired ahead of suspension, no stamp, the revoke tool previews it as expired and ends it, telling nothing of the suspension", async () => {
     const { agentId, keys: [live] } = await seedAgent();
     const expired = await insertExpiredKey(agentId);
     const otherExpired = await insertExpiredKey(agentId, "other-expired");
@@ -640,11 +640,16 @@ describe.skipIf(!target)("agent key revocation isolated PostgreSQL integration",
     await pool.query("UPDATE agents SET status = 'suspended', suspended_at = NOW() WHERE id = $1", [agentId]);
     expect(await resolveAgentBearer(`Bearer ${expired.token}`)).toMatchObject({ reason_code: "key_expired" });
     expect(await resolveAgentBearer(`Bearer ${live.token}`)).toMatchObject({ status: 403, reason_code: "agent_suspended" });
-    await pool.query("UPDATE agents SET status = 'active', suspended_at = NULL WHERE id = $1", [agentId]);
 
     await stampKeyUse(expired.keyId);
     expect((await keyRow(expired.keyId)).last_used_at).toBeNull();
 
+    // Still suspended. The live key's preview may say so (its holder gets the
+    // 403 anyway); the expired key's answers must not, as its 401 does not.
+    expect(await revokePresentedKey(live.token)).toMatchObject({
+      replacement: keyReplacementText("operator", "suspended"),
+      states: { this_key_future_authority: "suspended_with_agent" },
+    });
     // other_live_keys counts the live key only, not the other expired one.
     const preview = await revokePresentedKey(expired.token);
     const stored = (await pool.query("SELECT expires_at FROM agent_keys WHERE id = $1", [expired.keyId])).rows[0];
@@ -653,6 +658,7 @@ describe.skipIf(!target)("agent key revocation isolated PostgreSQL integration",
       key_state: "expired",
       expires_at: (stored.expires_at as Date).toISOString(),
       other_live_keys: 1,
+      replacement: KEY_EXPIRED_REPLACEMENT_CASE.text,
       states: { this_key_future_authority: "expired", other_keys: { live_count: 1 } },
     });
     expect((await keyRow(expired.keyId)).revoked_at).toBeNull();
@@ -663,7 +669,9 @@ describe.skipIf(!target)("agent key revocation isolated PostgreSQL integration",
       key_state: "revoked",
       expires_at: (stored.expires_at as Date).toISOString(),
       other_live_keys: 1,
+      replacement: KEY_EXPIRED_REPLACEMENT_CASE.text,
     });
+    await pool.query("UPDATE agents SET status = 'active', suspended_at = NULL WHERE id = $1", [agentId]);
     expect((await keyRow(expired.keyId)).revoked_reason).toBe(HOLDER_REVOCATION_REASON);
     // Revoked and expired: back to the one answer for unknown and revoked strings.
     expect(await resolveAgentBearer(`Bearer ${expired.token}`)).toStrictEqual(

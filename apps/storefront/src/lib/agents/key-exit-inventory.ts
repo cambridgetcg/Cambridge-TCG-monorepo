@@ -292,6 +292,20 @@ export const KEY_REPLACEMENT_CASES: readonly KeyReplacementCase[] = [
   },
 ];
 
+/**
+ * The replacement text for a key past its expiry, whatever its agent's
+ * registration or status. The gate answers an expired key key_expired
+ * before it reads the agent's status, so that key's holder is never told
+ * whether the agent is suspended or archived; agent.revoke_key's answers
+ * for the key must not tell it either, and the cases above would. The text
+ * is the key_expired refusal's own next action (refusals.ts).
+ */
+export const KEY_EXPIRED_REPLACEMENT_CASE = {
+  label: "Expired key, whatever its agent's registration or status",
+  text: "An expired key cannot be renewed. A new key comes from whoever minted this one.",
+} as const;
+
+/** For a key that has not expired; see KEY_EXPIRED_REPLACEMENT_CASE. */
 export function keyReplacementText(
   registeredVia: "operator" | "self-serve",
   status: KeyAgentStatus,
@@ -305,9 +319,12 @@ export function keyReplacementText(
   return match!.text;
 }
 
-/** Every case in one line, for the tool description and the methodology page. */
+/** Every case in one line, the expired one last, for the tool description
+ *  and the catalog. */
 export function keyReplacementSummary(): string {
-  return KEY_REPLACEMENT_CASES.map((entry) => `${entry.label}: ${entry.text}`).join(" ");
+  return [...KEY_REPLACEMENT_CASES, KEY_EXPIRED_REPLACEMENT_CASE]
+    .map((entry) => `${entry.label}: ${entry.text}`)
+    .join(" ");
 }
 
 export interface KeyExitNextAction {

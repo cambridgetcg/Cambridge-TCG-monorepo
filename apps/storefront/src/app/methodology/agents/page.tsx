@@ -11,6 +11,7 @@ import {
   KEY_EXIT_STATIC_STATES,
   KEY_EXIT_THIRD_PARTY_COPIES,
   KEY_EXIT_UNKNOWN_LAYERS,
+  KEY_EXPIRED_REPLACEMENT_CASE,
   KEY_REPLACEMENT_CASES,
   keyExitNextActions,
   type KeyExitNextAction,
@@ -347,11 +348,14 @@ export default function AgentsMethodology() {
         Without <code>confirm: true</code> the call is a preview that changes nothing:
         agents often call a listed tool with no arguments to learn what it does, and an
         irreversible act should not happen by exploration. Its answers never include the
-        revocation reason, who revoked a key, or the agent&apos;s handle or id. A preview of a
-        live key can show that its agent is suspended or archived, and so can the
-        replacement text after an operator-managed key is revoked; the gate&apos;s 403 already
-        tells that key&apos;s holder as much. The not-active answer says nothing about any
-        agent.
+        revocation reason, who revoked a key, or the agent&apos;s handle or id. A preview of
+        an unexpired key can show that its agent is suspended or archived, and so can the
+        replacement text for an operator-managed key; the gate&apos;s 403 already tells that
+        key&apos;s holder as much. An expired key gets no 403, because the gate answers{" "}
+        <code>key_expired</code> before it reads the agent&apos;s status, so the answers for an
+        expired key say nothing of that status either: one replacement text, whatever the
+        agent&apos;s registration or status. They still give the count of the agent&apos;s other
+        live keys. The not-active answer says nothing about any agent.
       </p>
       <ul>
         <li>
@@ -371,7 +375,7 @@ export default function AgentsMethodology() {
         <li>
           <strong>Replacement.</strong> The answer gives the case that applies to the key:
           <ul>
-            {KEY_REPLACEMENT_CASES.map((entry) => (
+            {[...KEY_REPLACEMENT_CASES, KEY_EXPIRED_REPLACEMENT_CASE].map((entry) => (
               <li key={entry.label}>
                 {entry.label}: {entry.text}
               </li>

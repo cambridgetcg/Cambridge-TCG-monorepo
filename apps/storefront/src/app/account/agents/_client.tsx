@@ -513,7 +513,11 @@ export function AgentsClient({
                             <span className="text-ink-faint ml-2">· never used</span>
                           )}
                         </div>
-                        {/* An expired key gets no revoke button: revoking it changes nothing. */}
+                        {/* An expired key gets no revoke button (key-expiry.md §9): it no
+                            longer authenticates, so revoking it ends no authority. Revoking
+                            would still record it as revoked, after which agent.revoke_key
+                            answers not-active for it; until then that tool's answers for it
+                            say nothing of the agent's status. Archiving revokes it too. */}
                         {keyListState(k) === "live" && (
                           <button
                             onClick={() => handleRevoke(k.id, k.key_prefix)}

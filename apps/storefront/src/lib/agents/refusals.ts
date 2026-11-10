@@ -17,6 +17,7 @@
  */
 
 import type { AgentAuthFailure } from "./auth";
+import { KEY_EXPIRED_REPLACEMENT_CASE } from "./key-exit-inventory";
 
 export const AGENT_DOCS_URL = "https://cambridgetcg.com/methodology/agents";
 export const MCP_REFUSAL_META_KEY = "cambridgetcg.com/refusal";
@@ -98,7 +99,8 @@ export function authRefusal(failure: AgentAuthFailure): AgentRefusal {
         {
           action: "read_docs",
           href: `${AGENT_DOCS_URL}#key-expiry`,
-          text: "An expired key cannot be renewed. A new key comes from whoever minted this one.",
+          // agent.revoke_key gives an expired key the same sentence.
+          text: KEY_EXPIRED_REPLACEMENT_CASE.text,
           optional: true,
         },
       ],

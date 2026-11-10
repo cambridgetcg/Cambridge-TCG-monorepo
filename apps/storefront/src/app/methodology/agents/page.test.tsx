@@ -11,6 +11,7 @@ import {
   KEY_EXIT_RETAINED,
   KEY_EXIT_STATIC_STATES,
   KEY_EXIT_UNKNOWN_LAYERS,
+  KEY_EXPIRED_REPLACEMENT_CASE,
   KEY_REPLACEMENT_CASES,
   keyExitNextActions,
 } from "@/lib/agents/key-exit-inventory";
@@ -73,9 +74,13 @@ describe("agents methodology: ending a key", () => {
     expect(text).toContain("Any key's holder can end that key at the MCP gate with agent.revoke_key");
     expect(text).toContain(KEY_EXIT_LINEARIZATION);
     // Every replacement case, so the page never states the active one alone.
-    for (const entry of KEY_REPLACEMENT_CASES) {
+    for (const entry of [...KEY_REPLACEMENT_CASES, KEY_EXPIRED_REPLACEMENT_CASE]) {
       expect(text).toContain(`${entry.label}: ${entry.text}`);
     }
+    // The 403 reason holds for unexpired keys only; an expired key's answers say nothing of status.
+    expect(text).toContain("A preview of an unexpired key can show that its agent is suspended or archived");
+    expect(text).toContain("so the answers for an expired key say nothing of that status either");
+    expect(text).not.toContain("A preview of a live key can show");
     expect(text).toContain(KEY_EXIT_CREDENTIAL_NOTE);
     expect(text).toContain("Neither is holder-authenticated");
     for (const next of keyExitNextActions()) {

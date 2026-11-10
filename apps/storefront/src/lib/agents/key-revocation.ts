@@ -23,12 +23,20 @@
  * can still authenticate (key-expiry.ts liveAgentKeySql).
  *
  * Answers never carry revoked_reason, who revoked a key, the agent's
- * handle or id, or anything about its operator. A preview of a live key can
- * show that its agent is suspended or archived (this_key_future_authority),
- * and a performed revocation of an operator-managed key can show it through
- * the replacement text: the gate's 403 already tells any holder of a live key
- * that much, so this adds no oracle. The not-active answer carries nothing
- * about any agent.
+ * handle or id, or anything about its operator. A preview of an unexpired
+ * key can show that its agent is suspended or archived
+ * (this_key_future_authority), and so can the replacement text of an
+ * operator-managed one, previewed or revoked: the gate's 403 already tells
+ * any holder of an unexpired key that much, so this adds no oracle. An
+ * expired key gets no 403: the gate answers key_expired before it reads the
+ * agent's status. So both answers for an expired key say nothing of that
+ * status: this_key_future_authority is "expired", and the replacement is
+ * one text whatever the agent's registration or status
+ * (KEY_EXPIRED_REPLACEMENT_CASE). They keep other_live_keys, as the plan's
+ * §6 gives it to both answers: a count of the agent's other live keys,
+ * which suspension does not change (archiving revokes this key too, and the
+ * answer is then not-active). The not-active answer carries nothing about
+ * any agent.
  *
  * Designed against XENIA Covenant 0.1 candidate duty
  * exit.revocation-is-immediate (xenia d4727ec); Cambridge TCG has not adopted
@@ -51,6 +59,7 @@ import {
   KEY_EXIT_STATIC_STATES,
   KEY_EXIT_THIRD_PARTY_COPIES,
   KEY_EXIT_UNKNOWN_LAYERS,
+  KEY_EXPIRED_REPLACEMENT_CASE,
   keyExitNextActions,
   keyReplacementText,
   type KeyAgentStatus,
@@ -79,14 +88,17 @@ const PREVIEW_SQL = `SELECT k.key_prefix,
 
 // The CTE's outer SELECT sees the snapshot from before the UPDATE, so the
 // count excludes the key being revoked by id rather than by revoked_at.
-// The UPDATE ends any unrevoked key, expired or not.
+// The UPDATE ends any unrevoked key, expired or not; whether it had
+// expired is read by the same NOW(), to choose the replacement text.
 const REVOKE_SQL = `WITH r AS (
        UPDATE agent_keys
           SET revoked_at = NOW(), revoked_reason = $2
         WHERE key_hash = $1 AND revoked_at IS NULL
         RETURNING id, agent_id, key_prefix, revoked_at, expires_at
      )
-     SELECT r.key_prefix, r.revoked_at, r.expires_at, a.registered_via, a.status,
+     SELECT r.key_prefix, r.revoked_at, r.expires_at,
+            ${expiredAgentKeySql("r")} AS key_expired,
+            a.registered_via, a.status,
             (SELECT count(*)::int
                FROM agent_keys k2
               WHERE k2.agent_id = r.agent_id
@@ -106,13 +118,18 @@ function keyExitFacts(input: {
   otherLiveKeys: number;
   registeredVia: RegisteredVia;
   agentStatus: KeyAgentStatus;
+  /** Past its expiry by the database's clock: the replacement text then
+   *  says nothing of the agent's registration or status. */
+  keyExpired: boolean;
 }) {
   return {
     inventory_version: KEY_EXIT_INVENTORY_VERSION,
     evidence_state: KEY_EXIT_EVIDENCE_STATE,
     completeness: KEY_EXIT_COMPLETENESS,
     reversible: false as const,
-    replacement: keyReplacementText(input.registeredVia, input.agentStatus),
+    replacement: input.keyExpired
+      ? KEY_EXPIRED_REPLACEMENT_CASE.text
+      : keyReplacementText(input.registeredVia, input.agentStatus),
     linearization: KEY_EXIT_LINEARIZATION,
     states: {
       this_key_future_authority: input.futureAuthority,
@@ -243,6 +260,7 @@ export async function revokePresentedKey(
           otherLiveKeys,
           registeredVia: via,
           agentStatus: status,
+          keyExpired: expired,
         }),
       };
     }
@@ -253,6 +271,8 @@ export async function revokePresentedKey(
     const via = registeredVia(row.registered_via);
     const status = agentStatus(row.status);
     const otherLiveKeys = Number(row.other_live_keys ?? 0);
+    // As in the preview, only false reads as unexpired.
+    const expiredWhenRevoked = row.key_expired !== false;
     const keyPrefix = String(row.key_prefix);
     const revokedAt = iso(row.revoked_at);
     return {
@@ -273,6 +293,7 @@ export async function revokePresentedKey(
         otherLiveKeys,
         registeredVia: via,
         agentStatus: status,
+        keyExpired: expiredWhenRevoked,
       }),
     };
   } catch (err) {
