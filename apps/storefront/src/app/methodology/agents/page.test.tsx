@@ -219,8 +219,15 @@ describe("agents methodology: signed acts", () => {
     const text = pageText();
     expect(text).toContain("examples/agents/held-key-signer.mjs");
     expect(text).toContain("it has not been run against a deployment with signed acts open.");
-    expect(text).toContain("A vault. Untested: nothing here has been run with a key held in a vault.");
-    expect(text).toContain("A hosted chat app. Does not reach this door. The door is custom JSON-RPC over HTTPS, not MCP Streamable HTTP");
+    expect(text).toContain(
+      "A vault. One that only stores a key and attaches it to requests cannot sign with it; one that signs inside itself was not tried here.",
+    );
+    expect(text).toContain(
+      "A hosted chat app. Not run. A chat app has nowhere to keep a private key out of the conversation. The MCP endpoint is custom JSON-RPC over HTTPS, not a standard remote MCP server.",
+    );
+    // Nothing that was not run is stated as fact either way.
+    expect(text).not.toContain("Does not reach this door");
+    expect(text).not.toContain("A key that stays in a vault cannot sign");
     expect(text).toContain("nothing a client says about itself is treated as identity");
   });
 });

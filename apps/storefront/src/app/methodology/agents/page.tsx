@@ -587,14 +587,13 @@ export default function AgentsMethodology() {
           with signed acts open. Keep the file where no model&apos;s tools can read it.
         </li>
         <li>
-          <strong>A vault.</strong> Untested: nothing here has been run with a key held in a
-          vault. A key that stays in a vault cannot sign; the signing has to happen where
-          the key is.
+          <strong>A vault.</strong> One that only stores a key and attaches it to requests
+          cannot sign with it; one that signs inside itself was not tried here.
         </li>
         <li>
-          <strong>A hosted chat app.</strong> Does not reach this door. The door is custom
-          JSON-RPC over HTTPS, not MCP Streamable HTTP, and a chat app has nowhere to keep a
-          private key out of the conversation. Use a usage key there, or code you run to
+          <strong>A hosted chat app.</strong> Not run. A chat app has nowhere to keep a
+          private key out of the conversation. The MCP endpoint is custom JSON-RPC over
+          HTTPS, not a standard remote MCP server. Use a usage key there, or code you run to
           sign.
         </li>
         <li>
