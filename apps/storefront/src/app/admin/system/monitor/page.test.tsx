@@ -54,7 +54,9 @@ describe("/admin/system/monitor behind the admin gate", () => {
     session("admin");
     const now = new Date();
     const hour = new Date(Math.floor(now.getTime() / 3_600_000) * 3_600_000 - 3_600_000).toISOString();
-    const day = now.toISOString().slice(0, 10);
+    // The day is the counted hour's, not now's: between 00:00 and 01:00 UTC the
+    // last whole hour is yesterday's, and today has no hour to count yet.
+    const day = hour.slice(0, 10);
     const answers: [string, Record<string, unknown>[]][] = [
       ["to_regclass", [{ provisioned: true }]],
       ["FROM price_collector_hosts", [{ source: "cardrush", host: "www.cardrush-pokemon.jp", consecutive_refusals: 3, last_success_at: null, last_refusal_at: now, last_refusal_reason: "http-403", not_before: now, suspended_at: now, suspended_reason: "http-403" }]],

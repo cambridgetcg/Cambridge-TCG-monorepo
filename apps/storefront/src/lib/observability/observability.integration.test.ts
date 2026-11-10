@@ -162,7 +162,10 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
       ($1, repeat('b', 64), 'ctcg_agt_bbbb', now() - interval '3 days', NULL),
       ($1, repeat('c', 64), 'ctcg_agt_cccc', NULL, NULL),
       ($1, repeat('d', 64), 'ctcg_agt_dddd', now() - interval '40 days', now()) RETURNING id`, [agentId])).rows.map(row => row.id);
-    await pool.query(`INSERT INTO agent_rate_buckets (key_id, bucket_minute, request_count) VALUES ($1, date_trunc('minute', now()), 7), ($2, date_trunc('minute', now()) - interval '1 minute', 2)`, [keys[0], keys[1]]);
+    // Two minutes of one UTC day, the last two of yesterday: now()'s minute and
+    // the one before it fall on two days in the first minute after midnight.
+    await pool.query(`INSERT INTO agent_rate_buckets (key_id, bucket_minute, request_count) VALUES
+      ($1, date_trunc('day', now(), 'UTC') - interval '1 minute', 7), ($2, date_trunc('day', now(), 'UTC') - interval '2 minutes', 2)`, [keys[0], keys[1]]);
     await pool.query(`INSERT INTO data_api_usage_months (user_id, month, request_count) VALUES ($1, date_trunc('month', now() AT TIME ZONE 'UTC')::date, 41)`, [userId]);
     await inTransaction([
       ["SELECT pg_advisory_xact_lock(137, 1)"],
