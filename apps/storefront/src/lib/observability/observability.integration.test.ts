@@ -30,9 +30,12 @@ async function inTransaction(statements: [string, unknown[]?][]) {
   catch (error) { await client.query("ROLLBACK"); throw error; }
   finally { client.release(); }
 }
-const today = new Date().toISOString().slice(0, 10);
-const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
-const hourAgo = (hours: number) => new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000 - hours * 3_600_000).toISOString();
+// One instant for the dates these tests write and the monitor reads them at,
+// so a run that crosses midnight or the hour (UTC) still agrees with itself.
+const now = new Date();
+const today = now.toISOString().slice(0, 10);
+const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString().slice(0, 10);
+const hourAgo = (hours: number) => new Date(Math.floor(now.getTime() / 3_600_000) * 3_600_000 - hours * 3_600_000).toISOString();
 
 describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 0148 (explicit loopback DB only)", () => {
   beforeAll(async () => {
@@ -96,10 +99,11 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     await refused(pull(`date_trunc('hour', now()) - interval '25 hours', date_trunc('hour', now()), 'ok', 1, 1, NULL`));
     await refused(pull(`date_trunc('hour', now()) - interval '1 hour', date_trunc('hour', now()), 'ok', 1, 1, 'http-500'`));
     await refused(pull(`date_trunc('hour', now()) - interval '1 hour', date_trunc('hour', now()), 'partial', 1, 1, 'Page 3 failed'`));
-    await pool.query(pull(`date_trunc('hour', now()) - interval '30 hours', date_trunc('hour', now()) - interval '29 hours', 'ok', 10, 1, NULL`));
+    // These three name the same hour, read once: each statement's own now() can sit either side of an hour.
+    await pool.query(pull(`'${hourAgo(30)}', '${hourAgo(29)}', 'ok', 10, 1, NULL`));
     // A counted hour is never counted again; a failed pull counted nothing and may be retried.
-    await refused(pull(`date_trunc('hour', now()) - interval '30 hours', date_trunc('hour', now()) - interval '28 hours', 'partial', 3, 1, 'page-failed'`), "23P01");
-    await pool.query(pull(`date_trunc('hour', now()) - interval '30 hours', date_trunc('hour', now()) - interval '29 hours', 'failed', 0, 0, 'http-500'`));
+    await refused(pull(`'${hourAgo(30)}', '${hourAgo(28)}', 'partial', 3, 1, 'page-failed'`), "23P01");
+    await pool.query(pull(`'${hourAgo(30)}', '${hourAgo(29)}', 'failed', 0, 0, 'http-500'`));
     await refused(`INSERT INTO error_daily (day, tag, status, count) VALUES (current_date, 'relation users does not exist', 500, 1)`);
     await refused(`INSERT INTO error_daily (day, tag, status, count) VALUES (current_date, 'wholesale', 99, 1)`);
     await pool.query(`DELETE FROM traffic_pulls`);
@@ -109,7 +113,8 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     await pool.query(`INSERT INTO ops_job_outcomes (job, started_at, finished_at, http_status, outcome) VALUES ('collect/tcgplayer', now() - interval '14 months', now() - interval '14 months', 200, 'ran'),
       ('collect/tcgplayer', now() - interval '12 months', now() - interval '12 months', 200, 'ran')`);
     await pool.query(`INSERT INTO mcp_daily VALUES (current_date - 400, 'tools/list', 'none', false, 'ok', 3), (current_date - 300, 'tools/list', 'none', false, 'ok', 2)`);
-    await pool.query(`INSERT INTO error_daily VALUES (current_date - 400, 'wholesale', 503, 9), (current_date - 30, 'wholesale', 503, 4)`);
+    // Dated from `today`: the 30-day-old row must stay outside the 30 days the monitor reads at `now`.
+    await pool.query(`INSERT INTO error_daily VALUES ($1::date - 400, 'wholesale', 503, 9), ($1::date - 30, 'wholesale', 503, 4)`, [today]);
     await pool.query(`INSERT INTO traffic_hourly VALUES (date_trunc('hour', now()) - interval '36 days', 'apex', '/', false, 'browser-like', 'ctcg.actor-class/v1', '2xx', 'miss', 'none', 5),
       (date_trunc('hour', now()) - interval '34 days', 'apex', '/', false, 'browser-like', 'ctcg.actor-class/v1', '2xx', 'miss', 'none', 6)`);
     await pool.query(`INSERT INTO traffic_pulls (window_start, window_end, status, records, pages) VALUES (date_trunc('hour', now()) - interval '36 days', date_trunc('hour', now()) - interval '36 days' + interval '1 hour', 'ok', 5, 1)`);
@@ -148,7 +153,7 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     const today = (await pool.query(`SELECT ((now() AT TIME ZONE 'UTC')::date)::text AS day`)).rows[0].day as string;
     expect(await recordMcpDaily([{ day: today, ...words, count: 2 }], run)).toBe(true);
     expect(await recordMcpDaily([{ day: today, ...words, count: 1 }, { day: today, ...words, outcome: "rate-limited", count: 1 }], run)).toBe(true);
-    expect((await pool.query(`SELECT method, tool, authenticated, outcome, count FROM mcp_daily WHERE day = (now() AT TIME ZONE 'UTC')::date ORDER BY outcome`)).rows).toEqual([
+    expect((await pool.query(`SELECT method, tool, authenticated, outcome, count FROM mcp_daily WHERE day = $1::date ORDER BY outcome`, [today])).rows).toEqual([
       { ...words, count: 3 }, { ...words, outcome: "rate-limited", count: 1 },
     ]);
   });
@@ -198,7 +203,7 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     postgresJs = createDb({ url: url.toString(), ssl: false, max: 2 });
     const unsafe: RunQuery = async (sql, params) => ({ rows: await postgresJs!.client.unsafe(sql, (params ?? []) as never[]) as unknown as Record<string, unknown>[] });
     for (const [driver, read] of [["pg", run], ["postgres.js", unsafe]] as const) {
-      const data = await loadMonitor(read, new Date());
+      const data = await loadMonitor(read, now);
       const label = `${driver}: `;
       expect(data.collectors.batches, label).toMatchObject({ state: "known", data: { window: [{ source: "cardrush", host: "www.cardrush-op.jp", batches: 1, sourceRows: 103, missingPrices: 2, quarantined: 1 }] } });
       const cardrush = data.collectors.sources.find(source => source.source === "cardrush")!;
