@@ -13,6 +13,7 @@ vi.mock("@/lib/db", () => ({ query: mocks.query }));
 vi.mock("./_client", () => ({ AgentsClient: mocks.client }));
 
 import AgentsAccountPage from "./page";
+import { expiredAgentKeySql } from "@/lib/agents/key-expiry";
 
 const USER_ID = "00000000-0000-4000-8000-0000000000a1";
 const STAFF_NOTE = "admin revoke: leaked in support ticket 4411 by 203.0.113.9";
@@ -34,6 +35,8 @@ beforeEach(() => {
               revoked_at: "2026-10-29T11:00:00Z",
               revoked_reason: STAFF_NOTE,
               created_at: "2026-10-29T10:00:00Z",
+              expires_at: "2026-11-05T10:00:00Z",
+              expired: false,
             },
           ],
         }
@@ -54,5 +57,14 @@ describe("/account/agents page", () => {
     expect(JSON.stringify(props)).not.toContain("203.0.113.9");
     // Both reads are scoped to the signed-in operator.
     for (const [, args] of mocks.query.mock.calls) expect(args).toEqual([USER_ID]);
+  });
+
+  it("decides expiry in the key query, by the database's clock, with the one rule", async () => {
+    renderToStaticMarkup(await AgentsAccountPage());
+
+    const keySql = String(mocks.query.mock.calls.find(([sql]) => String(sql).includes("FROM agent_keys"))![0]);
+    expect(keySql).toContain(`(k.revoked_at IS NULL AND ${expiredAgentKeySql("k")}) AS expired`);
+    const [props] = mocks.client.mock.calls[0];
+    expect(props.keys[0]).toMatchObject({ expires_at: "2026-11-05T10:00:00Z", expired: false });
   });
 });

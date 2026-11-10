@@ -41,7 +41,8 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 import { archiveAgent, createAgent, mintKey, revokeKey } from "./operator-actions";
-import { createAgentWithKey } from "./creation";
+import { createAgentWithKey, mintRawToken } from "./creation";
+import { keyExpiryDateRange, liveAgentKeySql } from "./key-expiry";
 import { ARCHIVE_REVOCATION_REASON } from "./revocation-reasons";
 
 const target = process.env.AGENT_AUTH_TEST_DATABASE_URL;
@@ -72,9 +73,13 @@ async function insertAgent(userId: string, opts: { status?: string; registeredVi
 }
 
 const handle = () => { seq += 1; return `oc${seq}-${randomUUID().slice(0, 8)}`; };
-const createInput = () => ({ public_handle: handle(), display_name: "Integration", model_tag: "integration-test" });
+const createInput = (key_expiry = "90d") => ({ public_handle: handle(), display_name: "Integration", model_tag: "integration-test", key_expiry });
+/** Every mint states its expiry; 30 days unless a test says otherwise. */
+const mint = (agent_id: string, name: string, key_expiry = "30d") => mintKey({ agent_id, name, key_expiry });
 
 const liveKeyCount = async (agentId: string) =>
+  (await pool.query(`SELECT count(*)::int AS n FROM agent_keys WHERE agent_id = $1 AND ${liveAgentKeySql("")}`, [agentId])).rows[0].n as number;
+const unrevokedKeyCount = async (agentId: string) =>
   (await pool.query("SELECT count(*)::int AS n FROM agent_keys WHERE agent_id = $1 AND revoked_at IS NULL", [agentId])).rows[0].n as number;
 const keyRow = async (keyId: string) =>
   (await pool.query("SELECT revoked_at, revoked_reason FROM agent_keys WHERE id = $1", [keyId])).rows[0];
@@ -104,7 +109,7 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
     state.pool = pool;
     // Pure FK target for agents.operated_by_user_id.
     await pool.query("CREATE TABLE users (id uuid PRIMARY KEY)");
-    for (const file of ["0090_agents.sql", "0112_agent_self_serve.sql"]) {
+    for (const file of ["0090_agents.sql", "0112_agent_self_serve.sql", "0151_agent_key_expiry.sql"]) {
       await pool.query(await readFile(new URL(`../../../drizzle/${file}`, import.meta.url), "utf8"));
     }
   });
@@ -118,7 +123,7 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
     state.userId = await newUser();
     for (let round = 0; round < 3; round++) {
       const agentId = await insertAgent(state.userId);
-      const results = await Promise.all(Array.from({ length: 12 }, (_, i) => mintKey({ agent_id: agentId, name: `k${i}` })));
+      const results = await Promise.all(Array.from({ length: 12 }, (_, i) => mint(agentId, `k${i}`)));
       const minted = results.filter((r) => r.ok);
       expect(minted).toHaveLength(5);
       expect(results.filter((r) => !r.ok)).toStrictEqual(Array.from({ length: 7 }, () => ({ ok: false, error: KEY_CAP })));
@@ -159,15 +164,16 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
       await insertAgent(other),
     ];
     for (const agentId of refused) {
-      expect(await mintKey({ agent_id: agentId, name: "nope" })).toStrictEqual({ ok: false, error: MINT_REFUSED });
+      expect(await mint(agentId, "nope")).toStrictEqual({ ok: false, error: MINT_REFUSED });
       expect(await liveKeyCount(agentId)).toBe(0);
     }
 
     const selfServe = await createAgentWithKey({
       operatedByUserId: state.userId, publicHandle: handle(), displayName: "Legacy", modelTag: "integration-test", registeredVia: "self-serve",
+      keyExpiry: { kind: "never" },
     });
     if (!selfServe.ok) throw new Error(selfServe.error);
-    expect(await mintKey({ agent_id: selfServe.agent_id, name: "nope" })).toStrictEqual({ ok: false, error: MINT_REFUSED });
+    expect(await mint(selfServe.agent_id, "nope")).toStrictEqual({ ok: false, error: MINT_REFUSED });
     expect(await revokeKey({ key_id: selfServe.key_id })).toStrictEqual({ ok: true, data: { revoked: true, already_revoked: false } });
     expect(await archiveAgent({ agent_id: selfServe.agent_id })).toStrictEqual({ ok: true, data: { archived: true } });
   });
@@ -191,7 +197,7 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
 
     // Concurrent revokes of one live key: exactly one performs.
     state.userId = (await pool.query("SELECT operated_by_user_id AS u FROM agents WHERE id = $1", [created.data.agent_id])).rows[0].u;
-    const minted = await mintKey({ agent_id: created.data.agent_id, name: "race" });
+    const minted = await mint(created.data.agent_id, "race");
     if (!minted.ok) throw new Error(minted.error);
     const racing = await Promise.all([1, 2, 3, 4].map((i) => revokeKey({ key_id: minted.data.key_id, reason: `race ${i}` })));
     expect(racing.filter((r) => r.ok && !r.data.already_revoked)).toHaveLength(1);
@@ -205,7 +211,7 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
     const agentId = created.data.agent_id;
     const keyIds = [await firstKeyId(agentId)];
     for (const name of ["two", "three"]) {
-      const minted = await mintKey({ agent_id: agentId, name });
+      const minted = await mint(agentId, name);
       if (!minted.ok) throw new Error(minted.error);
       keyIds.push(minted.data.key_id);
     }
@@ -243,7 +249,7 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
     if (!created.ok) throw new Error(created.error);
     const agentId = created.data.agent_id;
     const liveKeyId = await firstKeyId(agentId);
-    const minted = await mintKey({ agent_id: agentId, name: "revoked-one" });
+    const minted = await mint(agentId, "revoked-one");
     if (!minted.ok) throw new Error(minted.error);
     expect(await revokeKey({ key_id: minted.data.key_id, reason: "owner note" })).toMatchObject({ ok: true });
     const snapshot = async () => ({
@@ -260,9 +266,9 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
     const missingAgent = randomUUID();
     const missingKey = randomUUID();
 
-    const mintMissing = await mintKey({ agent_id: missingAgent, name: "x" });
+    const mintMissing = await mint(missingAgent, "x");
     expect(mintMissing).toStrictEqual({ ok: false, error: MINT_REFUSED });
-    expect(await mintKey({ agent_id: agentId, name: "x" })).toStrictEqual(mintMissing);
+    expect(await mint(agentId, "x")).toStrictEqual(mintMissing);
 
     const revokeMissing = await revokeKey({ key_id: missingKey, reason: "x" });
     expect(revokeMissing).toStrictEqual({ ok: false, error: "Key not found." });
@@ -292,9 +298,9 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
       const agentId = created.data.agent_id;
       const [archived, ...mints] = await Promise.all([
         archiveAgent({ agent_id: agentId }),
-        mintKey({ agent_id: agentId, name: "a" }),
-        mintKey({ agent_id: agentId, name: "b" }),
-        mintKey({ agent_id: agentId, name: "c" }),
+        mint(agentId, "a"),
+        mint(agentId, "b", "never"),
+        mint(agentId, "c", "7d"),
       ]);
       expect(archived).toStrictEqual({ ok: true, data: { archived: true } });
       for (const mint of mints) if (!mint.ok) expect(mint.error).toBe(MINT_REFUSED);
@@ -323,9 +329,10 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
       if (!created.ok) throw new Error(created.error);
       const direct = await within(createAgentWithKey({
         operatedByUserId: state.userId, publicHandle: handle(), displayName: "Direct", modelTag: "integration-test", maxActiveAgentsForOperator: 10,
+        keyExpiry: { kind: "days", days: 7 },
       }), "createAgentWithKey with a cap");
       expect(direct).toMatchObject({ ok: true });
-      const minted = await within(mintKey({ agent_id: created.data.agent_id, name: "single" }), "mintKey");
+      const minted = await within(mint(created.data.agent_id, "single"), "mintKey");
       expect(minted).toMatchObject({ ok: true });
       if (!minted.ok) throw new Error(minted.error);
       expect(await within(revokeKey({ key_id: minted.data.key_id }), "revokeKey")).toStrictEqual({ ok: true, data: { revoked: true, already_revoked: false } });
@@ -335,4 +342,97 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
       await single.end();
     }
   }, 20000);
+
+  // ── Key expiry (0151) ────────────────────────────────────────────────
+
+  const stored = async (keyId: string) =>
+    (await pool.query(
+      `SELECT expires_at, created_at,
+              EXTRACT(EPOCH FROM expires_at - created_at)::float8 AS lifetime_seconds,
+              to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') AS expires_utc
+         FROM agent_keys WHERE id = $1`,
+      [keyId],
+    )).rows[0];
+
+  it("mints with each choice and stores the instant from the database's clock", async () => {
+    state.userId = await newUser();
+    const created = await createAgent(createInput("7d"));
+    if (!created.ok) throw new Error(created.error);
+    const agentId = created.data.agent_id;
+    const first = await stored(await firstKeyId(agentId));
+    expect(first.lifetime_seconds).toBe(7 * 86400);
+    expect(created.data.key_expires_at).toBe((first.expires_at as Date).toISOString());
+
+    // Durations are exact multiples of 24 hours from the row's own created_at,
+    // whatever the session's time zone (this cluster's is not UTC).
+    for (const [choice, days] of [["30d", 30], ["90d", 90], ["365d", 365]] as const) {
+      const minted = await mint(agentId, choice, choice);
+      if (!minted.ok) throw new Error(minted.error);
+      const row = await stored(minted.data.key_id);
+      expect(row.lifetime_seconds, choice).toBe(days * 86400);
+      expect(minted.data.key_expires_at).toBe((row.expires_at as Date).toISOString());
+    }
+    // A date ends at 00:00 UTC on that date; the furthest one offered.
+    const { max } = keyExpiryDateRange();
+    const dated = await mint(agentId, "dated", max);
+    if (!dated.ok) throw new Error(dated.error);
+    expect((await stored(dated.data.key_id)).expires_utc).toBe(`${max}T00:00:00.000000`);
+    expect(dated.data.key_expires_at).toBe(`${max}T00:00:00.000Z`);
+
+    expect(await liveKeyCount(agentId)).toBe(5);
+
+    // Never: NULL is stored and returned, at create and at mint.
+    const neverAgent = await createAgent(createInput("never"));
+    if (!neverAgent.ok) throw new Error(neverAgent.error);
+    expect(neverAgent.data.key_expires_at).toBeNull();
+    expect((await stored(await firstKeyId(neverAgent.data.agent_id))).expires_at).toBeNull();
+    const never = await mint(neverAgent.data.agent_id, "never", "never");
+    if (!never.ok) throw new Error(never.error);
+    expect((await stored(never.data.key_id)).expires_at).toBeNull();
+    expect(never.data.key_expires_at).toBeNull();
+  });
+
+  it("refuses a missing or bad choice before touching the database", async () => {
+    state.userId = await newUser();
+    const agentId = await insertAgent(state.userId);
+    for (const keyExpiry of [undefined, "", "90", "never ", "2020-01-01", keyExpiryDateRange().min.replace(/\d\d$/, "99")]) {
+      const result = await mintKey({ agent_id: agentId, name: "bad", key_expiry: keyExpiry });
+      expect(result, String(keyExpiry)).toMatchObject({ ok: false });
+    }
+    const unstated = { ...createInput(), key_expiry: undefined };
+    expect(await createAgent(unstated)).toMatchObject({ ok: false });
+    expect(await unrevokedKeyCount(agentId)).toBe(0);
+    expect((await pool.query("SELECT count(*)::int AS n FROM agents WHERE public_handle = $1", [unstated.public_handle])).rows[0].n).toBe(0);
+  });
+
+  it("the five-key cap counts live keys only: expired keys free their slot", async () => {
+    state.userId = await newUser();
+    const agentId = await insertAgent(state.userId);
+    // Four keys that expired on the database's clock, and one live key.
+    for (let i = 0; i < 4; i++) {
+      const minted = mintRawToken();
+      await pool.query(
+        `INSERT INTO agent_keys (agent_id, key_hash, key_prefix, name, created_at, expires_at)
+         VALUES ($1, $2, $3, 'expired', NOW() - interval '2 days', NOW() - interval '1 day')`,
+        [agentId, minted.hash, minted.prefix],
+      );
+    }
+    expect((await mint(agentId, "live-1")).ok).toBe(true);
+    expect(await unrevokedKeyCount(agentId)).toBe(5);
+    expect(await liveKeyCount(agentId)).toBe(1);
+
+    const results = await Promise.all(Array.from({ length: 8 }, (_, i) => mint(agentId, `k${i}`)));
+    expect(results.filter((r) => r.ok)).toHaveLength(4);
+    expect(results.filter((r) => !r.ok)).toStrictEqual(Array.from({ length: 4 }, () => ({ ok: false, error: KEY_CAP })));
+    expect(await liveKeyCount(agentId)).toBe(5);
+    expect(await unrevokedKeyCount(agentId)).toBe(9);
+
+    // The operator can still revoke an expired key, and archive ends them all.
+    const expiredId = (await pool.query(
+      "SELECT id FROM agent_keys WHERE agent_id = $1 AND name = 'expired' ORDER BY id LIMIT 1", [agentId],
+    )).rows[0].id as string;
+    expect(await revokeKey({ key_id: expiredId, reason: "tidy" })).toStrictEqual({ ok: true, data: { revoked: true, already_revoked: false } });
+    expect(await archiveAgent({ agent_id: agentId })).toStrictEqual({ ok: true, data: { archived: true } });
+    expect(await unrevokedKeyCount(agentId)).toBe(0);
+  });
 });

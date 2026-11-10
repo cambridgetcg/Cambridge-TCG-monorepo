@@ -45,6 +45,8 @@ function key(overrides: Partial<KeyRow>): KeyRow {
     last_used_at: null,
     revoked_at: null,
     revoked_by: null,
+    expires_at: null,
+    expired: false,
     created_at: "2026-10-29T10:00:00Z",
     ...overrides,
   };

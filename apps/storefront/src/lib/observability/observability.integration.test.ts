@@ -45,7 +45,7 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     await pool.query("CREATE TABLE users (id uuid PRIMARY KEY)");
     for (const name of ["0090_agents.sql", "0137_member_price_observations.sql", "0138_member_data_keys.sql", "0139_widen_price_sources.sql", "0140_price_source_crosswalks.sql",
       "0141_market_derived.sql", "0142_data_api_plans.sql", "0143_price_collector_leases.sql", "0146_price_collector_hosts.sql", "0148_ops_observability.sql",
-      "0150_mcp_daily_agent_revoke_key.sql"]) await apply(pool, name);
+      "0150_mcp_daily_agent_revoke_key.sql", "0151_agent_key_expiry.sql"]) await apply(pool, name);
   });
   afterAll(async () => {
     if (postgresJs) await postgresJs.close();
@@ -192,6 +192,9 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
       ($1, repeat('b', 64), 'ctcg_agt_bbbb', now() - interval '3 days', NULL),
       ($1, repeat('c', 64), 'ctcg_agt_cccc', NULL, NULL),
       ($1, repeat('d', 64), 'ctcg_agt_dddd', now() - interval '40 days', now()) RETURNING id`, [agentId])).rows.map(row => row.id);
+    // Used two days ago, expired yesterday (0151): not active, so not in a band.
+    await pool.query(`INSERT INTO agent_keys (agent_id, key_hash, key_prefix, last_used_at, created_at, expires_at)
+      VALUES ($1, repeat('e', 64), 'ctcg_agt_eeee', now() - interval '2 days', now() - interval '10 days', now() - interval '1 day')`, [agentId]);
     await pool.query(`INSERT INTO agent_rate_buckets (key_id, bucket_minute, request_count) VALUES ($1, date_trunc('minute', now()), 7), ($2, date_trunc('minute', now()) - interval '1 minute', 2)`, [keys[0], keys[1]]);
     await pool.query(`INSERT INTO data_api_usage_months (user_id, month, request_count) VALUES ($1, date_trunc('month', now() AT TIME ZONE 'UTC')::date, 41)`, [userId]);
     await inTransaction([
@@ -245,7 +248,7 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
       expect(data.api.usage, label).toMatchObject({ state: "known", data: [{ requests: 41, accounts: 1 }] });
       expect(data.api.routes, label).toMatchObject({ state: "known", data: [{ pathGroup: "/api/v1/member-prices", statusClass: "401", requests: 5 }] });
       expect(data.agents.mcp, label).toMatchObject({ state: "known", data: { tally: expect.arrayContaining([{ method: "tools/call", tool: "agent.self", authenticated: true, outcome: "ok", requests: 3 }]) } });
-      expect(data.agents.keys, label).toEqual({ state: "known", data: { keys: 4, active: 3, never: 1, lastHour: 1, lastDay: 0, lastWeek: 1, lastMonth: 0, older: 0 } });
+      expect(data.agents.keys, label).toEqual({ state: "known", data: { keys: 5, active: 3, never: 1, lastHour: 1, lastDay: 0, lastWeek: 1, lastMonth: 0, older: 0 } });
       expect(data.agents.buckets, label).toMatchObject({ state: "known", data: [{ requests: 9, keys: 2, busiestMinute: 7 }] });
       expect(data.traffic.coverage, label).toMatchObject({ state: "known", data: { ok: 1, failed: 1, partial: 0, unknown: 35 * 24 - 2 } });
       expect(data.traffic.counts, label).toMatchObject({ state: "known", data: {

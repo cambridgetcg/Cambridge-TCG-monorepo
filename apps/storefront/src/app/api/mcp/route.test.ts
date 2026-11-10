@@ -738,9 +738,9 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
     mocks.agentSelf.mockRejectedValueOnce(new Error("boom"));
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     await POST(request("agent.self"));
-    // A tool's own 403 (Coverage Hunt's key_revoked) is a refusal; any other
+    // A tool's own 403 (Coverage Hunt's key_not_live) is a refusal; any other
     // ToolError is a tool error, even one answered 404.
-    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("key revoked", 403));
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("This key is no longer live.", 403));
     await POST(request("tools/call", { name: "coverage.hunt.contribute", arguments: {} }));
     vi.mocked(playObserve).mockRejectedValueOnce(new ToolError("match not found", 404));
     await POST(request("play.observe", { match_id: "m-1" }));

@@ -11,6 +11,7 @@
 import { randomUUID } from "node:crypto";
 import type { CompatQueryFn } from "@cambridge-tcg/db/compat";
 import { query, transaction } from "@/lib/db";
+import { liveAgentKeySql } from "@/lib/agents/key-expiry";
 import {
   findTurnByRequest,
   openCoverageHuntCase,
@@ -305,18 +306,20 @@ async function lockLiveActorKey(
   // First in every agent write transaction, so a contribution and the key
   // holder's agent.revoke_key are strictly ordered: the revocation's UPDATE
   // waits for this share lock, and a contribution that starts after a
-  // revocation committed finds no live key and writes nothing. Locks follow
-  // the agent code's order (agents, then agent_keys); the agents lock is the
-  // same strength a turn's foreign key takes.
+  // revocation committed finds no live key and writes nothing. A key whose
+  // expiry has passed by this transaction's start (the database's clock) is
+  // not live either (lib/agents/key-expiry.ts). Locks follow the agent
+  // code's order (agents, then agent_keys); the agents lock is the same
+  // strength a turn's foreign key takes.
   await q(`SELECT 1 FROM agents WHERE id = $1 FOR KEY SHARE`, [agentId]);
   const live = await q(
     `SELECT 1 FROM agent_keys
-      WHERE id = $1 AND agent_id = $2 AND revoked_at IS NULL
+      WHERE id = $1 AND agent_id = $2 AND ${liveAgentKeySql("")}
       FOR SHARE`,
     [keyId, agentId],
   );
   if (live.rows.length === 0) {
-    throw new CoverageHuntError("key_revoked", "This key was revoked.");
+    throw new CoverageHuntError("key_not_live", "This key is no longer live.");
   }
 }
 

@@ -14,6 +14,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { expiredAgentKeySql } from "@/lib/agents/key-expiry";
 import { PageHeader, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
 import { AgentsClient } from "./_client";
 import { toKeyRows, type StoredKeyRow } from "./key-revocation-label";
@@ -49,6 +50,11 @@ export interface KeyRow {
   revoked_at: string | null;
   /** Who ended the key, as a category; null while it is live. */
   revoked_by: string | null;
+  /** When the key stops (or stopped) authenticating; null: no expiry. */
+  expires_at: string | null;
+  /** Past its expiry by the database's clock when the page was read. A
+   *  revoked key reads false here: revocation is its state. */
+  expired: boolean;
   created_at: string;
 }
 
@@ -68,9 +74,13 @@ export default async function AgentsAccountPage() {
         ORDER BY (status = 'active') DESC, created_at DESC`,
       [session.user.id],
     ),
+    // Whether a key has expired is decided here, by the database's clock,
+    // with the one rule (key-expiry.ts), never in the browser.
     query(
       `SELECT k.id, k.agent_id, k.key_prefix, k.name, k.rate_limit_tier,
-              k.last_used_at, k.revoked_at, k.revoked_reason, k.created_at
+              k.last_used_at, k.revoked_at, k.revoked_reason, k.created_at,
+              k.expires_at,
+              (k.revoked_at IS NULL AND ${expiredAgentKeySql("k")}) AS expired
          FROM agent_keys k
          JOIN agents a ON a.id = k.agent_id
         WHERE a.operated_by_user_id = $1

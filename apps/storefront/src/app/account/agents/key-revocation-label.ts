@@ -43,6 +43,9 @@ export function toKeyRows(rows: readonly StoredKeyRow[]): KeyRow[] {
     last_used_at: row.last_used_at,
     revoked_at: row.revoked_at,
     revoked_by: row.revoked_at ? keyRevocationLabel(row.revoked_reason) : null,
+    expires_at: row.expires_at,
+    // Computed by the page's SQL; only an explicit true reads as expired.
+    expired: row.expired === true,
     created_at: row.created_at,
   }));
 }

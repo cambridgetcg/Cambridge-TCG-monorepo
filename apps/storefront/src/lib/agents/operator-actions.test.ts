@@ -15,6 +15,7 @@ vi.mock("./creation", async (importOriginal) => ({
 }));
 
 import { hashAgentToken } from "./auth";
+import { keyExpiresAtSql, liveAgentKeySql } from "./key-expiry";
 import { archiveAgent, createAgent, mintKey, revokeKey } from "./operator-actions";
 import { ARCHIVE_REVOCATION_REASON } from "./revocation-reasons";
 
@@ -38,6 +39,7 @@ const validCreate = {
   public_handle: "quiet-agent",
   display_name: "Quiet Agent",
   model_tag: "example-model",
+  key_expiry: "90d",
 };
 
 beforeEach(() => {
@@ -65,8 +67,43 @@ describe("createAgent", () => {
         registeredVia: "operator",
         maxActiveAgentsForOperator: 10,
         description: "What it is for.",
+        keyExpiry: { kind: "days", days: 90 },
       }),
     );
+    expect(mocks.query).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("passes the first key's chosen expiry and returns it as stored", async () => {
+    mocks.createAgentWithKey.mockResolvedValue({
+      ok: true,
+      agent_id: AGENT_ID,
+      public_handle: "quiet-agent",
+      key_id: KEY_ID,
+      token: "token-for-test",
+      key_prefix: "ctcg_agt_abc",
+      key_expires_at: null,
+    });
+
+    const result = await createAgent({ ...validCreate, key_expiry: "never" });
+
+    expect(mocks.createAgentWithKey).toHaveBeenCalledWith(
+      expect.objectContaining({ keyExpiry: { kind: "never" } }),
+    );
+    expect(result).toMatchObject({ ok: true, data: { key_expires_at: null } });
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["unknown", "60d"],
+    ["a number", 90],
+    ["today", new Date().toISOString().slice(0, 10)],
+  ])("refuses a %s key expiry before creating anything", async (_label, keyExpiry) => {
+    const result = await createAgent({ ...validCreate, key_expiry: keyExpiry as string });
+    expect(result).toMatchObject({ ok: false });
+    if (result.ok) return;
+    expect(result.error).toMatch(/^Choose /);
+    expect(mocks.createAgentWithKey).not.toHaveBeenCalled();
     expect(mocks.query).not.toHaveBeenCalled();
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
@@ -112,10 +149,10 @@ describe("mintKey", () => {
     const tx = txAnswering(
       { rows: [{ id: AGENT_ID }] },
       { rows: [{ n: 1 }] },
-      { rows: [{ id: KEY_ID }] },
+      { rows: [{ id: KEY_ID, expires_at: new Date("2027-02-08T09:14:02.000Z") }] },
     );
 
-    const result = await mintKey({ agent_id: AGENT_ID, name: " laptop " });
+    const result = await mintKey({ agent_id: AGENT_ID, name: " laptop ", key_expiry: "90d" });
 
     expect(mocks.transaction).toHaveBeenCalledTimes(1);
     const lock = sqlOf(tx, 0);
@@ -125,25 +162,77 @@ describe("mintKey", () => {
     expect(lock).toContain("registered_via = 'operator'");
     expect(lock).toContain("FOR NO KEY UPDATE");
     expect(tx.mock.calls[0][1]).toEqual([AGENT_ID, USER_ID]);
-    expect(sqlOf(tx, 1)).toContain("FROM agent_keys WHERE agent_id = $1 AND revoked_at IS NULL");
-    expect(sqlOf(tx, 2)).toContain("INSERT INTO agent_keys");
+    // The cap counts live keys only: an expired key frees its slot.
+    expect(sqlOf(tx, 1)).toContain(`FROM agent_keys WHERE agent_id = $1 AND ${liveAgentKeySql("")}`);
+    expect(sqlOf(tx, 2)).toContain("INSERT INTO agent_keys (agent_id, key_hash, key_prefix, name, expires_at)");
+    expect(sqlOf(tx, 2)).toContain(keyExpiresAtSql(5, 6).replace(/\s+/g, " "));
+    expect(sqlOf(tx, 2)).toContain("RETURNING id, expires_at");
 
-    const [agentId, hash, prefix, name] = tx.mock.calls[2][1] as string[];
+    const [agentId, hash, prefix, name, days, date] = tx.mock.calls[2][1] as unknown[];
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(agentId).toBe(AGENT_ID);
     expect(name).toBe("laptop");
+    expect([days, date]).toEqual([90, null]);
     expect(result.data.token).toMatch(/^ctcg_agt_[A-Za-z0-9]{22}$/);
     expect(prefix).toBe(result.data.token.slice(0, 12));
     expect(hash).toBe(hashAgentToken(result.data.token));
     expect(result.data.key_id).toBe(KEY_ID);
+    expect(result.data.key_expires_at).toBe("2027-02-08T09:14:02.000Z");
     expect(mocks.query).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["never", [null, null], null],
+    ["2027-01-28", [null, "2027-01-28"], new Date("2027-01-28T00:00:00.000Z")],
+  ])("mints with the choice %s", async (keyExpiry, binds, stored) => {
+    const tx = txAnswering(
+      { rows: [{ id: AGENT_ID }] },
+      { rows: [{ n: 0 }] },
+      { rows: [{ id: KEY_ID, expires_at: stored }] },
+    );
+    // A fixed clock keeps the date inside the picker's range.
+    vi.useFakeTimers({ now: new Date("2026-11-10T12:00:00.000Z"), toFake: ["Date"] });
+    try {
+      const result = await mintKey({ agent_id: AGENT_ID, name: "k", key_expiry: keyExpiry });
+      expect((tx.mock.calls[2][1] as unknown[]).slice(4)).toEqual(binds);
+      expect(result).toMatchObject({ ok: true, data: { key_expires_at: stored ? stored.toISOString() : null } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["unknown", "1y"],
+    ["past", "2020-01-01"],
+    ["an object", { kind: "never" }],
+  ])("refuses a %s key expiry without a query", async (_label, keyExpiry) => {
+    const result = await mintKey({ agent_id: AGENT_ID, name: "key", key_expiry: keyExpiry as string });
+    expect(result).toMatchObject({ ok: false });
+    if (result.ok) return;
+    expect(result.error).toMatch(/^Choose /);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.query).not.toHaveBeenCalled();
+  });
+
+  it("answers a date that began on the database's clock before the insert", async () => {
+    mocks.transaction.mockRejectedValue(
+      Object.assign(new Error("check violation"), { code: "23514", constraint: "agent_keys_expiry_after_creation" }),
+    );
+    await expect(
+      mintKey({ agent_id: AGENT_ID, name: "key", key_expiry: new Date(Date.now() + 86_400_000).toISOString().slice(0, 10) }),
+    ).resolves.toEqual({ ok: false, error: "That date has already begun (UTC). Choose a later date." });
+
+    // Any other failure still throws.
+    mocks.transaction.mockRejectedValue(Object.assign(new Error("boom"), { code: "57014" }));
+    await expect(mintKey({ agent_id: AGENT_ID, name: "key", key_expiry: "7d" })).rejects.toThrow("boom");
   });
 
   it("refuses agents that are not this account's active operator-managed agents", async () => {
     const tx = txAnswering({ rows: [] });
 
-    await expect(mintKey({ agent_id: AGENT_ID, name: "key" })).resolves.toEqual({
+    await expect(mintKey({ agent_id: AGENT_ID, name: "key", key_expiry: "30d" })).resolves.toEqual({
       ok: false,
       error: "Keys can be minted only for your active operator-managed agents.",
     });
@@ -153,7 +242,7 @@ describe("mintKey", () => {
   it("refuses a sixth live key without inserting", async () => {
     const tx = txAnswering({ rows: [{ id: AGENT_ID }] }, { rows: [{ n: 5 }] });
 
-    await expect(mintKey({ agent_id: AGENT_ID, name: "key" })).resolves.toEqual({
+    await expect(mintKey({ agent_id: AGENT_ID, name: "key", key_expiry: "30d" })).resolves.toEqual({
       ok: false,
       error: "This agent already has 5 active keys. Revoke one first.",
     });

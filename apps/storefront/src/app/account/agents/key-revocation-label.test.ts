@@ -8,6 +8,8 @@ import { keyRevocationLabel, toKeyRows, type StoredKeyRow } from "./key-revocati
 const KEY_ROW_FIELDS = [
   "agent_id",
   "created_at",
+  "expired",
+  "expires_at",
   "id",
   "key_prefix",
   "last_used_at",
@@ -27,6 +29,8 @@ function stored(overrides: Partial<StoredKeyRow>): StoredKeyRow {
     last_used_at: null,
     revoked_at: null,
     revoked_reason: null,
+    expires_at: null,
+    expired: false,
     created_at: "2026-10-29T10:00:00Z",
     ...overrides,
   };
@@ -80,6 +84,22 @@ describe("toKeyRows", () => {
     const [row] = toKeyRows([stored({ revoked_reason: STAFF_NOTE })]);
     expect(row.revoked_by).toBeNull();
     expect(JSON.stringify(row)).not.toContain("203.0.113.9");
+  });
+
+  it("passes the stored expiry and the SQL's expired flag, and nothing else reads as expired", () => {
+    const rows = toKeyRows([
+      stored({ id: "never", expires_at: null, expired: false }),
+      stored({ id: "future", expires_at: "2027-01-28T15:04:00.000Z", expired: false }),
+      stored({ id: "past", expires_at: "2026-10-30T00:00:00.000Z", expired: true }),
+      // A row whose flag is missing or not a boolean is not called expired.
+      { ...stored({ id: "odd" }), expired: "t" as unknown as boolean },
+    ]);
+    expect(rows.map((row) => [row.id, row.expires_at, row.expired])).toEqual([
+      ["never", null, false],
+      ["future", "2027-01-28T15:04:00.000Z", false],
+      ["past", "2026-10-30T00:00:00.000Z", true],
+      ["odd", null, false],
+    ]);
   });
 });
 
