@@ -13,6 +13,11 @@
  * whitespace. Nesting is capped, so a deep input cannot exhaust the stack.
  * Objects come back with a null prototype, so a member named "__proto__"
  * is an ordinary member. It never throws: a refusal says only where.
+ *
+ * With integerLiteralsOnly, a number must be spelled as an integer,
+ * -?(0|[1-9][0-9]*): no fraction and no exponent, even where the value is
+ * whole (1.0, 1e0), so the text means the same integer to every reader,
+ * including one that reads exact decimals.
  */
 
 export type StrictJsonValue =
@@ -25,17 +30,28 @@ export type StrictJsonValue =
 
 export type StrictJsonResult =
   | { ok: true; value: StrictJsonValue }
-  | { ok: false; error: string };
+  /** notIntegerLiteral: refused only because integerLiteralsOnly was asked
+   *  and a number had a fraction or an exponent. */
+  | { ok: false; error: string; notIntegerLiteral?: true };
+
+export interface StrictJsonOptions {
+  /** Refuse a number whose text has a fraction or an exponent. */
+  integerLiteralsOnly?: boolean;
+}
 
 export const STRICT_JSON_MAX_DEPTH = 32;
 
 class Refusal {
-  constructor(readonly error: string) {}
+  constructor(
+    readonly error: string,
+    readonly notIntegerLiteral = false,
+  ) {}
 }
 
 const NUMBER_RE = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
+const INTEGER_LITERAL_RE = /^-?(?:0|[1-9][0-9]*)$/;
 
-export function parseStrictJson(text: string): StrictJsonResult {
+export function parseStrictJson(text: string, options: StrictJsonOptions = {}): StrictJsonResult {
   if (typeof text !== "string") return { ok: false, error: "not text" };
   let at = 0;
 
@@ -122,6 +138,9 @@ export function parseStrictJson(text: string): StrictJsonResult {
     NUMBER_RE.lastIndex = at;
     const match = NUMBER_RE.exec(text);
     if (!match) fail("bad number");
+    if (options.integerLiteralsOnly && !INTEGER_LITERAL_RE.test(match![0])) {
+      throw new Refusal(`number is not an integer literal at ${at}`, true);
+    }
     at += match![0].length;
     const value = Number(match![0]);
     if (!Number.isFinite(value)) fail("number out of range");
@@ -211,7 +230,9 @@ export function parseStrictJson(text: string): StrictJsonResult {
     if (at !== text.length) fail("trailing content");
     return { ok: true, value };
   } catch (err) {
-    if (err instanceof Refusal) return { ok: false, error: err.error };
+    if (err instanceof Refusal) {
+      return err.notIntegerLiteral ? { ok: false, error: err.error, notIntegerLiteral: true } : { ok: false, error: err.error };
+    }
     throw err;
   }
 }

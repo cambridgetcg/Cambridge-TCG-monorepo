@@ -25,7 +25,7 @@
 
 import { createHash } from "node:crypto";
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { hasExactMembers, isJsonObject, parseStrictJson } from "./strict-json";
+import { hasExactMembers, isJsonObject, parseStrictJson, type StrictJsonOptions } from "./strict-json";
 
 // ── The statement's numbers (held-keys.md D6, an agent's defaults) ───────
 
@@ -162,14 +162,16 @@ export type SignedActParse =
 
 const malformed = (detail: ActMalformedDetail): SignedActParse => ({ ok: false, detail });
 
-function parseSegmentObject(segment: string): Record<string, unknown> | null {
+type SegmentObject = { ok: true; value: Record<string, unknown> } | { ok: false; notIntegerLiteral: boolean };
+
+function parseSegmentObject(segment: string, options: StrictJsonOptions = {}): SegmentObject {
   const bytes = decodeStrictBase64url(segment);
-  if (!bytes) return null;
-  const text = decodeUtf8(bytes);
-  if (text === null) return null;
-  const parsed = parseStrictJson(text);
-  if (!parsed.ok || !isJsonObject(parsed.value)) return null;
-  return parsed.value;
+  const text = bytes ? decodeUtf8(bytes) : null;
+  if (text === null) return { ok: false, notIntegerLiteral: false };
+  const parsed = parseStrictJson(text, options);
+  if (!parsed.ok) return { ok: false, notIntegerLiteral: parsed.notIntegerLiteral === true };
+  if (!isJsonObject(parsed.value)) return { ok: false, notIntegerLiteral: false };
+  return { ok: true, value: parsed.value };
 }
 
 function paramsMatch(act: SignedActName, params: unknown): params is Record<string, string> {
@@ -203,8 +205,9 @@ export function parseSignedAct(input: unknown, audience: string): SignedActParse
     return malformed("not strict base64url");
   }
 
-  const header = parseSegmentObject(headerB64);
-  if (!header) return malformed("header is not a UTF-8 JSON object without duplicate names");
+  const headerParse = parseSegmentObject(headerB64);
+  if (!headerParse.ok) return malformed("header is not a UTF-8 JSON object without duplicate names");
+  const header = headerParse.value;
   if (!hasExactMembers(header, HEADER_MEMBERS)) return malformed("header members must be exactly alg, typ, kid");
   if (!(SIGNED_ACT_ALGS as readonly unknown[]).includes(header.alg)) return malformed("alg must be Ed25519 or EdDSA");
   if (typeof header.typ !== "string" || !ACCEPTED_TYP.has(header.typ.toLowerCase())) {
@@ -213,8 +216,18 @@ export function parseSignedAct(input: unknown, audience: string): SignedActParse
   const kidBytes = typeof header.kid === "string" ? decodeStrictBase64url(header.kid) : null;
   if (!kidBytes || kidBytes.length !== 32) return malformed("kid must be an RFC 7638 thumbprint");
 
-  const payload = parseSegmentObject(payloadB64);
-  if (!payload) return malformed("payload is not a UTF-8 JSON object without duplicate names");
+  // iat and exp must be spelled as integers, not merely round to them: a
+  // reader with exact decimals must see the same integers. They are the only
+  // numbers a payload may hold, so a fraction or exponent anywhere is theirs.
+  const payloadParse = parseSegmentObject(payloadB64, { integerLiteralsOnly: true });
+  if (!payloadParse.ok) {
+    return malformed(
+      payloadParse.notIntegerLiteral
+        ? "iat and exp must be integers with 0 < exp - iat <= 300"
+        : "payload is not a UTF-8 JSON object without duplicate names",
+    );
+  }
+  const payload = payloadParse.value;
   if (!hasExactMembers(payload, PAYLOAD_MEMBERS)) {
     return malformed("payload members must be exactly aud, act, sub, iat, exp, jti, params");
   }

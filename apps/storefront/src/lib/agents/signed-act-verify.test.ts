@@ -406,6 +406,30 @@ describe("the statement's shape", () => {
     }
   });
 
+  it("takes iat and exp only as integer literals: no fraction, no exponent, even where the value is whole", () => {
+    const iat = nowSeconds();
+    // The payload's text, with iat and exp spelled as given.
+    const spelled = (iatText: string, expText: string) =>
+      JSON.stringify(payloadFor({ iat: 1, exp: 2 })).replace('"iat":1', `"iat":${iatText}`).replace('"exp":2', `"exp":${expText}`);
+    expect(detail(signed(header, spelled(String(iat), String(iat + 300))))).toBe("ok");
+    for (const [iatText, expText] of [
+      // Each of these is an integer once read as a JavaScript number.
+      [`${iat}.00000000000000000001`, String(iat + 60)],
+      [String(iat), `${iat + 300}.0000000000001`],
+      [`${iat}.0`, String(iat + 60)],
+      [`${iat}e0`, String(iat + 60)],
+      [`${iat}E0`, String(iat + 60)],
+      [`${iat}0e-1`, String(iat + 60)],
+      [String(iat), `${iat + 60}.000`],
+      [String(iat), `${(iat + 60) / 10}e1`],
+      [String(iat), `${iat + 60}e+0`],
+    ]) {
+      expect(detail(signed(header, spelled(iatText, expText))), `${iatText} ${expText}`).toBe(
+        "iat and exp must be integers with 0 < exp - iat <= 300",
+      );
+    }
+  });
+
   it("holds jti to 16 to 32 bytes of strict base64url", () => {
     for (const n of [16, 24, 32]) expect(detail(signed(header, payloadFor({ jti: b64u(crypto.randomBytes(n)) }))), String(n)).toBe("ok");
     for (const jti of [b64u(crypto.randomBytes(15)), b64u(crypto.randomBytes(33)), `${b64u(crypto.randomBytes(16))}==`, 16]) {

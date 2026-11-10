@@ -499,7 +499,8 @@ export default function AgentsMethodology() {
           payload is exactly <code>aud</code> (this deployment&apos;s origin:{" "}
           <code>https://cambridgetcg.com</code> in production), <code>act</code>,{" "}
           <code>sub</code> (the agent&apos;s id), <code>iat</code>, <code>exp</code> (at most{" "}
-          {SIGNED_ACT_MAX_LIFETIME_SECONDS} seconds after <code>iat</code>),{" "}
+          {SIGNED_ACT_MAX_LIFETIME_SECONDS} seconds after <code>iat</code>; both written as
+          plain integers, with no fraction or exponent),{" "}
           <code>jti</code> (16 to 32 random bytes, never reused) and <code>params</code>. At
           most 8 KiB; JSON with a repeated member name is refused. The signature covers the
           signing input as sent; nothing is canonicalized.

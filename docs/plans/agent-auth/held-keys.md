@@ -162,6 +162,19 @@ disclosures are versioned `…/2026-11-10.1`; the sweep records itself as
     `signed_acts` grant in `agent.self`'s answer. CI does not run the agent
     Postgres suites.
 
+**Changed after review.** Two agent reviews of the branch (security and
+correctness) were followed by a fix round on 2026-11-10, by another Claude
+Opus 5.5 subagent in the same session; its choices are agents' defaults,
+not Yu's:
+
+- The limits and the client address, as in the numbers above and
+  departure 10.
+- Binding refuses the dummy verification key beside the published test
+  keys: its seed is in the source.
+- `iat` and `exp` must be written as integer literals
+  (`-?(0|[1-9][0-9]*)`): no fraction and no exponent, even where the value
+  is whole, so a checker that reads exact decimals sees the same integers.
+
 **What is off.** `AGENT_SIGNED_ACTS` is off unless set to exactly `on` with
 an audience. Off, both doors answer `signed_acts_closed`, binding is
 refused, and the new tables and column are neither read nor written, except

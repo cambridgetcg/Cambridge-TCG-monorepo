@@ -81,6 +81,19 @@ describe("parseStrictJson", () => {
     expect(parseStrictJson(deep(100_000)).ok).toBe(false);
   });
 
+  it("with integerLiteralsOnly, takes a number only as an integer literal", () => {
+    const strict = (text: string) => parseStrictJson(text, { integerLiteralsOnly: true });
+    for (const text of ["0", "-0", "7", "-12", "1794324086", '{"a":[1,2,{"b":3}]}']) {
+      expect(strict(text), text).toEqual({ ok: true, value: JSON.parse(text) });
+    }
+    for (const text of ["1.0", "1e0", "1E0", "10e-1", "1.5", "1e+2", '{"a":1.0}', "[1,2.0]", "-0.0"]) {
+      expect(strict(text), text).toMatchObject({ ok: false, notIntegerLiteral: true });
+    }
+    // Without it, the same texts parse; other refusals are not marked.
+    expect(parseStrictJson("1.0")).toEqual({ ok: true, value: 1 });
+    expect(strict('{"a":1,"a":2}')).toEqual({ ok: false, error: expect.any(String) });
+  });
+
   it("says where, never what", () => {
     const parsed = parseStrictJson('{"secret-looking":1,"secret-looking":2}');
     expect(parsed).toMatchObject({ ok: false });
