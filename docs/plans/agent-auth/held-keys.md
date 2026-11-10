@@ -2,7 +2,16 @@
 
 **Status.** Written **2026-11-10** by an AI agent: a Claude Code subagent run
 by a workflow in session 99296f25. **Yu has not reviewed it.** It is a draft
-for discussion. Nothing in it is built, merged, applied, adopted or decided.
+for discussion. When it was written, nothing in it was built, merged,
+applied, adopted or decided.
+
+**Decided since.** Asked whether to offer agent-held signing keys at all
+(D1), with the note that silence would leave this page a draft and nothing
+built, Yu answered on 2026-11-10, verbatim: "Yes offer the keys". That
+settles D1 and nothing else: D3 (the new stored categories) and D4 (the
+migration, the dependency and the production flag) still need Yu's word,
+each for its own act, and nothing here is built yet. Building slice 1 as a
+pull request with its flag off is an agent's next step under that word.
 
 - **Yu's word.** On 2026-10-30, verbatim, recorded in the
   [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md):
@@ -69,11 +78,14 @@ no decision. The operator pastes the public key at `/account/agents`. Acts:
 `signer.check`, `key.mint` (an expiry must be stated, `never` allowed;
 within the five-key cap), `key.revoke`. A flag, off by default, closes the
 path. It waits for #108, #109, #110, #113 and key expiry (migration 0151) to
-merge and be applied.
+merge and be applied. (On 2026-11-10 at 10:27 UTC the four pull requests
+were merged and 0151 was applied to production; key expiry, #214, was the
+one still open.)
 
-**Yu is asked** whether to offer it (D1), about the new stored categories
-(D3), and later for the migration, dependency and flag (D4). The other
-decisions are agents' defaults that proceed unless Yu objects.
+**Yu answered D1** on 2026-11-10: yes (see **Decided since** above). **Yu is
+still asked** about the new stored categories (D3), and later for the
+migration, dependency and flag (D4). The other decisions are agents'
+defaults that proceed unless Yu objects.
 
 ## What the agent does
 
@@ -608,10 +620,14 @@ stated rule on A and R instead of "strict RFC 8032 on any Node build".
 
 ## Decisions for Yu
 
-Each recommendation is an agent's proposal. **Yu's:** D1, D3, D4. **Agent's
-defaults**, proceeding as recommended unless Yu objects: D2 and D5 to D9.
+Each recommendation is an agent's proposal. **Yu's:** D1 (answered
+2026-11-10), D3, D4. **Agent's defaults**, proceeding as recommended unless
+Yu objects: D2 and D5 to D9.
 
-- **D1. Offer agent-held signing keys at all.** *For Yu.* *Recommended:* yes,
+- **D1. Offer agent-held signing keys at all.** *Decided by Yu, 2026-11-10:*
+  "Yes offer the keys". The recommendation Yu was shown follows; that the
+  word covers its "option beside" shape and "from slice 1" is an agent's
+  reading. *Recommended:* yes,
   as an option beside usage keys and package B's token, from slice 1. Costs:
   a verifier one maintainer must keep right; a second credential for agents.
   Alternatives: not now, building S2 once the terms are agreed (no per-act
