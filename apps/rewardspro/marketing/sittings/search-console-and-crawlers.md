@@ -4,12 +4,15 @@
 RP-03 (#163: mail, `www`, the docs host) was folded in, so there is one sheet and one sitting. Nothing in it happens
 until the owner says go to this sheet.
 
-**Who does what.** Each step is marked **Owner** or **Agent**. The owner's own hand covers everything signed in to
-Google Admin, Search Console, Bing or the Cloudflare dashboard, and every choice. Agents add the DNS records. That
-rests on the owner's standing yes of 10 November 2026 ("yes for 1-4", typed in a live session), whose item 3 lets an
-agent add DNS records once he says go to a sheet. His go to this sheet is also his word for the two agent steps that
-aren't new records: the SPF edit (M3) and the `www` redirect rule (R1). He can leave either out when he says go, and
-it is then his by hand. Agents run the `dig` and `curl` checks at any point; they read only public DNS and public
+**Start here (about 15–20 minutes, the owner's):** M1, send one email to contact@ from a personal address (~3 min);
+then M2, turn on DKIM in Google Admin (~10–15 min). They are the first two steps in §2.
+
+**Who does what.** Each step is marked **Owner** or **Agent**. The owner does every step signed in to Google Admin,
+Search Console or Bing, the Cloudflare settings in B1–B3, and every choice. An agent adds the DNS records (M3, A2,
+A4 step 2) in Cloudflare. That rests on the owner's standing yes of 10 November 2026 ("yes for 1-4", typed in a
+live session), whose item 3 lets an agent add DNS records once he says go to a sheet. His go to this sheet is also
+his word for the two agent steps that aren't new records: the SPF edit (M3) and the `www` redirect rule (R1). He can
+leave either out when he says go, and it is then his by hand. Agents run the `dig` and `curl` checks at any point; they read only public DNS and public
 pages.
 
 Every step names what to click or type, the choice with one line of why, the time, an outside check (or says that
@@ -59,7 +62,7 @@ sitemap once RP-08 is live (A7), and about 5 minutes a month from S2 (§3).
 | DMARC | One record at `_dmarc`: `v=DMARC1; p=none` | [V, `dig`] |
 | What that means for mail | Mail **from** contact@ can pass neither SPF nor DKIM for rewardspro.io, so it fails DMARC and may be marked as spam. Google, for mail to personal Gmail accounts: "All senders must Set up SPF or Set up DKIM." Mail **to** contact@ needs MX (which is right) and a contact@ user, alias or group in the Workspace, which DNS can't show; M1 tests it | [I]; [U] |
 | contact@rewardspro.io | The address the app shows merchants on its Settings page (`CONTACT_EMAIL` in `apps/rewards/app/routes/app.settings._index.tsx`) | [V, git on main] |
-| Other senders as @rewardspro.io | None found: the rebuilt app (`apps/rewards`) has no mail-sending code on main. The old app's SendGrid key is listed for deletion in `apps/rewards/docs/switch.md` | [V, `git grep`]; none elsewhere [I] |
+| Other senders as @rewardspro.io | The rebuilt app (`apps/rewards`) has no mail-sending code on main. The old app (`apps/rewardspro`, on main until B5 retires it) sends through SendGrid as `rewards@rewardspro.io` (`app/services/sendgrid.server.ts`), and public DNS has SendGrid's DKIM records, CNAMEs at `s1._domainkey` and `s2._domainkey`. Its SendGrid key is listed for deletion in `apps/rewards/docs/switch.md`; whether it still sends is unknown. No other sender found | [V, `git grep`, `dig`]; [U]; none elsewhere [I] |
 | A Search Console property | None verified by a DNS TXT record: the apex has no `google-site-verification` TXT record. Whether a property exists by another method or under another account is unknown. Google's other routes include a CNAME record at a name its wizard gives (`dig` can't look it up without that name) and automatic verification for a Workspace account (A1) | [V, `dig`]; [U] |
 | Other apex TXT records | None. The 7 Nov plans recorded two other apex TXT records and two DMARC records (ROADMAP §1; `…/wf10/status.md` §1.C11); they were deleted on 2026-11-09 | [V, `dig`] |
 | `https://rewardspro.io/robots.txt` | 67 bytes: `User-agent: *`, `Allow: /`, a blank line, `Sitemap: https://rewardspro.io/sitemap.xml`. Byte for byte the file in git (sha256 `08a15f98…`). No Cloudflare-managed block | [V] |
@@ -76,9 +79,8 @@ sitemap once RP-08 is live (A7), and about 5 minutes a month from S2 (§3).
 connection to `https://rewardspro.io/` and `/robots.txt`, sent with the user-agent strings of GPTBot, OAI-SearchBot,
 ChatGPT-User, ClaudeBot, Claude-User, PerplexityBot, Googlebot, bingbot, CCBot and Bytespider, each returned 200 with
 the full page and the 67-byte robots.txt. That shows there is no user-agent block rule at the edge. It doesn't show
-how Cloudflare treats verified bot traffic, so the dashboard look in B1 still stands. Those requests went against the
-plans' rule of a generic user agent and aren't to be repeated: they prove little and may show up under the bots'
-names in AI Crawl Control for that day (B2).
+how Cloudflare treats verified bot traffic, so the dashboard look in B1 still stands. They aren't worth repeating:
+they prove little, and they may show up under the bots' names in AI Crawl Control for that day (B2).
 
 ---
 
@@ -131,8 +133,8 @@ Google: "You must be signed in as a super administrator for this task."
 
 1. Go to the Google Admin console (`admin.google.com`): **Menu** > **Apps** > **Google Workspace** > **Gmail**.
 2. Click **Authenticate email**.
-3. In the **Selected domain** menu, choose `rewardspro.io`. If the status already reads "Authenticating email with
-   DKIM", stop: DKIM is on (unlikely, as DNS has no key today [I]).
+3. In the **Selected domain** menu, choose `rewardspro.io`. If it isn't in the menu, stop and tell an agent. If the
+   status already reads "Authenticating email with DKIM", stop: DKIM is on (unlikely, as DNS has no key today [I]).
 4. Click **Generate New Record**. In the box, choose the DKIM key bit length **2048**, and leave the prefix selector
    as `google` ("The default prefix selector is google. If you are using Google Workspace, this is the recommended
    option."). Click **Generate**.
@@ -206,15 +208,18 @@ is no proxy setting. TTLs stay as they are.
 
 | Record | Today | After | Comment (Free plan: up to 100 characters) | Why |
 |---|---|---|---|---|
-| TXT `@`, the SPF record (M3) | `v=spf1 include:dc-aa8e722993._spfm.rewardspro.io ~all` | `v=spf1 include:_spf.google.com ~all`, by **editing** this record | `keep: SPF, Google Workspace only (RP-03)` | The include target doesn't exist, so SPF fails for every message (§1). Google: "If you use only Google Workspace to send email, copy this line of text: v=spf1 include:_spf.google.com ~all". Edit, don't add: "Your domain must have exactly one SPF record. Multiple TXT records beginning with `v=spf1` cause SPF failures." `~all`, because "Google recommends you use ~all in your SPF record." |
+| TXT `@`, the SPF record (M3) | `v=spf1 include:dc-aa8e722993._spfm.rewardspro.io ~all` | `v=spf1 include:_spf.google.com ~all`, by **editing** this record | `keep: SPF, Google Workspace only (RP-03)` | The include target doesn't exist, so SPF fails for every message (§1). Google: "If you use only Google Workspace to send email, copy this line of text: v=spf1 include:_spf.google.com ~all". Edit, don't add; Cloudflare: "Your domain must have exactly one SPF record. Multiple TXT records beginning with `v=spf1` cause SPF failures." `~all`, because "Google recommends you use ~all in your SPF record." |
 | TXT `google._domainkey` (M3) | None | M2's value, `v=DKIM1; k=rsa; p=…` | `keep: Google Workspace DKIM, 2048-bit (RP-03)` | There is no DKIM key today. Name and value as Google gives them in M2 step 5 |
 | TXT `@`, Search Console (A2) | None | A1's `google-site-verification=…` value, as a new record | `keep: Google Search Console Domain property verification (RP-04)` (64 characters) | See A2 below |
 | TXT `@`, second owner (A4 step 2, if verified) | None | The second account's value, as another new record | `keep: Google Search Console verification, second owner (RP-04)` (62 characters) | See A4 |
 | TXT `_dmarc` | `v=DMARC1; p=none` | Unchanged | — | One valid record; it tightens later, after M4 passes (below) |
 | MX | Google's five hosts | Unchanged | — | Already right (§1) |
+| CNAME `s1._domainkey`, `s2._domainkey` | SendGrid's DKIM (§1) | Unchanged | — | They sign the old app's SendGrid mail, if it still sends; they go with the old app (B5), not in this sitting |
 
-- **SPF names Google only,** because nothing else is known to send as @rewardspro.io (§1). If another service ever
-  does, its `include:` goes into this same record (Google's step 1, "Identify all your email senders").
+- **SPF names Google only.** The one other sender found, SendGrid for the old app (§1), signs with its own DKIM
+  records, and SendGrid's domain authentication sends from a return-path address of its own, so the apex SPF record
+  doesn't carry it [I]. If another service ever sends as @rewardspro.io, its `include:` goes into this same record
+  (Google's step 1, "Identify all your email senders").
 - **The DKIM value is long.** "Some domain providers limit TXT record length." If Cloudflare refuses it as one string,
   split it into quoted strings of up to 255 characters, one after the other, as Google's troubleshooting page shows.
 - **Outside check, run by the agent and reported to the owner:**
@@ -229,7 +234,8 @@ is no proxy setting. TTLs stay as they are.
     start working."
 - **Undo:** SPF: set the content back to the old value in the table (it is broken, so there's little reason to).
   DKIM: after DKIM is turned off in M2's page, delete the record. The Search Console records: see A2.
-- **DMARC later, not in this sitting:** once M4 passes, DMARC can move from `p=none` towards `p=quarantine`, with a
+- **DMARC later, not in this sitting:** once M4 passes, and the old app's SendGrid mail is retired or seen passing,
+  DMARC can move from `p=none` towards `p=quarantine`, with a
   reports address (`rua=`) if the owner wants daily reports. Google: "Over time, change the receiver policy to
   quarantine (or reject)." That is the owner's choice, for a later line in this sheet.
 - **Sources (read 2026-11-10):** https://knowledge.workspace.google.com/admin/security/set-up-spf,
@@ -494,7 +500,8 @@ observed no impact on crawling rates or SEO as a result of these reports."
 
 - **Gate:** A3 verified; the request needs the Domain property, which covers the subdomain. The docs host's 410
   (R2) isn't in this sitting, so C1 comes first either way.
-- **First, by hand:** search Google for `site:docs.rewardspro.io` yourself (agents don't load Google result pages),
+- **First, by hand:** search Google for `site:docs.rewardspro.io` yourself (Google's robots.txt closes its result
+  pages to bots),
   and run `curl -sI https://docs.rewardspro.io/`.
   - **Nothing listed:** skip C1; there is nothing to remove.
   - **Pages listed, and the host still answers `307`:** file the request now, in this sitting. Google: "Use this
@@ -658,8 +665,7 @@ Agents read only what the owner pastes to them.
 | 6 | Cloudflare, **Analytics**, the **Events** tab (older pages: **Security** > **Analytics**), duration at its longest, Service "Bot Fight Mode" (only if it was kept on in B1) | Any search or agent crawler among the challenged requests. The Free plan shows sampled logs only | If one appears, turn Bot Fight Mode off (B1's default, the owner's call) |
 | 7 | Bing Webmaster Tools, **AI Performance** (only if D1 was done) | Total citations, cited pages | Copilot and Bing AI answers citing rewardspro.io |
 
-Rules carried over from GROWTH §6.2: fix the source, never the answer. A low number never triggers ads, GEO vendors
-or forum posts.
+If an AI answer gets RewardsPro wrong, the fix is on our own pages, since those are what crawlers read (GROWTH §6.2).
 
 **Sources for this section (read 2026-11-09):** https://support.google.com/webmasters/answer/7576553,
 https://support.google.com/webmasters/answer/16984139, https://support.google.com/webmasters/answer/7440203,
@@ -671,7 +677,8 @@ Bing pages cited in B1, B2 and D1.
 ## 4. Not confirmed
 
 - Whether contact@ is a user, alias or group in the Workspace, and the Admin console clicks to add it (M1).
-- Whether anything outside the rebuilt app sends mail as @rewardspro.io (M3). None is known.
+- Whether the old app still sends through SendGrid as `rewards@rewardspro.io`, and which return path it uses (§1,
+  M3). No other sender is known.
 - The steps on Google's "Turn off DKIM" page (M2's undo).
 - Whether the Search Console wizard lists Cloudflare as a provider, and whether the company Workspace account is
   verified automatically (A1).
@@ -721,7 +728,8 @@ as quoted in #163 and #164. Where they differ from today's docs, this sheet foll
 | Public DNS | Two other apex TXT records and two DMARC records | SPF only at the apex; one DMARC record | §1; M3 |
 
 **How it was checked.** Each vendor page cited here was read with `curl` and a generic browser user agent, one page
-at a time, robots.txt first on each host, with no account and no personal detail in any request, and saved. The
+at a time, robots.txt first on each host (except one Workspace help page, fetched just before that host's
+robots.txt, which allows it), with no account and no personal detail in any request, and saved. The
 RP-04 pages were read on 2026-11-09 and re-read by a second session on 2026-11-10; the mail, redirect and 410 pages
 were read on 2026-11-10 (Google Workspace's help for admins has moved to knowledge.workspace.google.com). Every
 quotation was checked by script against the saved copy of its page. Public DNS was read with `dig` at 1.1.1.1,
