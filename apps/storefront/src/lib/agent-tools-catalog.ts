@@ -201,7 +201,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     authority: "key-holder",
     availability: "available",
     freshness: "live",
-    since: "2026-10-29",
+    since: "2026-11-10",
     dispatch_url: "/api/mcp",
     source: `${SRC_BASE}/key-revocation.ts`,
   },
