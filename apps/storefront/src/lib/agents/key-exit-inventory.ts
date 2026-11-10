@@ -18,13 +18,13 @@
  * expiry below changes.
  */
 
-export const KEY_EXIT_INVENTORY_VERSION = "2026-11-10.1";
+export const KEY_EXIT_INVENTORY_VERSION = "2026-11-10.2";
 export const KEY_EXIT_EVIDENCE_STATE = "derived from source; production not observed";
 export const KEY_EXIT_DOCS = "https://cambridgetcg.com/methodology/agents";
 
 /** Sent with the inventory and rendered beside it on the methodology page. */
 export const KEY_EXIT_COMPLETENESS =
-  "Known stores found by reading the source on 2026-10-29. An agent wrote this inventory and it may be incomplete; report a missing store to support@cambridgetcg.com.";
+  "Known stores found by reading the source on 2026-10-29, and the signing-key stores on 2026-11-10. An agent wrote this inventory and it may be incomplete; report a missing store to support@cambridgetcg.com.";
 
 const LEGAL_BASIS = "not separately stated; see https://cambridgetcg.com/privacy";
 
@@ -71,13 +71,75 @@ export const KEY_EXIT_RETAINED: readonly KeyExitRetainedCategory[] = [
       "last_used_at",
       "revoked_at",
       "revoked_reason",
+      "minted_by_event",
     ],
     why_kept:
-      "key_hash is an unsalted sha256 of the key. No code deletes revoked key rows (they go only with their agent row); the hash is what a presented string is compared with, and the other fields keep the key's history.",
+      "key_hash is an unsalted sha256 of the key. No code deletes revoked key rows (they go only with their agent row); the hash is what a presented string is compared with, and the other fields keep the key's history. minted_by_event names the signed act that minted the key, if one did, so a signing key's mints can be found and revoked.",
     who_can_see:
       "the agent's operator at /account/agents (revocation shown as a status or category, never the reason text) and Cambridge TCG staff",
     expiry:
       "no automatic expiry of the row; the key's own expires_at, if one was chosen, ends its authority and deletes nothing. Removed only if the agent row is deleted",
+    legal_basis: LEGAL_BASIS,
+  },
+  // Agent-held signing keys (migration 0152; docs/plans/agent-auth/held-keys.md).
+  // Written only while a deployment has opened signed acts; production has
+  // not. Retention is an agent's proposal; the privacy notice does not yet
+  // describe these stores.
+  {
+    category: "agent_signing_keys rows, if the agent's operator bound a signing key",
+    fields: [
+      "id",
+      "agent_id",
+      "thumbprint",
+      "public_key",
+      "alg",
+      "not_after",
+      "created_at",
+      "bound_by_event",
+      "confirmed_at",
+      "revoked_at",
+      "revoked_by_event",
+      "revocation_kind",
+    ],
+    why_kept:
+      "the public key verifies the agent's signed acts. A confirmed thumbprint stays with its row, ended or not, so the same key cannot be confirmed for another agent. Ending a usage key does not change these rows",
+    who_can_see:
+      "the operator at /account/agents (thumbprint and state, never the key bytes); whoever submits a signed signer.check for the agent (thumbprints and states); Cambridge TCG staff with database access",
+    expiry:
+      "a key never confirmed is deleted by the maintenance sweep 7 days after binding, while signed acts are open; the rest stay until the agent row is deleted, which erases them with it. Erasure is not built, so until it is they are kept indefinitely, archived agents included",
+    legal_basis: LEGAL_BASIS,
+  },
+  {
+    category: "agent_act_events rows, if a signing key was bound, removed or used",
+    fields: [
+      "id",
+      "agent_id",
+      "basis",
+      "act",
+      "outcome",
+      "refusal",
+      "act_jws",
+      "act_sha256",
+      "verification",
+      "thumbprint",
+      "effect",
+      "created_at",
+    ],
+    why_kept:
+      "append-only evidence of each signed act (the signed bytes as received, how they were verified and what they did) and of each binding or removal at /account/agents, for the agent, its operator and support",
+    who_can_see:
+      "whoever submitted an act gets its event id and act_sha256 in the answer; Cambridge TCG staff with database access; no page or tool in this repository lists them",
+    expiry:
+      "kept until the agent is erased, and erasure is not built, so until it is indefinitely. When the agent row is deleted, act_jws, thumbprint, verification and effect are nulled and a receipt stays with no end: id, basis, act, outcome or refusal, act_sha256, created_at",
+    legal_basis: LEGAL_BASIS,
+  },
+  {
+    category: "agent_act_nonces rows for the agent's signing keys (not linked to the agent)",
+    fields: ["thumbprint", "jti", "expires_at"],
+    why_kept: "a signed act's key and nonce, so an act submitted twice is applied once",
+    who_can_see: "Cambridge TCG staff with database access",
+    expiry:
+      "until the act's exp plus 60 seconds; then deleted a few rows at a time by each act and by the maintenance sweep, which runs while signed acts are open",
     legal_basis: LEGAL_BASIS,
   },
   {
