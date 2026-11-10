@@ -55,7 +55,7 @@ export async function sendBuyerMatchEmail(d: {
 export async function sendSellerMatchEmail(d: {
   email: string; cardName: string; price: string; windowHours: number;
 }) {
-  const subject = `You sold ${d.cardName} &mdash; awaiting buyer payment`;
+  const subject = `You sold ${d.cardName} — awaiting buyer payment`;
   const text = `Your ask for "${d.cardName}" filled at ${d.price}. The buyer has ${d.windowHours} hours to pay; we'll email shipping instructions next. ${tradesUrl}`;
   const html = tpl(
     "Your listing filled",
@@ -111,7 +111,7 @@ export async function sendSellerPaidEmail(d: {
   const messageHtml = d.buyerUsername
     ? `<p>Need to arrange logistics with the buyer? <a href="${SITE}/account/messages" style="color:#f59e0b;">Message @${esc(d.buyerUsername)}</a> on the platform.</p>`
     : "";
-  const subject = `Payment confirmed &mdash; please ship ${d.cardName}`;
+  const subject = `Payment confirmed — please ship ${d.cardName}`;
   const text = `Buyer paid ${d.price} for "${d.cardName}". Ship to ${dest}.`
     + (addressLines.length > 0 ? ` Ship to: ${addressLines.join(", ")}.` : "")
     + (d.buyerUsername ? ` Message @${d.buyerUsername} on the platform: ${SITE}/account/messages.` : "")
@@ -132,7 +132,7 @@ export async function sendSellerPaidEmail(d: {
 export async function sendStatusEmail(d: {
   email: string; cardName: string; subject: string; heading: string; body: string;
 }) {
-  const text = `${d.heading} &mdash; ${d.cardName}. ${tradesUrl}`;
+  const text = `${d.heading} — ${d.cardName}. ${tradesUrl}`;
   const html = tpl(d.heading, `<p>${d.body}</p>`, "View Trade", tradesUrl);
   await send(d.email, d.subject, html, text);
 }
