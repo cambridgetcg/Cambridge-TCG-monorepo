@@ -32,8 +32,9 @@ import { gameFromSku, gameBrand, isSkuGameSlug } from "@/lib/games/sku-game";
 import { getPriceGuideConfig } from "@/lib/prices/games-config";
 import { weatherClass } from "@/lib/wardrobe/weather";
 import { parseSkuShape } from "@/lib/search/resolver";
-import { SHARE_CARD } from "@/lib/share-card";
+import { SHARE_CARD, shareableImageUrl } from "@/lib/share-card";
 import { JsonLd } from "@/components/site/JsonLd";
+import { CardImagePlaceholder } from "@/lib/ui/CardImagePlaceholder";
 
 export async function generateMetadata({ params }: { params: Promise<{ sku: string }> }): Promise<Metadata> {
   const { sku } = await params;
@@ -42,6 +43,7 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
 
   const name = card.name_en || card.name || card.card_number;
   const set = card.set_name || card.set_code || "";
+  const image = shareableImageUrl(card.image_url);
 
   return {
     title: `${name} ${card.card_number} — Card Reference — Cambridge TCG`,
@@ -49,7 +51,7 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
     openGraph: {
       title: `${name} ${card.card_number}`,
       description: `${card.card_number} · ${set} · ${card.rarity || ""}`,
-      images: card.image_url ? [{ url: card.image_url }] : [SHARE_CARD],
+      images: image ? [{ url: image }] : [SHARE_CARD],
     },
   };
 }
@@ -160,7 +162,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
           style={{ "--aura": TONE_COLOR[Palettes.RarityPalette[card.rarity ?? ""] ?? "neutral"] } as React.CSSProperties}
         >
           <div className="relative aspect-[3/4] wardrobe-panel overflow-hidden">
-            {card.image_url && (
+            {card.image_url ? (
               <Image
                 src={card.image_url}
                 alt={cardAltText(card)}
@@ -168,6 +170,10 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                 className="object-contain"
                 priority
               />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center p-6">
+                <CardImagePlaceholder className="h-full w-auto" />
+              </div>
             )}
           </div>
         </div>

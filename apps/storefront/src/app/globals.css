@@ -42,6 +42,17 @@ body {
 }
 
 /*
+ * The site notice (DevBanner) says that new paid commerce is retired. A page
+ * whose own notice says it marks that notice `data-replaces-site-notice`,
+ * and the banner steps aside there, so the fact is said once per screen.
+ * CSS only: public pages don't pass the proxy, so the layout can't know the
+ * route. A browser without :has() shows both, as before.
+ */
+body:has([data-replaces-site-notice]) #dev-banner {
+  display: none;
+}
+
+/*
  * Bind the typography plugin's variables to semantic tokens
  * so long-form text follows each chosen palette. This unlayered rule
  * also keeps old prose-invert pages readable in Light. Text mode's

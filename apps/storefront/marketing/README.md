@@ -10,6 +10,7 @@ storefront serves the kit's web files from `public/` (see "On the site").
 | `cambridge-tcg-mark-nav.svg` | The same mark in `currentColor`, sized 1:1 for the nav's `h-8 w-7` box. `Nav.tsx` draws these paths. |
 | `kit/` | What the skill built: `logo/` (SVG, PNG, PDF; on light and on dark), `web/` (favicons, app icons, manifest, head snippet, share card), `social/` (avatars), `colour/` (palette, tokens, Tailwind theme, swatches), `BRAND.md` (how to use it) and `index.html` (review sheet). Never hand-edited. |
 | `marketplaces/` | The eBay shop logo and billboards, made from `kit/` by `build.py`. |
+| `placeholder/` | The "no image" card: a 5:7 hairline card with the mark's pip, drawn with VectorCraft by `build.py` (see "No-image placeholder"). |
 | `brandkit.json` + `CREDITS.md` | This folder's record in the shared brand-folder format (`brandkit.project/1`): who chose the look and where that is written, the files the site serves from `kit/`, the guards, what a merge deploys, and who made each asset under which licence. |
 | `check.mjs` | Checks the record against the repository: `node apps/storefront/marketing/check.mjs` (Node only, no install). It is copied from the brandkit toolkit, so change it there and copy it again. It runs by hand: making it a CI step is a new guard, and Yu's to choose (AGENTS.md, principle 8). |
 
@@ -84,6 +85,21 @@ changes, the build keeps the previous kit in the Trash, or in `kit/.replaced/` w
 `ARTCRAFT_NO_TRASH=1`; never commit `.replaced/`. `marketplaces/build.py` is deterministic, so a
 rebuild leaves the same bytes.
 
+## No-image placeholder
+
+`placeholder/build.py` draws the card the site shows where a card has no image, or its image does
+not load: a 5:7 hairline card (1 px, corner radius 12 on a 250 x 350 artboard) with the mark's
+diamond pip, read from `cambridge-tcg-mark.svg` and set 30 px wide a little above the middle. It
+writes `card-placeholder.vectorcraft` (the source) and `card-placeholder.svg`, where the drawing
+colour (#8E877A, the Light control edge) becomes `currentColor` and the outline keeps
+`vector-effect="non-scaling-stroke"`, so it stays one CSS pixel wide at any size. A rebuild writes
+the same bytes (fixed `SOURCE_DATE_EPOCH`).
+
+`src/lib/ui/CardImagePlaceholder.tsx` draws the SVG's two paths in `text-border-strong`, with the
+reason in words below the pip ("No image", or "Image did not load"); change the paths there when
+the SVG changes. No test holds the two together: adding the placeholder to
+`brand-kit.sync.test.ts` would be a new guard, which is Yu's choice (AGENTS.md, principle 8).
+
 ## Marketplaces (state on 2026-10-22)
 
 For now Cambridge TCG sells only on eBay and Cardmarket (Yu, 2026-10-20). Both accounts are
@@ -118,8 +134,12 @@ draws other paths than `cambridge-tcg-mark-nav.svg`.
 - `src/app/layout.tsx` declares the icons, the manifest and `og.jpg` as the default share card for
   Open Graph and X. Next.js replaces the whole `openGraph` object on a page that sets its own, so
   those pages add `images: [SHARE_CARD]` from `src/lib/share-card.ts`. Card, market and auction
-  pages use the card's image when there is one and fall back to `SHARE_CARD` (card images are
-  withheld for now, so today they all show the brand card). The test fails if a page's `openGraph`
+  pages use the card's image when there is one and fall back to `SHARE_CARD`. An image on a
+  catalogue host (the retired `jp-*-photos` buckets, CardRush's hosts) is never offered:
+  `shareableImageUrl()` drops it and the brand card stands in, because such a host can answer 403
+  to a crawler and a platform's copy outlives a takedown. A Japanese official image gets the brand
+  card too; the English official image is still offered, a gap recorded in
+  `docs/decisions/2026-10-30-japanese-official-images.md`. The test fails if a page's `openGraph`
   doesn't name `SHARE_CARD`.
 - `SHARE_CARD.url` carries a version, `/og.jpg?v=2026-10-27`. Platforms cache a share card by its
   URL, so change `v` whenever the card is rebuilt.

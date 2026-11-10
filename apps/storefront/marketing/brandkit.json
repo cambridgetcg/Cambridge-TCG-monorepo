@@ -48,6 +48,13 @@
       "outputs": ["marketplaces/ebay-logo-300.png", "marketplaces/ebay-billboard-light-1280x290.png",
                   "marketplaces/ebay-billboard-dark-1280x290.png"],
       "goes_to": "the cambridgetcg shops on eBay and Cardmarket; uploading is Yu's hand"
+    },
+    {
+      "name": "No-image card placeholder",
+      "recipe": "placeholder/build.py",
+      "outputs": ["placeholder/card-placeholder.svg", "placeholder/card-placeholder.vectorcraft"],
+      "tools": [{"name": "vectorcraft-cli", "version": "0.17.0"}],
+      "goes_to": "the storefront: src/lib/ui/CardImagePlaceholder.tsx draws its two shapes wherever a card has no image or its image does not load"
     }
   ]
 }

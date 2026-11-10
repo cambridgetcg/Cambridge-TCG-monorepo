@@ -35,6 +35,8 @@ import { MoneyDisplay } from "@/lib/ui";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
 import { voiceFor } from "@/lib/wardrobe/voice";
+import { CardImage } from "@/lib/ui/CardImage";
+import { CardImagePlaceholder } from "@/lib/ui/CardImagePlaceholder";
 
 export async function generateMetadata({
   params,
@@ -134,17 +136,14 @@ export default async function CardMarketReadPage({
           <div className="space-y-6">
             {meta.image_url ? (
               <div className="wardrobe-mat rounded-lg p-2 mb-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <CardImage
                   src={meta.image_url}
                   alt={meta.card_name || sku}
                   className="w-full rounded"
                 />
               </div>
             ) : (
-              <div className="aspect-[2.5/3.5] w-full wardrobe-mat rounded-lg flex items-center justify-center text-ink-faint">
-                No image
-              </div>
+              <CardImagePlaceholder className="w-full" />
             )}
 
             {/* Condition breakdown */}

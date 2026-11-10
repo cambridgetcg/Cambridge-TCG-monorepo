@@ -14,6 +14,8 @@ import { WhyLink } from "@/lib/ui/WhyLink";
 import { Badge, TONE_COLOR } from "@/lib/ui/Badge";
 import { RarityPalette } from "@/lib/ui/status-palettes";
 import { InkRule } from "@/lib/ui/InkRule";
+import { CardImagePlaceholder } from "@/lib/ui/CardImagePlaceholder";
+import { useImageFailed } from "@/lib/ui/useImageFailed";
 import { useVoice } from "@/lib/wardrobe/context";
 import { weatherClass } from "@/lib/wardrobe/weather";
 import { gameFromSku } from "@/lib/games/sku-game";
@@ -770,6 +772,11 @@ export default function CardMarketClient({
     }
   }
 
+  // A catalogue image can answer 403 (a missing object): the placeholder
+  // stands in rather than a broken-image icon with its alt text.
+  const { failed: cardImageFailed, onError: onCardImageError, checkComplete: checkCardImage } =
+    useImageFailed(book?.image_url);
+
   // Spread calculation
   const spread =
     book?.best_bid && book?.best_ask
@@ -824,7 +831,7 @@ export default function CardMarketClient({
         <div className={`grid md:grid-cols-[240px_1fr_320px] gap-6 ${weatherClass(gameFromSku(sku))}`}>
           {/* Left: Card image + spot info */}
           <div>
-            {book.image_url ? (
+            {book.image_url && !cardImageFailed ? (
               <div
                 className="wardrobe-aura"
                 style={
@@ -835,6 +842,8 @@ export default function CardMarketClient({
               >
                 <div className="wardrobe-panel p-2">
                   <img
+                    ref={checkCardImage}
+                    onError={onCardImageError}
                     src={book.image_url}
                     alt={`${book.card_name || sku}: ${marketImageLabel(book)}`}
                     className="w-full rounded"
@@ -851,9 +860,10 @@ export default function CardMarketClient({
                 </div>
               </div>
             ) : (
-              <div className="aspect-[2.5/3.5] w-full wardrobe-mat rounded-lg flex items-center justify-center">
-                <span className="text-ink-faint">No Image</span>
-              </div>
+              <CardImagePlaceholder
+                label={book.image_url ? "Image did not load" : "No image"}
+                className="w-full"
+              />
             )}
             <div className="flex items-start justify-between gap-2 mt-4">
               <div className="min-w-0">
@@ -1015,7 +1025,8 @@ export default function CardMarketClient({
 
           {/* Right: the order form — collectors trading with collectors */}
           <div className="space-y-4">
-            {NEW_PAID_COMMERCE_RETIRED ? <CommercialRetirementNotice /> : (<>
+            {/* The card page's one retirement notice: the site notice steps aside. */}
+            {NEW_PAID_COMMERCE_RETIRED ? <CommercialRetirementNotice replacesSiteNotice /> : (<>
             {/* ========== P2P Order Form ========== */}
             <div
               ref={buyFormRef}
