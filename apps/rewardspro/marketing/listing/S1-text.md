@@ -4,7 +4,8 @@
 field by field, and never presses Save, Delete or Submit. The owner reads each field, then presses them himself.
 His part takes about 20–30 minutes [I], plus about 5 if he runs the optional "before" check (§6). The agent's
 preparation (§1) takes about 20 minutes and none of his, after one yes. Written by agents for issue #162 (RP-02) and
-revised on 10 Nov 2026 after the second read on #162. Nothing here has been pasted or submitted.
+revised on 10 Nov 2026 after the second read on #162. The sitting ran on 10 Nov: the owner saved the filled form,
+and it is with Shopify for review (#162). Where the form differed from this sheet, the lines below say so.
 
 **Why it comes first.** An App Store ad "is based on information in the associated app listing, and can't be
 customized" (create-ads). Shopify's Sidekick, search snippets and the directory sites copy the listing too.
@@ -42,8 +43,8 @@ RewardsPro installed (`apps/rewards/docs/switch.md` lists them), never on a merc
    and not the Shopify admin's top bar or sidebar, which show the staff account's name and the store's name.
    - **#1: the Tiers page.** It shows each tier's name, minimum spend, cashback rate and member count, the line on
      what cashback is paid on, and no customer data (`app/routes/app.tiers.tsx:286-354`).
-   - **#2: the test customer's page, while locked**, and **#3: the draft order's page.** They are used only if the
-     form needs three screenshots (step 4).
+   - **#2: the test customer's page, while locked**, and **#3: the draft order's page.** The form needs all three:
+     "At least 3 valid desktop screenshots are required" (the sitting, 10 Nov, #162).
 3. **Look at each image at full size.** No real person's name or email address, no store name or domain, no
    Shopify logo, no review prompt. If any shows, don't use that image.
 4. Save the images in the private research folder on the Air, never in a repo.
@@ -68,7 +69,7 @@ check (§6), he runs it before the agent starts.
 | 1 | App name, icon | Keeps `RewardsPro` and the icon | — |
 | 2 | Feature media | Removes the old video | yes |
 | 3 | Demo store URL | Leaves it (none shows today) | — |
-| 4 | Screenshots | Replaces #1; removes #2 and #3, or replaces them | yes |
+| 4 | Screenshots | Replaces #1, #2 and #3 (the form needs three) | yes |
 | 5 | App introduction | Keeps it (89 of 100) | — |
 | 6 | App details | Pastes the new text (497 → 358) | yes |
 | 7 | Features | Keeps Feature 1; pastes Features 2 and 3 | yes |
@@ -83,9 +84,9 @@ check (§6), he runs it before the agent starts.
 | 16 | SEO meta description | Pastes the new text (141 → 89) | yes |
 | 17 | Install eligibility | Checks "Merchant must have online store"; changes nothing else | — |
 | 18 | Contact information | Checks the submission email is one the owner reads | yes |
-| 19 | Protected customer data | Unticks Phone and Address; pastes three reasons (§3) | yes, then **Save** |
+| 19 | Protected customer data | Unticks Phone and Address; the reasons are categories, not text (§3) | yes, then **Save** |
 | 20 | App review preparation | Reads the test instructions and screencast; runs the automated checks (§4) | yes |
-| 21 | Submit | Stops | **Submit** (§5) |
+| 21 | Review | Stops | Nothing: a published listing has no separate Submit; Save sends it to review (§5) |
 
 ### 2 · Feature media
 
@@ -104,10 +105,8 @@ Tiers page: each tier's minimum spend, cashback rate and members
 ```
 
 **#2 and #3** show the old app. #3 shows tier products, which the app doesn't have; #2 gives each tier an "Annual"
-duration, where the app has one "Spend counted over" setting for the shop (`app.tiers.tsx:408`). If the form saves
-with fewer than three screenshots [U], remove both. If it needs three, upload §1's #2 and #3 with these alt texts.
-If it needs three and §1 made only #1, today's #2 and #3 stay for now: #3 still shows tier products, so note it on
-#162; the set made by 18 Dec replaces them.
+duration, where the app has one "Spend counted over" setting for the shop (`app.tiers.tsx:408`). The form needs
+three desktop screenshots (the sitting, 10 Nov, #162), so upload §1's #2 and #3 with these alt texts.
 Shopify asks for "3-6 desktop screenshots", so a reviewer may ask for more; the full set comes by 18 Dec (act 8).
 Alt #2 · 65 characters
 ```text
@@ -133,8 +132,8 @@ has shown: when Shopify gives no amount, for example for credit held only in ano
 store credit shows at checkout" instead (`app/shopify/live-balance.server.ts:91-97`,
 `extensions/rewards-widget/locales/en.default.json:7`). What stays is true in general terms, not in every case: test
 and cancelled orders earn nothing (`record-order.server.ts:66-67`), and customers also move down tiers, or not at all
-while locked. S2's text replaces the field. If step 9 finds no text field in Pricing, the funding line goes at the
-end of this field (358 → 427).
+while locked. S2's text replaces the field. Step 9 found feature lines in Pricing, not a text field, and the
+funding line went there (the sitting, 10 Nov, #162).
 
 ### 7 · Features
 
@@ -167,8 +166,10 @@ A customer can be locked once the app has recorded an order for them. §1 sees i
 ### 9 · Pricing
 
 Keep "Free": the app has no billing code [V, `git grep` for `appSubscription`, `recurringApplicationCharge`,
-`appUsageRecord`, `appPurchaseOneTime` and `billing.` calls over `apps/rewards`, 10 Nov: 0]. Beside it, in the
-plan's "description of any additional charges" or whatever text field the pricing section offers [U], paste:
+`appUsageRecord`, `appPurchaseOneTime` and `billing.` calls over `apps/rewards`, 10 Nov: 0]. Beside it: the pricing
+section has no text field, only feature lines of up to 40 characters each (the sitting, 10 Nov, #162). The funding
+sentence went in as two of them, "You fund the cashback you give" (`rp-merchant-funds`) and "Shopify's store-credit
+fees may apply" (`sh-sc-fee`). The texts below were drafted for a text field and weren't used:
 Pricing · Paste · 205 characters
 ```text
 You fund the cashback you give: it is store credit in your own shop. For stores created on or after 12 May 2025, Shopify charges third-party transaction fees on the part of an order paid with store credit.
@@ -178,8 +179,8 @@ Pricing, short · Paste · 70 characters
 ```text
 You fund the cashback you give. Shopify's store-credit fees may apply.
 ```
-If the pricing section has no text field, add this line at the end of App details instead (step 6, 358 → 427) and
-note it on #162. Requirement 4.2.3 keeps pricing information "in Pricing details". The line says who funds the
+This fallback, the line below at the end of App details (step 6, 358 → 427), wasn't needed: Pricing's feature lines
+carry it. Requirement 4.2.3 keeps pricing information "in Pricing details". The line says who funds the
 cashback, not what RewardsPro costs, but a reviewer may read it as pricing [I]; if one does, it moves.
 Funding line · 68 characters
 ```text
@@ -265,12 +266,13 @@ RewardsPro funding the cashback, which the shop does (step 9).
 - "The app submission email that you provided in the Contact information section of your listing form is where
   Shopify will email you during review." Shopify also asks you to "add noreply@shopify.com to your allowed senders
   list". So it must be a mailbox the owner reads now.
-  contact@rewardspro.io isn't proven to receive mail yet, so don't switch to it today. In Partner account settings,
+  contact@rewardspro.io wasn't proven to receive mail when this was written; the owner's test on 10 Nov showed it
+  does (#223). In Partner account settings,
   check that an emergency developer contact with an email and a phone number is set (requirement 4.5.6).
 
 ---
 
-## 3. Protected customer data (step 19, before Submit)
+## 3. Protected customer data (step 19, before step 21)
 
 "Applying for protected customer data isn't possible while the app is under review." So this is saved before step
 21. Shopify's path: "From the Partner Dashboard, go to Apps, and then select your app.", "In the sidebar, click API
@@ -285,8 +287,8 @@ access requests.", "Find Protected customer data access".
   on email "may also need protected customer data access to those fields" [I].
 - Phone and Address: nothing in `app` or `extensions` reads either [V, `git grep`].
 
-**Reasons.** The reasons on file were written for the old app [I]. The agent replaces them with these. They go to
-Shopify's reviewers, not onto the listing, and rest on the code above; the limits are [U], so check each counter.
+**Reasons.** The reasons on that page are categories, not free text (the sitting, 10 Nov, #162), so the three
+drafts below weren't used: Name and Email keep their approved categories.
 
 Protected customer data · 381 characters
 ```text
@@ -322,12 +324,11 @@ the instructions and watches the start of the screencast.
   order will show none: note it on #162 for the new instructions.
 - The automated checks "must be run and completed successfully". If one fails, note it and stop.
 
-## 5. Submit, and after (step 21)
+## 5. Review, and after (step 21)
 
-The owner presses Submit once. "After you submit your public app for review, it moves to the Submitted status and
-you receive an email confirming that your submission was received." [that an update works the same way is [I]].
-"Any changes that you make to your app listing are subject to review", so nothing changes live until Shopify
-approves, and a sitting that stops early changes nothing [I].
+A published listing has no separate Submit: saving the form sends the changes to review (the form reads "Once
+submitted and approved"; the sitting, 10 Nov, #162). "Any changes that you make to your app listing are subject to
+review", so nothing changes live until Shopify approves, and a sitting that stops early changes nothing [I].
 
 1. **Live date.** Once it shows, an agent opens the public listing logged out, checks that the deletions, the new
    #1 and the funding text show and that Data access no longer lists phone or address, and writes
@@ -397,7 +398,9 @@ read 10 Nov 2026 at 11:28 UTC. Each was fetched once with a generic browser User
 | Automated checks | "These checks must be run and completed successfully to ensure functionality and reduce your app's time spent in review." | Submit for review |
 
 Field limits not stated on these pages (subtitle, SEO title, meta description, alt text, reasons, the pricing text,
-how many features and screenshots the form requires): the form's own counter decides [U].
+how many features and screenshots the form requires): the form's own counter decides [U]. The sitting settled
+three (#162): three desktop screenshots are required, Pricing's feature lines take up to 40 characters each, and
+the data reasons are categories.
 
 **Count check.** From the repo root; every line should read "ok" (26 when this was committed):
 ````sh

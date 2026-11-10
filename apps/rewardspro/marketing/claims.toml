@@ -123,6 +123,7 @@ uncertainties = [
 ]
 review_after = "2027-02-10"
 
+# Re-checked against main 221d8574 on 10 Nov 2026, after #206 merged; this row's lines are at 221d8574.
 [[claim]]
 id = "rp-refund-takeback"
 claim = "When items are refunded, RewardsPro takes back their share of the cashback, up to the store credit the customer still holds in the order's currency. A refund of shipping alone takes nothing back."
@@ -130,24 +131,25 @@ scope = "Stores whose prices include tax; orders with no item added after paymen
 status = "verified"
 channels = ["listing", "landing"]
 sources = [
-  "app/lib/order-facts.ts:99-120: a refund takes its share, rounded down; the refund that completes the order takes what is left; shipping alone takes nothing",
+  "app/lib/order-facts.ts:109-130: a refund takes its share, rounded down; the refund that completes the order takes what is left; shipping alone takes nothing",
   "app/lib/payouts.server.ts:246-258: the take-back is capped at the customer's balance in the payout's currency",
-  "app/shopify/order-source.server.ts:54, 330-331, 351-352, 674-675: the read limits",
+  "app/shopify/order-source.server.ts:54, 330-331, 351-352, 686-687: the read limits",
   "app/routes/webhooks.orders.refunded.tsx:65-74: refunds/create reads and values the refund, then records it",
   "docs/gates.md:23-24: production refunds E and F",
 ]
 uncertainties = [
   "'Still holds' means Shopify's balance in that currency from any source, not only RewardsPro's credit.",
   "Exchanges are left out because none has been run, not because the sentence is known to fail for them.",
-  "A money-only refund whose money is still pending takes nothing back (#195; draft PR #206 fixes it).",
-  "Nothing is taken back from a customer whose data was erased (customers/redact): app/lib/refunds.server.ts:278-284.",
+  "A money-only refund whose money is still pending is recorded at what has succeeded; the hourly check reads it again and, once its money has succeeded or failed, or after 30 days at what has succeeded, takes back its share once, sent by a later run (#206: app/lib/refunds.server.ts:35-44, 407-477; app/lib/payout-check.server.ts:14-24, 84; vercel.json:8). Not yet seen on a store: it assumes the settled money shows in that refund's own transactions; if not, the refund settles at 30 days at what had succeeded, with one cron problem (PR #206, 'Not proven').",
+  "Nothing is taken back from a customer whose data was erased (customers/redact): app/lib/refunds.server.ts:268-274.",
 ]
 review_after = "2027-02-10"
 
+# Re-checked against main 221d8574 on 10 Nov 2026, after #205 merged; this row's lines are at 221d8574.
 [[claim]]
 id = "rp-widget"
 claim = "While cashback is on, a widget you turn on in your theme editor shows guests your base rate and a sign-in prompt, and shows signed-in customers their tier and cashback rate, their store credit in the currency they are shopping in when Shopify returns it, and how far they are from the next tier when there is one they can reach."
-scope = "The app proxy path /apps/rewardspro. For guests, a base rate above 0%, and the widget's own guest words: a merchant's own message and link replace the sign-in prompt. Except a customer recorded before the store's first tier whom no tier pass has placed yet: the widget shows the tier their spend reaches, but their next order is paid at the lowest tier's rate, until draft PR #205's fix is on main (PR #187 at 740f2da0)."
+scope = "The app proxy path /apps/rewardspro. For guests, a base rate above 0%, and the widget's own guest words: a merchant's own message and link replace the sign-in prompt. A signed-in customer not yet placed in a tier is shown the lowest tier and its rate, the rate their next order earns (#205)."
 status = "verified"
 channels = ["listing", "landing"]
 sources = [
@@ -155,7 +157,7 @@ sources = [
   "extensions/rewards-widget/assets/rewards-widget.js:111-129: progress only when a next tier can be reached",
   "extensions/rewards-widget/assets/rewards-widget.js:163-177: guests: nothing while off; the rate when on and above 0%; the merchant's words or the sign-in link",
   "extensions/rewards-widget/blocks/membership_widget.liquid:19-28: signed-in views call /apps/rewardspro/membership in the cart's currency",
-  "app/routes/api.proxy.$.tsx:71-91: the tier shown is the locked one, the held one, or else the one spend reaches",
+  "app/routes/api.proxy.$.tsx:72-86: the tier shown is the locked one, the held one, or else the lowest, as the next order's rate is picked",
   "app/lib/record-order.server.ts:126, 136-149: a customer with no tier is placed in the lowest tier at their next order",
 ]
 uncertainties = [

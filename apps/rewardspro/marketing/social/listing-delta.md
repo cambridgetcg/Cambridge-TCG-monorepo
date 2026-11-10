@@ -154,8 +154,8 @@ Live text is from the listing fetched 2026-11-07 (p1 extract, lines 9-10, 727-84
 | #131's `[Yu: …]` notes (1)–(3), "When to paste", and its claim-source table | — | — | **Obsolete.** PR #126, crons off and the widget's local balance were old-app issues. The rebuild places a new buyer in the lowest tier (`tiers.server.ts:11-12`), runs its own crons (`vercel.json`) and reads the live Shopify balance (`app/routes/api.proxy.$.tsx:9-11`). The table's locators are old-app paths. | Drop them. Cite the claim ids instead. | — | — |
 
 **#131's other parts:**
-- **The outreach note is out of scope here.** It stays paused under the PPA email question
-  (STRATEGY §9). Its sentence-level delta is in `p1-drafts.md` §3.2.
+- **The outreach note is out of scope here.** Since 10 Nov there is no cold email to shops
+  (ROADMAP §2), so it isn't used. Its sentence-level delta is in `p1-drafts.md` §3.2.
 - **The EU representative shortlist** is unaffected. Re-check its prices before signing.
 
 ---

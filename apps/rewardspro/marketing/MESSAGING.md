@@ -32,6 +32,8 @@ Later the same day (`approvals.jsonl` line 7):
 What the words decide:
 1. **Cold contact (ROADMAP Now-2): decided.** Direct email to businesses is fine. It no longer waits for
    Shopify's written answer. The law and the binding PPA sentences still apply, and §5–§6 build them in.
+   **Superseded on 10 Nov 2026:** after Shopify Partner support's answer there is no cold email to shops
+   (ROADMAP §2), so the email texts and gates in this file are history.
 2. **What RewardsPro is: the umbrella idea is his word** (`kernel.toml` says positioning and promise changes need
    it). The idea is his; the exact wording below is ours, for his yes. `kernel.toml` is left as it was: its own
    comment keeps `[messaging]` empty until about five interviews, and the approval record is `approvals.jsonl`,
