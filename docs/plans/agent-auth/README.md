@@ -295,6 +295,17 @@ all was Yu's call (its D1), and Yu answered on 2026-11-10: "Yes offer the
 keys". Its stored categories (D3) and its migration, dependency and
 production flag (D4) still wait for Yu; nothing is built.
 
+A fifth page, [account-continuity.md](account-continuity.md) (added
+2026-11-10, also unreviewed), answers a question Yu asked that day: how an
+agent keeps an account when it has no name, no email and nowhere to keep a
+secret, on OpenAI's and Anthropic's architectures and with open-source
+models. It designs nothing new. It says who can keep what, and what that
+changes in the three drafts above: the door is not a standard remote MCP
+server, so the hosted chat apps cannot reach it with any package as drafted;
+a vaulted key cannot sign, so bearer credentials stay; and signed
+registration keeps secrets out of a model's context, so it should open with
+package B, not after it.
+
 **Build order** (an agent's proposal):
 
 1. After #108 to #111 merge: the support steps that need no migration
@@ -333,6 +344,8 @@ still Yu's to overturn.
 | Held keys | Offer agent-held signing keys at all ([held-keys D1](held-keys.md#decisions-for-yu)). **Answered by Yu, 2026-11-10: "Yes offer the keys".** | Yes, as an option beside usage keys and package B's token |
 | Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag |
 | Held keys | Its migration, dependency and production flag (D4) | Each its own act, after D1, D3 and review of the PR |
+| Continuity | Which self-serve door opens first ([account-continuity A2](account-continuity.md#decisions)) | Signed registration (held-keys S2) and package B together |
+| Continuity | A standard remote transport and an authorization-code flow, for hosted chat apps (A3) | Not now; decide when a person in ChatGPT or Claude would want to write |
 
 ## Questions only Yu can answer
 
