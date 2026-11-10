@@ -13,10 +13,14 @@ const state = vi.hoisted(() => ({
   userId: "",
   // Makes the matching statement inside a transaction throw (atomicity check).
   failOn: null as RegExp | null,
+  // When set, transactions run through postgres.js as production's do
+  // (@cambridge-tcg/db/compat), so its error shape is what the code meets.
+  compat: null as import("@cambridge-tcg/db/compat").CompatDbInstance | null,
 }));
 vi.mock("@/lib/db", () => ({
   query: (sql: string, args?: unknown[]) => state.pool!.query(sql, args),
   transaction: async (fn: (query: (sql: string, args?: unknown[]) => Promise<unknown>) => Promise<unknown>) => {
+    if (state.compat) return state.compat.transaction(fn as Parameters<typeof state.compat.transaction>[0]);
     const client = await state.pool!.connect();
     try {
       await client.query("BEGIN");
@@ -40,6 +44,7 @@ vi.mock("@/lib/auth", () => ({
   },
 }));
 
+import { createCompatDb } from "@cambridge-tcg/db/compat";
 import { archiveAgent, createAgent, mintKey, revokeKey } from "./operator-actions";
 import { createAgentWithKey, mintRawToken } from "./creation";
 import { keyExpiryDateRange, liveAgentKeySql } from "./key-expiry";
@@ -403,6 +408,53 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
     expect(await createAgent(unstated)).toMatchObject({ ok: false });
     expect(await unrevokedKeyCount(agentId)).toBe(0);
     expect((await pool.query("SELECT count(*)::int AS n FROM agents WHERE public_handle = $1", [unstated.public_handle])).rows[0].n).toBe(0);
+  });
+
+  it("through postgres.js, as production runs it: a date that has begun on the database's clock is a typed refusal, logged nowhere, and writes nothing", async () => {
+    const DATE_PASSED = "That date has already begun (UTC). Choose a later date.";
+    state.userId = await newUser();
+    const agentId = await insertAgent(state.userId);
+    const url = new URL(target!);
+    url.searchParams.delete("sslmode");
+    url.searchParams.set("search_path", schema);
+    const compat = createCompatDb({ url: url.toString(), ssl: false, max: 2 });
+    // Today's date began at 00:00 UTC, before this insert's NOW().
+    const today = new Date().toISOString().slice(0, 10);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const createdHandle = handle();
+    try {
+      // Control: this driver names the field constraint_name, not constraint.
+      const minted = mintRawToken();
+      const raw = await compat.query(
+        `INSERT INTO agent_keys (agent_id, key_hash, key_prefix, expires_at)
+         VALUES ($1, $2, $3, $4::date::timestamp AT TIME ZONE 'UTC')`,
+        [agentId, minted.hash, minted.prefix, today],
+      ).then(() => null, (error: unknown) => error as Record<string, unknown>);
+      expect(raw).toMatchObject({ code: "23514", constraint_name: "agent_keys_expiry_after_creation" });
+      expect(raw?.constraint).toBeUndefined();
+
+      state.compat = compat;
+      // createAgentWithKey takes a parsed choice, so the app's range check is behind it.
+      expect(await createAgentWithKey({
+        operatedByUserId: state.userId, publicHandle: createdHandle, displayName: "Compat", modelTag: "integration-test",
+        keyExpiry: { kind: "date", date: today },
+      })).toStrictEqual({ ok: false, code: "expiry_date_passed", error: DATE_PASSED });
+
+      // mintKey checks the range on the app's clock; a day behind, today still reads as tomorrow.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(Date.now() - 86_400_000);
+      const late = await mintKey({ agent_id: agentId, name: "late", key_expiry: today });
+      vi.useRealTimers();
+      expect(late).toStrictEqual({ ok: false, error: DATE_PASSED });
+      expect(logged).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+      state.compat = null;
+      logged.mockRestore();
+      await compat.close();
+    }
+    expect(await unrevokedKeyCount(agentId)).toBe(0);
+    expect((await pool.query("SELECT count(*)::int AS n FROM agents WHERE public_handle = $1", [createdHandle])).rows[0].n).toBe(0);
   });
 
   it("the five-key cap counts live keys only: expired keys free their slot", async () => {

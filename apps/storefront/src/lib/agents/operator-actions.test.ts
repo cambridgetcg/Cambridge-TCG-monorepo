@@ -217,8 +217,9 @@ describe("mintKey", () => {
   });
 
   it("answers a date that began on the database's clock before the insert", async () => {
+    // postgres.js's shape, as production's driver throws it: constraint_name, not constraint.
     mocks.transaction.mockRejectedValue(
-      Object.assign(new Error("check violation"), { code: "23514", constraint: "agent_keys_expiry_after_creation" }),
+      Object.assign(new Error("check violation"), { code: "23514", constraint_name: "agent_keys_expiry_after_creation" }),
     );
     await expect(
       mintKey({ agent_id: AGENT_ID, name: "key", key_expiry: new Date(Date.now() + 86_400_000).toISOString().slice(0, 10) }),

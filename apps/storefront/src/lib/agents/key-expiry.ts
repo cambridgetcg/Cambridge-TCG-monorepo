@@ -139,11 +139,22 @@ export function expiresAtIso(value: unknown): string | null {
 
 /** Postgres's check_violation, raised by agent_keys_expiry_after_creation
  *  when a chosen date has already begun on the database's clock (the app's
- *  range check ran on a clock a moment behind, around midnight UTC). */
+ *  range check ran on a clock a moment behind, around midnight UTC).
+ *
+ *  The two drivers name the constraint differently: postgres.js, which
+ *  production uses through @cambridge-tcg/db/compat, sets `constraint_name`;
+ *  node-postgres, which the opt-in test pools use, sets `constraint`. Both
+ *  are read. */
 export function isExpiryAfterCreationViolation(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
-  const { code, constraint } = err as { code?: unknown; constraint?: unknown };
-  return code === "23514" && constraint === "agent_keys_expiry_after_creation";
+  const { code, constraint_name, constraint } = err as {
+    code?: unknown;
+    constraint_name?: unknown;
+    constraint?: unknown;
+  };
+  return (
+    code === "23514" && (constraint_name ?? constraint) === "agent_keys_expiry_after_creation"
+  );
 }
 
 export const KEY_EXPIRY_DATE_PASSED_ERROR =

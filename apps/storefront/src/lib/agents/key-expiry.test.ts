@@ -124,7 +124,12 @@ describe("the insert's expiry", () => {
     );
   });
 
-  it("recognises only the expiry CHECK's violation", () => {
+  it("recognises only the expiry CHECK's violation, in either driver's shape", () => {
+    // postgres.js (production, through @cambridge-tcg/db/compat) names the field constraint_name.
+    expect(isExpiryAfterCreationViolation({ code: "23514", constraint_name: "agent_keys_expiry_after_creation" })).toBe(true);
+    expect(isExpiryAfterCreationViolation({ code: "23514", constraint_name: "agent_keys_tier_values" })).toBe(false);
+    expect(isExpiryAfterCreationViolation({ code: "23505", constraint_name: "agent_keys_expiry_after_creation" })).toBe(false);
+    // node-postgres (the opt-in Postgres test pools) names it constraint.
     expect(isExpiryAfterCreationViolation({ code: "23514", constraint: "agent_keys_expiry_after_creation" })).toBe(true);
     expect(isExpiryAfterCreationViolation({ code: "23514", constraint: "agent_keys_tier_values" })).toBe(false);
     expect(isExpiryAfterCreationViolation({ code: "23505", constraint: "agent_keys_expiry_after_creation" })).toBe(false);

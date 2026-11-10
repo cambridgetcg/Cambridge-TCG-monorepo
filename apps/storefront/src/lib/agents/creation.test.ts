@@ -111,10 +111,11 @@ describe("createAgentWithKey operator cap", () => {
   });
 
   it("answers a date that began before the insert, by the database's clock, without a half-created agent", async () => {
+    // postgres.js's shape, as production's driver throws it: constraint_name, not constraint.
     mocks.transaction.mockRejectedValue(
-      Object.assign(new Error('new row violates check constraint "agent_keys_expiry_after_creation"'), {
+      Object.assign(new Error('new row for relation "agent_keys" violates check constraint "agent_keys_expiry_after_creation"'), {
         code: "23514",
-        constraint: "agent_keys_expiry_after_creation",
+        constraint_name: "agent_keys_expiry_after_creation",
       }),
     );
 
