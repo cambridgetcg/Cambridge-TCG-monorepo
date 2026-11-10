@@ -52,10 +52,11 @@ function connectionKey(shop: string) {
  * changed: a statement whose row doesn't match takes no lock, so the usual
  * open never waits on a tier change holding the merchant's row (Ruling 77,
  * CONCURRENCY-6); an uninstalled connection
- * becomes active again (`reactivated`) with `activatedAt = now`, and keeps
- * its first `installedAt` (the boundary the past-orders import used) and its
- * `uninstalledAt`. Every open records `lastAuthAt = now`, so an
- * app/uninstalled from before it can't switch the store off (markUninstalled).
+ * becomes active again (`reactivated`) with `activatedAt = now` and no
+ * `importLaunchedAt`, and keeps its first `installedAt` (the boundary the
+ * past-orders import used) and its `uninstalledAt`. Every open records
+ * `lastAuthAt = now`, so an app/uninstalled from before it can't switch the
+ * store off (markUninstalled).
  * It returns the connection's import state and `installedAt` too, so the open
  * can start the past-orders import without reading the row again (A17-F7).
  */
@@ -114,10 +115,13 @@ export async function ensureMerchant(i: {
       where: { id: existing.merchantId, OR: [{ name: { not: details.name } }, { currency: { not: details.currency } }, { timezone: { not: details.timezone } }] },
       data: details,
     });
-    // Conditional, so of two opens racing after a reinstall only one says it reactivated.
+    // Conditional, so of two opens racing after a reinstall only one says it
+    // reactivated. No launch of the past-orders import from before the
+    // uninstall is still in flight, so a start lost then is started again at
+    // the next poll (bulk-import.server.ts, START_GRACE_MS).
     const { count } = await tx.connection.updateMany({
       where: { id: existing.id, status: "uninstalled" },
-      data: { status: "active", activatedAt: now },
+      data: { status: "active", activatedAt: now, importLaunchedAt: null },
     });
     await tx.connection.update({ where: { id: existing.id }, data: { lastAuthAt: now } });
     const { importState, installedAt } = existing;

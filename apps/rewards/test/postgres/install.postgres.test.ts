@@ -129,14 +129,19 @@ describe.skipIf(!hasTestDatabase)("onAppOpened", () => {
       return Response.json(shopAnswer("Install Test"));
     });
 
+    const before = Date.now();
     await onAppOpened({ session, admin: { graphql } as unknown as AdminApiContext });
 
-    await expect(prisma.connection.findFirstOrThrow()).resolves.toMatchObject({
+    const connection = await prisma.connection.findFirstOrThrow();
+    expect(connection).toMatchObject({
       status: "active",
       importState: "running",
       importOperationId: null,
       importError: expect.stringContaining("INVALID"),
+      importLaunchedAt: expect.any(Date),
     });
+    // The next poll restarts it 5 minutes after this launch
+    expect(connection.importLaunchedAt!.getTime()).toBeGreaterThanOrEqual(before);
     expect(errors).toHaveBeenCalledWith(expect.stringContaining(SHOP), expect.stringContaining("Invalid bulk query"));
   });
 

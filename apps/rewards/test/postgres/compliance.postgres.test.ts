@@ -67,7 +67,7 @@ function orderFacts(n: number, buyer: string): OrderFacts {
 /** A refund of £10 of products: takes back £0.50. */
 function refundFacts(n: number): RefundFacts {
   const pair = { amount: new Money("10.00"), shopAmount: new Money("10.00") };
-  return { externalRefundId: `gid://shopify/Refund/${n}`, productValue: pair, refundedAt: new Date(), completesOrder: false };
+  return { externalRefundId: `gid://shopify/Refund/${n}`, productValue: pair, refundedAt: new Date(), completesOrder: false, moneyPending: false };
 }
 
 const applied: RailAnswer = { outcome: "applied", transactionId: "gid://shopify/StoreCreditAccountCreditTransaction/1" };

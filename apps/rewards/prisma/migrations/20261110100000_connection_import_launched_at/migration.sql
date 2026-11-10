@@ -1,0 +1,11 @@
+-- RP-25 (a lost import start is restarted by the hourly job; Ruling 23: a
+-- new migration, the merged ones untouched). When startImport or a restart
+-- last claimed a launch of the past-orders bulk query: a running import with
+-- no operation id has lost its start 5 minutes after it, whatever else has
+-- written the row since (the hourly sweep's last_swept_at, an open's
+-- last_auth_at, the widget's columns). Nullable, so older builds simply
+-- ignore it and an Instant Rollback stays safe; a row claimed before it
+-- (null) counts as lost and is started again at the next poll. Apply it to
+-- production before the code that reads it deploys: findConnection reads
+-- every connection column.
+ALTER TABLE "connection" ADD COLUMN "import_launched_at" TIMESTAMP(3);

@@ -11,7 +11,18 @@
  *    are left to their own after-response send), at most MAX_SENDS, the
  *    longest due first. There is no age limit: a payout keeps being retried
  *    with backoff until it is sent or needs a look (rule 9).
- * 3. Sweep each active store, the one least recently swept first (OPERATIONS-6),
+ * 3. Read again refunds recorded with their money still on its way (#195),
+ *    at most MAX_MONEY_PENDING_READS a run (a busy store's left out before
+ *    they are counted), the least recently read first, then the oldest
+ *    refund first, straight from the refund table (not the sweep's 3-day
+ *    listing), starting no read once less than MONEY_PENDING_RESERVE_MS of
+ *    the run is left: settleRefundMoney adds what has succeeded to spend
+ *    and, once the money has succeeded or failed, writes the refund's one
+ *    take-back (sent by a later run's step 2, as the sweep's are). One still
+ *    pending after MONEY_PENDING_FOR_MS is cleared with what succeeded and
+ *    counted as one problem, naming its order by its Shopify name; one
+ *    Shopify no longer has is cleared from what is stored, and counted too.
+ * 4. Sweep each active store, the one least recently swept first (OPERATIONS-6),
  *    for orders updated in the last SWEEP_DAYS (never before its install):
  *    the backstop for orders, refunds and cancellations whose webhooks
  *    failed all of Shopify's retries (rule 13, Ruling 45). An order no
@@ -36,12 +47,14 @@
  * the payout's code (`lastError`) as the problem and one log line. Nothing
  * about a buyer is logged but ids.
  */
+import type { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import { type ConnectionContext, findConnection } from "./merchant.server";
+import type { RefundFacts } from "./order-facts";
 import { CLAIM_FINISHED_MS, type SendOutcome, sendPayout, settleUnconfirmed } from "./payouts.server";
 import { type OrderSource, type PayoutRail, type RailFor, type UpdatedOrder, isReadLimit } from "./ports";
 import { recordCancellation, recordOrder } from "./record-order.server";
-import { RefundRetryLater, recordRefund } from "./refunds.server";
+import { RefundRetryLater, recordRefund, settleRefundMoney } from "./refunds.server";
 import { resolveTier } from "./tiers.server";
 
 /** Credit histories read per run (each is one Shopify call). */
@@ -54,8 +67,21 @@ export const MAX_SENDS = 50;
 export const MIN_AGE_MS = 2 * 60 * 1000;
 /** How far back the sweep looks at updated orders (rule 13, Ruling 45). */
 export const SWEEP_DAYS = 3;
+/** Refunds whose money was on its way read again per run (#195; each read is three or more Shopify calls). */
+export const MAX_MONEY_PENDING_READS = 20;
+/**
+ * Step 3 starts no read with less than this left of the run's budget, so
+ * the sweep and the import polls after it keep their turn (RP25-F2). Half
+ * of the hourly route's 240 s: step 3's own worst case is
+ * MAX_MONEY_PENDING_READS reads of 4.5 s (ORDER_READ_DEADLINE_MS), 90 s, so
+ * it still has room after steps 1 and 2, and its last read ends with nearly
+ * two minutes left for the others.
+ */
+export const MONEY_PENDING_RESERVE_MS = 120 * 1000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** How long a refund's money may stay on its way before only what succeeded is taken back (#195). */
+export const MONEY_PENDING_FOR_MS = 30 * DAY_MS;
 
 export interface PayoutCheckResult {
   /** Unclear payouts settled: sent, returned to pending or nothing to send, or needing a look. */
@@ -70,6 +96,8 @@ export interface PayoutCheckResult {
   refundsSwept: number;
   /** Cancellations of recorded orders no webhook recorded, recorded by the sweep. */
   cancelledSwept: number;
+  /** Refunds whose money was on its way, settled: their mark cleared and their take-back written (#195). */
+  refundsSettled: number;
   /** Active stores the sweep did not finish before the deadline. */
   unfinished: number;
   /** Stores left for the next run because another renewal of their token was running (Ruling 85, F1-F3): no problem. */
@@ -99,7 +127,18 @@ type RecordedOrder = { externalOrderId: string; cancelledAt: Date | null; refund
 
 export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline: number }): Promise<PayoutCheckResult> {
   const { now } = o;
-  const result: PayoutCheckResult = { settled: 0, sent: 0, needsLook: 0, swept: 0, refundsSwept: 0, cancelledSwept: 0, unfinished: 0, busy: 0, problems: 0 };
+  const result: PayoutCheckResult = {
+    settled: 0,
+    sent: 0,
+    needsLook: 0,
+    swept: 0,
+    refundsSwept: 0,
+    cancelledSwept: 0,
+    refundsSettled: 0,
+    unfinished: 0,
+    busy: 0,
+    problems: 0,
+  };
   const problem = (error: unknown) => {
     if (result.problems === 0) result.firstProblem = error;
     result.problems++;
@@ -204,7 +243,17 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
     }
   }
 
-  // 3. The sweep (rule 13, Ruling 45), the store least recently swept first.
+  // 3. Refunds whose money was on its way (#195). A failure of the step
+  // itself (its listing of the marked refunds) is one problem, never the end
+  // of the run: the sweep and the import polls still have theirs (RP25-F2).
+  try {
+    await settlePendingRefundMoney({ result, problem, outOfTime, now, deadline: o.deadline, storeFor });
+  } catch (error) {
+    console.error(`[payout-check] Could not read the refunds whose money was on its way: ${messageOf(error)}`);
+    problem(error);
+  }
+
+  // 4. The sweep (rule 13, Ruling 45), the store least recently swept first.
   const connections = await prisma.connection.findMany({
     where: { status: "active" },
     orderBy: [{ lastSweptAt: { sort: "asc", nulls: "first" } }, { id: "asc" }],
@@ -230,6 +279,166 @@ export async function runPayoutCheck(o: { now: Date; railFor: RailFor; deadline:
   }
 
   return result;
+}
+
+/**
+ * Step 3 (#195): each refund still marked as having its money on its way,
+ * on an active store, read again from Shopify by its id and settled
+ * (settleRefundMoney), the least recently read first, then the oldest
+ * refund first, so two of one order share what the order has left to refund
+ * as readOrder would. A busy store's are left out before the
+ * MAX_MONEY_PENDING_READS are taken, so they can't use up the run's reads,
+ * and wait unstamped for the next run (P1-F3). No store is asked for and no
+ * read starts once less than MONEY_PENDING_RESERVE_MS of the run is left;
+ * the rest wait unstamped, keeping their place (RP25-F2). Each is stamped
+ * (`moneyCheckedAt`) before its read, so one that fails takes its turn
+ * after the others; an
+ * unreachable store's are stamped and left (storeFor counts the store
+ * once). A database error on one refund, its stamp included, is one problem
+ * and the next is still read, as in steps 1 and 2. A read that fails is a
+ * problem and the refund stays marked (a ReadLimit is only logged), until
+ * MONEY_PENDING_FOR_MS after it was marked: then it is settled with what has
+ * succeeded, from its read if there is one, else from its stored value, and
+ * counted as one problem by its order's Shopify name. One Shopify answers
+ * it has no longer, or that is now another order's, is settled from its
+ * stored value, logged by its and its order's ids and counted as one
+ * problem (RP25-F3). A settle the credit's state stops (being sent:
+ * RefundRetryLater, left for the next run; or a state a refund can't judge,
+ * a problem) leaves it marked. The buyers whose spend moved have their tier
+ * resolved once each.
+ */
+async function settlePendingRefundMoney(ctx: {
+  result: PayoutCheckResult;
+  problem: (error: unknown) => void;
+  outOfTime: () => boolean;
+  now: Date;
+  deadline: number;
+  storeFor: (connectionId: string) => Promise<Store | "busy" | null>;
+}): Promise<void> {
+  const { now } = ctx;
+  const tooLate = () => ctx.deadline - Date.now() < MONEY_PENDING_RESERVE_MS;
+  if (tooLate()) return;
+  const markedWhere = { moneyPendingSince: { not: null }, connection: { status: "active" } } satisfies Prisma.RefundWhereInput;
+  // Each store with a marked refund, asked for once (storeFor's answer is the
+  // run's, which the sweep reuses): a busy store's are left out of the take.
+  // Reaching a store may renew its token, so the reserve is checked before
+  // each; once it is gone every marked refund waits unstamped (RP25-F2).
+  const busy: string[] = [];
+  for (const { connectionId } of await prisma.refund.groupBy({ by: ["connectionId"], where: markedWhere })) {
+    if (tooLate()) return;
+    if ((await ctx.storeFor(connectionId)) === "busy") busy.push(connectionId);
+  }
+  const marked = await prisma.refund.findMany({
+    where: { ...markedWhere, connectionId: { notIn: busy } },
+    orderBy: [{ moneyCheckedAt: { sort: "asc", nulls: "first" } }, { refundedAt: "asc" }, { id: "asc" }],
+    take: MAX_MONEY_PENDING_READS,
+    select: {
+      id: true,
+      connectionId: true,
+      externalRefundId: true,
+      moneyPendingSince: true,
+      order: { select: { externalOrderId: true, name: true } },
+      connection: { select: { externalAccountId: true } },
+    },
+  });
+  const conns = new Map<string, ConnectionContext | null>();
+  const moved = new Set<string>();
+  for (const row of marked) {
+    // The sweep and the import polls keep their turn: the rest wait unstamped
+    if (tooLate()) break;
+    const { order } = row;
+    const shop = row.connection.externalAccountId;
+    const what = `refund ${row.externalRefundId} of order ${order.externalOrderId} for ${shop}`;
+    const store = await ctx.storeFor(row.connectionId);
+    // Left out above; the check narrows the type
+    if (store === "busy") continue;
+    let conn: ConnectionContext | null | undefined;
+    try {
+      await prisma.refund.updateMany({ where: { id: row.id, moneyPendingSince: { not: null } }, data: { moneyCheckedAt: now } });
+      // Unreachable: counted once by storeFor
+      if (!store) continue;
+      if (!conns.has(row.connectionId)) conns.set(row.connectionId, await findConnection(shop));
+      conn = conns.get(row.connectionId);
+    } catch (error) {
+      // One refund's database error is a problem, never the end of the run (RP25-F2)
+      console.error(`[payout-check] Could not prepare the read of ${what}: ${messageOf(error)}`);
+      ctx.problem(error);
+      continue;
+    }
+    // Uninstalled since the run began
+    if (!conn) continue;
+    const expired = row.moneyPendingSince !== null && now.getTime() - row.moneyPendingSince.getTime() >= MONEY_PENDING_FOR_MS;
+
+    let read: RefundFacts | null = null;
+    // Whether Shopify answered that it has no such refund for this order
+    let gone = false;
+    // Whether, of those, Shopify has it under another order
+    let otherOrder = false;
+    // Whether its money may still be on its way: the read says so, or failed
+    let stillMoving: boolean;
+    try {
+      const found = await store.orders.readRefund(row.externalRefundId, { deadline: ctx.deadline });
+      // Gone from Shopify, or now another order's: settled from what is stored
+      read = found && found.orderGid === order.externalOrderId ? found.refund : null;
+      gone = read === null;
+      otherOrder = found !== null && found.orderGid !== order.externalOrderId;
+      stillMoving = read?.moneyPending === true;
+    } catch (error) {
+      // The run's deadline cut the read off: the rest wait for the next run
+      if (ctx.outOfTime()) break;
+      const limit = isReadLimit(error);
+      // Past what one read takes (20 or more refunds): logged, never a problem (M2c-F7)
+      if (limit) console.warn(`[payout-check] The read of ${what} is past what one read takes: ${messageOf(error)}`);
+      else console.error(`[payout-check] Could not read ${what}: ${messageOf(error)}`);
+      if (!expired) {
+        if (!limit) ctx.problem(error);
+        continue;
+      }
+      // Past its 30 days: settled from what is stored, and counted once below
+      stillMoving = true;
+    }
+    try {
+      const settled = await settleRefundMoney(conn, row.id, read, { now, expired });
+      if (settled.status === "settled") {
+        ctx.result.refundsSettled++;
+        moved.add(settled.customerId);
+        if (gone) {
+          // Only what was stored was taken back. For an order deleted in
+          // Shopify that is #201's accepted C5; any other null (an access
+          // change) would lose the rest just as unseen, so it is counted.
+          // By ids only, never the buyer.
+          // Moved and gone are told apart, as they may need different follow-ups
+          const cleared = new Error(
+            otherOrder
+              ? `The ${what} is now another order's in Shopify: it was settled from its stored value`
+              : `Shopify has no ${what} any more: it was settled from its stored value`,
+          );
+          console.warn(`[payout-check] ${cleared.message}`);
+          ctx.problem(cleared);
+        } else if (expired && stillMoving) {
+          // One problem, naming the order by its Shopify name for the merchant, never the buyer
+          const late = new Error(
+            `The money of refund ${row.externalRefundId} of order ${order.name} for ${shop} was still on its way after 30 days: only what succeeded was taken back`,
+          );
+          console.error(`[payout-check] ${late.message}`);
+          ctx.problem(late);
+        }
+      } else if (settled.status === "still_pending" && settled.spendChanged) moved.add(settled.customerId);
+    } catch (error) {
+      // Its order's credit is being sent right now: the next run takes it
+      if (error instanceof RefundRetryLater) continue;
+      console.error(`[payout-check] Could not settle refund ${row.externalRefundId} of order ${order.externalOrderId} for ${shop}: ${messageOf(error)}`);
+      ctx.problem(error);
+    }
+  }
+  for (const customerId of moved) {
+    try {
+      await resolveTier(customerId);
+    } catch (error) {
+      console.error(`[payout-check] Could not resolve the tier of customer ${customerId}: ${messageOf(error)}`);
+      ctx.problem(error);
+    }
+  }
 }
 
 /** What the sweep's steps share with their run (M2c-F8). */
