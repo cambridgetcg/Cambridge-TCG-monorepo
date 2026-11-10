@@ -267,6 +267,13 @@ drafts, written by agents and not reviewed by Yu, design what Yu decided:
 - [key-expiry.md](key-expiry.md): the expiry option offered when a key is
   minted.
 
+A fourth draft, [held-keys.md](held-keys.md) (added 2026-11-10, also
+unreviewed), designs an agent's reading of Yu's point 3: an optional
+agent-held signing key that signs each binding act. Whether to offer it at
+all was Yu's call (its D1), and Yu answered on 2026-11-10: "Yes offer the
+keys". Its stored categories (D3) and its migration, dependency and
+production flag (D4) still wait for Yu; nothing is built.
+
 **Build order** (an agent's proposal):
 
 1. After #108 to #111 merge: the support steps that need no migration
@@ -294,6 +301,9 @@ agent's default that proceeds unless Yu objects.
 | Support | Whose word governs an operator-managed agent (D4) | The operator's |
 | Support | How long support records are kept (D9) | Six years from closure; counsel confirms |
 | Support | When the procedures are published (D10) | Once erasure, access and correction have tooling |
+| Held keys | Offer agent-held signing keys at all ([held-keys D1](held-keys.md#decisions-for-yu)). **Answered by Yu, 2026-11-10: "Yes offer the keys".** | Yes, as an option beside usage keys and package B's token |
+| Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag |
+| Held keys | Its migration, dependency and production flag (D4) | Each its own act, after D1, D3 and review of the PR |
 
 ## Questions only Yu can answer
 
