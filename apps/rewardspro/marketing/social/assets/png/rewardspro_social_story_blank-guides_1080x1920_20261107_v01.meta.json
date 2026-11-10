@@ -5,7 +5,7 @@
   "asset": "story",
   "variant": "blank-guides",
   "brief_id": "Task brief (1080x1920 story). STRATEGY.md §7 lists vertical cuts under \"Not made\"",
-  "status": "PROPOSAL for Yu: not approved, not published",
+  "status": "PROPOSAL for the owner: not approved, not published",
   "size": {
     "width": 1080,
     "height": 1920
@@ -71,7 +71,7 @@
     {
       "path": "kit/logo/lockup-horizontal.svg",
       "sha256": "33042d204485d9a867c05518d77a41eb26e671ea3fa1e06997c16a970d5cc79d",
-      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
     }
   ],
   "kernel_sha256": {
@@ -157,7 +157,7 @@
     }
   ],
   "ai_involvement": "assistive",
-  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by Yu before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
+  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by the owner before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
   "jurisdictions": [
     "UK"
   ],

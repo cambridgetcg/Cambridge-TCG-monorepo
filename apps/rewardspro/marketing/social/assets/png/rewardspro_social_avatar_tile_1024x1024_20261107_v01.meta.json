@@ -5,7 +5,7 @@
   "asset": "avatar",
   "variant": "tile",
   "brief_id": "STRATEGY.md §7 A1",
-  "status": "PROPOSAL for Yu: not approved, not published",
+  "status": "PROPOSAL for the owner: not approved, not published",
   "size": {
     "width": 1024,
     "height": 1024
@@ -19,7 +19,7 @@
   "platforms": [
     "Bluesky (PNG or JPEG ≤1,000,000 bytes)",
     "YouTube (shown at 98x98; ≤15 MB)",
-    "Instagram/TikTok only if Yu keeps them"
+    "Instagram/TikTok only if the owner keeps them"
   ],
   "use": "Profile picture. Upload as is. Platforms crop it to a circle or show it square (X Premium Business, LinkedIn Page logo [I]); the mark stays inside either. The opaque white tile shows as a white square on a dark-mode page (LinkedIn says the logo \"will be displayed on both light and dark backgrounds\"): check once in the private test.",
   "safe_before_g0": true,

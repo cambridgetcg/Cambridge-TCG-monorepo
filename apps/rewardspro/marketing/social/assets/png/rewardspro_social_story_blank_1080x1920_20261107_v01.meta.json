@@ -5,7 +5,7 @@
   "asset": "story",
   "variant": "blank",
   "brief_id": "Task brief (1080x1920 story). STRATEGY.md §7 lists vertical cuts under \"Not made\"",
-  "status": "PROPOSAL for Yu: not approved, not published",
+  "status": "PROPOSAL for the owner: not approved, not published",
   "size": {
     "width": 1080,
     "height": 1920
@@ -17,7 +17,7 @@
   "max_bytes": 2000000,
   "under_limit": true,
   "platforms": [
-    "none planned: STRATEGY.md §7 makes no vertical cuts; kept as a blank template only, Yu decides"
+    "none planned: STRATEGY.md §7 makes no vertical cuts; kept as a blank template only, the owner decides"
   ],
   "use": "Blank brand ground for a post: fill the zones from a verified claim, then render. No post goes out before S2 (STRATEGY.md §2).",
   "safe_before_g0": true,
@@ -76,7 +76,7 @@
     {
       "path": "kit/logo/lockup-horizontal.svg",
       "sha256": "33042d204485d9a867c05518d77a41eb26e671ea3fa1e06997c16a970d5cc79d",
-      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
     }
   ],
   "kernel_sha256": {

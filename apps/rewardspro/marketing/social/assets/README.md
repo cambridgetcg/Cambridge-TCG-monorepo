@@ -1,12 +1,12 @@
 # RewardsPro social visual assets
 
-Agents' proposal for Yu, 2026-11-07, revised the same day after review. **Nothing here is approved,
+Agents' proposal for the owner, 2026-11-07, revised the same day after review. **Nothing here is approved,
 posted or uploaded.** No account exists yet. The plan these serve is `../STRATEGY.md` (§2 stages,
 §7 asset list). Labels: **[V]** verified, **[I]** inferred, **[U]** unknown, **[S]** a third-party
 source.
 
 **Where the inputs come from.** Every image is built from the kit in `../../kit`, read only. Its
-four logo SVGs are the same bytes as the kit Yu approved on 2026-10-20 [V]: `approvals.jsonl:1` pins
+four logo SVGs are the same bytes as the kit the owner approved on 2026-10-20 [V]: `approvals.jsonl:1` pins
 `kit/.brandkit-fingerprint` 0c6a0614…, and that file (at commit 5e68e57e) lists the same hashes.
 The rest of the kit on disk is the 2026-10-27 rebuild (676c10b4, "no new approval is claimed"):
 `colour/tokens.json` (every token used here keeps its 10-20 value, except `dark.bg`, which became
@@ -19,8 +19,8 @@ depends on an installed font. There's no AI imagery, no Shopify logo and no thir
 
 | Group | Safe before G0 | Use |
 |---|---|---|
-| Avatars; banners on `#1B1D1F` or `#09110F` | **yes**: mark and name only, no product claim | S0: Yu can upload one set when he reserves the names (STRATEGY §13 step 11) |
-| Banners on navy `#1A3E5C` | **Yu's call** (`safe_before_g0: null`): no claim, but the mark misses the kit's own Lc 30 bar there (Doubt 1) | an alternative only |
+| Avatars; banners on `#1B1D1F` or `#09110F` | **yes**: mark and name only, no product claim | S0: the owner can upload one set when he reserves the names (STRATEGY §13 step 11) |
+| Banners on navy `#1A3E5C` | **The owner's call** (`safe_before_g0: null`): no claim, but the mark misses the kit's own Lc 30 bar there (Doubt 1) | an alternative only |
 | Blank post templates (square, portrait, landscape, story) | yes as artwork (brand only), but no use before S2 | grounds to fill from verified claims later |
 | Cards A6 milestone, A7 rule, A8 limits | **no** | review drafts only, with "DRAFT · NOT FOR POSTING" bands |
 | Card A9 correction | **no** | a template, with "TEMPLATE · NOT FOR POSTING" bands; used only after a public claim proves wrong |
@@ -57,7 +57,7 @@ the image and writes the alt from it. It never retouches the capture.
 PNG exports are in `png/`, each with a `.meta.json` sidecar (ASSETS D3 fields: brief id, inputs
 with sha256 and licence, tool versions, `ai_involvement`, claim ids with status, `review_after` and
 channel at build, alt text and its length, contrast table, logo sizes at display width, measured
-text boxes; `gate_report`, `approval_id` and `publish_url` stay null until Yu acts). Outlined masters
+text boxes; `gate_report`, `approval_id` and `publish_url` stay null until the owner acts). Outlined masters
 are in `masters/` (`*.guides.svg` is the review overlay). Editable sources with live text are in
 `src/` (they need Inter installed to display; never render them for upload).
 
@@ -67,15 +67,15 @@ are in `masters/` (`*.guides.svg` is the review overlay). Editable sources with 
 | `rewardspro_social_avatar_tile_400x400_20261107_v01.png` | 400x400 | 2.8 kB | X, LinkedIn Page logo | yes | none |
 | `rewardspro_social_header_neutral950_1500x500_20261107_v01.png` | 1500x500 | 17.1 kB | X header and Bluesky banner, on `#1B1D1F` | yes | none |
 | `rewardspro_social_header_dark_1500x500_20261107_v01.png` | 1500x500 | 17.2 kB | the same, on `#09110F` | yes | none |
-| `rewardspro_social_header_navy_1500x500_20261107_v01.png` | 1500x500 | 17.1 kB | the same, on navy | Yu's call | none |
+| `rewardspro_social_header_navy_1500x500_20261107_v01.png` | 1500x500 | 17.1 kB | the same, on navy | The owner's call | none |
 | `rewardspro_social_header_dark-guides_1500x500_20261107_v01.png` | 1500x500 | 55.9 kB | review aid | no, review only | none |
 | `rewardspro_social_linkedin-cover_neutral950_1512x256_20261107_v01.png` | 1512x256 | 13.5 kB | LinkedIn Page cover, on `#1B1D1F` | yes | none |
 | `rewardspro_social_linkedin-cover_dark_1512x256_20261107_v01.png` | 1512x256 | 13.5 kB | the same, on `#09110F` | yes | none |
-| `rewardspro_social_linkedin-cover_navy_1512x256_20261107_v01.png` | 1512x256 | 13.4 kB | the same, on navy | Yu's call | none |
+| `rewardspro_social_linkedin-cover_navy_1512x256_20261107_v01.png` | 1512x256 | 13.4 kB | the same, on navy | The owner's call | none |
 | `rewardspro_social_linkedin-cover_dark-guides_1512x256_20261107_v01.png` | 1512x256 | 30.4 kB | review aid | no, review only | none |
 | `rewardspro_social_youtube-banner_neutral950_2560x1440_20261107_v01.png` | 2560x1440 | 36.3 kB | YouTube channel banner, on `#1B1D1F` | yes | none |
 | `rewardspro_social_youtube-banner_dark_2560x1440_20261107_v01.png` | 2560x1440 | 36.3 kB | the same, on `#09110F` | yes | none |
-| `rewardspro_social_youtube-banner_navy_2560x1440_20261107_v01.png` | 2560x1440 | 36.2 kB | the same, on navy | Yu's call | none |
+| `rewardspro_social_youtube-banner_navy_2560x1440_20261107_v01.png` | 2560x1440 | 36.2 kB | the same, on navy | The owner's call | none |
 | `rewardspro_social_youtube-banner_dark-guides_2560x1440_20261107_v01.png` | 2560x1440 | 110.9 kB | review aid | no, review only | none |
 | `rewardspro_social_post-square_blank_1080x1080_20261107_v01.png` | 1080x1080 | 14.0 kB | LinkedIn image post (1:1) | yes (no use before S2) | none |
 | `rewardspro_social_post-square_blank-guides_1080x1080_20261107_v01.png` | 1080x1080 | 73.4 kB | review aid: the text zones | no, review only | none |
@@ -104,7 +104,7 @@ that file (a draft's alt starts "Draft, not for posting."). `text_on_image` list
 drawn, the bands and placeholder labels included. Card alts are 300 characters or fewer (now 266,
 299, 290 and 248 for A6–A9). LinkedIn's help pages state no alt-text cap (a519856 and a426534,
 read-only GET 2026-11-07, HTTP 200) [V], so the cap itself is [U]; 300 is a third-party figure [S],
-so Yu checks it once in the ALT field of a private LinkedIn draft. a519856 also says "LinkedIn may
+so the owner checks it once in the ALT field of a private LinkedIn draft. a519856 also says "LinkedIn may
 automatically add alt-text to images that don’t have it", so paste the sidecar's alt every time.
 Other alts stay at 1,000 or fewer. `content/launch-posts.md` keeps its own alt drafts for these
 cards; its maker should point to the sidecars instead, so each image has one alt.
@@ -182,11 +182,11 @@ node render.mjs --raster-only  # png/ and the sidecars from the committed master
 - **Not checked [U]:** how each platform actually crops and compresses these files. Upload one
   privately and look before relying on it.
 
-## Doubts and choices for Yu
+## Doubts and choices for the owner
 
 1. **Which dark ground.** STRATEGY §7 says "reversed horizontal lockup on navy". There are now three
-   versions of each banner, and Yu picks one:
-   - **`#1B1D1F` (neutral 950):** the dark ground of the kit Yu approved on 2026-10-20, and the one
+   versions of each banner, and the owner picks one:
+   - **`#1B1D1F` (neutral 950):** the dark ground of the kit the owner approved on 2026-10-20, and the one
      the kit measured the reversed lockup on then (BRAND.md at 5e68e57e: `#658AAD` "4.66:1 and APCA
      Lc -36.2 on #1B1D1F"). It clears the kit's bar for a mark on a dark ground (3:1 and |Lc| 30).
      The agents suggest this one, because it is the only one that is both in the approved pack and
@@ -198,10 +198,10 @@ node render.mjs --raster-only  # png/ and the sidecars from the committed master
      the kit's APCA bar (|Lc| 29.3 against 30). Logos are exempt from WCAG, so this is a judgement,
      not a failure.
 
-   Recolouring the lockup would be a kit change (the brand lane, with Yu's approval), not this
+   Recolouring the lockup would be a kit change (the brand lane, with the owner's approval), not this
    folder's job.
 2. **The story template (1080x1920)** was asked for in the build brief, but STRATEGY §7 lists
-   vertical cuts under "Not made". It exists only as a blank ground and has no planned use. If Yu
+   vertical cuts under "Not made". It exists only as a blank ground and has no planned use. If the owner
    keeps §7 as written, delete its master, source, guides overlay, both PNGs and both sidecars, and
    its entry in `TEMPLATES`. Its safe bands (top 14%, bottom 20%) are third-party guidance
    (ASSETS B5) [I].
@@ -232,14 +232,14 @@ node render.mjs --raster-only  # png/ and the sidecars from the committed master
      balance."
 6. **Not made here, and why:**
    - A5, the link card (`kit/web/og.jpg`), is the brand lane's: it fails the free-pair rule and
-     needs a kit rebuild that Yu approves.
+     needs a kit rebuild that the owner approves.
    - A10–A13 (screenshots, recording V1, the YouTube thumbnail, the listing feature image) need real
      captures from the G0 shot list. None exist yet.
    - A14 is Shopify's own badge file, used unaltered. It isn't redrawn here.
    - A15, the 10-page 1080x1350 LinkedIn document carousel that `content/launch-posts.md` asks for
-     (CAR1, calendar week 6): not in STRATEGY §7, and most pages need A10 captures and G0. Yu
+     (CAR1, calendar week 6): not in STRATEGY §7, and most pages need A10 captures and G0. The owner
      decides whether it joins the asset list. If it does, it must be a PDF with real text, not
      flattened images.
 7. **Where this goes later:** this folder sits under `apps/rewardspro/`, which switch step B5
    deletes. It is self-contained (it only reads `../../kit` and `../../claims.toml`), so it moves
-   with `marketing/` wherever Yu chooses.
+   with `marketing/` wherever the owner chooses.

@@ -1,7 +1,7 @@
 # RewardsPro entity card
 
 > **Pointer, added later on 2026-11-07:** [`../MESSAGING.md`](../MESSAGING.md) now carries the descriptions,
-> built on Yu's words of that day ("A credit system to give back to customers who are loyal, so that a ecosystem
+> built on the owner's words of that day ("A credit system to give back to customers who are loyal, so that a ecosystem
 > can be built.") and written in the business register he asked for after ("用loyal customers, take a more business
 > approach on wordings."). Where its state A or B texts differ from this card's, MESSAGING.md supersedes them. Its state A
 > drops "on the Shopify App Store", because `rp-on-app-store` now covers compatibility only. For surfaces it
@@ -10,10 +10,10 @@
 > `sentence`, `meta_160` and `long_500` in §6) need the same cut, or a verified row such as `rp-app-store-listed`
 > (proposed in MESSAGING.md §7), before use. Both files are proposals.
 
-**PROPOSAL for Yu, 2026-11-07. Nothing here is decided or published.** `kernel.toml` keeps its
-`[entity]` table empty until Yu approves a version of this card. Its own comment says `[entity]`
+**PROPOSAL for the owner, 2026-11-07. Nothing here is decided or published.** `kernel.toml` keeps its
+`[entity]` table empty until the owner approves a version of this card. Its own comment says `[entity]`
 waits for about five merchant interviews (`kernel.toml`, last comment). This card is plain
-description, not positioning, so Yu can either:
+description, not positioning, so the owner can either:
 - (a) keep `[entity]` empty and treat this file as the working proposal (the default); or
 - (b) approve state A now, as plain fact.
 
@@ -45,7 +45,7 @@ It carries an as-of date.
 
 **Rules every version below follows:**
 1. **Facts only.** No outcome words ("bring buyers back", "retention"), no "only", "first" or
-   "best", and no numbers. "Loyal" only in Yu's term "loyal customers" (approved 2026-11-07,
+   "best", and no numbers. "Loyal" only in the owner's term "loyal customers" (approved 2026-11-07,
    `approvals.jsonl`; amended from "no 'loyal'"), describing who they are; never "loyalty
    program" or "makes customers loyal". Positioning beyond his umbrella idea waits for the
    interviews.
@@ -62,7 +62,7 @@ It carries an as-of date.
    description, a JSON-LD `description`, a block on a web page), so they count as allowing 300 or
    more. **PROPOSAL:** where a text has to stay short anyway, because it's seen on its own (a search
    snippet, a link card, a stat tile), it carries the short fee pointer "Shopify's store-credit fees
-   may apply" (37) [`sh-sc-fee`] instead. Dropping even the pointer needs Yu's written acceptance,
+   may apply" (37) [`sh-sc-fee`] instead. Dropping even the pointer needs the owner's written acceptance,
    recorded against `rp-free` and `sh-sc-fee` (§8).
 4. **The limit sits beside the feature.** The legacy-accounts rule sits next to "spend credit". A
    text that carries a claim id keeps that claim's limit: cashback is on the product price "less
@@ -75,12 +75,12 @@ It carries an as-of date.
    (`claims.toml` `rp-on-app-store`, PPA raw text line 718). The state A texts also say where the
    app is listed ("on the Shopify App Store"), the wording `rp-on-app-store`'s claim and STRATEGY's
    words-to-use list carry. No Shopify page that permits the listing-location use was read
-   **[U]**, so this is **Yu's call** (§8). Never "Shopify" in a name, handle or slug, and never "a
+   **[U]**, so this is **the owner's call** (§8). Never "Shopify" in a name, handle or slug, and never "a
    Shopify app".
 
-**Two free forms, both waiting on Yu's D4 wording** (STRATEGY D4): the long form is D4's own text,
+**Two free forms, both waiting on the owner's D4 wording** (STRATEGY D4): the long form is D4's own text,
 "Free app, no paid plans; you fund the cashback you give." (56). The short form "Free app; you
-fund the cashback" (31) is used only where length forces it. If Yu changes D4, both change.
+fund the cashback" (31) is used only where length forces it. If the owner changes D4, both change.
 
 **How the counts were made:** Python `len()` (Unicode code points), spaces and punctuation
 included, straight ASCII apostrophes. The en dash in a title counts as 1. Scripts:
@@ -121,13 +121,13 @@ RewardsPro is an app for Shopify stores, listed on the Shopify App Store. It is 
 RewardsPro is an app for Shopify stores, listed on the Shopify App Store. It is made by Cambridge TCG Limited, a UK company in London. Questions go to contact@rewardspro.io.
 ```
 - **Short on purpose.** Padding it with process words (relaunch, checked, staging) would break the
-  voice guide. The one more fact that could go in, what else the maker sells, is Yu's decision
+  voice guide. The one more fact that could go in, what else the maker sells, is the owner's decision
   D-maker (below and §8).
 - **The last sentence carries `rp-contact-delivers`,** whose delivery source is `MISSING` (a test
   message from an outside address, seen arriving). So G1 blocks E500-A as written until that row
   is verified. Without the sentence, E500-A is 134 characters, identical to E160-A.
 
-**E500-A-maker** (optional, only if Yu decides D-maker that way) · 205 characters (166 without the
+**E500-A-maker** (optional, only if the owner decides D-maker that way) · 205 characters (166 without the
 contact sentence) · claims: `rp-on-app-store`, `rp-maker`, `rp-contact-delivers`, plus a new row
 for the claims maker, proposed id `rp-maker-also-sells` ("Cambridge TCG Limited also sells
 trading cards.")
@@ -139,8 +139,8 @@ RewardsPro is an app for Shopify stores, listed on the Shopify App Store. It is 
   `docs/marketing/README.md`, honest-by-design list). STRATEGY's pillar H4 holds card-shop framing
   back until the interviews, and says "then never say it" if a card-shop maker reads as a
   conflict (STRATEGY.md H4; "Until the interviews: no card-shop or TCG framing"). The two pull
-  against each other, so this card doesn't settle it: it's Yu's named decision D-maker (§8).
-- **What the sentence rests on [I].** The design README quotes Yu on 2026-10-20: "For now only ebay
+  against each other, so this card doesn't settle it: it's the owner's named decision D-maker (§8).
+- **What the sentence rests on [I].** The design README quotes the owner on 2026-10-20: "For now only ebay
   and cardmarket sales". The same README says the eBay account is "Registered as a private
   seller" and that whether it is the company's is unknown. So the sentence names no marketplace,
   and its row needs a source that ties the sales to the company before it can be verified.
@@ -189,7 +189,7 @@ RewardsPro adds cashback to Shopify store credit when an order is paid, at the c
 Kept to 155 characters or fewer, because search results usually show about 155–160 [I: Google
 measures in pixels; no Google page was fetched].
 
-**E160-B-site**: meta description for rewardspro.io only, if Yu wants the price on the meta (open
+**E160-B-site**: meta description for rewardspro.io only, if the owner wants the price on the meta (open
 point §8, separate from D4's wording) · 147 characters · claims: `rp-store-credit`,
 `rp-paid-trigger`, `rp-free`, `rp-merchant-funds`, `sh-sc-fee`. **Never in a listing field.** A
 meta description has no hard cap, and a search snippet is read on its own, so it carries the short
@@ -225,7 +225,7 @@ room, so it carries the fee sentence. It uses D4's long free form.
 ```text
 RewardsPro is an app for Shopify stores, made by Cambridge TCG Limited, London, UK. When an order is paid, it adds cashback to the customer's Shopify store credit at their VIP tier's rate, on the product price after discounts, less store credit and gift cards used. A refund takes back its share from credit still held. Free app, no paid plans; you fund the cashback you give. For stores created on or after 12 May 2025, Shopify charges third-party transaction fees on store-credit payments.
 ```
-If Yu decides D-maker for disclosure, the maker sentence (47) doesn't fit inside 500 here. It goes
+If the owner decides D-maker for disclosure, the maker sentence (47) doesn't fit inside 500 here. It goes
 on the same page as its own line, next to the boilerplate.
 
 **Review dates.** Any text carrying an `sh-*` id is re-checked against the Help Center page no
@@ -238,7 +238,7 @@ E160-B-site, E500-B-listing, E500-B-listing-widget, E500-B-site and the JSON-LD 
 wording. L1 is longer (1,082 characters) and adds an `rp-cashback-base` paragraph, the
 legacy-accounts paragraph and the `rp-ai-drafted` line (STRATEGY.md L1). T1 ("Cashback as Shopify
 store credit, with VIP tiers. Free app; you fund the cashback.", 82) is a LinkedIn tagline seen on
-its own; under rule 3 it would also carry the fee pointer. That's for the profiles maker and Yu
+its own; under rule 3 it would also carry the fee pointer. That's for the profiles maker and the owner
 (§8).
 
 **Kept out of every version, even after G0** (STRATEGY §6.4 and never-say):
@@ -258,13 +258,13 @@ its own; under rule 3 it would also carry the fee pointer. That's for the profil
 
 | Surface | State A | State B | Note |
 |---|---|---|---|
-| rewardspro.io `<meta name="description">`, `og:description`, `twitter:description` | E160-A | **E160-B (recommended, no price)**, or E160-B-site if Yu wants the price on the meta (§8) | og:title is the page title (kit `head-snippet.html` note). **Don't paste the kit's `head-snippet.html` social block as it is:** it sets og:title "Cashback your customers spend in your store", og:description "Paid as Shopify store credit, with VIP tiers. Free." (fails the free rule), og:image og.jpg (whose image prints "Free."), og:locale `en_US` and twitter:card `summary_large_image`. Until A5 is rebuilt, override og:title, og:description, og:locale (`en_GB`) and twitter:card (`summary`), and leave og:image out. |
+| rewardspro.io `<meta name="description">`, `og:description`, `twitter:description` | E160-A | **E160-B (recommended, no price)**, or E160-B-site if the owner wants the price on the meta (§8) | og:title is the page title (kit `head-snippet.html` note). **Don't paste the kit's `head-snippet.html` social block as it is:** it sets og:title "Cashback your customers spend in your store", og:description "Paid as Shopify store credit, with VIP tiers. Free." (fails the free rule), og:image og.jpg (whose image prints "Free."), og:locale `en_US` and twitter:card `summary_large_image`. Until A5 is rebuilt, override og:title, og:description, og:locale (`en_GB`) and twitter:card (`summary`), and leave og:image out. |
 | rewardspro.io JSON-LD | §5 state A | §5 state B | one `@graph` that merges the kit's `head-home.html` blocks (§5) |
-| App Store: App introduction (100) | not used; the live intro stays | E100-B, optional | The live intro is unverified, not known to be false. Its tail, "so they have a reason to come back", is positioning, Yu's call (`listing-delta.md` §2) |
+| App Store: App introduction (100) | not used; the live intro stays | E100-B, optional | The live intro is unverified, not known to be false. Its tail, "so they have a reason to come back", is positioning, the owner's call (`listing-delta.md` §2) |
 | App Store: App details (500) | not used; S1 deletes the false clause (and, recommended, the widget sentence) only | E500-B-listing, then E500-B-listing-widget | |
 | App Store: SEO meta description | not used; S1 deletes the false clause only | E160-B | |
 | App Store: Pricing details | "Free" (live) **plus** the additional-charges text, required | the same | The free rule fires here. The additional-charges text in `listing-delta.md` §2 is the only listing place for "you fund the cashback" and the fee. Whether a Free-to-install listing offers that field is [U]; the fallback is a pricing-details link (`listing-delta.md` §2) |
-| `brand.json` `description`, then `kit/web/site.webmanifest`, `kit/kit.json` and `kit/BRAND.md:3` | E100-A | E100-A (it stays true at every stage), or T1 if Yu prefers | §7 |
+| `brand.json` `description`, then `kit/web/site.webmanifest`, `kit/kit.json` and `kit/BRAND.md:3` | E100-A | E100-A (it stays true at every stage), or T1 if the owner prefers | §7 |
 | Profiles (STRATEGY §3.2) | R0, T0, A0, YT0, CB | R1, T1, L1 | the profile pack's own files; they draw on this card |
 | Press, partner, directory "About RewardsPro" | E500-A (or E500-A-maker, D-maker) | E500-B-site | |
 | MCP or registry metadata, if any is ever made | E1-A | E1-B | same text, so machines read one description |
@@ -283,7 +283,7 @@ of pasting a second one." So the home page carries **one** `@graph`, built like 
   and a second Organization would tell machines two different things about who stands behind
   it. Its logo moves to the SoftwareApplication as `image` (#95 serves `icon-512.png` at the root
   [V, `origin/claude/rewardspro-landing-icons`, `apps/rewardspro/landing/public/icon-512.png`]).
-  Side effect [I]: Google's organisation-logo feature then has no RewardsPro logo to read. Yu's
+  Side effect [I]: Google's organisation-logo feature then has no RewardsPro logo to read. The owner's
   call, through the brand lane.
 - **Organization `#maker`:** Cambridge TCG Limited, name and address only (its `url` waits on
   D-maker, §8).
@@ -329,7 +329,7 @@ tier claim before G0). Claims: `rp-on-app-store`, `rp-maker`.
   `rp-paid-trigger`, `rp-vip-tiers`].
 - `sameAs` is added: `["https://apps.shopify.com/rewards-pro"]`. Only once the listing is fully
   fixed (S2).
-- `offers` is added **only after Yu settles D4** and once `rp-free`, `rp-merchant-funds` and
+- `offers` is added **only after the owner settles D4** and once `rp-free`, `rp-merchant-funds` and
   `sh-sc-fee` are all verified. Until then it's left out. A `description` has no cap and AI
   assistants read it on its own, so it carries the full fee sentence (193 characters) and uses
   D4's long form [`rp-free`, `rp-merchant-funds`, `sh-sc-fee`]:
@@ -345,7 +345,7 @@ tier claim before G0). Claims: `rp-on-app-store`, `rp-maker`.
 
 **Notes:**
 - **The Organization node has no `url` for now.** Whether to link Cambridge TCG's own site, and
-  whether to say what else the maker sells, is one named decision for Yu (D-maker, §8). The
+  whether to say what else the maker sells, is one named decision for the owner (D-maker, §8). The
   design's honest-by-design list asks for the disclosure; STRATEGY H4 holds card-shop framing
   back. This card doesn't settle that by leaving things out.
 - **Company number and registered office** are printed on #130's privacy page (3 times) and terms
@@ -364,12 +364,12 @@ tier claim before G0). Claims: `rp-on-app-store`, `rp-maker`.
 
 ## 6. Proposed `[entity]` table for `kernel.toml` (text only: not applied)
 
-If Yu chooses (b) in the status note, this is what would go into `kernel.toml`. Until then
+If the owner chooses (b) in the status note, this is what would go into `kernel.toml`. Until then
 `kernel.toml` stays as it is.
 
 ```toml
 [entity]
-# Approved by Yu on <date> (approvals.jsonl line <n>). Source: marketing/social/entity-card.md.
+# Approved by the owner on <date> (approvals.jsonl line <n>). Source: marketing/social/entity-card.md.
 as_of = "2026-11-07"
 state = "A"            # A: before G0 (S0, S1). B: from S2, once every id in `claims` is verified.
 sentence  = "RewardsPro is an app for Shopify stores, on the Shopify App Store, made by Cambridge TCG Limited in London, UK."
@@ -446,7 +446,7 @@ the card needs neither the free rule nor the legacy limit.
 |---|---|---|---|---|
 | `description` | 72 | E100-A, 83 | `rp-on-app-store`, `rp-maker` | No points, no retirement framing; true now and later |
 | `og.title` | 43 | 40 | `rp-store-credit`, `rp-vip-tiers` | No unqualified "spend", so no legacy limit is needed on a card seen alone. Same words as STRATEGY's A13 feature-image text. |
-| `og.subtitle` | 51 | 57 | `rp-on-app-store`, `rp-maker` | No price on the card, so the free rule doesn't fire there. Price-bearing alternative, if Yu wants one: "Free app; you fund the cashback. Shopify's store-credit fees may apply." (71) [`rp-free`, `rp-merchant-funds`, `sh-sc-fee`]. STRATEGY §7's A5 proposal ("…Free app; you fund the cashback.", 78) lacks the fee pointer that rule 3 asks of a card seen alone. |
+| `og.subtitle` | 51 | 57 | `rp-on-app-store`, `rp-maker` | No price on the card, so the free rule doesn't fire there. Price-bearing alternative, if the owner wants one: "Free app; you fund the cashback. Shopify's store-credit fees may apply." (71) [`rp-free`, `rp-merchant-funds`, `sh-sc-fee`]. STRATEGY §7's A5 proposal ("…Free app; you fund the cashback.", 78) lacks the fee pointer that rule 3 asks of a card seen alone. |
 | `lang` | `en` | `en-GB` | — | To get `og:locale` `en_GB`. **[I]:** the kit's output already derives a locale: `kit/web/head-snippet.html:15` has `og:locale` `en_US` while `brand.json:6` has `lang` `en`, so the generator likely maps `lang` to `og:locale`. How it maps `en-GB` wasn't run: the generator (artcraft-brand `brandkit.py`) isn't on this Mac (`~/.kingdom/tools/artcraft-brand/` is absent). If it doesn't give `en_GB`, drop this line and set the locale in the page's head instead. |
 
 **Alternative for S2 only:** a `description` of T1, "Cashback as Shopify store credit, with VIP
@@ -454,7 +454,7 @@ tiers. Free app; you fund the cashback." (82 characters; `rp-store-credit`, `rp-
 `rp-free`, `rp-merchant-funds`). That makes the manifest carry four claims, against the kit's own
 2026-10-27 reasoning, and under rule 3 it would also need the fee pointer. Not recommended.
 
-**What applying it takes (all Yu's or a brand-lane PR, none of it here):**
+**What applying it takes (all the owner's or a brand-lane PR, none of it here):**
 1. **Edit and rebuild.** Edit `brand.json` on #83's branch, then rebuild the kit with
    `brandkit.py --rebuild-check` (README "Rebuild"). The generator isn't installed on this Mac.
 2. **Check og.jpg's layout** [I, not rendered with the generator]. Measured in today's og.jpg with
@@ -467,17 +467,17 @@ tiers. Free app; you fund the cashback." (82 characters; `rp-store-credit`, `rp-
      the narrow one (the 71-character price variant likely takes three).
    - Check that a third line clears the footer at y548, and that everything survives X's centred
      1200×600 crop (15 px off the top and bottom).
-3. **Record a new approval.** Append a line to `approvals.jsonl` in Yu's words, with the new
+3. **Record a new approval.** Append a line to `approvals.jsonl` in the owner's words, with the new
    sha256 values. Line 1's hash already no longer matches `brand.json`.
 4. **Re-copy the manifest into #95.** #95 serves `site.webmanifest` as a byte copy of the kit.
 
 ---
 
-## 8. Open points (all Yu's, unless marked)
+## 8. Open points (all the owner's, unless marked)
 
 - **The claim rows exist as `proposed`** (`rp-on-app-store`, `rp-maker`, `rp-contact-delivers`, and
   every id in §3). They await verification; nothing here may go public before that.
-- **Yu's choice (a) or (b)** in the status note.
+- **The owner's choice (a) or (b)** in the status note.
 - **D-maker, one named decision:** say what else Cambridge TCG Limited sells (E500-A-maker, a new
   claim row `rp-maker-also-sells` for the claims maker, and a line on the site and the privacy
   page), or don't, as STRATEGY H4 holds until the interviews. The same decision covers the
@@ -495,4 +495,4 @@ tiers. Free app; you fund the cashback." (82 characters; `rp-store-credit`, `rp-
 - **The share card:** the new og title and subtitle (§7), and the layout check after the rebuild.
 - **The `lang` mapping** in the generator [I].
 - **Ratings in the JSON-LD** (rich results) [U].
-- **For the profiles maker, not Yu:** T1 against rule 3's fee pointer.
+- **For the profiles maker, not the owner:** T1 against rule 3's fee pointer.

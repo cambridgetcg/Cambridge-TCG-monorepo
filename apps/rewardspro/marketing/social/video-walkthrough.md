@@ -1,11 +1,11 @@
 # RewardsPro video V1: "One paid order, start to finish"
 
 **AFTER G0. Nothing here may be recorded for publishing, uploaded or posted before S2** (STRATEGY §2,
-§6.1). Agents' proposal for Yu, 2026-11-07 (maker "shots"). Nothing was recorded, uploaded, posted or
+§6.1). Agents' proposal for the owner, 2026-11-07 (maker "shots"). Nothing was recorded, uploaded, posted or
 signed up for.
 
 Labels as in [STRATEGY.md](STRATEGY.md): **[V]** verified (file:line or URL plus date), **[I]** inferred,
-**[U]** unknown, **PROPOSAL** a choice for Yu. Brackets such as `[rp-store-credit]` are claim ids. They are
+**[U]** unknown, **PROPOSAL** a choice for the owner. Brackets such as `[rp-store-credit]` are claim ids. They are
 never pasted.
 
 ---
@@ -48,8 +48,8 @@ off screen. It also doesn't show "free" or any claim about speed, data location,
 
 - **The test store and dataset** in shot-list.md §2: tiers set, cashback on, customers and products made. Build O1's draft order (2 × Example item A, an order discount of £60.00, shipping £10.00, customer Alex Example) but don't mark it as paid yet. Pick the customer before recording, so the draft order's customer picker, which lists every customer, never shows. Nothing is fulfilled.
 - **The admin name.** Shopify's title bar probably shows the app name "Rewards Pro" [I: from the local `apps/rewards/shopify.app.toml:10`, not observed in the admin]. Either the fix to "RewardsPro" is released first (STRATEGY §13 step 13), or the recording region starts below the title bar.
-- **Shopify's admin in V1 (PROPOSAL, D-video-3).** V1 is the one public use of Shopify's admin pages in this plan (the EV frames stay private, shot-list.md §7). Scenes 3, 4, 8, 9 and 11 show Shopify's content area only: no logo, top bar or sidebar. Whether Shopify's brand guidelines allow that footage on YouTube, LinkedIn and rewardspro.io is [U], and Yu settles it before V1 is published (§10), with a legal and brand read if he wants one (STRATEGY D8 already asks whether to get a legal read on the PPA). If Yu says no, those scenes come out and V1 shows only RewardsPro's frame; Shopify's side then stays in the private EV frames.
-- **The recording region** is one fixed 16:9 rectangle over the page content: right of Shopify's sidebar and below its top bar. That keeps out the Shopify logo, the store name, other apps, Yu's account menu, browser chrome and the menu bar (shot-list.md §4). Inside the content area, Yu scrolls each Shopify page so that the region:
+- **Shopify's admin in V1 (PROPOSAL, D-video-3).** V1 is the one public use of Shopify's admin pages in this plan (the EV frames stay private, shot-list.md §7). Scenes 3, 4, 8, 9 and 11 show Shopify's content area only: no logo, top bar or sidebar. Whether Shopify's brand guidelines allow that footage on YouTube, LinkedIn and rewardspro.io is [U], and the owner settles it before V1 is published (§10), with a legal and brand read if he wants one (STRATEGY D8 already asks whether to get a legal read on the PPA). If the owner says no, those scenes come out and V1 shows only RewardsPro's frame; Shopify's side then stays in the private EV frames.
+- **The recording region** is one fixed 16:9 rectangle over the page content: right of Shopify's sidebar and below its top bar. That keeps out the Shopify logo, the store name, other apps, the owner's account menu, browser chrome and the menu bar (shot-list.md §4). Inside the content area, the owner scrolls each Shopify page so that the region:
   - ends above the Timeline and its comment box. Shopify shows a staff profile photo beside comments (help.shopify.com/en/manual/shopify-admin/productivity-tools/timeline, read 2026-11-07), and the Timeline may name the staff account that created, marked as paid or refunded the order [I];
   - on Alex's customer page, holds the store credit balance only: no store-credit history or Timeline, which may name the app by its admin name "Rewards Pro" [I]. If Shopify's page can't be framed that way inside the region, the scene is cut and its claim rests on RewardsPro's panel plus the private EV-2;
   - never shows Shopify's Customers index or customer search. Scenes 8 and 11 open Alex's page from the customer card on O1's order page, not from the Customers list.
@@ -91,7 +91,7 @@ second plus 1 second [I: a common subtitle reading rate; not re-read today].
 | 12 | 1:19–1:26 | End card on navy: the lockup, one line, the address | "An app for Shopify stores, made by Cambridge TCG Limited, London, UK." / "rewardspro.io" | 13 | rp-on-app-store, rp-maker |
 
 - **The amounts in scenes 9–11** are what the rules in code predict [I]. If the screen shows another amount, the caption changes to the observed one, the agents are told (it's a finding), and the claims maker decides whether the claim still stands.
-- **Optional end-card line**, only if Yu settles D4 and `rp-free` and `rp-merchant-funds` are verified: "Free app; you fund the cashback." It meets the free-pair rule in the same card. Without it, V1 never says "free".
+- **Optional end-card line**, only if the owner settles D4 and `rp-free` and `rp-merchant-funds` are verified: "Free app; you fund the cashback." It meets the free-pair rule in the same card. Without it, V1 never says "free".
 - **The cut rule:** any cut that removes waiting time puts "Later:" at the start of the next caption. The sidecar records each cut's length. No caption uses a timing word ("instantly", "seconds", "real-time", "at once", "immediately").
 
 ---
@@ -109,9 +109,9 @@ second plus 1 second [I: a common subtitle reading rate; not re-read today].
 
 This is the typed source of the burned-in captions. The final times come from the edit. **PROPOSAL:**
 upload no caption track where the captions are burned in, because a viewer with captions on would see every
-line twice. The transcript goes in the YouTube description instead (§7). If Yu prefers platform captions
+line twice. The transcript goes in the YouTube description instead (§7). If the owner prefers platform captions
 (they can be switched off and are searchable), export a clean copy with no burned-in text and upload this
-file to it. That is Yu's word (D-video-1). STRATEGY A11 said "burned-in captions plus an SRT", so this
+file to it. That is the owner's word (D-video-1). STRATEGY A11 said "burned-in captions plus an SRT", so this
 changes that.
 
 ```srt
@@ -181,10 +181,10 @@ as artwork, so the line itself doesn't repeat it.
 
 ---
 
-## 6. Edit and export (agents, locally, from Yu's files)
+## 6. Edit and export (agents, locally, from the owner's files)
 
-**Inputs:** Yu's REC-1 and REC-2 files, plus the title and end cards and caption images. Agents add
-nothing else: no stock footage, no music, no generated media, no synthetic voice. Any voiceover later is Yu's
+**Inputs:** the owner's REC-1 and REC-2 files, plus the title and end cards and caption images. Agents add
+nothing else: no stock footage, no music, no generated media, no synthetic voice. Any voiceover later is the owner's
 own voice only.
 
 **The route** (untested end to end [U]; smoke-test it on a throwaway clip before the G0 sitting):
@@ -204,7 +204,7 @@ own voice only.
 
 **The checker** (a different session):
 - extracts one frame a second (`ffmpeg -vf fps=1`) plus every caption's first frame;
-- reads each at full size against shot-list.md §4: emails, names, domains, the Shopify logo, "Rewards Pro", other apps, Yu's account, staff avatars or initials, the Timeline or comment box, store-credit history, the Customers list or search, and any overlay (a notification, autofill list, password prompt, extension popup or download bubble);
+- reads each at full size against shot-list.md §4: emails, names, domains, the Shopify logo, "Rewards Pro", other apps, the owner's account, staff avatars or initials, the Timeline or comment box, store-credit history, the Customers list or search, and any overlay (a notification, autofill list, password prompt, extension popup or download bubble);
 - compares every caption with the SRT and its claim id;
 - runs G1–G6 on the captions, title, description and thumbnail text.
 
@@ -212,7 +212,7 @@ own voice only.
 
 ## 7. YouTube
 
-**Channel:** `@rewardsproapp`, the RewardsPro Brand Account (STRATEGY §3), never @CambridgeTCG. Yu uploads.
+**Channel:** `@rewardsproapp`, the RewardsPro Brand Account (STRATEGY §3), never @CambridgeTCG. The owner uploads.
 Agents never hold the login.
 
 **Title** (PROPOSAL; the limit is 100 characters, "Video titles have a character limit of 100 characters", support.google.com/youtube/answer/57404, read 2026-11-07):
@@ -268,20 +268,20 @@ Transcript
   - the bottom-right corner stays empty, because YouTube draws the duration there [I].
 - **The source:** capture SH-6 a second time at DPR 3 (4800×2700), so the crop isn't upscaled (shot-list.md §3).
 - **The text** makes no claim. No numbers, "free", arrows, faces, coins, hearts, "$", "NEW", or the Shopify logo.
-- **A custom thumbnail needs a verified channel [V]:** "You can choose from auto generated suggested options, or upload your own if your account is verified" (support.google.com/youtube/answer/72431, read 2026-11-07). So A12 needs Yu to verify the channel first, by his own hand at S2 (§10) [I: YouTube verifies by phone, as for uploads over 15 minutes]. Without that, V1 goes out with one of YouTube's auto-picked frames, and the title card, as the first frame, is the safe fallback.
+- **A custom thumbnail needs a verified channel [V]:** "You can choose from auto generated suggested options, or upload your own if your account is verified" (support.google.com/youtube/answer/72431, read 2026-11-07). So A12 needs the owner to verify the channel first, by his own hand at S2 (§10) [I: YouTube verifies by phone, as for uploads over 15 minutes]. Without that, V1 goes out with one of YouTube's auto-picked frames, and the title card, as the first frame, is the safe fallback.
 
-**Settings (PROPOSAL; Yu's hand)**
+**Settings (PROPOSAL; the owner's hand)**
 
 | Setting | Proposal |
 |---|---|
-| Visibility | Unlisted for the review pack; Public on Yu's yes at S2 |
+| Visibility | Unlisted for the review pack; Public on the owner's yes at S2 |
 | Audience | "No, it's not made for kids" |
 | Altered or synthetic content | No: a plain screen recording with no realistic AI content (YouTube's disclosure rule, phase-1 platforms note) |
 | Paid promotion | Unticked [I: the box is for paid placements and sponsorships, not a maker's own product] |
 | Category | Science & Technology |
 | Language | English (United Kingdom) |
 | Tags and hashtags | None (STRATEGY §3.1) |
-| Comments | Yu's call. Agents never reply, and Yu's time is capped, so either off or "hold all for review" |
+| Comments | The owner's call. Agents never reply, and the owner's time is capped, so either off or "hold all for review" |
 | Embedding | Allowed (rewardspro.io; not the listing, §9) |
 | End screens, cards, playlists | None |
 
@@ -293,9 +293,9 @@ Uploads over 15 minutes need a phone-verified account (phase-1 platforms note). 
 
 The strategy doesn't use these:
 - STRATEGY §7 says "Not made: vertical 1080×1920 or Shorts cuts … TikTok clips";
-- STRATEGY §3's channel table: TikTok "Skip, unless `@rewardspro` is Yu's"; Instagram "Reserve only if `@rewardspro.io` is Yu's; otherwise skip"; YouTube "Secondary: hosts 1–3 videos, with no feed" (STRATEGY.md:85-90).
+- STRATEGY §3's channel table: TikTok "Skip, unless `@rewardspro` is the owner's"; Instagram "Reserve only if `@rewardspro.io` is the owner's; otherwise skip"; YouTube "Secondary: hosts 1–3 videos, with no feed" (STRATEGY.md:106-111).
 
-So no 15–30 s script is written. If Yu later opens one of those channels, that is a new decision of his. STRATEGY
+So no 15–30 s script is written. If the owner later opens one of those channels, that is a new decision of his. STRATEGY
 §10 says time a channel frees "goes to outreach, never to a new platform", and never escalates "on reach
 numbers alone". The cut would then:
 - be re-cropped from the REC masters, never re-staged;
@@ -307,9 +307,9 @@ numbers alone". The cut would then:
 
 ## 9. LinkedIn, rewardspro.io and the listing
 
-- **LinkedIn:** Yu uploads the captioned MP4 natively to the Page, with the M1 post text (STRATEGY §6.2, another maker's pack). LinkedIn Page video runs from 3 s to 10 min (phase-1 platforms note), and V1 fits. No caption file goes with it, because the captions are burned in (§5). The preview frame is the title card unless Yu sets another [I].
+- **LinkedIn:** the owner uploads the captioned MP4 natively to the Page, with the M1 post text (STRATEGY §6.2, another maker's pack). LinkedIn Page video runs from 3 s to 10 min (phase-1 platforms note), and V1 fits. No caption file goes with it, because the captions are burned in (§5). The preview frame is the title card unless the owner sets another [I].
 - **rewardspro.io:** embedded from YouTube on the #130 rewrite's page, once both exist (S2).
-- **The App Store listing's feature slot (Yu's word, D-video-2).** shopify.dev best practices (read 2026-11-07) say: "Keep it promotional rather than instructional and limit screencasts to 25% of the video"; "If you don't have a video, use a static image that conveys your app's benefit or unique value." V1 is neither promotional nor under 25% screencast.
+- **The App Store listing's feature slot (the owner's word, D-video-2).** shopify.dev best practices (read 2026-11-07) say: "Keep it promotional rather than instructional and limit screencasts to 25% of the video"; "If you don't have a video, use a static image that conveys your app's benefit or unique value." V1 is neither promotional nor under 25% screencast.
   - **PROPOSAL:** the listing uses the A13 still feature image, and V1 is not offered for the listing.
   - V1 shows Shopify's admin pages, and requirement 4.4.3 says "Do not use our trademarks in your app icon, banner, or screenshots". Whether that reaches the listing's video is [U]; we don't call V1 allowed there.
   - V1 is also not the review screencast that requirement 4.5.3 asks for ("how to set up your apps core features"). V1 doesn't show setup.
@@ -321,14 +321,14 @@ numbers alone". The cut would then:
 1. **S2 holds** (STRATEGY §2): G0 and B3 recorded, the listing fixed, rewardspro.io rewritten, the first-real-merchant steps done or accepted, contact@ delivering, and every claim verified.
 2. **Every claim id in §1** (and the optional block's) is `verified` and unexpired. The sh-* rows were re-checked within 30 days.
 3. **The admin name** reads "RewardsPro" in the footage, or the region excludes the title bar.
-4. **Shopify's admin footage (D-video-3):** Yu has accepted scenes 3, 4, 8, 9 and 11 showing Shopify's content area off the listing [U until he does; §2]. Otherwise those scenes come out first.
+4. **Shopify's admin footage (D-video-3):** the owner has accepted scenes 3, 4, 8, 9 and 11 showing Shopify's content area off the listing [U until he does; §2]. Otherwise those scenes come out first.
 5. **The privacy read** of the footage finds no Timeline, comment box, staff avatar, initials or staff name, no Customers list or search, no store-credit history and no overlay (§2, §6).
-6. **The thumbnail:** the channel is verified by Yu (his hand) if A12 is used. If not, no custom thumbnail, and the title card is the first frame.
+6. **The thumbnail:** the channel is verified by the owner (his hand) if A12 is used. If not, no custom thumbnail, and the title card is the first frame.
 7. **The checker** passes the frame read and G1–G6. The review pack carries:
    - the MP4's and thumbnail's sha256;
    - the title, the description, the settings;
    - the gate report.
-8. **Yu says yes** to those exact bytes on YouTube (and LinkedIn). The checker records his words in `approvals.jsonl`. Yu uploads.
+8. **The owner says yes** to those exact bytes on YouTube (and LinkedIn). The checker records his words in `approvals.jsonl`. The owner uploads.
 
 ---
 
@@ -339,10 +339,10 @@ numbers alone". The cut would then:
 - **What Shopify's pages draw** (the Timeline's staff names, the customer page's store-credit history and where the balance sits) is [I]: not observed for this store. The region rules in §2 assume the worst.
 - **Burned-in captions plus an SRT would double on screen** (§5). D-video-1.
 - **The scene 9–11 amounts** (£270.00 refund, £13.50 taken back) are inferred from code and staging check E (`apps/rewards/docs/staging-run.md:26`), not yet seen in production.
-- **The YouTube custom thumbnail needs a verified channel** [V, §7]. Whether Yu verifies it (D-video-4) decides A12.
+- **The YouTube custom thumbnail needs a verified channel** [V, §7]. Whether the owner verifies it (D-video-4) decides A12.
 - **The caption-overlay route** (vectorcraft-cli PNGs plus ffmpeg `overlay`) is untested. FilmCraft, which ASSETS B4 names, isn't installed on this Mac [V: not in `~/craft-apps`, 2026-11-07].
 - **The recording region** on a 13-inch Air is a guess [I]. An external display may be needed.
-- **"Shopify development store" and "Shopify store credit"** in captions and the title are compatibility wording [I]. The PPA reading of §2.1 is already with Yu's legal read (STRATEGY §9).
+- **"Shopify development store" and "Shopify store credit"** in captions and the title are compatibility wording [I]. The PPA reading of §2.1 is already with the owner's legal read (STRATEGY §9).
 
 ## Sources
 

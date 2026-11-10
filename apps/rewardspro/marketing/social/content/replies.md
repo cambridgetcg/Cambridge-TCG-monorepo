@@ -1,6 +1,6 @@
 # RewardsPro reply templates
 
-Content maker (agent), 2026-11-07, revised the same day after the verifier's review. **PROPOSAL for Yu.** Claim ids
+Content maker (agent), 2026-11-07, revised the same day after the verifier's review. **PROPOSAL for the owner.** Claim ids
 and stages work as in [`launch-posts.md`](launch-posts.md) ("How to read this file"). Character counts are code
 points, counted by script on 2026-11-07.
 
@@ -8,14 +8,14 @@ points, counted by script on 2026-11-07.
 
 **Use them for:**
 - comments on the RewardsPro LinkedIn Page and YouTube channel, from S2;
-- email to and from contact@rewardspro.io, once Yu's delivery test has passed and rp-contact-delivers is `verified`
+- email to and from contact@rewardspro.io, once the owner's delivery test has passed and rp-contact-delivers is `verified`
   (STRATEGY §13 step 10);
-- developer replies to reviews on the App Store listing (Yu's hand in the Partner Dashboard).
+- developer replies to reviews on the App Store listing (the owner's hand in the Partner Dashboard).
 
 **Never use them on:**
 - **Shopify Community:** "Posting generic, templated, or AI-generated messages" is prohibited
   (community.shopify.com/guidelines, fetched 2026-11-07), and the strategy says agents never write anything shaped
-  like a Community reply (§3, §14). Yu answers there in his own words.
+  like a Community reply (§3, §14). The owner answers there in his own words.
 - **Reddit:** r/shopify Rule 10: "Obvious or suspected AI content is not welcome here in any form." (`p1-market.md`,
   rendered once on 2026-11-07; not re-verifiable later that day, see `community-rules.md` §4.1.)
 - **Private messages to anyone who didn't write first.** PECR counts social DMs as electronic mail (ICO, key
@@ -27,7 +27,7 @@ points, counted by script on 2026-11-07.
 [U]. The longest public reply here is R-FREE-1 (349 characters); R-PARTNER is email only.
 
 **How:**
-- Yu (or whoever he names) reads, edits and sends every reply by hand. No auto-replies, no reply bots, no scheduled
+- The owner (or whoever he names) reads, edits and sends every reply by hand. No auto-replies, no reply bots, no scheduled
   replies. LinkedIn bans automated commenting (help answer a1341387); X bans automated keyword replies and AI reply
   bots without approval (X Automation rules, April 2026).
 - **Answer in public in one or two sentences, then move the detail to email.** Never ask anyone to post order
@@ -40,13 +40,13 @@ points, counted by script on 2026-11-07.
 - **Every sentence that gives contact@rewardspro.io** relies on rp-contact-delivers ("Questions reach us at
   contact@rewardspro.io."), so none is used before that row is `verified`.
 - **Voice** (STRATEGY §4): plain and calm, the company "we", no exclamation marks, at most one emoji (default none),
-  no "instant", no "seamless", no "loyalty program", no "points" in our own words. **Register: business** (Yu,
+  no "instant", no "seamless", no "loyalty program", no "points" in our own words. **Register: business** (the owner,
   2026-11-07: "用loyal customers, take a more business approach on wordings."; `../../approvals.jsonl`): "Thank you"
   rather than "Thanks", no chatty openers ("Good question", "that's useful to know"), and "loyal customers",
   never "regulars", if a reply needs to name them (`../../MESSAGING.md` §4).
 - **No time promises.** Not "within 24 hours", not "24/7" (STRATEGY §4, never-say 15).
 - **Email replies** are signed "Cambridge TCG Limited, for RewardsPro" plus contact@rewardspro.io, with no personal
-  details. Where the AI-drafting line goes (profile only, or every message) is D5. Until Yu decides, the templated
+  details. Where the AI-drafting line goes (profile only, or every message) is D5. Until the owner decides, the templated
   emails below (R-SUP-2, R-PARTNER) carry "Drafted with AI help and checked by a person." above the signature, so a
   copy can't drop it.
 - **Personal data** from inbound mail (names, addresses, notes) stays in `marketing/social/private/` or the mailbox,
@@ -99,7 +99,7 @@ contact@rewardspro.io
 
 - The Settings line is rp-help-in-settings word for word (added to the ledger 2026-11-07;
   `app/routes/app.settings._index.tsx:65-69`). It travels with rp-contact-delivers, so the skeleton waits for both.
-- The AI line stays until Yu's D5 says otherwise (§0).
+- The AI line stays until the owner's D5 says otherwise (§0).
 - No reply-time promise, and no "we'll fix it" before we know there is a fault.
 
 ---
@@ -121,9 +121,9 @@ contact@rewardspro.io
   says needs the G0 observation (`launch-posts.md` §1.1).
 - **Never to a store that still has an active paid agreement.** "A shop that still has an active paid agreement is
   never told RewardsPro is free" (`docs/decisions/2026-10-20-rewardspro-free-only-relaunch.md:22`), and two frozen
-  stores still hold paid charges from the old app until Yu cancels them (`docs/switch.md:235` at 6f3a57b6, `:267` at
+  stores still hold paid charges from the old app until RewardsPro's owner cancels them (`docs/switch.md:235` at 6f3a57b6, `:267` at
   6bd092cb, Decision 20; rp-free's contrary evidence). If the asker might be one of them, answer by email after
-  checking. rp-free itself isn't to be verified until those charges are cancelled or Yu accepts the row in writing
+  checking. rp-free itself isn't to be verified until those charges are cancelled or the owner accepts the row in writing
   (its uncertainties).
 - **Is the fee note confirmed?** Yes, two Shopify pages fetched 2026-11-07 say so:
   - help.shopify.com/en/manual/customers/store-credit: "For Shopify stores created on or after May 12, 2025, orders
@@ -144,7 +144,7 @@ contact@rewardspro.io
 - Claims: [rp-free], following its wording ("no paid plans are offered"). Being free-only was an agents' reversible call
   (`docs/decisions/2026-10-20-rewardspro-free-only-relaunch.md`, repo root), so nothing about the future is promised.
   Never "free forever" or "always free". The same rule as R-FREE-1 applies to stores with a paid agreement.
-- If Yu decides D4 the other way (a commitment of notice before any paid plan), replace the second sentence with his
+- If the owner decides D4 the other way (a commitment of notice before any paid plan), replace the second sentence with his
   exact words. Agents don't write that promise.
 
 ---
@@ -270,7 +270,7 @@ features in public (D9), and the checker's chance-word rule blocks those words.
   they cover the rebuild, not the future, so that sentence is withdrawn.
 - The second sentence is a promise; the corrections and `/changes` rules make it keepable.
 
-**R-PTS-D9 · only if Yu decides D9 = yes and the chance-word rule is amended · 174 chars**
+**R-PTS-D9 · only if the owner decides D9 = yes and the chance-word rule is amended · 174 chars**
 
 > The current version of RewardsPro has no points or missions, and no raffles, mystery boxes or instant wins. It
 > pays cashback as Shopify store credit, with VIP tiers by spend.
@@ -312,7 +312,7 @@ The first draft had a spoken review request for design partners at their week-6 
 extra free help (set-up on a call, two feedback calls), so a request made only to them breaks "ask everyone the same
 way" and ties the request to a benefit already received; their reviews would be connected reviews with no
 disclosure (CAP 3.45, Shopify 1.3.1 above, DMCCA Sch 20 para 13). "Our help doesn't depend on it" doesn't remove
-that. Partners get the same in-app ask as every store (R-REV-1). If Yu wants a partner ask anyway, that is his
+that. Partners get the same in-app ask as every store (R-REV-1). If the owner wants a partner ask anyway, that is his
 decision, under D8's legal read, and the ask should invite partners to say in any review that we set the app up
 with them on a call. No paste text is kept.
 
@@ -348,7 +348,7 @@ verified**
 > Cambridge TCG Limited, for RewardsPro
 > contact@rewardspro.io
 
-- Only to someone who wrote first. The PPA consent clause (ppa.txt:330, 335) and PECR apply, and Yu's answer to the
+- Only to someone who wrote first. The PPA consent clause (ppa.txt:330, 335) and PECR apply, and the owner's answer to the
   PPA question comes first (STRATEGY §9).
 - **For the claims maker (added 2026-11-07):** "free as for everyone" is `rp-design-partner-offer`'s own sentence,
   so it stays until the row changes, but it reads as broken English in the business register and asserts the free
@@ -368,7 +368,7 @@ to the ledger 2026-11-07, all `proposed`), and the templates above use their sen
 
 | Template | Sentence | Locator | Suggested id |
 |---|---|---|---|
-| R-PTS-D9 | the named absences | rp-no-points, rp-no-chance exist but are internal only | add an outward channel and the guard tests (and Yu's D9) |
+| R-PTS-D9 | the named absences | rp-no-points, rp-no-chance exist but are internal only | add an outward channel and the guard tests (and the owner's D9) |
 | H0-LI | "We post here when something merchants can see changes, or when we have checked a new fact about how it works, and not otherwise." | rp-post-on-change (profiles only) and its contrary evidence | widen rp-post-on-change, or add a post variant |
 | R-LEAVE (optional) | "towards" | rp-switch-off | resolved: the row now reads "towards" (checked 2026-11-07, 12:58 UTC) |
 | R-FREE-1, E2, CAR1 p8 | "The rate depends on your Shopify plan." | the third-party transaction fees page (2026-11-07) | extend sh-sc-fee |
@@ -376,6 +376,6 @@ to the ledger 2026-11-07, all `proposed`), and the templates above use their sen
 | E1, CAR1 p3 | the £600 / £60 / £10 / £540 / £27.00 example | `docs/staging-run.md:23`; the G0 order O1 (`../shot-list.md` §2) | rp-cashback-example |
 | E6 | "refunding one of two items took back £13.50 of the £27.00 cashback" | the G0 capture SH-6 (planned, [I]) | rp-refund-example |
 | L-C2, CAR1 p7 | "signed in with new customer accounts or using Shop Pay" wording ("using", Shopify's word, for the ledger's "with") | help.shopify.com/en/manual/customers/store-credit (2026-11-07) | amend sh-sc-signin-legacy |
-| `community-rules.md` §3 | Yu's own relationship to Cambridge TCG Limited, for the disclosure line | Companies House officers and PSC register for company 15680297 (not yet read) | yu-relationship (internal, channel community) |
+| `community-rules.md` §3 | The owner's own relationship to Cambridge TCG Limited, for the disclosure line | Companies House officers and PSC register for company 15680297 (not yet read) | yu-relationship (internal, channel community) |
 
 The suggested ids are only suggestions; the claims maker alone edits `claims.toml`.
