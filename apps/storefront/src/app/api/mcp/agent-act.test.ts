@@ -34,7 +34,7 @@ vi.mock("@/lib/agents/signed-acts", async (importOriginal) => {
 });
 
 import { query, transaction } from "@/lib/db";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 import { SELF_LIFECYCLE_TOOLS, SIGNED_ACT_TOOLS, describeAgentToolGrant } from "@/lib/agents/tool-access";
 import { signedActRefusal, signedActLimitedRefusal, MCP_REFUSAL_META_KEY } from "@/lib/agents/refusals";
 
@@ -103,6 +103,21 @@ describe("agent.act while closed (the default)", () => {
     expect(describeAgentToolGrant("self-serve").signed_acts).toEqual([]);
     const native = await (await POST(request("mcp.list_tools"))).json();
     expect(native.result.tools.map((entry: { name: string }) => entry.name)).toContain("agent.act");
+  });
+
+  it("never names Yu, or the owner, in initialize, tools/list or GET /api/mcp", async () => {
+    // Who decided is for the documents (public-claims-contract.test.ts);
+    // what the gate serves to agents says only what the tool does.
+    const served = [
+      JSON.stringify((await (await POST(request("initialize"))).json()).result),
+      JSON.stringify((await (await POST(request("tools/list"))).json()).result),
+      JSON.stringify((await (await POST(request("mcp.list_tools"))).json()).result),
+      JSON.stringify(await (await GET()).json()),
+    ];
+    for (const text of served) {
+      expect(text).toContain("agent.act");
+      expect(text.match(/\bYu\b|\bthe owner\b/i)?.[0]).toBeUndefined();
+    }
   });
 
   it("names agent.act beside mcp.list_tools as the calls that need no bearer", async () => {

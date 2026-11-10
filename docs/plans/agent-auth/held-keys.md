@@ -218,6 +218,12 @@ not Yu's:
 - The key-exit inventory names the holder of a signing key, through
   `signer.check`, as a reader of the usage key's row and the agent's row;
   its version is 2026-11-10.3.
+- The public-claims contract test now lists, in each text it pins, every
+  sentence that names Yu or the owner, or that speaks of production, the
+  privacy notice, being live or the migration being applied
+  (`public-claims-contract.allowed.ts`), and fails on any other; what the
+  wire serves (OpenAPI, the catalog, the `signed_acts` block, `initialize`,
+  `tools/list`, the inventory, the disclosures) must not name Yu at all.
 - The tool grant (`describeAgentToolGrant`) lists `agent.act` under
   `signed_acts` only for operator-managed agents and only while the
   deployment has signed acts open; it listed it with the flag off.

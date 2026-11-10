@@ -5,6 +5,14 @@ import { describe, expect, it } from "vitest";
 import { GET as getMcpConfig } from "@/app/.well-known/mcp-config.json/route";
 import { GET as getMcpDiscovery } from "@/app/.well-known/mcp.json/route";
 import { GET as getToolCatalog } from "@/app/api/v1/tools/route";
+import { GET as getCambridgeTcgDiscovery } from "@/app/.well-known/cambridge-tcg.json/route";
+import { GET as getOpenApi } from "@/app/api/openapi.json/route";
+import { GET as getMcpCatalog } from "@/app/api/mcp/catalog/route";
+import * as keyExitInventory from "@/lib/agents/key-exit-inventory";
+import { SIGNED_ACT_DISCLOSURES } from "@/lib/agents/signed-act-disclosures";
+import { AGENT_SIGNED_ACTS } from "@/lib/agents/tool-access";
+import { AGENT_TOOLS } from "@/lib/agent-tools-catalog";
+import { HELD_KEYS_CLAIM_SENTENCES } from "./public-claims-contract.allowed";
 import { KEY_EXIT_LINEARIZATION } from "@/lib/agents/key-exit-inventory";
 import { KEY_EXPIRY_NEVER_WARNING } from "@/lib/agents/key-expiry";
 import { describeAgentToolGrant } from "@/lib/agents/tool-access";
@@ -36,6 +44,42 @@ function between(text: string, start: string, end: string): string {
   expect(to, end).toBeGreaterThan(from);
   return text.slice(from, to);
 }
+
+/** A text's sentences: split at sentence ends, markdown table cells, list
+ *  items and headings, so each claim is judged on its own. */
+function sentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+(?=[^a-z])|\s\|(?:\s*-+\s*\|)*\s|\s(?=- )|\s(?=#+ )/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+/** Who decided: Yu, by name, or "the owner". */
+const ATTRIBUTION = /\bYu\b|\bthe owner\b/i;
+/** Whether it is live, applied or noticed: production, the privacy notice,
+ *  being (now) live, turned on or enabled, or the migration applied. */
+const STATUS =
+  /\bproduction\b|\blive\b(?!\s+(?:usage|signing|keys?)\b)|\bnow\s+(?:open|on)\b|\b(?:turned|switched)\s+on\b|\benabled\b|\bprivacy\b|\bapplied\b[^.]*\b(?:0152|migration)\b|\b(?:0152|migration)\b[^.]*\bapplied\b/i;
+/** Names something held keys added, in a text that covers more. */
+const HELD_KEYS = /signed acts?\b|signing keys?|held.keys|agent\.act\b|\b0152\b|AGENT_SIGNED_ACTS|agent_act_|agent_signing_keys/i;
+
+/**
+ * The sentences in a text that make a claim the held-keys contract
+ * controls: every sentence that names Yu or the owner; and, by `status`,
+ * every sentence about production, the privacy notice, being live or the
+ * migration being applied ("all", a held-keys text), only those that also
+ * name something held keys added ("held-keys", a shared text), or none
+ * (source modules, whose code would match).
+ */
+function claimSentences(text: string, status: "all" | "held-keys" | "none"): string[] {
+  return sentences(text).filter(
+    (sentence) =>
+      ATTRIBUTION.test(sentence) ||
+      (status !== "none" && STATUS.test(sentence) && (status === "all" || HELD_KEYS.test(sentence))),
+  );
+}
+
+const SIGNED_ACTS_SECTION = (page: string) => between(page, "Signed acts (agent-held keys)", "What an agent cannot do");
 
 const KEY_EXPIRY_ENTRY = CHANGELOG_ENTRIES.find((entry) => entry.id === "agent-key-expiry-per-key")!;
 const HELD_KEYS_ENTRY = CHANGELOG_ENTRIES.find((entry) => entry.id === "agent-held-signing-keys-closed")!;
@@ -478,5 +522,91 @@ describe("public claims match publication boundaries", () => {
       expect(text, path).toMatch(/logs may (?:still )?(?:exist|contain)|access logs may exist/);
       expect(text, path).not.toMatch(/\bNo tracking\b|\bNot logged\b|no logging beyond|has no idea (?:you are|you're)/i);
     }
+  });
+
+  describe("held keys: only listed sentences say who decided, or that anything is live, applied or noticed", () => {
+    function pinnedTexts(): Record<string, { text: string; status: "all" | "held-keys" | "none" }> {
+      const page = prose("src/app/methodology/agents/page.tsx");
+      const section = SIGNED_ACTS_SECTION(page);
+      return {
+        "changelog: agent-held-signing-keys-closed": { text: `${HELD_KEYS_ENTRY.summary} ${HELD_KEYS_ENTRY.detail ?? ""}`, status: "all" },
+        "methodology: signed acts": { text: section, status: "all" },
+        "methodology: the rest": { text: page.replace(section, " "), status: "held-keys" },
+        "held-keys.md": { text: prose("../../docs/plans/agent-auth/held-keys.md"), status: "all" },
+        "agent-auth README.md": { text: prose("../../docs/plans/agent-auth/README.md"), status: "held-keys" },
+        "0152_agent_signing_keys.sql": { text: prose("drizzle/0152_agent_signing_keys.sql"), status: "all" },
+        "monitoring.md": { text: prose("../../docs/operations/monitoring.md"), status: "held-keys" },
+        "ops-deploy-runbook.md": { text: prose("../../docs/ops-deploy-runbook.md"), status: "held-keys" },
+        "signed-act-verify.ts": { text: prose("src/lib/agents/signed-act-verify.ts"), status: "none" },
+        "signed-act-config.ts": { text: prose("src/lib/agents/signed-act-config.ts"), status: "none" },
+        "signed-act-disclosures.ts": { text: prose("src/lib/agents/signed-act-disclosures.ts"), status: "none" },
+        "signed-acts.ts": { text: prose("src/lib/agents/signed-acts.ts"), status: "none" },
+      };
+    }
+
+    it("finds in each pinned text exactly the sentences listed for it", () => {
+      for (const [name, { text, status }] of Object.entries(pinnedTexts())) {
+        const found = claimSentences(text, status);
+        const listed = HELD_KEYS_CLAIM_SENTENCES[name] ?? [];
+        // A new or changed sentence: add it to the list only if it is true.
+        expect(found.filter((sentence) => !listed.includes(sentence)), `${name}: not listed`).toEqual([]);
+        // A listed sentence that is gone: take it off the list.
+        expect(listed.filter((sentence) => !found.includes(sentence)), `${name}: listed but gone`).toEqual([]);
+      }
+      // Every list belongs to a pinned text.
+      expect(Object.keys(HELD_KEYS_CLAIM_SENTENCES).filter((name) => !(name in pinnedTexts()))).toEqual([]);
+    });
+
+    it("catches an added sentence that says Yu decided more, or that the feature is live, applied or noticed", () => {
+      const texts = pinnedTexts();
+      const added = [
+        "Yu chose the 300-second lifetime.",
+        "Yu approved these limits.",
+        "Yu has since reviewed and accepted the design.",
+        "Production opened it on 2026-11-11.",
+        "The privacy notice now lists these records.",
+        "The numbers were approved by Yu.",
+        "Signed acts are now live.",
+        "0152 has been applied.",
+      ];
+      const anchor = "Usage keys work as before, with or without a signing key.";
+      for (const sentence of added) {
+        for (const name of ["methodology: signed acts", "held-keys.md", "changelog: agent-held-signing-keys-closed"]) {
+          const { text, status } = texts[name];
+          const changed = name === "methodology: signed acts" ? text.replace(anchor, `${anchor} ${sentence}`) : `${text} ${sentence}`;
+          expect(changed, name).not.toBe(text);
+          const unlisted = claimSentences(changed, status).filter((found) => !(HELD_KEYS_CLAIM_SENTENCES[name] ?? []).includes(found));
+          expect(unlisted, `${name}: ${sentence}`).toEqual([sentence]);
+        }
+      }
+    });
+
+    it("never names Yu, or the owner, in what the wire serves about held keys", async () => {
+      const served = {
+        openapi: await (await getOpenApi()).text(),
+        "tool catalog": JSON.stringify(AGENT_TOOLS),
+        "/api/mcp/catalog": await (await getMcpCatalog(new NextRequest("https://cambridgetcg.com/api/mcp/catalog"))).text(),
+        "signed_acts block": JSON.stringify(AGENT_SIGNED_ACTS),
+        "mcp.json": await (await getMcpDiscovery()).text(),
+        "mcp-config.json": await (await getMcpConfig()).text(),
+        "cambridge-tcg.json": await (await getCambridgeTcgDiscovery()).text(),
+        // Its held-keys block only: the rest of /api/v1/tools quotes Yu on
+        // an older, unrelated matter.
+        "/api/v1/tools signed_acts": JSON.stringify(
+          Object.values((await (await getToolCatalog(new NextRequest("https://cambridgetcg.com/api/v1/tools"))).json()) as Record<string, unknown>)
+            .map((part) => (part && typeof part === "object" ? (part as Record<string, unknown>).signed_acts : undefined))
+            .find(Boolean) ?? "",
+        ),
+        "key-exit inventory": JSON.stringify(Object.values(keyExitInventory).filter((value) => typeof value !== "function")),
+        disclosures: JSON.stringify(SIGNED_ACT_DISCLOSURES),
+      };
+      for (const [name, text] of Object.entries(served)) expect(text.length, name).toBeGreaterThan(0);
+      const naming = Object.entries(served)
+        .filter(([, text]) => ATTRIBUTION.test(text))
+        .map(([name, text]) => `${name}: …${text.slice(Math.max(0, text.search(ATTRIBUTION) - 60), text.search(ATTRIBUTION) + 40)}…`);
+      expect(naming).toEqual([]);
+      // The check would see one: the same block with a sentence added.
+      expect(JSON.stringify({ ...AGENT_SIGNED_ACTS, scope: `${AGENT_SIGNED_ACTS.scope}. Yu chose it.` })).toMatch(ATTRIBUTION);
+    });
   });
 });
