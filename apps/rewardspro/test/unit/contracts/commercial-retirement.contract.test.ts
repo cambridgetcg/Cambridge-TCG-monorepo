@@ -23,8 +23,8 @@ describe("retired commercial doors", () => {
       expect(source).not.toContain("Choose Your Plan");
       expect(source).not.toContain("pricingPlans.map");
     }
-    // The home page's next step is the App Store listing, free and with no plans (the owner, 10 Nov 2026:
-    // growth from organic work and ads). It links only to the listing itself, never to a plan or a charge.
+    // The home page's next step is the App Store listing, where RewardsPro is free and has no plans.
+    // It links only to the listing itself, never to a plan or a charge.
     expect(pages[0]).toContain('href="https://apps.shopify.com/rewards-pro"');
     const listingUrls = new Set([...pages[0].matchAll(/https:\/\/apps\.shopify\.com\/[^"'\s]*/g)].map(([url]) => url));
     expect([...listingUrls]).toEqual(["https://apps.shopify.com/rewards-pro"]);
