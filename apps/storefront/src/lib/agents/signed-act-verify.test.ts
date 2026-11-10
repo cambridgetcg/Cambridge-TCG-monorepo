@@ -95,32 +95,32 @@ const WORKED_EXAMPLE =
   "eyJhdWQiOiJodHRwczovL2NhbWJyaWRnZXRjZy5jb20iLCJhY3QiOiJzaWduZXIuY2hlY2siLCJzdWIiOiI2ZjFjMmE5MC0zYjdlLTRkMjEtOWE1NS0wYzhlNGI3ZDJmMTMiLCJpYXQiOjE3OTQzMTIwMDAsImV4cCI6MTc5NDMxMjEyMCwianRpIjoiUW05dmF5MWxlR0Z0Y0d4bExXcDBhUSIsInBhcmFtcyI6e319." +
   "cIi5jB96ttAOLUwroaqU5I-MWTpQ7Uj6dii7UMnfJHIumk1F6f8p7mq4OQGGwRQwJ2jDX1YnlK7FTOdlnudSCw";
 
-// RFC 8032 §7.1: secret key, public key, message, signature (hex).
+// RFC 8032 §7.1: the published 32-byte private seed, public key, message and signature (hex).
 const RFC8032 = [
   {
     name: "TEST 1",
-    secret: "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+    seed: "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
     public: "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
     message: "",
     signature: "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
   },
   {
     name: "TEST 2",
-    secret: "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+    seed: "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
     public: "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
     message: "72",
     signature: "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
   },
   {
     name: "TEST 3",
-    secret: "c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7",
+    seed: "c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7",
     public: "fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025",
     message: "af82",
     signature: "6291d657deec24024827e69c3abe01a30ce548a284743a445e3680d7db5ac3ac18ff9b538d16f290ae67f760984dc6594a7c15e9716ed28dc027beceea1ec40a",
   },
 ];
 // TEST 1024 and TEST SHA(abc): keys only (their messages are long).
-const RFC8032_MORE_SECRETS = [
+const RFC8032_MORE_SEEDS = [
   "f5e5767cf153319517630f226876b86c8160cc583bc013744c6bf255f5cc0ee5",
   "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42",
 ];
@@ -163,7 +163,7 @@ describe("RFC vectors", () => {
   });
 
   it.each(RFC8032)("accepts RFC 8032 $name and Node agrees", (vector) => {
-    expect(b64u(ed25519.getPublicKey(hex(vector.secret)))).toBe(b64u(hex(vector.public)));
+    expect(b64u(ed25519.getPublicKey(hex(vector.seed)))).toBe(b64u(hex(vector.public)));
     expectAccepted({ signingInput: hex(vector.message), signature: hex(vector.signature) }, hex(vector.public));
     // One bit off anywhere is refused.
     const flipped = hex(vector.signature);
@@ -171,9 +171,9 @@ describe("RFC vectors", () => {
     expect(verifyActSignature({ signingInput: hex(vector.message), signature: flipped }, hex(vector.public))).toBe(false);
   });
 
-  it("lists exactly the published test keys, derived from their published secrets", () => {
-    const derived = [...RFC8032.map((v) => v.secret), ...RFC8032_MORE_SECRETS].map((secret) =>
-      Buffer.from(ed25519.getPublicKey(hex(secret))).toString("hex"),
+  it("lists exactly the published test keys, derived from their published seeds", () => {
+    const derived = [...RFC8032.map((v) => v.seed), ...RFC8032_MORE_SEEDS].map((seed) =>
+      Buffer.from(ed25519.getPublicKey(hex(seed))).toString("hex"),
     );
     expect([...PUBLISHED_TEST_KEYS_HEX].sort()).toEqual(derived.sort());
     expect(Buffer.from(decodeStrictBase64url(RFC8037_X)!).toString("hex")).toBe(PUBLISHED_TEST_KEYS_HEX[0]);
