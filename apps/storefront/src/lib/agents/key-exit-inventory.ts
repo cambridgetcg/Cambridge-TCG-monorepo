@@ -18,7 +18,7 @@
  * expiry below changes.
  */
 
-export const KEY_EXIT_INVENTORY_VERSION = "2026-10-29.3";
+export const KEY_EXIT_INVENTORY_VERSION = "2026-11-10.1";
 export const KEY_EXIT_EVIDENCE_STATE = "derived from source; production not observed";
 export const KEY_EXIT_DOCS = "https://cambridgetcg.com/methodology/agents";
 
@@ -32,6 +32,7 @@ export const KEY_EXIT_LINEARIZATION =
   "Prospective from the commit of this update. Requests whose authentication completed earlier may still finish, and last_used_at may postdate revoked_at for them. " +
   "A Coverage Hunt contribution re-checks this key inside its own write transaction. " +
   "revoked_at records when the revoking statement started; a Coverage Hunt contribution that took its key lock first may commit after that time, but none commits after the revocation does. " +
+  "A key's expiry is judged by the database's clock as each checking transaction starts: a request authenticated before the key's expires_at may still finish, and a Coverage Hunt contribution whose transaction began before it may commit just after it. " +
   "Holds while the gate and this write use the same primary database.";
 
 /** The states that do not depend on the particular key. */
@@ -66,6 +67,7 @@ export const KEY_EXIT_RETAINED: readonly KeyExitRetainedCategory[] = [
       "name",
       "rate_limit_tier",
       "created_at",
+      "expires_at",
       "last_used_at",
       "revoked_at",
       "revoked_reason",
@@ -74,7 +76,8 @@ export const KEY_EXIT_RETAINED: readonly KeyExitRetainedCategory[] = [
       "key_hash is an unsalted sha256 of the key. No code deletes revoked key rows (they go only with their agent row); the hash is what a presented string is compared with, and the other fields keep the key's history.",
     who_can_see:
       "the agent's operator at /account/agents (revocation shown as a status or category, never the reason text) and Cambridge TCG staff",
-    expiry: "no automatic expiry; removed only if the agent row is deleted",
+    expiry:
+      "no automatic expiry of the row; the key's own expires_at, if one was chosen, ends its authority and deletes nothing. Removed only if the agent row is deleted",
     legal_basis: LEGAL_BASIS,
   },
   {

@@ -9,6 +9,7 @@ import {
   resolveAgentBearer,
   stampKeyUse,
 } from "./auth";
+import { expiredAgentKeySql, liveAgentKeySql } from "./key-expiry";
 
 // Built at runtime so no literal key-shaped string sits in the repository.
 const TOKEN = "ctcg_agt_" + "Ab1".repeat(7) + "Z";
@@ -17,6 +18,8 @@ function agentRow(overrides: Record<string, unknown> = {}) {
   return {
     key_id: "key-1",
     rate_limit_tier: "free",
+    expires_at: null,
+    key_expired: false,
     agent_id: "agent-1",
     public_handle: "agent-one",
     operated_by_user_id: "user-1",
@@ -110,6 +113,68 @@ describe("resolveAgentBearer", () => {
     expect(values).toEqual([hashAgentToken(TOKEN)]);
   });
 
+  it("selects unrevoked keys only, and reads expiry by the database's clock instead of filtering on it", async () => {
+    dbQuery.mockResolvedValueOnce({ rows: [agentRow()] });
+    await resolveAgentBearer(`Bearer ${TOKEN}`);
+    const sql = String(dbQuery.mock.calls[0][0]);
+    expect(sql).toContain(`${expiredAgentKeySql("k")} AS key_expired`);
+    expect(sql).toContain("k.expires_at,");
+    // A revoked key, expired or not, is filtered out and reads as unknown;
+    // an unrevoked expired key is found, so it can be told key_expired.
+    const where = sql.slice(sql.indexOf("WHERE"));
+    expect(where).toMatch(/WHERE k\.key_hash = \$1\s+AND k\.revoked_at IS NULL$/);
+    expect(where).not.toContain("expires_at");
+  });
+
+  it("answers an expired key with 401 key_expired, ahead of its agent's status", async () => {
+    for (const agent_status of ["active", "suspended", "archived"]) {
+      dbQuery.mockResolvedValueOnce({
+        rows: [
+          agentRow({
+            agent_status,
+            suspended_at: agent_status === "suspended" ? new Date("2026-10-20T09:30:00.000Z") : null,
+            expires_at: new Date("2026-11-01T00:00:00.000Z"),
+            key_expired: true,
+          }),
+        ],
+      });
+      // Nothing about the agent, the expiry time or the key reaches the answer.
+      await expect(resolveAgentBearer(`Bearer ${TOKEN}`)).resolves.toStrictEqual({
+        ok: false,
+        status: 401,
+        reason_code: "key_expired",
+        error: "key expired",
+      });
+    }
+  });
+
+  it("refuses a row whose expiry flag is not an explicit false", async () => {
+    for (const key_expired of [undefined, null, "f", 0]) {
+      dbQuery.mockResolvedValueOnce({ rows: [agentRow({ key_expired })] });
+      await expect(resolveAgentBearer(`Bearer ${TOKEN}`)).resolves.toMatchObject({
+        ok: false,
+        status: 401,
+        reason_code: "key_expired",
+      });
+    }
+  });
+
+  it("resolves a key with a future expiry, or none, and carries its expiry on the actor", async () => {
+    dbQuery.mockResolvedValueOnce({
+      rows: [agentRow({ expires_at: new Date("2027-01-28T15:04:00.000Z"), key_expired: false })],
+    });
+    await expect(resolveAgentBearer(`Bearer ${TOKEN}`)).resolves.toMatchObject({
+      ok: true,
+      actor: { keyId: "key-1", keyExpiresAt: "2027-01-28T15:04:00.000Z" },
+    });
+
+    dbQuery.mockResolvedValueOnce({ rows: [agentRow()] });
+    await expect(resolveAgentBearer(`Bearer ${TOKEN}`)).resolves.toMatchObject({
+      ok: true,
+      actor: { keyId: "key-1", keyExpiresAt: null },
+    });
+  });
+
   it("types suspended and archived agents as distinct 403s", async () => {
     dbQuery.mockResolvedValueOnce({
       rows: [
@@ -149,6 +214,7 @@ describe("resolveAgentBearer", () => {
         registeredVia: "operator",
         keyId: "key-1",
         rateLimitTier: "free",
+        keyExpiresAt: null,
       },
     });
   });
@@ -160,11 +226,11 @@ describe("resolveAgentBearer", () => {
 });
 
 describe("stampKeyUse", () => {
-  it("never moves last_used_at on a key whose revocation has committed", async () => {
+  it("never moves last_used_at on a key whose revocation has committed or that has expired", async () => {
     dbQuery.mockResolvedValueOnce({ rows: [] });
     await stampKeyUse("key-1");
     const [sql, values] = dbQuery.mock.calls[0];
-    expect(sql).toContain("AND revoked_at IS NULL");
+    expect(sql).toContain(`WHERE id = $1 AND ${liveAgentKeySql("")}`);
     expect(values).toEqual(["key-1"]);
   });
 

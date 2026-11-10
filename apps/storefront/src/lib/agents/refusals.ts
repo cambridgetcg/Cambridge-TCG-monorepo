@@ -87,6 +87,24 @@ export function authRefusal(failure: AgentAuthFailure): AgentRefusal {
       exit_paths: revokeExit(),
     };
   }
+  if (failure.reason_code === "key_expired") {
+    // Not terminal: whoever minted the key can mint another. It carries no
+    // expiry time, prefix, registration kind or agent status.
+    return {
+      reason_code: "key_expired",
+      retryable: false,
+      terminal: false,
+      next_actions: [
+        {
+          action: "read_docs",
+          href: `${AGENT_DOCS_URL}#key-expiry`,
+          text: "An expired key cannot be renewed. A new key comes from whoever minted this one.",
+          optional: true,
+        },
+      ],
+      docs: AGENT_DOCS_URL,
+    };
+  }
   return {
     reason_code: failure.reason_code,
     retryable: false,

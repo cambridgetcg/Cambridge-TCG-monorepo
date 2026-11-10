@@ -536,6 +536,25 @@ describe.skipIf(!target)("agent key revocation isolated PostgreSQL integration",
 
   // ── Key expiry (0151) ────────────────────────────────────────────────
 
+  it("0151 leaves existing keys as they were (expires_at NULL, nothing rewritten), and NULL means never", async () => {
+    const { before, after, afterRepeat, live, revoked } = preExisting;
+    expect(before.length).toBeGreaterThanOrEqual(2);
+    expect(before.every((row) => !("expires_at" in row))).toBe(true);
+    expect(after).toEqual(before.map((row) => ({ ...row, expires_at: null })));
+    expect(afterRepeat).toEqual(after);
+
+    // The real gate accepts the old live key, states no expiry, and stamps it.
+    const resolved = await resolveAgentBearer(`Bearer ${live.token}`);
+    expect(resolved).toMatchObject({ ok: true, actor: { keyId: live.keyId, keyExpiresAt: null } });
+    await stampKeyUse(live.keyId);
+    expect(((await keyRow(live.keyId)).last_used_at as Date).getTime()).toBeGreaterThan(Date.parse("2026-11-01T12:00:00Z"));
+    // The old revoked key is still unknown-or-revoked.
+    expect(await resolveAgentBearer(`Bearer ${revoked.token}`)).toStrictEqual(
+      await resolveAgentBearer(`Bearer ${unknownToken()}`),
+    );
+    expect(await revokePresentedKey(live.token)).toMatchObject({ key_state: "active", expires_at: null });
+  });
+
   it("the CHECK refuses an expiry at or before creation, and admits NULL and any later instant", async () => {
     const { agentId } = await seedAgent();
     const insert = (createdAt: string, expiresAt: string | null) => {
@@ -577,6 +596,83 @@ describe.skipIf(!target)("agent key revocation isolated PostgreSQL integration",
       expect(await at("0")).toEqual({ live: false, expired: true });
       expect(await at("1 microsecond")).toEqual({ live: true, expired: false });
     } finally { await endAndRelease(client); }
+  });
+
+  it("the gate turns a key away at its expiry by the database's clock, and never consults the app's clock", async () => {
+    const { agentId } = await seedAgent();
+    const minted = mintRawToken();
+    // Created now, expiring 1.5 seconds later, both on the database's clock.
+    const inserted = await pool.query(
+      `INSERT INTO agent_keys (agent_id, key_hash, key_prefix, expires_at)
+       VALUES ($1, $2, $3, NOW() + interval '1500 milliseconds') RETURNING id, expires_at`,
+      [agentId, minted.hash, minted.prefix],
+    );
+    const expiresAt = (inserted.rows[0].expires_at as Date).toISOString();
+    const bearer = `Bearer ${minted.token}`;
+
+    // The app's clock far past the expiry changes nothing: the database says live.
+    vi.useFakeTimers({ now: new Date("2031-01-01T00:00:00Z"), toFake: ["Date"] });
+    try {
+      expect(await resolveAgentBearer(bearer)).toMatchObject({ ok: true, actor: { keyExpiresAt: expiresAt } });
+    } finally { vi.useRealTimers(); }
+
+    await waitFor(
+      async () => (await pool.query("SELECT NOW() >= $1::timestamptz AS past", [expiresAt])).rows[0].past === true,
+      "the database's clock to pass the expiry",
+    );
+    // The app's clock far before the expiry changes nothing: the database says expired.
+    vi.useFakeTimers({ now: new Date("2001-01-01T00:00:00Z"), toFake: ["Date"] });
+    try {
+      expect(await resolveAgentBearer(bearer)).toStrictEqual({
+        ok: false, status: 401, reason_code: "key_expired", error: "key expired",
+      });
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("an expired key: the gate says key_expired ahead of suspension, no stamp, the revoke tool previews it as expired and ends it", async () => {
+    const { agentId, keys: [live] } = await seedAgent();
+    const expired = await insertExpiredKey(agentId);
+    const otherExpired = await insertExpiredKey(agentId, "other-expired");
+
+    expect(await resolveAgentBearer(`Bearer ${expired.token}`)).toStrictEqual({
+      ok: false, status: 401, reason_code: "key_expired", error: "key expired",
+    });
+    await pool.query("UPDATE agents SET status = 'suspended', suspended_at = NOW() WHERE id = $1", [agentId]);
+    expect(await resolveAgentBearer(`Bearer ${expired.token}`)).toMatchObject({ reason_code: "key_expired" });
+    expect(await resolveAgentBearer(`Bearer ${live.token}`)).toMatchObject({ status: 403, reason_code: "agent_suspended" });
+    await pool.query("UPDATE agents SET status = 'active', suspended_at = NULL WHERE id = $1", [agentId]);
+
+    await stampKeyUse(expired.keyId);
+    expect((await keyRow(expired.keyId)).last_used_at).toBeNull();
+
+    // other_live_keys counts the live key only, not the other expired one.
+    const preview = await revokePresentedKey(expired.token);
+    const stored = (await pool.query("SELECT expires_at FROM agent_keys WHERE id = $1", [expired.keyId])).rows[0];
+    expect(preview).toMatchObject({
+      performed: false,
+      key_state: "expired",
+      expires_at: (stored.expires_at as Date).toISOString(),
+      other_live_keys: 1,
+      states: { this_key_future_authority: "expired", other_keys: { live_count: 1 } },
+    });
+    expect((await keyRow(expired.keyId)).revoked_at).toBeNull();
+
+    const performed = await revokePresentedKey(expired.token, { confirm: true });
+    expect(performed).toMatchObject({
+      performed: true,
+      key_state: "revoked",
+      expires_at: (stored.expires_at as Date).toISOString(),
+      other_live_keys: 1,
+    });
+    expect((await keyRow(expired.keyId)).revoked_reason).toBe(HOLDER_REVOCATION_REASON);
+    // Revoked and expired: back to the one answer for unknown and revoked strings.
+    expect(await resolveAgentBearer(`Bearer ${expired.token}`)).toStrictEqual(
+      await resolveAgentBearer(`Bearer ${unknownToken()}`),
+    );
+    expect(await revokePresentedKey(expired.token, { confirm: true })).toStrictEqual(
+      await revokePresentedKey(unknownToken(), { confirm: true }),
+    );
+    expect((await keyRow(otherExpired.keyId)).revoked_at).toBeNull();
   });
 
   it("an expired key: the Coverage Hunt lock refuses it before writing, and archive still revokes it", async () => {

@@ -26,6 +26,7 @@
 
 import crypto from "crypto";
 import { query } from "@/lib/db";
+import { expiredAgentKeySql, liveAgentKeySql } from "./key-expiry";
 
 export interface AgentActor {
   kind: "agent";
@@ -35,14 +36,20 @@ export interface AgentActor {
   registeredVia: "operator" | "self-serve";
   keyId: string;
   rateLimitTier: "free" | "standard" | "partner";
+  /** When this key stops authenticating (ISO 8601), or null: no expiry. */
+  keyExpiresAt: string | null;
 }
 
 /** Why the gate refused a credential. Unknown and revoked keys share one
- *  code (and one 401) so the gate never says which strings were ever keys. */
+ *  code (and one 401) so the gate never says which strings were ever keys.
+ *  An unrevoked key past its expiry gets its own code, key_expired: only a
+ *  holder of that exact string learns it was a key that ran out (an agent's
+ *  call, docs/plans/agent-auth/key-expiry.md §5). */
 export type AgentAuthReasonCode =
   | "missing_credentials"
   | "malformed_credentials"
   | "unknown_or_revoked_key"
+  | "key_expired"
   | "agent_suspended"
   | "agent_archived";
 
@@ -50,7 +57,11 @@ export type AgentAuthFailure =
   | {
       ok: false;
       status: 401;
-      reason_code: "missing_credentials" | "malformed_credentials" | "unknown_or_revoked_key";
+      reason_code:
+        | "missing_credentials"
+        | "malformed_credentials"
+        | "unknown_or_revoked_key"
+        | "key_expired";
       error: string;
     }
   | {
@@ -133,6 +144,12 @@ function iso(value: unknown): string | null {
  * Substrate-honesty notes:
  *   - The lookup joins agents to agent_keys so a revoked key or a
  *     suspended/archived agent both fail at this single boundary.
+ *   - The lookup selects unrevoked keys only, so a revoked key, expired or
+ *     not, reads as unknown. Whether an unrevoked key has expired is
+ *     computed in the same statement by the database's clock
+ *     (key-expiry.ts), and checked before the agent's status: an expired
+ *     key has no authority whatever its agent's status, so its holder is
+ *     not told whether the agent is suspended or archived.
  *   - A database failure throws; the route answers it as a typed 503.
  *   - last_used_at is updated outside the resolve path (fire-and-forget
  *     after a successful tool call) to avoid blocking the gate on a
@@ -147,6 +164,8 @@ export async function resolveAgentBearer(authHeader: string | null): Promise<Res
   const result = await query(
     `SELECT k.id           AS key_id,
             k.rate_limit_tier,
+            k.expires_at,
+            ${expiredAgentKeySql("k")} AS key_expired,
             a.id           AS agent_id,
             a.public_handle,
             a.operated_by_user_id,
@@ -170,6 +189,10 @@ export async function resolveAgentBearer(authHeader: string | null): Promise<Res
   }
 
   const row = result.rows[0];
+  // The SQL always yields a boolean; anything but false refuses.
+  if (row.key_expired !== false) {
+    return { ok: false, status: 401, reason_code: "key_expired", error: "key expired" };
+  }
   if (row.agent_status === "suspended") {
     return {
       ok: false,
@@ -198,16 +221,18 @@ export async function resolveAgentBearer(authHeader: string | null): Promise<Res
       registeredVia: row.registered_via,
       keyId: row.key_id,
       rateLimitTier: row.rate_limit_tier,
+      keyExpiresAt: iso(row.expires_at),
     },
   };
 }
 
 /** Fire-and-forget last-used stamp. Safe to ignore failures. A stamp that
- *  arrives after the key's revocation committed changes nothing. */
+ *  arrives after the key's revocation committed, or after it expired,
+ *  changes nothing. */
 export async function stampKeyUse(keyId: string): Promise<void> {
   try {
     await query(
-      `UPDATE agent_keys SET last_used_at = NOW() WHERE id = $1 AND revoked_at IS NULL`,
+      `UPDATE agent_keys SET last_used_at = NOW() WHERE id = $1 AND ${liveAgentKeySql("")}`,
       [keyId],
     );
   } catch {

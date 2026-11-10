@@ -12,6 +12,7 @@ import {
   keyReplacementSummary,
   keyReplacementText,
 } from "./key-exit-inventory";
+import { expiredAgentKeySql, liveAgentKeySql } from "./key-expiry";
 import { revokePresentedKey } from "./key-revocation";
 import { HOLDER_REVOCATION_REASON } from "./revocation-reasons";
 
@@ -94,6 +95,8 @@ describe("revokePresentedKey preview", () => {
       rows: [
         {
           key_prefix: "ctcg_agt_Ab1",
+          expires_at: null,
+          key_expired: false,
           registered_via: "operator",
           status: "active",
           other_live_keys: 1,
@@ -108,7 +111,11 @@ describe("revokePresentedKey preview", () => {
     const [sql, values] = dbQuery.mock.calls[0];
     expect(sql).toMatch(/^\s*SELECT\b/);
     expect(sql).not.toMatch(/\b(?:UPDATE|INSERT|DELETE)\b/);
+    // Unrevoked only, expired or not: an expired key can still be ended.
     expect(sql).toMatch(/WHERE k\.key_hash = \$1\s+AND k\.revoked_at IS NULL\s*$/);
+    expect(sql).toContain(`${expiredAgentKeySql("k")} AS key_expired`);
+    // The count of other keys is of keys that can still authenticate.
+    expect(sql).toContain(`AND ${liveAgentKeySql("k2")}\n                AND k2.id <> k.id`);
     expect(sql).toContain("a.status");
     expect(sql).not.toMatch(STATUS_FILTER);
     expect(values).toEqual([hashAgentToken(TOKEN)]);
@@ -117,6 +124,7 @@ describe("revokePresentedKey preview", () => {
       revoked: false,
       key_state: "active",
       key_prefix: "ctcg_agt_Ab1",
+      expires_at: null,
       other_live_keys: 1,
       reversible: false,
       replacement: "The operator can mint a new key at /account/agents.",
@@ -136,6 +144,7 @@ describe("revokePresentedKey with confirm: true", () => {
         {
           key_prefix: "ctcg_agt_Ab1",
           revoked_at: new Date("2026-10-29T12:00:00.000Z"),
+          expires_at: null,
           registered_via: "operator",
           status: "active",
           other_live_keys: 2,
@@ -150,8 +159,9 @@ describe("revokePresentedKey with confirm: true", () => {
     const [sql, values] = dbQuery.mock.calls[0];
     expect(sql).toContain("UPDATE agent_keys");
     expect(sql).toContain("SET revoked_at = NOW(), revoked_reason = $2");
-    expect(sql).toMatch(/WHERE key_hash = \$1 AND revoked_at IS NULL\s+RETURNING\b/);
-    expect(sql).toContain("k2.id <> r.id");
+    // Ends any unrevoked key, expired or not; no expiry condition here.
+    expect(sql).toMatch(/WHERE key_hash = \$1 AND revoked_at IS NULL\s+RETURNING id, agent_id, key_prefix, revoked_at, expires_at\s/);
+    expect(sql).toContain(`AND ${liveAgentKeySql("k2")}\n                AND k2.id <> r.id`);
     // No status check, rate-limit bucket or last-used stamp; status is only read.
     expect(sql).toContain("a.status");
     expect(sql).not.toMatch(STATUS_FILTER);
@@ -164,6 +174,7 @@ describe("revokePresentedKey with confirm: true", () => {
       key_state: "revoked",
       key_prefix: "ctcg_agt_Ab1",
       revoked_at: "2026-10-29T12:00:00.000Z",
+      expires_at: null,
       other_live_keys: 2,
       reversible: false,
       inventory_version: KEY_EXIT_INVENTORY_VERSION,
@@ -252,7 +263,7 @@ describe("revokePresentedKey states replacement and authority by agent status", 
     ["self-serve", "archived", "archived_with_agent", "No replacement key can be issued while self-serve registration is paused."],
   ])("%s agent, %s: preview and revocation", async (via, status, authority, replacement) => {
     dbQuery.mockResolvedValueOnce({
-      rows: [{ key_prefix: "ctcg_agt_Ab1", registered_via: via, status, other_live_keys: 0 }],
+      rows: [{ key_prefix: "ctcg_agt_Ab1", key_expired: false, registered_via: via, status, other_live_keys: 0 }],
     });
     const preview = await revokePresentedKey(TOKEN);
     expect(preview).toMatchObject({
@@ -295,6 +306,99 @@ describe("revokePresentedKey states replacement and authority by agent status", 
   });
 });
 
+describe("revokePresentedKey accepts an expired key", () => {
+  const EXPIRES = new Date("2026-11-01T00:00:00.000Z");
+
+  it.each(["active", "suspended", "archived"])(
+    "previews an expired key of a %s agent as expired, whatever the agent's status",
+    async (status) => {
+      dbQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            key_prefix: "ctcg_agt_Ab1",
+            expires_at: EXPIRES,
+            key_expired: true,
+            registered_via: "operator",
+            status,
+            other_live_keys: 1,
+            ...LEAKY_COLUMNS,
+          },
+        ],
+      });
+
+      const preview = await revokePresentedKey(TOKEN);
+
+      expect(preview).toMatchObject({
+        performed: false,
+        revoked: false,
+        key_state: "expired",
+        key_prefix: "ctcg_agt_Ab1",
+        expires_at: "2026-11-01T00:00:00.000Z",
+        other_live_keys: 1,
+        would_end:
+          "Nothing more: this key has expired and no longer authenticates here. Confirming records it as revoked by its holder and changes nothing else.",
+        to_act: "Call agent.revoke_key again with confirm: true.",
+        reversible: false,
+        replacement: keyReplacementText("operator", status as "active" | "suspended" | "archived"),
+        states: {
+          this_key_future_authority: "expired",
+          other_keys: { live_count: 1, changed: false },
+        },
+      });
+      expectNoLeak(preview);
+    },
+  );
+
+  it("revokes an expired key on confirm, and both answers carry expires_at", async () => {
+    dbQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          key_prefix: "ctcg_agt_Ab1",
+          revoked_at: new Date("2026-11-09T12:00:00.000Z"),
+          expires_at: EXPIRES,
+          registered_via: "operator",
+          status: "active",
+          other_live_keys: 0,
+        },
+      ],
+    });
+
+    const performed = await revokePresentedKey(TOKEN, { confirm: true });
+
+    expect(performed).toMatchObject({
+      performed: true,
+      revoked: true,
+      key_state: "revoked",
+      revoked_at: "2026-11-09T12:00:00.000Z",
+      expires_at: "2026-11-01T00:00:00.000Z",
+      states: { this_key_future_authority: "ended" },
+    });
+    expectNoLeak(performed);
+  });
+
+  it("previews a key with a future expiry as active, with its expiry", async () => {
+    dbQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          key_prefix: "ctcg_agt_Ab1",
+          expires_at: new Date("2027-01-28T00:00:00.000Z"),
+          key_expired: false,
+          registered_via: "operator",
+          status: "active",
+          other_live_keys: 0,
+        },
+      ],
+    });
+
+    await expect(revokePresentedKey(TOKEN)).resolves.toMatchObject({
+      key_state: "active",
+      expires_at: "2027-01-28T00:00:00.000Z",
+      would_end: "This key's future authority here. Nothing else changes.",
+      states: { this_key_future_authority: "active" },
+    });
+  });
+});
+
 describe("the retained inventory", () => {
   it("names the stores found outside the key and agent rows, and says it may be incomplete", () => {
     const categories = KEY_EXIT_RETAINED.map((entry) => entry.category);
@@ -314,6 +418,10 @@ describe("the retained inventory", () => {
     const keyRow = KEY_EXIT_RETAINED[0];
     expect(keyRow.why_kept).toContain("No code deletes revoked key rows");
     expect(keyRow.why_kept).not.toContain("recognised as not active");
+    // Expiry ends authority; it deletes nothing, and the field is listed.
+    expect(keyRow.fields).toContain("expires_at");
+    expect(keyRow.expiry).toContain("ends its authority and deletes nothing");
+    expect(KEY_EXIT_INVENTORY_VERSION).toBe("2026-11-10.1");
     expect(KEY_EXIT_COMPLETENESS).toContain("An agent wrote this inventory and it may be incomplete");
   });
 });

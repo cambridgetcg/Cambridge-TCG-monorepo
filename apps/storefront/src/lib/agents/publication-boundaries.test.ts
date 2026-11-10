@@ -53,6 +53,7 @@ const actor: AgentActor = {
   registeredVia: "operator",
   keyId: "key-a",
   rateLimitTier: "free",
+  keyExpiresAt: null,
 };
 
 function card(id: string, name: string, zone: GameCard["zone"]): GameCard {
@@ -350,6 +351,8 @@ describe("agent publication boundaries", () => {
     );
     expect(JSON.stringify(self)).not.toContain(OPERATOR_A);
     expect(self).not.toHaveProperty("operator_user_id");
+    // "Never" is stated, not implied: the field is present and null.
+    expect(self).toHaveProperty("key_expires_at", null);
     expect(mocks.query).toHaveBeenCalledTimes(1);
   });
 
@@ -376,8 +379,12 @@ describe("agent publication boundaries", () => {
       ...actor,
       operatorUserId: OPERATOR_B,
       registeredVia: "self-serve",
+      keyExpiresAt: "2027-01-28T15:04:00.000Z",
     });
 
+    // From the gate's read of this request's key; agent.self adds no query.
+    expect(self.key_expires_at).toBe("2027-01-28T15:04:00.000Z");
+    expect(mocks.query).toHaveBeenCalledTimes(1);
     expect(self.operator_bound).toBe(false);
     expect(self.read_only).toBe(true);
     expect(self.review_submissions).toEqual([]);

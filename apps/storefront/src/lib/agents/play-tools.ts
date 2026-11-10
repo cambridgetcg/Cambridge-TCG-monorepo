@@ -160,6 +160,9 @@ export async function agentSelf(actor: AgentActor) {
     // The grant's list, plus the daily MCP count's line while it is on.
     operational_metadata_writes: operationalMetadataWrites(),
     rate_limit_tier: actor.rateLimitTier,
+    // Always present: when this key stops authenticating (ISO 8601), as
+    // the gate read it on this request, or null: this key has no expiry.
+    key_expires_at: actor.keyExpiresAt,
     created_at: row.created_at,
     recorded_about_this_key: recordedAboutThisKey(row, actor.rateLimitTier),
   };

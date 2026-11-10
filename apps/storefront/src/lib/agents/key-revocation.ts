@@ -15,6 +15,13 @@
  * calls all get the same not-active answer, which is also the true end
  * state, so this tool tells nobody which strings were ever keys.
  *
+ * An expired key that has not been revoked is still accepted: ending a key
+ * harms no one, so expiry does not stop its holder recording it. Its
+ * preview says key_state "expired", which the gate's key_expired 401
+ * already tells the holder of that string; a revoked key, expired or not,
+ * still gets the not-active answer. other_live_keys counts only keys that
+ * can still authenticate (key-expiry.ts liveAgentKeySql).
+ *
  * Answers never carry revoked_reason, who revoked a key, the agent's
  * handle or id, or anything about its operator. A preview of a live key can
  * show that its agent is suspended or archived (this_key_future_authority),
@@ -30,6 +37,7 @@
 
 import { query } from "@/lib/db";
 import { hashAgentToken, isAgentToken, loggableErrorCode } from "./auth";
+import { expiredAgentKeySql, expiresAtIso, liveAgentKeySql } from "./key-expiry";
 import { HOLDER_REVOCATION_REASON } from "./revocation-reasons";
 import {
   KEY_EXIT_COMPLETENESS,
@@ -51,14 +59,18 @@ import {
 type RegisteredVia = "operator" | "self-serve";
 
 // a.status is read, never filtered on: it only chooses the replacement text
-// and the preview's this_key_future_authority.
+// and the preview's this_key_future_authority. The key itself is selected
+// unrevoked, expired or not; whether it has expired is read, by the
+// database's clock, to choose its state.
 const PREVIEW_SQL = `SELECT k.key_prefix,
+            k.expires_at,
+            ${expiredAgentKeySql("k")} AS key_expired,
             a.registered_via,
             a.status,
             (SELECT count(*)::int
                FROM agent_keys k2
               WHERE k2.agent_id = k.agent_id
-                AND k2.revoked_at IS NULL
+                AND ${liveAgentKeySql("k2")}
                 AND k2.id <> k.id) AS other_live_keys
        FROM agent_keys k
        JOIN agents a ON a.id = k.agent_id
@@ -67,21 +79,27 @@ const PREVIEW_SQL = `SELECT k.key_prefix,
 
 // The CTE's outer SELECT sees the snapshot from before the UPDATE, so the
 // count excludes the key being revoked by id rather than by revoked_at.
+// The UPDATE ends any unrevoked key, expired or not.
 const REVOKE_SQL = `WITH r AS (
        UPDATE agent_keys
           SET revoked_at = NOW(), revoked_reason = $2
         WHERE key_hash = $1 AND revoked_at IS NULL
-        RETURNING id, agent_id, key_prefix, revoked_at
+        RETURNING id, agent_id, key_prefix, revoked_at, expires_at
      )
-     SELECT r.key_prefix, r.revoked_at, a.registered_via, a.status,
+     SELECT r.key_prefix, r.revoked_at, r.expires_at, a.registered_via, a.status,
             (SELECT count(*)::int
                FROM agent_keys k2
               WHERE k2.agent_id = r.agent_id
-                AND k2.revoked_at IS NULL
+                AND ${liveAgentKeySql("k2")}
                 AND k2.id <> r.id) AS other_live_keys
        FROM r JOIN agents a ON a.id = r.agent_id`;
 
-type FutureAuthority = "ended" | "active" | "suspended_with_agent" | "archived_with_agent";
+type FutureAuthority =
+  | "ended"
+  | "active"
+  | "expired"
+  | "suspended_with_agent"
+  | "archived_with_agent";
 
 function keyExitFacts(input: {
   futureAuthority: FutureAuthority;
@@ -119,14 +137,19 @@ export type KeyRevocationOutcome =
       key_state: "revoked";
       key_prefix: string;
       revoked_at: string;
+      /** When the key was set to expire (ISO 8601), or null: no expiry. */
+      expires_at: string | null;
       other_live_keys: number;
       receipt_reference: { key_prefix: string; revoked_at: string; note: string };
     } & KeyExitFacts)
   | ({
       performed: false;
       revoked: false;
-      key_state: "active";
+      /** "expired": not revoked, but past its expiry; it no longer
+       *  authenticates, and confirming only records it as revoked. */
+      key_state: "active" | "expired";
       key_prefix: string;
+      expires_at: string | null;
       other_live_keys: number;
       would_end: string;
       to_act: string;
@@ -160,6 +183,10 @@ function notActive(): KeyRevocationOutcome {
 function iso(value: unknown): string {
   return (value instanceof Date ? value : new Date(String(value))).toISOString();
 }
+
+const WOULD_END_LIVE = "This key's future authority here. Nothing else changes.";
+const WOULD_END_EXPIRED =
+  "Nothing more: this key has expired and no longer authenticates here. Confirming records it as revoked by its holder and changes nothing else.";
 
 function registeredVia(value: unknown): RegisteredVia {
   return value === "operator" ? "operator" : "self-serve";
@@ -199,16 +226,20 @@ export async function revokePresentedKey(
       const via = registeredVia(row.registered_via);
       const status = agentStatus(row.status);
       const otherLiveKeys = Number(row.other_live_keys ?? 0);
+      // The SQL always yields a boolean; only false reads as unexpired.
+      const expired = row.key_expired !== false;
       return {
         performed: false,
         revoked: false,
-        key_state: "active",
+        key_state: expired ? "expired" : "active",
         key_prefix: String(row.key_prefix),
+        expires_at: expiresAtIso(row.expires_at),
         other_live_keys: otherLiveKeys,
-        would_end: "This key's future authority here. Nothing else changes.",
+        would_end: expired ? WOULD_END_EXPIRED : WOULD_END_LIVE,
         to_act: "Call agent.revoke_key again with confirm: true.",
         ...keyExitFacts({
-          futureAuthority: previewAuthority(status),
+          // Expiry ends authority whatever the agent's status.
+          futureAuthority: expired ? "expired" : previewAuthority(status),
           otherLiveKeys,
           registeredVia: via,
           agentStatus: status,
@@ -230,6 +261,7 @@ export async function revokePresentedKey(
       key_state: "revoked",
       key_prefix: keyPrefix,
       revoked_at: revokedAt,
+      expires_at: expiresAtIso(row.expires_at),
       other_live_keys: otherLiveKeys,
       receipt_reference: {
         key_prefix: keyPrefix,

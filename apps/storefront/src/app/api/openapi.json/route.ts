@@ -1100,14 +1100,15 @@ const SPEC = {
             headers: {
               "X-RateLimit-Remaining": { description: "Requests left in this key's current minute, on authenticated tool results.", schema: { type: "integer", minimum: 0 } },
               "X-Agent-Handle": { description: "The calling agent's public handle, on authenticated tool results.", schema: { type: "string" } },
+              "X-Agent-Key-Expires": { description: "When the calling key stops authenticating, as an ISO 8601 instant, or never. On successful authenticated tool results only: never on a refusal or on agent.revoke_key's answers.", schema: { type: "string" } },
             },
             content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } },
           },
           "204": { description: "notifications/initialized: no body." },
           "400": { description: "Unreadable or invalid JSON (-32700), a body without a method (-32600), tools/call without a name (-32602, after authentication), or a tool's own argument error (dotted: -32003; tools/call: an isError result).", content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } } },
           "401": {
-            description: "No usable key: reason_code missing_credentials, malformed_credentials (anything but exactly ctcg_agt_ plus 22 base62 characters, refused before any lookup) or unknown_or_revoked_key (one code and one answer for both). JSON-RPC -32001 with an AgentRefusal in error.data.",
-            headers: { "WWW-Authenticate": { description: "Bearer realm=\"cambridgetcg-mcp\", plus error=\"invalid_token\" when a bearer token was presented.", schema: { type: "string" } } },
+            description: "No usable key: reason_code missing_credentials, malformed_credentials (anything but exactly ctcg_agt_ plus 22 base62 characters, refused before any lookup), unknown_or_revoked_key (one code and one answer for both; a revoked key gets it whether or not it had expired) or key_expired (a key that was not revoked but has passed the expiry chosen when it was minted; it never works again, and a new key comes from whoever minted it). key_expired is checked before the agent's status. JSON-RPC -32001 with an AgentRefusal in error.data.",
+            headers: { "WWW-Authenticate": { description: "Bearer realm=\"cambridgetcg-mcp\", plus error=\"invalid_token\" when a bearer token was presented, plus error_description=\"The access token expired\" for key_expired only.", schema: { type: "string" } } },
             content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } },
           },
           "403": { description: "agent_suspended or agent_archived at the gate (-32001, AgentRefusal in error.data; both list agent.revoke_key under exit_paths, which ends the key and is not a recovery), or tool_not_permitted: the key's registration does not grant the tool, or the write is paused (dotted: -32003 with error.data; tools/call: an isError result with the refusal in _meta). A tool's own 403 carries no refusal object.", content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } } },
@@ -1231,7 +1232,7 @@ const SPEC = {
         bearerFormat: "ctcg_agt_ followed by 22 base62 characters",
         "x-token-pattern": "^ctcg_agt_[A-Za-z0-9]{22}$",
         "x-provisioning": "https://cambridgetcg.com/account/agents",
-        description: "Agent key for POST /api/mcp only. A signed-in human with an existing or admitted account mints one for an operator-managed agent at /account/agents; new-account admission may be closed, and self-serve registration is paused. The key is shown once, only its SHA-256 hash is stored, and it has no expiry. The Bearer scheme name is case-insensitive; a token of any other shape is refused before any lookup. Possession authorises calls; it is not proof of identity, authorship or control of the agent profile. Any holder can end its own key with agent.revoke_key. Never send a member data key, session cookie, or wholesale service key as this credential.",
+        description: "Agent key for POST /api/mcp only. A signed-in human with an existing or admitted account mints one for an operator-managed agent at /account/agents; new-account admission may be closed, and self-serve registration is paused. The key is shown once and only its SHA-256 hash is stored. Its expiry is chosen when it is minted (7, 30, 90 or 365 days, a date, or never) and never extended; keys minted before expiry existed have none. A successful result's X-Agent-Key-Expires header and agent.self's key_expires_at state it. The Bearer scheme name is case-insensitive; a token of any other shape is refused before any lookup. Possession authorises calls; it is not proof of identity, authorship or control of the agent profile. Any holder can end its own key with agent.revoke_key. Never send a member data key, session cookie, or wholesale service key as this credential.",
       },
     },
     schemas: {
@@ -1783,7 +1784,7 @@ const SPEC = {
         required: ["reason_code", "retryable", "terminal", "next_actions", "docs"],
         description: "Why the MCP gate refused a call. In JSON-RPC error.data, or for a tools/call result with isError: true in result._meta[\"cambridgetcg.com/refusal\"]. A terminal refusal offers no next action; any other offers at least one, and each is optional.",
         properties: {
-          reason_code: { type: "string", enum: ["missing_credentials", "malformed_credentials", "unknown_or_revoked_key", "agent_suspended", "agent_archived", "tool_not_permitted", "rate_limited", "auth_unavailable"] },
+          reason_code: { type: "string", enum: ["missing_credentials", "malformed_credentials", "unknown_or_revoked_key", "key_expired", "agent_suspended", "agent_archived", "tool_not_permitted", "rate_limited", "auth_unavailable"] },
           retryable: { type: "boolean" },
           terminal: { type: "boolean" },
           next_actions: {

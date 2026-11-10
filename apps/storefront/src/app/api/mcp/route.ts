@@ -205,9 +205,10 @@ const TOOLS: Record<string, ToolHandler> = {
 };
 
 const TOOL_DESCRIPTIONS: Record<string, string> = {
-  "agent.self": "Returns the calling agent's own profile, rating, key tier, and whether the key is read-only, and what the gate records about the calling key: its minute rate-limit buckets, last-used time, tier limit and how long each is kept. Collects nothing new. Account UUIDs are never returned.",
+  "agent.self": "Returns the calling agent's own profile, rating, key tier, and whether the key is read-only; key_expires_at, when the calling key stops authenticating (ISO 8601), or null: this key has no expiry; and what the gate records about the calling key: its minute rate-limit buckets, last-used time, tier limit and how long each is kept. Collects nothing new. Account UUIDs are never returned.",
   "agent.revoke_key":
     "Ends only the presented key: the bearer key on this request stops authenticating here. Irreversible. Other keys, the agent profile and shared records are not changed. " +
+    "An expired key that was never revoked can still be ended; its preview says it has expired. " +
     // Built from the same cases the answer chooses from, so the two agree.
     `Replacement, as the answer states it for this key: ${keyReplacementSummary()} ` +
     "Call with { confirm: true } to act; without it, a preview that changes nothing. Works whatever the agent's status and is not rate-limited. " +
@@ -430,6 +431,8 @@ const REVOCATION_LEADS: Record<Exclude<KeyRevocationOutcome["key_state"], "unkno
     "Revoked. This key no longer authenticates here. Other keys and the agent profile are unchanged.",
   active:
     "Not revoked. This was a preview and changed nothing; call agent.revoke_key with confirm: true to end this key.",
+  expired:
+    "Not revoked. This key has expired and no longer authenticates here; this preview changed nothing. Call agent.revoke_key with confirm: true to record it as revoked.",
   not_active:
     "Nothing was changed. This string does not authenticate here (unknown, or already revoked).",
 };
@@ -462,12 +465,14 @@ function revocationResponse(
 
 /** RFC 6750 challenge for a 401. `error="invalid_token"` only when a bearer
  *  token was actually presented; a missing header or another scheme gets
- *  the bare challenge. */
-function bearerChallenge(authHeader: string | null): string {
+ *  the bare challenge. An expired key adds RFC 6750's own example
+ *  description; no other refusal carries one. */
+function bearerChallenge(authHeader: string | null, failure: AgentAuthFailure): string {
   const presented = /^Bearer\s+\S/i.test(authHeader ?? "");
-  return presented
-    ? 'Bearer realm="cambridgetcg-mcp", error="invalid_token"'
-    : 'Bearer realm="cambridgetcg-mcp"';
+  if (!presented) return 'Bearer realm="cambridgetcg-mcp"';
+  return failure.reason_code === "key_expired"
+    ? 'Bearer realm="cambridgetcg-mcp", error="invalid_token", error_description="The access token expired"'
+    : 'Bearer realm="cambridgetcg-mcp", error="invalid_token"';
 }
 
 function authFailureResponse(
@@ -481,7 +486,7 @@ function authFailureResponse(
       status: failure.status,
       headers:
         failure.status === 401
-          ? { "WWW-Authenticate": bearerChallenge(authHeader) }
+          ? { "WWW-Authenticate": bearerChallenge(authHeader, failure) }
           : undefined,
     },
   );
@@ -657,11 +662,12 @@ async function handlePost(request: Request, seen: McpRequestSeen) {
   // that runs the tool. Under tools/call, confirm is read only from
   // params.arguments; a confirm beside the name previews.
   // The daily count records it as authenticated only when the presented
-  // string was a live key (revoked now, or previewed): that possession is
-  // this path's authentication, and an authenticated row is what the
-  // monitor withholds while few keys are in use, as /privacy says. An
-  // unknown or already-revoked string, a malformed header and an unknown
-  // state stay unauthenticated; the gate never resolves an actor here.
+  // string was an unrevoked key (revoked now, or previewed, expired or
+  // not): that possession is this path's authentication, and an
+  // authenticated row is what the monitor withholds while few keys are in
+  // use, as /privacy says. An unknown or already-revoked string, a
+  // malformed header and an unknown state stay unauthenticated; the gate
+  // never resolves an actor here.
   if (SELF_LIFECYCLE_TOOLS.has(dispatchName)) {
     const presented = parseAgentBearer(authHeader);
     if (presented.kind !== "token") {
@@ -671,7 +677,10 @@ async function handlePost(request: Request, seen: McpRequestSeen) {
     const outcome = await revokePresentedKey(presented.token, {
       confirm: dispatchParams.confirm === true,
     });
-    seen.authenticated = outcome.key_state === "revoked" || outcome.key_state === "active";
+    seen.authenticated =
+      outcome.key_state === "revoked" ||
+      outcome.key_state === "active" ||
+      outcome.key_state === "expired";
     return revocationResponse(body.id, isMcpCall, outcome);
   }
 
@@ -751,6 +760,10 @@ async function handlePost(request: Request, seen: McpRequestSeen) {
       headers: {
         "X-RateLimit-Remaining": String(rl.remaining),
         "X-Agent-Handle": actor.agentPublicHandle,
+        // Only here, on a successful authenticated result: never on a
+        // refusal or on agent.revoke_key's answers, so it tells nothing to
+        // a string that does not authenticate.
+        "X-Agent-Key-Expires": actor.keyExpiresAt ?? "never",
       },
     });
   } catch (err) {
