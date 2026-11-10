@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>RewardsPro: an app for Shopify stores</title>
+    <title>RewardsPro: cashback as Shopify store credit, with VIP tiers</title>
     <meta
       name="description"
-      content="RewardsPro is an app for Shopify stores, built for rewarding loyal customers. It is made by Cambridge TCG Limited, a UK company in London."
+      content="RewardsPro adds cashback to your customers' Shopify store credit when an order is paid, with VIP tiers by spend. The app is free; you fund the cashback."
     />
     <link rel="canonical" href="https://rewardspro.io/" />
     <meta name="theme-color" content="#09110F" />
@@ -17,20 +17,146 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="RewardsPro" />
-    <meta property="og:title" content="RewardsPro: an app for Shopify stores" />
+    <meta property="og:title" content="RewardsPro: cashback as Shopify store credit, with VIP tiers" />
     <meta
       property="og:description"
-      content="RewardsPro is an app for Shopify stores, built for rewarding loyal customers. It is made by Cambridge TCG Limited, a UK company in London."
+      content="RewardsPro adds cashback to your customers' Shopify store credit when an order is paid, with VIP tiers by spend. The app is free; you fund the cashback."
     />
     <meta property="og:url" content="https://rewardspro.io/" />
     <meta property="og:locale" content="en_GB" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="RewardsPro: an app for Shopify stores" />
+    <meta property="og:image" content="https://rewardspro.io/assets/screens/og-tiers.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta property="og:image:alt" content="RewardsPro's Tiers page: each tier's minimum spend, cashback rate and members" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RewardsPro: cashback as Shopify store credit, with VIP tiers" />
     <meta
       name="twitter:description"
-      content="RewardsPro is an app for Shopify stores, built for rewarding loyal customers. It is made by Cambridge TCG Limited, a UK company in London."
+      content="RewardsPro adds cashback to your customers' Shopify store credit when an order is paid, with VIP tiers by spend. The app is free; you fund the cashback."
     />
+    <meta name="twitter:image" content="https://rewardspro.io/assets/screens/og-tiers.jpg" />
+    <meta name="twitter:image:alt" content="RewardsPro's Tiers page: each tier's minimum spend, cashback rate and members" />
     <link rel="stylesheet" href="/assets/site.css" />
+    <style>
+      /* Home page only: the button, the steps, the screenshots and the "Shopify's rule" box. */
+      .home h3 {
+        margin: 0;
+        font-size: 1.125rem;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      .home h3 + p,
+      .home h2 + ol,
+      .home h2 + ul,
+      .home p + ul,
+      .home ul + p,
+      .home .rule {
+        margin-top: 1rem;
+      }
+
+      .home .section ul {
+        padding-left: 1.25rem;
+      }
+
+      .home li + li {
+        margin-top: 0.5rem;
+      }
+
+      .actions {
+        margin-top: 2rem;
+      }
+
+      .button {
+        display: inline-block;
+        border-radius: var(--radius);
+        background: var(--accent);
+        color: var(--on-primary);
+        padding: 0.75rem 1.25rem;
+        font-weight: 600;
+        line-height: 1.4;
+        text-decoration: none;
+      }
+
+      .button:hover {
+        color: var(--on-primary);
+      }
+
+      .button:active {
+        transform: translateY(1px);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .button:active {
+          transform: none;
+        }
+      }
+
+      .maker,
+      .source,
+      figcaption {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+        line-height: 1.5;
+      }
+
+      .intro .maker {
+        margin-top: 1.5rem;
+      }
+
+      .steps {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: step;
+      }
+
+      .steps > li {
+        counter-increment: step;
+      }
+
+      .steps > li + li {
+        margin-top: 2.5rem;
+      }
+
+      .steps h3::before {
+        content: counter(step) ". ";
+        color: var(--accent-text);
+      }
+
+      /* Wider than the text column where the screen allows, so the app's own text stays legible. */
+      figure {
+        margin: 1.5rem calc((100% - min(56rem, 100vw - 2 * var(--gutter))) / 2) 0;
+      }
+
+      figure img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: #FFFFFF;
+      }
+
+      figcaption {
+        margin-top: 0.5rem;
+      }
+
+      .rule {
+        padding: 1rem 1.25rem;
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .rule > * + * {
+        margin-top: 0.5rem;
+      }
+
+      .rule-label {
+        font-weight: 600;
+      }
+    </style>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -57,9 +183,23 @@
             "@id": "https://rewardspro.io/#app",
             "name": "RewardsPro",
             "url": "https://rewardspro.io/",
+            "sameAs": ["https://apps.shopify.com/rewards-pro"],
             "image": "https://rewardspro.io/icon-512.png",
+            "screenshot": "https://rewardspro.io/assets/screens/og-tiers.jpg",
             "applicationCategory": "BusinessApplication",
-            "description": "RewardsPro is an app for Shopify stores, made by Cambridge TCG Limited, a UK company in London.",
+            "description": "RewardsPro is an app for Shopify stores. It adds cashback to customers' Shopify store credit when an order is paid, with VIP tiers by spend and a widget on the storefront.",
+            "featureList": [
+              "Cashback added to the customer's Shopify store credit when an order is paid",
+              "VIP tiers by spend, each with its own cashback rate",
+              "A storefront widget"
+            ],
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD",
+              "url": "https://apps.shopify.com/rewards-pro",
+              "description": "RewardsPro is free for every store that installs it, and no paid plans are offered. The cashback is store credit in the store's own shop, so the store funds the cashback it gives."
+            },
             "publisher": { "@id": "https://rewardspro.io/#maker" }
           }
         ]
@@ -81,6 +221,7 @@
         </a>
         <nav aria-label="Main">
           <ul class="nav-list">
+            <li><a href="/help/">Help</a></li>
             <li><a href="/#contact">Contact</a></li>
             <li><a href="/#existing-agreements">Existing agreements</a></li>
           </ul>
@@ -89,11 +230,152 @@
     </header>
 
     <main id="main">
-      <div class="wrap">
+      <div class="wrap home">
         <div class="intro">
           <h1>Made for rewarding loyal customers.</h1>
-          <p class="lead">RewardsPro is an app for Shopify stores, made by Cambridge TCG Limited, a UK company in London.</p>
+          <p class="lead">RewardsPro is an app for Shopify stores. It adds cashback to your customers' Shopify store credit when an order is paid, with VIP tiers by spend and a widget on your storefront.</p>
+          <p>RewardsPro is free, and the cashback is store credit in your own shop, so you fund the cashback you give.</p>
+          <p class="actions"><a class="button" href="https://apps.shopify.com/rewards-pro">View RewardsPro on the Shopify App Store</a></p>
+          <p class="maker">Made by Cambridge TCG Limited, a UK company in London.</p>
         </div>
+
+        <section class="section" id="how-it-works" aria-labelledby="how-it-works-title">
+          <h2 id="how-it-works-title">How it works</h2>
+          <ol class="steps">
+            <li>
+              <h3>Set your tiers and switch cashback on</h3>
+              <p>
+                Start with a base cashback rate, a whole percent from 0 to 100. It becomes your lowest tier, <strong>Everyone</strong>, which starts at a spend of 0.
+                Add tiers by spend, each with its own cashback rate.
+                Loyal customers move between tiers as their spend changes, unless you lock them to a tier.
+              </p>
+              <p>
+                Spend is counted over the last 12 months or over all time, as you choose, from the orders RewardsPro has recorded: those since install, and past orders from up to 12 months before it.
+                Past orders earn no cashback.
+                Then switch cashback on, and turn on the widget in your theme editor.
+              </p>
+              <figure>
+                <img
+                  src="/assets/screens/01-tiers.webp"
+                  alt="RewardsPro's Tiers page with two tiers: Everyone, from £0.00 at 5% cashback, and Gold, from £300.00 at 10%, with each tier's members and the form to add a tier."
+                  width="1200"
+                  height="675"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>The Tiers page, on a development store with invented data.</figcaption>
+              </figure>
+            </li>
+
+            <li>
+              <h3>A paid order earns cashback as store credit</h3>
+              <p>
+                When an order is paid, RewardsPro adds cashback to the customer's Shopify store credit, at the rate of the tier they were in before the order.
+                It doesn't wait for the order to be fulfilled.
+              </p>
+              <p>
+                Cashback is paid on the product price after discounts, less any part of the order paid with store credit or gift cards.
+                Shipping, and gift cards bought as products, earn nothing.
+                Nor do orders with no customer attached, Shopify's test orders, or orders RewardsPro records while cashback is off.
+                <a href="/help/#earn-nothing">Every order that earns nothing</a> is listed on the help page.
+              </p>
+              <figure>
+                <img
+                  src="/assets/screens/03-order.webp"
+                  alt="An order's page in RewardsPro: an invented buyer, a £100.00 total that earns cashback on £100.00, and £5.00 cashback at the Everyone tier's 5%, marked Issued."
+                  width="1200"
+                  height="675"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>An order's page. The buyer is an invented customer on a development store.</figcaption>
+              </figure>
+            </li>
+
+            <li>
+              <h3>Customers spend it at checkout</h3>
+              <p>
+                Customers can spend store credit at checkout when signed in with Shopify's new customer accounts or with Shop Pay; it isn't available for legacy customer accounts.
+                Shopify applies the full store-credit balance at checkout; customers can't choose part of it.
+              </p>
+              <p class="source">
+                Both are Shopify's rules: Shopify Help Center,
+                <a href="https://help.shopify.com/en/manual/customers/store-credit">"Store credit"</a>, as read on 7 November 2026.
+              </p>
+              <p>
+                While cashback is on, the widget shows guests your base rate and a sign-in prompt.
+                It shows signed-in customers their tier and cashback rate, their store credit when Shopify returns it, and how far they are from the next tier, when there is one they can reach.
+              </p>
+              <figure>
+                <img
+                  src="/assets/screens/02-customer-locked.webp"
+                  alt="A customer's page in RewardsPro: locked to the Gold tier at 10%, with a Return to automatic button, £5.00 store credit, and a cashback history of one order."
+                  width="1200"
+                  height="675"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>A customer's page in the app, for the same invented customer, locked to a tier.</figcaption>
+              </figure>
+            </li>
+
+            <li>
+              <h3>A refund takes its share back</h3>
+              <p>
+                When items are refunded, RewardsPro takes back their share of the cashback, up to the store credit the customer still holds in the order's currency.
+                A refund of shipping alone takes nothing back.
+                If the customer has already spent the credit, RewardsPro takes what is left and doesn't chase the rest.
+              </p>
+              <p>Where a refund takes back more, or nothing:</p>
+              <ul>
+                <li>On a store whose prices exclude tax, a refund of money alone, with no items, takes back more than its share, by the tax rate.</li>
+                <li>A refund too large for RewardsPro to read takes nothing back. <a href="/help/#refunds">The help page</a> gives the sizes.</li>
+                <li>After a customer's data is erased at their request, refunds of their orders take nothing back.</li>
+                <li>These rules are for orders as they were paid, not for items an edit or an exchange added after payment.</li>
+              </ul>
+            </li>
+          </ol>
+        </section>
+
+        <section class="section" id="cost" aria-labelledby="cost-title">
+          <h2 id="cost-title">What it costs</h2>
+          <p>
+            RewardsPro is free for every store that installs it, and no paid plans are offered.
+            The cashback is store credit in your own shop, so you fund the cashback you give.
+          </p>
+          <div class="rule">
+            <p class="rule-label">Shopify's rule</p>
+            <p>For Shopify stores created on or after 12 May 2025, Shopify charges third-party transaction fees on the part of an order paid with store credit.</p>
+            <p class="source">
+              Sources: Shopify Help Center,
+              <a href="https://help.shopify.com/en/manual/customers/store-credit">"Store credit"</a> and
+              <a href="https://help.shopify.com/en/manual/your-account/manage-billing/billing-charges/types-of-charges/third-party-charges/third-party-transaction-fees">"Third-party transaction fees"</a>,
+              as read on 7 November 2026.
+            </p>
+          </div>
+        </section>
+
+        <section class="section" id="limits" aria-labelledby="limits-title">
+          <h2 id="limits-title">What it doesn't do</h2>
+          <ul>
+            <li>Each tier has one cashback rate, with no setting to exclude products, collections or sales channels.</li>
+            <li>Shopify doesn't let store credit pay subscription renewals.</li>
+            <li>RewardsPro sends no email. One setting, off by default, asks Shopify to send its own email when a customer earns store credit.</li>
+            <li>The widget's text is in English.</li>
+            <li>Uninstalling takes back none of the store credit your customers already have.</li>
+          </ul>
+          <p>The <a href="/help/">help page</a> covers setup, the widget and every limit we know of.</p>
+        </section>
+
+        <section class="section" id="next" aria-labelledby="next-title">
+          <h2 id="next-title">Next step</h2>
+          <p>Read the listing and install RewardsPro from the Shopify App Store.</p>
+          <p class="actions"><a class="button" href="https://apps.shopify.com/rewards-pro">View RewardsPro on the Shopify App Store</a></p>
+          <p>
+            Before you install, the <a href="/help/">help page</a> explains setup step by step, and the
+            <a href="/privacy-policy/">privacy policy</a> says what the app stores.
+          </p>
+        </section>
 
         <section class="section" id="contact" aria-labelledby="contact-title">
           <h2 id="contact-title">Contact</h2>
@@ -113,8 +395,10 @@
         <p>© 2026 Cambridge TCG Limited</p>
         <nav aria-label="Footer">
           <ul class="nav-list">
+            <li><a href="/help/">Help</a></li>
             <li><a href="/#contact">Contact</a></li>
             <li><a href="/privacy-policy/">Privacy</a></li>
+            <li><a href="/subprocessors/">Subprocessors</a></li>
           </ul>
         </nav>
       </div>

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -174,5 +174,55 @@ describe("rewardspro.io privacy and subprocessors pages", () => {
     const sitemap = readText(SITEMAP);
     expect(sitemap).toContain("<loc>https://rewardspro.io/privacy-policy/</loc> <lastmod>2026-11-10</lastmod>");
     expect(sitemap).toContain("<loc>https://rewardspro.io/subprocessors/</loc> <lastmod>2026-11-10</lastmod>");
+  });
+});
+
+const HOME = "landing/public/index.html";
+const PAGES = [HOME, "landing/public/help/index.html", "landing/public/404.html", PRIVACY, SUBPROCESSORS];
+
+describe("rewardspro.io home page", () => {
+  it("says free only beside who funds the cashback, in the page and in its structured data", () => {
+    const home = readText(HOME);
+    expect(home).toContain("RewardsPro is free for every store that installs it, and no paid plans are offered.");
+    expect(home).toContain("The cashback is store credit in your own shop, so you fund the cashback you give.");
+    expect(home).toContain("The app is free; you fund the cashback.");
+    expect(home).not.toMatch(/free forever|Rewards Pro|instant|points|raffle/i);
+
+    const ld = JSON.parse(read(HOME).match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
+    const appNode = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "SoftwareApplication");
+    expect(appNode.sameAs).toEqual(["https://apps.shopify.com/rewards-pro"]);
+    expect(appNode.offers.price).toBe("0");
+    expect(appNode.offers.description).toContain("so the store funds the cashback it gives");
+    expect(JSON.stringify(ld)).not.toMatch(/rating|review/i);
+  });
+
+  it("describes setup, earning and the widget as the app does them", () => {
+    const home = readText(HOME);
+    // The setup card's base rate makes the lowest tier, Everyone, in whole percent from 0 to 100
+    expect(home).toContain("Start with a base cashback rate, a whole percent from 0 to 100. It becomes your lowest tier, <strong>Everyone</strong>");
+    expect(app("app/lib/tiers.server.ts")).toContain('export const BASE_TIER_NAME = "Everyone";');
+    expect(app("app/routes/app._index.tsx")).toMatch(/label="Your base cashback rate"\s+name="percent"\s+suffix="%"\s+min=\{0\}\s+max=\{100\}\s+step=\{1\}/);
+    // What earns: the app's own words for the base
+    expect(home).toContain("Cashback is paid on the product price after discounts, less any part of the order paid with store credit or gift cards.");
+    expect(app("app/admin/words.ts")).toContain("Cashback is paid on the product price after discounts, less anything paid with store credit or gift cards.");
+    // Orders/paid is the only order topic that records an order, so fulfilment isn't waited for
+    expect(home).toContain("It doesn't wait for the order to be fulfilled.");
+    expect(app("shopify.app.toml")).not.toMatch(/fulfil/i);
+    // The widget's only language
+    expect(home).toContain("The widget's text is in English.");
+    expect(readdirSync(resolve(process.cwd(), "../rewards/extensions/rewards-widget/locales"))).toEqual(["en.default.json"]);
+  });
+
+  it("shows the listing's screenshots with sizes and alt text, and every page links the help page", () => {
+    const html = read(HOME);
+    const images = [...html.matchAll(/<img\s+src="\/assets\/screens\/([^"]+)"\s+alt="([^"]+)"\s+width="1200"\s+height="675"/g)];
+    expect(images.map(([, file]) => file)).toEqual(["01-tiers.webp", "03-order.webp", "02-customer-locked.webp"]);
+    for (const [, file, alt] of images) {
+      expect(existsSync(resolve(process.cwd(), `landing/public/assets/screens/${file}`)), file).toBe(true);
+      expect(alt.length, file).toBeGreaterThan(40);
+    }
+    expect(existsSync(resolve(process.cwd(), "landing/public/assets/screens/og-tiers.jpg"))).toBe(true);
+    for (const path of PAGES) expect(read(path), path).toContain('<li><a href="/help/">Help</a></li>');
+    expect(readText(SITEMAP)).toContain("<loc>https://rewardspro.io/</loc> <lastmod>2026-11-10</lastmod>");
   });
 });
