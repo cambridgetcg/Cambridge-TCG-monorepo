@@ -457,6 +457,17 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
     expect((await pool.query("SELECT count(*)::int AS n FROM agents WHERE public_handle = $1", [createdHandle])).rows[0].n).toBe(0);
   });
 
+  it("refuses a key name with control characters before any statement can fail, minting nothing", async () => {
+    state.userId = await newUser();
+    const agentId = await insertAgent(state.userId);
+    for (const name of ["a\u0000b", "bell\u0007", "line\nbreak", "del\u007f", "next\u0085line"]) {
+      expect(await mint(agentId, name), JSON.stringify(name)).toStrictEqual({ ok: false, error: "Key name cannot contain control characters." });
+    }
+    expect(await unrevokedKeyCount(agentId)).toBe(0);
+    // Ordinary punctuation, accents and emoji are fine.
+    expect(await mint(agentId, "Café laptop — 2026 😀")).toMatchObject({ ok: true });
+  });
+
   it("the five-key cap counts live keys only: expired keys free their slot", async () => {
     state.userId = await newUser();
     const agentId = await insertAgent(state.userId);

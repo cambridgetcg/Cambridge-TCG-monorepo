@@ -172,6 +172,11 @@ export async function mintKey(
   const user = await requireUser();
   if (!user.ok) return user;
   if (!isId(input.agent_id)) return { ok: false, error: "Agent not found." };
+  // C0, DEL and C1, checked before any statement: PostgreSQL text refuses
+  // NUL, which made the insert throw out of this action.
+  if (typeof input.name === "string" && /\p{Cc}/u.test(input.name)) {
+    return { ok: false, error: "Key name cannot contain control characters." };
+  }
   const name = (typeof input.name === "string" ? input.name.trim() : "") || "key";
   if (name.length > 80) return { ok: false, error: "Key name too long (max 80)." };
   const expiry = parseKeyExpiry(input.key_expiry);
