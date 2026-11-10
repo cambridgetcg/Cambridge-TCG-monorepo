@@ -21,9 +21,12 @@
 -- left out because no reminder is built: nothing is sent to anyone when a
 -- key nears or reaches its expiry.
 --
--- Rollout: apply 0151, then deploy. It is safe to apply before the code that
--- uses it: today's code neither reads nor writes the column, and its inserts
--- leave it NULL. It MUST be applied before deploying code that selects
+-- Rollout: apply 0151, then deploy. A push to main deploys
+-- (docs/ops-deploy-runbook.md), so apply 0151 to the production database
+-- before the change that uses it is merged to main, not after. It is safe to
+-- apply before the code that uses it: today's code neither reads nor writes
+-- the column, and its inserts leave it NULL. It MUST be applied before
+-- deploying code that selects
 -- agent_keys.expires_at: that code has no fallback for a missing column, so
 -- the gate's lookup would fail and every authenticated agent call would
 -- answer 503. Check first with

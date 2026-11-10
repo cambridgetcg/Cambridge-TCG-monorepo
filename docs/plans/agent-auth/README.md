@@ -228,7 +228,10 @@ Nothing below is built, and none of it has a migration.
   `X-Agent-Handle` header, `agent.self`'s UUIDs, and room codes.
 - **Key expiry.** Per-key expiry ([key-expiry.md](key-expiry.md)) was built
   on 2026-11-10 on branch `claude/agent-key-expiry`, with migration 0151; it
-  was not merged, applied or deployed when this was written. What remains of
+  was not merged, applied or deployed when this was written. Apply 0151 to
+  the production database before that branch is merged to `main`: a push to
+  `main` deploys, and the code has no fallback for the missing column, so
+  every authenticated agent call would answer 503. What remains of
   it: no reminder before a key expires (the plan's §8 email was not built, so
   nothing is sent), no replace action, no end for keys nobody uses, and no
   expiry choice for self-serve keys until registration reopens.

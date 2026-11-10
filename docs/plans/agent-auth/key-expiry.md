@@ -64,8 +64,10 @@ for discussion. It decides nothing, and nothing in it is built.
   and the guide keeps its `last_verified` date, which records a person's
   walk-through, with `revised` moved instead. The §11 rollout rule (apply
   0151, then deploy; no fallback for a missing column) is written in 0151's
-  header, as 0112 did for its column, and as a condition in the changelog
-  entry. Nothing is merged, no migration is applied, and nothing is
+  header, as 0112 did for its column, in the deploy runbook's migration list
+  and in the README's key-expiry bullet, which all say to apply 0151 before
+  the branch is merged to `main`, because a push to `main` deploys; and as a
+  condition in the changelog entry. Nothing is merged, no migration is applied, and nothing is
   deployed. The line links on this page still cite the code
   before the build (`81c63959`); on this branch, 26 of its 41 line-anchored
   links now land on lines the build changed, so read them at that commit.
