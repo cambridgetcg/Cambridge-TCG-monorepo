@@ -18,12 +18,16 @@ export const PRIVATE_KEY_PASTE_ERROR =
 const PRIVATE_KEY_SIGNS: readonly RegExp[] = [
   // PEM armour: PKCS #8, PKCS #1, SEC 1, OpenSSH, encrypted or not.
   /PRIVATE KEY/i,
-  // A "d" member, quoted either way, whatever follows (valid JSON or not).
-  /["']d["']\s*:/,
+  // A "d" member however it is written: quoted either way or not at all,
+  // followed by : or = (JSON, a JavaScript literal, Node's console.log of a
+  // JWK, YAML, env-style), valid JSON or not.
+  /(?:^|[\s{,"'])d["']?\s*[:=]/m,
   // "d" written as a JSON escape.
   /\\u0064/i,
-  // An unquoted d: or d= (JavaScript, YAML, env-style).
-  /(?:^|[\s{,])d\s*[:=]/,
+  // An Ed25519 PKCS #8 private key in base64 DER, without armour: the
+  // encoding of its fixed prefix (version 0, then version 1 with the public
+  // key), wherever it starts.
+  /MC4CAQAwBQYDK2Vw|MFECAQEwBQYDK2Vw/,
 ];
 
 export function looksLikePrivateKey(paste: string): boolean {

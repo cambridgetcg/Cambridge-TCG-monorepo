@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from "node:crypto";
+import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
 import { BINDING_JWK_ERRORS, checkBindingJwk } from "@/lib/agents/signed-act-verify";
 import {
@@ -57,6 +59,34 @@ describe("pasteHoldsPrivateKey", () => {
       expect(pasteHoldsPrivateKey(paste), paste.slice(0, 60)).toBe(checkBindingJwk(paste).ok === false && (checkBindingJwk(paste) as { refusal: string }).refusal === "private key");
     }
     expect(corpus.filter(pasteHoldsPrivateKey)).toHaveLength(11);
+  });
+
+  it("catches the third review's spellings of a real private key, in the browser and on the server alike", () => {
+    // A fresh key pair, made here and dropped: its private half is never
+    // printed (failure messages name the case, not the paste).
+    const { privateKey } = generateKeyPairSync("ed25519");
+    const jwk = privateKey.export({ format: "jwk" }) as { kty: string; crv: string; x: string; d: string };
+    const cases: Record<string, string> = {
+      "Node's console.log of the JWK": inspect(jwk),
+      "an object literal with unquoted names": `{kty:"OKP",crv:"Ed25519",x:"${jwk.x}",d:"${jwk.d}"}`,
+      "an unquoted d: alone": `d: ${jwk.d}`,
+      YAML: `kty: OKP\ncrv: Ed25519\nx: ${jwk.x}\nd: ${jwk.d}`,
+      "PKCS#8 DER in base64, without armour": privateKey.export({ type: "pkcs8", format: "der" }).toString("base64"),
+      "PKCS#8 DER in base64, wrapped and indented": `  ${privateKey.export({ type: "pkcs8", format: "der" }).toString("base64")}\n`,
+      'an escaped "d" with a trailing comma': `{"kty":"OKP","crv":"Ed25519","x":"${jwk.x}","\\u0064":"${jwk.d}",}`,
+      "plain JSON": JSON.stringify(jwk),
+      PEM: String(privateKey.export({ type: "pkcs8", format: "pem" })),
+    };
+    for (const [name, paste] of Object.entries(cases)) {
+      expect(pasteHoldsPrivateKey(paste), name).toBe(true);
+      const server = checkBindingJwk(paste);
+      expect(server.ok === false && server.refusal, name).toBe("private key");
+      expect(JSON.stringify(server).includes(jwk.d), name).toBe(false);
+    }
+    // The public half alone, as the signer prints it, still goes through.
+    const { d: _d, ...publicJwk } = jwk;
+    expect(pasteHoldsPrivateKey(JSON.stringify(publicJwk))).toBe(false);
+    expect(checkBindingJwk(JSON.stringify(publicJwk))).toMatchObject({ ok: true });
   });
 
   it("tells the operator what the server would, word for word", () => {

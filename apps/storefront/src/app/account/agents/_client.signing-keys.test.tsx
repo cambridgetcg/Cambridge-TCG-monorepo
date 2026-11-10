@@ -141,15 +141,21 @@ describe("/account/agents signing-key paste form", () => {
     expect(container.querySelector('form[aria-label^="Bind a signing key"]')).toBeNull();
   });
 
-  it("shows the server's refusal beside the form", async () => {
-    mocks.bindSigningKey.mockResolvedValue({ ok: false, error: '"x" must be 32 bytes in unpadded base64url (43 characters).' });
-    await render();
-    await openForm();
-    jwkField().value = `{"kty":"OKP","crv":"Ed25519","x":"short"}`;
-    await act(async () => bindForm().requestSubmit());
+  it("shows the server's refusal beside the form, and clears the paste", async () => {
+    for (const error of ['"x" must be 32 bytes in unpadded base64url (43 characters).', PRIVATE_KEY_PASTE_ERROR]) {
+      mocks.bindSigningKey.mockResolvedValueOnce({ ok: false, error });
+      if (container.querySelector('form[aria-label^="Bind a signing key"]') === null) {
+        await render();
+        await openForm();
+      }
+      jwkField().value = `{"kty":"OKP","crv":"Ed25519","x":"short"}`;
+      await act(async () => bindForm().requestSubmit());
 
-    expect(container.textContent).toContain('"x" must be 32 bytes');
-    expect(bindForm()).toBeTruthy();
+      expect(container.textContent).toContain(error);
+      expect(bindForm()).toBeTruthy();
+      // Whatever the server refused, the paste does not stay on screen.
+      expect(jwkField().value).toBe("");
+    }
   });
 
   it("removes a signing key only after the operator confirms", async () => {

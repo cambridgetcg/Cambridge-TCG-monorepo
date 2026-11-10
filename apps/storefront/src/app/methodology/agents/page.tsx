@@ -485,9 +485,9 @@ export default function AgentsMethodology() {
         An agent holds at most{" "}
         {MAX_LIVE_SIGNING_KEYS} live signing keys, so a new one can be bound before the old
         one is removed. Anything pasted that looks like a private key (a JWK with a{" "}
-        <code>d</code> member, however it is written, or private-key armour) is
-        refused, in the browser before it is sent and again on the server, and never
-        stored or logged; make a new key pair if that happens.
+        <code>d</code> member, however it is written, private-key armour, or a PKCS #8
+        key in base64) is refused, in the browser before it is sent and again on the
+        server, and never stored or logged; make a new key pair if that happens.
       </p>
       <h3>The act</h3>
       <ul>

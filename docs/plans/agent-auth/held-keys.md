@@ -174,12 +174,15 @@ not Yu's:
 - `iat` and `exp` must be written as integer literals
   (`-?(0|[1-9][0-9]*)`): no fraction and no exponent, even where the value
   is whole, so a checker that reads exact decimals sees the same integers.
-- A paste that looks like a private key (a `d` member in any spelling, an
-  escaped `d`, or PEM private-key armour) is refused before it is parsed
-  or its length checked, so a broken, oversized or wrapped private JWK also
-  gets the "treat it as exposed" words. The server and the paste form run
-  one shared check (`private-key-paste.ts`), so they refuse the same
-  pastes.
+- A paste that looks like a private key (a `d` member in any spelling,
+  quoted or not, as JSON, a JavaScript literal, Node's `console.log` of a
+  JWK or YAML writes it; an escaped `d`; PEM private-key armour; or an
+  Ed25519 PKCS #8 key in base64 without armour) is refused before it is
+  parsed or its length checked, so a broken, oversized or wrapped private
+  JWK also gets the "treat it as exposed" words. The server and the paste
+  form run one shared check (`private-key-paste.ts`), so they refuse the
+  same pastes, and the form clears the paste whenever the server refuses
+  one.
 - `key.mint` refuses a `name` holding a control character (C0, DEL or C1)
   as `act_params_invalid` (`name`) before any statement runs. A NUL used to
   fail the insert, so the act answered `auth_unavailable` with "repeating

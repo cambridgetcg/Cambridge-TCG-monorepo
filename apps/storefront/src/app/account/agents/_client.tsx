@@ -282,6 +282,10 @@ function SigningKeys({
         key_expiry: keyExpiryFromForm(data),
       });
       if (!res.ok) {
+        // Whatever the server refused, the paste does not stay on screen:
+        // it may hold a private key in a spelling the browser missed.
+        const field = form.elements.namedItem(SIGNING_KEY_JWK_FIELD);
+        if (field instanceof HTMLTextAreaElement) field.value = "";
         setError(res.error);
         return;
       }
