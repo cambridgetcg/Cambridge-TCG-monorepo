@@ -52,6 +52,7 @@ import {
   liveAgentKeySql,
   parseKeyExpiry,
 } from "./key-expiry";
+import { MAX_LIVE_AGENT_KEYS } from "./key-caps";
 import { ARCHIVE_REVOCATION_REASON } from "./revocation-reasons";
 
 export type OperatorActionResult<T> =
@@ -74,7 +75,7 @@ function isId(value: unknown): value is string {
 }
 
 const MAX_ACTIVE_AGENTS = 10;
-const MAX_LIVE_KEYS = 5;
+const MAX_LIVE_KEYS = MAX_LIVE_AGENT_KEYS;
 const DESCRIPTION_MAX = 500; // the form's maxLength
 const REVOKE_REASON_MAX = 200;
 
