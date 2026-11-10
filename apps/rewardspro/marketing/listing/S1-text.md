@@ -5,7 +5,8 @@ field by field, and never presses Save, Delete or Submit. The owner reads each f
 His part takes about 20–30 minutes [I], plus about 5 if he runs the optional "before" check (§6). The agent's
 preparation (§1) takes about 20 minutes and none of his, after one yes. Written by agents for issue #162 (RP-02) and
 revised on 10 Nov 2026 after the second read on #162. The sitting ran on 10 Nov: the owner saved the filled form,
-and it is with Shopify for review (#162). Where the form differed from this sheet, the lines below say so.
+and it is with Shopify for review (#162). The lines below mark what it settled on screenshots, Pricing, alt text,
+the data reasons and Submit; the rest of what the form showed is in the sitting's notes on #162.
 
 **Why it comes first.** An App Store ad "is based on information in the associated app listing, and can't be
 customized" (create-ads). Shopify's Sidekick, search snippets and the directory sites copy the listing too.
@@ -399,8 +400,8 @@ read 10 Nov 2026 at 11:28 UTC. Each was fetched once with a generic browser User
 
 Field limits not stated on these pages (subtitle, SEO title, meta description, alt text, reasons, the pricing text,
 how many features and screenshots the form requires): the form's own counter decides [U]. The sitting settled
-three (#162): three desktop screenshots are required, Pricing's feature lines take up to 40 characters each, and
-the data reasons are categories.
+four (#162): three desktop screenshots are required, Pricing's feature lines take up to 40 characters each, alt
+text takes up to 64 (so Alt #2 went in as a 63-character version), and the data reasons are categories.
 
 **Count check.** From the repo root; every line should read "ok" (26 when this was committed):
 ````sh

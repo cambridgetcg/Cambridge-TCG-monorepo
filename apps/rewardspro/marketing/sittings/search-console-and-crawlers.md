@@ -7,7 +7,7 @@ until the owner says go to this sheet.
 **Start here (about 15–20 minutes, the owner's):** M1, send one email to contact@ from a personal address (~3 min);
 then M2, turn on DKIM in Google Admin (~10–15 min). They are the first two steps in §2.
 **Done on 10 Nov (#164, #223):** M1 (the owner's test reached contact@), M2 and M3 (SPF corrected, DKIM on) and R1 (`www`);
-§1 below is the state before them. M4, the SPF, DKIM and DMARC read, is still open.
+§1 and the steps below describe the state before them. M4, the SPF, DKIM and DMARC read, is still open.
 
 **Who does what.** Each step is marked **Owner** or **Agent**. The owner does every step signed in to Google Admin,
 Search Console or Bing, the Cloudflare settings in B1–B3, and every choice. An agent adds the DNS records (M3, A2,

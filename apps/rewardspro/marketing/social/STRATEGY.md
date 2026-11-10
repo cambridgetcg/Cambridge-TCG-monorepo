@@ -262,7 +262,7 @@ Until the interviews: no card-shop or TCG framing, no outcome lines, and nothing
 
 ### 6.3 Claim ids (for the claims maker, who alone edits `claims.toml`)
 
-All rows start as `proposed`. A row becomes `verified` only after its evidence check and a second session's concurrence. Each row carries `commercial_interest = "We make RewardsPro."`, the channels `social-profile` and/or `social-post`, and a `review_after` date. The **sh-*** rows each need:
+All rows started as `proposed`; until 10 Nov a row became `verified` only after its evidence check and a second session's concurrence. Since then a row is `verified` by its writer and the one read, and a new public sentence's source goes in its PR body (`claims.toml`'s header). Each row carries `commercial_interest = "We make RewardsPro."`, the channels `social-profile` and/or `social-post`, and a `review_after` date. The **sh-*** rows each need:
 - a raw re-fetch of the help page, with its sha256 stored;
 - a verbatim-or-paraphrase flag;
 - a 30-day `review_after`;
