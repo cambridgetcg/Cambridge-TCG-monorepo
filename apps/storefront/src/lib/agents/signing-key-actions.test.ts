@@ -114,6 +114,26 @@ describe("bindSigningKey", () => {
     expect((tx.mock.calls[5][1][2] as Buffer).length).toBe(32);
   });
 
+  it("binds a key whose pending window lapsed again, deleting the lapsed row first as the sweep would", async () => {
+    const { text, kid } = freshJwk();
+    const LAPSED_ID = "00000000-0000-4000-8000-0000000000d4";
+    const tx = txAnswering(
+      { rows: [{ id: AGENT_ID }] },
+      { rows: [{ id: LAPSED_ID, revoked_at: null, confirmed_at: null, lapsed: true }] },
+      { rows: [{ n: 0 }] },
+      { rows: [{ passed: false }] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [{ id: SIGNING_KEY_ID, not_after: null, pending_until: new Date("2026-11-17T12:00:00Z") }] },
+    );
+    expect(await bindSigningKey({ agent_id: AGENT_ID, public_jwk: text, key_expiry: "never" })).toMatchObject({ ok: true, data: { kid, state: "pending" } });
+    expect(sqlOf(tx, 1)).toContain("AS lapsed");
+    expect(sqlOf(tx, 4)).toContain("DELETE FROM agent_signing_keys WHERE id = ANY($1::uuid[]) AND agent_id = $2 AND confirmed_at IS NULL AND revoked_at IS NULL");
+    expect(tx.mock.calls[4][1]).toEqual([[LAPSED_ID], AGENT_ID]);
+    expect(sqlOf(tx, 5)).toContain("INSERT INTO agent_act_events");
+    expect(sqlOf(tx, 6)).toContain("INSERT INTO agent_signing_keys");
+  });
+
   it("answers the agent refusal, an already-bound key, an ended one, the cap and a begun date", async () => {
     const { text } = freshJwk();
     const bind = () => bindSigningKey({ agent_id: AGENT_ID, public_jwk: text, key_expiry: "30d" });

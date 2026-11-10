@@ -481,7 +481,8 @@ export default function AgentsMethodology() {
         chooses when it expires, with the same choices as a usage key; the page shows the
         key&apos;s RFC 7638 thumbprint to compare with the one the agent&apos;s signer
         printed. The key is pending until its first validly signed act, and lapses if none
-        comes within {PENDING_SIGNING_KEY_DAYS} days. An agent holds at most{" "}
+        comes within {PENDING_SIGNING_KEY_DAYS} days; a lapsed key can be pasted again.
+        An agent holds at most{" "}
         {MAX_LIVE_SIGNING_KEYS} live signing keys, so a new one can be bound before the old
         one is removed. Anything pasted that looks like a private key (a JWK with a{" "}
         <code>d</code> member, however it is written, or private-key armour) is

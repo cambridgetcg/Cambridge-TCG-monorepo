@@ -196,6 +196,10 @@ not Yu's:
   for the key's expiry, its pending window and the act's `iat` and `exp`.
   `NOW()` is the transaction's start, before any wait for those locks, so
   an act that waited past its `exp` was applied.
+- Pasting a key again after its pending window lapsed binds it afresh: the
+  lapsed row is deleted first, as the sweep would delete it, and its bind
+  event stays. It used to answer "already bound" until the operator removed
+  the old row.
 
 **What is off.** `AGENT_SIGNED_ACTS` is off unless set to exactly `on` with
 an audience. Off, both doors answer `signed_acts_closed`, binding is

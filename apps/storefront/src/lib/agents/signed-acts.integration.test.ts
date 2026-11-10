@@ -379,6 +379,28 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     }
   }, 30000);
 
+  it("binds a key again once its pending window has lapsed, without the operator removing the old row first", async () => {
+    const { userId, agentId, h, signingKeyId } = await setup({ confirm: false });
+    await pool.query(`UPDATE agent_signing_keys SET created_at = created_at - interval '8 days' WHERE id = $1`, [signingKeyId]);
+    expect(codeOf(await submit(sign(h, agentId, "signer.check")))).toBe("signing_key_ended");
+    state.userId = userId;
+    const again = await bindSigningKey({ agent_id: agentId, public_jwk: h.jwk, key_expiry: "30d" });
+    expect(again).toMatchObject({ ok: true, data: { kid: h.kid, state: "pending" } });
+    if (!again.ok) throw new Error(again.error);
+    // The lapsed row is gone, as the sweep would have taken it; the new one confirms.
+    expect((await pool.query(`SELECT id FROM agent_signing_keys WHERE agent_id = $1`, [agentId])).rows.map((row) => row.id)).toEqual([again.data.signing_key_id]);
+    expect(expectApplied(await submit(sign(h, agentId, "signer.check"))).body).toMatchObject({ signing_key_confirmed: true });
+    expect((await events(agentId)).map((row) => [row.act, row.refusal])).toEqual([
+      ["signing_key.bind", null],
+      ["signer.check", "signing_key_ended"],
+      ["signing_key.bind", null],
+      ["signer.check", null],
+    ]);
+    // A pending key still inside its window stays bound.
+    const fresh = await setup({ confirm: false });
+    expect(await bindSigningKey({ agent_id: fresh.agentId, public_jwk: fresh.h.jwk, key_expiry: "30d" })).toEqual({ ok: false, error: "This key is already bound to this agent." });
+  });
+
   it("lets only one of two agents confirm one key; the other's holder alone learns it is in use", async () => {
     for (let round = 0; round < 8; round += 1) {
       const h = holder();

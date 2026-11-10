@@ -5,7 +5,9 @@
  *
  *   - bindSigningKey: bind a pasted public JWK to one of the signed-in
  *     account's active operator-managed agents. The key is pending until its
- *     first validly signed act (signed-acts.ts) confirms it; its expiry is
+ *     first validly signed act (signed-acts.ts) confirms it; pasted again
+ *     after its pending window lapsed, the lapsed row is deleted, as the
+ *     sweep would delete it, and the key bound afresh; its expiry is
  *     stated as a wire value (key-expiry.ts, never included); an agent holds
  *     at most two live signing keys, so a replacement can precede removal.
  *   - removeSigningKey: end one of the account's signing keys, any agent
@@ -145,11 +147,18 @@ export async function bindSigningKey(input: BindSigningKeyInput): Promise<
     if (agent.rows.length === 0) return { kind: "refused" as const };
 
     // Only this agent's own rows: the binding never looks at other agents'.
+    // A pending key past its window is bound no longer (by the same NOW() as
+    // the live count below), so it does not block a new binding.
     const own = await tx(
-      `SELECT revoked_at, confirmed_at FROM agent_signing_keys WHERE agent_id = $1 AND thumbprint = $2`,
+      `SELECT id, revoked_at, confirmed_at,
+              (revoked_at IS NULL AND confirmed_at IS NULL
+               AND created_at <= NOW() - make_interval(days => ${PENDING_SIGNING_KEY_DAYS})) AS lapsed
+         FROM agent_signing_keys
+        WHERE agent_id = $1 AND thumbprint = $2`,
       [agentId, jwk.thumbprint],
     );
-    if (own.rows.some((row) => !row.revoked_at)) return { kind: "already_bound" as const };
+    const lapsed = own.rows.filter((row) => row.lapsed === true).map((row) => String(row.id));
+    if (own.rows.some((row) => !row.revoked_at && row.lapsed !== true)) return { kind: "already_bound" as const };
     // A confirmed thumbprint stays unique until the agent is erased, so a key
     // this agent confirmed and then ended could never be confirmed again.
     if (own.rows.some((row) => row.confirmed_at)) return { kind: "ended_here" as const };
@@ -165,6 +174,15 @@ export async function bindSigningKey(input: BindSigningKeyInput): Promise<
     const passed = await tx(`SELECT COALESCE((${keyExpiresAtSql(1, 2)}) <= NOW(), false) AS passed`, binds);
     if (passed.rows[0]?.passed === true) return { kind: "date_passed" as const };
 
+    // The lapsed row goes, as the sweep would have taken it, so the new row
+    // fits the one-unrevoked-row-per-key index; its bind event stays.
+    if (lapsed.length > 0) {
+      await tx(
+        `DELETE FROM agent_signing_keys
+          WHERE id = ANY($1::uuid[]) AND agent_id = $2 AND confirmed_at IS NULL AND revoked_at IS NULL`,
+        [lapsed, agentId],
+      );
+    }
     await tx(
       `INSERT INTO agent_act_events (id, agent_id, basis, act, outcome, thumbprint, effect)
        VALUES ($1, $2, 'operator', 'signing_key.bind', 'applied', $3, $4::jsonb)`,

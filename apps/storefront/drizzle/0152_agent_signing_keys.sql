@@ -37,11 +37,12 @@
 -- until it is they are kept indefinitely, archived agents included. A key
 -- never confirmed by a signed act is deleted 7 days after binding, whether or
 -- not the operator removed it meanwhile, by the hourly maintenance sweep
--- (lib/agents/signed-act-sweep.ts). The sweep runs only while signed acts are
--- open (AGENT_SIGNED_ACTS), as no code reads or writes these tables while they
--- are closed, so after a close such keys and expired nonces stay until the
--- path opens again; nothing can use them meanwhile. When an event's agent_id
--- goes to NULL (P1's delete, its case 7a, or
+-- (lib/agents/signed-act-sweep.ts); binding the same key to the same agent
+-- again after that deletes its old row too. The sweep runs only while signed
+-- acts are open (AGENT_SIGNED_ACTS), as no code reads or writes these tables
+-- while they are closed, so after a close such keys and expired nonces stay
+-- until the path opens again; nothing can use them meanwhile. When an
+-- event's agent_id goes to NULL (P1's delete, its case 7a, or
 -- an account deletion cascading through agents), the guard below also nulls
 -- act_jws, thumbprint, verification and effect, so a receipt stays: event id,
 -- basis, act, outcome or refusal, act_sha256, date. P1's tombstone (7b) keeps
