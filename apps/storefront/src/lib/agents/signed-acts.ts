@@ -78,7 +78,7 @@ import {
   signedActsConfig,
 } from "./signed-act-config";
 import { currentDisclosure, disclosureSha256, isCurrentDisclosureDigest } from "./signed-act-disclosures";
-import { actLimiter, type ActLimiter } from "./signed-act-limits";
+import { actLimiter, type ActLimiter, type LimitAnswer, type LimitScope } from "./signed-act-limits";
 import {
   AGENT_ID_RE,
   DUMMY_VERIFICATION_KEY,
@@ -164,14 +164,22 @@ function refused(
   return { ok: false, status: SIGNED_ACT_STATUS[code], message, refusal: signedActRefusal(code, extra), verified };
 }
 
-function limited(retryAfterSeconds: number, verified: boolean): AgentActAnswer {
+/** act_limited's words, by which limit refused: only the per-address limit
+ *  is about "here". */
+const LIMITED_MESSAGES: Readonly<Record<LimitScope, string>> = {
+  address: MESSAGES.act_limited,
+  instance: "Too many acts reached this server just now, from all callers together. Nothing was applied.",
+  key: "Too many acts signed by this key just now. Nothing was applied.",
+};
+
+function limited(limit: Extract<LimitAnswer, { allowed: false }>, verified: boolean): AgentActAnswer {
   return {
     ok: false,
     status: SIGNED_ACT_STATUS.act_limited,
-    message: `${MESSAGES.act_limited} Retry in ${retryAfterSeconds}s.`,
-    refusal: signedActLimitedRefusal(retryAfterSeconds),
+    message: `${LIMITED_MESSAGES[limit.scope]} Retry in ${limit.retryAfterSeconds}s.`,
+    refusal: signedActLimitedRefusal(limit.retryAfterSeconds),
     verified,
-    retryAfterSeconds,
+    retryAfterSeconds: limit.retryAfterSeconds,
   };
 }
 
@@ -300,8 +308,9 @@ export async function submitAgentAct(args: unknown, context: AgentActContext): P
 
   if (typeof preview === "string") {
     if (!isSignedActName(preview)) return refused("act_malformed", false, { detail: "preview must name signer.check, key.mint or key.revoke" });
-    const limit = limiter.beforeVerification(context.clientAddress, "other");
-    if (!limit.allowed) return limited(limit.retryAfterSeconds, false);
+    // No database or curve work: per address only, never an instance ceiling.
+    const limit = limiter.preview(context.clientAddress);
+    if (!limit.allowed) return limited(limit, false);
     return previewAnswer(preview, config.audience, nowMs);
   }
 
@@ -316,7 +325,7 @@ export async function submitAgentAct(args: unknown, context: AgentActContext): P
   // 4. Limits before any curve work.
   const exit = EXIT_LABELLED_ACTS.has(signed.payload.act);
   const before = limiter.beforeVerification(context.clientAddress, exit ? "exit" : "other");
-  if (!before.allowed) return limited(before.retryAfterSeconds, false);
+  if (!before.allowed) return limited(before, false);
 
   // 5. (sub, kid) in any state, before the transaction.
   let key: { id: string; publicKey: Uint8Array } | null;
@@ -329,10 +338,10 @@ export async function submitAgentAct(args: unknown, context: AgentActContext): P
   // 6. R rule and strict verify; an unknown key costs the same and answers the same.
   const valid = verifyActSignature(signed, key?.publicKey ?? DUMMY_VERIFICATION_KEY);
   if (!key || !valid) return refused("act_unverified", false);
-  if (!exit) {
-    const after = limiter.afterVerification(signed.header.kid);
-    if (!after.allowed) return limited(after.retryAfterSeconds, true);
-  }
+  // Every act, exit acts included: an ended key's holder cannot write an
+  // event per act without bound.
+  const after = limiter.afterVerification(signed.header.kid);
+  if (!after.allowed) return limited(after, true);
 
   // 7 to 12.
   try {

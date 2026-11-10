@@ -51,17 +51,21 @@ export function signedActsOpen(env: Env = process.env): boolean {
 export const SIGNED_ACT_LIMITS = {
   /** Fixed windows of this many seconds. */
   windowSeconds: 60,
-  /** Acts and previews per client address per window, counted apart for
-   *  exit-labelled acts and for the rest. */
+  /** Per client address (an IPv4 address or an IPv6 /64) per window,
+   *  counted apart for exit-labelled acts, for the other acts and for
+   *  previews. */
   perAddress: 20,
-  /** Non-exit acts and previews per instance per window. */
+  /** Non-exit acts per instance per window. Previews are not counted. */
   perInstance: 600,
   /** Exit-labelled acts (key.revoke) per instance per window: their own
-   *  ceiling, so a flood of other acts cannot starve them, nor they others. */
-  exitPerInstance: 300,
-  /** After verification, non-exit acts per signing key per window. */
+   *  ceiling, so a flood of other acts cannot starve them, nor they others.
+   *  A verify costs about 1.6 ms, so this is a few percent of one core. */
+  exitPerInstance: 1200,
+  /** After verification, acts per signing key per window, exit acts
+   *  included. */
   perKey: 30,
-  /** Addresses tracked per window; past this, new ones share one bucket. */
+  /** Addresses tracked per class per window; past this, new ones share one
+   *  overflow bucket in that class. */
   maxTrackedAddresses: 10_000,
 } as const;
 

@@ -60,7 +60,7 @@ describe("POST /api/v1/agents/act", () => {
       const bodies = [];
       const headerSets: Record<string, string>[] = [{}, { authorization: BEARER }, { authorization: "Basic eA==" }];
       for (const headers of headerSets) {
-        const response = await POST(post(JSON.stringify({ preview: "signer.check", act: null }), { ...headers, "cf-connecting-ip": "203.0.113.5" }));
+        const response = await POST(post(JSON.stringify({ preview: "signer.check", act: null }), { ...headers, "x-real-ip": "172.64.1.2", "cf-connecting-ip": "203.0.113.5" }));
         expect(response.status).toBe(200);
         const { server_time: _t, ...body } = await response.json();
         bodies.push(body);
@@ -73,6 +73,18 @@ describe("POST /api/v1/agents/act", () => {
         expect(context).toEqual({ clientAddress: "203.0.113.5" });
       }
       expect(query).not.toHaveBeenCalled();
+    });
+
+    it("keys the limit on x-real-ip, believing cf-connecting-ip only from Cloudflare's addresses", async () => {
+      for (const [headers, clientAddress] of [
+        [{ "x-real-ip": "198.51.100.9", "cf-connecting-ip": "203.0.113.5" }, "198.51.100.9"],
+        [{ "x-real-ip": "172.64.1.2", "cf-connecting-ip": "2001:db8::5" }, "2001:db8:0:0::/64"],
+        [{ "cf-connecting-ip": "203.0.113.5" }, "unknown"],
+      ] as const) {
+        mocks.submitAgentAct.mockClear();
+        expect((await POST(post(JSON.stringify({ preview: "signer.check" }), headers))).status).toBe(200);
+        expect(mocks.submitAgentAct.mock.calls[0][1]).toEqual({ clientAddress });
+      }
     });
 
     it("refuses an oversized body, duplicate names and non-JSON before the act path", async () => {

@@ -174,6 +174,37 @@ describe("before the database", () => {
     expect(refusalOf(exit).refusal.reason_code).toBe("act_unverified");
     // Another address has its own.
     expect(refusalOf(await run(signAct(secretKey, kid), "198.51.100.9")).refusal.reason_code).toBe("act_unverified");
+    // The per-address refusal is the one that says "from here".
+    expect(refusalOf(third).message).toMatch(/^Too many acts from here just now\. Nothing was applied\. Retry in \d+s\.$/);
+  });
+
+  it("says an instance-wide refusal is about all callers, not about here", async () => {
+    const { secretKey, kid } = keyPair();
+    vi.mocked(query).mockResolvedValue({ rows: [], rowCount: 0 });
+    const limiter = createActLimiter({ ...SIGNED_ACT_LIMITS, perInstance: 1 });
+    expect(refusalOf(await submitAgentAct({ act: signAct(secretKey, kid) }, { clientAddress: "192.0.2.1", env: OPEN, limiter })).refusal.reason_code).toBe("act_unverified");
+    const answer = refusalOf(await submitAgentAct({ act: signAct(secretKey, kid) }, { clientAddress: "192.0.2.2", env: OPEN, limiter }));
+    expect(answer).toMatchObject({ status: 429, refusal: { reason_code: "act_limited" } });
+    expect(answer.message).not.toContain("from here");
+    expect(answer.message).toMatch(/^Too many acts reached this server just now, from all callers together\. Nothing was applied\. Retry in \d+s\.$/);
+  });
+
+  it("never counts a preview against an instance ceiling", async () => {
+    const { secretKey, kid } = keyPair();
+    vi.mocked(query).mockResolvedValue({ rows: [], rowCount: 0 });
+    const limiter = createActLimiter({ ...SIGNED_ACT_LIMITS, perInstance: 1, exitPerInstance: 1 });
+    for (let i = 0; i < 30; i += 1) {
+      expect((await submitAgentAct({ preview: "key.mint" }, { clientAddress: `2001:db8:${i.toString(16)}:0::/64`, env: OPEN, limiter })).ok).toBe(true);
+    }
+    // Both classes still have their one act.
+    const other = await submitAgentAct({ act: signAct(secretKey, kid) }, { clientAddress: "192.0.2.9", env: OPEN, limiter });
+    const exit = await submitAgentAct({ act: signAct(secretKey, kid, { act: "key.revoke", params: { kid } }) }, { clientAddress: "192.0.2.9", env: OPEN, limiter });
+    expect([refusalOf(other).refusal.reason_code, refusalOf(exit).refusal.reason_code]).toEqual(["act_unverified", "act_unverified"]);
+    // Per address, previews are limited like anything else.
+    const one = createActLimiter({ ...SIGNED_ACT_LIMITS, perAddress: 1 });
+    expect((await submitAgentAct({ preview: "key.mint" }, { clientAddress: "192.0.2.3", env: OPEN, limiter: one })).ok).toBe(true);
+    const again = refusalOf(await submitAgentAct({ preview: "key.mint" }, { clientAddress: "192.0.2.3", env: OPEN, limiter: one }));
+    expect(again.message).toContain("from here");
   });
 
   it("gives an unknown key and a bad signature one answer, verifying both", async () => {
@@ -271,6 +302,22 @@ describe("the transaction (scripted)", () => {
     expect(calls.find(([sql]) => sql.includes("INSERT INTO agent_act_events"))?.[1][4]).toBe("signing_key_ended");
   });
 
+  it("applies the per-key limit to every verified act, exit acts included, so an ended key cannot write events without bound", async () => {
+    const { secretKey, publicKey, kid } = keyPair();
+    vi.mocked(query).mockResolvedValue({ rows: [{ id: "k1", public_key: Buffer.from(publicKey), alg: "Ed25519" }], rowCount: 1 });
+    const calls = scripted({ nonce: true, revokedAt: "2026-11-10T12:00:00.000Z" });
+    const limiter = createActLimiter({ ...SIGNED_ACT_LIMITS, perKey: 2 });
+    const retire = () =>
+      submitAgentAct({ act: signAct(secretKey, kid, { act: "key.revoke", params: { kid } }) }, { clientAddress: "192.0.2.1", env: OPEN, limiter });
+    expect(refusalOf(await retire()).refusal.reason_code).toBe("signing_key_ended");
+    expect(refusalOf(await retire()).refusal.reason_code).toBe("signing_key_ended");
+    const third = refusalOf(await retire());
+    expect(third).toMatchObject({ status: 429, verified: true, refusal: { reason_code: "act_limited" } });
+    expect(third.message).toMatch(/^Too many acts signed by this key just now\. Nothing was applied\. Retry in \d+s\.$/);
+    expect(transaction).toHaveBeenCalledTimes(2);
+    expect(calls.filter(([sql]) => sql.includes("INSERT INTO agent_act_events"))).toHaveLength(2);
+  });
+
   it("answers a failed transaction auth_unavailable, having applied nothing", async () => {
     const { secretKey, publicKey, kid } = keyPair();
     lookupFinds(publicKey);
@@ -294,7 +341,7 @@ describe("the limiter", () => {
     let now = 1_000_000;
     const limiter = createActLimiter({ ...SIGNED_ACT_LIMITS, perAddress: 100, perInstance: 3, exitPerInstance: 1, perKey: 2, maxTrackedAddresses: 2 }, () => now);
     for (let i = 0; i < 3; i += 1) expect(limiter.beforeVerification(`a${i}`, "other").allowed).toBe(true);
-    expect(limiter.beforeVerification("a9", "other")).toEqual({ allowed: false, retryAfterSeconds: 20 });
+    expect(limiter.beforeVerification("a9", "other")).toEqual({ allowed: false, retryAfterSeconds: 20, scope: "instance" });
     expect(limiter.beforeVerification("a9", "exit").allowed).toBe(true);
     expect(limiter.beforeVerification("a9", "exit").allowed).toBe(false);
     expect(limiter.afterVerification("kid").allowed).toBe(true);

@@ -543,9 +543,10 @@ export default function AgentsMethodology() {
       <h3>How an act is checked</h3>
       <p>
         First its shape, whether it is obviously stale, and limits held in each
-        server&apos;s memory (per client address and per server, with{" "}
-        <code>key.revoke</code> under a ceiling of its own, and per signing key after
-        verification), all before any signature work. An unknown key and a bad signature
+        server&apos;s memory (per client address, an IPv6 address counting by its /64, and
+        per server, with <code>key.revoke</code> under a ceiling of its own; previews per
+        address only), all before any signature work, then a limit per signing key on
+        every act it signs. An unknown key and a bad signature
         get the same answer, <code>act_unverified</code>. The signature must pass RFC 8032
         verification with its R canonical, not of small order and torsion-free, so a stored
         act re-verifies with any correct Ed25519 library; a key is checked the same way when

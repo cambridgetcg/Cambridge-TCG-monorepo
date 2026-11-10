@@ -123,7 +123,7 @@ describe("agent.act while open", () => {
         "tools/call",
         { name: "agent.act", act: "beside-the-name", arguments: { preview: "key.mint", act: null } },
         authorization,
-        { "cf-connecting-ip": "203.0.113.5" },
+        { "x-real-ip": "172.64.1.2", "cf-connecting-ip": "203.0.113.5" },
       ));
       expect(response.status).toBe(200);
       const body = await response.json();

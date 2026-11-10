@@ -87,9 +87,12 @@ before the build.
 
 **Numbers and names this page left open** (agents' defaults): the flags
 `AGENT_SIGNED_ACTS` (exactly `on`) and `AGENT_SIGNED_ACTS_AUDIENCE` (an
-origin); per 60-second window, 20 acts per client address for exit acts and
-20 for the rest, 600 per instance, 300 exit acts per instance and 30 per
-signing key after verification, with 10,000 addresses tracked; pending keys
+origin); per 60-second window, 20 per client address (an IPv4 address or an
+IPv6 /64) for each of exit acts, other acts and previews, 600 other acts and
+1,200 exit acts per instance (previews count against no instance ceiling),
+and 30 acts per signing key after verification, exit acts included, with
+10,000 addresses tracked per class and then one shared bucket per class;
+pending keys
 lapse after 7 days; nonces are kept until `exp` plus 60 seconds and each act
 purges 16; the REST body is at most 16 KiB; statuses 503 for closed, 400 for
 malformed or stale, 403 for unverified or ended, 409 for a replay, a stale
@@ -131,19 +134,23 @@ disclosures are versioned `…/2026-11-10.1`; the sweep records itself as
    binding, as the server computed it, not while pasting. With the flag off,
    each active operator-managed agent shows the bind button disabled with the
    reason, rather than a whole disabled form.
-10. The per-address limit keys on `cf-connecting-ip`, else `x-real-ip`
-    (build step 4 left the header open). The app has no other address
-    reader for limiting: the feedback door keeps no address and leaves
-    per-source rules to the edge, and the echo route's reader
-    (`x-forwarded-for`'s first hop, else `x-real-ip`) is for display.
-    Behind Cloudflare, Vercel's own headers name Cloudflare's edge rather
-    than the client, so that reader would put many clients in one bucket. A
-    request sent to Vercel without Cloudflare (a per-deployment `*.vercel.app`
-    host, or Vercel's endpoint for the apex) can set `cf-connecting-ip`
-    itself and spread across buckets; the per-instance ceilings still bound
-    it. Closing that belongs at the edge (a Cloudflare rule on both act
-    doors, and checking whether per-deployment hosts are protected), a change
-    to a live service that was not made.
+10. The per-address limit keys on `x-real-ip`, which the platform sets and
+    a caller cannot (build step 4 left the header open). `cf-connecting-ip`
+    is believed only when `x-real-ip` lies in Cloudflare's published ranges
+    (`signed-act-limits.ts`, copied on 2026-11-10 from
+    `https://www.cloudflare.com/ips-v4` and `/ips-v6`), so a request sent to
+    Vercel without Cloudflare is keyed on its own address whatever it says.
+    When that list goes stale, callers arriving through a new Cloudflare
+    range share the edge's bucket: over-limited, not exploitable. IPv6
+    addresses are bucketed by their /64. The app had no other address reader
+    for limiting: the feedback door keeps no address and the echo route's
+    reader (`x-forwarded-for`'s first hop, else `x-real-ip`) is for display.
+    Previews, which do no database or curve work, count per address only.
+    An instance-wide refusal says so rather than "from here". A caller with
+    many addresses (an IPv6 /56 holds 256 /64s) can still reach the
+    per-instance ceilings; a Cloudflare rule on both act doors would bound
+    that at the edge, a change to a live service that was not made. These
+    rules were set in a fix round after two agent reviews of the branch.
 11. The catalog dates `agent.act` `since: "unreleased"` until it goes live,
     with the new values `signed-act` (gating), `signing-key-holder`
     (authority) and `closed-by-default` (availability).
