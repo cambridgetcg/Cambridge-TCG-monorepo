@@ -153,10 +153,10 @@ function unsubscribeUrl(token: string): string {
 function appendUnsubscribeFooter(html: string, token: string, categoryLabel: string): string {
   const url = unsubscribeUrl(token);
   const fragment = `
-    <p style="color:#525252;font-size:11px;margin:20px 0 0;text-align:center;line-height:1.6;">
+    <p style="color:#5e574c;font-size:11px;margin:20px 0 0;text-align:center;line-height:1.6;">
       Don't want ${escapeHtml(categoryLabel)}?
-      <a href="${escapeHtml(url)}" style="color:#737373;text-decoration:underline;">Unsubscribe</a> ·
-      <a href="${escapeHtml(siteOrigin())}/account/emails" style="color:#737373;text-decoration:underline;">Manage all emails</a>
+      <a href="${escapeHtml(url)}" style="color:#5e574c;text-decoration:underline;">Unsubscribe</a> ·
+      <a href="${escapeHtml(siteOrigin())}/account/emails" style="color:#5e574c;text-decoration:underline;">Manage all emails</a>
     </p>
   `;
   // Insert just before the closing </body> so it sits under the content card.

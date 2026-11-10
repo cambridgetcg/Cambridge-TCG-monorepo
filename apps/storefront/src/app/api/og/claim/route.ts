@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
 import { sendMail } from "@cambridge-tcg/email";
+import { EMAIL_HEAD } from "@/lib/email/layout";
 import {
   AccountAdmissionPausedError,
   assertAccountAdmissionOpen,
@@ -78,14 +79,16 @@ export async function POST(request: Request) {
           from: (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim(),
           to: [claim.rows[0].email],
           subject: "👑 Your OG Status is Active — Cambridge TCG",
-          html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;padding:32px;background:#171717;border-radius:16px;">
-    <h1 style="color:#fff;font-size:20px;margin:0 0 8px;">Cambridge <span style="color:#34d399;">TCG</span></h1>
+          html: `<!DOCTYPE html><html lang="en">
+${EMAIL_HEAD}
+<body style="margin:0;padding:0 16px;background:#faf8f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#201d18;">
+  <div style="max-width:480px;margin:40px auto;padding:32px;background:#ffffff;border:1px solid #e7e2d8;border-radius:12px;">
+    <h1 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:20px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid #e7e2d8;">Cambridge TCG</h1>
     <div style="text-align:center;font-size:48px;margin:16px 0;">👑</div>
-    <h2 style="color:#fff;font-size:18px;text-align:center;margin:0 0 16px;">Welcome Back, OG</h2>
-    <p style="color:#a3a3a3;font-size:14px;">You were here at the very start. When no one was paying attention to One Piece TCG. Before the hype, before the prices. You stayed through the highs and lows — not for the money, but for the cards.</p>
-    <p style="color:#a3a3a3;font-size:14px;margin-top:12px;">We are grateful to have had you from the beginning. Your OG membership is now permanently active. You deserve the best:</p>
-    <div style="background:#262626;border-radius:8px;padding:16px;margin:16px 0;font-size:13px;color:#d4d4d4;">
+    <h2 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:18px;font-weight:600;text-align:center;margin:0 0 16px;">Welcome Back, OG</h2>
+    <p style="color:#5e574c;font-size:14px;">You were here at the very start. When no one was paying attention to One Piece TCG. Before the hype, before the prices. You stayed through the highs and lows — not for the money, but for the cards.</p>
+    <p style="color:#5e574c;font-size:14px;margin-top:12px;">We are grateful to have had you from the beginning. Your OG membership is now permanently active. You deserve the best:</p>
+    <div style="background:#f3f0e9;border-radius:8px;padding:16px;margin:16px 0;font-size:13px;color:#201d18;">
       <p style="margin:4px 0;">✓ 7% store discount on everything</p>
       <p style="margin:4px 0;">✓ 7% cashback on every purchase</p>
       <p style="margin:4px 0;">✓ 7x Berries multiplier</p>
@@ -93,9 +96,9 @@ export async function POST(request: Request) {
       <p style="margin:4px 0;">✓ 0% auction fees — forever</p>
       <p style="margin:4px 0;">✓ 👑 OG badge on your profile</p>
     </div>
-    <p style="color:#a3a3a3;font-size:14px;">No subscription. No renewal. This is permanent — our thank you to you.</p>
-    <a href="https://cambridgetcg.com/login" style="display:inline-block;padding:12px 32px;background:#f59e0b;color:#000;font-weight:700;text-decoration:none;border-radius:8px;font-size:14px;margin-top:16px;">Sign In to Your Account</a>
-    <p style="color:#737373;font-size:12px;margin:24px 0 0;font-style:italic;">You were here before the hype. That means everything to us.</p>
+    <p style="color:#5e574c;font-size:14px;">No subscription. No renewal. This is permanent — our thank you to you.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;"><tr><td bgcolor="#201d18" style="background:#201d18;border-radius:8px;"><a href="https://cambridgetcg.com/login" style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;">Sign In to Your Account</a></td></tr></table>
+    <p style="color:#5e574c;font-size:12px;margin:24px 0 0;font-style:italic;">You were here before the hype. That means everything to us.</p>
   </div>
 </body></html>`,
           text: "Your OG Status is active on Cambridge TCG. Sign in at https://cambridgetcg.com/login to access your perks.",

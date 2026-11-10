@@ -1,4 +1,5 @@
 import { sendMail } from "@cambridge-tcg/email";
+import { EMAIL_HEAD } from "@/lib/email/layout";
 import { sendEmail, type SendResult } from "@/lib/email/send";
 import type { TradeShippingAddress } from "./types";
 
@@ -7,15 +8,17 @@ const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com").tr
 
 function tpl(title: string, body: string, ctaText?: string, ctaUrl?: string): string {
   const cta = ctaText && ctaUrl
-    ? `<a href="${ctaUrl}" style="display:inline-block;padding:12px 32px;background:#f59e0b;color:#000;font-weight:700;text-decoration:none;border-radius:8px;font-size:14px;margin-top:16px;">${ctaText}</a>`
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;"><tr><td bgcolor="#201d18" style="background:#201d18;border-radius:8px;"><a href="${ctaUrl}" style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;">${ctaText}</a></td></tr></table>`
     : "";
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;padding:32px;background:#171717;border-radius:16px;">
-    <h1 style="color:#fff;font-size:20px;margin:0 0 8px;">Cambridge <span style="color:#34d399;">TCG</span></h1>
-    <h2 style="color:#fff;font-size:16px;margin:0 0 16px;">${title}</h2>
-    <div style="color:#a3a3a3;font-size:14px;line-height:1.6;">${body}</div>
+  return `<!DOCTYPE html><html lang="en">
+${EMAIL_HEAD}
+<body style="margin:0;padding:0 16px;background:#faf8f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#201d18;">
+  <div style="max-width:480px;margin:40px auto;padding:32px;background:#ffffff;border:1px solid #e7e2d8;border-radius:12px;">
+    <h1 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:20px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid #e7e2d8;">Cambridge TCG</h1>
+    <h2 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:16px;font-weight:600;margin:0 0 16px;">${title}</h2>
+    <div style="color:#5e574c;font-size:14px;line-height:1.6;">${body}</div>
     ${cta}
-    <p style="color:#525252;font-size:12px;margin:24px 0 0;">Cambridge TCG &mdash; Japanese Trading Cards</p>
+    <p style="color:#5e574c;font-size:12px;margin:24px 0 0;">Cambridge TCG &mdash; Japanese Trading Cards</p>
   </div>
 </body></html>`;
 }
@@ -45,7 +48,7 @@ export async function sendBuyerMatchEmail(d: {
   const text = `Your bid matched on "${d.cardName}" at ${d.price}. Pay within ${d.windowHours} hours (by ${new Date(d.expiresAt).toUTCString()}) or the trade will be cancelled. ${tradesUrl}`;
   const html = tpl(
     "Your bid matched &mdash; please pay",
-    `<p>Your bid for <strong>${d.cardName}</strong> matched a seller at <strong style="color:#f59e0b;">${d.price}</strong>.</p>
+    `<p>Your bid for <strong>${d.cardName}</strong> matched a seller at <strong style="color:#86661c;">${d.price}</strong>.</p>
      <p>Please complete payment within <strong>${d.windowHours} hours</strong> (by ${new Date(d.expiresAt).toUTCString()}). If you do not pay, the trade will be cancelled and the seller's listing returned to the market.</p>`,
     "Pay Now", tradesUrl
   );
@@ -59,7 +62,7 @@ export async function sendSellerMatchEmail(d: {
   const text = `Your ask for "${d.cardName}" filled at ${d.price}. The buyer has ${d.windowHours} hours to pay; we'll email shipping instructions next. ${tradesUrl}`;
   const html = tpl(
     "Your listing filled",
-    `<p>Your ask for <strong>${d.cardName}</strong> matched at <strong style="color:#f59e0b;">${d.price}</strong>.</p>
+    `<p>Your ask for <strong>${d.cardName}</strong> matched at <strong style="color:#86661c;">${d.price}</strong>.</p>
      <p>The buyer has <strong>${d.windowHours} hours</strong> to pay. As soon as we receive payment we'll send you shipping instructions, including which address to ship to and what packaging is required for this trade's escrow tier.</p>`,
     "View Trade", tradesUrl
   );
@@ -104,12 +107,12 @@ export async function sendSellerPaidEmail(d: {
       ].filter((line): line is string => !!line)
     : [];
   const addressHtml = addressLines.length > 0
-    ? `<p>Ship to:<br/><strong style="color:#fff;">${addressLines.map(esc).join("<br/>")}</strong></p>`
+    ? `<p>Ship to:<br/><strong style="color:#201d18;">${addressLines.map(esc).join("<br/>")}</strong></p>`
     : "";
   // Counterparty contact goes through the platform, not email — usernames
   // replace addresses everywhere the parties see each other.
   const messageHtml = d.buyerUsername
-    ? `<p>Need to arrange logistics with the buyer? <a href="${SITE}/account/messages" style="color:#f59e0b;">Message @${esc(d.buyerUsername)}</a> on the platform.</p>`
+    ? `<p>Need to arrange logistics with the buyer? <a href="${SITE}/account/messages" style="color:#86661c;">Message @${esc(d.buyerUsername)}</a> on the platform.</p>`
     : "";
   const subject = `Payment confirmed &mdash; please ship ${d.cardName}`;
   const text = `Buyer paid ${d.price} for "${d.cardName}". Ship to ${dest}.`
@@ -121,7 +124,7 @@ export async function sendSellerPaidEmail(d: {
     `<p>The buyer has paid <strong>${d.price}</strong> for <strong>${d.cardName}</strong>.</p>
      <p>Escrow tier: <strong>${d.tier}</strong>. Ship to: <strong>${dest}</strong>.</p>
      ${addressHtml}${messageHtml}
-     <p>Your payout: <strong style="color:#34d399;">${d.payout}</strong> (no commission — you keep the full sale), released after delivery and any tier-specific verification.</p>`,
+     <p>Your payout: <strong style="color:#36634d;">${d.payout}</strong> (no commission — you keep the full sale), released after delivery and any tier-specific verification.</p>`,
     "Get Shipping Details", tradesUrl
   );
   await send(d.email, subject, html, text);
@@ -165,7 +168,7 @@ export async function sendPayoutEmail(d: {
   const html = tpl(
     "Payout sent",
     `<p>Your payout for <strong>${d.cardName}</strong> has been sent.</p>
-     <p>Amount: <strong style="color:#34d399;">${d.amount}</strong><br/>
+     <p>Amount: <strong style="color:#36634d;">${d.amount}</strong><br/>
         Method: ${d.method}${d.reference ? `<br/>Reference: <code>${d.reference}</code>` : ""}</p>
      <p>Allow a few business days for the payment to land in your account.</p>`,
     "View Trade", tradesUrl
@@ -195,10 +198,10 @@ export async function sendFollowerAuctionListedEmail(d: {
   const html = tpl(
     `${d.sellerName} listed a new auction`,
     `<p>${d.followerName ? `Hi ${d.followerName}, ` : ""}a seller you follow just posted:</p>
-     <p><strong style="color:#fff;font-size:16px;">${d.auctionTitle}</strong></p>
-     <p>Starting: <strong style="color:#f59e0b;">${fmt.format(d.startingPrice)}</strong>${d.buyNowPrice ? ` &middot; Buy Now: <strong>${fmt.format(d.buyNowPrice)}</strong>` : ""}</p>
-     <p style="color:#737373;font-size:12px;">Ends ${new Date(d.endsAt).toUTCString()}</p>
-     <p style="color:#737373;font-size:12px;">By <a href="${SITE}/u/${d.sellerUsername}" style="color:#f59e0b;">@${d.sellerUsername}</a></p>`,
+     <p><strong style="color:#201d18;font-size:16px;">${d.auctionTitle}</strong></p>
+     <p>Starting: <strong style="color:#86661c;">${fmt.format(d.startingPrice)}</strong>${d.buyNowPrice ? ` &middot; Buy Now: <strong>${fmt.format(d.buyNowPrice)}</strong>` : ""}</p>
+     <p style="color:#5e574c;font-size:12px;">Ends ${new Date(d.endsAt).toUTCString()}</p>
+     <p style="color:#5e574c;font-size:12px;">By <a href="${SITE}/u/${d.sellerUsername}" style="color:#86661c;">@${d.sellerUsername}</a></p>`,
     "View auction", url
   );
   // A follower broadcast is the platform reaching into an inbox, so it goes
@@ -227,8 +230,8 @@ export async function sendSellerRestockDigest(d: {
   const rows = d.opportunities.map((o) => {
     const priceHint = o.bestAsk !== null ? `market ${new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(o.bestAsk)}` : "no current ask";
     return `<tr>
-      <td style="padding:8px 12px;border-bottom:1px solid #262626;"><strong style="color:#fff;">${o.cardName}</strong><br/><span style="color:#737373;font-size:11px;font-family:monospace;">${o.sku}</span></td>
-      <td style="padding:8px 12px;border-bottom:1px solid #262626;text-align:right;"><span style="color:#f59e0b;">${o.watchCount} watchers</span><br/><span style="color:#737373;font-size:11px;">${priceHint}</span></td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e7e2d8;"><strong style="color:#201d18;">${o.cardName}</strong><br/><span style="color:#5e574c;font-size:11px;font-family:monospace;">${o.sku}</span></td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e7e2d8;text-align:right;"><span style="color:#86661c;">${o.watchCount} watchers</span><br/><span style="color:#5e574c;font-size:11px;">${priceHint}</span></td>
     </tr>`;
   }).join("");
   const subject = `${d.opportunities.length} restock opportunit${d.opportunities.length === 1 ? "y" : "ies"} — Cambridge TCG`;
@@ -240,7 +243,7 @@ export async function sendSellerRestockDigest(d: {
     "Restock opportunities this week",
     `<p>${d.name ? `Hi ${d.name}, ` : ""}here are the cards buyers are watching most that currently have thin supply.</p>
      <table style="width:100%;border-collapse:collapse;margin:16px 0;">${rows}</table>
-     <p style="color:#737373;font-size:12px;">Ranked by buyer demand (watchers + active price alerts) against current ask depth.</p>`,
+     <p style="color:#5e574c;font-size:12px;">Ranked by buyer demand (watchers + active price alerts) against current ask depth.</p>`,
     "See market pulse", `${SITE}/market/pulse`
   );
   await send(d.email, subject, html, text);
@@ -263,8 +266,8 @@ export async function sendBuyerWatchlistDigest(d: {
         ? `${fmt.format(m.before)} &rarr; <strong>${fmt.format(m.after)}</strong>`
         : m.after !== null ? `<strong>${fmt.format(m.after)}</strong>` : "—";
     return `<tr>
-      <td style="padding:8px 12px;border-bottom:1px solid #262626;"><strong style="color:#fff;">${m.cardName}</strong><br/><span style="color:#737373;font-size:11px;font-family:monospace;">${m.sku}</span></td>
-      <td style="padding:8px 12px;border-bottom:1px solid #262626;text-align:right;"><span style="color:#34d399;">${m.note}</span><br/><span style="color:#d4d4d4;font-size:12px;">${priceLine}</span></td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e7e2d8;"><strong style="color:#201d18;">${m.cardName}</strong><br/><span style="color:#5e574c;font-size:11px;font-family:monospace;">${m.sku}</span></td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e7e2d8;text-align:right;"><span style="color:#36634d;">${m.note}</span><br/><span style="color:#201d18;font-size:12px;">${priceLine}</span></td>
     </tr>`;
   }).join("");
   const subject = `Your watchlist moved: ${d.moves.length} update${d.moves.length === 1 ? "" : "s"}`;
@@ -290,9 +293,9 @@ export async function sendPriceAlertEmail(d: {
   const text = `${d.cardName} is now ${d.currentPrice} (your alert was ${d.direction} ${d.threshold}). View: ${cardUrl}`;
   const html = tpl(
     "Price alert",
-    `<p><strong>${d.cardName}</strong> just ${verb} <strong style="color:#f59e0b;">${d.currentPrice}</strong>.</p>
+    `<p><strong>${d.cardName}</strong> just ${verb} <strong style="color:#86661c;">${d.currentPrice}</strong>.</p>
      <p>Your alert was set for <strong>${d.direction}</strong> <strong>${d.threshold}</strong>.</p>
-     <p style="color:#737373;font-size:12px;">Alerts have a 24-hour cooldown to prevent spam.</p>`,
+     <p style="color:#5e574c;font-size:12px;">Alerts have a 24-hour cooldown to prevent spam.</p>`,
     "View Card", cardUrl
   );
   await send(d.email, subject, html, text);
