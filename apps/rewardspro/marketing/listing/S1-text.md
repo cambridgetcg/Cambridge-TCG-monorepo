@@ -1,7 +1,7 @@
 # RewardsPro listing text: the S1 sitting sheet
 
 **One sitting, by Sun 22 Nov 2026.** An agent fills the Shopify App Store listing form in the owner's Chrome,
-field by field, and never presses Save or Submit. The owner reads each field, then presses Save and Submit himself.
+field by field, and never presses Save, Delete or Submit. The owner reads each field, then presses them himself.
 His part takes about 20–30 minutes [I], plus about 5 if he runs the optional "before" check (§6). The agent's
 preparation (§1) takes about 20 minutes and none of his, after one yes. Written by agents for issue #162 (RP-02) and
 revised on 10 Nov 2026 after the second read on #162. Nothing here has been pasted or submitted.
@@ -32,9 +32,10 @@ RewardsPro installed (`apps/rewards/docs/switch.md` lists them), never on a merc
 1. **Test data.** At least two tiers with plain invented names (for example Silver and Gold, at different minimum
    spends), and cashback on. One test customer with an invented name (for example "Alex Example") and an
    `example.com` email address. One draft order for that customer, marked as paid, so that it isn't a test order:
-   test orders earn nothing (`app/lib/record-order.server.ts:66`) [I: that a draft order marked as paid isn't one;
-   the order's page will show it]. Then, on that customer's page, **Lock to a tier**, and afterwards **Return to
-   automatic** once. That is the first time Feature 3's line is seen working (`app/lib/tiers.server.ts:276`,
+   test orders earn nothing (`app/lib/record-order.server.ts:66`), and a marked-paid order earned on the company's
+   development store at the switch (`apps/rewards/docs/gates.md`, check B). Then, on that customer's page, choose a
+   tier under **Lock to a tier**, press **Lock**, and afterwards press **Return to automatic** once. That is the
+   first time Feature 3's line is seen working (`app/lib/tiers.server.ts:276`,
    `app/routes/app.customers.$id.tsx:158-185`). Lock the customer again for shot #2.
 2. **Screenshots.** "Screenshots should be 1600px by 900px (16:9)" and "should not include desktop backgrounds or
    browser windows" (best practices §5 B3; requirement 4.4.4). Capture only the app's own frame: no browser window,
@@ -48,7 +49,9 @@ RewardsPro installed (`apps/rewards/docs/switch.md` lists them), never on a merc
 4. Save the images in the private research folder on the Air, never in a repo.
 
 If the owner says no to the saves: make #1 from a development store whose Tiers page already has plainly named
-tiers, skip #2 and #3, and Feature 3's line goes in without being seen on a store.
+tiers, skip #2 and #3, and Feature 3's line goes in without being seen on a store. It then rests on the code and
+a Postgres test, "lets a lock beat spend, and Return to automatic re-resolves"
+(`test/postgres/tiers.postgres.test.ts:319`).
 
 ---
 
@@ -71,13 +74,13 @@ check (§6), he runs it before the agent starts.
 | 7 | Features | Keeps Feature 1; pastes Features 2 and 3 | yes |
 | 8 | Integrations | Leaves it empty | — |
 | 9 | Pricing | Keeps "Free"; pastes the funding text beside it | yes |
-| 10 | Translations | Deletes any custom translated listing | yes |
+| 10 | Translations | Opens Delete listing on any custom translated listing | **Delete** |
 | 11 | Category details | Unticks Memberships and Membership perks | yes |
 | 12 | Resources | Keeps the privacy policy URL | — |
 | 13 | App card subtitle | Pastes the new subtitle, if the owner agrees | yes |
 | 14 | Search terms | Pastes five terms | yes |
 | 15 | SEO title tag | Clears it, or deletes "& Memberships" | — |
-| 16 | SEO meta description | Pastes the new text (141 → 88) | yes |
+| 16 | SEO meta description | Pastes the new text (141 → 89) | yes |
 | 17 | Install eligibility | Checks "Merchant must have online store"; changes nothing else | — |
 | 18 | Contact information | Checks the submission email is one the owner reads | yes |
 | 19 | Protected customer data | Unticks Phone and Address; pastes three reasons (§3) | yes, then **Save** |
@@ -103,6 +106,8 @@ Tiers page: each tier's minimum spend, cashback rate and members
 **#2 and #3** show the old app. #3 shows tier products, which the app doesn't have; #2 gives each tier an "Annual"
 duration, where the app has one "Spend counted over" setting for the shop (`app.tiers.tsx:408`). If the form saves
 with fewer than three screenshots [U], remove both. If it needs three, upload §1's #2 and #3 with these alt texts.
+If it needs three and §1 made only #1, today's #2 and #3 stay for now: #3 still shows tier products, so note it on
+#162; the set made by 18 Dec replaces them.
 Shopify asks for "3-6 desktop screenshots", so a reviewer may ask for more; the full set comes by 18 Dec (act 8).
 Alt #2 · 65 characters
 ```text
@@ -190,8 +195,9 @@ no text of ours can sit [I]; the listing page carries the pair.
 ### 10 · Translations
 
 "Adding your own translated listing for an automatically translated language overwrites and disables automatic
-translation for that language." If any custom translated listing exists [U], it still carries the old text: delete
-it ("use More actions > Delete listing", best practices §5 D). Automatic translation then follows the new English.
+translation for that language." If any custom translated listing exists [U], it still carries the old text. The
+agent opens "More actions > Delete listing" (best practices §5 D) and the owner presses Delete, since a deletion
+may not wait for Save [U]. Automatic translation then follows the new English.
 
 ### 11 · Category details
 
@@ -218,7 +224,7 @@ App details says. If the owner keeps today's line, the agent leaves the field.
 
 Replace whatever is there with these five, one per box: "enter up to five relevant terms using complete words (not
 partial) and limit to one idea per term" (best practices §5 E). US "program", because terms follow what merchants
-type and aren't shown on the listing [I]. Never: membership, points, free, trade-in or tcg.
+type and aren't shown on the listing [I].
 
 | # | Term | Characters | Source |
 |---|---|---|---|
@@ -244,11 +250,13 @@ Today · 141 characters
 ```text
 RewardsPro pays repeat customers cashback as Shopify store credit, with VIP tiers set by spend and tier memberships you can sell as products.
 ```
-Paste · 88 characters
+Paste · 89 characters
 ```text
-RewardsPro pays customers cashback as Shopify store credit, with VIP tiers set by spend.
+RewardsPro adds cashback to customers' Shopify store credit, with VIP tiers set by spend.
 ```
-Deletion only: "repeat" goes, because a first paid order earns too, and so does the tier-membership clause.
+"Repeat" goes, because a first paid order earns too, and so does the tier-membership clause. "Pays" becomes
+App details' own "adds cashback to … store credit": a search snippet shows no pricing pair, and "pays" can read as
+RewardsPro funding the cashback, which the shop does (step 9).
 
 ### 17, 18 · Install eligibility and contact information
 
@@ -323,7 +331,8 @@ approves, and a sitting that stops early changes nothing [I].
 
 1. **Live date.** Once it shows, an agent opens the public listing logged out, checks that the deletions, the new
    #1 and the funding text show and that Data access no longer lists phone or address, and writes
-   `live: YYYY-MM-DD` on #162. The ads' day-0 check and the 30 days below run from that date.
+   `live: YYYY-MM-DD` on #162. An ad started before that date would show the old listing, since the ad is built
+   from it. The 30 days below run from that date.
 2. **Live plus 30 days.** Look once at LetsMetrix and PickYourApp, which copy listings. If either still shows the
    old text, ask each once for one factual correction, on the owner's word (`…/wf10/status.md` C7).
 
@@ -335,8 +344,8 @@ ChatGPT and once on Google AI Mode (google.co.uk), each in a new private window,
 - Q1: `What is RewardsPro?`
 - Q2: `How much does the RewardsPro Shopify app cost, and what does it do?`
 
-Agents don't run chat assistants. Paste each full answer and its links into one CSV in the private research folder,
-never in git. Its first line is `…/wf6/ai-rec.md` §5.4's column list · 185 characters
+The owner runs these, not an agent: the assistants' terms restrict automated use [I]. Paste each full answer and
+its links into one CSV in the private research folder, never in git. Its first line is `…/wf6/ai-rec.md` §5.4's column list · 185 characters
 ```text
 month,date_utc,surface,mode,question_id,run,searched,rewardspro_named,rank_among_apps,apps_named,facts_correct,stale_codes,cited_urls,ours_cited,ad_shown,ad_advertiser,notes,answer_text
 ```
@@ -345,8 +354,7 @@ month,date_utc,surface,mode,question_id,run,searched,rewardspro_named,rank_among
 
 - The two limits App details can't carry with Shopify's links, "Shopify doesn't let store credit pay subscription
   renewals." and "There is no setting to exclude products, collections or sales channels.", go on `/help/` (#211),
-  which later becomes the listing's FAQ link. Why: App details keeps "links … in their designated fields" (§5 B5),
-  and MESSAGING §4 puts them there.
+  which later becomes the listing's FAQ link. Why: App details keeps "links … in their designated fields" (§5 B5).
 - S2's full texts (`social/entity-card.md` §3) need re-checking against #187 before use.
 - PITR and the EU representative are on the board (Now-4), not here.
 - This sheet replaces the listing section of draft PR #131 (3 Nov), which was written for the old app.
