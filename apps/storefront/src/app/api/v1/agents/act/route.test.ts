@@ -58,7 +58,8 @@ describe("POST /api/v1/agents/act", () => {
 
     it("answers a preview with the tool's body, whatever Authorization says", async () => {
       const bodies = [];
-      for (const headers of [{}, { authorization: BEARER }, { authorization: "Basic eA==" }]) {
+      const headerSets: Record<string, string>[] = [{}, { authorization: BEARER }, { authorization: "Basic eA==" }];
+      for (const headers of headerSets) {
         const response = await POST(post(JSON.stringify({ preview: "signer.check", act: null }), { ...headers, "cf-connecting-ip": "203.0.113.5" }));
         expect(response.status).toBe(200);
         const { server_time: _t, ...body } = await response.json();
