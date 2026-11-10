@@ -209,7 +209,7 @@ describe("RewardsPro pricing contract", () => {
       "utf8",
     );
 
-    // Two frozen stores still hold paid charges from the old app until Yu cancels them in B4
+    // Two frozen stores still hold paid charges from the old app until the owner cancels them in B4
     // (apps/rewards/docs/switch.md, Decision 20). The rebuild that production runs has no billing code
     // and no records page, and the old app's records sit only in schema `rewardspro` until B5, so the
     // landing promises those shops only a way to reach us, linked from the header. Merchant-facing
