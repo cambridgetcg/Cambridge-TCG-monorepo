@@ -1,11 +1,11 @@
 # RewardsPro shot list: screenshots of the rebuilt app
 
-Agents' proposal for Yu, 2026-11-07 (maker "shots"). **Nothing has been captured.** Nothing was posted,
-logged in to, changed in Shopify, committed or deployed. Yu captures every frame himself, because agents hold
+Agents' proposal for the owner, 2026-11-07 (maker "shots"). **Nothing has been captured.** Nothing was posted,
+logged in to, changed in Shopify, committed or deployed. The owner captures every frame himself, because agents hold
 no logins and can't click inside the embedded admin's cross-origin frame (`docs/staging-run.md:14`).
 
 Labels, as in [STRATEGY.md](STRATEGY.md): **[V]** verified (file:line or URL plus date), **[I]** inferred,
-**[U]** unknown, **PROPOSAL** a choice for Yu. Code paths are in the read-only checkout of origin/main
+**[U]** unknown, **PROPOSAL** a choice for the owner. Code paths are in the read-only checkout of origin/main
 6f3a57b6, relative to `apps/rewards/` unless marked.
 
 **Social use of every frame here waits for S2** (STRATEGY §2). The only exception is the S1 frames,
@@ -15,10 +15,10 @@ which go to the App Store listing only, to replace false images, once their prec
 
 ## Summary
 
-1. **Two sets.** S1 is two frames that need no orders: Home "Set up cashback" and Tiers, plus an empty Orders page only if the listing form needs a third. Yu can capture them now. They replace all three of the listing's old screenshots, which show the old app. They bring two claims the live listing doesn't make (`rp-setup-steps`, `rp-cashback-base`), so §5 sets preconditions before upload. The G0 set is 8 shots plus evidence frames and 3 recordings (the third as two clips), captured in the G0 sitting (STRATEGY §13 step 13), with a small test dataset that covers all 5 admin pages and the widget.
+1. **Two sets.** S1 is two frames that need no orders: Home "Set up cashback" and Tiers, plus an empty Orders page only if the listing form needs a third. The owner can capture them now. They replace all three of the listing's old screenshots, which show the old app. They bring two claims the live listing doesn't make (`rp-setup-steps`, `rp-cashback-base`), so §5 sets preconditions before upload. The G0 set is 8 shots plus evidence frames and 3 recordings (the third as two clips), captured in the G0 sitting (STRATEGY §13 step 13), with a small test dataset that covers all 5 admin pages and the widget.
 2. **Test orders earn nothing.** An order Shopify flags as a test (the test payment gateway) is recorded with no cashback (`app/lib/record-order.server.ts:66`). Every dataset order is a draft order marked as paid, as the runbook does (`docs/switch.md:177`).
 3. **PROPOSAL: a fresh development store.** It has clean data, shows the first-open setup card, and proves what a new install from the listing gets. rewardsprotesting (STRATEGY §7 A10) holds imported old test customers whose names we haven't seen, and its setup card has probably closed for good.
-4. **Every frame is real, cropped and scaled only.** No painting out, no blurring and no added captions on social. If something mustn't show, Yu changes the setup and captures again.
+4. **Every frame is real, cropped and scaled only.** No painting out, no blurring and no added captions on social. If something mustn't show, the owner changes the setup and captures again.
 5. **Screenshots double as claim evidence.** The claims map (§9) says which claim ids each frame supports, and what a frame can't prove alone. UI text is not proof of behaviour.
 
 ---
@@ -27,11 +27,11 @@ which go to the App Store listing only, to replace false images, once their prec
 
 | Set | When | Store | Use | Who |
 |---|---|---|---|---|
-| **S1** (2 frames, a third only if the form needs it) | Now, before Yu edits the listing (STRATEGY §13 step 9), in the order §5 sets | PROPOSAL: a new development store, "Test Store" (see below), or rewardsprotesting | App Store listing only. Never social. | Yu captures; agents crop, scale and check |
-| **G0 set** (8 shots, evidence frames, 3 recordings, the third as two clips) | The G0 sitting (STRATEGY §13 step 13), after B3 is recorded | The same store | Listing (S2 step 15), rewardspro.io, LinkedIn from S2 | Yu sets up, places the orders and captures; agents crop, scale and check; the claims maker records the evidence |
+| **S1** (2 frames, a third only if the form needs it) | Now, before the owner edits the listing (STRATEGY §13 step 9), in the order §5 sets | PROPOSAL: a new development store, "Test Store" (see below), or rewardsprotesting | App Store listing only. Never social. | The owner captures; agents crop, scale and check |
+| **G0 set** (8 shots, evidence frames, 3 recordings, the third as two clips) | The G0 sitting (STRATEGY §13 step 13), after B3 is recorded | The same store | Listing (S2 step 15), rewardspro.io, LinkedIn from S2 | The owner sets up, places the orders and captures; agents crop, scale and check; the claims maker records the evidence |
 
-**The store (Yu's word, D-shots-1).**
-- **Option A (PROPOSAL, recommended): a new development store**, created by Yu in the Partner or Dev Dashboard (no fee stated to us [I]), with RewardsPro installed from https://apps.shopify.com/rewards-pro.
+**The store (the owner's word, D-shots-1).**
+- **Option A (PROPOSAL, recommended): a new development store**, created by the owner in the Partner or Dev Dashboard (no fee stated to us [I]), with RewardsPro installed from https://apps.shopify.com/rewards-pro.
   - Its data is only the dataset below. Create it empty: no generated test data, sample products or sample customers [I: the store-creation flow can offer them]. Generated customers and orders would appear on Home, Customers and Orders.
   - Home shows "Set up cashback" on first open (`app/routes/app._index.tsx:363`). The card closes for good once every step has been done once (`app/admin/home-rules.ts:94-103`).
   - A fresh install from the listing shows what a new store really gets. That is evidence for `rp-live-release`, together with the B3 release record (§9).
@@ -43,9 +43,9 @@ which go to the App Store listing only, to replace false images, once their prec
 
 ---
 
-## 2. Setting up the test store (Yu's hand, about 20 minutes)
+## 2. Setting up the test store (the owner's hand, about 20 minutes)
 
-Every step is a change in Shopify on a development store, so Yu does it. Agents can supply plain product
+Every step is a change in Shopify on a development store, so the owner does it. Agents can supply plain product
 images if wanted.
 
 **Store settings**
@@ -67,10 +67,10 @@ images if wanted.
 |---|---|---|
 | Alex Example | alex@example.com | The video's order, the order panel, the refund |
 | Priya Example | priya@example.com | Crosses two tiers (Everyone → Silver → Gold) |
-| Sam Example | **a non-public alias Yu can read** (see note) | The signed-in widget and the customer panel |
+| Sam Example | **a non-public alias the owner can read** (see note) | The signed-in widget and the customer panel |
 
 *Note on Sam.* New customer accounts sign in with a one-time code sent by email [I], and @example.com
-can't receive mail. So the one storefront buyer needs an inbox Yu can read. It should be a business alias, never a personal or gmail address. Example: a plus-alias of the contact mailbox, such as contact+test-sam@rewardspro.io, once STRATEGY §13 step 10 shows contact@ delivers [I: Workspace delivers plus-addresses to the base mailbox].
+can't receive mail. So the one storefront buyer needs an inbox the owner can read. It should be a business alias, never a personal or gmail address. Example: a plus-alias of the contact mailbox, such as contact+test-sam@rewardspro.io, once STRATEGY §13 step 10 shows contact@ delivers [I: Workspace delivers plus-addresses to the base mailbox].
 
 The alias must appear in **no frame**:
 - The widget shows no email; proxy answers carry no email or name (`docs/staging-run.md:21`).
@@ -141,11 +141,11 @@ after every widget capture.
 
 **Never:** paint out, blur, retouch, re-type text, stitch two captures, add device frames, or add captions to
 a social image. Changing the setup and capturing again is the only fix. Stills hide the cursor. There is no
-exception in this plan; a side-by-side phone image would need Yu's explicit one (§11).
+exception in this plan; a side-by-side phone image would need the owner's explicit one (§11).
 
 **Files.**
 - Raw captures and masters go to `apps/rewardspro/marketing/social/private/shots/`. `private/` is git-ignored by `apps/rewardspro/marketing/.gitignore` [V].
-- Only derivatives the checker has passed move to `apps/rewardspro/marketing/social/shots/`. PNGs are kept by `!*.png` in the same file [V]; they are committed only on Yu's word.
+- Only derivatives the checker has passed move to `apps/rewardspro/marketing/social/shots/`. PNGs are kept by `!*.png` in the same file [V]; they are committed only on the owner's word.
 - Evidence frames (§7) stay in `private/` for good. Their sha256 goes into the claim's `sources`.
 - Names follow STRATEGY §7: `rewardspro_<campaign>_<asset>_<variant>_<WxH>_<yyyymmdd>_v<NN>.<ext>`, for example `rewardspro_g0_shot06-order_listing_1600x900_20261120_v01.png`. Campaigns are `s1` and `g0`. Variants are `master`, `listing`, `post4x5`, `land16x9`, `light`, `dark`, `signedin`, `guest`.
 - Each file has a sidecar `<file>.meta.json` (ASSETS D3). `shots/` is not git-ignored and the monorepo is public (STRATEGY §3, GitHub row), so a committed sidecar names roles, never people, and carries no session ids. The full sidecar, with the checker's session id, stays in `private/`. Example of the committed form:
@@ -173,7 +173,7 @@ against §4 before any derivative is made.
 ## 4. What must never appear (every frame)
 
 1. **Any email address except the @example.com test buyers and the published support address contact@rewardspro.io** (which the app itself prints on Settings, `app/routes/app.settings._index.tsx:16, 67`). Never Sam's alias or any other rewardspro.io alias.
-2. **Real people's names, or Yu's name, initials or avatar.** The admin account menu sits in the top bar, which is cropped. Inside the content area, Shopify's order, draft-order and customer pages have a Timeline and comment box: Shopify shows a staff profile photo beside comments ("You can add a custom photo to your profile so that it displays next to your comments", help.shopify.com/en/manual/shopify-admin/productivity-tools/timeline, read 2026-11-07), and the Timeline may name the staff account on events [I]. So no Timeline, comment box, staff avatar, initials or staff name in any frame. No Shopify Customers index, customer search or draft-order customer picker either: they list every customer, Sam's alias included. No personal details of anyone.
+2. **Real people's names, or the owner's name, initials or avatar.** The admin account menu sits in the top bar, which is cropped. Inside the content area, Shopify's order, draft-order and customer pages have a Timeline and comment box: Shopify shows a staff profile photo beside comments ("You can add a custom photo to your profile so that it displays next to your comments", help.shopify.com/en/manual/shopify-admin/productivity-tools/timeline, read 2026-11-07), and the Timeline may name the staff account on events [I]. So no Timeline, comment box, staff avatar, initials or staff name in any frame. No Shopify Customers index, customer search or draft-order customer picker either: they list every customer, Sam's alias included. No personal details of anyone.
 3. **Real shop names or domains:** the store's `.myshopify.com` address, "rewardsprotesting", "cashbackpro", or Cambridge TCG's shops.
 4. **Browser chrome, tabs, bookmarks, the address bar, the macOS menu bar or Dock, notifications or a desktop background.** shopify.dev requirement 4.4.4 (read 2026-11-07): "Screenshots should not include desktop backgrounds or browser windows." Best practices: "Crop out browser chrome and sensitive information."
 5. **Shopify trademarks:** the Shopify logo or wordmark (admin top bar), Shop Pay buttons, "Powered by Shopify", the storefront preview bar, the Sidekick icon. Requirement 4.4.3: "Do not use our trademarks in your app icon, banner, or screenshots." For social, STRATEGY §7 says the same.
@@ -217,8 +217,8 @@ paid, the widget), they add two rows that are still `proposed` in `claims.toml`:
 - `rp-setup-steps` (S1-A's "Set up cashback" card);
 - `rp-cashback-base` (S1-B's sentence "Cashback is paid on the product price after discounts. Shipping, and anything paid with store credit or gift cards, earns nothing.", `app/routes/app.tiers.tsx:354-357`). Its gift-card part rests on code only (`app/lib/order-facts.ts`); no gift-card order has been run (`docs/staging-run.md:36-44`).
 
-**Preconditions before any S1 upload** (Yu's word, D-shots-2):
-1. Either the claims maker verifies `rp-setup-steps` and `rp-cashback-base` from code and staging (and decides whether the gift-card part needs an observed order first), or Yu records, through the checker in `approvals.jsonl`, that real-UI listing frames may carry the app's own sentences while those rows are still `proposed`.
+**Preconditions before any S1 upload** (the owner's word, D-shots-2):
+1. Either the claims maker verifies `rp-setup-steps` and `rp-cashback-base` from code and staging (and decides whether the gift-card part needs an observed order first), or the owner records, through the checker in `approvals.jsonl`, that real-UI listing frames may carry the app's own sentences while those rows are still `proposed`.
 2. The 4.3.4 reading (§11) for frames with figures: S1-A shows £0.00 tiles, S1-B rates and minimum spends.
 3. The checker passes each frame against §4.
 
@@ -277,7 +277,7 @@ The S1-A frame. Reuse it if the app's Home hasn't changed since. Otherwise captu
   - the main column: "This month" (Cashback given, Store credit spent at checkout, Came back) and Recent rewards rows with order, buyer, tier chip, status and amount (`app/routes/app._index.tsx:447-509`);
   - the side column (`app/routes/app._index.tsx:530-561`): the Running card, which shows a switch labelled "Cashback" (on), the sentence "On: every paid order earns cashback as store credit." (`app/admin/home-rules.ts:49`, rendered at `app._index.tsx:534`) and the checks "Store credit can be spent", "Widget is on", "Tiers are set"; and the Tiers card with "1 member" on each tier (`app._index.tsx:556`).
 - **Must not appear (extra):** the review section; any banner; **the Running sentence "On: every paid order earns cashback as store credit."** The claims ledger marks it an overclaim and bans it from marketing, because guest and test orders don't earn (`claims.toml` rp-paid-trigger).
-- **The listing frame (PROPOSAL, D-shots-3):** either an app-copy fix to that sentence is released before G0 (an agent PR that Yu merges; a merge deploys production), and the frame is the whole 1600×900 page; or the listing derivative is a 16:9 crop of the main column only, scaled down to 1600×900. That crop needs the main column to be at least 1600 device px wide in the 3200×1800 master [I: not measured; the side column sits beside the main one from 784 px, `app._index.tsx:66`]. If neither works, SH-1 takes SH-2's listing slot.
+- **The listing frame (PROPOSAL, D-shots-3):** either an app-copy fix to that sentence is released before G0 (an agent PR that the owner merges; a merge deploys production), and the frame is the whole 1600×900 page; or the listing derivative is a 16:9 crop of the main column only, scaled down to 1600×900. That crop needs the main column to be at least 1600 device px wide in the 3200×1800 master [I: not measured; the side column sits beside the main one from 784 px, `app._index.tsx:66`]. If neither works, SH-1 takes SH-2's listing slot.
 - **Social crop (4:5):** Recent rewards (main column only, so the Running card is out).
 - **Figures:** under the one 4.3.4 reading (§11), with every other frame that shows amounts.
 - **Alt template:** "RewardsPro's Home page in a test store: this month's cashback given [£x] and store credit spent [£y]; recent rewards for three test customers, including [£13.50] taken back for a refund."
@@ -344,7 +344,7 @@ Captured in the G0 sitting before the switch is ever touched, so it shows the de
 | **8b guest** | 390×844, DPR 3 | Signed out, panel open | "Sign in to see your rewards", "Earn 5% back as store credit", "Sign in" (`rewards-widget.js:163-177`) |
 | **8c listing and site** | 1600×900, DPR 2 | As 8a, Light | as 8a |
 
-- **No side-by-side phone frame.** The earlier 8d (8a and 8b placed side by side on a white ground) is dropped: it stitches two captures, which §3 forbids. shopify.dev best practices say "If your app is mobile-responsive or works with POS, include screenshots showing those experiences" (read 2026-11-07), so a phone image in the listing stays an open choice for Yu (§11).
+- **No side-by-side phone frame.** The earlier 8d (8a and 8b placed side by side on a white ground) is dropped: it stitches two captures, which §3 forbids. shopify.dev best practices say "If your app is mobile-responsive or works with POS, include screenshots showing those experiences" (read 2026-11-07), so a phone image in the listing stays an open choice for the owner (§11).
 - **Must not appear (extra):** Sam's alias, the account menu, the cookie banner, a chat button, Shop Pay, "Powered by Shopify", or any other "Shopify" the theme prints (the 4.4.3 reading, §11).
 - **Social crop (4:5):** the open panel with the launcher, from 8a or 8b.
 - **Alt templates:**
@@ -352,7 +352,7 @@ Captured in the G0 sitting before the switch is ever touched, so it shows the de
   - 8b: "The RewardsPro widget for a guest on a phone: Sign in to see your rewards, Earn 5% back as store credit, and a Sign in button."
   - Add "Dark colours." for the Dark variants.
 
-**Time for Yu [I]:** about 20 minutes of setup, 10 for the orders, 25 for the stills and 15 for the
+**Time for the owner [I]:** about 20 minutes of setup, 10 for the orders, 25 for the stills and 15 for the
 recordings: roughly 70 minutes, inside the 60–90 minute G0 sitting.
 
 ---
@@ -432,7 +432,7 @@ and the `sh-*` rows have no frame. Their evidence is the listing, the code and S
 |---|---|---|
 | App Store listing, S1 | S1-A and S1-B, replacing all three old screenshots; S1-C only if the form refuses two | now, once the §5 preconditions hold |
 | App Store listing, after G0 (3–6 recommended, best practices) | SH-2 (or SH-1: see SH-2's listing frame and the 4.3.4 reading), SH-3, SH-6, SH-4 (after the 4.4.3 reading), SH-8c | S2 step 15 |
-| rewardspro.io (#130 rewrite) | the 1200×675 derivatives of SH-1, SH-3, SH-6, SH-7 (once `rp-no-own-email` is verified), SH-8c | when Yu deploys the rewrite |
+| rewardspro.io (#130 rewrite) | the 1200×675 derivatives of SH-1, SH-3, SH-6, SH-7 (once `rp-no-own-email` is verified), SH-8c | when the owner deploys the rewrite |
 | LinkedIn (M1, C1–C4 in STRATEGY §6.2) | the 1080×1350 derivatives: SH-6 for M1 and C1, SH-7 for C4, SH-8a or b only after `rp-widget` | S2 |
 | X, Bluesky, Instagram, TikTok | none (they don't post) | — |
 
@@ -440,13 +440,13 @@ and the `sh-*` rows have no frame. Their evidence is the listing, the code and S
 
 ## 11. Doubts we couldn't resolve
 
-- **Store choice** (§1). Option A is a new dev store, but STRATEGY §7 named rewardsprotesting. That is Yu's word.
+- **Store choice** (§1). Option A is a new dev store, but STRATEGY §7 named rewardsprotesting. That is the owner's word.
 - **Sam's sign-in address.** New customer accounts' sign-in by emailed code is [I]. If a store had a way to sign in as a customer without email, the alias wouldn't be needed [U].
 - **The page header's place.** Inside the app's frame or in Shopify's title bar [U]. It decides whether headings and buttons survive the crop.
-- **The 4.4.3 reading (a precondition, D-shots-4).** The word "Shopify" inside the app's UI: "Open the buyer in Shopify", "As Shopify holds it now" (SH-4), "Shopify sends this email itself" (SH-7), and anything a theme prints on the storefront (SH-8c). Requirement 4.4.3 says "Do not use our trademarks in your app icon, banner, or screenshots" and allows them "to communicate your app's compatibility with Shopify". Whether app text naming Shopify counts is [U]. Yu or the checker decides it once, before any frame that shows the word is "safe" for the listing. Logos are out either way.
-- **The 4.3.4 reading (a precondition, D-shots-5).** Requirement 4.3.4 says "Do not use any statistics or data … This includes verifiable and unverifiable information." It reads as written for listing text and marketing claims, but its wording doesn't exclude test amounts in real UI [I]. One reading covers every listing frame with figures: S1-A (£0.00 tiles and the empty chart), S1-B and SH-3 (rates and minimum spends), SH-2, SH-4 and SH-6 (amounts). Yu or the checker decides it before the S1 upload.
-- **A phone image in the listing.** Best practices ask for mobile screenshots where an app is mobile-responsive. A 1600×900 listing image can't hold a 390 px phone capture without a ground, which makes it a composite. If Yu wants one, it needs his explicit exception to §3's no-stitching rule: the alt text and sidecar would say it is two captures placed side by side, `derived_from` would list both masters, and the 4.4.4 question goes with it to the checker. Otherwise mobile shows on social only (SH-8a, SH-8b).
-- **The UI says "Members"** (the Tiers column, "1 member"; `app/routes/app.tiers.tsx:305, 326`; Home's Tiers card prints "1 member" or "0 members" too, `app/routes/app._index.tsx:556`, which is in the SH-2 frame; on S1-A/SH-1's first open it reads "No tiers yet. …" instead). The voice guide lists "members" under words to avoid. Screenshots keep the real UI, so this is an app-copy question for Yu, not something to edit in a frame.
+- **The 4.4.3 reading (a precondition, D-shots-4).** The word "Shopify" inside the app's UI: "Open the buyer in Shopify", "As Shopify holds it now" (SH-4), "Shopify sends this email itself" (SH-7), and anything a theme prints on the storefront (SH-8c). Requirement 4.4.3 says "Do not use our trademarks in your app icon, banner, or screenshots" and allows them "to communicate your app's compatibility with Shopify". Whether app text naming Shopify counts is [U]. The owner or the checker decides it once, before any frame that shows the word is "safe" for the listing. Logos are out either way.
+- **The 4.3.4 reading (a precondition, D-shots-5).** Requirement 4.3.4 says "Do not use any statistics or data … This includes verifiable and unverifiable information." It reads as written for listing text and marketing claims, but its wording doesn't exclude test amounts in real UI [I]. One reading covers every listing frame with figures: S1-A (£0.00 tiles and the empty chart), S1-B and SH-3 (rates and minimum spends), SH-2, SH-4 and SH-6 (amounts). The owner or the checker decides it before the S1 upload.
+- **A phone image in the listing.** Best practices ask for mobile screenshots where an app is mobile-responsive. A 1600×900 listing image can't hold a 390 px phone capture without a ground, which makes it a composite. If the owner wants one, it needs his explicit exception to §3's no-stitching rule: the alt text and sidecar would say it is two captures placed side by side, `derived_from` would list both masters, and the 4.4.4 question goes with it to the checker. Otherwise mobile shows on social only (SH-8a, SH-8b).
+- **The UI says "Members"** (the Tiers column, "1 member"; `app/routes/app.tiers.tsx:305, 326`; Home's Tiers card prints "1 member" or "0 members" too, `app/routes/app._index.tsx:556`, which is in the SH-2 frame; on S1-A/SH-1's first open it reads "No tiers yet. …" instead). The voice guide lists "members" under words to avoid. Screenshots keep the real UI, so this is an app-copy question for the owner, not something to edit in a frame.
 - **Expected numbers** (§2) are inferred from code and staging. The £13.50, the tier moves and the progress bar's length haven't been observed in production.
 - **The listing's alt-text length limit** and its file-size limit [U]. Today's images are 1600×900 JPEG (phase-1 live note).
 - **"Capture node screenshot" on a cross-origin iframe** isn't tested. The viewport-plus-crop route is the fallback.

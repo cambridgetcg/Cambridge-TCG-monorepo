@@ -1,18 +1,18 @@
 # RewardsPro social and marketing kit: the strategy
 
-Agents' proposal for Yu, 2026-11-07. **Nothing is decided.** Nothing was posted, signed up for, logged in to,
-deployed or committed. Yu's word today ("review and set up social media and marketing kit") lifts the
+Agents' proposal for the owner, 2026-11-07. **Nothing is decided.** Nothing was posted, signed up for, logged in to,
+deployed or committed. The owner's word today ("review and set up social media and marketing kit") lifts the
 2026-10-20 "no social accounts yet" line. Every other rule from that design still holds: the claims ledger,
-gates G0–G6, "only Yu publishes, sends or spends", the honest-by-design promise and the R1 commerce voice.
+gates G0–G6, "only the owner publishes, sends or spends", the honest-by-design promise and the R1 commerce voice.
 
 Labels: **[V]** verified (file:line or URL plus date). **[I]** inferred. **[U]** unknown. **HYPOTHESIS**
-means something to test in the ~5 merchant interviews. **PROPOSAL** means wording or a choice for Yu. Code
+means something to test in the ~5 merchant interviews. **PROPOSAL** means wording or a choice for the owner. Code
 paths are in the read-only checkout of origin/main 6f3a57b6, relative to `apps/rewards/` unless marked.
 
 **Superseded in places (completeness check, 2026-11-07).** The makers revised parts of this proposal later the
 same day, in their own files. Where they differ from this file, theirs are current:
 - **§3.2 profile texts:** [profiles.md](profiles.md) and `profiles.json`. R0 no longer says "Reserved name"; A0 ends
-  "Nothing is posted here yet."; CB is dropped (the Community bio is Yu's own words); T1 drops "Free app" (T1F keeps
+  "Nothing is posted here yet."; CB is dropped (the Community bio is the owner's own words); T1 drops "Free app" (T1F keeps
   it for D4); L1 is reworded; TK0, AI0, T1F, MK1 and YT1 are added.
 - **§6.3 claim sentences:** `../claims.toml` and [claims-map.md](claims-map.md) (36 rows, all `proposed`). rp-free,
   rp-on-app-store (no "on the Shopify App Store", so that phrase is no longer a §4 "word to use" in social),
@@ -34,15 +34,15 @@ same day, in their own files. Where they differ from this file, theirs are curre
 
 ## Summary
 
-1. **Social is the third ring.** Merchants decide on the App Store listing, then check rewardspro.io, and both say false things today. Yu's own order (approved 2026-11-04) is "the App Store listing, then rewardspro.io, then social posts". This plan keeps that order.
-2. **Now we only reserve names.** Yu creates four accounts (a LinkedIn Page, YouTube, X and Bluesky). Each gets the mark, a banner with only the name, and a "reserved" bio that makes no product claim. No links and no posts.
-3. **Also now, Yu cleans the listing.** He deletes the tier-product lines and the Memberships tags, swaps out the gmail and tier-product screenshots, removes the old video and trims the data request. Removing a false claim needs no new evidence.
-4. **Posting starts only at stage S2.** That needs all of: G0 and B3 recorded; the listing fixed; rewardspro.io rewritten with true privacy, terms and subprocessors pages; the first-real-merchant steps done or accepted by Yu in writing; and every claim in the post verified. Every post counts as an invitation to install.
+1. **Social is the third ring.** Merchants decide on the App Store listing, then check rewardspro.io, and both say false things today. The owner's own order (approved 2026-11-04) is "the App Store listing, then rewardspro.io, then social posts". This plan keeps that order.
+2. **Now we only reserve names.** The owner creates four accounts (a LinkedIn Page, YouTube, X and Bluesky). Each gets the mark, a banner with only the name, and a "reserved" bio that makes no product claim. No links and no posts.
+3. **Also now, the owner cleans the listing.** He deletes the tier-product lines and the Memberships tags, swaps out the gmail and tier-product screenshots, removes the old video and trims the data request. Removing a false claim needs no new evidence.
+4. **Posting starts only at stage S2.** That needs all of: G0 and B3 recorded; the listing fixed; rewardspro.io rewritten with true privacy, terms and subprocessors pages; the first-real-merchant steps done or accepted by the owner in writing; and every claim in the post verified. Every post counts as an invitation to install.
 5. **One feed is active: LinkedIn, and it posts only milestones (0–2 a month).** YouTube holds 1–3 real recordings. X and Bluesky (`@rewardspro.io`) have a bio that points elsewhere and never post.
 6. **The handle is `rewardsproapp`** everywhere, with the domain handle on Bluesky. The display name is exactly "RewardsPro". "Shopify" never appears in a name, handle, URL slug or hashtag.
-7. **Yu's time:** about 2 hours once, then ≤10–15 minutes a week on average after S2. That leaves most of the 45-minute weekly approval budget for the listing, the site and outreach.
-8. **Outreach from social stays consent-first.** The Partner Program Agreement says "Do not email a Merchant without their prior consent." For email, Yu decided on 2026-11-07 ("Emailing business directly is fine."): the prospect list is now the outreach design's Lane B, built only at its W-gate (§9, last paragraph).
-9. **Recurring cost is £0.** No paid badges, schedulers or ads. Posting does bring forward one product cost: point-in-time recovery (about $100 a month), or Yu's written acceptance of going without it.
+7. **The owner's time:** about 2 hours once, then ≤10–15 minutes a week on average after S2. That leaves most of the 45-minute weekly approval budget for the listing, the site and outreach.
+8. **Outreach from social stays consent-first.** The Partner Program Agreement says "Do not email a Merchant without their prior consent." For email, the owner decided on 2026-11-07 ("Emailing business directly is fine."): the prospect list is now the outreach design's Lane B, built only at its W-gate (§9, last paragraph).
+9. **Recurring cost is £0.** No paid badges, schedulers or ads. Posting does bring forward one product cost: point-in-time recovery (about $100 a month), or the owner's written acceptance of going without it.
 10. **Positioning stays empty.** The pillars, the bios and the "free" wording are hypotheses or proposals until about five merchant interviews have happened.
 
 ---
@@ -77,7 +77,7 @@ same day, in their own files. Where they differ from this file, theirs are curre
 5. rewardspro.io carries retired copy, the banned spelling and KINGDOM wording.
 6. The claims ledger has no verified row.
 7. The steps needed before the first real merchant are open: PITR plus a rehearsed restore, the Sentry Crons decision, the data-request email decision and cancelling the 2 frozen charges.
-8. The kernel, and with it this kit, sits in `apps/rewardspro/`, which B5 deletes. Yu picks its new home before B5.
+8. The kernel, and with it this kit, sits in `apps/rewardspro/`, which B5 deletes. The owner picks its new home before B5.
 
 ---
 
@@ -87,41 +87,41 @@ These sit on top of G0–G6. Each condition is a single fact someone can check.
 
 | Stage | Holds when (all of these) | Allows |
 |---|---|---|
-| **S0 Reserve** (now) | Yu says yes to the handle plan and the S0 texts. `rp-maker` and `rp-on-app-store` are `verified`. | Accounts, display name, avatar, a banner with only the name, the S0 bios. **No link, no posts**, and no contact address until the contact check passes. |
-| **S1 Listing clean** | The listing has no false text or image: the tier-product lines, the Memberships and Membership perks tags, screenshots #1 and #3, and the old video are gone, and the protected-data request is trimmed. | Yu's optional Shopify Community help on the open boards, in his own words, naming no app. Still no profile links and no posts. |
-| **S2 Open** | (a) G0 as Yu defines it (B4 `gates.md`, or a production test order plus refund, recorded). (b) B3 recorded (`rp-live-release`). (c) The listing is fully fixed: real 1600×900 screenshots with @example.com buyers, and the video replaced or removed. (d) rewardspro.io is rewritten and deployed, with privacy, terms and subprocessors true for the rebuild, no banned spelling and no KINGDOM wording. (e) The first-real-merchant steps are done, or Yu accepts their absence in writing. (f) contact@rewardspro.io is shown to deliver. (g) Every claim the post or bio uses is `verified` and unexpired. | The S2 bios with a link to rewardspro.io, milestone posts, the first YouTube recording, and disclosed Ask & Offer replies. |
-| **S3 Partners** | S2 holds, Yu has answered the Partner Program Agreement email question (§9), the partner terms (`rp-design-partner-offer`) are approved, and one DMARC record is left. | The design-partner call (M2) and the consent-first outreach doors. |
+| **S0 Reserve** (now) | The owner says yes to the handle plan and the S0 texts. `rp-maker` and `rp-on-app-store` are `verified`. | Accounts, display name, avatar, a banner with only the name, the S0 bios. **No link, no posts**, and no contact address until the contact check passes. |
+| **S1 Listing clean** | The listing has no false text or image: the tier-product lines, the Memberships and Membership perks tags, screenshots #1 and #3, and the old video are gone, and the protected-data request is trimmed. | The owner's optional Shopify Community help on the open boards, in his own words, naming no app. Still no profile links and no posts. |
+| **S2 Open** | (a) G0 as the owner defines it (B4 `gates.md`, or a production test order plus refund, recorded). (b) B3 recorded (`rp-live-release`). (c) The listing is fully fixed: real 1600×900 screenshots with @example.com buyers, and the video replaced or removed. (d) rewardspro.io is rewritten and deployed, with privacy, terms and subprocessors true for the rebuild, no banned spelling and no KINGDOM wording. (e) The first-real-merchant steps are done, or the owner accepts their absence in writing. (f) contact@rewardspro.io is shown to deliver. (g) Every claim the post or bio uses is `verified` and unexpired. | The S2 bios with a link to rewardspro.io, milestone posts, the first YouTube recording, and disclosed Ask & Offer replies. |
+| **S3 Partners** | S2 holds, the owner has answered the Partner Program Agreement email question (§9), the partner terms (`rp-design-partner-offer`) are approved, and one DMARC record is left. | The design-partner call (M2) and the consent-first outreach doors. |
 
-If Yu ever wants posts before rewardspro.io is fixed, that needs his explicit word. By default it doesn't happen.
+If the owner ever wants posts before rewardspro.io is fixed, that needs his explicit word. By default it doesn't happen.
 
 ---
 
 ## 3. Channels
 
-| Platform | Role | Handle (fallbacks) | Why | Yu's setup steps |
+| Platform | Role | Handle (fallbacks) | Why | The owner's setup steps |
 |---|---|---|---|---|
 | **App Store listing** | Primary surface (not social) | apps.shopify.com/rewards-pro | Merchants decide here. Outside traffic lifts its ranking. Merchants try an unknown free app when the listing "shows the app working" (Community thread /t/675500, 2026-09-02, one merchant). It is false today. | Partner Dashboard: delete the false text, swap screenshots #1 and #3, remove the video, trim protected data (S1). Full screenshot set after G0 (S2). |
-| **rewardspro.io** | Primary surface (owned) | rewardspro.io, with a `/changes` page in the rewrite | It's the second place anyone checks. It holds the dated record of what changed, and corrections. It's updated only inside deploys Yu is already doing for the listing or landing. | Read, merge and deploy the #130 rewrite (agents redo it against the rebuild). |
-| **LinkedIn Page** | **Primary social: the only active feed** | "RewardsPro", `linkedin.com/company/rewardsproapp` (`rewardspro` if the form offers it and Yu prefers; `rewardspro-io`) | It ties the app to a real UK company and a website, and offers verification with no stated fee. Smile (12,154 followers) and Joy (593, changelog-style, about 3 posts a week) post there. It has native scheduling. Whether merchants check LinkedIn is unknown: a HYPOTHESIS, tested by ME-2. | From Yu's personal account, on desktop: Create a Page → Company. Name "RewardsPro". Leave the website empty (if the form insists on one, wait until S2). Pick the true company size. Logo `kit/social/avatar-400.png`, cover 1512×256, tagline T0, About A0. 2FA. Decide whether his personal profile lists RewardsPro. |
+| **rewardspro.io** | Primary surface (owned) | rewardspro.io, with a `/changes` page in the rewrite | It's the second place anyone checks. It holds the dated record of what changed, and corrections. It's updated only inside deploys the owner is already doing for the listing or landing. | Read, merge and deploy the #130 rewrite (agents redo it against the rebuild). |
+| **LinkedIn Page** | **Primary social: the only active feed** | "RewardsPro", `linkedin.com/company/rewardsproapp` (`rewardspro` if the form offers it and the owner prefers; `rewardspro-io`) | It ties the app to a real UK company and a website, and offers verification with no stated fee. Smile (12,154 followers) and Joy (593, changelog-style, about 3 posts a week) post there. It has native scheduling. Whether merchants check LinkedIn is unknown: a HYPOTHESIS, tested by ME-2. | From the owner's personal account, on desktop: Create a Page → Company. Name "RewardsPro". Leave the website empty (if the form insists on one, wait until S2). Pick the true company size. Logo `kit/social/avatar-400.png`, cover 1512×256, tagline T0, About A0. 2FA. Decide whether his personal profile lists RewardsPro. |
 | **YouTube** | Secondary: hosts 1–3 videos, with no feed | `@rewardsproapp` (`@rewardspro_io`, `@getrewardspro`) | The listing's video slot is a YouTube embed. Merchants want to see the app working. `@RewardsPro` is a cheat channel, and the current video sits on @CambridgeTCG. | Create the channel as a Brand Account named "RewardsPro" with handle `@rewardsproapp`. Avatar 1024, banner 2560×1440, description YT0. No uploads until S2. |
-| **Shopify Community** | Secondary, optional, Yu's own words | Yu's own username (no brand account) | It's the one place merchants are seen asking for loyalty apps (threads with 327 and 246 views). App talk is allowed only on Ask & Offer, with disclosure. AI-written or templated posts are removed, and contact details go in the bio only. | From S1: profile bio CB. On the open boards, help without naming any app. From S2: disclosed Ask & Offer replies when a request fits. Agents never write anything shaped like a reply. |
+| **Shopify Community** | Secondary, optional, the owner's own words | The owner's own username (no brand account) | It's the one place merchants are seen asking for loyalty apps (threads with 327 and 246 views). App talk is allowed only on Ask & Offer, with disclosure. AI-written or templated posts are removed, and contact details go in the bio only. | From S1: profile bio CB. On the open boards, help without naming any app. From S2: disclosed Ask & Offer replies when a request fits. Agents never write anything shaped like a reply. |
 | **Bluesky** | Reserve only (pointer bio) | `@rewardspro.io`, created first as `rewardsproapp.bsky.social` | A domain handle proves we control the domain, for free. There's no evidence of merchants there. | Sign up, display name "RewardsPro", avatar, 1500×500 banner (≤1 MB), bio R0. After removing the KINGDOM TXT records: Settings → Account → Handle → "I have my own domain" → `rewardspro.io`; add a TXT record `_atproto` = `did=did:plc:…` in Cloudflare; press Verify. |
 | **X** | Reserve only (pointer bio) | `@rewardsproapp` (`@rewardspro_io`, `@getrewardspro`) | `@RewardsPro` is someone else's, and X doesn't release inactive names. No merchant evidence. Reserving stops a lookalike. | Sign up with a non-public alias. Name "RewardsPro", avatar 400, header 1500×500, bio R0. DMs off, no website. The birth date X asks for is the operator's: set it to "only you". |
-| **Instagram** (Threads follows it) | Reserve only if `@rewardspro.io` is Yu's; otherwise skip | `@rewardspro.io` if his (optionally `@rewardsproapp` to hold the name) | A consumer platform; collector content belongs to Cambridge TCG. The existing account shows banned spellings and retired MRR copy. | If it's his: change the name to "RewardsPro" and the bio to R0, and archive the 2 old posts, or deactivate it. If not: note it as a lookalike. |
-| **TikTok** | Skip, unless `@rewardspro` is Yu's | `@rewardspro` only if his | No evidence of B2B app discovery there. | If it's his: bio R0 and leave it dormant. |
+| **Instagram** (Threads follows it) | Reserve only if `@rewardspro.io` is the owner's; otherwise skip | `@rewardspro.io` if his (optionally `@rewardsproapp` to hold the name) | A consumer platform; collector content belongs to Cambridge TCG. The existing account shows banned spellings and retired MRR copy. | If it's his: change the name to "RewardsPro" and the bio to R0, and archive the 2 old posts, or deactivate it. If not: note it as a lookalike. |
+| **TikTok** | Skip, unless `@rewardspro` is the owner's | `@rewardspro` only if his | No evidence of B2B app discovery there. | If it's his: bio R0 and leave it dormant. |
 | **Facebook** | Skip | — | Needs a personal profile as admin. One founder reports merchant groups were "mostly silence" plus offers of paid reviews. | — |
 | **Reddit** | Skip | — | r/shopify Rule 8 bans app-developer posts; r/ecommerce and r/smallbusiness are similar. | — |
 | **Mastodon** | Skip | — | Most instances ban promotion. No merchant evidence. | — |
 | **Product Hunt** | Skip (revisit after ≥5 genuine reviews) | — | Its audience is makers, and it needs a personal account. | — |
-| **GitHub** | Skip, and **never linked** | — | The monorepo is public and holds KINGDOM and personal material (SOPHIA.md at the root, 308 Markdown files mentioning "kingdom", switch.md naming Yu on 80 lines). | Say whether the `RewardsPro` org is his. |
+| **GitHub** | Skip, and **never linked** | — | The monorepo is public and holds KINGDOM and personal material (SOPHIA.md at the root, 308 Markdown files mentioning "kingdom", switch.md naming the owner on 80 lines). | Say whether the `RewardsPro` org is his. |
 | **Newsletter / email** | Skip | — | The email gate applies, DMARC is duplicated, and the PPA email clause applies. | — |
-| **Podcasts** (The Shopify App Show, Shopifreaks) | Later, Yu's act | — | Plausible earned media, but a pitch is outreach. Not before S3 and some genuine use. | — |
+| **Podcasts** (The Shopify App Show, Shopifreaks) | Later, the owner's act | — | Plausible earned media, but a pitch is outreach. Not before S3 and some genuine use. | — |
 
 ### 3.1 Naming rules
 
 - **Display name** is exactly `RewardsPro`, with no suffix. A name is branding, and PPA 5.3 bans Shopify marks in "business name, logo, branding, advertising, social media or domain name (including … page URLs)" [V, shopify.com/partners/terms, read 2026-11-07, ppa.txt:453]. "Shopify" appears only to say what the app works with (Part C s.3, ppa.txt:718).
 - **Never put these in a handle, name, URL slug (`/changes/…`, UTM values) or hashtag:** "shopify", "shopi", "official", "app store", "hq". Default: no hashtags at all.
-- **Account hygiene (Yu's hand):** 2FA everywhere, with recovery codes in the Keychain. Sign up with a non-public alias. DMs closed where the platform allows. Agents never hold or use these logins.
+- **Account hygiene (the owner's hand):** 2FA everywhere, with recovery codes in the Keychain. Sign up with a non-public alias. DMs closed where the platform allows. Agents never hold or use these logins.
 - **Lookalikes** (the cheat channel, Somfy Rewards Pro, a gift-card cash-out app, prorewards.io): we answer with consistency, not reports. No trade-mark search has been done [U].
 
 ### 3.2 Profile texts (PROPOSAL; characters counted; brackets are claim ids and don't get pasted)
@@ -130,13 +130,13 @@ If Yu ever wants posts before rewardspro.io is fixed, that needs his explicit wo
 
 | Id | Text | Chars | Where | Claims |
 |---|---|---|---|---|
-| R0 | Reserved name for RewardsPro, an app for Shopify stores made by Cambridge TCG Limited, London. Nothing is posted here. | 118 | X, Bluesky, YouTube About, Instagram/TikTok if Yu's | rp-maker, rp-on-app-store |
+| R0 | Reserved name for RewardsPro, an app for Shopify stores made by Cambridge TCG Limited, London. Nothing is posted here. | 118 | X, Bluesky, YouTube About, Instagram/TikTok if the owner's | rp-maker, rp-on-app-store |
 | T0 | An app for Shopify stores, made by Cambridge TCG Limited, London. | 65 | LinkedIn tagline | rp-maker, rp-on-app-store |
 | A0 | RewardsPro is an app for Shopify stores, listed on the Shopify App Store. It is made by Cambridge TCG Limited, a UK company in London. We post here when the app changes, and not otherwise. | 188 | LinkedIn About | rp-maker, rp-on-app-store |
 | YT0 | RewardsPro's channel, run by Cambridge TCG Limited, London. RewardsPro is an app for Shopify stores. Nothing is posted here yet. | 128 | YouTube description | rp-maker, rp-on-app-store |
-| CB | I make RewardsPro, an app for Shopify stores (Cambridge TCG Limited, UK). | 73 | Yu's Community bio, from S1 | rp-maker |
+| CB | I make RewardsPro, an app for Shopify stores (Cambridge TCG Limited, UK). | 73 | The owner's Community bio, from S1 | rp-maker |
 
-Add "Questions: contact@rewardspro.io" to A0, YT0 and CB only after Yu has sent a test message from an outside address and seen it arrive. MX being Google Workspace doesn't prove the mailbox delivers.
+Add "Questions: contact@rewardspro.io" to A0, YT0 and CB only after the owner has sent a test message from an outside address and seen it arrive. MX being Google Workspace doesn't prove the mailbox delivers.
 
 **S2, after the named claims are verified.**
 
@@ -174,7 +174,7 @@ Add a widget paragraph only once `rp-widget` is verified (B3 plus gate C). Don't
 - **Mindful of the merchant's money, but not salesy.** It's their store credit, so we never imply cashback costs nothing.
 - **Modest, but not apologetic.** We're new, we say so when it matters, and we don't plead.
 - **Shows, but doesn't claim.** We show the screen, the sentence and the date. We never call ourselves honest or transparent.
-- **The company "we", not a founder's "I".** Yu's own Community account is the one exception.
+- **The company "we", not a founder's "I".** The owner's own Community account is the one exception.
 - **Calm, but not cold.** No exclamation marks, no emoji in bios, and at most one emoji in a post.
 - **Corrects openly, without performing an apology.** "Correction, 9 December 2026: we said X. Y is true."
 
@@ -196,12 +196,12 @@ Add a widget paragraph only once `rp-widget` is verified (B3 plus gate C). Don't
 11. "Official", "Shopify-approved", "Built for Shopify" (not earned), any Shopify Partner tier. No Shopify logo except the unaltered App Store badge.
 12. Urgency: deadlines, "spots left", "limited places", countdowns.
 13. "Honest", "transparent", "trustworthy" as self-description, or any seal or tick (CAP 3.52).
-14. Personal details about Yu or his relationships. No link to KINGDOM sites, github.com/cambridgetcg/* or docs.rewardspro.io.
+14. Personal details about the owner or his relationships. No link to KINGDOM sites, github.com/cambridgetcg/* or docs.rewardspro.io.
 15. Service promises with no evidence behind them: "24/7", "replies within 24 hours".
 16. That Shopify can't do something, unless a Shopify help page says so. No tax, VAT, accounting or legal advice.
 17. The banned spellings "Rewards Pro", "Rewardspro", "Rewards-Pro", "RewardPro" (the domain and slug stay lowercase).
 
-**On Yu's personal profiles** (only if he chooses to post about RewardsPro): the first words make the interest plain, for example "Ad · I make RewardsPro, an app for Shopify stores." (ASA ruling on TALA; CAP 2.1). By default he doesn't post about it.
+**On the owner's personal profiles** (only if he chooses to post about RewardsPro): the first words make the interest plain, for example "Ad · I make RewardsPro, an app for Shopify stores." (ASA ruling on TALA; CAP 2.1). By default he doesn't post about it.
 
 ---
 
@@ -221,7 +221,7 @@ Add these questions to the interview guide too:
 - "Where do you find tools for your shop?"
 - "Does 'free app; you fund the cashback' read clearly?"
 
-Until the interviews: no card-shop or TCG framing, no outcome lines, and nothing implying we run a Shopify card shop. Cambridge TCG sells on eBay and Cardmarket only (design README, Yu 2026-10-20).
+Until the interviews: no card-shop or TCG framing, no outcome lines, and nothing implying we run a Shopify card shop. Cambridge TCG sells on eBay and Cardmarket only (design README, the owner 2026-10-20).
 
 **Corrections are a rule, not a pillar.** If a published sentence proves wrong, a new dated "Correction:" post goes on the same channel within 7 days, the note is appended on `/changes` and in the ledger's `correction_url`, and nothing is silently edited (typos excepted).
 
@@ -236,7 +236,7 @@ Until the interviews: no card-shop or TCG framing, no outcome lines, and nothing
 | Accounts, name, avatar, banner with name only | ✓ | ✓ | ✓ | ✓ | none |
 | Bios R0, T0, A0, YT0 | ✓ once both rows are verified | ✓ | replaced | — | rp-maker, rp-on-app-store |
 | Contact address in a profile | after the contact check | same | ✓ | ✓ | — |
-| Yu's Community help on open boards (no app named) | ✗ | ✓ optional | ✓ | ✓ | rp-maker (bio CB) |
+| The owner's Community help on open boards (no app named) | ✗ | ✓ optional | ✓ | ✓ | rp-maker (bio CB) |
 | Profile website link | ✗ | ✗ (the listing still links a false privacy page) | ✓ rewardspro.io, with UTM tags | ✓ | — |
 | T1, L1, R1 | ✗ | ✗ | ✓ | ✓ | as tagged in §3.2 |
 | M1 "the current version is live" | ✗ | ✗ | ✓ | ✓ | rp-live-release, rp-paid-trigger, rp-store-credit, rp-vip-tiers, rp-tier-window, rp-refund-takeback, rp-free, rp-merchant-funds, sh-sc-fee |
@@ -258,7 +258,7 @@ Until the interviews: no card-shop or TCG framing, no outcome lines, and nothing
 - **C2** (S2): "RewardsPro pays cashback as Shopify store credit, so Shopify's rules decide where customers can spend it: signed in with new customer accounts or Shop Pay, not legacy accounts; not on draft or edited orders; and the full balance applies." POS is left out on purpose: whether POS orders earn hasn't been observed.
 - **C3** (S2): "How RewardsPro asks for a review: once, after your store's third cashback entry and at least seven days with the app. You can dismiss it. Nothing is offered for a review."
 - **C4** (S2): "RewardsPro sends no email. One setting, off by default, asks Shopify to send its own email when a customer earns store credit."
-- **M2** (S3; ~450 characters): "We're looking for a few UK Shopify shops to set up RewardsPro with us on a call. It's free, as it is for everyone, and we'd ask for two short feedback calls in the first six weeks. Our help never depends on a review. You fund the cashback your customers earn. For stores created on or after 12 May 2025, Shopify charges its own third-party transaction fee on the part of an order paid with store credit. If that suits you, email contact@rewardspro.io." No deadline and no place count. Narrowing it to card and collectibles shops is a targeting HYPOTHESIS and Yu's call.
+- **M2** (S3; ~450 characters): "We're looking for a few UK Shopify shops to set up RewardsPro with us on a call. It's free, as it is for everyone, and we'd ask for two short feedback calls in the first six weeks. Our help never depends on a review. You fund the cashback your customers earn. For stores created on or after 12 May 2025, Shopify charges its own third-party transaction fee on the part of an order paid with store credit. If that suits you, email contact@rewardspro.io." No deadline and no place count. Narrowing it to card and collectibles shops is a targeting HYPOTHESIS and the owner's call.
 
 ### 6.3 Claim ids (for the claims maker, who alone edits `claims.toml`)
 
@@ -294,7 +294,7 @@ All rows start as `proposed`. A row becomes `verified` only after its evidence c
 | sh-sc-cap | Shopify lets a store issue less than US$15,000 of store credit on a single customer account. | same page | no |
 | sh-sc-fee | For Shopify stores created on or after 12 May 2025, Shopify charges third-party transaction fees on the part of an order paid with store credit. | same page, plus https://help.shopify.com/en/manual/your-account/manage-billing/billing-charges/types-of-charges/third-party-charges/third-party-transaction-fees (2026-11-07) | no |
 | rp-ai-drafted | Posts here are drafted with AI help and checked by a person before we post them. | The review pack and approval record for each post, under `marketing/social/` (a process claim, true only while the workflow holds) | no |
-| rp-design-partner-offer | We set RewardsPro up with a few UK shops on a call, free as for everyone, with two feedback calls in the first six weeks. Our help never depends on a review. | The partner-terms page Yu approves (not written yet) | no (Yu's word) |
+| rp-design-partner-offer | We set RewardsPro up with a few UK shops on a call, free as for everyone, with two feedback calls in the first six weeks. Our help never depends on a review. | The partner-terms page the owner approves (not written yet) | no (the owner's word) |
 | rp-shopify-deploy | (Internal, G0.) A production test order earned store credit and a refund took back its share, on <date>. | **Missing:** `docs/gates.md`, or the switch.md step 6.3 result | yes; never public |
 
 ### 6.4 Held, never in social until resolved
@@ -307,7 +307,7 @@ All rows start as `proposed`. A row becomes `verified` only after its evidence c
 - **"No shopper names stored":** landing and privacy pages only, not social, because it's too easy to overread.
 - **The widget's 12 KB size:** never as a speed claim. Lighthouse hasn't been run.
 - **"Guests don't earn":** the code skips orders with no customer attached (`app/lib/record-order.server.ts:92`). Whether a Shopify guest checkout carries a customer is **[U]** until a dev store shows it.
-- **Naming the removed features** (points, raffles and so on): Yu's word. Repeating them would also need the chance-word rule amended. Default: don't.
+- **Naming the removed features** (points, raffles and so on): the owner's word. Repeating them would also need the chance-word rule amended. Default: don't.
 
 ---
 
@@ -327,7 +327,7 @@ All rows start as `proposed`. A row becomes `verified` only after its evidence c
 | A2 | Header | 1500×500 PNG, ≤1 MB (Bluesky's cap; X allows 2 MB). Nothing in the top and bottom 60 px; the lower-left avatar zone kept clear. | X, Bluesky | "RewardsPro" (the reversed horizontal lockup on navy) | **yes** |
 | A3 | LinkedIn cover | 1512×256 PNG (keep ≤3 MB [I]); key content centred, away from the edges and the lower right | LinkedIn | "RewardsPro" (lockup) | **yes** |
 | A4 | YouTube banner | 2560×1440 PNG, ≤6 MB; everything inside the centred 1546×423 band (1235×338 at 2048×1152, scaled) | YouTube | "RewardsPro" (lockup) | **yes** |
-| A5 | Site link card (exists: `kit/web/og.jpg`) | 1200×630 JPEG, 49 KB; X crops to the centred 1200×600 band | link previews of rewardspro.io | "Cashback your customers spend in your store" / "Paid as Shopify store credit, with VIP tiers. Free." / "RewardsPro · rewardspro.io" | **no**. It makes 3 unverified claims and **fails the free rule** (no "you fund the cashback"). It needs a kit rebuild through brand.json and Yu's approval (brand lane, not `social/`). Proposed subtitle: "Paid as Shopify store credit, with VIP tiers. Free app; you fund the cashback." |
+| A5 | Site link card (exists: `kit/web/og.jpg`) | 1200×630 JPEG, 49 KB; X crops to the centred 1200×600 band | link previews of rewardspro.io | "Cashback your customers spend in your store" / "Paid as Shopify store credit, with VIP tiers. Free." / "RewardsPro · rewardspro.io" | **no**. It makes 3 unverified claims and **fails the free rule** (no "you fund the cashback"). It needs a kit rebuild through brand.json and the owner's approval (brand lane, not `social/`). Proposed subtitle: "Paid as Shopify store credit, with VIP tiers. Free app; you fund the cashback." |
 | A6 | Milestone card | 1080×1350 PNG (4:5), ≤2 MB. Top ~60% a real screenshot crop; below, one verified sentence, the date and a small lockup. | LinkedIn | M1 instance: "When an order is paid, RewardsPro adds cashback to the customer's Shopify store credit." / "<D Month YYYY>" / "RewardsPro" | **no** |
 | A7 | Rule card | 1080×1350 PNG, ≤2 MB; footnote text ≥4.5:1 | LinkedIn | "How cashback is worked out" / "Cashback is paid on the product price after discounts. Shipping, and anything paid with store credit or gift cards, earns nothing." / "Test store, prices including VAT: £600 of products, £60 off, £10 shipping. Cashback on £540. At 5%: £27.00." / "Checked on a Shopify development store, <D Month YYYY>." / "RewardsPro" | **no** |
 | A8 | Store-credit limits card | 1080×1350 PNG, ≤2 MB | LinkedIn | "Where customers can spend store credit" / "Signed in with Shopify's new customer accounts or Shop Pay" / "Not with legacy customer accounts" / "Not on draft or edited orders" / "The full balance applies at checkout" / "Source: Shopify Help Center, checked <D Month YYYY>." / "RewardsPro" | **no** (no post goes out before S2) |
@@ -336,20 +336,20 @@ All rows start as `proposed`. A row becomes `verified` only after its evidence c
 | A11 | Screen recording V1 | 1920×1080 H.264 MP4, 60–90 s, burned-in captions plus an SRT from a typed transcript; LinkedIn Page video ≤10 min | YouTube, LinkedIn, the listing video slot | Captions (PROPOSAL, adjusted to what's on screen): "A test store with test customers." / "A customer pays for an order." / "RewardsPro records the order and its cashback." / "The cashback shows as store credit on the customer in Shopify." / "A refund takes back its share." | **no** |
 | A12 | YouTube thumbnail | 3840×2160 JPG or PNG (ASSETS B4, read 2026-10-20; the file-size cap wasn't re-checked [U]) | YouTube | "One paid order, start to finish" / "RewardsPro" over a real frame | **no** |
 | A13 | Listing feature image (optional, replaces the video; listing pack) | 1600×900, one focal point, ≥4.5:1, no Shopify logos | listing | "RewardsPro" / "Cashback as store credit, with VIP tiers" over a real screenshot | **no** |
-| A14 | App Store badge | Shopify's official file, unaltered, ≥30 px tall, clear space of half its height | rewardspro.io, LinkedIn images only if Yu wants | Shopify's own badge artwork, unchanged | **no** (no use before S2) |
+| A14 | App Store badge | Shopify's official file, unaltered, ≥30 px tall, clear space of half its height | rewardspro.io, LinkedIn images only if the owner wants | Shopify's own badge artwork, unchanged | **no** (no use before S2) |
 
 **Not made:** vertical 1080×1920 or Shorts cuts, Instagram feed sets, TikTok clips, a Facebook cover, a Product Hunt gallery, receipt cards, any AI image, any "verified" or "honest" seal.
 
-**Brand-lane fixes for #83 (not `social/`; Yu approves a kit rebuild):**
+**Brand-lane fixes for #83 (not `social/`; the owner approves a kit rebuild):**
 - brand.json's description still says "points": proposed "Cashback as Shopify store credit, with VIP tiers. Free app; you fund the cashback."
 - og.jpg's subtitle needs the same free fix.
 - og:locale should be en_GB.
 
 ---
 
-## 8. Cadence and Yu's weekly time
+## 8. Cadence and the owner's weekly time
 
-| Period | LinkedIn | YouTube | Reserves | Yu's social time |
+| Period | LinkedIn | YouTube | Reserves | The owner's social time |
 |---|---|---|---|---|
 | Now to S1 | 0 posts | reserved, empty | R0 | about 2 hours once (§13, steps 1–9), split over two weeks if he likes; then 0 a week |
 | S1 to S2 | 0 posts | — | — | 0; optional Community help is counted in outreach hours, not here |
@@ -357,11 +357,11 @@ All rows start as `proposed`. A row becomes `verified` only after its evidence c
 | After S2 | **0–2 posts a month, milestones only** | ≤2 more videos in 90 days, only if H2 holds | none; mentions checked monthly | **≤10–15 minutes a week on average** |
 
 - **Milestones** are a merchant-visible change shipping, or a held claim becoming verified. Agents can see both. Nothing is posted to fill a slot.
-- **Batches:** when milestones pile up (G0 verifies many claims at once), Yu approves up to 4 posts in one sitting of about 20 minutes and spreads them with LinkedIn's native scheduler. A batch stays inside the 30-day window of any sh-* row it uses, and G1 re-runs on publish day.
+- **Batches:** when milestones pile up (G0 verifies many claims at once), the owner approves up to 4 posts in one sitting of about 20 minutes and spreads them with LinkedIn's native scheduler. A batch stays inside the 30-day window of any sh-* row it uses, and G1 re-runs on publish day.
 - **"A missed week means nothing goes out. No backlog, no streaks, no catch-up bursts."** The floor is zero posts.
 - **Profiles explain silence before it happens:** "We post here when the app changes, and not otherwise" and "We don't post here."
-- **Where Yu's time goes:** about 45 minutes a week for approving all packs (listing, site, outreach, social) and about 3 hours a week during outreach (design README:404-405). Social takes at most a third of the 45 minutes.
-- Yu posts by hand or with LinkedIn's scheduler. No third-party tools, because they cost money and need shared access.
+- **Where the owner's time goes:** about 45 minutes a week for approving all packs (listing, site, outreach, social) and about 3 hours a week during outreach (design README:404-405). Social takes at most a third of the 45 minutes.
+- The owner posts by hand or with LinkedIn's scheduler. No third-party tools, because they cost money and need shared access.
 
 ---
 
@@ -372,17 +372,17 @@ Social isn't the acquisition lever. The listing and conversations with merchants
 - **The Partner Program Agreement** [V, shopify.com/partners/terms, "Last updated February 27, 2026", read 2026-11-07]:
   - its summary of §2 says "Do not email a Merchant without their prior consent." (ppa.txt:330);
   - §2.1 says partners will "not send any email regarding Shopify … to any individual or entity that has not requested such information" (ppa.txt:336), and will not email any merchant "whose email address they have received via Shopify" without consent (ppa.txt:335);
-  - §2.1 also bars "marketing methods with respect to Shopify … including … telemarketing … social media or video platforms" (ppa.txt:337). The summary reads this as marketing "on behalf of Shopify" (ppa.txt:330). Our reading is that promoting our own app, naming Shopify only for compatibility, is allowed [I]. A legal read would confirm both points; since Yu's word of 7 Nov it is optional for email (OUTREACH D16), not a precondition (last paragraph of this section).
+  - §2.1 also bars "marketing methods with respect to Shopify … including … telemarketing … social media or video platforms" (ppa.txt:337). The summary reads this as marketing "on behalf of Shopify" (ppa.txt:330). Our reading is that promoting our own app, naming Shopify only for compatibility, is allowed [I]. A legal read would confirm both points; since the owner's word of 7 Nov it is optional for email (OUTREACH D16), not a precondition (last paragraph of this section).
 - **PECR** counts social DMs as electronic mail, and sole traders are individual subscribers, so there are no cold DMs. Shopify Community forbids unsolicited private messages.
 
 **The doors (PROPOSAL):**
 1. The M2 call at S3, on LinkedIn and on a rewardspro.io partners page.
-2. One disclosed Ask & Offer post in Yu's own words, plus replies where a request fits.
+2. One disclosed Ask & Offer post in the owner's own words, plus replies where a request fits.
 3. People who agreed to hear about it, in person or by introduction.
 4. Merchants who write to contact@ from the listing.
 
 **If replies are few by week 6 after S3** (agreed now, used only then):
-- Yu asks people he already knows in the trade for introductions.
+- The owner asks people he already knows in the trade for introductions.
 - He considers one podcast pitch (The Shopify App Show).
 - Agents check whether a true compatibility sentence exists for TCG trade-in apps (TCG Importer, Synq, Hobby TCG Trade-In, Furloop). One question is whether their credit and RewardsPro's cashback share one Shopify balance: Home counts "store credit from any source" (`app/lib/stats.server.ts:5-14`). That is a HYPOTHESIS, and contact would go through their public support only.
 - In-person shop visits follow the outreach plan's consent-first routes (`OUTREACH.md` §4); phone stays on its never
@@ -394,7 +394,7 @@ Social isn't the acquisition lever. The listing and conversations with merchants
 - the interview guide additions (§5);
 - listing search wording in plain sentences, no keyword lists. In the 2026-10-18 capture, "store credit" and "vip tiers" didn't rank and "cashback" was #43. That predates the listing change, so agents re-capture it read-only.
 
-Yu has answered for email (2026-11-07: "Emailing business directly is fine."). The step-9 prospect list is now Lane B of the outreach pipeline (`wf3/outreach/PIPELINE.md`): built only when the W-gate holds, company-level only, first-segment companies only (never card shops while that lane is held, wf8 F-2), and kept on Yu's encrypted disk image (PIPELINE §8), not in `private/`. The email rules are `wf7/email-rules.md`; the outreach design, not social, carries them.
+The owner has answered for email (2026-11-07: "Emailing business directly is fine."). The step-9 prospect list is now Lane B of the outreach pipeline (`wf3/outreach/PIPELINE.md`): built only when the W-gate holds, company-level only, first-segment companies only (never card shops while that lane is held, wf8 F-2), and kept on the owner's encrypted disk image (PIPELINE §8), not in `private/`. The email rules are `wf7/email-rules.md`; the outreach design, not social, carries them.
 
 The design's targets (week 6: 30 contacted, 6 conversations, 3 installs; day 90: 5–10 partners) count from S3, not from today.
 
@@ -407,16 +407,16 @@ There are no follower, impression or engagement targets. Each number is read by 
 | # | Measure | How | Who, how often |
 |---|---|---|---|
 | ME-1 | **The legitimacy check** (social's real job) | Logged-out searches for "RewardsPro", "RewardsPro Shopify" and "RewardsPro app", plus a YouTube search. The top 10 are sorted into *ours and current*, *ours but stale* (old landing, docs, the Instagram account, mirrors) and *other* (the cheat channel, Somfy…). | agents, monthly, read-only |
-| ME-2 | **Did they look us up, where, and what did they see?** | Asked in every interview and partner call | Yu, every conversation |
-| ME-3 | Listing views and installs by week | Partner Dashboard, with post dates marked; correlation only. Whether it shows `utm_source` is [U]. No GA or Meta Pixel unless Yu decides that separately. | Yu, monthly, ~5 min |
-| ME-4 | LinkedIn Page views, followers and post impressions | Native analytics only, no scraping | Yu, monthly, ~3 min |
-| ME-5 | Inbound mail naming LinkedIn, YouTube, Community or M2 | Yu tags it | as it comes |
+| ME-2 | **Did they look us up, where, and what did they see?** | Asked in every interview and partner call | The owner, every conversation |
+| ME-3 | Listing views and installs by week | Partner Dashboard, with post dates marked; correlation only. Whether it shows `utm_source` is [U]. No GA or Meta Pixel unless the owner decides that separately. | The owner, monthly, ~5 min |
+| ME-4 | LinkedIn Page views, followers and post impressions | Native analytics only, no scraping | The owner, monthly, ~3 min |
+| ME-5 | Inbound mail naming LinkedIn, YouTube, Community or M2 | The owner tags it | as it comes |
 | ME-6 | AI answers to "What is RewardsPro?" (are raffles, points or paid plans still mentioned?) | The design's five fixed questions, logged out | agents, monthly, once S2 holds |
 
 **Decision rules, fixed now (PROPOSAL):**
-- **Week 8 after the first S2 post:** if Yu's Community time has produced no merchant conversation, it moves into outreach.
-- **Week 12:** keep LinkedIn posting if (a) at least 1 conversation or install traces to it, or (b) at least 2 interviewees cite LinkedIn or the video as a reason to trust or install, or (c) Yu values it for legitimacy. Otherwise it goes to profile-only, with no posts.
-- **ME-1 fails** while a stale result of ours ranks in the top 5. Then we fix the surface (Yu's hand), not the feed.
+- **Week 8 after the first S2 post:** if the owner's Community time has produced no merchant conversation, it moves into outreach.
+- **Week 12:** keep LinkedIn posting if (a) at least 1 conversation or install traces to it, or (b) at least 2 interviewees cite LinkedIn or the video as a reason to trust or install, or (c) the owner values it for legitimacy. Otherwise it goes to profile-only, with no posts.
+- **ME-1 fails** while a stale result of ours ranks in the top 5. Then we fix the surface (the owner's hand), not the feed.
 - Time a channel frees goes to outreach, never to a new platform. We never escalate to daily posting, paid boosts or new platforms on reach numbers alone.
 
 ---
@@ -429,28 +429,28 @@ There are no follower, impression or engagement targets. Each number is read by 
 | Truth | A post shows a widget buyers don't see yet | `rp-widget` waits for B3 plus gate C |
 | Truth | "Free" read as costing nothing | The mechanical free rule; the fee sentence in L1, M1 and M2 |
 | Truth | Claims expire, or Shopify changes its rules | sh-* rows have a 30-day `review_after` and a re-check before use; G1 fails expired rows; corrections within 7 days |
-| Truth | Negative claims (no email, nothing stored) quietly become false | Guard tests (agent PR under apps/rewards; Yu merges, because a merge deploys production) |
+| Truth | Negative claims (no email, nothing stored) quietly become false | Guard tests (agent PR under apps/rewards; the owner merges, because a merge deploys production) |
 | Truth | Screenshots leak personal or test data (it has happened on the listing) | @example.com only; the checker zooms every capture; G6 |
 | Legal | CAP "free" (3.23–3.26), comparisons (3.32–3.43), reviews (3.44+), identifiable ads (2.1, 2.3, TALA) | The never-say list; "Ad ·" on any personal post; no comparisons |
-| Legal | PPA email and marketing clauses (§9) | Consent-first doors for social; email only through the outreach design's W-gate, on Yu's word of 7 Nov (§9, last paragraph) |
+| Legal | PPA email and marketing clauses (§9) | Consent-first doors for social; email only through the outreach design's W-gate, on the owner's word of 7 Nov (§9, last paragraph) |
 | Legal | PPA 5.3 Shopify marks in names, URLs or hashtags | The no-shopify-in-identity rule, extended to slugs, UTM values and hashtags; the badge unaltered only |
 | Legal | UK GDPR for inbound contacts | Personal data only in git-ignored `private/` |
-| Platform | X, LinkedIn and Community ban automation and AI replies | Agents never post, reply, like or schedule; Yu writes Community answers himself |
+| Platform | X, LinkedIn and Community ban automation and AI replies | Agents never post, reply, like or schedule; the owner writes Community answers himself |
 | Platform | The LinkedIn form may refuse a product-name Page, or need a website [U] | Create the Page at S2 if needed; failing that, Bluesky becomes the active feed (claim-light) |
-| Platform | Bluesky's domain handle breaks if the `_atproto` record is removed | Note it on Yu's DNS checklist |
+| Platform | Bluesky's domain handle breaks if the `_atproto` record is removed | Note it on the owner's DNS checklist |
 | Reputation | A public GitHub link leads to KINGDOM and personal material | The r1-lexicon rule blocks github.com/cambridgetcg/*, docs.rewardspro.io and KINGDOM domains |
-| Reputation | KINGDOM TXT records on the domain become more visible once a domain handle invites lookups | Remove them **before** setting `_atproto` (Yu's DNS hand) |
+| Reputation | KINGDOM TXT records on the domain become more visible once a domain handle invites lookups | Remove them **before** setting `_atproto` (the owner's DNS hand) |
 | Reputation | Lookalike accounts and stale mirrors (LetsMetrix "Raffles & Mystery Box", PickYourApp $39/$149/$499) | Consistency; ME-1 watches; mirrors refresh from the listing [I] |
 | Reputation | A rival card shop as the maker reads as a conflict | Ask in interviews first (H4); no card-shop framing before then |
 | Operational | An install-inviting post brings a real merchant before PITR or the data-request email exist | S2 condition (e) |
-| Operational | B5 deletes `apps/rewardspro/`, and this kit with it | `social/` is self-contained; Yu picks the new home before B5 |
+| Operational | B5 deletes `apps/rewardspro/`, and this kit with it | `social/` is self-contained; the owner picks the new home before B5 |
 | Security | Account takeover, or logins shared with agents | 2FA, Keychain, a non-public sign-up alias, no agent logins |
 
 ---
 
 ## 12. Costs
 
-**Default: £0 a month.** The real cost is Yu's time (§8).
+**Default: £0 a month.** The real cost is the owner's time (§8).
 
 | Option | Price (source, date read) | Recommendation |
 |---|---|---|
@@ -461,16 +461,16 @@ There are no follower, impression or engagement targets. Each number is read by 
 | Meta One (badge) | from US$14.99/mo, announced 2026-09-15; UK price not stated | No |
 | Third-party scheduler | varies | No; native scheduling covers ≤2 posts a month |
 | Ads (App Store, social) | — | Not until ~5–10 genuine reviews. If ever: no "Shopify" in copy or keywords, and add "Shopify" as a phrase-match negative keyword (PPA, ppa.txt:454) |
-| **Triggered by posting:** Supabase PITR plus a rehearsed restore | about $100 a month (`docs/switch.md` row 9) | Before S2, or Yu accepts in writing going without |
-| **First-real-merchant, if EU merchants are in scope:** an EU Art. 27 representative | GDPR Local from £999/yr, Prighter €420/yr, EDPO €1,920/yr (PR #131, 2026-11-03) | Yu's decision |
+| **Triggered by posting:** Supabase PITR plus a rehearsed restore | about $100 a month (`docs/switch.md` row 9) | Before S2, or the owner accepts in writing going without |
+| **First-real-merchant, if EU merchants are in scope:** an EU Art. 27 representative | GDPR Local from £999/yr, Prighter €420/yr, EDPO €1,920/yr (PR #131, 2026-11-03) | The owner's decision |
 
 ---
 
 ## 13. Actions in order
 
-**Y-W** = Yu's word (a decision). **Y-H** = Yu's hand (only he does it). **A** = agents (local and read-only work, drafts, and PRs that change no live service; Yu merges). The order runs downwards.
+**Y** = the owner. **Y-W** = the owner's word (a decision). **Y-H** = the owner's hand (only he does it). **A** = agents (local and read-only work, drafts, and PRs that change no live service; the owner merges). The order runs downwards.
 
-**Now (S0 and S1).** Yu's words first, about 25 minutes:
+**Now (S0 and S1).** The owner's words first, about 25 minutes:
 1. **Y-W.** Are Instagram `@rewardspro.io`, TikTok `@rewardspro`, the GitHub org `RewardsPro` and X `@RewardsPro` yours?
 2. **Y-W.** Yes, no or edits on: the channel roles (§3), the handle `rewardsproapp` plus Bluesky `@rewardspro.io`, and the S0 texts (§3.2).
 3. **Y-W.** The PPA question. **Decided for email on 7 Nov:** "Emailing business directly is fine." (§9, last paragraph). Still open: letters (does the word cover post?), and whether to send the Shopify question as protection (recommended; ROADMAP action 1). A legal read is optional (OUTREACH D16).
@@ -503,7 +503,7 @@ Agents, in parallel:
    - the partner terms draft;
    - a read-only UKIPO/EUIPO search for REWARDSPRO, report only.
 
-Then Yu's hand, about 1 h 30 m, with nothing posted:
+Then the owner's hand, about 1 h 30 m, with nothing posted:
 
 9. **Y-H, Partner Dashboard (~30 min).**
    - Delete "you can sell a tier as a product", Feature 3, the meta description's tier-membership words, and the Memberships and Membership perks tags.
@@ -524,8 +524,8 @@ Then Yu's hand, about 1 h 30 m, with nothing posted:
     - In the same 60–90 minute sitting, capture the G0 shot list and recording V1. **This makes G0.**
 14. **A.** The claims maker verifies the rows the observations support, with a second session.
 15. **Y-H.** Replace the listing screenshots with the G0 set, and put in a real recording or a still feature image (A13).
-16. **A, then Y.** Agents rewrite #130 against the rebuild: landing, privacy, terms, subprocessors and `/changes`. They rebase #83, then #95. Yu reads, merges and deploys.
-17. **Y-W + Y-H.** The first-real-merchant steps: PITR plus a restore drill, the Sentry Crons decision, the data-request email decision, cancelling the 2 frozen charges, and the EU representative decision. Or Yu's written acceptance of their absence. **S2 holds.**
+16. **A, then Y.** Agents rewrite #130 against the rebuild: landing, privacy, terms, subprocessors and `/changes`. They rebase #83, then #95. The owner reads, merges and deploys.
+17. **Y-W + Y-H.** The first-real-merchant steps: PITR plus a restore drill, the Sentry Crons decision, the data-request email decision, cancelling the 2 frozen charges, and the EU representative decision. Or the owner's written acceptance of their absence. **S2 holds.**
 18. **A.** The M1 pack: text, card or V1, alt text, claim ids, gate report and a "valid until" date.
 19. **Y-H (~25 min).** Approve M1. Swap to T1, L1 and R1 with UTM links. Post and pin M1. Upload V1 to YouTube and, if wanted, the listing's video slot.
 
@@ -535,7 +535,7 @@ Then Yu's hand, about 1 h 30 m, with nothing posted:
 21. **A.** The M2 pack and the reply for merchants who wrote in.
 22. **Y-H.** Post M2. Hold partner calls, about 60 minutes each. Answer inbound mail and fitting Ask & Offer requests in his own words.
 23. **A, monthly.** ME-1 and ME-6, read-only, plus a one-page digest of expiring claims, ME rows and stale surfaces.
-24. **A + Y, on each milestone.** A pack of up to 4 posts; Yu approves (~20 min) and schedules them natively.
+24. **A + Y, on each milestone.** A pack of up to 4 posts; the owner approves (~20 min) and schedules them natively.
 25. **Week 12.** Apply the §10 rules.
 
 ---
@@ -546,10 +546,10 @@ Then Yu's hand, about 1 h 30 m, with nothing posted:
 - Post anything before S2, or link the listing or rewardspro.io before they are true.
 - Run more than one active feed, or mirror posts to X or Bluesky by default.
 - Send cold email or DMs from social, or buy or build lists of shops we may not contact. (First emails run only in the outreach design, under its W-gate: §9, last paragraph.)
-- Write Community answers, Reddit posts or reviews for Yu, or anything shaped like a reply for him to paste.
+- Write Community answers, Reddit posts or reviews for the owner, or anything shaped like a reply for him to paste.
 - Post on Reddit, Facebook groups, Mastodon or TikTok, or post Instagram content.
 - Use paid badges, ads, boosts, third-party schedulers, automation or AI reply bots.
-- Make founder-led posts on Yu's personal profiles (only with "Ad ·" first, if he ever chooses to).
+- Make founder-led posts on the owner's personal profiles (only with "Ad ·" first, if he ever chooses to).
 - Post build-in-public numbers, "first merchant" posts, review counts, install counts, outcome or ROI claims.
 - Compare ourselves with competitors, or use any "only free cashback app" line (Koin and Casa are free).
 - Use TCG or card-shop positioning before the interviews.
@@ -560,7 +560,7 @@ Then Yu's hand, about 1 h 30 m, with nothing posted:
 
 ---
 
-## 15. Decisions for Yu, and open questions
+## 15. Decisions for the owner, and open questions
 
 **Decisions (agents assume nothing):**
 - D1 The channel roles and the single active feed.
@@ -590,7 +590,7 @@ Then Yu's hand, about 1 h 30 m, with nothing posted:
 
 ## 16. How this plan was made
 
-**Base:** the **minimum viable presence** strategy, which scored highest across the three judges' lenses: truth risk 7.5, acquisition 6.5, Yu's time 8.
+**Base:** the **minimum viable presence** strategy, which scored highest across the three judges' lenses: truth risk 7.5, acquisition 6.5, the owner's time 8.
 
 **Grafted from the maker-log plan:**
 - its strict posting gate (now S2), with every post treated as an install invitation;
@@ -605,7 +605,7 @@ Then Yu's hand, about 1 h 30 m, with nothing posted:
 **Grafted from the merchant-help plan:**
 - the sh-* sourcing discipline;
 - "never say Shopify can't" and no tax or legal advice;
-- Yu's optional, own-words Community track;
+- The owner's optional, own-words Community track;
 - "a missed week means nothing goes out";
 - the week-8 and week-12 pass marks.
 
@@ -616,7 +616,7 @@ Then Yu's hand, about 1 h 30 m, with nothing posted:
 - "Shopify" in URLs and hashtags.
 - The unread PPA §2.1 marketing clause (now read, and sent to the legal read).
 - The unsupported "guest orders earn nothing" (held).
-- The over-read Community name rule (Yu's username is his own choice).
+- The over-read Community name rule (the owner's username is his own choice).
 - Two locator slips (`shopify.app.toml:10`; the PPA summary is ppa.txt:330).
 - An unmarked banned spelling in a YouTube description (dropped).
 

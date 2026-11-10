@@ -5,7 +5,7 @@
   "asset": "header",
   "variant": "dark",
   "brief_id": "STRATEGY.md §7 A2",
-  "status": "PROPOSAL for Yu: not approved, not published",
+  "status": "PROPOSAL for the owner: not approved, not published",
   "size": {
     "width": 1500,
     "height": 500
@@ -20,7 +20,7 @@
     "X header (1500x500 recommended; X states no file cap for headers [U])",
     "Bluesky banner (3:1, ≤1,000,000 bytes)"
   ],
-  "use": "X header and Bluesky banner (one file serves both). One of three grounds; Yu picks (README, Doubt 1).",
+  "use": "X header and Bluesky banner (one file serves both). One of three grounds; the owner picks (README, Doubt 1).",
   "safe_before_g0": true,
   "claim_ids": [],
   "claim_status_at_build": {},
@@ -69,7 +69,7 @@
       "ok": true
     }
   ],
-  "notes": "Ground #09110F: the current kit's dark.bg, set by the 2026-10-27 rebuild (676c10b4) as the ink of the rewardspro.io landing that is being retired. Not in the pack Yu approved on 2026-10-20; the reversed lockup's bytes predate it. The R shape #658AAD measures 5.27:1 and |Lc| 37.47, clearing the kit's bar (3:1 and |Lc| 30). Logos are exempt from WCAG; Yu picks the ground.",
+  "notes": "Ground #09110F: the current kit's dark.bg, set by the 2026-10-27 rebuild (676c10b4) as the ink of the rewardspro.io landing that is being retired. Not in the pack the owner approved on 2026-10-20; the reversed lockup's bytes predate it. The R shape #658AAD measures 5.27:1 and |Lc| 37.47, clearing the kit's bar (3:1 and |Lc| 30). Logos are exempt from WCAG; the owner picks the ground.",
   "master": {
     "path": "masters/rewardspro_social_header_dark_1500x500_20261107_v01.svg",
     "sha256": "043385bc3e9f6608204348c79ab2e19eb5039fd599fdcbdc627f394b9c503e00",
@@ -85,7 +85,7 @@
     {
       "path": "kit/logo/lockup-horizontal-reversed.svg",
       "sha256": "f3440b861495ff5ae25c17ec84ece502442fdfec30609e1f8ed49d828170e665",
-      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
     }
   ],
   "kernel_sha256": {
