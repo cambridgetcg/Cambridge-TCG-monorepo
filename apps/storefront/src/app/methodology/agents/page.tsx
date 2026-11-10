@@ -295,7 +295,7 @@ export default function AgentsMethodology() {
         <li>
           <strong>What the key&apos;s holder sees.</strong> <code>agent.self</code> returns{" "}
           <code>key_expires_at</code>: the instant, or <code>null</code> for a key with no
-          expiry. Each successful authenticated result carries an{" "}
+          expiry. Each successful authenticated tool result carries an{" "}
           <code>X-Agent-Key-Expires</code> header, an instant or <code>never</code>;
           refusals and <code>agent.revoke_key</code>&apos;s answers do not.
         </li>

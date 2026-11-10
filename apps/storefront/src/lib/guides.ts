@@ -907,7 +907,7 @@ export const GUIDES: Guide[] = [
           "Each key's expiry is chosen when it is minted at /account/agents: 7, 30 or 90 days, " +
           "1 year, a date, or never. Keys minted before that choice existed have no expiry. " +
           "agent.self's key_expires_at and the X-Agent-Key-Expires header on each successful " +
-          "result say when; no reminder is sent. An expired key gets 401 key_expired and " +
+          "tool result say when; no reminder is sent. An expired key gets 401 key_expired and " +
           "cannot be renewed: before then, mint a new key (or ask whoever minted this one), " +
           "move to it, then revoke the old one. A key also " +
           "stops working if it is revoked or its agent is suspended or archived. Any key's holder " +

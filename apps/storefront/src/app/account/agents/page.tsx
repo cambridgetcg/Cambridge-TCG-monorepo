@@ -152,7 +152,7 @@ export default async function AgentsAccountPage() {
         Each key stops working at the expiry chosen when it was minted, shown in your key
         list above; keys minted before expiry existed have none. The agent can read it too:{" "}
         <code>agent.self</code> returns <code>key_expires_at</code>, and each successful
-        result carries an <code>X-Agent-Key-Expires</code> header. Nothing is sent to you
+        tool result carries an <code>X-Agent-Key-Expires</code> header. Nothing is sent to you
         before a key expires. To keep an agent running, mint a new key, move the agent to
         it, check the old key&apos;s last use here, then revoke the old key.{" "}
         <Link href="/methodology/agents#key-expiry" className="text-accent hover:text-accent-strong underline">
