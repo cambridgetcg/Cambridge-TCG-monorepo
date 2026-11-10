@@ -1,6 +1,8 @@
 // Opt-in: AGENT_AUTH_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/agent_auth_test
 // Held keys on real PostgreSQL (docs/plans/agent-auth/held-keys.md, build
-// step 5): one act submitted twice; removal racing an act; a signed mint
+// step 5): one act submitted twice; an act that waits on a removal's locks,
+// and a signed mint that waits on the operator's mint at the cap (each seen
+// waiting, so the locks are proven, not just the outcomes); a signed mint
 // racing the operator's mint at the cap; two agents confirming one key; the
 // nonce purge. Also the whole path once, migration 0152's guard and
 // erasure, a one-connection pool, the maintenance sweep, and acts made by
@@ -119,6 +121,24 @@ function expectApplied(answer: AgentActAnswer) {
   return answer;
 }
 const codeOf = (answer: AgentActAnswer) => (answer.ok ? "applied" : answer.refusal.reason_code);
+
+/** One connection holding a transaction open, and its backend's pid. */
+async function lockHolder() {
+  const client = await pool.connect();
+  await client.query("BEGIN");
+  const pid = (await client.query("SELECT pg_backend_pid() AS pid")).rows[0].pid as number;
+  return { client, pid };
+}
+
+/** True once some backend is waiting on a lock `pid` holds; false after ~3 s. */
+async function blockedBy(pid: number): Promise<boolean> {
+  for (let i = 0; i < 60; i += 1) {
+    const waiting = await pool.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))`, [pid]);
+    if (waiting.rows[0].n > 0) return true;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return false;
+}
 
 const liveUsageKeys = async (agentId: string) =>
   (await pool.query(`SELECT count(*)::int AS n FROM agent_keys WHERE agent_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())`, [agentId])).rows[0].n as number;
@@ -244,33 +264,50 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     expect((await pool.query(`SELECT count(*)::int AS n FROM agent_act_nonces WHERE thumbprint = $1`, [h.kid])).rows[0].n).toBe(6);
   }, 20000);
 
-  it("orders an operator's removal and an act on the key: the act applies before, or is refused after", async () => {
-    const outcomes = new Set<string>();
-    for (let round = 0; round < 12; round += 1) {
-      const { agentId, h, signingKeyId } = await setup();
-      const act = sign(h, agentId, "key.mint", usageKey().params);
-      const [removed, answer] = round % 2
-        ? await Promise.all([removeSigningKey({ signing_key_id: signingKeyId }), submit(act)])
-        : await Promise.all([submit(act), removeSigningKey({ signing_key_id: signingKeyId })]).then(([a, r]) => [r, a] as const);
-      expect(removed).toEqual({ ok: true, data: { removed: true, already_removed: false } });
-      const key = (await pool.query(`SELECT revoked_at, revoked_by_event FROM agent_signing_keys WHERE id = $1`, [signingKeyId])).rows[0];
-      if (answer.ok) {
-        outcomes.add("applied");
-        // The mint held the key's lock first; the removal then ended the key.
-        // (Not compared by timestamp: each NOW() is its transaction's start,
-        // and the removal may have started first and waited.)
-        expect(await liveUsageKeys(agentId)).toBe(1);
-        expect(key.revoked_at).not.toBeNull();
-      } else {
-        outcomes.add(answer.refusal.reason_code);
-        expect(answer.refusal).toMatchObject({ reason_code: "signing_key_ended", revoked_by_event: key.revoked_by_event });
-        expect(await liveUsageKeys(agentId)).toBe(0);
-      }
-      expect(codeOf(await submit(sign(h, agentId, "signer.check")))).toBe("signing_key_ended");
+  it("makes an act wait for an operator's removal that holds its locks, then refuses it: the key has ended", async () => {
+    const { agentId, h, signingKeyId } = await setup();
+    // The removal's statements, in its order, held open: the agent row, an
+    // event, the key row revoked.
+    const { client, pid } = await lockHolder();
+    let answer: AgentActAnswer;
+    try {
+      await client.query(`SELECT id FROM agents WHERE id = $1 FOR NO KEY UPDATE`, [agentId]);
+      const removal = randomUUID();
+      await client.query(`INSERT INTO agent_act_events (id, agent_id, basis, act, outcome, thumbprint) VALUES ($1, $2, 'operator', 'signing_key.remove', 'applied', $3)`, [removal, agentId, h.kid]);
+      await client.query(`UPDATE agent_signing_keys SET revoked_at = NOW(), revoked_by_event = $2, revocation_kind = 'operator-removed' WHERE id = $1`, [signingKeyId, removal]);
+      const pending = submit(sign(h, agentId, "key.mint", usageKey().params));
+      // The act is seen waiting on the removal's locks before the removal commits.
+      expect(await blockedBy(pid)).toBe(true);
+      await client.query("COMMIT");
+      answer = await pending;
+      expect(answer).toMatchObject({ ok: false, status: 403, refusal: { reason_code: "signing_key_ended", revoked_by_event: removal } });
+    } finally {
+      await client.query("ROLLBACK").catch(() => {});
+      client.release();
     }
-    // Both orders are legal; which ones occurred is reported, not required.
-    expect([...outcomes].every((o) => o === "applied" || o === "signing_key_ended")).toBe(true);
-  }, 30000);
+    expect(await liveUsageKeys(agentId)).toBe(0);
+    expect((await events(agentId)).map((row) => row.refusal).at(-1)).toBe("signing_key_ended");
+  });
+
+  it("makes a signed mint wait for the operator's mint that holds the agent row at the cap's edge, then refuses it at the cap", async () => {
+    const { userId, agentId, h } = await setup();
+    for (let i = 0; i < 4; i += 1) expect((await mintKey({ agent_id: agentId, name: `k${i}`, key_expiry: "30d" })).ok).toBe(true);
+    state.userId = userId;
+    // The operator's mint, held open: the agent row, then the fifth key.
+    const { client, pid } = await lockHolder();
+    try {
+      await client.query(`SELECT id FROM agents WHERE id = $1 FOR NO KEY UPDATE`, [agentId]);
+      await client.query(`INSERT INTO agent_keys (agent_id, key_hash, key_prefix, name) VALUES ($1, $2, 'ctcg_agt_Op5', 'operator')`, [agentId, crypto.randomBytes(32).toString("hex")]);
+      const pending = submit(sign(h, agentId, "key.mint", usageKey().params));
+      expect(await blockedBy(pid)).toBe(true);
+      await client.query("COMMIT");
+      expect(await pending).toMatchObject({ ok: false, status: 409, refusal: { reason_code: "key_cap_reached" } });
+    } finally {
+      await client.query("ROLLBACK").catch(() => {});
+      client.release();
+    }
+    expect(await liveUsageKeys(agentId)).toBe(5);
+  });
 
   it("never passes five live usage keys when a signed mint races the operator's mint at the cap", async () => {
     for (let round = 0; round < 8; round += 1) {
