@@ -316,7 +316,7 @@ function SigningKeys({
     if (!active) return null;
     return (
       <section aria-labelledby={`${id}-title`} className="mt-4 border-t border-border-subtle pt-3 space-y-3">
-        <h4 id={`${id}-title`} className="text-[11px] uppercase tracking-wider text-ink-faint">
+        <h4 id={`${id}-title`} className="text-sm font-semibold text-ink">
           Signing keys
         </h4>
         <p id={`${id}-closed`} className="text-base text-ink-muted">
@@ -327,7 +327,7 @@ function SigningKeys({
           </Link>
           .
         </p>
-        <Button variant="secondary" size="sm" disabled>
+        <Button variant="secondary" disabled aria-describedby={`${id}-closed`}>
           Bind a signing key
         </Button>
       </section>
@@ -338,9 +338,9 @@ function SigningKeys({
 
   return (
     <section aria-labelledby={`${id}-title`} className="mt-4 border-t border-border-subtle pt-3 space-y-3">
-      <h4 id={`${id}-title`} className="text-[11px] uppercase tracking-wider text-ink-faint">
+      <h4 id={`${id}-title`} className="text-sm font-semibold text-ink">
         Signing keys
-        {keys && <span className="text-border-strong"> · {signingKeyCountsLabel(keys)}</span>}
+        {keys && <span className="font-normal text-ink-muted"> · {signingKeyCountsLabel(keys)}</span>}
       </h4>
 
       {keys === null && (
@@ -359,7 +359,7 @@ function SigningKeys({
           <p className="text-ink-muted">
             Compare it with the thumbprint your agent&apos;s signer printed. If they differ, remove this key.
           </p>
-          <Button variant="ghost" size="sm" onClick={() => setBound(null)}>
+          <Button variant="ghost" onClick={() => setBound(null)}>
             Dismiss
           </Button>
         </div>
@@ -379,7 +379,7 @@ function SigningKeys({
                 </p>
               </div>
               {isLiveSigningKey(signingKey) && (
-                <Button variant="secondary" size="sm" onClick={() => handleRemove(signingKey)} disabled={pending}>
+                <Button variant="secondary" onClick={() => handleRemove(signingKey)} disabled={pending}>
                   Remove
                 </Button>
               )}
@@ -392,7 +392,7 @@ function SigningKeys({
         <div className="space-y-2">
           <Button
             variant="secondary"
-            size="sm"
+           
             onClick={() => {
               setError(null);
               setFormOpen(true);
@@ -445,10 +445,10 @@ function SigningKeys({
             what it signs: not who holds it, and not your consent.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Button type="submit" size="sm" disabled={pending}>
+            <Button type="submit" disabled={pending}>
               {pending ? "Binding…" : "Bind key"}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setFormOpen(false)}>
+            <Button variant="ghost" onClick={() => setFormOpen(false)}>
               Cancel
             </Button>
           </div>

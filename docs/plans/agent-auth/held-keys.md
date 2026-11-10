@@ -207,6 +207,10 @@ not Yu's:
 - The reference signer's `--submit` follows no redirect (`redirect:
   "error"`): a 307 used to carry the signed act to the other origin and
   take that origin's answer as the result.
+- The signing-key controls at `/account/agents` follow the app's own rule:
+  16px text on 44px targets, a heading size and text colours the page's
+  other sections use, and a disabled bind button that names the paragraph
+  saying why (`aria-describedby`, which the shared `Button` now passes on).
 - The key-exit inventory names the holder of a signing key, through
   `signer.check`, as a reader of the usage key's row and the agent's row;
   its version is 2026-11-10.3.

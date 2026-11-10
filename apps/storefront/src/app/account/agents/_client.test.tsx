@@ -195,6 +195,38 @@ describe("/account/agents client", () => {
     expect(text).toContain("This agent has 2 live signing keys. Remove one to bind another.");
   });
 
+  it("gives the signing-key controls the app's 16px text and 44px targets, and ties a disabled button to its reason", () => {
+    const closed = renderToStaticMarkup(<AgentsClient agents={[agent({})]} keys={[]} />);
+    const atCap = renderToStaticMarkup(
+      <AgentsClient
+        agents={[agent({})]}
+        keys={[]}
+        signedActs={{ open: true }}
+        signingKeys={{ "agent-1": [signingKey({ id: "s1", kid: "A".repeat(43) }), signingKey({ id: "s2", kid: "B".repeat(43), state: "pending", pending_until: "2026-11-17T12:00:00.000Z" })] }}
+      />,
+    );
+    for (const html of [closed, atCap]) {
+      const start = html.lastIndexOf("<section", html.indexOf(">Signing keys"));
+      const section = html.slice(start, html.indexOf("</section>", start));
+      const buttons = section.match(/<button[^>]*>/g) ?? [];
+      expect(buttons.length).toBeGreaterThan(0);
+      for (const button of buttons) {
+        expect(button).toContain("min-h-11");
+        expect(button).toContain("text-base");
+        expect(button).not.toContain("text-sm");
+      }
+      // A heading size and a text colour the page's other sections use.
+      expect(section.match(/<h4[^>]*>/)?.[0]).toContain("text-sm font-semibold text-ink");
+      expect(section).not.toContain("text-[11px]");
+      expect(section).not.toContain("text-border-strong");
+      // The disabled button names the paragraph that says why.
+      const disabled = section.match(/<button[^>]*disabled=""[^>]*>Bind a signing key/)?.[0] ?? "";
+      const reason = disabled.match(/aria-describedby="([^"]+)"/)?.[1];
+      expect(reason, disabled).toBeTruthy();
+      expect(section).toContain(`id="${reason}"`);
+    }
+  });
+
   it("says when an agent's signing keys could not be read, rather than showing none", () => {
     const html = renderToStaticMarkup(
       <AgentsClient agents={[agent({})]} keys={[]} signedActs={{ open: true }} signingKeys={{ "agent-1": null }} />,
