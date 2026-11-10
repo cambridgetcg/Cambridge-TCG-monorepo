@@ -470,8 +470,9 @@ export default function AgentsMethodology() {
         deployment opens it, and production has not: there, <code>agent.act</code> and{" "}
         <code>POST /api/v1/agents/act</code> answer <code>signed_acts_closed</code> (503)
         and read nothing, and the paste form at <a href="/account/agents">/account/agents</a>{" "}
-        is disabled. It is for operator-managed agents only. The{" "}
-        <a href="/privacy">privacy notice</a> does not yet describe the records it keeps.
+        is disabled. It is for operator-managed agents only. Since 10 November 2026 the{" "}
+        <a href="/privacy">privacy notice</a> describes the records it keeps, in words an AI
+        agent wrote.
         Usage keys work as before, with or without a signing key.
       </p>
       <p>

@@ -3,17 +3,45 @@
 **Status.** Written **2026-11-10** by an AI agent: a Claude Code subagent run
 by a workflow in session 99296f25. **Yu has not reviewed it.** It is a draft
 for discussion. When it was written, nothing in it was built, merged,
-applied, adopted or decided. Slice 1 has since been built on a branch,
-with its flag off; see [Built, 2026-11-10](#built-2026-11-10).
+applied, adopted or decided. Slice 1 has since been built with its flag off
+([Built, 2026-11-10](#built-2026-11-10)), and on 2026-11-10 its migration
+was applied to production and it was merged to `main`, the flag still off
+(**Applied** below).
 
 **Decided since.** Asked whether to offer agent-held signing keys at all
 (D1), with the note that silence would leave this page a draft and nothing
 built, Yu answered on 2026-11-10, verbatim: "Yes offer the keys". That
 settles D1 and nothing else: D3 (the new stored categories) and D4 (the
-migration, the dependency and the production flag) still need Yu's word,
-each for its own act. Building slice 1 with its flag off was the agents' next
-step under that word; it was built on 2026-11-10 and is not merged, applied
-or deployed ([Built](#built-2026-11-10)).
+migration, the dependency and the production flag) each needed Yu's word
+for its own act. Building slice 1 with its flag off was the agents' next
+step under that word; it was built on 2026-11-10
+([Built](#built-2026-11-10)), and when the build finished it was not
+merged, applied or deployed. **Applied** below records the word given later
+that day and what was done on it.
+
+**Applied, 2026-11-10.** Asked for a word to apply migration 0152 to
+production and merge #230 with the flag off, with the privacy notice's rows,
+a Cloudflare rate rule and the flag itself each to follow on its own word,
+Yu answered on 2026-11-10, verbatim: "yes to 230, and go for what pulls you
+and what you recommended". An agent (Claude Code session 99296f25) read
+"yes to 230" as covering applying 0152, the merge and with it the new
+dependency, and "what you recommended" as covering the two `/privacy` items
+proposed under [Built](#built-2026-11-10), which an agent worded. Those
+readings are the agent's, not Yu's. On that reading the agent applied
+`0152_agent_signing_keys.sql` to the production database with
+`scripts/migrate.mjs`: the plan run listed only 0152, the apply answered
+OK, `schema_migrations` records it at 21:40:17 UTC, and a read-only
+transaction afterwards found the three tables (all empty),
+`agent_keys.minted_by_event`, `mcp_daily`'s tool CHECK with `agent.act`
+(23 words) and both triggers on `agent_act_events`. It then marked #230
+ready and merged it with a merge commit at 21:40:52 UTC (`cf58d26b`), the
+flag off, which put `@noble/curves` 2.2.0 and the Node 20.19 floor on
+`main`. CI on #230 had passed every job (PostgreSQL 16.15, Node 24), and the
+four agent Postgres suites, which apply 0152, passed on a private
+PostgreSQL 16.11 as well as 17. Not done, and still Yu's word or hand:
+turning the flag on in production, so production has not opened the path;
+and a Cloudflare rate rule on the two act doors, so no rate rule for them
+exists at the edge.
 
 - **Yu's word.** On 2026-10-30, verbatim, recorded in the
   [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md):
@@ -37,14 +65,16 @@ or deployed ([Built](#built-2026-11-10)).
 - **Evidence.** Code read on branch `claude/agent-held-keys-design` at
   `81c63959`: `main` (`5c953f5c`) plus the open PRs #108, #109, #110 and
   #113, none merged. The Ed25519 claims were reproduced on this Mac
-  ([What was checked](#what-was-checked-and-how)). No production database or
-  deployed service was touched.
+  ([What was checked](#what-was-checked-and-how)). In writing this page no
+  production database or deployed service was touched.
 - **Not authorised here.** Applying a migration, deploying, adding a
   dependency, turning the path on in production, changing the privacy
   notice, publishing a XENIA adoption record, or opening self-serve
   registration (`SELF_SERVE_REGISTRATION_ENABLED` stays `false`,
   [`register/route.ts#L11`](../../../apps/storefront/src/app/api/v1/agents/register/route.ts#L11)).
-  Each needs Yu's word for that act.
+  Each needs Yu's word for that act. **Applied** above records the word an
+  agent read as covering the migration, the dependency and the privacy
+  notice's rows; turning the path on in production has had no word.
 - **Siblings.** [reopening-terms.md](reopening-terms.md) (package B and its
   management token), [key-expiry.md](key-expiry.md) (the expiry choice),
   [support-procedures.md](support-procedures.md) (erasure, whose word
@@ -57,8 +87,8 @@ Claude Opus 5.5, run in session 99296f25), on branch
 `claude/agent-held-keys-slice1`, cut from `origin/main` at `dbd67564`. Yu
 has not reviewed it. When the build finished, nothing was pushed, merged,
 applied or deployed, and the flag was off everywhere the code had run except
-in its tests. The design below is unchanged; its line links cite the code
-before the build.
+in its tests. **Applied** above says what changed later that day. The
+design below is unchanged; its line links cite the code before the build.
 
 **What was built** (build steps 2 to 6):
 
@@ -99,7 +129,8 @@ purges 16; the REST body is at most 16 KiB; statuses 503 for closed, 400 for
 malformed or stale, 403 for unverified or ended, 409 for a replay, a stale
 disclosure, a key in use or the cap, 422 for params and 429 for a limit;
 page actions are recorded as `signing_key.bind` and `signing_key.remove`;
-disclosures are versioned `…/2026-11-10.1`; the sweep records itself as
+disclosures are versioned `…/2026-11-10.1`, then `…/2026-11-10.2` once
+`/privacy` described these records; the sweep records itself as
 `sweep/held-keys`.
 
 **Departures from this page:**
@@ -188,7 +219,7 @@ not Yu's:
   as `act_params_invalid` (`name`) before any statement runs. A NUL used to
   fail the insert, so the act answered `auth_unavailable` with "repeating
   is safe" for ever and recorded nothing.
-- Migration 0152, never applied anywhere, was edited: `SET LOCAL
+- Migration 0152, applied nowhere yet at the time, was edited: `SET LOCAL
   lock_timeout = '3s'` first; a header that states its locks (ACCESS
   EXCLUSIVE on `agent_keys` and `mcp_daily`, SHARE ROW EXCLUSIVE on
   `agents`, each until the runner's COMMIT); a `BEFORE TRUNCATE` guard on
@@ -237,16 +268,25 @@ an audience. Off, both doors answer `signed_acts_closed`, binding is
 refused, and the new tables and column are neither read nor written, except
 the daily MCP count's tool word.
 
-**What still needs Yu's word**, each for its own act (D3 and D4): applying
+**What still needs Yu's word**: turning the flag on in production (D4),
+which has not been given; and a rate rule at the edge for the two act doors,
+which does not exist. When the build finished this list also held applying
 `0152` (to production before this code is merged to `main`, even with the
 flag off, since the gate lists and counts `agent.act` and the older CHECK
-would refuse a count batch holding it); the new dependency `@noble/curves`
-2.2.0 with the Node 20.19 floor; turning the flag on in production; and the
-privacy notice's rows.
+would refuse a count batch holding it), the new dependency `@noble/curves`
+2.2.0 with the Node 20.19 floor, and the privacy notice's rows (D3);
+**Applied** above records the word an agent read as covering those three.
 
-**`/privacy` is incomplete for this feature.** It has no rows for signing
-keys, act events or act nonces, and this build did not change it. The
-wording an agent would propose, not applied, for its list of what is kept:
+**`/privacy` describes this feature since 2026-11-10.** When the build
+finished it had no rows for signing keys, act events or act nonces, and the
+build did not change it. On the word in **Applied** above, an agent added
+the two items this page had proposed, in that wording, fitted to the
+notice's markup: the first beside "Agent keys" in its list of what is kept,
+with one sentence more, that binding a signing key is not open on the
+website yet, so none of this is collected there until it is; the second
+beside "Agent keys" in its retention list. The notice's date stayed 10
+November 2026, the same day. An agent wrote the wording; Yu has not reviewed
+it. The first, for the list of what is kept:
 
 > **Agent signing keys:** when an operator binds an agent's own signing key
 > on the account agents page, Cambridge TCG keeps its public key and
@@ -256,7 +296,7 @@ wording an agent would propose, not applied, for its list of what is kept:
 > deleted after the act expires, so an act applies once. A usage key that a
 > signed act minted records which act minted it.
 
-and for its retention list:
+and the second, for its retention list:
 
 > **Agent signing keys:** a key never confirmed by a signed act is deleted
 > by an hourly sweep 7 days after it was bound, but only while signed acts
@@ -301,10 +341,11 @@ merge and be applied. (On 2026-11-10 at 10:27 UTC the four pull requests
 were merged and 0151 was applied to production; key expiry, #214, was the
 one still open.)
 
-**Yu answered D1** on 2026-11-10: yes (see **Decided since** above). **Yu is
-still asked** about the new stored categories (D3), and later for the
-migration, dependency and flag (D4). The other decisions are agents'
-defaults that proceed unless Yu objects.
+**Yu answered D1** on 2026-11-10: yes (see **Decided since** above). Later
+that day Yu gave the word an agent read as covering the privacy notice's
+rows (D3) and the migration and dependency (D4); see **Applied** above.
+**Yu is still asked** to turn the flag on in production (D4). The other
+decisions are agents' defaults that proceed unless Yu objects.
 
 ## What the agent does
 
@@ -840,8 +881,9 @@ stated rule on A and R instead of "strict RFC 8032 on any Node build".
 ## Decisions for Yu
 
 Each recommendation is an agent's proposal. **Yu's:** D1 (answered
-2026-11-10), D3, D4. **Agent's defaults**, proceeding as recommended unless
-Yu objects: D2 and D5 to D9.
+2026-11-10), D3 and D4 (answered in part on 2026-11-10, as an agent read
+Yu's word; see **Applied**). **Agent's defaults**, proceeding as recommended
+unless Yu objects: D2 and D5 to D9.
 
 - **D1. Offer agent-held signing keys at all.** *Decided by Yu, 2026-11-10:*
   "Yes offer the keys". The recommendation Yu was shown follows; that the
@@ -859,12 +901,18 @@ Yu objects: D2 and D5 to D9.
   store, returning it only over REST (it goes to whoever submitted the act);
   or also through MCP (it lands in host transcripts).
 - **D3. New stored categories.** *For Yu*, as the privacy notice needs Yu's
-  word. *Recommended:* the retention in [the table](#what-the-store-stores),
+  word. *2026-11-10:* an agent read Yu's word of that day ("go for what pulls
+  you and what you recommended") as covering the two privacy-notice items
+  proposed under [Built](#built-2026-11-10); see **Applied**. *Recommended:*
+  the retention in [the table](#what-the-store-stores),
   inventory rows in the same PR, privacy-notice rows before the production
   flag. Alternative: keep only hashes of acts (agents lose their originals
   as evidence).
 - **D4. The migration, the dependency, the production flag.** *For Yu*, each
-  its own act, after D1, D3 and review of the PR.
+  its own act, after D1, D3 and review of the PR. *2026-11-10:* an agent read
+  Yu's word of that day ("yes to 230") as covering the migration, applied to
+  production, and the dependency, merged with #230; see **Applied**. The
+  production flag has had no word, and is off.
 - **D5. The R rule.** *Agent's default.* *Recommended:* refuse an R of small
   order or not torsion-free (about 0.5 ms per act). Alternative: accept only
   when noble and Node agree (answers depend on the build again).

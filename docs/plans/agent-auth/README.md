@@ -193,7 +193,7 @@ wire responses.
 | `identity.credentials-are-bounded` | Answers say possession authorised the act and is not proof of identity. Agent and member keys stay separate realms. | Asserted | — |
 | `identity.no-impersonation-or-silent-rewrite` | A: the steward login can no longer mint keys for self-serve agents. | Tested with mocks and on Postgres on A's branch | A is not merged. The steward login can still revoke those agents' keys, archive them, and read their profiles and key lists at `/account/agents`. |
 | `repair.challenge-and-restoration`, `safety.protective-limits-are-bounded` | A suspended agent's refusal offers an optional review request to support@; the revocation answer offers optional erasure and correction requests. | Tested with mocks | No review procedure is written down, and the review and correction actions now say so. Unsuspend erases the suspension's reason and time. |
-| `consent.exact-authority` | Not met. A key can carry an expiry, chosen at mint (built on branch `claude/agent-key-expiry` on 2026-11-10, not merged), but no audience or per-key scope; its authority is the grant for its registration kind. | Asserted | Audience and per-key scope: design needed. |
+| `consent.exact-authority` | Not met. A key can carry an expiry, chosen at mint (built on 2026-11-10 and merged that day as #214, after migration 0151 was applied), but no audience or per-key scope; its authority is the grant for its registration kind. | Asserted | Audience and per-key scope: design needed. |
 | `privacy.layered-inventory` | Unknown layers are named in the answer. | Asserted | The privacy notice has no entry for agent profiles, keys or rate buckets. |
 
 ## What remains (designs only)
@@ -253,14 +253,20 @@ remains.
   `claude/agent-held-keys-slice1`, with migration 0152, behind
   `AGENT_SIGNED_ACTS`, which is off. Yu decided to offer the keys; the
   design, its numbers and its retention are agents' proposals and defaults,
-  unreviewed by Yu. The rollout rule: apply 0152 to the production database
+  unreviewed by Yu. The rollout rule was: apply 0152 to the production database
   before that branch is merged to `main`, even with the flag off, because a
   push to `main` deploys and the gate lists and counts `agent.act`, which
-  the older `mcp_daily` CHECK refuses. Yu's word for 0152, for the new
-  dependency, for turning the flag on and for `/privacy`'s rows has not been
-  given; `/privacy` does not yet describe signing keys, act events or act
-  nonces. What remains of it: self-serve registration by signed act (S2),
-  recovery keys and signed exits (S3), and S4.
+  the older `mcp_daily` CHECK refuses. An agent applied 0152 to production
+  on 2026-11-10 (21:40 UTC) and then merged the branch (#230), with its new
+  dependency, on Yu's word of that day ("yes to 230, and go for what pulls
+  you and what you recommended") as that agent read it; held-keys.md's
+  **Applied** paragraph has the record. The rule still holds for any other
+  database this code runs against. Turning the flag on in production still
+  needs Yu's word, which has not been given, and no rate rule for the act
+  doors exists at the edge. `/privacy` has described signing keys, act
+  events and act nonces since 2026-11-10, in the two items an agent proposed
+  in held-keys.md and wrote. What remains of it: self-serve registration by
+  signed act (S2), recovery keys and signed exits (S3), and S4.
 - **`consent.exact-authority`.** Per-key audience and scope (expiry: the
   bullet above).
 - **Suspension history.** Unsuspend sets `suspended_reason` and
@@ -307,10 +313,14 @@ unreviewed), designs an agent's reading of Yu's point 3: an optional
 agent-held signing key that signs each binding act. Whether to offer it at
 all was Yu's call (its D1), and Yu answered on 2026-11-10: "Yes offer the
 keys". Its stored categories (D3) and its migration, dependency and
-production flag (D4) still wait for Yu. Slice 1 was built on 2026-11-10 by
+production flag (D4) then waited for Yu. Slice 1 was built on 2026-11-10 by
 AI agents on branch `claude/agent-held-keys-slice1`, with its flag off
 (held-keys.md's [Built](held-keys.md#built-2026-11-10) section); when the
-build finished it was not merged, applied or deployed.
+build finished it was not merged, applied or deployed. Later that day an
+agent read Yu's next word as covering the migration, the dependency and the
+privacy notice's rows, applied 0152 to production and merged the branch
+(held-keys.md's **Applied** paragraph); the production flag still waits for
+Yu.
 
 **Build order** (an agent's proposal):
 
@@ -321,7 +331,10 @@ build finished it was not merged, applied or deployed.
    branch `claude/agent-key-expiry` before #108 to #111 merged and before Yu
    answered: agents took decisions 1, 6 and 7 as their own calls under Yu's
    delegation of 2026-10-20 (no email among them). They are not Yu's
-   decisions, and Yu can overturn them. Not merged, applied or deployed.
+   decisions, and Yu can overturn them. It was not merged, applied or
+   deployed when that was written; later that day 0151 was applied to
+   production and it merged as #214 (the key-expiry bullet under
+   [What remains](#what-remains-designs-only) has the record).
 3. Support request codes and the case log.
 4. Registration, once the terms are agreed.
 
@@ -348,8 +361,8 @@ still Yu's to overturn.
 | Support | How long support records are kept (D9) | Six years from closure; counsel confirms |
 | Support | When the procedures are published (D10) | Once erasure, access and correction have tooling |
 | Held keys | Offer agent-held signing keys at all ([held-keys D1](held-keys.md#decisions-for-yu)). **Answered by Yu, 2026-11-10: "Yes offer the keys".** | Yes, as an option beside usage keys and package B's token |
-| Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag. Built so on 2026-11-10, as agents' defaults; `/privacy` not changed, wording proposed in held-keys.md |
-| Held keys | Its migration, dependency and production flag (D4) | Each its own act, after D1, D3 and review of the PR. Not given: 0152 not applied, `@noble/curves` 2.2.0 pinned only on the branch, the flag off |
+| Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag. Built so on 2026-11-10, as agents' defaults; `/privacy`'s two items added the same day, in the wording an agent proposed in held-keys.md |
+| Held keys | Its migration, dependency and production flag (D4) | Each its own act, after D1, D3 and review of the PR. Given on 2026-11-10 for the migration and the dependency, as an agent read Yu's word: 0152 applied to production, `@noble/curves` 2.2.0 merged with #230. Not given: the production flag, which is off |
 
 ## Questions only Yu can answer
 
