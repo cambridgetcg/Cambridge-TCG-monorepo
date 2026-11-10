@@ -5,13 +5,39 @@ import { describe, expect, it } from "vitest";
 import { GET as getMcpConfig } from "@/app/.well-known/mcp-config.json/route";
 import { GET as getMcpDiscovery } from "@/app/.well-known/mcp.json/route";
 import { GET as getToolCatalog } from "@/app/api/v1/tools/route";
+import { KEY_EXIT_LINEARIZATION } from "@/lib/agents/key-exit-inventory";
+import { KEY_EXPIRY_NEVER_WARNING } from "@/lib/agents/key-expiry";
 import { describeAgentToolGrant } from "@/lib/agents/tool-access";
+import { CHANGELOG_ENTRIES } from "@/lib/changelog";
 import { getGuide } from "@/lib/guides";
 import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
+
+/** A file's words as one line: comment leaders, JSX tags and entities and
+ *  line breaks removed, so a pinned sentence may wrap anywhere. */
+function prose(path: string): string {
+  return source(path)
+    .replace(/\n\s*(?:\*(?!\*)|\/\/|--)?[ \t]*/g, " ")
+    .replace(/\{"\s*"\}/g, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ");
+}
+
+/** The text between two markers, which must both be present. */
+function between(text: string, start: string, end: string): string {
+  const from = text.indexOf(start);
+  const to = text.indexOf(end, from + start.length);
+  expect(from, start).toBeGreaterThanOrEqual(0);
+  expect(to, end).toBeGreaterThan(from);
+  return text.slice(from, to);
+}
+
+const KEY_EXPIRY_ENTRY = CHANGELOG_ENTRIES.find((entry) => entry.id === "agent-key-expiry-per-key")!;
 
 describe("public claims match publication boundaries", () => {
   it("describes the MCP endpoint as custom JSON-RPC and requires the vendored bridge", async () => {
@@ -138,6 +164,138 @@ describe("public claims match publication boundaries", () => {
     ].map(source);
     for (const text of sentNothing) expect(text).toMatch(/Nothing is\s+sent/);
     expect(agentKeyText).not.toMatch(/email[^.]{0,80}before (?:a|the|your) key expires/i);
+  });
+
+  it("never says a reminder or email goes out before an agent key expires", () => {
+    // Every clause that speaks of email, reminders, notices or sending must deny it.
+    const texts: Record<string, string> = {
+      "changelog summary": KEY_EXPIRY_ENTRY.summary,
+      "changelog detail": KEY_EXPIRY_ENTRY.detail ?? "",
+      "guide gotcha": getGuide("wire-into-claude-code")!.gotchas.find((entry) => entry.title.startsWith("An agent key expires"))!.description,
+      "methodology #key-expiry": between(prose("src/app/methodology/agents/page.tsx"), "Each key's expiry is chosen when it is minted, by whoever mints it.", "Ending a key Any key's holder"),
+      "account page note": between(prose("src/app/account/agents/page.tsx"), "Each key stops working", "Key expiry ."),
+      "methodology summary": prose("src/app/methodology/agents/summary.md"),
+      "realms note": between(prose("../../docs/connections/the-four-auth-realms.md"), "An agent key also stops", "A member key ends"),
+      "key-expiry.md status": between(prose("../../docs/plans/agent-auth/key-expiry.md"), "**Status.**", "## How this page reads"),
+      "plans README bullet": between(prose("../../docs/plans/agent-auth/README.md"), "**Key expiry.**", "**`consent.exact-authority`.**"),
+    };
+    const speaks = /\b(?:e-?mail(?:s|ed|ing)?|remind(?:s|ed|er|ers)?|notif(?:y|ies|ied|ication|ications)|send|sends|sent|sending)\b/i;
+    const denies = /\b(?:no|not|nothing|never|none|neither|nor)\b/i;
+    let checked = 0;
+    for (const [label, text] of Object.entries(texts)) {
+      for (const clause of text.split(/(?<=[.;:!?])\s+/)) {
+        if (!speaks.test(clause)) continue;
+        checked += 1;
+        expect(clause, label).toMatch(denies);
+      }
+    }
+    // The guard is live: the texts do speak of it, to deny it.
+    expect(checked).toBeGreaterThanOrEqual(8);
+  });
+
+  it("pins who chose key expiry, the rollout order and what each text promises", () => {
+    // Attribution: an AI agent chose how expiry works, under Yu's delegation; not Yu.
+    expect(KEY_EXPIRY_ENTRY.detail).toContain(
+      "Choosing per key, the choices and the 90-day default, the separate key_expired answer, leaving existing keys without an expiry and sending no reminder were chosen by an AI agent under Yu's standing delegation, not by Yu.",
+    );
+    expect(prose("src/app/methodology/agents/page.tsx")).toContain(
+      "were chosen by an AI agent under Yu's standing delegation, not by Yu, and Yu has not reviewed them.",
+    );
+    const realms = prose("../../docs/connections/the-four-auth-realms.md");
+    expect(realms).toContain("How it works was an AI agent's choice under Yu's delegation, not Yu's, and Yu has not reviewed it");
+    expect(realms).toContain("on branch `claude/agent-key-expiry`, which was not merged, applied or deployed when it was written.");
+    const plan = prose("../../docs/plans/agent-auth/key-expiry.md");
+    expect(plan).toContain("agents took them as their own calls under Yu's delegation of 2026-10-20");
+    expect(plan).toContain("and they are not Yu's decisions.");
+    expect(plan).toContain("Nothing is merged, no migration is applied, and nothing is deployed.");
+    const plans = prose("../../docs/plans/agent-auth/README.md");
+    expect(plans).toContain("agents took decisions 1, 6 and 7 as their own calls under Yu's delegation of 2026-10-20 (no email among them). They are not Yu's decisions");
+    expect(plans).toContain("it was not merged, applied or deployed when this was written.");
+    for (const path of [
+      "src/lib/agents/key-expiry.ts",
+      "src/app/account/agents/key-expiry-ui.ts",
+      "drizzle/0151_agent_key_expiry.sql",
+    ]) {
+      expect(prose(path), path).toContain("they are not the owner's decisions");
+    }
+    for (const text of [KEY_EXPIRY_ENTRY.detail ?? "", realms, plan, plans]) {
+      expect(text).not.toMatch(/\b(?:chosen|decided|approved) by Yu\b/);
+    }
+
+    // Rollout: 0151 before the code, and before the merge, since a push to main deploys.
+    expect(KEY_EXPIRY_ENTRY.detail).toContain(
+      "This needs migration 0151 (agent_keys.expires_at) applied before this code deploys: on a database without the column, every authenticated agent call answers 503",
+    );
+    const migration = prose("drizzle/0151_agent_key_expiry.sql");
+    expect(migration).toContain("Rollout: apply 0151, then deploy.");
+    expect(migration).toContain("apply 0151 to the production database before the change that uses it is merged to main, not after.");
+    expect(migration).toContain("It MUST be applied before deploying code that selects agent_keys.expires_at");
+    expect(plans).toContain("Apply 0151 to the production database before that branch is merged to `main`");
+    expect(prose("../../docs/ops-deploy-runbook.md")).toContain(
+      "Agent key expiry requires `0151_agent_key_expiry.sql` before its code is merged to `main`",
+    );
+
+    // agent.self's description says key_expires_at, in the route and in the catalog.
+    expect(prose("src/app/api/mcp/route.ts")).toContain(
+      "key_expires_at, when the calling key stops authenticating (ISO 8601), or null: this key has no expiry;",
+    );
+    expect(prose("src/lib/agent-tools-catalog.ts")).toContain(
+      "key_expires_at (when the calling key stops authenticating, or null: this key has no expiry)",
+    );
+
+    // OpenAPI: the 401, the AgentKey scheme and the header.
+    const openapi = prose("src/app/api/openapi.json/route.ts");
+    expect(openapi).toContain(
+      "key_expired (a key that was not revoked but has passed the expiry chosen when it was minted; it never works again, and a new key comes from whoever minted it). key_expired is checked before the agent's status.",
+    );
+    expect(openapi).toContain("Its expiry is chosen when it is minted (7, 30, 90 or 365 days, a date, or never) and never extended; keys minted before expiry existed have none.");
+    expect(openapi).toContain("On successful authenticated tool results only: never on a refusal or on agent.revoke_key's answers.");
+
+    // Existing keys have no expiry, wherever that is said.
+    expect(getGuide("wire-into-claude-code")!.gotchas.map((entry) => entry.description).join(" ")).toContain(
+      "Keys minted before that choice existed have no expiry.",
+    );
+    expect(realms).toContain('"never" included, and existing keys keep none');
+
+    // The summary, the never warning, rotation, unused keys and when expiry takes effect.
+    expect(prose("src/app/methodology/agents/summary.md")).toContain(
+      "(7, 30 or 90 days, 1 year, a date, or never; 90 days pre-selected) and never extended; an expired key gets 401 `key_expired`, and nothing is sent before a key expires.",
+    );
+    expect(KEY_EXPIRY_NEVER_WARNING).toBe(
+      "This key keeps working until it is revoked or its agent is suspended or archived. If a copy leaks, it stays usable until then.",
+    );
+    const methodology = prose("src/app/methodology/agents/page.tsx");
+    expect(methodology).toContain("There is no replace action.");
+    expect(methodology).toContain("Keys nobody uses are not ended automatically.");
+    expect(KEY_EXPIRY_ENTRY.detail).toContain("There is no replace action: to rotate, mint a new key, move to it, check the old key's last use, then revoke it.");
+    expect(KEY_EXIT_LINEARIZATION).toContain(
+      "A key's expiry is judged by the database's clock as each checking transaction starts: a request authenticated before the key's expires_at may still finish, and a Coverage Hunt contribution whose transaction began before it may commit just after it.",
+    );
+  });
+
+  it("names XENIA only with the full non-adoption wording, and never claims conformance or adoption", () => {
+    const DISCLAIMER = "(xenia d4727ec); Cambridge TCG has not adopted the Covenant; no adoption record; unassessed";
+    for (const path of [
+      "src/lib/agents/key-expiry.ts",
+      "src/lib/agents/key-revocation.ts",
+      "src/lib/agents/key-exit-inventory.ts",
+      "src/lib/agents/refusals.ts",
+      "../../docs/plans/agent-auth/key-expiry.md",
+      "../../docs/plans/agent-auth/README.md",
+    ]) {
+      const text = prose(path);
+      expect(text, path).toMatch(/xenia/i);
+      expect(text, path).toContain(DISCLAIMER);
+      // Each "designed against" carries the full wording right after its duty ids.
+      const designed = [...text.matchAll(/designed against XENIA Covenant 0\.1 candidate dut(?:y|ies)\b/gi)];
+      expect(designed.length, path).toBeGreaterThan(0);
+      for (const match of designed) {
+        expect(text.slice(match.index!, match.index! + 360), path).toContain(DISCLAIMER);
+      }
+      const claims = /\b(?:conform\w*|complian\w*|complies|has adopted|have adopted|adopts)\b/i;
+      const near = new RegExp(`(?:xenia|covenant)[^]{0,200}?${claims.source}|${claims.source}[^]{0,200}?(?:xenia|covenant)`, "i");
+      expect(text.replaceAll("has not adopted", ""), path).not.toMatch(near);
+    }
   });
 
   it("does not describe paused agent, peer, or guestbook publication as live", () => {
