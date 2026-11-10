@@ -81,19 +81,19 @@
               <tr data-provider="Supabase" data-scope="customer-data">
                 <th scope="row">Supabase</th>
                 <td data-label="What it does for RewardsPro">Hosts the app's database.</td>
-                <td data-label="What data reaches it">Every record the app keeps: shops and their settings, customers' Shopify IDs and tiers, orders, refunds, cashback, and Shopify's data requests.</td>
+                <td data-label="What data reaches it">Every record the app keeps: shops and their settings, customers' Shopify IDs and tiers, orders, refunds, cashback, and Shopify's data requests. Until we delete them, it also holds the previous version's records, which can include customers' names and contact details.</td>
                 <td data-label="Where">London, UK</td>
               </tr>
               <tr data-provider="Vercel" data-scope="customer-data">
                 <th scope="row">Vercel</th>
                 <td data-label="What it does for RewardsPro">Runs the app and its scheduled jobs, and keeps a log of each request to it for 1 day.</td>
-                <td data-label="What data reaches it">Everything the app reads from Shopify and writes to its database passes through it. Its request logs hold the Shopify customer ID on a signed-in customer's widget request, the shop's myshopify.com address, the search words staff type on the Customers page, and the staff member's short-lived Shopify sign-in token.</td>
+                <td data-label="What data reaches it">Everything the app reads from Shopify and writes to its database passes through it. Its request logs include the Shopify customer ID on a signed-in customer's widget request, the shop's myshopify.com address, the search words staff type on the Customers page, and the staff member's short-lived Shopify sign-in token. Its logs also hold the app's own log lines, which can name the shop and Shopify's order and refund IDs.</td>
                 <td data-label="Where">The app runs in London, UK</td>
               </tr>
               <tr data-provider="Sentry" data-scope="customer-data">
                 <th scope="row">Sentry</th>
                 <td data-label="What it does for RewardsPro">Receives the app's error reports.</td>
-                <td data-label="What data reaches it">The shop's myshopify.com address and technical details of the error, which can include RewardsPro's internal record IDs. Tokens, cookies, query strings, request bodies and email addresses are removed first.</td>
+                <td data-label="What data reaches it">The shop's myshopify.com address and technical details of the error, which can include Shopify's order and refund IDs, RewardsPro's internal record IDs, the app's recent log lines, and the request's web address and headers, such as the browser type. Tokens, cookies, IP addresses, query strings, request bodies and email addresses are removed first.</td>
                 <td data-label="Where">Sentry's hosted service. Write to us for the region.</td>
               </tr>
             </tbody>

@@ -61,7 +61,7 @@ describe("rewardspro.io privacy and subprocessors pages", () => {
 
   it("says the database keeps no names or contact details of customers", () => {
     expect(readText(PRIVACY)).toContain(
-      "RewardsPro's database holds no customer names, email addresses, phone numbers or postal addresses.",
+      "The current app's records hold no customer names, email addresses, phone numbers or postal addresses",
     );
     for (const model of ["Customer", "Order", "Refund", "LedgerEntry", "Payout", "PrivacyRequest"]) {
       expect(modelFields(model).filter((f) => /email|phone|address|firstName|lastName|birthday/i.test(f)), model).toEqual([]);
@@ -96,6 +96,9 @@ describe("rewardspro.io privacy and subprocessors pages", () => {
     const widget = app("extensions/rewards-widget/assets/rewards-widget.js");
     expect(widget).not.toMatch(/cookie|localStorage|sessionStorage|indexedDB/i);
     expect(widget.match(/fetch\(/g)).toHaveLength(1);
+    // The balance is held in memory briefly, never stored
+    expect(readText(PRIVACY)).toContain("holds it in memory for up to 30 seconds, and never stores it");
+    expect(app("app/shopify/live-balance.server.ts")).toContain("const CACHE_TTL_MS = 30 * 1000;");
   });
 
   it("gives the erasure timing and the data-request periods the code uses", () => {
@@ -123,10 +126,14 @@ describe("rewardspro.io privacy and subprocessors pages", () => {
     const privacy = readText(PRIVACY);
     expect(privacy).toContain("keeps a log of each request to it for 1 day");
     expect(app("docs/switch.md")).toContain("for their retention (1 day on Pro)");
-    expect(privacy).toContain("the app removes tokens, cookies, query strings, request bodies and email addresses from it");
+    expect(privacy).toContain("the app removes tokens, cookies, IP addresses, query strings, request bodies and email addresses from it");
     expect(privacy).toContain("RewardsPro sends Sentry no performance traces and runs no session recording.");
     const entry = app("app/entry.server.tsx");
     expect(entry).toContain("tracesSampleRate: 0,");
+    // No IP address is collected; request headers other than cookies still go
+    expect(entry).toContain("userInfo: false,");
+    expect(entry).not.toContain("httpHeaders");
+    expect(privacy).toContain("the request's web address and headers, such as the browser type");
     expect(entry).toContain("beforeSend: (event) => scrubEvent(event),");
     // No browser SDK, so nothing records sessions
     expect(existsSync(resolve(process.cwd(), "../rewards/app/entry.client.tsx"))).toBe(false);

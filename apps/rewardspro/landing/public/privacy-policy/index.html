@@ -95,7 +95,7 @@
             <li>the cashback given and taken back, with the tier and rate used, and the outcome of each store-credit change sent to Shopify;</li>
             <li>Shopify's data requests about the customer: the customer ID, the orders the request names, and its dates.</li>
           </ul>
-          <p>RewardsPro's database holds no customer names, email addresses, phone numbers or postal addresses. When a page in the app shows a customer's name, the app reads it from Shopify at that moment and doesn't keep it. The shop's staff can download a customer list as a spreadsheet, with each customer's name, tier, spend counted and cashback given; RewardsPro makes that file when it is downloaded and keeps no copy. Orders that Shopify links to no customer are not recorded.</p>
+          <p>The current app's records hold no customer names, email addresses, phone numbers or postal addresses (for the previous version's records, see <a href="#previous-version">below</a>). When a page in the app shows a customer's name, the app reads it from Shopify at that moment and doesn't keep it. The shop's staff can download a customer list as a spreadsheet, with each customer's name, tier, spend counted and cashback given; RewardsPro makes that file when it is downloaded and keeps no copy. Orders that Shopify links to no customer are not recorded.</p>
           <p>When a shop first opens RewardsPro, the app reads the shop's orders from the 12 months before installation (the last 60 days, if Shopify hasn't given the app access to older orders) and keeps the paid ones, to place customers in tiers. Those past orders don't earn cashback.</p>
           <h3>What the app does with it</h3>
           <ul>
@@ -110,7 +110,7 @@
 
         <section class="section" id="widget" aria-labelledby="widget-title">
           <h2 id="widget-title">The storefront widget</h2>
-          <p>The widget sets no cookies and stores nothing in the customer's browser. For a signed-in customer, it asks RewardsPro for their tier and store-credit balance through the shop's own website address; Shopify adds the shop and the customer's Shopify customer ID to that request and signs it. The balance is read from Shopify each time and not kept. For a guest, the widget sends no request to RewardsPro.</p>
+          <p>The widget sets no cookies and stores nothing in the customer's browser. For a signed-in customer, it asks RewardsPro for their tier and store-credit balance through the shop's own website address; Shopify adds the shop and the customer's Shopify customer ID to that request and signs it. The app reads the balance from Shopify, holds it in memory for up to 30 seconds, and never stores it. For a guest, the widget sends no request to RewardsPro.</p>
         </section>
 
         <section class="section" id="shops" aria-labelledby="shops-title">
@@ -139,8 +139,8 @@
             <li><strong>Cloudflare</strong> hosts this website and its domain's DNS.</li>
             <li><strong>Google Workspace</strong> hosts the contact@rewardspro.io mailbox.</li>
           </ul>
-          <p>For that day, Vercel's request logs hold the Shopify customer ID that Shopify adds to a signed-in customer's widget request, the shop's myshopify.com address, the search words staff type on the app's Customers page, and the short-lived Shopify sign-in token of the staff member using the app.</p>
-          <p>When something goes wrong, the app sends Sentry an error report. A report can carry the shop's myshopify.com address and technical details of the error, including RewardsPro's internal record IDs. Before a report is sent, the app removes tokens, cookies, query strings, request bodies and email addresses from it. RewardsPro sends Sentry no performance traces and runs no session recording.</p>
+          <p>For that day, Vercel's request logs include the Shopify customer ID that Shopify adds to a signed-in customer's widget request, the shop's myshopify.com address, the search words staff type on the app's Customers page, and the short-lived Shopify sign-in token of the staff member using the app. Vercel's logs also hold the app's own log lines, which can name the shop and Shopify's order and refund IDs.</p>
+          <p>When something goes wrong, the app sends Sentry an error report. A report can carry the shop's myshopify.com address, Shopify's order and refund IDs, RewardsPro's internal record IDs, the app's recent log lines, and the request's web address and headers, such as the browser type. Before a report is sent, the app removes tokens, cookies, IP addresses, query strings, request bodies and email addresses from it. RewardsPro sends Sentry no performance traces and runs no session recording.</p>
           <p>Shopify is the platform the shop runs on and where the data comes from. It holds the customers' store credit and sends the store-credit email when a shop turns it on. For Shopify's own handling of data, read <a href="https://www.shopify.com/legal/privacy">Shopify's privacy policy</a>.</p>
         </section>
 
