@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type { GameItem } from "@/lib/wholesale/client";
 import { Button } from "@/lib/ui/Button";
 import { Field, Input, Select } from "@/lib/ui/Input";
+
+/** An example card number, only for a game whose numbers it shows: a One
+ *  Piece number under Pokémon would teach the wrong shape. "OP01-001" with
+ *  One Piece resolves exactly (checked on cambridgetcg.com, 2026-11-10). */
+const CARD_NUMBER_EXAMPLE: Record<string, string> = { op: "e.g. OP01-001" };
 
 interface CardPriceSearchFormProps {
   games: GameItem[];
@@ -26,6 +32,7 @@ export function CardPriceSearchForm({
     (firstGame, secondGame) => secondGame.card_count - firstGame.card_count,
   );
   const hasGames = sortedGames.length > 0;
+  const [selectedGame, setSelectedGame] = useState(game || sortedGames[0]?.code || "");
 
   return (
     <div className="space-y-3">
@@ -42,6 +49,7 @@ export function CardPriceSearchForm({
               name="game"
               density="comfortable"
               defaultValue={game || sortedGames[0]?.code || ""}
+              onChange={(event) => setSelectedGame(event.target.value)}
               disabled={!hasGames}
               aria-describedby={!hasGames ? "price-search-unavailable" : undefined}
             >
@@ -80,7 +88,7 @@ export function CardPriceSearchForm({
               required
               autoFocus={autoFocus}
               defaultValue={query}
-              placeholder="e.g. OP01-001"
+              placeholder={CARD_NUMBER_EXAMPLE[selectedGame]}
             />
           </Field>
         </div>
@@ -102,11 +110,11 @@ export function CardPriceSearchForm({
 
       <p className="text-sm leading-relaxed text-ink-muted">
         Use the small code printed on the card, usually near the bottom edge,
-        such as <span className="font-mono text-ink-muted">OP01-001</span>.
+        such as <span className="font-mono text-ink-muted">OP01-001</span> on a One Piece card.
         {browseHref ? (
           <>
             {" "}
-            <Link href={browseHref} className="text-info hover:underline">
+            <Link href={browseHref} className="text-accent underline underline-offset-4">
               Browse by game
             </Link>
           </>
