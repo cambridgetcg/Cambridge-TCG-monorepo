@@ -59,6 +59,17 @@ describe("/account/agents page", () => {
     for (const [, args] of mocks.query.mock.calls) expect(args).toEqual([USER_ID]);
   });
 
+  it("tells the operator where a key's expiry shows, that nothing is sent, and how to rotate", async () => {
+    const html = renderToStaticMarkup(await AgentsAccountPage());
+    const text = html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
+
+    expect(text).toContain("agent.self returns key_expires_at");
+    expect(text).toContain("X-Agent-Key-Expires");
+    expect(text).toContain("Nothing is sent to you before a key expires.");
+    expect(text).toContain("mint a new key, move the agent to it, check the old key's last use here, then revoke the old key");
+    expect(html).toContain('href="/methodology/agents#key-expiry"');
+  });
+
   it("decides expiry in the key query, by the database's clock, with the one rule", async () => {
     renderToStaticMarkup(await AgentsAccountPage());
 
