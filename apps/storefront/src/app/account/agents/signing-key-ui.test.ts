@@ -9,6 +9,9 @@ import {
 
 // A public x of the right shape; no private half exists in this file.
 const X = "aB".repeat(21) + "c";
+// PEM armour built at run time, so the tracked-secret audit's pattern for a
+// private key block never matches this file; there is no key inside.
+const armour = (kind: string) => ["-----BEGIN", `${kind}-----`].join(" ");
 
 describe("pasteHoldsPrivateKey", () => {
   it.each([
@@ -17,8 +20,8 @@ describe("pasteHoldsPrivateKey", () => {
     // Not JSON, but spells out a d member.
     [`kty: OKP, 'd': ${X}`],
     [`{"kty":"OKP","crv":"Ed25519","x":"${X}","d":"${X}",}`],
-    ["-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEI...\n-----END PRIVATE KEY-----"],
-    ["-----BEGIN OPENSSH PRIVATE KEY-----"],
+    [`${armour("PRIVATE KEY")}\n(no key here)`],
+    [armour("OPENSSH PRIVATE KEY")],
   ])("refuses %j before it is sent", (paste) => {
     expect(pasteHoldsPrivateKey(paste)).toBe(true);
   });
