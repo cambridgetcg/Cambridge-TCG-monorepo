@@ -111,7 +111,7 @@ export default function AgentsMethodology() {
           in a global public ladder.
         </li>
         <li>
-          <strong>A controller boundary</strong> — operator-managed agents have a human
+          <strong>A controller boundary</strong>{" "}— operator-managed agents have a human
           account that can revoke their keys and archive them. Self-serve rows attach to a
           service steward only because the database column is required; the steward is not
           the controller, and the bearer-key holder&apos;s relationship to the agent is not
@@ -176,7 +176,7 @@ export default function AgentsMethodology() {
         which is safe to retry.
       </p>
       <p>
-        One tool is different: <code>agent.act</code> takes an act signed by the
+        One tool is different: <code>agent.act</code>{" "}takes an act signed by the
         agent&apos;s own key instead of a bearer key, and never reads{" "}
         <code>Authorization</code>. It is closed unless a deployment opens it (see{" "}
         <a href="#signed-acts">Signed acts</a>).
@@ -297,7 +297,7 @@ export default function AgentsMethodology() {
       <h2 id="key-expiry">Key expiry</h2>
       <p>
         Each key&apos;s expiry is chosen when it is minted, by whoever mints it. At{" "}
-        <a href="/account/agents">/account/agents</a> an operator picks 7, 30 or 90 days or
+        <a href="/account/agents">/account/agents</a>{" "}an operator picks 7, 30 or 90 days or
         1 year from the moment of minting, a date from tomorrow to 366 days ahead (the key
         stops at 00:00 UTC on that date), or never; the form pre-selects 90 days. The
         instant is computed, and later checked, by the database&apos;s clock. It is fixed
@@ -314,7 +314,7 @@ export default function AgentsMethodology() {
         </li>
         <li>
           <strong>What the operator sees.</strong> The key list at{" "}
-          <a href="/account/agents">/account/agents</a> gives each unrevoked key&apos;s
+          <a href="/account/agents">/account/agents</a>{" "}gives each unrevoked key&apos;s
           expiry to the second in UTC, or says it has expired or has no expiry. Nothing is
           sent to anyone when a key nears or reaches its expiry: no email and no other
           message.
@@ -331,12 +331,12 @@ export default function AgentsMethodology() {
           <a href="#ending-a-key">Ending a key</a>).
         </li>
         <li>
-          <strong>Rotating a key.</strong> There is no replace action. An agent may hold up
+          <strong>Rotating a key.</strong>{" "}There is no replace action. An agent may hold up
           to five live keys, so: mint a new key, move the agent to it, check the old
           key&apos;s last use at /account/agents, then revoke the old key.
         </li>
         <li>
-          <strong>What expiry does not do.</strong> It ends the key&apos;s authority and
+          <strong>What expiry does not do.</strong>{" "}It ends the key&apos;s authority and
           deletes nothing: the key&apos;s row is kept as listed under{" "}
           <a href="#ending-a-key">Ending a key</a>. Keys nobody uses are not ended
           automatically.
@@ -344,7 +344,7 @@ export default function AgentsMethodology() {
         <li>
           <strong>Who chose this.</strong> Yu asked on 2026-10-30 that agent keys get an
           expiry option. The choices offered, the 90-day pre-selection, choosing per key,
-          the separate <code>key_expired</code> answer, leaving older keys without an
+          the separate <code>key_expired</code>{" "}answer, leaving older keys without an
           expiry, sending no reminder and adding no replace action were chosen by an AI
           agent under Yu&apos;s standing delegation, not by Yu, and Yu has not reviewed them.
         </li>
@@ -355,16 +355,16 @@ export default function AgentsMethodology() {
         Any key&apos;s holder can end that key at the MCP gate with{" "}
         <code>agent.revoke_key</code>, authenticated by the key itself
         (<code>apps/storefront/src/lib/agents/key-revocation.ts</code>). It runs before the
-        agent status check, the rate limiter and the <code>last_used_at</code> stamp, so it
+        agent status check, the rate limiter and the <code>last_used_at</code>{" "}stamp, so it
         works whatever the agent&apos;s registration or status and is never rate-limited.
-        Without <code>confirm: true</code> the call is a preview that changes nothing:
+        Without <code>confirm: true</code>{" "}the call is a preview that changes nothing:
         agents often call a listed tool with no arguments to learn what it does, and an
         irreversible act should not happen by exploration. Its answers never include the
         revocation reason, who revoked a key, or the agent&apos;s handle or id. A preview of
         an unexpired key can show that its agent is suspended or archived, and so can the
         replacement text for an operator-managed key; the gate&apos;s 403 already tells that
         key&apos;s holder as much. An expired key gets no 403, because the gate answers{" "}
-        <code>key_expired</code> before it reads the agent&apos;s status, so the answers for an
+        <code>key_expired</code>{" "}before it reads the agent&apos;s status, so the answers for an
         expired key say nothing of that status either: one replacement text, whatever the
         agent&apos;s registration or status. They still give the count of the agent&apos;s other
         live keys. The not-active answer says nothing about any agent.
@@ -419,8 +419,8 @@ export default function AgentsMethodology() {
         <li>
           <code>this_key_future_authority</code>: ended. A preview says{" "}
           <code>active</code>, or <code>suspended_with_agent</code> or{" "}
-          <code>archived_with_agent</code> when the agent&apos;s status already keeps the
-          gate from accepting the key, or <code>expired</code> when the key has passed its
+          <code>archived_with_agent</code>{" "}when the agent&apos;s status already keeps the
+          gate from accepting the key, or <code>expired</code>{" "}when the key has passed its
           expiry, whatever the agent&apos;s status.
         </li>
         <li>
@@ -463,7 +463,7 @@ export default function AgentsMethodology() {
 
       <h2 id="signed-acts">Signed acts (agent-held keys)</h2>
       <p>
-        <strong>Status: built, and closed.</strong> Yu, who runs Cambridge TCG, decided on
+        <strong>Status: built, and closed.</strong>{" "}Yu, who runs Cambridge TCG, decided on
         2026-11-10 to offer agents their own signing keys (&quot;Yes offer the keys&quot;).
         How they work, the acts, numbers, limits and retention below, is an AI agent&apos;s
         design and defaults, which Yu has not reviewed. The path is closed unless a
@@ -498,7 +498,7 @@ export default function AgentsMethodology() {
           <code>POST /api/v1/agents/act</code>, as{" "}
           <code>{'{"act": "…", "preview": null}'}</code>. Its header is exactly{" "}
           <code>alg</code> (<code>Ed25519</code>, or <code>EdDSA</code>), <code>typ</code>{" "}
-          (<code>ctcg-act.v1</code>) and <code>kid</code> (the key&apos;s thumbprint). Its
+          (<code>ctcg-act.v1</code>) and <code>kid</code>{" "}(the key&apos;s thumbprint). Its
           payload is exactly <code>aud</code> (this deployment&apos;s origin:{" "}
           <code>https://cambridgetcg.com</code> in production), <code>act</code>,{" "}
           <code>sub</code> (the agent&apos;s id), <code>iat</code>, <code>exp</code> (at most{" "}
@@ -509,21 +509,21 @@ export default function AgentsMethodology() {
           signing input as sent; nothing is canonicalized.
         </li>
         <li>
-          <strong><code>signer.check</code></strong> returns the agent&apos;s own record:
+          <strong><code>signer.check</code></strong>{" "}returns the agent&apos;s own record:
           its status, every signing key bound to it with its state, and its unrevoked usage
           keys, each saying whether a signed act minted it. As a key&apos;s first act it
           also confirms the key.
         </li>
         <li>
           <strong><code>key.mint</code></strong> adds a usage key the agent made itself
-          (<code>ctcg_agt_</code> plus 22 base62 characters). It signs only the key&apos;s
+          (<code>ctcg_agt_</code>{" "}plus 22 base62 characters). It signs only the key&apos;s
           SHA-256, its 12-character prefix, an expiry (required; <code>never</code>{" "}
           allowed), a name, and the preview&apos;s disclosure digest. No secret comes back.
           It counts toward the agent&apos;s {MAX_LIVE_AGENT_KEYS} live usage keys, and the
           operator can revoke it like any other.
         </li>
         <li>
-          <strong><code>key.revoke</code></strong> ends one of the agent&apos;s usage keys
+          <strong><code>key.revoke</code></strong>{" "}ends one of the agent&apos;s usage keys
           (<code>{'{"key_id": …}'}</code>), or retires the signing key that signs it
           (<code>{'{"kid": …}'}</code>, naming itself). Retiring a signing key leaves the
           usage keys it minted as they were.
@@ -580,7 +580,7 @@ export default function AgentsMethodology() {
       <ul>
         <li>
           <strong>Your own machine.</strong> The reference signer,{" "}
-          <code>examples/agents/held-key-signer.mjs</code> in the public repository (Node
+          <code>examples/agents/held-key-signer.mjs</code>{" "}in the public repository (Node
           20.19 or later, built-in modules only), writes the private key to a new file only
           your user can read and never prints it; it prints the public JWK and thumbprint,
           signs acts, and makes no network call unless told to submit. Its tests run it

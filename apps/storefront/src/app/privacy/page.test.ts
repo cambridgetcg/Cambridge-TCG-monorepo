@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -235,7 +236,7 @@ describe("storefront privacy notice contract", () => {
     expect(page).toContain('id="aggregate-counts"');
     expect(page).toContain('href="#feedback-door"');
     expect(page).toContain('href="#aggregate-counts"');
-    expect(compactPage).toContain("<strong className=\"text-ink\">Cloudflare</strong> sits in front of cambridgetcg.com");
+    expect(compactPage).toContain("<strong className=\"text-ink\">Cloudflare</strong>{\" \"}sits in front of cambridgetcg.com");
     expect(page).toContain("https://www.cloudflare.com/privacypolicy/");
     expect(compactPage).toContain("Understand how the site is used, from aggregate counts only");
     expect(compactPage).toContain("Cambridge TCG keeps counts, not records of visits");
@@ -324,20 +325,20 @@ describe("storefront privacy notice contract", () => {
     // of this is collected there until it opens.
     expect(compactPage).toContain("Last updated 10 November 2026");
     expect(compactPage).toContain(
-      "<strong className=\"text-ink\">Agent signing keys:</strong> when an operator binds an agent&apos;s own signing key on the account agents page, Cambridge TCG keeps its public key and thumbprint, when it was bound, confirmed and set to expire, and how it ended; for each act signed with it, the act as sent, its SHA-256, how it was checked and what it did; and each act&apos;s key and nonce until they are deleted after the act expires, so an act applies once. A usage key that a signed act minted records which act minted it.",
+      "<strong className=\"text-ink\">Agent signing keys:</strong>{\" \"}when an operator binds an agent&apos;s own signing key on the account agents page, Cambridge TCG keeps its public key and thumbprint, when it was bound, confirmed and set to expire, and how it ended; for each act signed with it, the act as sent, its SHA-256, how it was checked and what it did; and each act&apos;s key and nonce until they are deleted after the act expires, so an act applies once. A usage key that a signed act minted records which act minted it.",
     );
     expect(compactPage).toContain(
       "Binding a signing key is not open on this website yet, so none of this is collected here until it is.",
     );
     expect(compactPage).toContain(
-      "<strong className=\"text-ink\">Agent signing keys:</strong> a key never confirmed by a signed act is deleted by an hourly sweep 7 days after it was bound, but only while signed acts are open; the record of its binding keeps its thumbprint. The rest, and the record of each act, stay with the agent and go when the agent or its operator&apos;s account is deleted, except a short receipt of each act (its time, the act, its outcome and its SHA-256), which is kept. An act&apos;s nonce is deleted after the act expires, by a later act or by the hourly sweep, which also runs only while signed acts are open.",
+      "<strong className=\"text-ink\">Agent signing keys:</strong>{\" \"}a key never confirmed by a signed act is deleted by an hourly sweep 7 days after it was bound, but only while signed acts are open; the record of its binding keeps its thumbprint. The rest, and the record of each act, stay with the agent and go when the agent or its operator&apos;s account is deleted, except a short receipt of each act (its time, the act, its outcome and its SHA-256), which is kept. An act&apos;s nonce is deleted after the act expires, by a later act or by the hourly sweep, which also runs only while signed acts are open.",
     );
     // Each beside the matching "Agent keys" item.
-    const kept = compactPage.indexOf("<strong className=\"text-ink\">Agent keys:</strong> when an operator creates");
-    const retained = compactPage.indexOf("<strong className=\"text-ink\">Agent keys:</strong> a key and its last-used time");
-    expect(compactPage.indexOf("Agent signing keys:</strong> when an operator binds")).toBeGreaterThan(kept);
-    expect(compactPage.indexOf("Agent signing keys:</strong> when an operator binds")).toBeLessThan(retained);
-    expect(compactPage.indexOf("Agent signing keys:</strong> a key never confirmed")).toBeGreaterThan(retained);
+    const kept = compactPage.indexOf("<strong className=\"text-ink\">Agent keys:</strong>{\" \"}when an operator creates");
+    const retained = compactPage.indexOf("<strong className=\"text-ink\">Agent keys:</strong>{\" \"}a key and its last-used time");
+    expect(compactPage.indexOf("Agent signing keys:</strong>{\" \"}when an operator binds")).toBeGreaterThan(kept);
+    expect(compactPage.indexOf("Agent signing keys:</strong>{\" \"}when an operator binds")).toBeLessThan(retained);
+    expect(compactPage.indexOf("Agent signing keys:</strong>{\" \"}a key never confirmed")).toBeGreaterThan(retained);
   });
 
   it("says an agent key's expiry is kept, and that expiring keeps the record", () => {
@@ -349,5 +350,19 @@ describe("storefront privacy notice contract", () => {
     expect(compactPage).toContain(
       "revoking a key, or its expiring, keeps the record",
     );
+  });
+
+  it("keeps the space after every label in the production build", async () => {
+    // Next's production compiler drops the leading space of a JSX text that
+    // wraps over lines and holds an entity, so "Agent keys:</strong> when ..."
+    // was served as "Agent keys:when ...". Vitest's compiler keeps the space,
+    // so this asks the production compiler itself
+    // (scripts/jsx-entity-space-audit.cjs). The fix is an explicit {" "}.
+    const { findDroppedSpaces } = createRequire(import.meta.url)(
+      resolve(process.cwd(), "scripts/jsx-entity-space-audit.cjs"),
+    ) as { findDroppedSpaces: (target: string) => Promise<{ hits: unknown[]; unknown: unknown[] }> };
+    const found = await findDroppedSpaces(resolve(process.cwd(), "src/app/privacy/page.tsx"));
+    expect(found.hits).toEqual([]);
+    expect(found.unknown).toEqual([]);
   });
 });
