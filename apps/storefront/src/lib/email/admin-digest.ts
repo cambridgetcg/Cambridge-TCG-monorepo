@@ -87,10 +87,10 @@ export async function collectDigestStats(): Promise<DigestStats> {
   };
 }
 
-function stat(label: string, value: string | number, color = "#fff"): string {
+function stat(label: string, value: string | number, color = "#201d18"): string {
   return `
     <div style="display:inline-block;width:48%;margin:4px 0;vertical-align:top;">
-      <p style="margin:0;color:#737373;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;">${escapeHtml(label)}</p>
+      <p style="margin:0;color:#5e574c;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;">${escapeHtml(label)}</p>
       <p style="margin:2px 0 0;color:${color};font-size:18px;font-weight:700;">${escapeHtml(String(value))}</p>
     </div>
   `;
@@ -112,52 +112,52 @@ export async function sendAdminWeeklyDigest(): Promise<SendResult | { ok: false;
     .join("  ·  ");
 
   const topRows = s.topEarners.length === 0
-    ? `<p style="color:#737373;font-size:12px;margin:4px 0 0;">No activity.</p>`
+    ? `<p style="color:#5e574c;font-size:12px;margin:4px 0 0;">No activity.</p>`
     : s.topEarners
         .map(
           (u) => `<tr>
-            <td style="padding:4px 8px 4px 0;color:#a3a3a3;font-size:12px;">${escapeHtml(u.name ?? u.email.split("@")[0])}</td>
-            <td style="padding:4px 0;color:#fff;font-size:12px;font-family:ui-monospace,monospace;text-align:right;">${u.earned.toLocaleString()}</td>
+            <td style="padding:4px 8px 4px 0;color:#5e574c;font-size:12px;">${escapeHtml(u.name ?? u.email.split("@")[0])}</td>
+            <td style="padding:4px 0;color:#201d18;font-size:12px;font-family:ui-monospace,monospace;text-align:right;">${u.earned.toLocaleString()}</td>
           </tr>`,
         )
         .join("");
 
   const bodyHtml = `
-    <p style="margin:0 0 12px;color:#a3a3a3;">Last 7 days at a glance.</p>
+    <p style="margin:0 0 12px;color:#5e574c;">Last 7 days at a glance.</p>
 
-    <h3 style="margin:16px 0 6px;color:#f59e0b;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Bounty flow</h3>
+    <h3 style="margin:16px 0 6px;color:#86661c;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Bounty flow</h3>
     <div>
-      ${stat("Pulls resolved", s.pullsTotal, "#f59e0b")}
+      ${stat("Pulls resolved", s.pullsTotal, "#86661c")}
       ${stat("Vault acquired", s.vault.acquired)}
-      ${stat("Redemptions shipped", s.vault.redeemed, "#34d399")}
+      ${stat("Redemptions shipped", s.vault.redeemed, "#36634d")}
       ${stat("Sell-backs", s.vault.sold_back)}
-      ${stat("Auto-expired", s.vault.expired, s.vault.expired > 0 ? "#fbbf24" : "#a3a3a3")}
+      ${stat("Auto-expired", s.vault.expired, s.vault.expired > 0 ? "#844d16" : "#5e574c")}
       ${stat("Token merges", s.merges)}
     </div>
-    <p style="margin:10px 0 0;color:#737373;font-size:12px;">
+    <p style="margin:10px 0 0;color:#5e574c;font-size:12px;">
       Credit paid out (sell-back + expiry):
-      <span style="color:#34d399;font-weight:600;">£${s.creditOutGbp.toFixed(2)}</span>
+      <span style="color:#36634d;font-weight:600;">£${s.creditOutGbp.toFixed(2)}</span>
     </p>
     ${tierChips
-      ? `<p style="margin:4px 0 0;color:#737373;font-size:11px;font-family:ui-monospace,monospace;">${escapeHtml(tierChips)}</p>`
+      ? `<p style="margin:4px 0 0;color:#5e574c;font-size:11px;font-family:ui-monospace,monospace;">${escapeHtml(tierChips)}</p>`
       : ""}
 
-    <h3 style="margin:20px 0 6px;color:#f59e0b;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Email queue</h3>
+    <h3 style="margin:20px 0 6px;color:#86661c;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Email queue</h3>
     <div>
-      ${stat("Sent", s.queue.sent ?? 0, "#34d399")}
+      ${stat("Sent", s.queue.sent ?? 0, "#36634d")}
       ${stat("Cancelled", s.queue.cancelled ?? 0)}
-      ${stat("Failed (retrying)", s.queue.failed ?? 0, (s.queue.failed ?? 0) > 0 ? "#fbbf24" : "#a3a3a3")}
-      ${stat("Dead (needs review)", s.dead, s.dead > 0 ? "#ef4444" : "#a3a3a3")}
+      ${stat("Failed (retrying)", s.queue.failed ?? 0, (s.queue.failed ?? 0) > 0 ? "#844d16" : "#5e574c")}
+      ${stat("Dead (needs review)", s.dead, s.dead > 0 ? "#953e2e" : "#5e574c")}
     </div>
     ${s.dead > 0
       ? `<p style="margin:8px 0 0;font-size:12px;">
-           <a href="https://cambridgetcg.com/admin/emails" style="color:#ef4444;text-decoration:underline;">
+           <a href="https://cambridgetcg.com/admin/emails" style="color:#953e2e;text-decoration:underline;">
              Review dead-letter queue &rarr;
            </a>
          </p>`
       : ""}
 
-    <h3 style="margin:20px 0 6px;color:#f59e0b;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Streaks</h3>
+    <h3 style="margin:20px 0 6px;color:#86661c;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Streaks</h3>
     <div>
       ${stat("≥ 2-day", s.streaks.active)}
       ${stat("≥ 7-day", s.streaks.week_plus)}
@@ -165,7 +165,7 @@ export async function sendAdminWeeklyDigest(): Promise<SendResult | { ok: false;
       ${stat("Longest ever", s.streaks.longest)}
     </div>
 
-    <h3 style="margin:20px 0 6px;color:#f59e0b;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Top Berries earners (7d)</h3>
+    <h3 style="margin:20px 0 6px;color:#86661c;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Top Berries earners (7d)</h3>
     <table style="width:100%;border-collapse:collapse;margin-top:4px;">
       ${topRows}
     </table>

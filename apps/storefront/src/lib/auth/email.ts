@@ -6,6 +6,7 @@
 // stream moves LAST and falls back FIRST (EMAIL_TRANSPORT_AUTH).
 
 import { sendMail } from "@cambridge-tcg/email";
+import { EMAIL_HEAD } from "@/lib/email/layout";
 import { reserveMagicLinkForDelivery } from "./adapter";
 
 const FROM_EMAIL = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
@@ -42,15 +43,16 @@ export async function sendVerificationRequest(params: any) {
       text: `Sign in to your Cambridge TCG account:\n\n${url}\n\nThis link expires in 24 hours. If you didn't request this, you can ignore this email.`,
       html: `
 <!DOCTYPE html>
-<html>
-<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;padding:32px;background:#171717;border-radius:16px;">
-    <h1 style="color:#fff;font-size:20px;margin:0 0 8px;">Cambridge <span style="color:#34d399;">TCG</span></h1>
-    <p style="color:#a3a3a3;font-size:14px;margin:0 0 24px;">Sign in to your account</p>
-    <a href="${url}" style="display:inline-block;padding:12px 32px;background:#f59e0b;color:#000;font-weight:700;text-decoration:none;border-radius:8px;font-size:14px;">
+<html lang="en">
+${EMAIL_HEAD}
+<body style="margin:0;padding:0 16px;background:#faf8f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#201d18;">
+  <div style="max-width:480px;margin:40px auto;padding:32px;background:#ffffff;border:1px solid #e7e2d8;border-radius:12px;">
+    <h1 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:20px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid #e7e2d8;">Cambridge TCG</h1>
+    <p style="color:#5e574c;font-size:14px;margin:0 0 24px;">Sign in to your account</p>
+    <a href="${url}" style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;">
       Sign In
     </a>
-    <p style="color:#525252;font-size:12px;margin:24px 0 0;">This link expires in 24 hours.<br>If you didn't request this, you can safely ignore this email.</p>
+    <p style="color:#5e574c;font-size:12px;margin:24px 0 0;">This link expires in 24 hours.<br>If you didn't request this, you can safely ignore this email.</p>
   </div>
 </body>
 </html>`,
