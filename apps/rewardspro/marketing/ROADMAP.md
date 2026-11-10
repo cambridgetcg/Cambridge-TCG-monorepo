@@ -5,13 +5,13 @@ for cold email, ads and the team. Nothing in it is decided, except where it quot
 six plans the owner asked for on 7 Nov, the focus plan for his direction that day (row 7), the playbook for his
 question that evening (row 8) and the ads and organic plan of 10 Nov (row 9, §6) into one order of work, and links to
 each for the detail. Nothing is published, sent, spent or merged without his word.
-Since 10 Nov ("Use the owner instead of Yu.") this file calls him the owner.
+Since 10 Nov ("Use the owner instead of", then his name; §5) this file calls him the owner.
 
 **This is the last roadmap.** Once it merges, the plan is the board (issues labelled `rewardspro`) and the pinned
 weekly issue "RewardsPro: this week"; this file is history, and nothing new is added to it. Work runs through a small
 standing team: a chief of staff (`/rp`), a Product lead and a Growth lead; who owns what is the charter,
-`.claude/skills/rp-team/SKILL.md`. With #222, [WORK.md](WORK.md) becomes a pointer to it and the claim and concur
-protocol of 7–9 Nov goes; where this file mentions a session's claim or concur on an issue, that is history. (Claim
+`.claude/skills/rp-team/SKILL.md`. Since #222 merged (10 Nov), [WORK.md](WORK.md) is a pointer to it and the claim and
+concur protocol of 7–9 Nov is gone; where this file mentions a session's claim or concur on an issue, that is history. (Claim
 rows in `claims.toml` are a different thing and stay.) The old "no scripted reads" line is now a fact about the App
 Store's robots.txt, not a ban (§2).
 
@@ -82,7 +82,7 @@ the agents' reading, in `…/wf8/FOCUS.md` and `…/wf9/signals.md`, for his yes
 - **The listing is still false** [O, the 7 Nov capture; #162 records no edit]: tier products, the Memberships tags, an
   old video, an over-wide data request, three old-admin screenshots (one shows a real gmail.com address); 0 reviews.
 - **rewardspro.io** [V]: #191 ("yes strip", live 9 Nov) removed the false features, the old spelling, the docs link
-  and "Love is the design."; live equals main. Unverified lines wait for state A (#210); the privacy page describes
+  and an old tagline; live equals main. Unverified lines wait for state A (#210); the privacy page describes
   the old stack [V, 9 Nov audit, #167]; `/help/`, `/terms/`, `/subprocessors/` 404; the docs host 307s to GitBook.
 - **DNS** [V, DNS over HTTPS]: only SPF at the apex, one DMARC (`p=none`). SPF fails (its include has no record) and
   there is no Google DKIM key, so contact@ is unproven. `rewardspro-marketing` is private, `rewardspro-docs` archived.
@@ -134,7 +134,9 @@ merchants who write in, with a real give-back job and customers who reorder thro
 - **Never:** DMs, InMail or connection notes, phone calls, contact forms or marketplace messages to shops; bought,
   rented or scraped lists, for email or for ad audiences; cold contact under any other name. The ICO treats DMs as
   electronic mail needing consent, and PECR needs consent to email individuals (wf5 §3); the Partner agreement's
-  section 2 says "Do not email a Merchant without their prior consent".
+  section 2 says "Do not email a Merchant without their prior consent". Phone calls, contact forms and marketplace
+  messages are the 7 Nov outreach design's own "never" (OUTREACH "In ten lines" item 5), not a legal rule; under the charter, any
+  first contact with a shop other than email is the owner's call.
 - Using anything learned through Shopify or RewardsPro for outreach ("we don't email merchants through RewardsPro,
   we discover from existing market", the owner, 7 Nov); a shop or address that ever reached us that way stays out
   even if it turns up again in public (wf5 §2.4).
@@ -145,7 +147,7 @@ merchants who write in, with a real give-back job and customers who reorder thro
 - Agents posting, replying, liking, scheduling, drafting forum replies or keeping any login of their own.
 - Scraping shops' stores: Shopify's API terms bar scraping "any Merchant Store", and Shopify can end the partner
   agreement without cause.
-- KINGDOM language, links or DNS records anywhere on RewardsPro.
+- Language, links or DNS records from the owner's other projects anywhere on RewardsPro.
 
 **Scripts are fine.** The old "no scripted reads of Shopify pages" line was an agents' rule; on 10 Nov the owner said
 "you can use scripts ah, since when did we say we cannot?". What is left is a fact to weigh, not a ban:
@@ -159,7 +161,7 @@ false impressions, wf12 §3.1). The 7 Nov bulk reads stay internal.
 | **P0 Truth first** | Now to Sun 3 Jan 2027 | L-gate items first: listing text and S1 screenshots, mail and DNS, privacy page with the rows for people who contact us and interview notes, interview preparation (the Shopify question was answered on 10 Nov). Then the state A page, the move PR, G0. App Store ads once the listing is true (§6). S0 names optional | Actions 1–12 (§4); the open decisions (§5) | By Fri 20 Nov: the interview kit, dev-store test list (O-06), visit-pack method, DNS script, event list. Then PR-1, PR-1b, PR-2, privacy and terms drafts, the state A PR, the move PR; rows checked from saved captures (below) | No false text on the listing and three S1 screenshots, live after Shopify's review [U: how long]; the privacy page's rows live; mail passes; every L-gate item ticked by Sun 3 Jan |
 | **G0 sittings** | Late November at the earliest [I], once PR-1, the setup guide, PR-1b (neutral widget defaults) and PR-2 (if Pre-3 says yes) are live | Sitting 1 on the shot list's store (~85 min); sitting 2, "partner zero", on a new store (~45–50 min), starting with REC-0 and REC-4a (ONBOARDING §8.2). B4 is recorded (#158); which form counts is Pre-1 | The form (word); both sittings (hand) | Privacy read of every frame; verify supported rows, with a second session; cut clips; review packs for `/` and `/help/` | G0 recorded in the owner's form; the supported rows `verified` |
 | **S2 Open** | Weeks after G0: December at the earliest, January more likely [I]; listing review time [U] | Listing state B, G0 screenshots, Resources → `/help/`; `/`, `/help/`, the 404, terms if not yet live; docs host 301; bios set B; M1 pinned; V1 on YouTube; clips VH1, VH2, VH5 on `/help/`; admin PR-3, PR-5; the demo-store link and structured features as their rows verify (Now-9); "In the spotlight" takes no application | Approve and deploy packs; swap the listing; post M1 (~25 min); first-real-merchant steps or a written waiver; Ask & Offer replies (≤2 a week) once GROWTH G8's two preconditions exist | Packs and site PRs; the install-source PR (Pre-9); fact briefs, never reply text, for threads he brings; coding the AI answers he pastes | STRATEGY §2 conditions (a)–(g) hold and M1 is posted |
-| **Interviews** | Mon 4 Jan – Sun 28 Feb 2027 (to 14 Mar if needed), once the L-gate holds | 5–8 interviews with UK shops whose customers reorder (5 in the 3-hour version; quota in wf8 FOCUS §3.1; card shops 0–2 (0–1 in the 3-hour version), owners he knows), with shops that wrote first: the in-app link, contact@, the listing, a review, a Community thread, a peer-started introduction. Any other first contact (a visit, someone he knows) is his call each time (the charter); no first emails; a LinkedIn call only from S2; Pre-11's two questions if he says yes | Every ask, outing, interview and same-day note; the conflict-of-interest line (Pre-7) first in every card-shop conversation | Monday packs (counts only); syntheses from de-identified notes, each checked by a second session; evidence ledger; product memo; kernel draft; the results page at outreach week L8 | ≥5 interviews by Sun 14 Feb; a verdict per hypothesis; memo and kernel draft decided; a verdict per route at L8 |
+| **Interviews** | Mon 4 Jan – Sun 28 Feb 2027 (to 14 Mar if needed), once the L-gate holds | 5–8 interviews with UK shops whose customers reorder (5 in the 3-hour version; quota in wf8 FOCUS §3.1; card shops 0–2 (0–1 in the 3-hour version), owners he knows), with shops that wrote first: the in-app link, contact@, the listing, a review, a Community thread. Any other first contact (a visit, someone he knows, an introduction) is his call each time (the charter); no first emails; a LinkedIn call only from S2; Pre-11's two questions if he says yes | Every ask, outing, interview and same-day note; the conflict-of-interest line (Pre-7) first in every card-shop conversation | Monday packs (counts only); syntheses from de-identified notes, each checked by a second session; evidence ledger; product memo; kernel draft; the results page at outreach week L8 | ≥5 interviews by Sun 14 Feb; a verdict per hypothesis; memo and kernel draft decided; a verdict per route at L8 |
 | **Design partners** | P-gate: B4 in `gates.md` (recorded), the privacy page live (RP-07), partner terms. 3-hour version (default): setups from about 1 Mar, day 90 about 30 May [I]. Full version: setups in weeks L6–L7 (8–21 Feb) if the gate holds by 1 Feb, day 90 about 9–22 May [I] | At most 4 active; a 60-minute setup call where the merchant drives (conflict line first, no margin questions); calls in weeks 2 and 6; the question log; PR-6 after the second setup and when the guided phase ends | Invitations; the calls; the PITR spend or waiver; approve the partner terms; each partner's dev-store tests, by hand or by agents in a session he opens | Partner terms page; staff-access statement draft; log syntheses; PR-6 and `/help/` edits | 2–4 active at day 90; the guided phase ends at two setups in a row with no new stage note, or the earlier of 90 days after S2 and the 10th real merchant |
 | **Self-serve growth + ads** | From S2 (H1 2027); App Store ads earlier, from the start date he picks (§6) | Help sections split on real questions; VG1 (the YouTube guide) when the guided phase ends, if pillar H2 holds; VH3 and VH4 when asked; R0 when review asks; Later-4 and Later-5 once their gates hold; 2027 trade shows as learning visits; App Store ads at US$5 a day (§6) | Monthly rank, Search Console and AI-panel checks by hand; the ad's card and Start; pause by day 30 | Coding pasted AI answers; the ad form in his Chrome; weekly ad read-outs (§6) | The first 30 days of ads read; continuing needs a new yes |
 | **Built for Shopify** | H2 2027 at the earliest [I] | A readiness check: 50 net installs from paid-plan shops, 5 reviews and a minimum recent rating Shopify doesn't publish (BFS 1.2.1–1.2.3); the same kinds of minimum gate "Increased visibility", Sidekick's recommendations included; no paid push | Whether to apply | The check | Criteria met and the owner applies, or decides not to |
@@ -244,15 +246,15 @@ records his sentence on the issue it concerns):
 - **The rewards lane (9 Nov):** "Make it a package", a selected option (RP-25, #189); "go for the three must-fixes,
   plus the two membership checks and the widget line, as one reviewed fix round" (#204); "Lets just go with what
   yuou think is sensible and the best choice." (#202), so its calls are agents' calls under his delegation.
-- **Now-6, naming (10 Nov, session, Air):** "Use the owner instead of Yu." (also in #215's body, and
-  `approvals.jsonl` line 8 on its branch, unmerged); the other kit files change in #215 (open).
+- **Now-6, naming (10 Nov, session, Air):** "Use the owner instead of", then his first name, which this file leaves
+  out on that word (the full sentence is in #215's body, and `approvals.jsonl` line 8 on its branch, unmerged); the other kit files change in #215 (open).
 - **Scripts and agent browsing (10 Nov, session, Air):** "you can use scripts ah, since when did we say we cannot?"
   The old "no scripted reads" line was an agents' rule (§2). Agents read this as also settling Now-10 (which Shopify
   pages agents may read), so that row is gone from the open table.
 - **Rules (10 Nov, session, Air):** "Too many rules😂 Lets just make things work. The intention of rules is to be
   constructive, but in this case it is actually becoming friction. So review rules to see if they are friction
-  creating or making the system run smooth." The team charter (#222) is the agents' answer so far: with it,
-  WORK.md's packages and the claim protocol go.
+  creating or making the system run smooth." The team charter (#222, merged 10 Nov) is the agents' answer so far:
+  with it, WORK.md's packages and the claim protocol went.
 - **No cold email; ads and organic (10 Nov, session, Air):** after Shopify Partner support wrote "One relevant rule
   is that unsolicited emails to merchants who have never installed your app are treated as a Partner policy
   violation.", he said: "Ohhhh so we cannot contact merchants through cold email wor, from what I see. Then we need to
@@ -341,23 +343,27 @@ proposal, read once by a second session on 10 Nov). Every forecast here is an es
 read in wf12 [O]). Whatever is false on the listing is false in the ad.
 
 **The owner's decision (10 Nov, §5):** US$5 a day, the option he was shown: capped at US$150 over 30 days (about
-£112, plus card currency fees and any VAT [U]). Agents fill the ad form in his Chrome; he adds the card and presses
-Start. Agents never click an ad, change the budget or press Start.
+£112, plus card currency fees and any VAT [U]). Shopify's ad form has a daily budget but no end date (wf12 [O]), so
+the US$150 holds only if the ad is paused by day 30; that date goes in his calendar at Start (§3). Agents fill the ad
+form in his Chrome; he adds the card and presses Start. Agents never click an ad, change the budget or press Start.
 
-**What the first US$150 likely buys [I]:** about 60–86 clicks and, most likely, 0 to 3 installs and 0–1 active shop.
-The one public data point, one person's post of "14 clicks, 0 installs" on a listing with no reviews [A], leans
-low. What it buys with more certainty is a read on whether the listing turns visits into installs, and the words
+**What the first US$150 likely buys [I]:** about 60–86 clicks, if UK search volume lets it spend, and, most likely,
+0 to 3 installs and 0–1 active shop. The one public data point, one person's post of "14 clicks, 0 installs" on a
+listing with no reviews [O], leans low. What it buys with more certainty is a read on whether the listing turns visits into installs, and the words
 merchants search with.
 
 **Proposed with it** (agents' proposals, wf12 §3): pause the same day at the cap or day 30, at 40 paid clicks with 0
 installs (fix the listing, don't raise the bid), on a money defect seen on a real shop, or on a 1–2 star review that
-names a defect; a Monday look of about 10 minutes, the ad reports exported to a private folder outside every repo.
+names a defect; a Monday look of about 10 minutes, the ad reports exported to a private folder outside every repo
+(whether an agent may read those reports for him is one of the advisor questions in action 1; if not, he copies out
+the totals).
 Google gets a £0 Keyword Planner look, paid only if its installs can be traced; Microsoft is dropped; Meta and
 YouTube later; LinkedIn, Reddit and paid directories skipped.
 
 **Open, the owner's call** (also in §5's first table):
 1. **When ads start.** Agents' recommendation: once Shopify has approved the corrected listing and contact@ receives
-   mail, not 4 Jan.
+   mail, not 4 Jan. To weigh with the date: wf12's day-0 check also had the money fixes #205 and #206 on production
+   first, because ads bring real shops and #195 loses a merchant money; both are drafts today [V].
 2. **Point-in-time recovery** for the database (~US$100 a month, Now-4). Agents' recommendation: none until the first
    install.
 
@@ -403,7 +409,7 @@ accounts and LinkedIn's scheduler; YouTube; Companies House; Google Workspace (a
 
 | Item | Price | When | Decision |
 |---|---|---|---|
-| App Store search ads | US$5 a day, capped at US$150 (~£112) over 30 days, UK, plus card currency fees and any VAT [U] | Open: when they start (§6) | Decided 10 Nov (§5) |
+| App Store search ads | US$5 a day, capped at US$150 (~£112) over 30 days, UK, plus card currency fees and any VAT [U] | Open: when they start (§6); paused by day 30, since the form has no end date | Decided 10 Nov (§5) |
 | Supabase PITR with a rehearsed restore | ~US$100 a month (Small compute) | Agents' recommendation: not until the first install | Now-4 (GROWTH G10) |
 | Sentry Crons | [U], on Sentry billing | First-real-merchant steps | Now-4 |
 | EU Art. 27 representative | Prighter €420 a year; GDPR Local from £999; EDPO €1,920 | If EU installs are in scope (the listing is open worldwide) | Now-4 |
@@ -422,11 +428,11 @@ Meta and YouTube later; LinkedIn and Reddit skipped.
 
 | What | Where | State |
 |---|---|---|
-| This roadmap, [WORK.md](WORK.md), the kernel (`brand.json`, `kernel.toml`, `claims.toml`, `approvals.jsonl`, `kit/`), `DESIGN.md`, `REVIEW.md`, `CREDITS.md`, `MESSAGING.md`, `social/` | `apps/rewardspro/marketing/` on main (#83 and #159, 7 Nov; WORK.md by #160) | Public [V]; git history keeps the earlier text that named the owner. This file writes "the owner" from RP-19 on; the other kit files follow in #215 (open). B5 deletes the folder, so the move (Now-6) comes first |
+| This roadmap, [WORK.md](WORK.md), the kernel (`brand.json`, `kernel.toml`, `claims.toml`, `approvals.jsonl`, `kit/`), `DESIGN.md`, `REVIEW.md`, `CREDITS.md`, `MESSAGING.md`, `social/` | `apps/rewardspro/marketing/` on main (#83 and #159, 7 Nov; WORK.md by #160, a pointer to the charter since #222) | Public [V]; git history keeps the earlier text that named the owner. This file writes "the owner" from RP-19 on; the other kit files follow in #215 (open). B5 deletes the folder, so the move (Now-6) comes first |
 | The plan from now on | The board: issues labelled `rewardspro` (the packages #161–#183, #185 and #189 among them) and the pinned weekly issue | The team charter, `.claude/skills/rp-team/SKILL.md` (#222); the owner's answers are recorded on the issue they concern. Earlier claim and concur comments are history |
 | The captures behind the claim rows | `…/claims-fetch/`, `…/verify-claims-fetch/` | Match the ledger's sha256 [V, re-matched 10 Nov on #166]. Internal only |
 | The landing (rewardspro.io) | `apps/rewardspro/landing/` on main; Pages project `rewardspro-landing`, deployed only by a manual `wrangler pages deploy` | The live home page equals main since #191's deploy [V, sha256]; the privacy page stays at its older live version. #95, #130 and #131 were written for the old app; RP-07 and RP-08 replace them |
-| Plans 2–9, their evidence, the profile scripts, local package work | `…/` (`wf`–`wf12`, `ref/`, `profiles-build/`, `work/` and others) | On the Air only; RP-16 (#176, label `needs-yu`, to be renamed `needs-owner` when #215 merges) would copy some plans into `marketing/plans/` on your yes; it asks for no edit to this file, and §6 now carries wf12's summary. Raw captures of Shopify pages stay internal |
+| Plans 2–9, their evidence, the profile scripts, local package work | `…/` (`wf`–`wf12`, `ref/`, `profiles-build/`, `work/` and others) | On the Air only. RP-16 (#176), which asked for copies in `marketing/plans/` and no edit to this file, was closed on 10 Nov as folded into RP-19; nothing is copied, and §6 carries wf12's summary. Raw captures of Shopify pages stay internal |
 | The GitBook record | `…/wf2/gitbook-unpublish-2026-11-07.md` | Done 7 Nov; reversible in GitBook |
 | Private data (consent ledger, raw notes, question log, install log, ad reports) | Outside every repo and worktree: the owner's encrypted disk image (Pre-7, RP-20), with an export folder for agents | Doesn't exist yet; nothing is collected before LIA Part A |
 
