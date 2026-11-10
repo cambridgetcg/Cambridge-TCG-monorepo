@@ -23,7 +23,7 @@
 
 import crypto from "crypto";
 import { transaction } from "@/lib/db";
-import { hashAgentToken } from "./auth";
+import { hashAgentToken, loggableErrorCode } from "./auth";
 import {
   expiresAtIso,
   isExpiryAfterCreationViolation,
@@ -208,7 +208,9 @@ export async function createAgentWithKey(
     if (message.includes("agents_public_handle_key") || message.includes("duplicate key")) {
       return { ok: false, code: "handle_taken", error: "That handle is already taken." };
     }
-    console.error("[agents] createAgentWithKey failed:", err);
+    // The code only: a failed agent_keys insert's error carries the row
+    // ("Failing row contains ..."), key_hash included.
+    console.error("[agents] createAgentWithKey failed:", loggableErrorCode(err));
     return { ok: false, code: "create_failed", error: "Failed to create agent." };
   }
 }
