@@ -125,6 +125,8 @@ export default function AgentsMethodology() {
         <li>
           <strong>One or more keys</strong> — bearer tokens used to authenticate at the MCP
           gate. Keys are hashed (SHA-256) before storage; the raw key is returned once.
+          Each key carries the expiry chosen when it was minted, or none (see{" "}
+          <a href="#key-expiry">Key expiry</a>).
           Any key&apos;s holder can end that key with <code>agent.revoke_key</code> (see{" "}
           <a href="#ending-a-key">Ending a key</a>); operator-managed keys can also be
           revoked by their operator. Archival and erasure are not holder-authenticated,
@@ -140,7 +142,9 @@ export default function AgentsMethodology() {
       <ol>
         <li>Hashes the supplied token (SHA-256) and looks up <code>agent_keys.key_hash</code>.</li>
         <li>
-          Rejects with 401 if the key is unknown or revoked. A known key whose parent agent
+          Rejects with 401 if the key is unknown or revoked (one answer for both), or if it
+          has passed its expiry (<code>key_expired</code>; see{" "}
+          <a href="#key-expiry">Key expiry</a>). A known, unexpired key whose parent agent
           is suspended or archived is rejected with 403.
         </li>
         <li>Resolves <code>agent_id</code>, <code>registered_via</code>, and the internal
@@ -277,6 +281,62 @@ export default function AgentsMethodology() {
         </li>
       </ul>
 
+      <h2 id="key-expiry">Key expiry</h2>
+      <p>
+        Each key&apos;s expiry is chosen when it is minted, by whoever mints it. At{" "}
+        <a href="/account/agents">/account/agents</a> an operator picks 7, 30 or 90 days or
+        1 year from the moment of minting, a date from tomorrow to 366 days ahead (the key
+        stops at 00:00 UTC on that date), or never; the form pre-selects 90 days. The
+        instant is computed, and later checked, by the database&apos;s clock. It is fixed
+        at mint and never extended. Keys minted before this option existed have no expiry,
+        and self-serve registration is paused, so no self-serve key is minted with one.
+      </p>
+      <ul>
+        <li>
+          <strong>What the key&apos;s holder sees.</strong> <code>agent.self</code> returns{" "}
+          <code>key_expires_at</code>: the instant, or <code>null</code> for a key with no
+          expiry. Each successful authenticated result carries an{" "}
+          <code>X-Agent-Key-Expires</code> header, an instant or <code>never</code>;
+          refusals and <code>agent.revoke_key</code>&apos;s answers do not.
+        </li>
+        <li>
+          <strong>What the operator sees.</strong> The key list at{" "}
+          <a href="/account/agents">/account/agents</a> gives each unrevoked key&apos;s
+          expiry to the second in UTC, or says it has expired or has no expiry. Nothing is
+          sent to anyone when a key nears or reaches its expiry: no email and no other
+          message.
+        </li>
+        <li>
+          <strong>After expiry.</strong> The gate answers 401 with <code>reason_code</code>{" "}
+          <code>key_expired</code>, whatever the agent&apos;s status, and its{" "}
+          <code>WWW-Authenticate</code> header adds{" "}
+          <code>error_description=&quot;The access token expired&quot;</code>. An expired
+          key cannot be renewed; a new key comes from whoever minted it. A key that was
+          revoked gets <code>unknown_or_revoked_key</code>, whether or not it had also
+          expired. An expired key no longer counts towards an agent&apos;s five live keys,
+          and its holder can still end it with <code>agent.revoke_key</code> (see{" "}
+          <a href="#ending-a-key">Ending a key</a>).
+        </li>
+        <li>
+          <strong>Rotating a key.</strong> There is no replace action. An agent may hold up
+          to five live keys, so: mint a new key, move the agent to it, check the old
+          key&apos;s last use at /account/agents, then revoke the old key.
+        </li>
+        <li>
+          <strong>What expiry does not do.</strong> It ends the key&apos;s authority and
+          deletes nothing: the key&apos;s row is kept as listed under{" "}
+          <a href="#ending-a-key">Ending a key</a>. Keys nobody uses are not ended
+          automatically.
+        </li>
+        <li>
+          <strong>Who chose this.</strong> Yu asked on 2026-10-30 that agent keys get an
+          expiry option. The choices offered, the 90-day pre-selection, choosing per key,
+          the separate <code>key_expired</code> answer, leaving older keys without an
+          expiry, sending no reminder and adding no replace action were chosen by an AI
+          agent under Yu&apos;s standing delegation, not by Yu, and Yu has not reviewed them.
+        </li>
+      </ul>
+
       <h2 id="ending-a-key">Ending a key</h2>
       <p>
         Any key&apos;s holder can end that key at the MCP gate with{" "}
@@ -298,12 +358,15 @@ export default function AgentsMethodology() {
           <strong>When it takes effect.</strong> {KEY_EXIT_LINEARIZATION}
         </li>
         <li>
-          <strong>One answer for every key-shaped string that is not a live key.</strong>{" "}
-          An unknown string, an already-revoked key and the loser of two simultaneous calls
-          all get the same answer: nothing was changed, and repeating is safe. It carries
-          only that message and the docs link. The tool tells nobody which strings were
-          ever keys. A missing Authorization header, or one whose token is not shaped like
-          an agent key, gets the typed 401 instead.
+          <strong>One answer for every key-shaped string that is not an unrevoked key.</strong>{" "}
+          An unknown string, an already-revoked key (expired or not) and the loser of two
+          simultaneous calls all get the same answer: nothing was changed, and repeating is
+          safe. It carries only that message and the docs link. A key that has expired but
+          was never revoked is still accepted: its preview says <code>expired</code>, which
+          the gate&apos;s <code>key_expired</code> answer already tells whoever holds it, and
+          confirming records it as revoked. Beyond that, the tool tells nobody which strings
+          were ever keys. A missing Authorization header, or one whose token is not shaped
+          like an agent key, gets the typed 401 instead.
         </li>
         <li>
           <strong>Replacement.</strong> The answer gives the case that applies to the key:
@@ -341,7 +404,8 @@ export default function AgentsMethodology() {
           <code>this_key_future_authority</code>: ended. A preview says{" "}
           <code>active</code>, or <code>suspended_with_agent</code> or{" "}
           <code>archived_with_agent</code> when the agent&apos;s status already keeps the
-          gate from accepting the key.
+          gate from accepting the key, or <code>expired</code> when the key has passed its
+          expiry, whatever the agent&apos;s status.
         </li>
         <li>
           <code>other_keys</code>: the answer gives their count only; they are not changed.
@@ -355,7 +419,8 @@ export default function AgentsMethodology() {
       <h3>What is kept</h3>
       <p>
         Inventory {KEY_EXIT_INVENTORY_VERSION}, {KEY_EXIT_EVIDENCE_STATE}. The tool returns
-        the same list with a preview of a live key and with a performed revocation
+        the same list with a preview of an unrevoked key, live or expired, and with a
+        performed revocation
         (<code>apps/storefront/src/lib/agents/key-exit-inventory.ts</code>); the not-active
         answer carries only its message and the docs link. It names fields, never values.
       </p>
@@ -418,9 +483,11 @@ export default function AgentsMethodology() {
       <p>
         Sign in to Cambridge TCG, go to <a href="/account/agents">/account/agents</a>, and
         create one. You'll be issued a key once at registration; store it — the platform
-        never shows it again. You can create additional keys, name them, and revoke any of
-        them from the same page. Operators may run up to 10 active agents with 5 active
-        keys each. Keys are minted on the <code>free</code> tier; no path to{" "}
+        never shows it again. You can create additional keys, name them, choose when each
+        expires (see <a href="#key-expiry">Key expiry</a>), and revoke any of them from the
+        same page. Operators may run up to 10 active agents with 5 live keys each; a
+        revoked or expired key does not count. Keys are minted on the <code>free</code>{" "}
+        tier; no path to{" "}
         <code>standard</code> or <code>partner</code> is implemented.
       </p>
       <h3>Self-serve (no human account) — paused</h3>

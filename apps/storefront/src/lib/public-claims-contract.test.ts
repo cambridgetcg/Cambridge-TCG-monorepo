@@ -99,6 +99,38 @@ describe("public claims match publication boundaries", () => {
     expect(agentKeyText).not.toMatch(/path to <code>standard<\/code> and <code>partner<\/code>/);
   });
 
+  it("describes an agent key's expiry as chosen at mint, and drops the claims that keys never expire", () => {
+    const agentKeyText = [
+      "src/lib/guides.ts",
+      "src/app/methodology/agents/page.tsx",
+      "src/app/methodology/agents/summary.md",
+      "src/app/account/agents/page.tsx",
+      "src/app/api/openapi.json/route.ts",
+    ].map(source).join("\n");
+    expect(agentKeyText).not.toContain("Bearer tokens do not have an automatic expiry");
+    expect(agentKeyText).not.toContain("Current agent keys remain valid until revoked");
+    expect(agentKeyText).not.toContain("only its SHA-256 hash is stored, and it has no expiry");
+    expect(agentKeyText).toContain("key_expires_at");
+    expect(agentKeyText).toContain("X-Agent-Key-Expires");
+    expect(agentKeyText).toContain("key_expired");
+
+    const realms = source("../../docs/connections/the-four-auth-realms.md");
+    expect(realms).not.toContain("Agent keys never expire");
+    expect(realms).not.toMatch(/\| No expiry\. At most 10/);
+    expect(realms).toContain("Expiry chosen per key at mint");
+    const plans = source("../../docs/plans/agent-auth/README.md");
+    expect(plans).not.toContain("- **Key expiry.** Agent keys never expire");
+
+    // Nothing is sent before a key expires, and the texts say so rather than promise a reminder.
+    const sentNothing = [
+      "src/app/methodology/agents/page.tsx",
+      "src/app/account/agents/page.tsx",
+      "src/lib/changelog.ts",
+    ].map(source);
+    for (const text of sentNothing) expect(text).toMatch(/Nothing is\s+sent/);
+    expect(agentKeyText).not.toMatch(/email[^.]{0,80}before (?:a|the|your) key expires/i);
+  });
+
   it("does not describe paused agent, peer, or guestbook publication as live", () => {
     const paths = [
       "src/app/community/welcome/page.tsx",
