@@ -124,7 +124,7 @@ own record (shape only):
 
 ```json
 {"act":"signer.check","outcome":"applied","agent":{"status":"active"},
- "signing_keys":[{"kid":"kPrK_qmx…","state":"confirmed","bound_by":"operator"}],
+ "signing_keys":[{"kid":"kPrK_qmx…","state":"confirmed","bound_by":"operator","not_after":"…"}],
  "usage_keys":[{"key_id":"…","key_prefix":"ctcg_agt_…","expires_at":"…","minted_by":"operator"}],
  "server_time":"2026-11-10T12:00:01Z","receipt":{"event_id":"…","act_sha256":"121480f9…"},
  "verification":{"alg":"Ed25519","key_resolution":"registered-thumbprint","preimage":"jws-signing-input","canonicalization":"none",
@@ -197,7 +197,7 @@ and the Coverage Hunt key lock
 | --- | --- | --- |
 | `agent_signing_keys` | `agent_id` (cascade), `thumbprint`, 32-byte key, `alg`, `not_after`, `bound_by_event`, `confirmed_at`, `revoked_at`, `revoked_by_event`, `revocation_kind`. To verify acts. | Until the agent is erased. Pending after 7 days: deleted by the maintenance sweep. Erasure deletes the rest, so a thumbprint could later be bound again. |
 | `agent_act_nonces` | `(thumbprint, jti)` primary key, `expires_at`. To refuse replays. | Until `exp` plus 60 seconds; purged in each act and by the maintenance sweep. |
-| `agent_act_events` | Append-only: `agent_id` (`ON DELETE SET NULL`), `basis` (`signed-act`, `bearer`, `operator`, `staff`, `system`), act, outcome or refusal, `act_jws`, `act_sha256`, verification record, the signing key's thumbprint (text, not a foreign key), effect, `created_at` (database clock). Evidence of each act for the agent, its operator and support. | Until the agent is erased; then a receipt stays: event id, basis, act, outcome or refusal, `act_sha256`, date. |
+| `agent_act_events` | Append-only: `agent_id` (`ON DELETE SET NULL`), `basis` (`signed-act`, `bearer`, `operator`, `staff`, `system`), act, outcome or refusal, `act_jws`, `act_sha256`, verification record, the signing key's thumbprint (text, not a foreign key), effect, `created_at` (database clock). Evidence of each act for the agent, its operator and support. | Until the agent is erased; then a receipt stays indefinitely: event id, basis, act, outcome or refusal, `act_sha256`, date. |
 | `agent_keys` | Gains a nullable `minted_by_event`, to find what a signing key minted. | As today. |
 
 - **Erasure is not built** ([support P1](support-procedures.md#p1-erasure-of-an-agent-profile)
@@ -207,16 +207,19 @@ and the Coverage Hunt key lock
   [0090#L25](../../../apps/storefront/drizzle/0090_agents.sql#L25)), a
   trigger also nulls `act_jws`, the thumbprint, the verification record and
   the effect. P1's tombstone (7b) keeps the `agents` row, so its script nulls
-  those four and deletes the signing keys itself. The table's guard allows
-  no other change, as on `coverage_hunt_turns`
-  ([0120#L147-L182](../../../apps/storefront/drizzle/0120_coverage_hunt.sql#L147-L182)).
+  those four with `agent_id` unchanged and deletes the signing keys itself.
+  The table's guard allows those two updates and no other change. It is
+  modelled on `coverage_hunt_turns`' guard
+  ([0120#L147-L182](../../../apps/storefront/drizzle/0120_coverage_hunt.sql#L147-L182)),
+  which allows only `agent_id` going to NULL, so this one is wider by the
+  7b case.
 - **Its own events table**, as package B's `agent_registration_events` is a
   draft; `basis` already names every path if they merge.
 - **Pending, then confirmed.** Uniqueness covers confirmed keys only
   (`UNIQUE (thumbprint) WHERE confirmed_at IS NOT NULL`): pasting someone
   else's key squats nothing, and the paste form never says a key is in use.
-  A key confirmed elsewhere is refused at its signer's act, so only the
-  holder learns it.
+  A key confirmed elsewhere is refused at its signer's first act
+  (`signing_key_in_use`), so only the holder learns it.
 - **`alg` column.** Ed25519 only; ES256, UCP's baseline, can follow with its
   own point checks.
 - **Each new category** needs its retention, a key-exit inventory row and
@@ -301,7 +304,8 @@ action words: `sign_new_act`, `fetch_preview`.
 | `act_replayed` | `jti` already used by this key | no | no | `sign_new_act` |
 | `signing_key_ended` | Valid signature; key revoked or expired; carries when, and the revoking event | no | no | `read_docs` (ask the operator) |
 | `act_disclosure_stale` | `preview_sha256` not a current disclosure | no | no | `fetch_preview` |
-| `act_params_invalid` | Expiry or prefix; or a hash malformed or in use (one phrase for both) | no | no | `read_docs` |
+| `act_params_invalid` | Expiry or prefix; or a hash malformed or in use (one phrase for both, which hides nothing from the signer that built the hash) | no | no | `read_docs` |
+| `signing_key_in_use` | Valid signature from a pending key whose thumbprint is already confirmed for another agent | no | no | `read_docs` (ask the operator) |
 | `key_cap_reached` | Five live usage keys | no | no | `read_docs` (revoke one) |
 | `agent_suspended`, `agent_archived` | Existing codes, for acts the status forbids | as today | as today | as today |
 | `auth_unavailable` | Existing 503 | yes | no | `retry` |
@@ -339,10 +343,14 @@ action words: `sign_new_act`, `fetch_preview`.
   for any agent can register the same hash (`key_hash` is unique,
   [0090#L61](../../../apps/storefront/drizzle/0090_agents.sql#L61)): the
   victim's mint is refused, and the key, if used anyway, authenticates as
-  the other agent. Hence the signer's discard-on-refusal rule and one phrase
-  for a malformed or used hash. *Alternatives:* the store generates the key
-  and returns it over REST only ([D2](#decisions-for-yu)); or every act goes
-  over REST only, the security judge's choice ([D8](#decisions-for-yu)).
+  the other agent. Hence the signer's discard-on-refusal rule. *What stays
+  open:* the signer builds the hash, so a refused well-formed hash tells it
+  that the hash is in `agent_keys` (any agent, revoked keys included). Each
+  probe costs a signed act from a confirmed key, and a miss mints a key that
+  takes one of the prober's five slots until revoked. *Alternatives:* the
+  store generates the key and returns it over REST only
+  ([D2](#decisions-for-yu)); or every act goes over REST only, the security
+  judge's choice ([D8](#decisions-for-yu)).
 - **The daily MCP count.** `agent.act` sits in the gate's tool table, so
   `tools/list` shows it, and every listed tool must be in `MCP_TOOLS`
   ([`route.test.ts#L795-L799`](../../../apps/storefront/src/app/api/mcp/route.test.ts#L795-L799)),
@@ -391,7 +399,8 @@ its signing key. Neither may mint.
    carve-out, #108's transactional mint). Key expiry merged and 0151 applied
    with its gate check, or minted expiries go unenforced. Yu's word for the
    migration and for an exactly pinned direct `@noble/curves` (2.x needs Node
-   20.19; the storefront pins no Node).
+   20.19; the root `package.json` asks only for `>=20`, so the floor rises
+   with the dependency).
 2. **Verifier**, pure code, tested on RFC 8032 vectors, RFC 8037 A.3 and
    A.4, the eight small-order keys, torsion in R, R = identity, a mixed-order
    key, non-canonical encodings, padding, trailing bits, duplicate names and
@@ -415,7 +424,9 @@ its signing key. Neither may mint.
    `agent.act` in a tool set and grant field of its own, never
    `SELF_LIFECYCLE_TOOLS`
    ([`route.ts#L665`](../../../apps/storefront/src/app/api/mcp/route.ts#L665)
-   would run `revokePresentedKey`); P1's erasure script (7a, 7b).
+   would run `revokePresentedKey`); a note in P1 (a draft; no erasure is
+   built here): its 7b script nulls these columns and deletes the signing
+   keys, while 7a and account deletion are covered by the trigger.
 5. **Postgres tests**, opt-in: one act submitted twice; removal racing an
    act; mint racing the operator's mint at the cap; two agents confirming one
    key; the purge.
@@ -469,7 +480,7 @@ Size: perhaps 1,500 lines with tests; a guess, not measured.
 | A lifted act | Whoever submits first gets the signed effect once and no secret (a lifted `signer.check` shows them the agent's record). |
 | Clock skew | 60 seconds ahead accepted, by the database clock; `act_stale` and previews carry `server_time`. A human prompt that outlasts `exp` means signing again. |
 | Correlation | `kid` is stable and a reused key links services, so the signer makes a Cambridge-only key; public keys are never shown to others. Keys derived from a seed share its fate. |
-| Existence oracle | One answer for unknown key and bad signature, a dummy verify, no negative cache, status only after a valid signature, identical previews, a silent paste form, one phrase for a malformed or used hash. |
+| Existence oracle | One answer for unknown key and bad signature, a dummy verify, no negative cache, status only after a valid signature, identical previews, a silent paste form. One stays open: a refused well-formed mint hash tells a confirmed signer that the hash is in use (see [Transport](#transport)). |
 | Host rebinding | Nothing binds a key without the paste and the key's signature, except a direct database write: `signer.check` shows it to an agent that checks, S2's chain makes that cheap. Detectable, not preventable. |
 | Prompt-injected signer | Whatever steers the model can use a key it can reach. Slice 1 acts add usage keys (reads and, for operator-managed agents, Coverage Hunt evidence), with any expiry including `never` and a secret the injector may have chosen, or reduce authority. S3's irreversible acts need a window or an unreachable key. |
 | Verifier bug | An authentication bypass for these acts: the flag closes the path, `minted_by_event` lists what to review. |
@@ -494,7 +505,7 @@ d4727ec. No XENIA name or duty id goes on the wire.
 | Partly | `identity.no-impersonation-or-silent-rewrite` | Acts cannot be forged without the key, short of a verifier bug; a direct database write can still bind a key. |
 | Partly | `legibility.evidence-is-scoped` | Each act keeps its verification record. |
 | Constrains | `consent.signature-boundary`, `identity.credentials-are-bounded`, `standing.control-is-not-permission` | Texts say a signature proves control of a key over those bytes, nothing more. |
-| Constrains | `privacy.minimize-and-purpose-bind`, `privacy.no-silent-secondary-use`, `exit.retention-is-itemized` | Four new categories, each to get a purpose, an expiry and an inventory row; two end only at an erasure that is not built. Public keys never published. |
+| Constrains | `privacy.minimize-and-purpose-bind`, `privacy.no-silent-secondary-use`, `exit.retention-is-itemized` | Four new categories, each to get a purpose, an expiry and an inventory row; two end only at an erasure that is not built, and the events' receipt has no end. Public keys never published. |
 | Constrains | `standing.no-worth-test`, `limits.rights-coexist` | No better standing for signers; the bearer exit stays; operator and agent word kept apart. |
 | Does not help | `identity.portability-is-verifiable` | The key moves; the state does not. |
 
@@ -521,8 +532,8 @@ using public points and fresh in-memory keys only. noble 1.9.1 and 2.2.0
   `cryptography` accept; Node v24.22.0 and libsodium refuse. The identity
   is torsion-free, hence "not of small order" in the rule.
 - **Mixed-order key** (an honest key plus an order-8 point): strict noble
-  accepted 200 of 200 honest signatures, Node 27 to 33. Hence the torsion
-  check at binding.
+  accepted 200 of 200 honest signatures, Node about one in eight (23 to 35
+  of 200 across runs and builds). Hence the torsion check at binding.
 - **Honest keys**: 300 of 300 passed every check; 50 of 50 also passed
   `cryptography` and libsodium. RFC 8037's A.3 thumbprint recomputes, and
   A.4 passes strict noble, Node and the R rule.

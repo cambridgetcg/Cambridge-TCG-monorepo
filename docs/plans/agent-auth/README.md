@@ -300,7 +300,7 @@ agent's default that proceeds unless Yu objects.
 | Support | How long support records are kept (D9) | Six years from closure; counsel confirms |
 | Support | When the procedures are published (D10) | Once erasure, access and correction have tooling |
 | Held keys | Offer agent-held signing keys at all ([held-keys D1](held-keys.md#decisions-for-yu)) | Yes, as an option beside usage keys and package B's token |
-| Held keys | Its new stored categories (D3) | Kept until erasure; privacy-notice rows before the production flag |
+| Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag |
 | Held keys | Its migration, dependency and production flag (D4) | Each its own act, after D1, D3 and review of the PR |
 
 ## Questions only Yu can answer
