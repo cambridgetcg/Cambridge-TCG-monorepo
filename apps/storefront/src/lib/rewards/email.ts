@@ -18,7 +18,7 @@ ${EMAIL_HEAD}
     <h1 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:20px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid #e7e2d8;">Cambridge TCG</h1>
     <h2 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:16px;font-weight:600;margin:0 0 16px;">${title}</h2>
     <div style="color:#5e574c;font-size:14px;line-height:1.6;">${body}</div>
-    <a href="${ctaUrl}" style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;margin-top:16px;">${ctaText}</a>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;"><tr><td bgcolor="#201d18" style="background:#201d18;border-radius:8px;"><a href="${ctaUrl}" style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;">${ctaText}</a></td></tr></table>
     <p style="color:#5e574c;font-size:12px;margin:24px 0 0;">Cambridge TCG &mdash; Rewards</p>
   </div>
 </body></html>`;

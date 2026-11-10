@@ -49,9 +49,11 @@ ${EMAIL_HEAD}
   <div style="max-width:480px;margin:40px auto;padding:32px;background:#ffffff;border:1px solid #e7e2d8;border-radius:12px;">
     <h1 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:20px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid #e7e2d8;">Cambridge TCG</h1>
     <p style="color:#5e574c;font-size:14px;margin:0 0 24px;">Sign in to your account</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#201d18" style="background:#201d18;border-radius:8px;">
     <a href="${url}" style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;">
       Sign In
     </a>
+    </td></tr></table>
     <p style="color:#5e574c;font-size:12px;margin:24px 0 0;">This link expires in 24 hours.<br>If you didn't request this, you can safely ignore this email.</p>
   </div>
 </body>

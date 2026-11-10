@@ -1,7 +1,9 @@
 // Shared HTML layout + escape helper for transactional emails.
 //
 // The look is the site's Light theme, the quiet gallery Yu chose on
-// 2026-10-27 (docs/design/interface.md). Mail clients can't read
+// 2026-10-27 (docs/design/interface.md). Yu chose it for the site;
+// extending it to email was an agents' call on 2026-11-10 (ArtCraft
+// review 2026-11-02, item A4), undone by reverting. Mail clients can't read
 // themes.css, so the values are written inline; take them from the Light
 // (`gallery`) tokens there when they change:
 //   - page `#faf8f4`, the card a white mat with a `#e7e2d8` hairline
@@ -10,7 +12,9 @@
 //   - bronze `#86661c` for links, prices and numbers; ok `#36634d`,
 //     warning `#844d16` and danger `#953e2e` for status
 //   - panels on surface-subtle `#f3f0e9`
-//   - the primary action is solid ink with paper text
+//   - the primary action is solid ink with paper text, inside a one-cell
+//     table whose `bgcolor` keeps the ink behind the label in clients
+//     that drop CSS backgrounds
 //   - a text wordmark; Georgia-led serif headings, a system sans for text
 //     (no web fonts load in mail)
 //   - 480px content column (looks right on mobile + desktop)
@@ -57,12 +61,12 @@ export function renderLayout(args: LayoutArgs): string {
     : "";
 
   const cta = args.cta
-    ? `<p style="margin:28px 0 0;">
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0;"><tr><td bgcolor="#201d18" style="background:#201d18;border-radius:8px;">
          <a href="${escapeHtml(args.cta.url)}"
             style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;">
            ${escapeHtml(args.cta.label)}
          </a>
-       </p>`
+       </td></tr></table>`
     : "";
 
   const footer = args.footer

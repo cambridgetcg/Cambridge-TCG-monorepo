@@ -53,6 +53,14 @@ other email shells that copy them. Bringing email into this look was an
 agents' call on 2026-11-10, extending Yu's 2026-10-27 choice to a surface it
 didn't name; reverting that change undoes it.
 
+One departure, also an agents' call of 2026-11-10: the emails set the name
+as a text wordmark and leave out the card mark Yu chose ("Card mark in
+bronze"). Many mail clients block remote images until the reader allows
+them, and Gmail doesn't show SVG, so an image mark would often appear as a
+blank box or alt text in the one place the name has to read; text always
+renders. Adding the mark later means a hosted PNG with alt text "Cambridge
+TCG", beside the text name rather than replacing it.
+
 The status tones are darker in Light (and danger lighter in Dark) than the
 values first drafted for this build, so that tone text stays at 4.5:1 or more
 on its own 10–20% tint: badges, trust tiers and status chips draw

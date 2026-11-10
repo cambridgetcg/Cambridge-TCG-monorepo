@@ -87,11 +87,16 @@ export async function collectDigestStats(): Promise<DigestStats> {
   };
 }
 
-function stat(label: string, value: string | number, color = "#201d18"): string {
+// `flag` puts a word beside the number, so a warning doesn't rest on its
+// colour alone (the warning brown sits close to the bronze accent).
+function stat(label: string, value: string | number, color = "#201d18", flag?: string): string {
+  const flagHtml = flag
+    ? ` <span style="font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">· ${escapeHtml(flag)}</span>`
+    : "";
   return `
     <div style="display:inline-block;width:48%;margin:4px 0;vertical-align:top;">
       <p style="margin:0;color:#5e574c;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;">${escapeHtml(label)}</p>
-      <p style="margin:2px 0 0;color:${color};font-size:18px;font-weight:700;">${escapeHtml(String(value))}</p>
+      <p style="margin:2px 0 0;color:${color};font-size:18px;font-weight:700;">${escapeHtml(String(value))}${flagHtml}</p>
     </div>
   `;
 }
@@ -131,7 +136,7 @@ export async function sendAdminWeeklyDigest(): Promise<SendResult | { ok: false;
       ${stat("Vault acquired", s.vault.acquired)}
       ${stat("Redemptions shipped", s.vault.redeemed, "#36634d")}
       ${stat("Sell-backs", s.vault.sold_back)}
-      ${stat("Auto-expired", s.vault.expired, s.vault.expired > 0 ? "#844d16" : "#5e574c")}
+      ${stat("Auto-expired", s.vault.expired, s.vault.expired > 0 ? "#844d16" : "#5e574c", s.vault.expired > 0 ? "warning" : undefined)}
       ${stat("Token merges", s.merges)}
     </div>
     <p style="margin:10px 0 0;color:#5e574c;font-size:12px;">
@@ -146,7 +151,7 @@ export async function sendAdminWeeklyDigest(): Promise<SendResult | { ok: false;
     <div>
       ${stat("Sent", s.queue.sent ?? 0, "#36634d")}
       ${stat("Cancelled", s.queue.cancelled ?? 0)}
-      ${stat("Failed (retrying)", s.queue.failed ?? 0, (s.queue.failed ?? 0) > 0 ? "#844d16" : "#5e574c")}
+      ${stat("Failed (retrying)", s.queue.failed ?? 0, (s.queue.failed ?? 0) > 0 ? "#844d16" : "#5e574c", (s.queue.failed ?? 0) > 0 ? "warning" : undefined)}
       ${stat("Dead (needs review)", s.dead, s.dead > 0 ? "#953e2e" : "#5e574c")}
     </div>
     ${s.dead > 0

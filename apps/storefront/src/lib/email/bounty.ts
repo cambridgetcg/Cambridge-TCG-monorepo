@@ -157,15 +157,15 @@ export async function sendPullResolvedEmail(args: PullResolvedEmailArgs): Promis
     </div>
 
     <p style="margin:16px 0 8px;color:#201d18;font-weight:600;font-size:13px;">Draw proof</p>
-    <div style="background:#faf8f4;border:1px solid #e7e2d8;border-radius:6px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#5e574c;line-height:1.6;word-break:break-all;">
+    <div style="background:#faf8f4;border:1px solid #e7e2d8;border-radius:6px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#201d18;line-height:1.6;word-break:break-all;">
       <div><span style="color:#5e574c;">commit:</span> ${escapeHtml(args.rngCommitment)}</div>
       <div><span style="color:#5e574c;">seed:</span>   ${escapeHtml(args.rngServerSeed)}</div>
       <div><span style="color:#5e574c;">client:</span> ${escapeHtml(args.rngClientSeed)}</div>
       <div><span style="color:#5e574c;">nonce:</span>  ${args.rngNonce}</div>
     </div>
     <p style="margin:8px 0 0;font-size:12px;color:#5e574c;">
-      Verify: <code style="color:#5e574c;">sha256(seed) == commit</code>.
-      The first hex digits of <code style="color:#5e574c;">sha256(seed:client:nonce)</code>
+      Verify: <code style="color:#201d18;">sha256(seed) == commit</code>.
+      The first hex digits of <code style="color:#201d18;">sha256(seed:client:nonce)</code>
       reproduce the recorded rarity and SKU. These server-chosen inputs verify consistency,
       not independent seed selection.
     </p>

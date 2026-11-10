@@ -97,7 +97,7 @@ ${EMAIL_HEAD}
       <p style="margin:4px 0;">✓ 👑 OG badge on your profile</p>
     </div>
     <p style="color:#5e574c;font-size:14px;">No subscription. No renewal. This is permanent — our thank you to you.</p>
-    <a href="https://cambridgetcg.com/login" style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;margin-top:16px;">Sign In to Your Account</a>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;"><tr><td bgcolor="#201d18" style="background:#201d18;border-radius:8px;"><a href="https://cambridgetcg.com/login" style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;">Sign In to Your Account</a></td></tr></table>
     <p style="color:#5e574c;font-size:12px;margin:24px 0 0;font-style:italic;">You were here before the hype. That means everything to us.</p>
   </div>
 </body></html>`,
