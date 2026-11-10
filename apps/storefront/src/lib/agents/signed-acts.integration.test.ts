@@ -3,12 +3,17 @@
 // step 5): one act submitted twice; removal racing an act; a signed mint
 // racing the operator's mint at the cap; two agents confirming one key; the
 // nonce purge. Also the whole path once, migration 0152's guard and
-// erasure, and a one-connection pool. Transactions run through postgres.js
-// (@cambridge-tcg/db/compat), as production's do: it rolls back a whole
-// transaction after any failed statement, so the act path must refuse
-// without one, and this is where that is shown.
+// erasure, a one-connection pool, the maintenance sweep, and acts made by
+// the reference signer (examples/agents/held-key-signer.mjs). Transactions
+// run through postgres.js (@cambridge-tcg/db/compat), as production's do:
+// it rolls back a whole transaction after any failed statement, so the act
+// path must refuse without one, and this is where that is shown.
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import crypto, { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { ed25519 } from "@noble/curves/ed25519.js";
@@ -38,6 +43,7 @@ import { currentDisclosure, disclosureSha256 } from "./signed-act-disclosures";
 import { ed25519Thumbprint } from "./signed-act-verify";
 import { submitAgentAct, type AgentActAnswer } from "./signed-acts";
 import { bindSigningKey, listSigningKeys, removeSigningKey } from "./signing-key-actions";
+import { runSignedActSweep, SIGNED_ACT_SWEEP_JOB } from "./signed-act-sweep";
 
 const target = process.env.AGENT_AUTH_TEST_DATABASE_URL;
 const schema = `held_keys_test_${randomUUID().replaceAll("-", "")}`;
@@ -367,6 +373,81 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     await pool.query(row("agent.act"));
     await pool.query(row("agent.revoke_key"));
     await expect(pool.query(row("agent.unknown"))).rejects.toMatchObject({ code: "23514" });
+  });
+
+  it("sweeps expired nonces and week-old unconfirmed keys, keeps confirmed ones, and records its run", async () => {
+    const confirmed = await setup();
+    const pending = await setup({ confirm: false });
+    const removed = await setup({ confirm: false });
+    expect(await removeSigningKey({ signing_key_id: removed.signingKeyId })).toMatchObject({ ok: true });
+    // Eight days old, all three: only the two never confirmed go.
+    await pool.query(
+      `UPDATE agent_signing_keys SET created_at = created_at - interval '8 days',
+              confirmed_at = confirmed_at - interval '8 days' + interval '1 second',
+              revoked_at = revoked_at - interval '8 days' + interval '1 second'
+        WHERE id = ANY($1::uuid[])`,
+      [[confirmed.signingKeyId, pending.signingKeyId, removed.signingKeyId]],
+    );
+    const tag = randomUUID().slice(0, 8);
+    await pool.query(
+      `INSERT INTO agent_act_nonces (thumbprint, jti, expires_at)
+       SELECT $1, $2 || n, NOW() - make_interval(mins => n) FROM generate_series(1, 5) n
+       UNION ALL SELECT $1, $2 || 'live', NOW() + interval '2 minutes'`,
+      [confirmed.h.kid, `sweep-${tag}-`],
+    );
+    const sql = (text: string, params?: unknown[]) => state.db!.query(text, params) as Promise<{ rows: Record<string, unknown>[] }>;
+    const minute23 = new Date(Date.UTC(2026, 10, 10, 12, 23, 0));
+
+    // Closed, it reads nothing.
+    expect(await runSignedActSweep(minute23, sql, {})).toEqual({ ranInWindow: true, open: false });
+    const swept = await runSignedActSweep(minute23, sql, ENV);
+    expect(swept).toMatchObject({ ranInWindow: true, open: true, provisioned: true, deleted: { pendingKeys: 2 } });
+    if (!("deleted" in swept)) throw new Error("not swept");
+    expect(swept.deleted.nonces).toBeGreaterThanOrEqual(5);
+
+    const left = await pool.query(`SELECT jti FROM agent_act_nonces WHERE jti LIKE $1`, [`sweep-${tag}-%`]);
+    expect(left.rows.map((row) => row.jti)).toEqual([`sweep-${tag}-live`]);
+    const keys = await pool.query(`SELECT id FROM agent_signing_keys WHERE id = ANY($1::uuid[])`, [[confirmed.signingKeyId, pending.signingKeyId, removed.signingKeyId]]);
+    expect(keys.rows.map((row) => row.id)).toEqual([confirmed.signingKeyId]);
+    // The bind and removal events stay; the operator can bind the lapsed key again.
+    expect((await events(pending.agentId)).map((event) => event.act)).toEqual(["signing_key.bind"]);
+    state.userId = pending.userId;
+    expect(await bindSigningKey({ agent_id: pending.agentId, public_jwk: pending.h.jwk, key_expiry: "30d" })).toMatchObject({ ok: true });
+
+    const recorded = await pool.query(`SELECT outcome, http_status, counts FROM ops_job_outcomes WHERE job = $1 ORDER BY started_at DESC LIMIT 1`, [SIGNED_ACT_SWEEP_JOB]);
+    expect(recorded.rows[0]).toMatchObject({ outcome: "ran", http_status: 200, counts: { nonces: swept.deleted.nonces, pendingKeys: 2 } });
+  });
+
+  it("applies acts the reference signer made: its key binds, confirms and mints a key that authenticates", async () => {
+    const signer = resolve(process.cwd(), "../../examples/agents/held-key-signer.mjs");
+    const dir = mkdtempSync(join(tmpdir(), "held-key-signer-pg-"));
+    try {
+      const run = (args: string[]) =>
+        JSON.parse(execFileSync(process.execPath, [signer, ...args], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+      const keyFile = join(dir, "agent.pem");
+      const { public_jwk: jwk, kid } = run(["keygen", "--key", keyFile]);
+      const userId = await newUser();
+      state.userId = userId;
+      const agentId = await insertAgent(userId);
+      const bound = await bindSigningKey({ agent_id: agentId, public_jwk: JSON.stringify(jwk), key_expiry: "30d" });
+      expect(bound).toMatchObject({ ok: true, data: { kid, state: "pending" } });
+
+      const check = run(["sign", "--key", keyFile, "--agent", agentId, "--act", "signer.check", "--aud", AUD]);
+      expect(expectApplied(await submitAgentAct(check.body, { clientAddress: "203.0.113.9", env: ENV, limiter: createActLimiter() })).body).toMatchObject({
+        signing_key_confirmed: true,
+        signing_keys: [{ kid, state: "confirmed" }],
+      });
+
+      const usageFile = join(dir, "usage.txt");
+      const mint = run(["sign", "--key", keyFile, "--agent", agentId, "--act", "key.mint", "--expires", "7d", "--usage-key-out", usageFile, "--preview-sha256", MINT_DISCLOSURE, "--aud", AUD]);
+      const minted = expectApplied(await submitAgentAct(mint.body, { clientAddress: "203.0.113.9", env: ENV, limiter: createActLimiter() }));
+      expect(minted.body).toMatchObject({ key: { key_prefix: mint.usage_key_prefix } });
+      const token = readFileSync(usageFile, "utf8").trim();
+      const resolved = await resolveAgentBearer(`Bearer ${token}`);
+      expect(resolved).toMatchObject({ ok: true, actor: { agentId } });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("with a one-connection pool, bind, act and remove complete: nothing nests a second connection", async () => {
