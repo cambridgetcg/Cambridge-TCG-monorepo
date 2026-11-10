@@ -29,8 +29,8 @@ a few keys or accounts are in use, though, such a count can still describe
 their use, so the page withholds those counts until at least five
 (`MIN_HOLDERS` in `monitor.ts`) are counted: panels 3 and 4 below. Words come from fixed lists in
 `src/lib/observability/vocabulary.ts`; migration 0148's CHECKs hold the same
-lists (`vocabulary.test.ts` compares them), so a word outside them is refused
-by the database. Changing a list is a privacy change: the traffic lists are
+lists (0150's, for `mcp_daily.tool`; `vocabulary.test.ts` compares them), so
+a word outside them is refused by the database. Changing a list is a privacy change: the traffic lists are
 versioned (`ctcg.actor-class/v1`) and a new version comes with a migration
 and its /privacy note.
 
@@ -65,7 +65,13 @@ why. It never shows that as zero.
   short tokens (a host, a date, a code), at most two levels deep, checked by
   `ops_counts_valid`; text with spaces, decimals and arrays do not fit.
 - `mcp_daily`: per UTC day, method, tool, authenticated or not, outcome →
-  count. No key, agent or account id.
+  count. No key, agent or account id. Migration 0150 adds `agent.revoke_key`
+  to the tool words, and is applied before the code that counts it (a
+  refused row drops its whole batch). A holder's `agent.revoke_key` runs
+  before the gate authenticates an actor; possession of the presented key
+  is its authentication, so a revocation or preview by a live key is
+  counted as authenticated (withheld with the others while few keys are in
+  use), and a string that is not a live key as not authenticated.
 - `traffic_hourly`: per UTC hour, host class, route group, RSC or not,
   declared actor class, classifier version, status class, cache result,
   firewall action → count.
@@ -357,8 +363,9 @@ serve the API around Cloudflare. The monitor counts their requests as
 ## Checks
 
 - `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/observability src/lib/traffic src/app/admin/system/monitor src/app/api/mcp src/app/api/cron`
-- The integration test applies 0148 and the migrations it reads beside on a
-  disposable loopback database, and reads every panel through both pg and
+- The integration test applies 0148, 0150 and the migrations it reads beside
+  on a disposable loopback database (and checks that 0150 keeps 0148's rows
+  and words and adds only `agent.revoke_key`), and reads every panel through both pg and
   postgres.js (the page's driver):
   `OPS_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/<a name containing test> pnpm --filter cambridgetcg-storefront exec vitest run src/lib/observability/observability.integration.test.ts src/lib/traffic/pull.integration.test.ts`.
   The traffic one runs the pull against a mocked Vercel and the real 0148

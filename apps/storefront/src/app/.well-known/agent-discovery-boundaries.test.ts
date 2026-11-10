@@ -24,6 +24,11 @@ import {
 } from "./cambridge-tcg.json/route";
 import { GET as getMcpConfig } from "./mcp-config.json/route";
 import { GET as getMcpDiscovery } from "./mcp.json/route";
+import {
+  AGENT_KEY_REVOCATION,
+  SELF_SERVE_CONTROLLER_NOTE,
+  describeAgentToolGrant,
+} from "@/lib/agents/tool-access";
 
 // Keep the real audience helper without importing unrelated UI/database modules.
 vi.mock("@/lib/ui", () => import("@/lib/ui/Audience"));
@@ -44,6 +49,33 @@ afterEach(() => {
   vi.unstubAllGlobals();
   expect(noFetch).not.toHaveBeenCalled();
 });
+
+const OPERATOR_ACCESS =
+  "authenticated and account-linked reads; domain writes paused; bounded Coverage Hunt review submissions";
+
+/** The key facts every discovery document projects from tool-access.ts. */
+function expectKeyScope(readOnlyScope: Record<string, unknown>) {
+  expect(readOnlyScope.domain_state).toBe(true);
+  expect(readOnlyScope.operational_metadata_writes).toEqual(
+    describeAgentToolGrant("operator").operational_metadata_writes,
+  );
+  expect(readOnlyScope.operational_metadata_writes).toEqual(
+    describeAgentToolGrant("self-serve").operational_metadata_writes,
+  );
+  expect(readOnlyScope.review_submissions).toEqual({
+    operator_managed: ["coverage.hunt.contribute"],
+    self_serve: [],
+  });
+  expect(readOnlyScope.self_lifecycle).toEqual(["agent.revoke_key"]);
+}
+
+/** A holder can end its own key; it does not control the agent. */
+function expectHolderScope(text: string) {
+  expect(text).toContain("bearer-key holder can end");
+  expect(text).toContain("agent.revoke_key");
+  expect(text).toContain("not holder-authenticated");
+  expect(text).not.toMatch(/controlled by its bearer-key holder|holders control/);
+}
 
 function expectPausedPublicationBoundaries(
   boundaries: Record<string, unknown>,
@@ -206,6 +238,9 @@ describe("well-known agent discovery boundaries", () => {
     expect(auth.controller_model).toContain(
       "Account identifiers stay internal",
     );
+    expectHolderScope(auth.controller_model);
+    expect(auth.revocation).toEqual(AGENT_KEY_REVOCATION);
+    expectKeyScope(body.read_only_scope);
     expectPausedPublicationBoundaries(body.publication_boundaries);
     expect(body.rate_limits.public_unauthenticated).toContain("Advisory");
     expect(body.rate_limits.public_unauthenticated).toContain(
@@ -232,10 +267,11 @@ describe("well-known agent discovery boundaries", () => {
     );
     expect(server.auth.self_serve_registration).toBe("paused");
     expect(server.auth.existing_self_serve_access).toBe("read-only");
-    expect(server.auth.operator_managed_access).toBe(
-      "authenticated and account-linked reads; writes paused",
-    );
+    expect(server.auth.operator_managed_access).toBe(OPERATOR_ACCESS);
     expect(server.auth.controller_model).toContain("bearer-key holder");
+    expectHolderScope(server.auth.controller_model);
+    expect(server.auth.revocation).toEqual(AGENT_KEY_REVOCATION);
+    expectKeyScope(body.read_only_scope);
     expect(server.auth.note).toContain("New self-serve registration is paused");
     expectPausedPublicationBoundaries(body.publication_boundaries);
     expect(body.rate_limits.public_unauthenticated).toContain("Advisory");
@@ -278,11 +314,20 @@ describe("well-known agent discovery boundaries", () => {
     expect(body.agent_access.self_serve.service_account_role).toContain(
       "not the controller",
     );
+    expect(body.agent_access.self_serve.holder_scope).toContain("agent.revoke_key");
+    expect(body.agent_access.self_serve.holder_scope).toContain("not holder-authenticated");
+    expect(body.agent_access.operator_managed.access).toBe(OPERATOR_ACCESS);
+    expect(body.agent_access.revocation).toEqual(AGENT_KEY_REVOCATION);
     expectPausedPublicationBoundaries(body.publication_boundaries);
     expect(body.rate_limits.unauth).toContain("Advisory");
     expect(body.rate_limits.unauth).not.toContain("60/minute per IP");
     expect(ladder.description).toContain("Publishes zero participant rows");
-    expect(mcp.description).toContain("Self-serve bearer-key holders control");
+    expect(mcp.description).toContain(
+      "a bearer-key holder can end its own key in-band with agent.revoke_key",
+    );
+    expect(mcp.description).toContain("cannot archive or erase the agent profile");
+    expect(mcp.description).not.toContain("holders control");
+    expect(agentPlay.description).toContain("agent.revoke_key");
     expect(compete.description).toContain("publication is paused");
     expect(cardData.description).toContain("price magnitudes");
     expect(universalCard.description).toContain(
@@ -290,5 +335,45 @@ describe("well-known agent discovery boundaries", () => {
     );
     expect(encoded).not.toContain("Public Glicko-2 ladder");
     expect(encoded).not.toContain("agent ladder live");
+  });
+
+  it("keeps design references and writes-paused overclaims out of the documents", async () => {
+    for (const body of [
+      await (await getMcpDiscovery()).json(),
+      await (await getMcpConfig()).json(),
+      await (await getCambridgeManifest()).json(),
+    ]) {
+      const encoded = JSON.stringify(body);
+      expect(encoded).not.toMatch(/xenia|covenant/i);
+      expect(encoded).not.toContain("account-linked reads; writes paused");
+    }
+  });
+
+  it("says the same thing about a self-serve agent's controller in all three documents", async () => {
+    const mcp = await (await getMcpDiscovery()).json();
+    const config = await (await getMcpConfig()).json();
+    const manifest = await (await getCambridgeManifest()).json();
+
+    // The enum value stays; its meaning is the shared sentence beside it.
+    expect(manifest.agent_access.self_serve.controller).toBe("bearer-key-holder");
+    expect(manifest.agent_access.self_serve.holder_scope).toBe(SELF_SERVE_CONTROLLER_NOTE);
+    expect(mcp.server.auth.controller_model.startsWith(SELF_SERVE_CONTROLLER_NOTE)).toBe(true);
+    expect(
+      config.remote_json_rpc_endpoint["cambridge-tcg"].auth.controller_model.startsWith(
+        SELF_SERVE_CONTROLLER_NOTE,
+      ),
+    ).toBe(true);
+    expectHolderScope(SELF_SERVE_CONTROLLER_NOTE);
+    for (const body of [mcp, config, manifest]) {
+      expect(JSON.stringify(body)).not.toContain("no represented controller");
+    }
+  });
+
+  it("tells llms.txt readers what an authenticated key can write", () => {
+    const llms = buildLlmsText();
+
+    expect(llms).toContain("Read-only means domain state");
+    expect(llms).toContain("may make bounded Coverage Hunt review submissions");
+    expect(llms).toContain("every key may end itself with agent.revoke_key");
   });
 });

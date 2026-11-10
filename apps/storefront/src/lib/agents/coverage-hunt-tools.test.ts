@@ -249,6 +249,9 @@ describe("Coverage Hunt agent tools", () => {
     });
 
     expect(persistCoverageHuntScoutTurn).toHaveBeenCalledOnce();
+    expect(vi.mocked(persistCoverageHuntScoutTurn).mock.calls[0]![0]).toMatchObject({
+      actor_key_id: actor.keyId,
+    });
     expect(persistCoverageHuntTurn).not.toHaveBeenCalled();
     expectRights(result);
   });
@@ -267,6 +270,22 @@ describe("Coverage Hunt agent tools", () => {
     })).rejects.toMatchObject({ status: 429 });
     expect(persistCoverageHuntScoutTurn).toHaveBeenCalledOnce();
     expect(persistCoverageHuntTurn).not.toHaveBeenCalled();
+  });
+
+  it("answers a contribution from a key revoked mid-flight with a 403", async () => {
+    vi.mocked(getCoverageHuntCase).mockResolvedValueOnce(huntCase());
+    vi.mocked(persistCoverageHuntTurn).mockRejectedValueOnce(
+      new CoverageHuntError("key_revoked", "This key was revoked."),
+    );
+
+    await expect(coverageHuntContribute(actor, {
+      case_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      client_request_id: "after-revoke-1",
+      submission: scoutSubmission,
+    })).rejects.toMatchObject({ status: 403, message: "This key was revoked." });
+    expect(vi.mocked(persistCoverageHuntTurn).mock.calls[0]![0]).toMatchObject({
+      actor_key_id: actor.keyId,
+    });
   });
 
   it("requires exactly one candidate or case pointer", async () => {

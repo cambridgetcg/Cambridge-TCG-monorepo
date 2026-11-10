@@ -44,7 +44,8 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     pool = new Pool({ connectionString: localUrl, options: `-c search_path=${schema}`, max: 6 });
     await pool.query("CREATE TABLE users (id uuid PRIMARY KEY)");
     for (const name of ["0090_agents.sql", "0137_member_price_observations.sql", "0138_member_data_keys.sql", "0139_widen_price_sources.sql", "0140_price_source_crosswalks.sql",
-      "0141_market_derived.sql", "0142_data_api_plans.sql", "0143_price_collector_leases.sql", "0146_price_collector_hosts.sql", "0148_ops_observability.sql"]) await apply(pool, name);
+      "0141_market_derived.sql", "0142_data_api_plans.sql", "0143_price_collector_leases.sql", "0146_price_collector_hosts.sql", "0148_ops_observability.sql",
+      "0150_mcp_daily_agent_revoke_key.sql"]) await apply(pool, name);
   });
   afterAll(async () => {
     if (postgresJs) await postgresJs.close();
@@ -64,6 +65,35 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     } finally { await bare.end(); }
     const sql = await migration("0148_ops_observability.sql");
     expect(sql).not.toMatch(/\b(ALTER|DROP|DELETE|UPDATE|INSERT|TRUNCATE)\b/);
+  });
+
+  it("0150 adds agent.revoke_key to mcp_daily.tool, keeps every row and word 0148 allowed, and re-applies harmlessly", async () => {
+    const own = `ops_observability_0150_${id}`;
+    await admin.query(`CREATE SCHEMA ${own}`);
+    const bare = new Pool({ connectionString: localUrl, options: `-c search_path=${own}`, max: 1 });
+    const row = (tool: string, count: number) => `INSERT INTO mcp_daily VALUES (current_date, 'tools/call', '${tool}', false, 'ok', ${count})`;
+    try {
+      await apply(bare, "0148_ops_observability.sql");
+      await bare.query(row("agent.self", 2));
+      await expect(bare.query(row("agent.revoke_key", 1))).rejects.toMatchObject({ code: "23514" });
+      await apply(bare, "0150_mcp_daily_agent_revoke_key.sql");
+      await bare.query(row("agent.revoke_key", 1));
+      await bare.query(row("coverage.hunt.my_cases", 1));
+      await expect(bare.query(row("secret.tool", 1))).rejects.toMatchObject({ code: "23514" });
+      await expect(bare.query(`INSERT INTO mcp_daily VALUES (current_date, 'tools/list', 'agent.revoke_key', false, 'ok', 1)`)).rejects.toMatchObject({ code: "23514" });
+      // The runner records it and never applies it twice; if it were, the
+      // same constraint is dropped and re-added and every row stays.
+      await apply(bare, "0150_mcp_daily_agent_revoke_key.sql");
+      expect((await bare.query(`SELECT tool, count FROM mcp_daily ORDER BY tool`)).rows).toEqual([
+        { tool: "agent.revoke_key", count: 1 }, { tool: "agent.self", count: 2 }, { tool: "coverage.hunt.my_cases", count: 1 },
+      ]);
+      expect((await bare.query(`SELECT conname FROM pg_constraint WHERE conrelid = 'mcp_daily'::regclass AND contype = 'c' ORDER BY 1`)).rows.map(r => r.conname))
+        .toEqual(["mcp_daily_check", "mcp_daily_count_check", "mcp_daily_method_check", "mcp_daily_outcome_check", "mcp_daily_tool_check"]);
+    } finally {
+      await bare.end();
+      await admin.query(`DROP SCHEMA IF EXISTS ${own} CASCADE`);
+    }
+    expect(await migration("0150_mcp_daily_agent_revoke_key.sql")).not.toMatch(/\b(DELETE|UPDATE|INSERT|TRUNCATE|BEGIN|COMMIT)\b|DROP TABLE/);
   });
 
   it("refuses malformed rows: words outside the lists, text, prices, raw paths, overlapping counts", async () => {

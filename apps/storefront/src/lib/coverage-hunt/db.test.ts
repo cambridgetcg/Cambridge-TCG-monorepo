@@ -21,10 +21,17 @@ import {
   listActiveCoverageHuntCases,
   listCoverageHuntCasesForAgent,
   persistCoverageHuntScoutTurn,
+  persistCoverageHuntTurn,
 } from "./db";
 
 const CASE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const AGENT_ID = "11111111-1111-4111-8111-111111111111";
+const KEY_ID = "33333333-3333-4333-8333-333333333333";
+const actor = {
+  agent_id: AGENT_ID,
+  operator_user_id: "22222222-2222-4222-8222-222222222222",
+  public_handle: "gentle-scout",
+};
 
 const candidate: CoverageCandidateSnapshot = createCoverageCandidate({
   kind: "declared_observed_disagreement",
@@ -123,6 +130,15 @@ describe("Coverage Hunt first-scout atomicity", () => {
         const pending = { cases: 0, turns: 0, chronicle: 0 };
         let insertedCase: Record<string, unknown> | null = null;
         const q: CompatQueryFn = async (sql, params = []) => {
+          if (/FROM agents WHERE id = \$1 FOR KEY SHARE/i.test(sql)) {
+            sequence.push("agent-row-share");
+            return rows([{ "?column?": 1 }]);
+          }
+          if (/FROM agent_keys[\s\S]*revoked_at IS NULL[\s\S]*FOR SHARE/i.test(sql)) {
+            sequence.push("live-key-share");
+            expect(params).toEqual([KEY_ID, AGENT_ID]);
+            return rows([{ "?column?": 1 }]);
+          }
           if (/pg_advisory_xact_lock/i.test(sql)) {
             sequence.push("agent-lock");
             return rows([{ pg_advisory_xact_lock: null }]);
@@ -174,11 +190,8 @@ describe("Coverage Hunt first-scout atomicity", () => {
 
     await expect(persistCoverageHuntScoutTurn({
       candidate,
-      actor: {
-        agent_id: AGENT_ID,
-        operator_user_id: "22222222-2222-4222-8222-222222222222",
-        public_handle: "gentle-scout",
-      },
+      actor,
+      actor_key_id: KEY_ID,
       client_request_id: "daily-limit-1",
       submission: scoutSubmission,
       now: new Date("2026-07-12T10:00:00.000Z"),
@@ -186,8 +199,75 @@ describe("Coverage Hunt first-scout atomicity", () => {
 
     expect(attempted).toEqual({ cases: 1, turns: 0, chronicle: 1 });
     expect(committed).toEqual({ cases: 0, turns: 0, chronicle: 0 });
-    expect(sequence.slice(0, 2)).toEqual(["agent-lock", "case-insert"]);
+    expect(sequence.slice(0, 4)).toEqual([
+      "agent-row-share",
+      "live-key-share",
+      "agent-lock",
+      "case-insert",
+    ]);
     expect(db.transaction).toHaveBeenCalledOnce();
     expect(db.query).not.toHaveBeenCalled();
+  });
+});
+
+describe("Coverage Hunt writes are ordered after a key revocation", () => {
+  function revokedKeyTransaction(statements: string[]) {
+    db.transaction.mockImplementation(
+      async (work: (q: CompatQueryFn) => Promise<unknown>) => {
+        const q: CompatQueryFn = async (sql) => {
+          statements.push(sql);
+          if (/FROM agents WHERE id = \$1 FOR KEY SHARE/i.test(sql)) {
+            return rows([{ "?column?": 1 }]);
+          }
+          // The revocation committed first: the share lock finds no live row.
+          if (/FROM agent_keys/i.test(sql)) return rows([]);
+          throw new Error(`a revoked key reached: ${sql}`);
+        };
+        return work(q);
+      },
+    );
+  }
+
+  it("refuses a first scout from a revoked key before locking or writing anything else", async () => {
+    const statements: string[] = [];
+    revokedKeyTransaction(statements);
+
+    await expect(persistCoverageHuntScoutTurn({
+      candidate,
+      actor,
+      actor_key_id: KEY_ID,
+      client_request_id: "revoked-1",
+      submission: scoutSubmission,
+    })).rejects.toMatchObject({ code: "key_revoked", message: "This key was revoked." });
+
+    expect(statements).toHaveLength(2);
+    expect(statements[1]).toMatch(/WHERE id = \$1 AND agent_id = \$2 AND revoked_at IS NULL\s+FOR SHARE/);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it("refuses a later turn from a revoked key the same way", async () => {
+    const statements: string[] = [];
+    revokedKeyTransaction(statements);
+
+    await expect(persistCoverageHuntTurn({
+      case_id: CASE_ID,
+      actor,
+      actor_key_id: KEY_ID,
+      client_request_id: "revoked-2",
+      submission: scoutSubmission,
+    })).rejects.toMatchObject({ code: "key_revoked" });
+
+    expect(statements.some((sql) => /INSERT|UPDATE|pg_advisory/i.test(sql))).toBe(false);
+  });
+
+  it("requires the authenticating key id before opening a transaction", async () => {
+    await expect(persistCoverageHuntTurn({
+      case_id: CASE_ID,
+      actor,
+      actor_key_id: "not-a-key-id",
+      client_request_id: "revoked-3",
+      submission: scoutSubmission,
+    })).rejects.toMatchObject({ code: "invalid_input" });
+    expect(db.transaction).not.toHaveBeenCalled();
   });
 });

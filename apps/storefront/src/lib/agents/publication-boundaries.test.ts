@@ -34,6 +34,7 @@ import {
   playTakeAction,
 } from "./play-tools";
 import { deckSave } from "./write-tools";
+import { AGENT_REVOKE_KEY_INPUT_SCHEMA, describeAgentToolGrant } from "./tool-access";
 
 const OPERATOR_A = "11111111-1111-4111-8111-111111111111";
 const OPERATOR_B = "22222222-2222-4222-8222-222222222222";
@@ -340,6 +341,13 @@ describe("agent publication boundaries", () => {
 
     expect(self.operator_bound).toBe(true);
     expect(self.read_only).toBe(true);
+    expect(self.read_only_scope).toBe("domain-state");
+    // Coverage Hunt evidence is a review submission, not a domain write.
+    expect(self.review_submissions).toEqual(["coverage.hunt.contribute"]);
+    expect(self.self_lifecycle).toEqual(["agent.revoke_key"]);
+    expect(self.operational_metadata_writes).toEqual(
+      describeAgentToolGrant("operator").operational_metadata_writes,
+    );
     expect(JSON.stringify(self)).not.toContain(OPERATOR_A);
     expect(self).not.toHaveProperty("operator_user_id");
     expect(mocks.query).toHaveBeenCalledTimes(1);
@@ -372,6 +380,9 @@ describe("agent publication boundaries", () => {
 
     expect(self.operator_bound).toBe(false);
     expect(self.read_only).toBe(true);
+    expect(self.review_submissions).toEqual([]);
+    expect(self.self_lifecycle).toEqual(["agent.revoke_key"]);
+    expect(self.operational_metadata_writes.join(" ")).toContain("agent.revoke_key");
     expect(JSON.stringify(self)).not.toContain(OPERATOR_B);
   });
 
@@ -416,6 +427,40 @@ describe("agent publication boundaries", () => {
       gating: "public",
       authority: "public-discovery",
       availability: "available",
+    });
+  });
+
+  it("catalogs the holder's own exit as a preview-first key-holder tool", () => {
+    const revoke = AGENT_TOOLS.find((tool) => tool.dotted_name === "agent.revoke_key");
+    const self = AGENT_TOOLS.find((tool) => tool.dotted_name === "agent.self");
+
+    expect(revoke).toMatchObject({
+      mcp_spec_name: "agent.revoke_key",
+      category: "agent",
+      gating: "bearer-key",
+      authority: "key-holder",
+      availability: "available",
+      // The worked example is the preview, so trying it first ends nothing.
+      example_input: {},
+      example_output_shape: { performed: false, revoked: false, key_state: "active" },
+    });
+    // The same schema tools/list serves: a plain boolean, never const: true.
+    expect(revoke?.input_schema).toEqual(AGENT_REVOKE_KEY_INPUT_SCHEMA);
+    expect(revoke?.input_schema).toMatchObject({
+      properties: { confirm: { type: "boolean" } },
+      additionalProperties: false,
+    });
+    expect(JSON.stringify(revoke?.input_schema)).not.toContain("const");
+    expect(revoke?.description).toContain("Ends only the presented key");
+    expect(JSON.stringify(revoke)).not.toMatch(/operator_user_id|xenia|covenant/i);
+
+    const grant = describeAgentToolGrant("operator");
+    expect(self?.example_output_shape).toMatchObject({
+      read_only: true,
+      read_only_scope: "domain-state",
+      review_submissions: grant.review_submissions,
+      self_lifecycle: grant.self_lifecycle,
+      operational_metadata_writes: grant.operational_metadata_writes,
     });
   });
 });
