@@ -381,6 +381,22 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     expect(await liveUsageKeys(agentId)).toBe(0);
   });
 
+  it("refuses a key name with control characters as act_params_invalid, before any statement can fail", async () => {
+    const { agentId, h } = await setup();
+    const nonces = async () => (await pool.query(`SELECT count(*)::int AS n FROM agent_act_nonces WHERE thumbprint = $1`, [h.kid])).rows[0].n as number;
+    for (const name of ["a\u0000b", "line\nbreak", "bell\u0007", "del\u007f", "next\u0085line"]) {
+      const before = { nonces: await nonces(), events: (await events(agentId)).length };
+      const answer = await submit(sign(h, agentId, "key.mint", { ...usageKey().params, name }));
+      expect(answer, JSON.stringify(name)).toMatchObject({ ok: false, status: 422, verified: true, refusal: { reason_code: "act_params_invalid", detail: "name" } });
+      // A recorded refusal: the nonce is used up and the event written.
+      expect(await nonces()).toBe(before.nonces + 1);
+      expect((await events(agentId)).map((row) => row.refusal).slice(before.events)).toEqual(["act_params_invalid"]);
+    }
+    expect(await liveUsageKeys(agentId)).toBe(0);
+    // A name with ordinary punctuation, accents and emoji is fine.
+    expectApplied(await submit(sign(h, agentId, "key.mint", { ...usageKey().params, name: "Café laptop — 2026 😀" })));
+  });
+
   it("keeps events append-only, nulls their erasable columns with the agent, and lets 7b null them in place", async () => {
     const { agentId, h } = await setup();
     const [first] = await events(agentId);

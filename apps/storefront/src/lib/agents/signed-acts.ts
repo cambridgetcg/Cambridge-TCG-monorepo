@@ -207,7 +207,7 @@ const PARAMS_TEMPLATES: Readonly<Record<SignedActName, Record<string, string>>> 
     key_sha256: "<64 lower-case hex: SHA-256 of the key's UTF-8 text, made by you from a CSPRNG as ctcg_agt_ plus 22 base62 characters>",
     key_prefix: "<the key's first 12 characters: ctcg_agt_ plus 3>",
     expires: "<7d | 30d | 90d | 365d | never | YYYY-MM-DD, from tomorrow to 366 days ahead (UTC)>",
-    name: "<a label of at most 80 characters; empty means key>",
+    name: "<a label of at most 80 characters, without control characters; empty means key>",
     preview_sha256: "<disclosure_sha256 from this preview>",
   },
   "key.revoke": {
@@ -580,6 +580,9 @@ async function purgeNonces(tx: Tx): Promise<void> {
 const KEY_SHA256_RE = /^[0-9a-f]{64}$/;
 const KEY_PREFIX_RE = /^ctcg_agt_[A-Za-z0-9]{3}$/;
 const NAME_MAX = 80;
+/** C0, DEL and C1. PostgreSQL text refuses NUL, which would fail a
+ *  statement inside the act; the rest have no place in a label. */
+const CONTROL_CHARACTER_RE = /\p{Cc}/u;
 
 async function applyAct(
   tx: Tx,
@@ -629,6 +632,8 @@ async function mint(
   // signer built the hash, so this hides nothing from it.
   const HASH = "key_sha256 malformed or in use";
   if (!KEY_SHA256_RE.test(params.key_sha256)) return { kind: "refused", code: "act_params_invalid", detail: HASH };
+  // Checked before any statement, so a refusal never rests on a failed one.
+  if (CONTROL_CHARACTER_RE.test(params.name)) return { kind: "refused", code: "act_params_invalid", detail: "name" };
   const name = Array.from(params.name.trim());
   if (name.length > NAME_MAX) return { kind: "refused", code: "act_params_invalid", detail: "name" };
 

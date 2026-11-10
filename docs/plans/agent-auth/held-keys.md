@@ -180,6 +180,10 @@ not Yu's:
   gets the "treat it as exposed" words. The server and the paste form run
   one shared check (`private-key-paste.ts`), so they refuse the same
   pastes.
+- `key.mint` refuses a `name` holding a control character (C0, DEL or C1)
+  as `act_params_invalid` (`name`) before any statement runs. A NUL used to
+  fail the insert, so the act answered `auth_unavailable` with "repeating
+  is safe" for ever and recorded nothing.
 
 **What is off.** `AGENT_SIGNED_ACTS` is off unless set to exactly `on` with
 an audience. Off, both doors answer `signed_acts_closed`, binding is
