@@ -221,27 +221,32 @@ export async function homeStats(conn: ConnectionContext, now: Date): Promise<Hom
   };
 }
 
-/** The review request waits for this many cashback entries… */
-export const REVIEW_MIN_CASHBACK = 3;
-/** …and for the merchant to be this many days old. */
-export const REVIEW_MIN_AGE_DAYS = 7;
+/** The review request is due this many days after setup was completed, for every merchant alike. */
+export const REVIEW_DAYS_AFTER_SETUP = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-type ReviewFacts = { createdAt: Date; reviewPromptDismissedAt: Date | null; reviewPromptShownAt: Date | null };
+/** What the review rule reads, and all it reads. */
+const REVIEW_FACTS = { setupCompletedAt: true, reviewPromptDismissedAt: true, reviewPromptShownAt: true } as const;
+type ReviewFacts = { setupCompletedAt: Date | null; reviewPromptDismissedAt: Date | null; reviewPromptShownAt: Date | null };
 
 /**
- * The review request is due once, after REVIEW_MIN_CASHBACK cashback
- * entries and REVIEW_MIN_AGE_DAYS days, unless the merchant dismissed it or
- * Shopify has shown it (spec 4.3). The entries are read only while it can
- * still be due, and only as many as the rule needs: an append-only ledger
- * is never counted whole on a page load (OPERATIONS-2).
+ * The review request is due at one time for every merchant, whatever their
+ * orders did: REVIEW_DAYS_AFTER_SETUP days after setup was completed, so
+ * never while they are setting up ("Don't ask for reviews when a merchant is
+ * onboarding or installing your app", Shopify's manage-app-reviews). It is
+ * never due again once the merchant chose "Don't ask again" or Shopify
+ * showed it (#173). Due only lets a page ask; the page asks after a save
+ * succeeds (admin/review-request.ts). It reads no ledger (OPERATIONS-2).
  */
-async function reviewDue(merchantId: string, merchant: ReviewFacts, now: Date): Promise<boolean> {
-  if (merchant.reviewPromptDismissedAt || merchant.reviewPromptShownAt) return false;
-  if (now.getTime() - merchant.createdAt.getTime() < REVIEW_MIN_AGE_DAYS * DAY_MS) return false;
-  const entries = await prisma.ledgerEntry.findMany({ where: { merchantId, kind: "cashback" }, take: REVIEW_MIN_CASHBACK, select: { id: true } });
-  return entries.length >= REVIEW_MIN_CASHBACK;
+function reviewDue(merchant: ReviewFacts, now: Date): boolean {
+  if (merchant.reviewPromptDismissedAt || merchant.reviewPromptShownAt || !merchant.setupCompletedAt) return false;
+  return now.getTime() - merchant.setupCompletedAt.getTime() >= REVIEW_DAYS_AFTER_SETUP * DAY_MS;
+}
+
+/** Whether the review request is due for one merchant at `now`, for a page other than Home. */
+export async function reviewRequestDue(merchantId: string, now: Date): Promise<boolean> {
+  return reviewDue(await prisma.merchant.findUniqueOrThrow({ where: { id: merchantId }, select: REVIEW_FACTS }), now);
 }
 
 /** Home's setup and request facts for one store at `now`. */
@@ -267,14 +272,8 @@ export interface HomeState {
 }
 
 export async function homeState(conn: ConnectionContext, now: Date): Promise<HomeState> {
-  const [{ merchant, review }, connection, privacy, importedOrders, importedBuyers, placing] = await Promise.all([
-    // The review rule's ledger read waits on the merchant's facts, beside the other reads
-    prisma.merchant
-      .findUniqueOrThrow({
-        where: { id: conn.merchantId },
-        select: { createdAt: true, reviewPromptDismissedAt: true, reviewPromptShownAt: true, setupCompletedAt: true },
-      })
-      .then(async (merchant) => ({ merchant, review: await reviewDue(conn.merchantId, merchant, now) })),
+  const [merchant, connection, privacy, importedOrders, importedBuyers, placing] = await Promise.all([
+    prisma.merchant.findUniqueOrThrow({ where: { id: conn.merchantId }, select: REVIEW_FACTS }),
     prisma.connection.findUniqueOrThrow({
       where: { id: conn.connectionId },
       select: { importState: true, importError: true, importHorizonDays: true, importDismissedAt: true },
@@ -299,7 +298,7 @@ export async function homeState(conn: ConnectionContext, now: Date): Promise<Hom
     importedOrders,
     importedBuyers,
     placing,
-    reviewDue: review,
+    reviewDue: reviewDue(merchant, now),
   };
 }
 

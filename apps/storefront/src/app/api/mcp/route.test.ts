@@ -74,6 +74,7 @@ import { coverageHuntContribute } from "@/lib/agents/coverage-hunt-tools";
 import { playObserve, ToolError } from "@/lib/agents/play-tools";
 import { GET, MCP_MAX_REQUEST_BYTES, POST } from "./route";
 import { toolByName } from "@/lib/agent-tools-catalog";
+import { AGENT_SIGNED_ACTS } from "@/lib/agents/tool-access";
 import { KEY_EXPIRED_REPLACEMENT_CASE, KEY_REPLACEMENT_CASES } from "@/lib/agents/key-exit-inventory";
 
 // Built at runtime so no literal key-shaped string sits in the repository.
@@ -244,6 +245,26 @@ describe("MCP initialize", () => {
     expect(text).toContain(
       "Any key holder can end its own key with agent.revoke_key (call with confirm: true; without it, a preview).",
     );
+  });
+
+  it("says, like GET /api/mcp, that agent.act takes a signed act instead of a bearer key", async () => {
+    const text = (await (await POST(request("initialize"))).json()).result.instructions as string;
+    expect(text).toContain(
+      "All `tools/call` requests except `mcp.list_tools` and `agent.act` require bearer auth; `agent.act` takes a signed act instead and is closed unless this deployment opens it.",
+    );
+
+    const closed = await (await GET()).json();
+    expect(closed.auth).toBe(
+      "Authorization: Bearer ctcg_agt_<token> on every tools/call except mcp.list_tools and agent.act; agent.act takes a signed act instead (signed_acts below)",
+    );
+    expect(closed.signed_acts).toEqual({ ...AGENT_SIGNED_ACTS, open_on_this_deployment: false });
+
+    // Open only with the flag exactly "on" and an audience.
+    vi.stubEnv("AGENT_SIGNED_ACTS", "on");
+    expect((await (await GET()).json()).signed_acts.open_on_this_deployment).toBe(false);
+    vi.stubEnv("AGENT_SIGNED_ACTS_AUDIENCE", "https://cambridgetcg.com");
+    expect((await (await GET()).json()).signed_acts.open_on_this_deployment).toBe(true);
+    vi.unstubAllEnvs();
   });
 });
 
@@ -737,6 +758,12 @@ describe("agent.revoke_key carve-out", () => {
       (entry: { name: string }) => entry.name === "agent.revoke_key",
     );
     expect(toolByName("agent.revoke_key")?.input_schema).toEqual(tool.inputSchema);
+  });
+
+  it("lists agent.act in tools/list with the schema the catalog publishes", async () => {
+    const body = await (await POST(request("tools/list"))).json();
+    const tool = body.result.tools.find((entry: { name: string }) => entry.name === "agent.act");
+    expect(tool.inputSchema).toEqual(toolByName("agent.act")?.input_schema);
   });
 });
 

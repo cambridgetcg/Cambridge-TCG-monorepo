@@ -6,6 +6,11 @@ repository facts gathered by a fourth; two more checked the draft. **Yu has
 not reviewed it.** It answers a question and proposes an order of work. It
 builds nothing, decides nothing and changes no code.
 
+**Since it was written, the same day.** Held keys' first slice was merged
+with its flag off (#230) after migration 0152 was applied, and Yu answered
+this page's recommendations; see [Yu's answer](#yus-answer-2026-11-10). The
+lines below that those two things changed say so.
+
 - **Yu's question,** 2026-11-10, verbatim:
 
   > Also think about how agent could retain their identity or account, since
@@ -20,8 +25,9 @@ builds nothing, decides nothing and changes no code.
   [support-procedures.md](support-procedures.md).
 - **Evidence.** Vendor documentation and specifications read on 2026-11-10
   ([Sources](#sources)); what could only be read as a search excerpt is
-  marked *excerpt*. Code read at `main` `da7f13b6`, which carries the
-  agent-auth stack, the held-keys page and key expiry. No ChatGPT, Claude or
+  marked *excerpt*. Code read at `main` `da7f13b6`, which carried the
+  agent-auth stack, the held-keys page and key expiry, and not yet the
+  held-keys build. No ChatGPT, Claude or
   open-source client, and no vault-backed sandbox, was run against the
   store.
 - **Not authorised here.** Reopening self-serve registration, applying a
@@ -52,8 +58,9 @@ builds nothing, decides nothing and changes no code.
    needs a signed-in session, and self-serve registration is closed.
 4. **Much of what is needed is already designed.** The operator's key covers
    a holder's own machine today. Held keys (Yu, 2026-11-10: "Yes offer the
-   keys") add a way in whose secret never travels. The reopening terms add
-   an account with no person's account behind it.
+   keys") add a way in whose secret never travels; their first slice has
+   been on `main` since that day, behind a flag that is off in production.
+   The reopening terms add an account with no person's account behind it.
 5. **Two things nobody had designed or tested.** A way in for hosted chat
    apps, which need OAuth and a standard MCP transport that the door does
    not speak. And a vault, where a key can be kept but nobody has run one
@@ -183,9 +190,10 @@ Tag tokens, which name an organisation and a Slack channel's agent.
   ([`register/route.ts#L11`](../../../apps/storefront/src/app/api/v1/agents/register/route.ts#L11))
   records it as `false`. Five requirements are stated for reopening
   ([README](README.md#the-five-reopening-requirements)).
-- **The only way in is a bearer key:** `ctcg_agt_` and 22 characters, stored
-  as a hash, with an expiry chosen at mint (`never` allowed) since
-  2026-11-10. A key can end itself. It cannot mint another.
+- **In production the only way in is a bearer key:** `ctcg_agt_` and 22
+  characters, stored as a hash, with an expiry chosen at mint (`never`
+  allowed) since 2026-11-10. A key can end itself. It cannot mint another.
+  The code for signing keys is on `main` behind a flag that is off there.
 - **The door is not a standard remote MCP server.** `GET /api/mcp` describes
   its transport as "custom JSON-RPC 2.0 request/response over HTTPS POST"
   and says: "This is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients
@@ -218,9 +226,10 @@ Tag tokens, which name an organisation and a Slack channel's agent.
 - **Today.** A person signs in, creates the agent and copies its key into
   the harness's config or keyring. The harness reaches the door through the
   stdio bridge, or by posting JSON-RPC itself.
-- **With held keys, the first slice.** Yu said yes to offering the keys;
-  the slice's stored categories, migration and flag still wait for Yu's
-  word. The operator pastes the agent's public key at `/account/agents`.
+- **With held keys, the first slice.** Built and merged on 2026-11-10 with
+  its flag off, after its migration was applied; turning it on in
+  production still waits for Yu's word. The operator pastes the agent's
+  public key at `/account/agents`.
   The harness signs `key.mint` to get usage keys, each with a stated expiry,
   and `key.revoke` to end them. The private key never leaves the machine,
   and the store issues no secret on this path.
@@ -336,6 +345,17 @@ shown to it lands in a transcript and is gone by the next session.
 
 ## Decisions
 
+### Yu's answer, 2026-11-10
+
+Shown this page as a pull request, with the recommendation to merge it and
+to open signed registration together with key issuance when registration
+reopens, Yu answered, verbatim: "yes to 230, and go for what pulls you and
+what you recommended". An agent (Claude Code session 99296f25) read "what
+you recommended" as taking the recommendations below: A1 and A2 as
+recommended, A3 not now. That reading is the agent's, not Yu's. It reopens
+nothing: reopening and its terms are still to be discussed, as Yu said on
+2026-10-30.
+
 **For Yu.**
 
 - **A1. May an account exist with no person's account behind it?** Not a
@@ -366,7 +386,7 @@ shown to it lands in a transcript and is gone by the next session.
   per key.
 - **A7.** With the first-slice build, the methodology page gains a short
   "where to keep your key" note per keeper. It says only what was run; the
-  vault path stays marked untested until someone runs it.
+  vault path stays marked untested until someone runs it. Done in #230.
 - **A8.** Platform signatures (Web Bot Auth) are not verified now. held-keys
   S4 proposes them as an optional identity tier for reads; this page
   proposes a rate-limit signal at most.

@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Help: set up cashback and VIP tiers – RewardsPro</title>
+    <meta
+      name="description"
+      content="How RewardsPro works for Shopify stores: setup, what earns cashback, spending credit (new customer accounts or Shop Pay), VIP tiers, refunds and cost."
+    />
+    <link rel="canonical" href="https://rewardspro.io/help/" />
+    <meta name="theme-color" content="#09110F" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="RewardsPro" />
+    <meta property="og:title" content="Help: set up cashback and VIP tiers – RewardsPro" />
+    <meta
+      property="og:description"
+      content="How RewardsPro works for Shopify stores: setup, what earns cashback, spending credit (new customer accounts or Shop Pay), VIP tiers, refunds and cost."
+    />
+    <meta property="og:url" content="https://rewardspro.io/help/" />
+    <meta property="og:locale" content="en_GB" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Help: set up cashback and VIP tiers – RewardsPro" />
+    <meta
+      name="twitter:description"
+      content="How RewardsPro works for Shopify stores: setup, what earns cashback, spending credit (new customer accounts or Shop Pay), VIP tiers, refunds and cost."
+    />
+    <link rel="stylesheet" href="/assets/site.css" />
+    <style>
+      .help .section > * + * {
+        margin-top: 1rem;
+      }
+
+      .help h3 {
+        margin: 2rem 0 0;
+        font-size: 1.125rem;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      .help .section > h3 + * {
+        margin-top: 0.5rem;
+      }
+
+      .help ol,
+      .help .section > ul,
+      .rule ul {
+        margin-bottom: 0;
+        padding-left: 1.25rem;
+      }
+
+      .help li + li {
+        margin-top: 0.375rem;
+      }
+
+      .as-of,
+      .source,
+      caption {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+        line-height: 1.5;
+      }
+
+      .intro .as-of {
+        margin-top: 1rem;
+      }
+
+      .rule {
+        padding: 1rem 1.25rem;
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .rule > * + * {
+        margin-top: 0.5rem;
+      }
+
+      .rule-label {
+        font-weight: 600;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+
+      caption {
+        padding-bottom: 0.5rem;
+        text-align: left;
+      }
+
+      th,
+      td {
+        padding: 0.5rem 0.375rem;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      thead th {
+        background: var(--surface);
+      }
+
+      .num {
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      thead .num {
+        white-space: normal;
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="wrap">
+        <a class="logo" href="/">
+          <img
+            src="/assets/rewardspro-lockup-reversed.svg"
+            alt="RewardsPro"
+            width="163"
+            height="32"
+          />
+        </a>
+        <nav aria-label="Main">
+          <ul class="nav-list">
+            <li><a href="/#contact">Contact</a></li>
+            <li><a href="/#existing-agreements">Existing agreements</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <div class="wrap help">
+        <div class="intro">
+          <h1>RewardsPro help</h1>
+          <p class="lead">RewardsPro is an app for Shopify stores, made by Cambridge TCG Limited, a UK company in London. It pays cashback as Shopify store credit, with VIP tiers by spend.</p>
+          <p class="as-of">As of 10 November 2026.</p>
+        </div>
+
+        <section class="section" id="before-you-start" aria-labelledby="before-you-start-title">
+          <h2 id="before-you-start-title">What should you know before you start?</h2>
+          <p>Three limits:</p>
+          <ul>
+            <li>Customers can spend store credit at checkout when signed in with Shopify's new customer accounts or with Shop Pay; it isn't available for legacy customer accounts.</li>
+            <li>Shopify doesn't let store credit pay subscription renewals.</li>
+            <li>Each tier has one cashback rate, with no setting to exclude products, collections or sales channels.</li>
+          </ul>
+          <p class="source">
+            Source for the two Shopify rules: Shopify Help Center,
+            <a href="https://help.shopify.com/en/manual/customers/store-credit">"Store credit"</a>, as read on 7 November 2026.
+          </p>
+
+          <h3 id="store-settings">Which store settings does RewardsPro check?</h3>
+          <p>
+            RewardsPro's Home checks three Shopify settings: store credit turned on, new customer accounts, and visible sign-in links.
+            Home warns you when Shopify shows one of these still needs doing, with a banner that starts "Buyers can't spend their store credit yet".
+            When Shopify doesn't answer every check and shows no problem, Home shows no banner and doesn't show these checks as passing.
+          </p>
+          <div class="rule">
+            <p class="rule-label">Shopify's rule</p>
+            <p>
+              Shopify's help page says to turn on the Store credit toggle in the Customer accounts section of your settings.
+              At checkout, signed-in customers choose Apply store credit to pay with it.
+            </p>
+            <p class="source">
+              Source: Shopify Help Center,
+              <a href="https://help.shopify.com/en/manual/customers/store-credit">"Store credit"</a>, as read on 7 November 2026.
+            </p>
+          </div>
+        </section>
+
+        <section class="section" id="setup" aria-labelledby="setup-title">
+          <h2 id="setup-title">How do you set up RewardsPro?</h2>
+          <p>A new store starts with cashback switched off and no tiers. On Home, the setup card has three steps:</p>
+          <ol>
+            <li><strong>Your base cashback rate</strong>: a whole percent from 0 to 100. Saving it creates your lowest tier, <strong>Everyone</strong>, which starts at a spend of 0.</li>
+            <li><strong>Switch cashback on</strong>. The button works once the base rate is saved.</li>
+            <li><strong>Turn on the widget in your theme</strong>, which opens your theme editor.</li>
+          </ol>
+          <p>
+            When you first open RewardsPro, it starts bringing in your paid orders from up to 12 months before install, so loyal customers can start in the tier their past spend reaches.
+            Past orders earn no cashback.
+            The 12 months need Shopify's access to your full order history; without it, the import reaches back 60 days.
+            If your past orders can't be brought in, Home says so, and customers start in the lowest tier.
+          </p>
+
+          <h3 id="try-it">How can you try it on your own store?</h3>
+          <p>
+            Once cashback is on, create a draft order with yourself as the customer, and mark it as paid.
+            The cashback is real store credit on that customer account in your shop.
+            Refunding the order takes the cashback back from that store credit.
+            Orders with no customer attached, and Shopify's test orders, earn nothing.
+          </p>
+        </section>
+
+        <section class="section" id="widget" aria-labelledby="widget-title">
+          <h2 id="widget-title">How do you turn on the widget?</h2>
+          <p>
+            Shopify adds the widget to your theme switched off.
+            The setup card's link, <strong>Turn on the widget in your theme</strong>, opens your theme editor.
+            Under <strong>App embeds</strong>, check that <strong>RewardsPro Widget</strong> is switched on, then save the theme.
+            If Home finds the widget off, it shows "The rewards widget is off in your theme." with a link to the theme editor.
+          </p>
+          <p class="source">
+            Source for Shopify's part: Shopify developer documentation,
+            <a href="https://shopify.dev/docs/apps/build/online-store/theme-app-extensions/configuration">"Configure theme app extensions"</a>, as read on 9 November 2026.
+          </p>
+          <p>Its settings in the theme editor:</p>
+          <ul>
+            <li><strong>Guest message</strong>, <strong>Guest button text</strong> and <strong>Guest button link</strong> replace the sign-in prompt guests see.</li>
+            <li><strong>Colours</strong>: Light or Dark.</li>
+            <li><strong>Accent</strong> fills the progress bar; text never uses it.</li>
+          </ul>
+
+          <h3 id="widget-what-customers-see">What do customers see?</h3>
+          <p>
+            The widget is a <strong>Rewards</strong> button at the bottom right of the page that opens a panel.
+            While cashback is on, guests see your base rate and a sign-in prompt.
+            Signed-in customers see their store credit in the currency they are shopping in, when Shopify returns it, and how far they are from the next tier, when there is one they can reach.
+            The signed-in view needs RewardsPro's app proxy path, /apps/rewardspro.
+          </p>
+          <ul>
+            <li>When Shopify doesn't return the balance, the panel reads "Your store credit shows at checkout".</li>
+            <li>On stores with new customer accounts, the panel also says "Sign in and choose Apply store credit at checkout".</li>
+            <li>At a 0% base rate, guests see the sign-in prompt without a rate.</li>
+            <li>With cashback off, guests see nothing.</li>
+            <li>The widget's text is in English.</li>
+          </ul>
+
+          <h3 id="widget-troubleshooting">What if signed-in customers don't see the widget?</h3>
+          <p>
+            On some stores RewardsPro's path is different, such as /apps/rewardspro-1, and then the signed-in widget stays hidden while Home still says the widget is on.
+            The store's owner can see the path on the app's page under Settings &gt; Apps in Shopify admin, and set it back to /apps/rewardspro with <strong>Customize URL</strong>.
+            If another app already uses /apps/rewardspro, uninstall that app first.
+            The signed-in view also stays hidden if RewardsPro doesn't answer within 8 seconds, until the page is loaded again.
+            If the widget still doesn't show, email <a href="mailto:contact@rewardspro.io">contact@rewardspro.io</a>.
+          </p>
+        </section>
+
+        <section class="section" id="earning" aria-labelledby="earning-title">
+          <h2 id="earning-title">How much cashback does an order earn?</h2>
+          <p>
+            RewardsPro works out an order's cashback once, when it first records the paid order.
+            Cashback is paid on the product price after discounts, less any part of the order paid with store credit or gift cards.
+            Shipping, and gift cards bought as products, earn nothing.
+          </p>
+          <p>
+            The rate is that of the tier the customer was in before the order.
+            So the order that takes a customer into a higher tier earns at their old rate, and their next order earns at the new one.
+            A customer new to your store, or not yet placed in a tier, earns your lowest tier's rate.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <caption>Example, made-up amounts: a customer in a 5% tier.</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Order</th>
+                  <th scope="col" class="num">By card</th>
+                  <th scope="col" class="num">With £20.00 credit</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Products, 2 × £40.00</th>
+                  <td class="num">£80.00</td>
+                  <td class="num">£80.00</td>
+                </tr>
+                <tr>
+                  <th scope="row">Discount</th>
+                  <td class="num">−£10.00</td>
+                  <td class="num">−£10.00</td>
+                </tr>
+                <tr>
+                  <th scope="row">Shipping</th>
+                  <td class="num">£4.95</td>
+                  <td class="num">£4.95</td>
+                </tr>
+                <tr>
+                  <th scope="row">Store credit used</th>
+                  <td class="num">£0.00</td>
+                  <td class="num">£20.00</td>
+                </tr>
+                <tr>
+                  <th scope="row">Cashback is paid on</th>
+                  <td class="num">£70.00</td>
+                  <td class="num">£50.00</td>
+                </tr>
+                <tr>
+                  <th scope="row">Cashback at 5%</th>
+                  <td class="num">£3.50</td>
+                  <td class="num">£2.50</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Cashback is rounded once, half up, to the currency's smallest unit, such as the penny.</p>
+
+          <h3 id="earn-nothing">Which orders earn nothing?</h3>
+          <ul>
+            <li>Orders with no customer attached.</li>
+            <li>Shopify's test orders.</li>
+            <li>Orders already cancelled when RewardsPro records them. An order cancelled later keeps its cashback until it is refunded.</li>
+            <li>Orders placed before you installed RewardsPro, even if they are paid later, and the past orders it brings in.</li>
+            <li>Orders RewardsPro records while cashback is off. They still count towards tiers.</li>
+            <li>Orders with nothing to pay on, such as one paid in full with store credit.</li>
+            <li>Orders too large for RewardsPro to read: more than 2,500 lines, 200 or more transactions, or 20 or more refunds.</li>
+          </ul>
+        </section>
+
+        <section class="section" id="payouts" aria-labelledby="payouts-title">
+          <h2 id="payouts-title">When is the store credit added?</h2>
+          <p>
+            For an order that earns cashback, payment is what triggers it; RewardsPro doesn't wait for the order to be fulfilled.
+            If Shopify refuses the credit for now, RewardsPro tries again for up to 24 hours.
+            A refusal that can't change, or one still failing after 24 hours, marks the order "Needs a look".
+            Home then shows how many orders need a look.
+          </p>
+        </section>
+
+        <section class="section" id="spending" aria-labelledby="spending-title">
+          <h2 id="spending-title">How do customers spend their store credit?</h2>
+          <div class="rule">
+            <p class="rule-label">Shopify's rule</p>
+            <ul>
+              <li>Shopify applies the full store-credit balance at checkout; customers can't choose part of it.</li>
+              <li>At checkout, Shopify shows only the store-credit balance in the checkout's currency.</li>
+            </ul>
+            <p class="source">
+              Source: Shopify Help Center,
+              <a href="https://help.shopify.com/en/manual/customers/store-credit">"Store credit"</a>, as read on 7 November 2026.
+            </p>
+          </div>
+
+          <h3 id="spending-currency">What about customers who pay in another currency?</h3>
+          <p>
+            RewardsPro gives cashback in the currency the customer paid in.
+            So credit from an order paid in US dollars shows at a checkout in US dollars, and not at a checkout in pounds.
+          </p>
+
+          <h3 id="spending-expiry">Does store credit expire?</h3>
+          <p>RewardsPro sets no expiry date on the credit it gives.</p>
+        </section>
+
+        <section class="section" id="tiers" aria-labelledby="tiers-title">
+          <h2 id="tiers-title">How do VIP tiers work?</h2>
+          <p>
+            Set tiers by spend, each with its own cashback rate.
+            Loyal customers move between tiers as their spend changes, unless you lock them to a tier.
+            Each tier has a name, a minimum spend in whole amounts of your shop's currency, and a cashback rate in whole percent from 0 to 100.
+            Your lowest tier begins at a spend of 0, and a new customer starts in it.
+          </p>
+
+          <h3 id="tiers-spend">What counts as spend?</h3>
+          <p>
+            A customer's spend is the product price after discounts, less refunds, in your shop's currency.
+            Test and cancelled orders don't count.
+            Tiers count a loyal customer's spend over the last 12 months or over all time, from the orders RewardsPro has recorded: those since install, and past orders from up to 12 months before it, as far back as the import reached.
+            You choose one for the whole store under <strong>Spend counted over</strong>: <strong>Last 12 months</strong>, the default, or <strong>All time</strong>.
+          </p>
+
+          <h3 id="tiers-moves">When do customers move?</h3>
+          <p>
+            A customer's tier is updated after each paid order, refund and cancellation, and in a nightly pass.
+            After you add or delete a tier, change a minimum or change the window, RewardsPro starts moving customers to their new tiers at once; any it doesn't reach move in the nightly pass.
+            Renaming a tier or changing its rate moves no one.
+            There is no grace period: when a customer's counted spend falls below their tier's minimum, they move down at the next update, unless they are locked.
+          </p>
+
+          <h3 id="tiers-lock">Can you keep a customer in a tier?</h3>
+          <p>
+            You can lock a customer to a tier.
+            Use <strong>Lock to a tier</strong> on the customer's page, once RewardsPro has recorded an order of theirs.
+            A locked customer keeps that tier and its rate whatever they spend, until you choose <strong>Return to automatic</strong>.
+            Deleting a tier returns customers locked to it to automatic.
+          </p>
+        </section>
+
+        <section class="section" id="refunds" aria-labelledby="refunds-title">
+          <h2 id="refunds-title">What happens to cashback when you refund an order?</h2>
+          <p>
+            When items are refunded, RewardsPro takes back their share of the cashback, up to the store credit the customer still holds in the order's currency.
+            A refund of shipping alone takes nothing back.
+          </p>
+          <ul>
+            <li>The share follows the product value: refunding half of an order's product value takes back about half its cashback, rounded down to the penny, and the refund that completes the order takes back what is left.</li>
+            <li>If the credit hasn't been sent yet, the refund reduces it before it is sent.</li>
+            <li>If the customer has already spent the credit, RewardsPro takes what is left and records the rest; it doesn't chase it.</li>
+            <li>The take-back comes from the customer's store-credit balance in that currency, whatever gave them the credit.</li>
+            <li>Cancelling an order moves no money by itself; the refund does.</li>
+          </ul>
+          <p>Limits:</p>
+          <ul>
+            <li>On a store whose prices exclude tax, a refund of money alone, with no items, takes back more than its share, by the tax rate: at 20% VAT, a fifth more.</li>
+            <li>A refund too large for RewardsPro to read takes nothing back, and neither does any later refund of that order. Too large means more than 100 lines, 20 or more transactions or shipping lines, or the order's 20th refund or later.</li>
+            <li>After a customer's data is erased at their request, refunds of their orders take nothing back.</li>
+            <li>These rules are for orders as they were paid. They don't cover orders that an edit or an exchange added items to after payment.</li>
+          </ul>
+        </section>
+
+        <section class="section" id="cost" aria-labelledby="cost-title">
+          <h2 id="cost-title">What does it cost you?</h2>
+          <p>
+            RewardsPro is free for every store that installs it, and no paid plans are offered.
+            The cashback is store credit in your own shop, so you fund the cashback you give.
+          </p>
+          <div class="rule">
+            <p class="rule-label">Shopify's rule</p>
+            <p>
+              For Shopify stores created on or after 12 May 2025, Shopify charges third-party transaction fees on the part of an order paid with store credit.
+              The rate depends on your Shopify plan.
+            </p>
+            <p class="source">
+              Sources: Shopify Help Center,
+              <a href="https://help.shopify.com/en/manual/customers/store-credit">"Store credit"</a> and
+              <a href="https://help.shopify.com/en/manual/your-account/manage-billing/billing-charges/types-of-charges/third-party-charges/third-party-transaction-fees">"Third-party transaction fees"</a>,
+              as read on 7 November 2026.
+            </p>
+          </div>
+        </section>
+
+        <section class="section" id="data" aria-labelledby="data-title">
+          <h2 id="data-title">Does RewardsPro email your customers?</h2>
+          <p>
+            RewardsPro sends no email.
+            One setting, off by default, asks Shopify to send its own email when a customer earns store credit: <strong>Email buyers when they earn store credit</strong>, under Settings.
+          </p>
+
+          <h3 id="data-requests">What happens when a customer asks for their data?</h3>
+          <p>
+            When a customer asks you for their data, Shopify sends the request to the apps on your store.
+            RewardsPro shows it inside the app, with a banner on Home and a list in Settings under <strong>Customer data requests</strong>.
+          </p>
+        </section>
+
+        <section class="section" id="uninstall" aria-labelledby="uninstall-title">
+          <h2 id="uninstall-title">What happens when you uninstall?</h2>
+          <p>
+            When you uninstall, RewardsPro stops working for your store: it records no more orders and sends no more credit.
+            Shopify removes the widget from your theme.
+            Uninstalling takes back none of the store credit your customers already have.
+          </p>
+        </section>
+
+        <section class="section" id="contact" aria-labelledby="contact-title">
+          <h2 id="contact-title">How do you reach us?</h2>
+          <p>
+            Write to us at <a href="mailto:contact@rewardspro.io">contact@rewardspro.io</a>.
+            In the app, Settings has a Help section with the same address.
+          </p>
+        </section>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>© 2026 Cambridge TCG Limited</p>
+        <nav aria-label="Footer">
+          <ul class="nav-list">
+            <li><a href="/#contact">Contact</a></li>
+            <li><a href="/privacy-policy/">Privacy</a></li>
+          </ul>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

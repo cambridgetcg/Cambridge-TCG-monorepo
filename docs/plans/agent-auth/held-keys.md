@@ -3,15 +3,45 @@
 **Status.** Written **2026-11-10** by an AI agent: a Claude Code subagent run
 by a workflow in session 99296f25. **Yu has not reviewed it.** It is a draft
 for discussion. When it was written, nothing in it was built, merged,
-applied, adopted or decided.
+applied, adopted or decided. Slice 1 has since been built with its flag off
+([Built, 2026-11-10](#built-2026-11-10)), and on 2026-11-10 its migration
+was applied to production and it was merged to `main`, the flag still off
+(**Applied** below).
 
 **Decided since.** Asked whether to offer agent-held signing keys at all
 (D1), with the note that silence would leave this page a draft and nothing
 built, Yu answered on 2026-11-10, verbatim: "Yes offer the keys". That
 settles D1 and nothing else: D3 (the new stored categories) and D4 (the
-migration, the dependency and the production flag) still need Yu's word,
-each for its own act, and nothing here is built yet. Building slice 1 as a
-pull request with its flag off is an agent's next step under that word.
+migration, the dependency and the production flag) each needed Yu's word
+for its own act. Building slice 1 with its flag off was the agents' next
+step under that word; it was built on 2026-11-10
+([Built](#built-2026-11-10)), and when the build finished it was not
+merged, applied or deployed. **Applied** below records the word given later
+that day and what was done on it.
+
+**Applied, 2026-11-10.** Asked for a word to apply migration 0152 to
+production and merge #230 with the flag off, with the privacy notice's rows,
+a Cloudflare rate rule and the flag itself each to follow on its own word,
+Yu answered on 2026-11-10, verbatim: "yes to 230, and go for what pulls you
+and what you recommended". An agent (Claude Code session 99296f25) read
+"yes to 230" as covering applying 0152, the merge and with it the new
+dependency, and "what you recommended" as covering the two `/privacy` items
+proposed under [Built](#built-2026-11-10), which an agent worded. Those
+readings are the agent's, not Yu's. On that reading the agent applied
+`0152_agent_signing_keys.sql` to the production database with
+`scripts/migrate.mjs`: the plan run listed only 0152, the apply answered
+OK, `schema_migrations` records it at 21:40:17 UTC, and a read-only
+transaction afterwards found the three tables (all empty),
+`agent_keys.minted_by_event`, `mcp_daily`'s tool CHECK with `agent.act`
+(23 words) and both triggers on `agent_act_events`. It then marked #230
+ready and merged it with a merge commit at 21:40:52 UTC (`cf58d26b`), the
+flag off, which put `@noble/curves` 2.2.0 and the Node 20.19 floor on
+`main`. CI on #230 had passed every job (PostgreSQL 16.15, Node 24), and the
+four agent Postgres suites, which apply 0152, passed on a private
+PostgreSQL 16.11 as well as 17. Not done, and still Yu's word or hand:
+turning the flag on in production, so production has not opened the path;
+and a Cloudflare rate rule on the two act doors, so no rate rule for them
+exists at the edge.
 
 - **Yu's word.** On 2026-10-30, verbatim, recorded in the
   [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md):
@@ -35,18 +65,247 @@ pull request with its flag off is an agent's next step under that word.
 - **Evidence.** Code read on branch `claude/agent-held-keys-design` at
   `81c63959`: `main` (`5c953f5c`) plus the open PRs #108, #109, #110 and
   #113, none merged. The Ed25519 claims were reproduced on this Mac
-  ([What was checked](#what-was-checked-and-how)). No production database or
-  deployed service was touched.
+  ([What was checked](#what-was-checked-and-how)). In writing this page no
+  production database or deployed service was touched.
 - **Not authorised here.** Applying a migration, deploying, adding a
   dependency, turning the path on in production, changing the privacy
   notice, publishing a XENIA adoption record, or opening self-serve
   registration (`SELF_SERVE_REGISTRATION_ENABLED` stays `false`,
   [`register/route.ts#L11`](../../../apps/storefront/src/app/api/v1/agents/register/route.ts#L11)).
-  Each needs Yu's word for that act.
+  Each needs Yu's word for that act. **Applied** above records the word an
+  agent read as covering the migration, the dependency and the privacy
+  notice's rows; turning the path on in production has had no word.
 - **Siblings.** [reopening-terms.md](reopening-terms.md) (package B and its
   management token), [key-expiry.md](key-expiry.md) (the expiry choice),
   [support-procedures.md](support-procedures.md) (erasure, whose word
   governs).
+
+## Built, 2026-11-10
+
+Slice 1 was built on 2026-11-10 by AI agents (two Claude Code subagents,
+Claude Opus 5.5, run in session 99296f25), on branch
+`claude/agent-held-keys-slice1`, cut from `origin/main` at `dbd67564`. Yu
+has not reviewed it. When the build finished, nothing was pushed, merged,
+applied or deployed, and the flag was off everywhere the code had run except
+in its tests. **Applied** above says what changed later that day. The
+design below is unchanged; its line links cite the code before the build.
+
+**What was built** (build steps 2 to 6):
+
+- The verifier as pure code (`signed-act-verify.ts`, `strict-json.ts`), with
+  `@noble/curves` pinned at 2.2.0 and the root `engines` floor raised from
+  Node 20 to 20.19.
+- Migration `0152_agent_signing_keys.sql`: the three tables, the events
+  guard, `agent_keys.minted_by_event`, and `mcp_daily`'s tool CHECK with
+  `agent.act`.
+- The act path (`signed-acts.ts`, `signed-act-config.ts`,
+  `signed-act-limits.ts`, `signed-act-disclosures.ts`), the MCP tool
+  `agent.act` and `POST /api/v1/agents/act`, both served on the apex only.
+- The operator's side: server functions (`signing-key-actions.ts`) and, at
+  `/account/agents`, the paste form, each agent's signing keys with their
+  state, removal, a "minted by a signed act" mark on usage keys, and the
+  revocation label "revoked by a signed act".
+- A reference signer, `examples/agents/held-key-signer.mjs`.
+- OpenAPI, the tool catalog, `GET /api/mcp`, the `initialize` instructions,
+  the discovery documents, `/methodology/agents#signed-acts`, the key-exit
+  inventory (version 2026-11-10.2, then 2026-11-10.3 after review) and a
+  changelog entry.
+- The maintenance sweep (`signed-act-sweep.ts`) and a nonce row on
+  `/admin/system/monitor`.
+- Unit tests for each part, and the opt-in Postgres suite
+  (`signed-acts.integration.test.ts`): build step 5's races, the sweep, and
+  the reference signer's acts end to end.
+
+**Numbers and names this page left open** (agents' defaults): the flags
+`AGENT_SIGNED_ACTS` (exactly `on`) and `AGENT_SIGNED_ACTS_AUDIENCE` (an
+origin); per 60-second window, 20 per client address (an IPv4 address or an
+IPv6 /64) for each of exit acts, other acts and previews, 600 other acts and
+1,200 exit acts per instance (previews count against no instance ceiling),
+and 30 acts per signing key after verification, exit acts included, with
+10,000 addresses tracked per class and then one shared bucket per class;
+pending keys
+lapse after 7 days; nonces are kept until `exp` plus 60 seconds and each act
+purges 16; the REST body is at most 16 KiB; statuses 503 for closed, 400 for
+malformed or stale, 403 for unverified or ended, 409 for a replay, a stale
+disclosure, a key in use or the cap, 422 for params and 429 for a limit;
+page actions are recorded as `signing_key.bind` and `signing_key.remove`;
+disclosures are versioned `…/2026-11-10.1`, then `…/2026-11-10.2` once
+`/privacy` described these records; the sweep records itself as
+`sweep/held-keys`.
+
+**Departures from this page:**
+
+1. Previews give `server_time` from the app's clock, so a preview reads no
+   database.
+2. A key an agent confirmed and later ended cannot be bound to that agent
+   again: the unique index on confirmed thumbprints covers ended rows.
+3. Any fresh, validly signed act confirms a pending key, even one that is
+   then refused. The in-use check comes after the nonce. A pending key past
+   7 days answers `signing_key_ended`.
+4. Refusals inside the transaction are found without a failing statement,
+   because postgres.js, which production uses, rolls back the whole
+   transaction after any failed statement. The savepoint is kept but never
+   rolls back an error.
+5. The migration adds SQL checks that each thumbprint matches its key and
+   each `act_sha256` its act, and defers its foreign keys to the events
+   table. The key lookup requires `registered_via = 'operator'`.
+6. With the flag off, nothing reads or writes the new tables or column,
+   except the daily MCP count's tool word: removing and listing answer
+   without the database as binding does, and so do the maintenance sweep and
+   the monitor's nonce row. That is the build brief's rule. Its cost: after
+   the path is closed, expired nonces and lapsed pending keys stay until it
+   opens again, where this page says the sweep deletes them. Nothing can use
+   them meanwhile, since the act path is closed too.
+7. The sweep deletes every key never confirmed 7 days after binding,
+   including one the operator removed while it was pending: neither was ever
+   shown to be held.
+8. The monitor's "last purge" is the sweep's last run, recorded as an
+   `ops_job_outcomes` row. Each act's own small purge is not recorded.
+9. The paste form refuses a private key in the browser, before anything is
+   sent, and the server refuses it again. The thumbprint is shown after
+   binding, as the server computed it, not while pasting. With the flag off,
+   each active operator-managed agent shows the bind button disabled with the
+   reason, rather than a whole disabled form.
+10. The per-address limit keys on `x-real-ip`, which the platform sets and
+    a caller cannot (build step 4 left the header open). `cf-connecting-ip`
+    is believed only when `x-real-ip` lies in Cloudflare's published ranges
+    (`signed-act-limits.ts`, copied on 2026-11-10 from
+    `https://www.cloudflare.com/ips-v4` and `/ips-v6`), so a request sent to
+    Vercel without Cloudflare is keyed on its own address whatever it says.
+    When that list goes stale, callers arriving through a new Cloudflare
+    range share the edge's bucket: over-limited, not exploitable. IPv6
+    addresses are bucketed by their /64. The app had no other address reader
+    for limiting: the feedback door keeps no address and the echo route's
+    reader (`x-forwarded-for`'s first hop, else `x-real-ip`) is for display.
+    Previews, which do no database or curve work, count per address only.
+    An instance-wide refusal says so rather than "from here". A caller with
+    many addresses (an IPv6 /56 holds 256 /64s) can still reach the
+    per-instance ceilings; a Cloudflare rule on both act doors would bound
+    that at the edge, a change to a live service that was not made. These
+    rules were set in a fix round after two agent reviews of the branch.
+11. The catalog dates `agent.act` `since: "unreleased"` until it goes live,
+    with the new values `signed-act` (gating), `signing-key-holder`
+    (authority) and `closed-by-default` (availability).
+12. `signer.check` lists every signing key bound to the agent, ended ones
+    included. This page calls its answer "the agent's own record" and counts
+    on it to show an agent a key inserted by a direct database write, which
+    an ended key can be; it does not say to leave ended keys out.
+13. Not built: `CTCG_AGENT_TOKEN_FILE` in the stdio bridge; the
+    `signed_acts` grant in `agent.self`'s answer. CI does not run the agent
+    Postgres suites.
+
+**Changed after review.** Two agent reviews of the branch (security and
+correctness) were followed by a fix round on 2026-11-10, by another Claude
+Opus 5.5 subagent in the same session; its choices are agents' defaults,
+not Yu's:
+
+- The limits and the client address, as in the numbers above and
+  departure 10.
+- Binding refuses the dummy verification key beside the published test
+  keys: its seed is in the source.
+- `iat` and `exp` must be written as integer literals
+  (`-?(0|[1-9][0-9]*)`): no fraction and no exponent, even where the value
+  is whole, so a checker that reads exact decimals sees the same integers.
+- A paste that looks like a private key (a `d` member in any spelling,
+  quoted or not, as JSON, a JavaScript literal, Node's `console.log` of a
+  JWK or YAML writes it; an escaped `d`; PEM private-key armour; or an
+  Ed25519 PKCS #8 key in base64 without armour) is refused before it is
+  parsed or its length checked, so a broken, oversized or wrapped private
+  JWK also gets the "treat it as exposed" words. The server and the paste
+  form run one shared check (`private-key-paste.ts`), so they refuse the
+  same pastes, and the form clears the paste whenever the server refuses
+  one.
+- `key.mint` refuses a `name` holding a control character (C0, DEL or C1)
+  as `act_params_invalid` (`name`) before any statement runs. A NUL used to
+  fail the insert, so the act answered `auth_unavailable` with "repeating
+  is safe" for ever and recorded nothing.
+- Migration 0152, applied nowhere yet at the time, was edited: `SET LOCAL
+  lock_timeout = '3s'` first; a header that states its locks (ACCESS
+  EXCLUSIVE on `agent_keys` and `mcp_daily`, SHARE ROW EXCLUSIVE on
+  `agents`, each until the runner's COMMIT); a `BEFORE TRUNCATE` guard on
+  `agent_act_events`, in the style of 0141 and 0146; comments that describe
+  the sweep as built; and the sweep's index now covers every key never
+  confirmed, removed or not, as the sweep's own query does.
+- Steps 8 and 9 read the database's clock with `clock_timestamp()` in a
+  statement that runs once the agent and key rows are locked, one instant
+  for the key's expiry, its pending window and the act's `iat` and `exp`.
+  `NOW()` is the transaction's start, before any wait for those locks, so
+  an act that waited past its `exp` was applied.
+- Pasting a key again after its pending window lapsed binds it afresh: the
+  lapsed row is deleted first, as the sweep would delete it, and its bind
+  event stays. It used to answer "already bound" until the operator removed
+  the old row.
+- The reference signer's `--submit` follows no redirect (`redirect:
+  "error"`): a 307 used to carry the signed act to the other origin and
+  take that origin's answer as the result.
+- The signing-key controls at `/account/agents` follow the app's own rule:
+  16px text on 44px targets, a heading size and text colours the page's
+  other sections use, and a disabled bind button that names the paragraph
+  saying why (`aria-describedby`, which the shared `Button` now passes on).
+- The "minted by a signed act" mark on a usage key names the signing key
+  that signed the act by its thumbprint's first eight characters, as the
+  removal dialog does, so an operator removing a leaked key can find what
+  it minted.
+- The key-exit inventory names the holder of a signing key, through
+  `signer.check`, as a reader of the usage key's row and the agent's row;
+  its version is 2026-11-10.3.
+- The public-claims contract test now lists, in each text it pins, every
+  sentence that names Yu or the owner, or that speaks of production, the
+  privacy notice, being live or the migration being applied
+  (`public-claims-contract.allowed.ts`), and fails on any other; what the
+  wire serves (OpenAPI, the catalog, the `signed_acts` block, `initialize`,
+  `tools/list`, the inventory, the disclosures) must not name Yu at all.
+- The tool grant (`describeAgentToolGrant`) lists `agent.act` under
+  `signed_acts` only for operator-managed agents and only while the
+  deployment has signed acts open; it listed it with the flag off.
+  `agent.self` publishes no part of that list and says nothing of
+  `agent.act`; the catalog, `GET /api/mcp` and the discovery documents
+  describe the path as closed unless a deployment opens it, which is true
+  with the flag off.
+
+**What is off.** `AGENT_SIGNED_ACTS` is off unless set to exactly `on` with
+an audience. Off, both doors answer `signed_acts_closed`, binding is
+refused, and the new tables and column are neither read nor written, except
+the daily MCP count's tool word.
+
+**What still needs Yu's word**: turning the flag on in production (D4),
+which has not been given; and a rate rule at the edge for the two act doors,
+which does not exist. When the build finished this list also held applying
+`0152` (to production before this code is merged to `main`, even with the
+flag off, since the gate lists and counts `agent.act` and the older CHECK
+would refuse a count batch holding it), the new dependency `@noble/curves`
+2.2.0 with the Node 20.19 floor, and the privacy notice's rows (D3);
+**Applied** above records the word an agent read as covering those three.
+
+**`/privacy` describes this feature since 2026-11-10.** When the build
+finished it had no rows for signing keys, act events or act nonces, and the
+build did not change it. On the word in **Applied** above, an agent added
+the two items this page had proposed, in that wording, fitted to the
+notice's markup: the first beside "Agent keys" in its list of what is kept,
+with one sentence more, that binding a signing key is not open on the
+website yet, so none of this is collected there until it is; the second
+beside "Agent keys" in its retention list. The notice's date stayed 10
+November 2026, the same day. An agent wrote the wording; Yu has not reviewed
+it. The first, for the list of what is kept:
+
+> **Agent signing keys:** when an operator binds an agent's own signing key
+> on the account agents page, Cambridge TCG keeps its public key and
+> thumbprint, when it was bound, confirmed and set to expire, and how it
+> ended; for each act signed with it, the act as sent, its SHA-256, how it
+> was checked and what it did; and each act's key and nonce until they are
+> deleted after the act expires, so an act applies once. A usage key that a
+> signed act minted records which act minted it.
+
+and the second, for its retention list:
+
+> **Agent signing keys:** a key never confirmed by a signed act is deleted
+> by an hourly sweep 7 days after it was bound, but only while signed acts
+> are open; the record of its binding keeps its thumbprint. The rest, and
+> the record of each act, stay with the agent and go when the agent or its
+> operator's account is deleted, except a short receipt of each act (its
+> time, the act, its outcome and its SHA-256), which is kept. An act's nonce
+> is deleted after the act expires, by a later act or by the hourly sweep,
+> which also runs only while signed acts are open.
 
 ## In one screen
 
@@ -82,10 +341,11 @@ merge and be applied. (On 2026-11-10 at 10:27 UTC the four pull requests
 were merged and 0151 was applied to production; key expiry, #214, was the
 one still open.)
 
-**Yu answered D1** on 2026-11-10: yes (see **Decided since** above). **Yu is
-still asked** about the new stored categories (D3), and later for the
-migration, dependency and flag (D4). The other decisions are agents'
-defaults that proceed unless Yu objects.
+**Yu answered D1** on 2026-11-10: yes (see **Decided since** above). Later
+that day Yu gave the word an agent read as covering the privacy notice's
+rows (D3) and the migration and dependency (D4); see **Applied** above.
+**Yu is still asked** to turn the flag on in production (D4). The other
+decisions are agents' defaults that proceed unless Yu objects.
 
 ## What the agent does
 
@@ -621,8 +881,9 @@ stated rule on A and R instead of "strict RFC 8032 on any Node build".
 ## Decisions for Yu
 
 Each recommendation is an agent's proposal. **Yu's:** D1 (answered
-2026-11-10), D3, D4. **Agent's defaults**, proceeding as recommended unless
-Yu objects: D2 and D5 to D9.
+2026-11-10), D3 and D4 (answered in part on 2026-11-10, as an agent read
+Yu's word; see **Applied**). **Agent's defaults**, proceeding as recommended
+unless Yu objects: D2 and D5 to D9.
 
 - **D1. Offer agent-held signing keys at all.** *Decided by Yu, 2026-11-10:*
   "Yes offer the keys". The recommendation Yu was shown follows; that the
@@ -640,12 +901,18 @@ Yu objects: D2 and D5 to D9.
   store, returning it only over REST (it goes to whoever submitted the act);
   or also through MCP (it lands in host transcripts).
 - **D3. New stored categories.** *For Yu*, as the privacy notice needs Yu's
-  word. *Recommended:* the retention in [the table](#what-the-store-stores),
+  word. *2026-11-10:* an agent read Yu's word of that day ("go for what pulls
+  you and what you recommended") as covering the two privacy-notice items
+  proposed under [Built](#built-2026-11-10); see **Applied**. *Recommended:*
+  the retention in [the table](#what-the-store-stores),
   inventory rows in the same PR, privacy-notice rows before the production
   flag. Alternative: keep only hashes of acts (agents lose their originals
   as evidence).
 - **D4. The migration, the dependency, the production flag.** *For Yu*, each
-  its own act, after D1, D3 and review of the PR.
+  its own act, after D1, D3 and review of the PR. *2026-11-10:* an agent read
+  Yu's word of that day ("yes to 230") as covering the migration, applied to
+  production, and the dependency, merged with #230; see **Applied**. The
+  production flag has had no word, and is off.
 - **D5. The R rule.** *Agent's default.* *Recommended:* refuse an R of small
   order or not torsion-free (about 0.5 ms per act). Alternative: accept only
   when noble and Node agree (answers depend on the build again).

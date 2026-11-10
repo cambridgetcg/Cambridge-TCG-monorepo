@@ -231,17 +231,17 @@ async function emailDriftSummary(alerts: Array<{ kindGroup: string; chiSquare: n
 
     const rows = alerts.map((a) =>
       `<tr>
-         <td style="padding:6px 10px;font-family:monospace;color:#e5e5e5;">${escapeHtml(a.kindGroup)}</td>
-         <td style="padding:6px 10px;text-align:right;font-family:monospace;color:#fbbf24;">${a.chiSquare.toFixed(2)}</td>
-         <td style="padding:6px 10px;text-align:right;color:#a3a3a3;">${a.sampleSize}</td>
+         <td style="padding:6px 10px;font-family:monospace;color:#201d18;">${escapeHtml(a.kindGroup)}</td>
+         <td style="padding:6px 10px;text-align:right;font-family:monospace;color:#86661c;">${a.chiSquare.toFixed(2)}</td>
+         <td style="padding:6px 10px;text-align:right;color:#5e574c;">${a.sampleSize}</td>
        </tr>`
     ).join("");
 
     const bodyHtml = `
       <p style="margin:0 0 12px;">Recorded draw distribution drift detected in the last 24h window:</p>
-      <table style="width:100%;border-collapse:collapse;background:#18181b;border-radius:8px;">
+      <table style="width:100%;border-collapse:collapse;background:#f3f0e9;border-radius:8px;">
         <thead>
-          <tr style="color:#737373;font-size:11px;text-transform:uppercase;letter-spacing:2px;">
+          <tr style="color:#5e574c;font-size:11px;text-transform:uppercase;letter-spacing:2px;">
             <th style="padding:8px 10px;text-align:left;">Group</th>
             <th style="padding:8px 10px;text-align:right;">χ²</th>
             <th style="padding:8px 10px;text-align:right;">Samples</th>
@@ -249,11 +249,11 @@ async function emailDriftSummary(alerts: Array<{ kindGroup: string; chiSquare: n
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      <p style="margin:16px 0 0;font-size:13px;color:#a3a3a3;">
+      <p style="margin:16px 0 0;font-size:13px;color:#5e574c;">
         Review the per-group breakdown at
-        <a href="https://cambridgetcg.com/admin/fairness" style="color:#fbbf24;">the draw distribution admin</a>
+        <a href="https://cambridgetcg.com/admin/fairness" style="color:#86661c;">the draw distribution admin</a>
         or inspect raw counts at
-        <a href="https://cambridgetcg.com/verify/fairness" style="color:#fbbf24;">/verify/fairness</a>.
+        <a href="https://cambridgetcg.com/verify/fairness" style="color:#86661c;">/verify/fairness</a>.
       </p>
     `;
 

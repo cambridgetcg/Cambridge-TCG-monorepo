@@ -507,6 +507,7 @@ describe.skipIf(!hasTestDatabase)("recordOrder", () => {
           productValue: pair("20.00"),
           refundedAt: new Date("2026-11-04T14:00:00Z"),
           completesOrder: false,
+          moneyPending: false,
         },
       ],
     });
@@ -528,6 +529,40 @@ describe.skipIf(!hasTestDatabase)("recordOrder", () => {
       externalRefundId: "gid://shopify/Refund/1",
       appliedBeforeCashback: true,
     });
+  });
+
+  it("a late order with a pending money-only refund marks it and defers its take-back (#195)", async () => {
+    // Its successful £5 lowers spend now; its take-back waits for its money,
+    // so the credit is left at its full £2.50 (Option B), not cut as Ruling 24's on-time refund would cut it.
+    const { conn } = await runningShop();
+    const facts = orderFacts({
+      refundedProductValue: pair("5.00", "5.00"),
+      refunds: [
+        {
+          externalRefundId: "gid://shopify/Refund/1",
+          productValue: pair("5.00"),
+          refundedAt: new Date("2026-11-04T14:00:00Z"),
+          completesOrder: false,
+          moneyPending: true,
+        },
+      ],
+    });
+
+    const before = Date.now();
+    const result = await recordOrder(conn, facts, "live");
+
+    expect(result).toMatchObject({ status: "recorded", noCashback: null });
+    const order = await prisma.order.findFirstOrThrow();
+    expect([money(order.refundedProductAmount), money(order.shopRefundedProductAmount)]).toEqual(["5.0000", "5.0000"]);
+    const entry = await prisma.ledgerEntry.findFirstOrThrow({ where: { kind: "cashback" }, include: { payout: true } });
+    expect([money(entry.amount), money(entry.payout?.amount), entry.payout?.state]).toEqual(["2.5000", "2.5000", "pending"]);
+    expect(await prisma.ledgerEntry.count({ where: { kind: "reversal" } })).toBe(0);
+    expect(await prisma.refund.findFirstOrThrow()).toMatchObject({
+      externalRefundId: "gid://shopify/Refund/1",
+      appliedBeforeCashback: true,
+      moneyPendingSince: expect.any(Date),
+    });
+    expect((await prisma.refund.findFirstOrThrow()).moneyPendingSince?.getTime()).toBeGreaterThanOrEqual(before);
   });
 
   it("a guest order is not recorded", async () => {

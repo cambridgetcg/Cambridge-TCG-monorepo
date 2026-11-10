@@ -5,6 +5,14 @@ import { describe, expect, it } from "vitest";
 import { GET as getMcpConfig } from "@/app/.well-known/mcp-config.json/route";
 import { GET as getMcpDiscovery } from "@/app/.well-known/mcp.json/route";
 import { GET as getToolCatalog } from "@/app/api/v1/tools/route";
+import { GET as getCambridgeTcgDiscovery } from "@/app/.well-known/cambridge-tcg.json/route";
+import { GET as getOpenApi } from "@/app/api/openapi.json/route";
+import { GET as getMcpCatalog } from "@/app/api/mcp/catalog/route";
+import * as keyExitInventory from "@/lib/agents/key-exit-inventory";
+import { SIGNED_ACT_DISCLOSURES } from "@/lib/agents/signed-act-disclosures";
+import { AGENT_SIGNED_ACTS } from "@/lib/agents/tool-access";
+import { AGENT_TOOLS } from "@/lib/agent-tools-catalog";
+import { HELD_KEYS_CLAIM_SENTENCES } from "./public-claims-contract.allowed";
 import { KEY_EXIT_LINEARIZATION } from "@/lib/agents/key-exit-inventory";
 import { KEY_EXPIRY_NEVER_WARNING } from "@/lib/agents/key-expiry";
 import { describeAgentToolGrant } from "@/lib/agents/tool-access";
@@ -37,7 +45,64 @@ function between(text: string, start: string, end: string): string {
   return text.slice(from, to);
 }
 
+/** A text's sentences: split at sentence ends, markdown table cells, list
+ *  items and headings, so each claim is judged on its own. */
+function sentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+(?=[^a-z])|\s\|(?:\s*-+\s*\|)*\s|\s(?=- )|\s(?=#+ )/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+// These triggers are a net with holes, not a parser: they catch the shapes
+// of claim seen so far (each proved below) and the sentences around them,
+// and a claim worded around every one of them gets through. They exist to
+// make an added claim ask for review, not to prove the texts true.
+
+/** Who decided: Yu, by name, or "the owner". */
+const NAMES_YU = /\bYu\b|\bthe owner\b/i;
+const ATTRIBUTION = NAMES_YU;
+/** Whether it is live, applied, noticed or approved: production, the
+ *  privacy notice, being (now) live, turned on or enabled, the migration
+ *  applied or run, the path said to be open somewhere in particular, or
+ *  anyone said to have approved, accepted or signed off on it. */
+const STATUS = new RegExp(
+  [
+    /\b(?:approved|endorsed|signed off|sanctioned|ratified)\b/.source,
+    /\b(?:has|have|had)\s+(?:since\s+)?(?:\w+\s+and\s+)?accepted\b|\baccepted\s+(?:the|these|this|its|their)\s+(?:design|limits?|numbers?|retention|defaults?|wording|proposal)\b/.source,
+    /\bproduction\b|\blive\b(?!\s+(?:usage|signing|keys?)\b)|\bnow\s+(?:open|on)\b|\b(?:turned|switched)\s+on\b|\benabled\b|\bprivacy\b/.source,
+    /\bapplied\b[^.]*\b(?:0152|migration)\b|\b(?:0152|migration)\b[^.]*\bapplied\b/.source,
+    // "0152 has run", "the migration was executed", "ran 0152".
+    /\b(?:0152|migrations?)\b[^.]*\b(?:has|have|had|was|were)\s+(?:(?:now|been|already)\s+)*(?:run|ran|executed|deployed)\b|\b(?:ran|executed)\s+(?:the\s+)?(?:migration\s+)?0152\b/.source,
+    // "are open on cambridgetcg.com", not "open on the deployment" or "on a deployment".
+    /\b(?:is|are|was|were|been)\s+(?:now\s+)?(?:open|opened|on)\s+(?:on|in|at|for)\s+(?!(?:this|a|an|the|any|each|that|every)\b)/.source,
+  ].join("|"),
+  "i",
+);
+/** Names something held keys added, in a text that covers more. */
+const HELD_KEYS = /signed acts?\b|signing keys?|held.keys|agent\.act\b|\b0152\b|AGENT_SIGNED_ACTS|agent_act_|agent_signing_keys/i;
+
+/**
+ * The sentences in a text that make a claim the held-keys contract
+ * controls: every sentence that names Yu or the owner; and, by `status`,
+ * every sentence about production, the privacy notice, being live or open
+ * somewhere, the migration being applied or run, or an approval ("all", a
+ * held-keys text), only those that also
+ * name something held keys added ("held-keys", a shared text), or none
+ * (source modules, whose code would match).
+ */
+function claimSentences(text: string, status: "all" | "held-keys" | "none"): string[] {
+  return sentences(text).filter(
+    (sentence) =>
+      ATTRIBUTION.test(sentence) ||
+      (status !== "none" && STATUS.test(sentence) && (status === "all" || HELD_KEYS.test(sentence))),
+  );
+}
+
+const SIGNED_ACTS_SECTION = (page: string) => between(page, "Signed acts (agent-held keys)", "What an agent cannot do");
+
 const KEY_EXPIRY_ENTRY = CHANGELOG_ENTRIES.find((entry) => entry.id === "agent-key-expiry-per-key")!;
+const HELD_KEYS_ENTRY = CHANGELOG_ENTRIES.find((entry) => entry.id === "agent-held-signing-keys-closed")!;
 
 describe("public claims match publication boundaries", () => {
   it("describes the MCP endpoint as custom JSON-RPC and requires the vendored bridge", async () => {
@@ -279,6 +344,91 @@ describe("public claims match publication boundaries", () => {
     );
   });
 
+  it("pins who decided held keys, that the flag is off, and that 0152 goes before the code", () => {
+    const methodology = prose("src/app/methodology/agents/page.tsx");
+    const plan = prose("../../docs/plans/agent-auth/held-keys.md");
+    const plans = prose("../../docs/plans/agent-auth/README.md");
+    const migration = prose("drizzle/0152_agent_signing_keys.sql");
+    const openapi = prose("src/app/api/openapi.json/route.ts");
+    const detail = HELD_KEYS_ENTRY.detail ?? "";
+
+    // Attribution: Yu decided to offer the keys, in Yu's words; nothing else.
+    expect(detail).toContain('Yu decided on 2026-11-10 to offer agent-held signing keys ("Yes offer the keys").');
+    expect(methodology).toContain('Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys ("Yes offer the keys").');
+    expect(plan).toContain('Yu answered on 2026-11-10, verbatim: "Yes offer the keys". That settles D1 and nothing else');
+    expect(plans).toContain('Whether to offer it at all was Yu\'s call (its D1), and Yu answered on 2026-11-10: "Yes offer the keys".');
+    // Every other choice is an agent's proposal or default.
+    expect(detail).toContain("How they work, the acts, numbers, limits and retention, is an AI agent's design and defaults, which Yu has not reviewed.");
+    expect(methodology).toContain("is an AI agent's design and defaults, which Yu has not reviewed.");
+    expect(plan).toContain("Slice 1 was built on 2026-11-10 by AI agents");
+    expect(plan).toContain("Numbers and names this page left open** (agents' defaults)");
+    expect(plans).toContain("Yu decided to offer the keys; the design, its numbers and its retention are agents' proposals and defaults, unreviewed by Yu.");
+    expect(migration).toContain("Every name, number and retention below is an agent's proposal in that page, not the owner's decision.");
+    for (const [path, sentence] of [
+      ["src/lib/agents/signed-act-verify.ts", "every rule and number here is an agent's proposal in that page, not the owner's choice."],
+      ["src/lib/agents/signed-act-config.ts", "Every number here is an agent's choice"],
+      ["src/lib/agents/signed-act-disclosures.ts", "The wording is an agent's, not the owner's."],
+      ["src/lib/agents/signed-acts.ts", "Everything else here, the acts, numbers and wording included, is an agent's proposal in that page or an agent's default"],
+    ] as const) {
+      expect(prose(path), path).toContain(sentence);
+    }
+    for (const text of [detail, HELD_KEYS_ENTRY.summary, methodology, plan, plans, migration]) {
+      expect(text).not.toMatch(/\b(?:chosen|decided|approved) by Yu\b/);
+    }
+
+    // The flag is off, wherever the path is described to the public.
+    expect(HELD_KEYS_ENTRY.summary).toContain("Production has not opened them, so both answer signed_acts_closed.");
+    expect(detail).toContain("turning it on in production needs Yu's word, which has not been given.");
+    expect(methodology).toContain("The path is closed unless a deployment opens it, and production has not");
+    expect(openapi).toContain("Closed unless this deployment sets AGENT_SIGNED_ACTS to on with its own audience; production has not, so it answers signed_acts_closed (503) before reading the body.");
+    expect(prose("src/lib/agent-tools-catalog.ts")).toContain("Closed unless the deployment opens it, and production has not: while closed it answers signed_acts_closed.");
+    expect(prose("../../docs/operations/monitoring.md")).toContain("Turning it on in production is Yu's call and has not been made");
+    expect(plan).toContain("When the build finished, nothing was pushed, merged, applied or deployed");
+
+    // Rollout: 0152 before the code, and before the merge, since a push to main deploys.
+    expect(detail).toContain("This needs migration 0152 applied before this code deploys, even closed");
+    expect(migration).toContain("Rollout: apply 0152, then deploy.");
+    expect(migration).toContain("apply this to the production database before the change that uses it is merged to main, not after.");
+    expect(migration).toContain("It MUST be applied before that code deploys, even with the signed-acts flag (AGENT_SIGNED_ACTS) off");
+    expect(prose("../../docs/ops-deploy-runbook.md")).toContain(
+      "Agent-held signing keys require `0152_agent_signing_keys.sql` before their code is merged to `main`, even with `AGENT_SIGNED_ACTS` off",
+    );
+    expect(plans).toContain("apply 0152 to the production database before that branch is merged to `main`, even with the flag off");
+    expect(plan).toContain("applying `0152` (to production before this code is merged to `main`, even with the flag off");
+
+    // What still waits for Yu, and the notice this build did not change.
+    expect(detail).toContain('Yu answered, verbatim: "yes to 230, and go for what pulls you and what you recommended". An AI agent read that as covering 0152, the merge with its new dependency (@noble/curves 2.2.0, Node 20.19 or later) and the privacy notice\'s rows');
+    expect(detail).toContain("turning the path on in production was not asked, and has had no word.");
+    expect(plan).toContain("When the build finished it had no rows for signing keys, act events or act nonces, and the build did not change it.");
+    expect(methodology).toContain("Since 10 November 2026 the privacy notice describes the records it keeps, in words an AI agent wrote.");
+    expect(detail).toContain("which /privacy has carried since 2026-11-10 in words an AI agent wrote");
+    // The one change outside the slice, which applies with the flag on or off.
+    expect(detail).toContain(
+      "Outside signed acts, with the flag on or off, minting a usage key at /account/agents now refuses a key name holding a control character, such as a tab or NUL; before, a tab was stored and a NUL made the request fail.",
+    );
+  });
+
+  it("promises no more deletion of held-keys records than the code does", () => {
+    const methodology = prose("src/app/methodology/agents/page.tsx");
+    // The proposed privacy text is a block quote: its "> " leaders go too.
+    const plan = prose("../../docs/plans/agent-auth/held-keys.md").replace(/ > /g, " ");
+    const support = prose("../../docs/plans/agent-auth/support-procedures.md");
+    // Only the hourly sweep deletes a never-confirmed key or an expired
+    // nonce in bulk, and it runs only while signed acts are open; the bind
+    // event keeps the key's thumbprint.
+    expect(methodology).toContain(
+      "A key never confirmed is deleted by the hourly sweep {PENDING_SIGNING_KEY_DAYS} days after it was bound, but only while signed acts are open on the deployment, and the event that bound it keeps its thumbprint.",
+    );
+    expect(plan).toContain(
+      "a key never confirmed by a signed act is deleted by an hourly sweep 7 days after it was bound, but only while signed acts are open; the record of its binding keeps its thumbprint.",
+    );
+    expect(plan).toContain("An act's nonce is deleted after the act expires, by a later act or by the hourly sweep, which also runs only while signed acts are open.");
+    expect(support).toContain("each row is deleted after its act expires, by a later act or by the hourly sweep, which runs only while signed acts are open.");
+    for (const [name, text] of [["methodology", methodology], ["held-keys.md", plan], ["support-procedures.md", support]] as const) {
+      expect(text, name).not.toMatch(/never confirmed is deleted after (?:\d+|\{PENDING_SIGNING_KEY_DAYS\}) days|minutes after (?:each|the) act expires|for a few minutes, each act's key and nonce/);
+    }
+  });
+
   it("names XENIA only with the full non-adoption wording, and never claims conformance or adoption", () => {
     const DISCLAIMER = "(xenia d4727ec); Cambridge TCG has not adopted the Covenant; no adoption record; unassessed";
     for (const path of [
@@ -288,6 +438,7 @@ describe("public claims match publication boundaries", () => {
       "src/lib/agents/refusals.ts",
       "../../docs/plans/agent-auth/key-expiry.md",
       "../../docs/plans/agent-auth/README.md",
+      "../../docs/plans/agent-auth/held-keys.md",
     ]) {
       const text = prose(path);
       expect(text, path).toMatch(/xenia/i);
@@ -397,5 +548,95 @@ describe("public claims match publication boundaries", () => {
       expect(text, path).toMatch(/logs may (?:still )?(?:exist|contain)|access logs may exist/);
       expect(text, path).not.toMatch(/\bNo tracking\b|\bNot logged\b|no logging beyond|has no idea (?:you are|you're)/i);
     }
+  });
+
+  describe("held keys: only listed sentences say who decided, or that anything is live, applied or noticed", () => {
+    function pinnedTexts(): Record<string, { text: string; status: "all" | "held-keys" | "none" }> {
+      const page = prose("src/app/methodology/agents/page.tsx");
+      const section = SIGNED_ACTS_SECTION(page);
+      return {
+        "changelog: agent-held-signing-keys-closed": { text: `${HELD_KEYS_ENTRY.summary} ${HELD_KEYS_ENTRY.detail ?? ""}`, status: "all" },
+        "methodology: signed acts": { text: section, status: "all" },
+        "methodology: the rest": { text: page.replace(section, " "), status: "held-keys" },
+        "held-keys.md": { text: prose("../../docs/plans/agent-auth/held-keys.md"), status: "all" },
+        "agent-auth README.md": { text: prose("../../docs/plans/agent-auth/README.md"), status: "held-keys" },
+        "0152_agent_signing_keys.sql": { text: prose("drizzle/0152_agent_signing_keys.sql"), status: "all" },
+        "monitoring.md": { text: prose("../../docs/operations/monitoring.md"), status: "held-keys" },
+        "ops-deploy-runbook.md": { text: prose("../../docs/ops-deploy-runbook.md"), status: "held-keys" },
+        "signed-act-verify.ts": { text: prose("src/lib/agents/signed-act-verify.ts"), status: "none" },
+        "signed-act-config.ts": { text: prose("src/lib/agents/signed-act-config.ts"), status: "none" },
+        "signed-act-disclosures.ts": { text: prose("src/lib/agents/signed-act-disclosures.ts"), status: "none" },
+        "signed-acts.ts": { text: prose("src/lib/agents/signed-acts.ts"), status: "none" },
+      };
+    }
+
+    it("finds in each pinned text exactly the sentences listed for it", () => {
+      for (const [name, { text, status }] of Object.entries(pinnedTexts())) {
+        const found = claimSentences(text, status);
+        const listed = HELD_KEYS_CLAIM_SENTENCES[name] ?? [];
+        // A new or changed sentence: add it to the list only if it is true.
+        expect(found.filter((sentence) => !listed.includes(sentence)), `${name}: not listed`).toEqual([]);
+        // A listed sentence that is gone: take it off the list.
+        expect(listed.filter((sentence) => !found.includes(sentence)), `${name}: listed but gone`).toEqual([]);
+      }
+      // Every list belongs to a pinned text.
+      expect(Object.keys(HELD_KEYS_CLAIM_SENTENCES).filter((name) => !(name in pinnedTexts()))).toEqual([]);
+    });
+
+    it("catches an added sentence that says Yu decided more, or that the feature is live, applied or noticed", () => {
+      const texts = pinnedTexts();
+      const added = [
+        "Yu chose the 300-second lifetime.",
+        "Yu approved these limits.",
+        "Yu has since reviewed and accepted the design.",
+        "Production opened it on 2026-11-11.",
+        "The privacy notice now lists these records.",
+        "The numbers were approved by Yu.",
+        "Signed acts are now live.",
+        "0152 has been applied.",
+        // Claims that avoid the first triggers' words.
+        "Signed acts are open on cambridgetcg.com.",
+        "0152 has run on the store's database.",
+        "Cambridge TCG approved these limits.",
+      ];
+      const anchor = "Usage keys work as before, with or without a signing key.";
+      for (const sentence of added) {
+        for (const name of ["methodology: signed acts", "held-keys.md", "changelog: agent-held-signing-keys-closed"]) {
+          const { text, status } = texts[name];
+          const changed = name === "methodology: signed acts" ? text.replace(anchor, `${anchor} ${sentence}`) : `${text} ${sentence}`;
+          expect(changed, name).not.toBe(text);
+          const unlisted = claimSentences(changed, status).filter((found) => !(HELD_KEYS_CLAIM_SENTENCES[name] ?? []).includes(found));
+          expect(unlisted, `${name}: ${sentence}`).toEqual([sentence]);
+        }
+      }
+    });
+
+    it("never names Yu, or the owner, in what the wire serves about held keys", async () => {
+      const served = {
+        openapi: await (await getOpenApi()).text(),
+        "tool catalog": JSON.stringify(AGENT_TOOLS),
+        "/api/mcp/catalog": await (await getMcpCatalog(new NextRequest("https://cambridgetcg.com/api/mcp/catalog"))).text(),
+        "signed_acts block": JSON.stringify(AGENT_SIGNED_ACTS),
+        "mcp.json": await (await getMcpDiscovery()).text(),
+        "mcp-config.json": await (await getMcpConfig()).text(),
+        "cambridge-tcg.json": await (await getCambridgeTcgDiscovery()).text(),
+        // Its held-keys block only: the rest of /api/v1/tools quotes Yu on
+        // an older, unrelated matter.
+        "/api/v1/tools signed_acts": JSON.stringify(
+          Object.values((await (await getToolCatalog(new NextRequest("https://cambridgetcg.com/api/v1/tools"))).json()) as Record<string, unknown>)
+            .map((part) => (part && typeof part === "object" ? (part as Record<string, unknown>).signed_acts : undefined))
+            .find(Boolean) ?? "",
+        ),
+        "key-exit inventory": JSON.stringify(Object.values(keyExitInventory).filter((value) => typeof value !== "function")),
+        disclosures: JSON.stringify(SIGNED_ACT_DISCLOSURES),
+      };
+      for (const [name, text] of Object.entries(served)) expect(text.length, name).toBeGreaterThan(0);
+      const naming = Object.entries(served)
+        .filter(([, text]) => NAMES_YU.test(text))
+        .map(([name, text]) => `${name}: …${text.slice(Math.max(0, text.search(NAMES_YU) - 60), text.search(NAMES_YU) + 40)}…`);
+      expect(naming).toEqual([]);
+      // The check would see one: the same block with a sentence added.
+      expect(JSON.stringify({ ...AGENT_SIGNED_ACTS, scope: `${AGENT_SIGNED_ACTS.scope}. Yu chose it.` })).toMatch(NAMES_YU);
+    });
   });
 });

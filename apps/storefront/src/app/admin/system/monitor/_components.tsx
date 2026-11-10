@@ -53,6 +53,16 @@ export function Flag({ name, on }: { name: string; on: boolean }) {
   );
 }
 
+/** A setting that is not an on/off flag: its name and a word for its state. */
+export function SettingState({ name, state, tone }: { name: string; state: string; tone: Tone }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-xs">
+      <code className="text-neutral-300">{name}</code>
+      <StatusBadge status={state} palette={{ [state]: tone }} label={state} />
+    </span>
+  );
+}
+
 const OUTCOME_TONE: Record<string, Tone> = { ran: "emerald", "already-derived": "blue", disabled: "neutral", unknown: "amber" };
 export function Outcome({ outcome }: { outcome: string }) {
   const tone = OUTCOME_TONE[outcome] ?? (outcome.startsWith("refused:") ? "amber" : outcome.startsWith("unavailable:") ? "red" : "neutral");

@@ -7,6 +7,12 @@
  * A revoked key's reason is reduced to a category here, on the server
  * (key-revocation-label.ts); the reason text is not sent to the browser.
  *
+ * Agent-held signing keys (docs/plans/agent-auth/held-keys.md): while the
+ * path is open on this deployment (signed-act-config.ts), the page lists
+ * each operator-managed agent's signing keys and marks the usage keys a
+ * signed act minted, through listSigningKeys. While it is closed the page
+ * reads neither, and the client shows the paste form disabled.
+ *
  * See docs/connections/the-agent-surface.md.
  */
 
@@ -15,6 +21,8 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { expiredAgentKeySql } from "@/lib/agents/key-expiry";
+import { signedActsOpen } from "@/lib/agents/signed-act-config";
+import { listSigningKeys, type SigningKeyRow } from "@/lib/agents/signing-key-actions";
 import { PageHeader, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
 import { AgentsClient } from "./_client";
 import { toKeyRows, type StoredKeyRow } from "./key-revocation-label";
@@ -56,7 +64,40 @@ export interface KeyRow {
   /** Past its expiry by the database's clock when the page was read. A
    *  revoked key reads false here: revocation is its state. */
   expired: boolean;
+  /** Created by a signed key.mint act; false while signed acts are closed
+   *  (the page then does not read it). */
+  minted_by_signed_act: boolean;
+  /** The thumbprint of the signing key whose act minted it; null otherwise,
+   *  or while signed acts are closed. */
+  minted_by_kid: string | null;
   created_at: string;
+}
+
+/** Each operator-managed agent's signing keys, and which usage keys a
+ *  signed act minted. Read only while the path is open; a failed read
+ *  leaves that agent's list null (shown as unreadable), never empty. */
+async function readSigningKeys(agents: readonly AgentRow[]): Promise<{
+  byAgent: Record<string, SigningKeyRow[] | null>;
+  signedMints: Map<string, string | null>;
+}> {
+  const byAgent: Record<string, SigningKeyRow[] | null> = {};
+  const signedMints = new Map<string, string | null>();
+  // One at a time: production's pool holds one connection.
+  for (const agent of agents) {
+    if (agent.registered_via !== "operator") continue;
+    try {
+      const res = await listSigningKeys({ agent_id: agent.id });
+      if (!res.ok || !res.data.open) {
+        byAgent[agent.id] = null;
+        continue;
+      }
+      byAgent[agent.id] = res.data.signing_keys;
+      for (const mint of res.data.signed_mints) signedMints.set(mint.key_id, mint.minted_by_kid);
+    } catch {
+      byAgent[agent.id] = null;
+    }
+  }
+  return { byAgent, signedMints };
 }
 
 export default async function AgentsAccountPage() {
@@ -91,7 +132,9 @@ export default async function AgentsAccountPage() {
   ]);
 
   const agents = agentsRes.rows as AgentRow[];
-  const keys = toKeyRows(keysRes.rows as StoredKeyRow[]);
+  const signedActs = { open: signedActsOpen() };
+  const signing = signedActs.open ? await readSigningKeys(agents) : null;
+  const keys = toKeyRows(keysRes.rows as StoredKeyRow[], signing?.signedMints);
 
   return (
     <div>
@@ -114,7 +157,7 @@ export default async function AgentsAccountPage() {
         <WhyLink href="/methodology/agents" />
       </div>
 
-      <AgentsClient agents={agents} keys={keys} />
+      <AgentsClient agents={agents} keys={keys} signedActs={signedActs} signingKeys={signing?.byAgent ?? {}} />
 
       <div className="mt-12 rounded-lg border border-border-subtle bg-surface p-4">
         <h2 className="text-sm font-semibold text-ink">How to use a key</h2>

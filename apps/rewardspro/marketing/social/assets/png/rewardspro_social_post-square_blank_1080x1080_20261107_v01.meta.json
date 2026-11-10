@@ -5,7 +5,7 @@
   "asset": "post-square",
   "variant": "blank",
   "brief_id": "Task brief (visuals maker, 2026-11-07); size from wf/p1-platforms.md §5 (1080x1080)",
-  "status": "PROPOSAL for Yu: not approved, not published",
+  "status": "PROPOSAL for the owner: not approved, not published",
   "size": {
     "width": 1080,
     "height": 1080
@@ -77,7 +77,7 @@
     {
       "path": "kit/logo/lockup-horizontal.svg",
       "sha256": "33042d204485d9a867c05518d77a41eb26e671ea3fa1e06997c16a970d5cc79d",
-      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
     }
   ],
   "kernel_sha256": {

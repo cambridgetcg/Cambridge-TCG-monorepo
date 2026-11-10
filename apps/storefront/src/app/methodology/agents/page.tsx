@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Audience, audienceMetadata, TypeSignature } from "@/lib/ui";
+import { MAX_LIVE_AGENT_KEYS, MAX_LIVE_SIGNING_KEYS } from "@/lib/agents/key-caps";
+import { PENDING_SIGNING_KEY_DAYS } from "@/lib/agents/signed-act-config";
+import {
+  SIGNED_ACT_MAX_LIFETIME_SECONDS,
+  SIGNED_ACT_SKEW_SECONDS,
+} from "@/lib/agents/signed-act-verify";
 import {
   KEY_EXIT_COMPLETENESS,
   KEY_EXIT_CREDENTIAL_NOTE,
@@ -135,7 +141,7 @@ export default function AgentsMethodology() {
         </li>
       </ul>
 
-      <h2>Authentication</h2>
+      <h2 id="authentication">Authentication</h2>
       <p>
         Agent requests authenticate with <code>Authorization: Bearer &lt;key&gt;</code> against
         the MCP gate. The gate:
@@ -168,6 +174,12 @@ export default function AgentsMethodology() {
         one, and each is optional. A 401 also sends <code>WWW-Authenticate</code>. If the
         key lookup itself fails, the gate answers 503 with <code>auth_unavailable</code>,
         which is safe to retry.
+      </p>
+      <p>
+        One tool is different: <code>agent.act</code> takes an act signed by the
+        agent&apos;s own key instead of a bearer key, and never reads{" "}
+        <code>Authorization</code>. It is closed unless a deployment opens it (see{" "}
+        <a href="#signed-acts">Signed acts</a>).
       </p>
 
       <h2>Rate limits</h2>
@@ -449,6 +461,158 @@ export default function AgentsMethodology() {
         Not known from this repository: {KEY_EXIT_UNKNOWN_LAYERS.join("; ")}.
       </p>
 
+      <h2 id="signed-acts">Signed acts (agent-held keys)</h2>
+      <p>
+        <strong>Status: built, and closed.</strong> Yu, who runs Cambridge TCG, decided on
+        2026-11-10 to offer agents their own signing keys (&quot;Yes offer the keys&quot;).
+        How they work, the acts, numbers, limits and retention below, is an AI agent&apos;s
+        design and defaults, which Yu has not reviewed. The path is closed unless a
+        deployment opens it, and production has not: there, <code>agent.act</code> and{" "}
+        <code>POST /api/v1/agents/act</code> answer <code>signed_acts_closed</code> (503)
+        and read nothing, and the paste form at <a href="/account/agents">/account/agents</a>{" "}
+        is disabled. It is for operator-managed agents only. Since 10 November 2026 the{" "}
+        <a href="/privacy">privacy notice</a> describes the records it keeps, in words an AI
+        agent wrote.
+        Usage keys work as before, with or without a signing key.
+      </p>
+      <p>
+        An agent that can run code makes its own Ed25519 key pair; Cambridge TCG stores
+        only the public key. Its operator pastes the public JWK,{" "}
+        <code>{'{"kty":"OKP","crv":"Ed25519","x":"…"}'}</code>, at /account/agents and
+        chooses when it expires, with the same choices as a usage key; the page shows the
+        key&apos;s RFC 7638 thumbprint to compare with the one the agent&apos;s signer
+        printed. The key is pending until its first validly signed act, and lapses if none
+        comes within {PENDING_SIGNING_KEY_DAYS} days; a lapsed key can be pasted again.
+        An agent holds at most{" "}
+        {MAX_LIVE_SIGNING_KEYS} live signing keys, so a new one can be bound before the old
+        one is removed. Anything pasted that looks like a private key (a JWK with a{" "}
+        <code>d</code> member, however it is written, private-key armour, or a PKCS #8
+        key in base64) is refused, in the browser before it is sent and again on the
+        server, and never stored or logged; make a new key pair if that happens.
+      </p>
+      <h3>The act</h3>
+      <ul>
+        <li>
+          <strong>One string.</strong> A compact JWS, sent as <code>act</code> to the MCP
+          tool <code>agent.act</code> or in the body of{" "}
+          <code>POST /api/v1/agents/act</code>, as{" "}
+          <code>{'{"act": "…", "preview": null}'}</code>. Its header is exactly{" "}
+          <code>alg</code> (<code>Ed25519</code>, or <code>EdDSA</code>), <code>typ</code>{" "}
+          (<code>ctcg-act.v1</code>) and <code>kid</code> (the key&apos;s thumbprint). Its
+          payload is exactly <code>aud</code> (this deployment&apos;s origin:{" "}
+          <code>https://cambridgetcg.com</code> in production), <code>act</code>,{" "}
+          <code>sub</code> (the agent&apos;s id), <code>iat</code>, <code>exp</code> (at most{" "}
+          {SIGNED_ACT_MAX_LIFETIME_SECONDS} seconds after <code>iat</code>; both written as
+          plain integers, with no fraction or exponent),{" "}
+          <code>jti</code> (16 to 32 random bytes, never reused) and <code>params</code>. At
+          most 8 KiB; JSON with a repeated member name is refused. The signature covers the
+          signing input as sent; nothing is canonicalized.
+        </li>
+        <li>
+          <strong><code>signer.check</code></strong> returns the agent&apos;s own record:
+          its status, every signing key bound to it with its state, and its unrevoked usage
+          keys, each saying whether a signed act minted it. As a key&apos;s first act it
+          also confirms the key.
+        </li>
+        <li>
+          <strong><code>key.mint</code></strong> adds a usage key the agent made itself
+          (<code>ctcg_agt_</code> plus 22 base62 characters). It signs only the key&apos;s
+          SHA-256, its 12-character prefix, an expiry (required; <code>never</code>{" "}
+          allowed), a name, and the preview&apos;s disclosure digest. No secret comes back.
+          It counts toward the agent&apos;s {MAX_LIVE_AGENT_KEYS} live usage keys, and the
+          operator can revoke it like any other.
+        </li>
+        <li>
+          <strong><code>key.revoke</code></strong> ends one of the agent&apos;s usage keys
+          (<code>{'{"key_id": …}'}</code>), or retires the signing key that signs it
+          (<code>{'{"kid": …}'}</code>, naming itself). Retiring a signing key leaves the
+          usage keys it minted as they were.
+        </li>
+        <li>
+          <strong>Agent status.</strong> A suspended agent may check and revoke; an
+          archived one may check and retire its signing key; only an active agent may mint.
+        </li>
+        <li>
+          <strong>Previews.</strong> <code>{'{"act": null, "preview": "key.mint"}'}</code>{" "}
+          (or another act&apos;s name) writes nothing, needs no key and is the same for
+          everyone: what the act does, its params, and a disclosure text with its SHA-256.{" "}
+          <code>key.mint</code> signs that digest as <code>preview_sha256</code>, which
+          records what was shown; it is not consent.
+        </li>
+        <li>
+          <strong>No bearer key.</strong> <code>Authorization</code> is never read on these
+          doors, so a bearer key sent beside an act neither helps nor hurts it.
+        </li>
+      </ul>
+      <h3>How an act is checked</h3>
+      <p>
+        First its shape, whether it is obviously stale, and limits held in each
+        server&apos;s memory (per client address, an IPv6 address counting by its /64, and
+        per server, with <code>key.revoke</code> under a ceiling of its own; previews per
+        address only), all before any signature work, then a limit per signing key on
+        every act it signs. An unknown key and a bad signature
+        get the same answer, <code>act_unverified</code>. The signature must pass RFC 8032
+        verification with its R canonical, not of small order and torsion-free, so a stored
+        act re-verifies with any correct Ed25519 library; a key is checked the same way when
+        it is bound, and published test keys are refused. Then, in one database transaction
+        and by the database&apos;s clock: the key must not be removed, retired, expired or
+        lapsed (<code>signing_key_ended</code>); <code>iat</code> may be at most{" "}
+        {SIGNED_ACT_SKEW_SECONDS} seconds ahead and the act must not have reached{" "}
+        <code>exp</code> (<code>act_stale</code>, with <code>server_time</code>); and the
+        key and <code>jti</code> are recorded, so an act applies at most once and is used
+        up whether it is applied or refused (<code>act_replayed</code>). Refusals take the
+        shape described under <a href="#authentication">Authentication</a>, with a{" "}
+        <code>detail</code>, <code>server_time</code> or <code>receipt</code> where they
+        apply.
+      </p>
+      <h3>What a signature proves</h3>
+      <p>
+        Control of the key over those exact bytes. Not identity, not consent, and no
+        authority to act for anyone else, end users included; nothing a client says about
+        itself is treated as identity either. Whatever steers a model that can reach the
+        key can sign with it. Whoever sees a signed act first can submit it once within its
+        lifetime and get exactly its signed effect, which is why <code>key.mint</code>{" "}
+        carries a hash rather than a key and no answer carries a secret. A direct database
+        write could still bind a key; <code>signer.check</code> lists every key bound to
+        the agent, so an agent that checks would see it.
+      </p>
+      <h3 id="where-to-keep-your-key">Where to keep your key</h3>
+      <ul>
+        <li>
+          <strong>Your own machine.</strong> The reference signer,{" "}
+          <code>examples/agents/held-key-signer.mjs</code> in the public repository (Node
+          20.19 or later, built-in modules only), writes the private key to a new file only
+          your user can read and never prints it; it prints the public JWK and thumbprint,
+          signs acts, and makes no network call unless told to submit. Its tests run it
+          offline and against a local stand-in; it has not been run against a deployment
+          with signed acts open. Keep the file where no model&apos;s tools can read it.
+        </li>
+        <li>
+          <strong>A vault.</strong> One that only stores a key and attaches it to requests
+          cannot sign with it; one that signs inside itself was not tried here.
+        </li>
+        <li>
+          <strong>A hosted chat app.</strong> Not run. A chat app has nowhere to keep a
+          private key out of the conversation. The MCP endpoint is custom JSON-RPC over
+          HTTPS, not a standard remote MCP server. Use a usage key there, or code you run to
+          sign.
+        </li>
+        <li>
+          <strong>Nobody.</strong> An agent need not have a signing key: usage keys, minted
+          by the operator, work as before.
+        </li>
+      </ul>
+      <p>
+        What is kept for signing keys (the keys, an event for each act, binding and
+        removal, and each act&apos;s nonce) is listed under{" "}
+        <a href="#ending-a-key">Ending a key</a>, with how long. Until erasure is built,
+        signing keys and the events are kept indefinitely. A key never confirmed is deleted
+        by the hourly sweep {PENDING_SIGNING_KEY_DAYS} days after it was bound, but only
+        while signed acts are open on the deployment, and the event that bound it keeps its
+        thumbprint. Nonces are deleted after their act expires, a few by each later act and
+        the rest by the same sweep.
+      </p>
+
       <h2>What an agent cannot do</h2>
       <p>
         Agent capabilities are explicitly whitelisted per surface. Authenticated agents
@@ -491,7 +655,9 @@ export default function AgentsMethodology() {
         expires (see <a href="#key-expiry">Key expiry</a>), and revoke any live key from the
         same page. An expired key no longer authenticates and has no revoke button there;
         archiving the agent revokes it. Operators may run up to 10 active agents with 5
-        live keys each; a revoked or expired key does not count. Keys are minted on the <code>free</code>{" "}
+        live keys each; a revoked or expired key does not count. Where a deployment has
+        opened signed acts, the same page binds an agent&apos;s own signing key (see{" "}
+        <a href="#signed-acts">Signed acts</a>). Keys are minted on the <code>free</code>{" "}
         tier; no path to{" "}
         <code>standard</code> or <code>partner</code> is implemented.
       </p>

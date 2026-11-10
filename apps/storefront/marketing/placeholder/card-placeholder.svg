@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="250" height="350" viewBox="0 0 250 350">
+  <title>card-placeholder</title>
+  <desc>A 5:7 hairline card with the mark&apos;s diamond pip, for a card with no image.</desc>
+  <g>
+    <path d="M12.5 0.5 L237.5 0.5 C244.13 0.5 249.5 5.87 249.5 12.5 L249.5 337.5 C249.5 344.13 244.13 349.5 237.5 349.5 L12.5 349.5 C5.87 349.5 0.5 344.13 0.5 337.5 L0.5 12.5 C0.5 5.87 5.87 0.5 12.5 0.5 Z" fill="none" stroke="currentColor" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    <path d="M125 138.5 L140 158 L125 177.5 L110 158 Z" fill="currentColor"/>
+  </g>
+</svg>

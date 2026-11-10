@@ -83,6 +83,7 @@ These files sit outside the domain directories. This inventory is derived from t
 - [patterns.ts](../../../apps/storefront/src/lib/patterns.ts)
 - [peers.ts](../../../apps/storefront/src/lib/peers.ts)
 - [pricing.ts](../../../apps/storefront/src/lib/pricing.ts)
+- [public-claims-contract.allowed.ts](../../../apps/storefront/src/lib/public-claims-contract.allowed.ts)
 - [public-discovery.ts](../../../apps/storefront/src/lib/public-discovery.ts)
 - [public-wholesale-fields.ts](../../../apps/storefront/src/lib/public-wholesale-fields.ts)
 - [recipe-template.ts](../../../apps/storefront/src/lib/recipe-template.ts)

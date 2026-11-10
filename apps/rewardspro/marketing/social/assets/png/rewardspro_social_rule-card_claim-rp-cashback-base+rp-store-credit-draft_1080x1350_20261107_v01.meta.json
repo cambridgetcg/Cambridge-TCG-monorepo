@@ -5,7 +5,7 @@
   "asset": "rule-card",
   "variant": "claim-rp-cashback-base+rp-store-credit-draft",
   "brief_id": "STRATEGY.md §7 A7 (C1, §6.2)",
-  "status": "PROPOSAL for Yu: not approved, not published",
+  "status": "PROPOSAL for the owner: not approved, not published",
   "size": {
     "width": 1080,
     "height": 1350
@@ -19,7 +19,7 @@
   "platforms": [
     "LinkedIn image post (4:5)"
   ],
-  "use": "Review only. Shows the layout and wording for Yu; never post a draft. render.mjs drops the bands only when every claim is verified, inside its review_after date and cleared for social-post, and no placeholder is left.",
+  "use": "Review only. Shows the layout and wording for the owner; never post a draft. render.mjs drops the bands only when every claim is verified, inside its review_after date and cleared for social-post, and no placeholder is left.",
   "safe_before_g0": false,
   "claim_ids": [
     "rp-cashback-base",
@@ -194,7 +194,7 @@
     {
       "path": "kit/logo/lockup-horizontal.svg",
       "sha256": "33042d204485d9a867c05518d77a41eb26e671ea3fa1e06997c16a970d5cc79d",
-      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
     }
   ],
   "kernel_sha256": {
@@ -316,7 +316,7 @@
     }
   ],
   "ai_involvement": "assistive",
-  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by Yu before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
+  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by the owner before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
   "jurisdictions": [
     "UK"
   ],

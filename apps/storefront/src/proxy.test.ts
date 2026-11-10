@@ -72,7 +72,7 @@ describe("the production alias's /api", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
-  it.each(["/api/v1/feedback", "/api/v1/peers", "/api/mcp"])("sends every method to %s to the apex, so its caps stand behind Cloudflare", (path) => {
+  it.each(["/api/v1/feedback", "/api/v1/peers", "/api/mcp", "/api/v1/agents/act"])("sends every method to %s to the apex, so its caps stand behind Cloudflare", (path) => {
     for (const method of ["POST", "DELETE", "PUT", "OPTIONS"]) {
       const response = proxy(request(method, ALIAS, path));
       expect(response.status, method).toBe(308);
@@ -81,7 +81,9 @@ describe("the production alias's /api", () => {
   });
 
   it("names the apex instead of redirecting a request that carries Authorization, which a redirect would drop", async () => {
-    for (const [method, path] of [["GET", "/api/v1/feedback"], ["DELETE", "/api/v1/feedback"], ["POST", "/api/mcp"], ["GET", "/api/v1/market/indices?game=one-piece"]] as const) {
+    // The act door never reads Authorization, but a client that sends one
+    // (the stdio bridge sends its bearer everywhere) is told the apex URL too.
+    for (const [method, path] of [["GET", "/api/v1/feedback"], ["DELETE", "/api/v1/feedback"], ["POST", "/api/mcp"], ["POST", "/api/v1/agents/act"], ["GET", "/api/v1/market/indices?game=one-piece"]] as const) {
       const response = proxy(request(method, ALIAS, path, undefined, "Bearer fbk_example"));
       expect(response.status, `${method} ${path}`).toBe(421);
       expect(response.headers.get("location")).toBeNull();
@@ -112,6 +114,8 @@ describe("every other host", () => {
       expect(proxy(request("GET", host, "/api/admin/emails")).status, host).toBe(401);
     }
     expect(matches("cambridgetcg.com", "/api/v1/feedback")).toBe(false);
+    expect(matches("cambridgetcg.com", "/api/v1/agents/act")).toBe(false);
+    expect(matches(DEPLOYMENT, "/api/v1/agents/act")).toBe(false);
   });
 
   it("keeps the cookie gate exactly as before", () => {

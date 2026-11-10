@@ -33,10 +33,11 @@
 //   - a GET or HEAD to /api/* answers 308 to the same path and query on
 //     https://cambridgetcg.com;
 //   - so does every method to the doors that keep or count what a caller
-//     sends (/api/v1/feedback, /api/v1/peers, /api/mcp), so their global
-//     caps and per-request writes stand behind Cloudflare's per-source
-//     rules. None had a caller on the alias: feedback answered 503 and
-//     peers stored nothing before 2026-11-06;
+//     sends (/api/v1/feedback, /api/v1/peers, /api/mcp, and since held
+//     keys /api/v1/agents/act), so their global caps and per-request writes
+//     stand behind Cloudflare's per-source rules. None had a caller on the
+//     alias: feedback answered 503 and peers stored nothing before
+//     2026-11-06, and the act door was new;
 //   - a request that would be redirected but carries Authorization answers
 //     421 naming the apex URL instead, since clients drop that header when
 //     they follow a redirect to another host and the apex would then answer
@@ -57,7 +58,7 @@ export const PRODUCTION_ALIAS_HOST = "cambridgetcg-storefront.vercel.app";
 const APEX_ORIGIN = "https://cambridgetcg.com";
 
 /** The doors whose every method the alias sends to the apex. */
-export const ALIAS_APEX_ONLY_DOORS = ["/api/v1/feedback", "/api/v1/peers", "/api/mcp"] as const;
+export const ALIAS_APEX_ONLY_DOORS = ["/api/v1/feedback", "/api/v1/peers", "/api/mcp", "/api/v1/agents/act"] as const;
 
 const under = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 

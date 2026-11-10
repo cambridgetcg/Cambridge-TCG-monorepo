@@ -108,18 +108,18 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
     bodyHtml: `
       <p style="margin:0 0 12px;">Hi ${greeting},</p>
       <p style="margin:0 0 16px;">
-        You&apos;ve played <strong style="color:#f59e0b;">${streak} day${streak === 1 ? "" : "s"} in a row</strong>.
+        You&apos;ve played <strong style="color:#86661c;">${streak} day${streak === 1 ? "" : "s"} in a row</strong>.
         Play any day to keep it going — and if you miss one, it just starts
         fresh. No pressure either way.
       </p>
-      <div style="background:#262626;border-radius:8px;padding:14px 16px;margin:16px 0;">
-        <p style="margin:0 0 6px;color:#fff;font-weight:600;font-size:13px;">What you&apos;ve got going</p>
-        <p style="margin:0;font-size:13px;color:#a3a3a3;">
-          Current multiplier: <span style="color:#34d399;font-weight:600;">${(1 + (streak - 1) * 0.02).toFixed(2)}×</span>
+      <div style="background:#f3f0e9;border-radius:8px;padding:14px 16px;margin:16px 0;">
+        <p style="margin:0 0 6px;color:#201d18;font-weight:600;font-size:13px;">What you&apos;ve got going</p>
+        <p style="margin:0;font-size:13px;color:#5e574c;">
+          Current multiplier: <span style="color:#36634d;font-weight:600;">${(1 + (streak - 1) * 0.02).toFixed(2)}×</span>
           ${streak >= 26 ? " (capped)" : " · +0.02 more tomorrow"}
         </p>
       </div>
-      <p style="margin:0;font-size:13px;color:#a3a3a3;">
+      <p style="margin:0;font-size:13px;color:#5e574c;">
         Use an activity currently listed as available on your account.
       </p>
     `,

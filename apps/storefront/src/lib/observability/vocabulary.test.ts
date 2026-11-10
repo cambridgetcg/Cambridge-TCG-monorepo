@@ -8,8 +8,8 @@ import {
 // The lists the database refuses anything outside of, read from the
 // migrations themselves, so a word added on one side only fails here first.
 // A list is 0148's unless a later migration re-adds that column's CHECK
-// under the name PostgreSQL gave it (0150 does for mcp_daily.tool); then the
-// newest such migration holds it.
+// under the name PostgreSQL gave it (0150, then 0152, do for mcp_daily.tool);
+// then the newest such migration holds it.
 const drizzle = new URL("../../../drizzle/", import.meta.url);
 const read = (name: string) => readFileSync(new URL(name, drizzle), "utf8");
 const ORIGIN = "0148_ops_observability.sql";
@@ -49,16 +49,21 @@ describe("observability vocabulary", () => {
     expect(new Set(list).size).toBe(list.length);
   });
 
-  it("reads mcp_daily.tool from 0150 and every other list from 0148", () => {
+  it("reads mcp_daily.tool from 0152 and every other list from 0148", () => {
     for (const [table, column] of LISTS) {
-      expect(checkList(table, column).file).toBe(table === "mcp_daily" && column === "tool" ? "0150_mcp_daily_agent_revoke_key.sql" : ORIGIN);
+      expect(checkList(table, column).file).toBe(table === "mcp_daily" && column === "tool" ? "0152_agent_signing_keys.sql" : ORIGIN);
     }
-    // 0150 adds one word and drops none, so a word dropped from both the code
-    // and 0150 still fails here.
-    const before = words(new RegExp(`CHECK \\(tool ${IN_LIST}`).exec(read(ORIGIN))![1]!);
+    // 0150 added one word and 0152 one more, and neither drops any, so a word
+    // dropped from both the code and the newest list still fails here.
+    const toolList = (file: string) => words(new RegExp(`CHECK \\(tool ${IN_LIST}`).exec(read(file))![1]!);
+    const origin = toolList(ORIGIN);
+    const revokeKey = toolList("0150_mcp_daily_agent_revoke_key.sql");
     const after = checkList("mcp_daily", "tool").words;
-    expect(after.filter((word) => !before.includes(word))).toEqual(["agent.revoke_key"]);
-    expect(before.filter((word) => !after.includes(word))).toEqual([]);
+    expect(revokeKey.filter((word) => !origin.includes(word))).toEqual(["agent.revoke_key"]);
+    expect(after.filter((word) => !revokeKey.includes(word))).toEqual(["agent.act"]);
+    expect(after.filter((word) => !origin.includes(word))).toEqual(["agent.revoke_key", "agent.act"]);
+    expect(origin.filter((word) => !after.includes(word))).toEqual([]);
+    expect(revokeKey.filter((word) => !after.includes(word))).toEqual([]);
   });
 
   it("holds route templates, never a concrete path, and no word that could carry an identifier", () => {

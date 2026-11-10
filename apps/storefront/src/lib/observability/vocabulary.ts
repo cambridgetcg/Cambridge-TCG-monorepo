@@ -164,10 +164,11 @@ export const MCP_METHODS = [
 /** The gate's tool names (the TOOLS table in app/api/mcp/route.ts), plus
  * "none" (the method names no tool) and "unknown" (it names one the gate does
  * not have; that name is not stored). agent.revoke_key came with migration
- * 0150, which holds this list's CHECK since. */
+ * 0150 and agent.act with 0152, which holds this list's CHECK since. */
 export const MCP_TOOLS = [
   "agent.self",
   "agent.revoke_key",
+  "agent.act",
   "play.list_open_rooms",
   "play.observe",
   "play.legal_actions",

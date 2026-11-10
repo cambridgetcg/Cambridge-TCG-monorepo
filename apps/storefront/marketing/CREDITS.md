@@ -12,6 +12,7 @@ known, write "not recorded" rather than guessing.
 | `kit/` (generated) | an agent (Claude Code, Claude Opus 5.5), committed under the git name zerone | 2026-10-21; rebuilt 2026-10-27 | artcraft-brand brandkit.py 1.8, vectorcraft-cli 0.17.0 | built from `brand.json` and the mark SVGs; 269 checks, 0 failed, and a second build from `kit/source/` byte-identical, 71 files (commit 01a4cb59). The look is Yu's choice of 2026-10-27; see `brandkit.json` |
 | `cambridge-tcg-mark.svg`, `cambridge-tcg-mark-small.svg`, `cambridge-tcg-mark-nav.svg` | the same agent, redrawing the nav's card-and-pip mark from `Nav.tsx` on a pixel grid | 2026-10-21; recoloured bronze 2026-10-27 | by hand | commits 6dca91ad and 01a4cb59. Who first drew the nav mark is not recorded here |
 | `marketplaces/` (eBay logo and billboards) | the same agent, made from `kit/` by `marketplaces/build.py` | 2026-10-21; rebuilt 2026-10-27 | `marketplaces/build.py` | uploading them to the shops is Yu's hand |
+| `placeholder/` (the "no image" card) | an agent (Claude Code, Claude Opus 5.5, child of session 5c4df033), from the mark's pip | 2026-11-10 | `placeholder/build.py`, vectorcraft-cli 0.17.0 | review 2026-11-02 §5 row 2; the storefront draws its paths in `src/lib/ui/CardImagePlaceholder.tsx` |
 
 ## Build fonts
 

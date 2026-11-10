@@ -37,6 +37,10 @@ interface BaseProps {
 interface ButtonProps extends BaseProps {
   type?: "button" | "submit" | "reset";
   onClick?: React.MouseEventHandler<HTMLButtonElement>;
+  /** Passed to the button: JSX accepts any aria-* name on a component, so
+   *  without these they were dropped without a type error. */
+  "aria-describedby"?: string;
+  "aria-expanded"?: boolean;
 }
 
 interface LinkButtonProps extends BaseProps {
@@ -55,10 +59,12 @@ export function Button({
   disabled,
   onClick,
   children,
+  "aria-describedby": describedBy,
+  "aria-expanded": expanded,
 }: ButtonProps) {
   const cls = `${baseCls} ${SIZE_CLS[size]} ${VARIANT_CLS[variant]} ${className}`.trim();
   return (
-    <button type={type} className={cls} disabled={disabled} onClick={onClick}>
+    <button type={type} className={cls} disabled={disabled} onClick={onClick} aria-describedby={describedBy} aria-expanded={expanded}>
       {children}
     </button>
   );

@@ -179,7 +179,18 @@ evidence for every applicable item before the production push:
   Agent key expiry requires `0151_agent_key_expiry.sql` before its code is
   merged to `main`: that code reads `agent_keys.expires_at` with no fallback,
   so without the column every authenticated agent call answers 503 (see the
-  migration's header).
+  migration's header). Agent-held signing keys require
+  `0152_agent_signing_keys.sql` before their code is merged to `main`, even
+  with `AGENT_SIGNED_ACTS` off: the gate lists and counts the new `agent.act`
+  tool word, and while `OPS_MCP_DAILY` is on a count batch holding that word
+  would be refused whole by the older CHECK (see the migration's header).
+  0152 holds ACCESS EXCLUSIVE on `agent_keys` and `mcp_daily` until it
+  commits, so agent calls wait for it, and it waits at most 3 seconds for
+  any lock (`lock_timeout`): if it fails that way, nothing was applied and
+  it can be run again.
+  0152 was applied to production on 2026-11-10 (21:40:17 UTC) and the code
+  merged after it, on the owner's word as an agent read it
+  (`docs/plans/agent-auth/held-keys.md`, Applied).
 - For person-level scoring, fraud signals, limits, routing, holds or automatic
   rejection, record the lawful-basis and UK GDPR Articles 22A–22C assessment,
   plus a staffed route that can examine inputs, correct errors and change the

@@ -19,6 +19,11 @@ vi.mock("@/lib/agents/operator-actions", () => ({
   revokeKey: mocks.revokeKey,
   archiveAgent: mocks.archiveAgent,
 }));
+vi.mock("@/lib/agents/signing-key-actions", () => ({
+  bindSigningKey: vi.fn(),
+  removeSigningKey: vi.fn(),
+  listSigningKeys: vi.fn(),
+}));
 
 import { AgentsClient } from "./_client";
 import type { AgentRow } from "./page";

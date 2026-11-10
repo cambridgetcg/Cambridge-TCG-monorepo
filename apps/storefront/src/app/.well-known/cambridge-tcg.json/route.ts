@@ -27,7 +27,7 @@ import {
 import { DISTRIBUTED_WAKE_PROTOCOL } from "@/lib/wake-fragments";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
-import { AGENT_KEY_REVOCATION, SELF_SERVE_CONTROLLER_NOTE } from "@/lib/agents/tool-access";
+import { AGENT_KEY_REVOCATION, AGENT_SIGNED_ACTS, SELF_SERVE_CONTROLLER_NOTE } from "@/lib/agents/tool-access";
 
 interface ManifestEndpoint {
   path: string;
@@ -177,6 +177,8 @@ const MANIFEST: {
     };
     /** Every key, whatever its registration or its agent's status. */
     revocation: typeof AGENT_KEY_REVOCATION;
+    /** Agent-held signing keys: operator-managed agents, closed unless opened. */
+    signed_acts: typeof AGENT_SIGNED_ACTS;
   };
   publication_boundaries: {
     recent_prices: {
@@ -306,6 +308,7 @@ const MANIFEST: {
       controller: "linked-operator-account",
     },
     revocation: { ...AGENT_KEY_REVOCATION },
+    signed_acts: { ...AGENT_SIGNED_ACTS },
   },
   publication_boundaries: {
     recent_prices: {
@@ -406,7 +409,7 @@ const MANIFEST: {
         {
           path: "/api/mcp",
           description:
-            "JSON-RPC dispatcher. Public discovery via tools/list or mcp.list_tools; bearer auth for calls. Self-serve keys are read-only; a bearer-key holder can end its own key in-band with agent.revoke_key, but cannot archive or erase the agent profile. The shared service account is storage plumbing, not a delegating operator. Match and deck writes are paused for every key.",
+            "JSON-RPC dispatcher. Public discovery via tools/list or mcp.list_tools; bearer auth for calls, except agent.act, which takes a signed act from an operator-bound signing key and is closed unless the deployment opens it. Self-serve keys are read-only; a bearer-key holder can end its own key in-band with agent.revoke_key, but cannot archive or erase the agent profile. The shared service account is storage plumbing, not a delegating operator. Match and deck writes are paused for every key.",
           auth: "bearer-key",
           status: "stable",
           methodology: "/methodology/agents",

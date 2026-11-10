@@ -32,9 +32,11 @@
 
 import { repoDocRef } from "@/lib/repository";
 import {
+  AGENT_ACT_INPUT_SCHEMA,
   AGENT_REVOKE_KEY_INPUT_SCHEMA,
   describeAgentToolGrant,
 } from "@/lib/agents/tool-access";
+import { currentDisclosure, disclosureSha256 } from "@/lib/agents/signed-act-disclosures";
 import {
   KEY_EXIT_COMPLETENESS,
   KEY_EXIT_DOCS,
@@ -44,16 +46,23 @@ import {
 
 /** What gates this tool. Public = no auth required (read-only endpoints
  *  recommended as tools); bearer-key = the agent must hold an agent key
- *  registered at /account/agents and dispatch through /api/mcp. */
-export type ToolGating = "public" | "bearer-key";
+ *  registered at /account/agents and dispatch through /api/mcp;
+ *  signed-act = the call carries one act signed by an agent-held signing
+ *  key instead, and Authorization is not read (agent.act). */
+export type ToolGating = "public" | "bearer-key" | "signed-act";
 /** key-holder: the holder of the presented key, whatever the key's
- *  registration kind or its agent's status (agent.revoke_key). */
+ *  registration kind or its agent's status (agent.revoke_key).
+ *  signing-key-holder: the holder of a signing key an operator bound to an
+ *  operator-managed agent (agent.act). */
 export type ToolAuthority =
   | "public-discovery"
   | "self-serve-read"
   | "operator-managed"
-  | "key-holder";
-export type ToolAvailability = "available" | "paused";
+  | "key-holder"
+  | "signing-key-holder";
+/** closed-by-default: the dispatcher refuses it (agent.act:
+ *  signed_acts_closed) unless the deployment opens it; production has not. */
+export type ToolAvailability = "available" | "paused" | "closed-by-default";
 
 /** Category groupings for the catalog. Matches the kingdom's domain split. */
 export type ToolCategory =
@@ -204,6 +213,39 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     since: "2026-11-10",
     dispatch_url: "/api/mcp",
     source: `${SRC_BASE}/key-revocation.ts`,
+  },
+  {
+    dotted_name: "agent.act",
+    mcp_spec_name: "agent.act",
+    category: "agent",
+    description:
+      "For operator-managed agents that hold their own Ed25519 key, bound by their operator at /account/agents. Takes one signed act (a compact JWS, typ ctcg-act.v1) and applies it at most once: signer.check (the agent's own record; confirms a pending key), key.mint (a usage key whose SHA-256 you sign; no secret returned) or key.revoke (a usage key, or the signing key itself). " +
+      "Or { preview: <act name> } for what an act does, its params and its disclosure: writes nothing and needs no key. Authorization is ignored. POST /api/v1/agents/act takes the same body. " +
+      "A signature proves control of the key over those bytes, not identity, consent or authority to act for anyone else. Closed unless the deployment opens it, and production has not: while closed it answers signed_acts_closed.",
+    // ["string", "null"] for both (see AGENT_ACT_INPUT_SCHEMA).
+    input_schema: AGENT_ACT_INPUT_SCHEMA,
+    // The first call worth trying is a preview, which needs no key.
+    example_input: { act: null, preview: "key.mint" },
+    example_output_shape: {
+      preview: "key.mint",
+      writes: "nothing",
+      effect: "Adds one usage key whose SHA-256 and prefix you sign. No secret is returned.",
+      server_time: "2026-11-10T12:00:00.000Z",
+      envelope: { typ: "ctcg-act.v1", alg: "Ed25519 (EdDSA also accepted)", aud: "https://cambridgetcg.com", max_lifetime_seconds: 300 },
+      act: "key.mint",
+      params_template: { key_sha256: "…", key_prefix: "…", expires: "…", name: "…", preview_sha256: "…" },
+      disclosure_version: currentDisclosure("key.mint").version,
+      disclosure_text: "…",
+      disclosure_sha256: disclosureSha256(currentDisclosure("key.mint").text),
+    },
+    gating: "signed-act",
+    authority: "signing-key-holder",
+    availability: "closed-by-default",
+    freshness: "live",
+    // Not released: closed in production. Dated the day it goes live.
+    since: "unreleased",
+    dispatch_url: "/api/mcp",
+    source: `${SRC_BASE}/signed-acts.ts`,
   },
   {
     dotted_name: "play.list_open_rooms",
@@ -820,9 +862,9 @@ export const TOOLS_CATALOG_SUMMARY = {
     "Custom request/response HTTPS endpoint; not MCP Streamable HTTP or HTTP+SSE. The stdio bridge for native MCP clients is not published to npm (its source is packages/mcp-server in the public repository).",
   mcp_spec_version: "2024-11-05",
   auth:
-    "mcp.list_tools/tools/list is public; every other tool requires Bearer <agent-key>",
+    "mcp.list_tools/tools/list is public; agent.act takes a signed act instead of a key (closed unless the deployment opens it); every other tool requires Bearer <agent-key>",
   authority:
-    "Existing self-serve keys are read-only. Operator-managed keys may use account-linked reads and append bounded Coverage Hunt evidence; every match and deck write is paused. Any key's holder can end that key with agent.revoke_key.",
+    "Existing self-serve keys are read-only. Operator-managed keys may use account-linked reads and append bounded Coverage Hunt evidence; every match and deck write is paused. Any key's holder can end that key with agent.revoke_key. An operator-managed agent's own signing key, where a deployment has opened signed acts, can check its record, mint and revoke its usage keys with agent.act.",
   self_serve_registration: "paused",
   operator_provision_at: "/account/agents",
   discovery_files: ["/.well-known/mcp.json", "/.well-known/mcp-config.json"],
