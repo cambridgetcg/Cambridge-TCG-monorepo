@@ -14,6 +14,7 @@ import { BATCH_COLLECTED_SOURCES, collectionOn, type CollectedSource } from "@/l
 import { dataApiCheckoutIntake, dataApiPlansPublished, dataApiReadsPublished, dataApiSaleStatus } from "@/lib/data-api/posture";
 import { deriveHostHealth, readCollectorHostStates, type CollectorHostsHealth } from "@/app/api/v1/sources/collector-health";
 import { liveAgentKeySql } from "@/lib/agents/key-expiry";
+import { signedActsOpen } from "@/lib/agents/signed-act-config";
 import { mcpDailyOn } from "./mcp-daily";
 import { OBSERVABILITY_TABLES, RETENTION_BY_TABLE, expiredRowsSql, retentionLabel, type ObservabilityTable } from "./retention";
 import type { TrafficPullStatus } from "./vocabulary";
@@ -355,6 +356,21 @@ export function readAgentRateBuckets(run: RunQuery): Promise<Known<RateBucketDay
   )).rows.map(row => ({ day: text(row.day), requests: num(row.requests), keys: num(row.keys), busiestMinute: num(row.busiest) })));
 }
 
+export interface NonceTable { rows: number; expired: number; oldestExpiredAt: string | null }
+
+/** agent_act_nonces (0152, held keys): how many rows, how many are past the
+ * time they are kept to (each act and the hourly sweep delete those), and
+ * when the oldest of those expired. Counts only: no thumbprint or jti. The
+ * page reads it only while signed acts are open; closed, no code path reads
+ * the held-keys tables. */
+export function readSignedActNonces(run: RunQuery): Promise<Known<NonceTable>> {
+  return known("agent_act_nonces", "0152", async () => {
+    const row = (await run(`SELECT count(*)::bigint AS rows, (count(*) FILTER (WHERE expires_at < now()))::bigint AS expired,
+        min(expires_at) FILTER (WHERE expires_at < now()) AS oldest_expired FROM agent_act_nonces`)).rows[0] ?? {};
+    return { rows: num(row.rows), expired: num(row.expired), oldestExpiredAt: iso(row.oldest_expired) };
+  });
+}
+
 // ── 5. Traffic ───────────────────────────────────────────────────────────
 
 export type HourCoverage = TrafficPullStatus | "unknown";
@@ -484,25 +500,32 @@ export interface MonitorData {
   collectors: { sources: CollectorSourceState[]; batches: Known<CollectorBatches>; leases: Known<CollectorLease[]>; jobs: Known<JobOutcomes> };
   derivation: Known<Derivation>;
   api: { posture: ApiPosture; usage: Known<UsageMonth[]>; routes: Known<RouteHits[]> };
-  agents: { mcp: Known<McpCounts>; keys: Known<AgentKeyUse>; buckets: Known<RateBucketDay[]> };
+  agents: {
+    mcp: Known<McpCounts>; keys: Known<AgentKeyUse>; buckets: Known<RateBucketDay[]>;
+    /** Held keys: whether signed acts are open here, and the nonce table
+     *  (null while closed: not read). */
+    signedActs: { open: boolean; nonces: Known<NonceTable> | null };
+  };
   traffic: { coverage: Known<TrafficCoverage>; counts: Known<Traffic> };
   errors: Known<ErrorCount[]>;
   retention: Known<RetentionState[]>;
 }
 
 export async function loadMonitor(run: RunQuery, now: Date = new Date()): Promise<MonitorData> {
-  const [sources, batches, leases, jobs, derivation, usage, routes, mcp, keys, buckets, trafficCoverage, counts, errors, retention] = await Promise.all([
+  const signedOpen = signedActsOpen();
+  const [sources, batches, leases, jobs, derivation, usage, routes, mcp, keys, buckets, trafficCoverage, counts, errors, retention, nonces] = await Promise.all([
     readCollectorSources(run, now), readCollectorBatches(run), readCollectorLeases(run), readJobOutcomes(run),
     readDerivation(run, now), readDataApiUsage(run), readApiRouteHits(run),
     readMcpDaily(run, now), readAgentKeys(run), readAgentRateBuckets(run),
     readTrafficCoverage(run, now), readTraffic(run, now), readErrors(run, now), readRetention(run),
+    signedOpen ? readSignedActNonces(run) : Promise.resolve(null),
   ]);
   return {
     readAt: now.toISOString(),
     collectors: { sources, batches, leases, jobs },
     derivation,
     api: { posture: readApiPosture(), usage, routes },
-    agents: { mcp, keys, buckets },
+    agents: { mcp, keys, buckets, signedActs: { open: signedOpen, nonces } },
     traffic: { coverage: trafficCoverage, counts },
     errors,
     retention,
