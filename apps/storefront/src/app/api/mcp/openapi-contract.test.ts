@@ -45,19 +45,40 @@ vi.mock("@/lib/agents/coverage-hunt-tools", () => ({
 }));
 
 import { GET as getOpenApi } from "@/app/api/openapi.json/route";
+import { POST as postAct } from "@/app/api/v1/agents/act/route";
 import { isAgentToken, parseAgentBearer } from "@/lib/agents/auth";
 import {
   authRefusal,
   authUnavailableRefusal,
   MCP_REFUSAL_META_KEY,
   rateLimitedRefusal,
+  signedActLimitedRefusal,
+  signedActRefusal,
   toolNotPermittedRefusal,
   type AgentRefusal,
+  type SignedActRefusalCode,
 } from "@/lib/agents/refusals";
+import { SIGNED_ACT_MAX_BODY_BYTES } from "@/lib/agents/signed-act-config";
+import { SIGNED_ACT_MAX_LENGTH, SIGNED_ACT_NAMES } from "@/lib/agents/signed-act-verify";
+import { SIGNED_ACT_STATUS } from "@/lib/agents/signed-acts";
+import { AGENT_ACT_INPUT_SCHEMA } from "@/lib/agents/tool-access";
 import { MCP_MAX_REQUEST_BYTES, POST } from "./route";
 
 // Built at runtime so no literal key-shaped string sits in the repository.
 const AGENT_TOKEN = "ctcg_agt_" + "Ab1".repeat(7) + "Z";
+
+const SIGNED_ACT_CODES: Exclude<SignedActRefusalCode, "act_limited">[] = [
+  "signed_acts_closed",
+  "act_malformed",
+  "act_stale",
+  "act_unverified",
+  "act_replayed",
+  "signing_key_ended",
+  "act_disclosure_stale",
+  "act_params_invalid",
+  "signing_key_in_use",
+  "key_cap_reached",
+];
 
 type JsonSchema = {
   required?: string[];
@@ -115,6 +136,9 @@ function expectDocumentedRefusal(refusal: AgentRefusal, schema: JsonSchema) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
+  // Signed acts closed, as in production.
+  vi.stubEnv("AGENT_SIGNED_ACTS", "");
   mocks.query.mockResolvedValue({ rows: [] });
   mocks.checkAndConsume.mockResolvedValue({ allowed: true, remaining: 29, resetSeconds: 41 });
   mocks.agentSelf.mockResolvedValue({ public_handle: "agent-one" });
@@ -168,8 +192,24 @@ describe("OpenAPI describes the agent key", () => {
       toolNotPermittedRefusal(),
       rateLimitedRefusal(7),
       authUnavailableRefusal(),
+      // agent.act and POST /api/v1/agents/act, with every extra a refusal
+      // can carry (signed-acts.ts adds receipt to the two status codes).
+      ...SIGNED_ACT_CODES.map((code) =>
+        signedActRefusal(code, {
+          detail: "a fixed phrase",
+          server_time: "2026-11-10T12:00:00.000Z",
+          ended_at: "2026-11-10T12:00:00.000Z",
+          revoked_by_event: null,
+          receipt: { event_id: "e-1", act_sha256: "0".repeat(64) },
+        }),
+      ),
+      signedActLimitedRefusal(13),
     ];
     for (const refusal of built) expectDocumentedRefusal(refusal, schema);
+    for (const code of ["agent_suspended", "agent_archived"] as const) {
+      const status = authRefusal({ ok: false, status: 403, reason_code: code, error: "", suspended_at: null } as never);
+      expectDocumentedRefusal({ ...status, receipt: { event_id: "e-1", act_sha256: "0".repeat(64) } }, schema);
+    }
     expect([...schema.properties.reason_code.enum!].sort()).toEqual(
       built.map((refusal) => refusal.reason_code).sort(),
     );
@@ -348,5 +388,66 @@ describe("the gate answers with the statuses and carriers OpenAPI lists", () => 
     expect(unknownBody.error.code).toBe(-32603);
     expect(unknownBody.error.data).toMatchObject({ key_state: "unknown", retryable: true });
     error.mockRestore();
+  });
+});
+
+describe("OpenAPI describes signed acts as the act door answers them", () => {
+  async function actPath() {
+    const document = await spec();
+    return {
+      post: document.paths["/api/v1/agents/act"].post,
+      mcp: document.paths["/api/mcp"].post.responses as Record<string, { description: string }>,
+      refusal: document.components.schemas.AgentRefusal as JsonSchema,
+    };
+  }
+
+  it("takes the tool's arguments as its body, under the act's size limits, with no key", async () => {
+    const { post } = await actPath();
+    const body = post.requestBody.content["application/json"].schema;
+    expect(post.security).toEqual([{}]);
+    expect(post["x-max-request-bytes"]).toBe(SIGNED_ACT_MAX_BODY_BYTES);
+    expect(Object.keys(body.properties).sort()).toEqual(Object.keys(AGENT_ACT_INPUT_SCHEMA.properties).sort());
+    expect(body.additionalProperties).toBe(false);
+    expect(body.properties.act.maxLength).toBe(SIGNED_ACT_MAX_LENGTH);
+    expect(body.properties.preview.enum).toEqual([...SIGNED_ACT_NAMES, null]);
+    expect(post.description).toContain("production has not");
+  });
+
+  it("lists every status a signed-act refusal carries, on both doors, naming the code", async () => {
+    const { post, mcp } = await actPath();
+    for (const [code, status] of Object.entries(SIGNED_ACT_STATUS)) {
+      expect(post.responses, code).toHaveProperty(String(status));
+      expect(mcp, code).toHaveProperty(String(status));
+      expect(post.responses[String(status)].description, code).toContain(code);
+      if (!["agent_suspended", "agent_archived", "auth_unavailable"].includes(code)) {
+        expect(mcp[String(status)].description, code).toContain(code);
+      }
+    }
+    expect(post.responses["429"].headers).toHaveProperty("Retry-After");
+    expect(post.responses).toHaveProperty("413");
+  });
+
+  it("answers closed, as documented, on the REST door and through the gate, reading nothing", async () => {
+    const { post, refusal } = await actPath();
+    const rest = await postAct(
+      new Request("https://cambridgetcg.com/api/v1/agents/act", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ act: null, preview: "key.mint" }),
+      }),
+    );
+    const restBody = await rest.json();
+    expect(rest.status).toBe(503);
+    expect(post.responses["503"].description).toContain("signed_acts_closed");
+    expect(Object.keys(restBody).sort()).toEqual(["error", "refusal"]);
+    expectDocumentedRefusal(restBody.refusal, refusal);
+    expect(restBody.refusal.reason_code).toBe("signed_acts_closed");
+
+    const mcp = await POST(request("tools/call", { name: "agent.act", arguments: { act: null, preview: "signer.check" } }));
+    const mcpBody = await mcp.json();
+    expect(mcp.status).toBe(503);
+    expect(mcpBody.result.isError).toBe(true);
+    expectDocumentedRefusal(mcpBody.result._meta[MCP_REFUSAL_META_KEY], refusal);
+    expect(mocks.query).not.toHaveBeenCalled();
   });
 });

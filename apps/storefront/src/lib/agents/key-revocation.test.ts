@@ -455,7 +455,20 @@ describe("the retained inventory", () => {
     // Expiry ends authority; it deletes nothing, and the field is listed.
     expect(keyRow.fields).toContain("expires_at");
     expect(keyRow.expiry).toContain("ends its authority and deletes nothing");
-    expect(KEY_EXIT_INVENTORY_VERSION).toBe("2026-11-10.1");
+    expect(KEY_EXIT_INVENTORY_VERSION).toBe("2026-11-10.3");
+    // Held keys' stores (migration 0152), and the column that links a
+    // usage key to the signed act that minted it.
+    for (const store of ["agent_signing_keys", "agent_act_events", "agent_act_nonces"]) {
+      expect(categories.some((category) => category.startsWith(store)), store).toBe(true);
+    }
+    expect(keyRow.fields).toContain("minted_by_event");
+    // signer.check shows the agent's record and its unrevoked usage keys to
+    // whoever holds one of its signing keys: a reader on both rows.
+    const agentRow = KEY_EXIT_RETAINED.find((row) => row.category.startsWith("agents row"))!;
+    for (const row of [keyRow, agentRow]) {
+      expect(row.who_can_see, row.category).toContain("the holder of a signing key bound to the agent, through signer.check while signed acts are open");
+    }
+    expect(keyRow.who_can_see).toContain("never its key_hash or last_used_at");
     expect(KEY_EXIT_COMPLETENESS).toContain("An agent wrote this inventory and it may be incomplete");
   });
 });

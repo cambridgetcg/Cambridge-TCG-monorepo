@@ -21,6 +21,7 @@ import {
 import { REPOSITORY_VISIBILITY, repoDocRef } from "@/lib/repository";
 import {
   AGENT_KEY_REVOCATION,
+  AGENT_SIGNED_ACTS,
   SELF_LIFECYCLE_TOOLS,
   SELF_SERVE_CONTROLLER_NOTE,
   reviewSubmissionsByRegistration,
@@ -62,6 +63,8 @@ const MCP = {
         `${SELF_SERVE_CONTROLLER_NOTE} The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.`,
       // Every key, whatever its registration or its agent's status.
       revocation: { ...AGENT_KEY_REVOCATION },
+      // Agent-held signing keys: operator-managed agents, closed unless opened.
+      signed_acts: { ...AGENT_SIGNED_ACTS },
       methodology_url: "https://cambridgetcg.com/methodology/agents",
     },
   },

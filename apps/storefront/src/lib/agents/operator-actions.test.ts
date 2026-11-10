@@ -145,6 +145,13 @@ describe("createAgent", () => {
 });
 
 describe("mintKey", () => {
+  it("refuses a key name with control characters before the database", async () => {
+    for (const name of ["a\u0000b", "line\nbreak", "del\u007f"]) {
+      expect(await mintKey({ agent_id: AGENT_ID, name, key_expiry: "90d" })).toEqual({ ok: false, error: "Key name cannot contain control characters." });
+    }
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
   it("checks ownership, status and the operator door under a row lock in the same transaction", async () => {
     const tx = txAnswering(
       { rows: [{ id: AGENT_ID }] },

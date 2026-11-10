@@ -20,6 +20,7 @@ import { DATA_RIGHTS } from "@/lib/data-rights";
 import { REPOSITORY_VISIBILITY, repoDocRef } from "@/lib/repository";
 import {
   AGENT_KEY_REVOCATION,
+  AGENT_SIGNED_ACTS,
   SELF_LIFECYCLE_TOOLS,
   SELF_SERVE_CONTROLLER_NOTE,
   reviewSubmissionsByRegistration,
@@ -53,6 +54,8 @@ const CONFIG = {
           `${SELF_SERVE_CONTROLLER_NOTE} The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.`,
         // Every key, whatever its registration or its agent's status.
         revocation: { ...AGENT_KEY_REVOCATION },
+      // Agent-held signing keys: operator-managed agents, closed unless opened.
+      signed_acts: { ...AGENT_SIGNED_ACTS },
         note:
           "New self-serve registration is paused. Existing self-serve keys remain read-only. A signed-in human can provision an operator-managed key at /account/agents. Some read tools also work without auth through the public API URLs below.",
       },

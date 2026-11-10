@@ -37,6 +37,7 @@ import { runValuationSnapshotSweep } from "@/lib/portfolio/valuation";
 import { releaseExpiredReservations } from "@/lib/stock/reservations";
 import { runDoorRetentionSweep } from "@/lib/feedback/retention";
 import { runObservabilityRetentionSweep } from "@/lib/observability/retention";
+import { runSignedActSweep } from "@/lib/agents/signed-act-sweep";
 import { requireCronAuth } from "@/lib/cron-auth";
 
 // Documented development-only cron secret. Locally CRON_SECRET is usually
@@ -203,9 +204,14 @@ export async function GET(request: Request) {
     // whether or not any counter is on. Appended at the end to keep the
     // positional destructuring aligned.
     runObservabilityRetentionSweep(),
+    // Held keys (0152): expired act nonces, and signing keys never
+    // confirmed 7 days after binding. Self-gates to minute 23, and runs only
+    // while signed acts are open (closed, nothing touches those tables).
+    // Appended at the end to keep the positional destructuring aligned.
+    runSignedActSweep(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, verificationStorageSweep, doorRetentionSweep, observabilityRetentionSweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, verificationStorageSweep, doorRetentionSweep, observabilityRetentionSweep, signedActSweep] = results;
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {
@@ -398,6 +404,12 @@ export async function GET(request: Request) {
             ? { status: "fulfilled", ...observabilityRetentionSweep.value }
             : { status: "skipped" })
         : { status: "rejected" },
+    signedActSweep:
+      signedActSweep.status === "fulfilled"
+        ? (signedActSweep.value.ranInWindow && signedActSweep.value.open
+            ? { status: "fulfilled", ...signedActSweep.value }
+            : { status: "skipped" })
+        : { status: "rejected" },
     durationMs: Date.now() - start,
   };
 
@@ -407,6 +419,9 @@ export async function GET(request: Request) {
   }
   if (observabilityRetentionSweep.status === "rejected") {
     console.error("[cron] observability retention sweep failed:", observabilityRetentionSweep.reason instanceof Error ? observabilityRetentionSweep.reason.name : "UnknownError");
+  }
+  if (signedActSweep.status === "rejected") {
+    console.error("[cron] signed-act sweep failed:", signedActSweep.reason instanceof Error ? signedActSweep.reason.name : "UnknownError");
   }
 
   if (market.status === "rejected") console.error("[cron] market maintenance failed:", market.reason);

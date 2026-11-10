@@ -16,7 +16,7 @@ import {
   keyExitNextActions,
 } from "@/lib/agents/key-exit-inventory";
 import { KEY_EXPIRY_DATE_MAX_DAYS, KEY_EXPIRY_PRESETS } from "@/lib/agents/key-expiry";
-import { AGENT_DOCS_URL, authRefusal } from "@/lib/agents/refusals";
+import { AGENT_DOCS_URL, authRefusal, SIGNED_ACTS_DOCS_URL, signedActRefusal } from "@/lib/agents/refusals";
 import AgentsMethodology from "./page";
 
 const REPO_ROOT = resolve(process.cwd(), "../..");
@@ -192,3 +192,43 @@ describe("agents methodology: key expiry", () => {
     expect(text).not.toContain("with a preview of a live key and");
   });
 });
+
+describe("agents methodology: signed acts", () => {
+  it("carries the anchor every signed-act refusal points at", () => {
+    const html = renderToStaticMarkup(<AgentsMethodology />);
+    const anchor = new URL(SIGNED_ACTS_DOCS_URL).hash.slice(1);
+    expect(anchor).toBe("signed-acts");
+    expect(html).toContain(`id="${anchor}"`);
+    expect(html).toContain('id="where-to-keep-your-key"');
+    for (const code of ["signed_acts_closed", "act_unverified", "signing_key_ended", "key_cap_reached"] as const) {
+      const hrefs = signedActRefusal(code).next_actions.map((next) => next.href).filter(Boolean);
+      for (const href of hrefs) expect(href).toBe(SIGNED_ACTS_DOCS_URL);
+    }
+  });
+
+  it("says who decided what, that it is closed in production, and what the privacy notice lacks", () => {
+    const text = pageText();
+    expect(text).toContain('Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys ("Yes offer the keys").');
+    expect(text).toContain("is an AI agent's design and defaults, which Yu has not reviewed.");
+    expect(text).toContain("The path is closed unless a deployment opens it, and production has not");
+    expect(text).toContain("The privacy notice does not yet describe the records it keeps.");
+    expect(text).not.toMatch(/\b(?:chosen|decided|approved) by Yu\b/);
+  });
+
+  it("says where a key can be kept only as far as it has been run", () => {
+    const text = pageText();
+    expect(text).toContain("examples/agents/held-key-signer.mjs");
+    expect(text).toContain("it has not been run against a deployment with signed acts open.");
+    expect(text).toContain(
+      "A vault. One that only stores a key and attaches it to requests cannot sign with it; one that signs inside itself was not tried here.",
+    );
+    expect(text).toContain(
+      "A hosted chat app. Not run. A chat app has nowhere to keep a private key out of the conversation. The MCP endpoint is custom JSON-RPC over HTTPS, not a standard remote MCP server.",
+    );
+    // Nothing that was not run is stated as fact either way.
+    expect(text).not.toContain("Does not reach this door");
+    expect(text).not.toContain("A key that stays in a vault cannot sign");
+    expect(text).toContain("nothing a client says about itself is treated as identity");
+  });
+});
+

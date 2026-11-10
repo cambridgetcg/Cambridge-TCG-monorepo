@@ -4,11 +4,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   query: vi.fn(),
-  client: vi.fn<(props: { keys: Record<string, unknown>[] }) => null>(() => null),
+  listSigningKeys: vi.fn(),
+  client: vi.fn<
+    (props: {
+      keys: Record<string, unknown>[];
+      signedActs: { open: boolean };
+      signingKeys: Record<string, unknown>;
+    }) => null
+  >(() => null),
 }));
 
 vi.mock("@/lib/auth", () => ({ auth: mocks.auth }));
 vi.mock("@/lib/db", () => ({ query: mocks.query }));
+vi.mock("@/lib/agents/signing-key-actions", () => ({ listSigningKeys: mocks.listSigningKeys }));
 // Capture the props the server page hands to the browser.
 vi.mock("./_client", () => ({ AgentsClient: mocks.client }));
 
@@ -20,6 +28,8 @@ const STAFF_NOTE = "admin revoke: leaked in support ticket 4411 by 203.0.113.9";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
+  vi.stubEnv("AGENT_SIGNED_ACTS", "");
   mocks.auth.mockResolvedValue({ user: { id: USER_ID } });
   mocks.query.mockImplementation(async (sql: string) =>
     sql.includes("FROM agent_keys")
@@ -83,5 +93,51 @@ describe("/account/agents page", () => {
     const [props] = mocks.client.mock.calls[0];
     // The client gets an ISO 8601 string, as KeyRow says, not the driver's Date.
     expect(props.keys[0]).toMatchObject({ expires_at: "2026-11-05T10:00:00.000Z", expired: false });
+  });
+
+  it("reads no signing key and no mint mark while signed acts are closed", async () => {
+    renderToStaticMarkup(await AgentsAccountPage());
+
+    expect(mocks.listSigningKeys).not.toHaveBeenCalled();
+    for (const [sql] of mocks.query.mock.calls) {
+      expect(String(sql)).not.toMatch(/agent_signing_keys|agent_act_events|minted_by_event/);
+    }
+    const [props] = mocks.client.mock.calls[0];
+    expect(props.signedActs).toEqual({ open: false });
+    expect(props.signingKeys).toEqual({});
+    expect(props.keys[0].minted_by_signed_act).toBe(false);
+  });
+
+  it("lists each operator-managed agent's signing keys and marks signed mints while open", async () => {
+    vi.stubEnv("AGENT_SIGNED_ACTS", "on");
+    vi.stubEnv("AGENT_SIGNED_ACTS_AUDIENCE", "https://cambridgetcg.com");
+    const agentRows = [
+      { id: "a1", registered_via: "operator", status: "active" },
+      { id: "a2", registered_via: "self-serve", status: "active" },
+      { id: "a3", registered_via: "operator", status: "archived" },
+    ];
+    const keyRow = { id: "k1", agent_id: "a1", key_prefix: "ctcg_agt_abc", name: "laptop", rate_limit_tier: "free", last_used_at: null, revoked_at: null, revoked_reason: null, created_at: "2026-11-10T10:00:00Z", expires_at: null, expired: false };
+    mocks.query.mockImplementation(async (sql: string) => ({ rows: sql.includes("FROM agent_keys") ? [keyRow, { ...keyRow, id: "k2" }] : agentRows }));
+    mocks.listSigningKeys.mockImplementation(async ({ agent_id }: { agent_id: string }) => {
+      if (agent_id === "a3") throw new Error("read failed");
+      return {
+        ok: true,
+        data: {
+          open: true,
+          max_live_signing_keys: 2,
+          signing_keys: [{ id: "s1", kid: "A".repeat(43), state: "confirmed" }],
+          signed_mints: [{ key_id: "k1", minted_by_kid: "A".repeat(43) }],
+        },
+      };
+    });
+
+    renderToStaticMarkup(await AgentsAccountPage());
+
+    // Operator-managed agents only, one at a time.
+    expect(mocks.listSigningKeys.mock.calls.map(([input]) => input)).toEqual([{ agent_id: "a1" }, { agent_id: "a3" }]);
+    const [props] = mocks.client.mock.calls[0];
+    expect(props.signedActs).toEqual({ open: true });
+    expect(props.signingKeys).toEqual({ a1: [{ id: "s1", kid: "A".repeat(43), state: "confirmed" }], a3: null });
+    expect(props.keys.map((key) => [key.id, key.minted_by_signed_act, key.minted_by_kid])).toEqual([["k1", true, "A".repeat(43)], ["k2", false, null]]);
   });
 });

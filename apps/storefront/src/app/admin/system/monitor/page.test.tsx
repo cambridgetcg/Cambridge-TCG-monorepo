@@ -96,6 +96,79 @@ describe("/admin/system/monitor behind the admin gate", () => {
     expect(markup).toMatch(/>1\/\d+</);
   });
 
+  it("reads no held-keys table while signed acts are closed, and says so", async () => {
+    session("admin");
+    vi.stubEnv("AGENT_SIGNED_ACTS", "");
+    mocks.sfQuery.mockImplementation(async (sql: string) => (sql.includes("to_regclass") ? { rows: [{ provisioned: true }] } : { rows: [] }));
+    const markup = renderToStaticMarkup(await MonitorPage());
+    expect(markup).toContain("Signed acts are closed here, so agent_act_nonces is not read");
+    for (const [sql] of mocks.sfQuery.mock.calls) expect(String(sql)).not.toMatch(/agent_act_nonces|agent_signing_keys|agent_act_events|minted_by_event/);
+    vi.unstubAllEnvs();
+  });
+
+  it("shows the nonce table as counts, the oldest past its time and the sweep's last run, while open", async () => {
+    session("admin");
+    vi.stubEnv("AGENT_SIGNED_ACTS", "on");
+    vi.stubEnv("AGENT_SIGNED_ACTS_AUDIENCE", "https://cambridgetcg.com");
+    const expired = new Date("2026-11-10T11:58:00Z");
+    const swept = new Date("2026-11-10T11:23:01Z");
+    mocks.sfQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes("to_regclass")) return { rows: [{ provisioned: true }] };
+      if (sql.includes("FROM agent_act_nonces")) return { rows: [{ rows: "1234", expired: "3", oldest_expired: expired }] };
+      if (sql.includes("DISTINCT ON (job)")) return { rows: [{ job: "sweep/held-keys", started_at: swept, finished_at: swept, http_status: 200, outcome: "ran", counts: { nonces: 41, pendingKeys: 1 } }] };
+      return { rows: [] };
+    });
+    const markup = renderToStaticMarkup(await MonitorPage());
+    const text = markup.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    expect(text).toContain("Act nonces 1,234");
+    expect(text).toContain("Past their time 3");
+    expect(markup).toContain("ran · 41 nonces, 1 pending keys deleted");
+    expect(markup).not.toContain("Signed acts are closed here");
+    // Counts only: nothing that names a key or a nonce is read.
+    const read = mocks.sfQuery.mock.calls.map(([sql]) => String(sql)).find((sql) => sql.includes("FROM agent_act_nonces"))!;
+    expect(read).not.toMatch(/\b(?:thumbprint|jti)\b/);
+    vi.unstubAllEnvs();
+  });
+
+  it("warns about expired nonces only when the oldest has waited past the next sweep (90 minutes)", async () => {
+    session("admin");
+    vi.stubEnv("AGENT_SIGNED_ACTS", "on");
+    vi.stubEnv("AGENT_SIGNED_ACTS_AUDIENCE", "https://cambridgetcg.com");
+    const nonceCard = async (minutesAgo: number) => {
+      const oldest = new Date(Date.now() - minutesAgo * 60_000);
+      mocks.sfQuery.mockImplementation(async (sql: string) => {
+        if (sql.includes("to_regclass")) return { rows: [{ provisioned: true }] };
+        if (sql.includes("FROM agent_act_nonces")) return { rows: [{ rows: "10", expired: "4", oldest_expired: oldest }] };
+        return { rows: [] };
+      });
+      const markup = renderToStaticMarkup(await MonitorPage());
+      const card = markup.slice(markup.indexOf("Past their time"), markup.indexOf("Oldest past its time"));
+      return { card, markup };
+    };
+    // Between hourly sweeps, expired rows are normal: no warning.
+    const normal = await nonceCard(70);
+    expect(normal.card).toContain("4");
+    expect(normal.card).not.toMatch(/amber/);
+    expect(normal.markup).toContain("normal between hourly sweeps; a warning once the oldest is over 90 minutes past");
+    const overdue = await nonceCard(95);
+    expect(overdue.card).toMatch(/amber/);
+    vi.unstubAllEnvs();
+  });
+
+  it("says the audience is missing when the flag is on without one, rather than showing the flag off", async () => {
+    session("admin");
+    vi.stubEnv("AGENT_SIGNED_ACTS", "on");
+    vi.stubEnv("AGENT_SIGNED_ACTS_AUDIENCE", "");
+    mocks.sfQuery.mockImplementation(async (sql: string) => (sql.includes("to_regclass") ? { rows: [{ provisioned: true }] } : { rows: [] }));
+    const markup = renderToStaticMarkup(await MonitorPage());
+    const text = markup.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
+    expect(text).toContain("AGENT_SIGNED_ACTS on");
+    expect(text).toContain("AGENT_SIGNED_ACTS_AUDIENCE missing");
+    expect(text).toContain("AGENT_SIGNED_ACTS is on, but AGENT_SIGNED_ACTS_AUDIENCE is not set to this deployment's origin, so signed acts stay closed and agent_act_nonces is not read.");
+    for (const [sql] of mocks.sfQuery.mock.calls) expect(String(sql)).not.toMatch(/agent_act_nonces/);
+    vi.unstubAllEnvs();
+  });
+
   it("is reached through the gated paths and listed in the admin nav's system group", () => {
     expect(proxyConfig.matcher).toContain("/admin/:path*");
     expect(ADMIN_NAV).toContainEqual({ href: "/admin/system/monitor", label: "Monitor", group: "system" });
