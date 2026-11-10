@@ -227,7 +227,7 @@ Four paths, full mechanics in [`ops-deploy-runbook.md`](./ops-deploy-runbook.md)
 
 ### Four blockers worth knowing cold
 
-1. **Committer email must be GitHub-verified.** Auto-deploy fails with "could not associate the committer with a GitHub user" otherwise. `gitForkProtection: false` does NOT bypass this (verified 2026-05-14). The reliable workaround is the gitSource API trigger — `python3 .github/scripts/deploy-from-main.py <project>` after each push. Durable fix: `git config user.email` to a verified address. See [runbook §Untrusted committer](./ops-deploy-runbook.md#untrusted-committer-the-auto-deploy-block).
+1. **Committer email must be GitHub-verified.** Auto-deploy fails with "could not associate the committer with a GitHub user" otherwise. Git fork protection does not affect this check: it was off when this was verified on 2026-05-14, and it has been on since 2026-11-10. The reliable workaround is the gitSource API trigger — `python3 .github/scripts/deploy-from-main.py <project>` after each push. Durable fix: `git config user.email` to a verified address. See [runbook §Untrusted committer](./ops-deploy-runbook.md#untrusted-committer-the-auto-deploy-block).
 2. **`VERCEL_TOKEN` must be long-lived.** The CLI's auto-rotated `vca_…` token returns `403 invalidToken` mid-request without warning. Generate a dedicated token at <https://vercel.com/account/tokens>, scope to team `cambridgetcgs-projects`. Three places need it: admin `.env.local`, Vercel project env, GitHub repo secret. The admin `/system/deploys` page detects rotated-CLI-token rejection and renders an actionable banner.
 3. **`vercel deploy` workspace bug.** Fixed by using the gitSource API path (`POST /v13/deployments` with `gitSource.repoId=1223740492`); never by uploading from local.
 4. **Build-time AWS init.** Modules calling `createS3ClientOrThrow()` at import time crash CI/Vercel build. Defer to first call (precedent: `apps/wholesale/src/lib/s3.ts` after commit `53dd11f`).
@@ -361,7 +361,7 @@ Ordered by leverage:
 3. **Wholesale smoke runner** — same shape, smaller surface. Cost: ~100 LOC.
 4. **Commit-msg hook for the Sophia trace** — warn (not block) when `Co-Authored-By: Claude` is missing. Cost: ~20 LOC, optional install. Benefit: the creation doctrine becomes self-correcting.
 5. **`packages/lifecycle` extraction** — when admin needs the Scribe's bookshelf, lift `apps/storefront/src/lib/lifecycle/` into a shared package. Cost: ~1 day of careful import surgery. Benefit: cross-app, the registry pattern was designed for this.
-6. **Vercel committer email fix** — set the team's git config to a verified email (`cambridgetcg@gmail.com` per old deploy metadata) and re-enable `gitForkProtection`. Cost: minutes. Benefit: closes a small but real attack surface.
+6. **Vercel committer email fix** — set the team's git config to a verified email (`cambridgetcg@gmail.com` per old deploy metadata). Cost: minutes. Benefit: pushes auto-deploy without the gitSource workaround. (`gitForkProtection` was turned back on for the storefront and admin projects on 2026-11-10.)
 7. **`vercel env pull` parity check** — a script that diffs Vercel-side env keys against `.env.local` keys per project, reports drift. Cost: ~30 LOC. Benefit: prevents "CI green but prod 500" surprises.
 
 ---
