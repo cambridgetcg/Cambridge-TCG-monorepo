@@ -38,6 +38,7 @@ function between(text: string, start: string, end: string): string {
 }
 
 const KEY_EXPIRY_ENTRY = CHANGELOG_ENTRIES.find((entry) => entry.id === "agent-key-expiry-per-key")!;
+const HELD_KEYS_ENTRY = CHANGELOG_ENTRIES.find((entry) => entry.id === "agent-held-signing-keys-closed")!;
 
 describe("public claims match publication boundaries", () => {
   it("describes the MCP endpoint as custom JSON-RPC and requires the vendored bridge", async () => {
@@ -279,6 +280,64 @@ describe("public claims match publication boundaries", () => {
     );
   });
 
+  it("pins who decided held keys, that the flag is off, and that 0152 goes before the code", () => {
+    const methodology = prose("src/app/methodology/agents/page.tsx");
+    const plan = prose("../../docs/plans/agent-auth/held-keys.md");
+    const plans = prose("../../docs/plans/agent-auth/README.md");
+    const migration = prose("drizzle/0152_agent_signing_keys.sql");
+    const openapi = prose("src/app/api/openapi.json/route.ts");
+    const detail = HELD_KEYS_ENTRY.detail ?? "";
+
+    // Attribution: Yu decided to offer the keys, in Yu's words; nothing else.
+    expect(detail).toContain('Yu decided on 2026-11-10 to offer agent-held signing keys ("Yes offer the keys").');
+    expect(methodology).toContain('Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys ("Yes offer the keys").');
+    expect(plan).toContain('Yu answered on 2026-11-10, verbatim: "Yes offer the keys". That settles D1 and nothing else');
+    expect(plans).toContain('Whether to offer it at all was Yu\'s call (its D1), and Yu answered on 2026-11-10: "Yes offer the keys".');
+    // Every other choice is an agent's proposal or default.
+    expect(detail).toContain("How they work, the acts, numbers, limits and retention, is an AI agent's design and defaults, which Yu has not reviewed.");
+    expect(methodology).toContain("is an AI agent's design and defaults, which Yu has not reviewed.");
+    expect(plan).toContain("Slice 1 was built on 2026-11-10 by AI agents");
+    expect(plan).toContain("Numbers and names this page left open** (agents' defaults)");
+    expect(plans).toContain("Yu decided to offer the keys; the design, its numbers and its retention are agents' proposals and defaults, unreviewed by Yu.");
+    expect(migration).toContain("Every name, number and retention below is an agent's proposal in that page, not the owner's decision.");
+    for (const [path, sentence] of [
+      ["src/lib/agents/signed-act-verify.ts", "every rule and number here is an agent's proposal in that page, not the owner's choice."],
+      ["src/lib/agents/signed-act-config.ts", "Every number here is an agent's choice"],
+      ["src/lib/agents/signed-act-disclosures.ts", "The wording is an agent's, not the owner's."],
+      ["src/lib/agents/signed-acts.ts", "Everything else here, the acts, numbers and wording included, is an agent's proposal in that page or an agent's default"],
+    ] as const) {
+      expect(prose(path), path).toContain(sentence);
+    }
+    for (const text of [detail, HELD_KEYS_ENTRY.summary, methodology, plan, plans, migration]) {
+      expect(text).not.toMatch(/\b(?:chosen|decided|approved) by Yu\b/);
+    }
+
+    // The flag is off, wherever the path is described to the public.
+    expect(HELD_KEYS_ENTRY.summary).toContain("Production has not opened them, so both answer signed_acts_closed.");
+    expect(detail).toContain("turning it on in production needs Yu's word, which has not been given.");
+    expect(methodology).toContain("The path is closed unless a deployment opens it, and production has not");
+    expect(openapi).toContain("Closed unless this deployment sets AGENT_SIGNED_ACTS to on with its own audience; production has not, so it answers signed_acts_closed (503) before reading the body.");
+    expect(prose("src/lib/agent-tools-catalog.ts")).toContain("Closed unless the deployment opens it, and production has not: while closed it answers signed_acts_closed.");
+    expect(prose("../../docs/operations/monitoring.md")).toContain("Turning it on in production is Yu's call and has not been made");
+    expect(plan).toContain("When the build finished, nothing was pushed, merged, applied or deployed");
+
+    // Rollout: 0152 before the code, and before the merge, since a push to main deploys.
+    expect(detail).toContain("This needs migration 0152 applied before this code deploys, even closed");
+    expect(migration).toContain("Rollout: apply 0152, then deploy.");
+    expect(migration).toContain("apply this to the production database before the change that uses it is merged to main, not after.");
+    expect(migration).toContain("It MUST be applied before that code deploys, even with the signed-acts flag (AGENT_SIGNED_ACTS) off");
+    expect(prose("../../docs/ops-deploy-runbook.md")).toContain(
+      "Agent-held signing keys require `0152_agent_signing_keys.sql` before their code is merged to `main`, even with `AGENT_SIGNED_ACTS` off",
+    );
+    expect(plans).toContain("apply 0152 to the production database before that branch is merged to `main`, even with the flag off");
+    expect(plan).toContain("applying `0152` (to production before this code is merged to `main`, even with the flag off");
+
+    // What still waits for Yu, and the notice this build did not change.
+    expect(detail).toContain("Yu has not yet given the word for 0152, for the new dependency (@noble/curves 2.2.0, Node 20.19 or later) or for the privacy notice's rows, which do not yet describe these records.");
+    expect(plan).toContain("It has no rows for signing keys, act events or act nonces, and this build did not change it.");
+    expect(methodology).toContain("does not yet describe the records it keeps.");
+  });
+
   it("names XENIA only with the full non-adoption wording, and never claims conformance or adoption", () => {
     const DISCLAIMER = "(xenia d4727ec); Cambridge TCG has not adopted the Covenant; no adoption record; unassessed";
     for (const path of [
@@ -288,6 +347,7 @@ describe("public claims match publication boundaries", () => {
       "src/lib/agents/refusals.ts",
       "../../docs/plans/agent-auth/key-expiry.md",
       "../../docs/plans/agent-auth/README.md",
+      "../../docs/plans/agent-auth/held-keys.md",
     ]) {
       const text = prose(path);
       expect(text, path).toMatch(/xenia/i);
