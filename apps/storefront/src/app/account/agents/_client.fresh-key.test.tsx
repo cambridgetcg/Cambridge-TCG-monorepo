@@ -319,6 +319,28 @@ describe("/account/agents expiry choice", () => {
     expect(mintForms()).toHaveLength(0);
   });
 
+  it("says a lifetime counts from minting only for the presets", async () => {
+    const PRESET_HINT = "Counted from when the key is minted, and never extended.";
+    await act(async () => root.render(<AgentsClient agents={[agent("a1", "first-agent")]} keys={[]} />));
+    await act(async () => button("+ mint key").click());
+    const form = mintForm();
+
+    for (const preset of ["7d", "30d", "90d", "365d"]) {
+      await choose(form, preset);
+      expect(form.textContent, preset).toContain(PRESET_HINT);
+    }
+    // A date ends at 00:00 UTC on that date, whenever the key was minted.
+    await choose(form, "date");
+    expect(form.textContent).not.toContain(PRESET_HINT);
+    expect(form.textContent).toContain("Fixed at mint and never extended.");
+    expect(form.textContent).toContain("The key stops working at 00:00 UTC on this date.");
+    // Never has nothing to count; its warning stands alone.
+    await choose(form, "never");
+    expect(form.textContent).not.toContain(PRESET_HINT);
+    expect(form.textContent).not.toContain("Fixed at mint");
+    expect(form.textContent).toContain(KEY_EXPIRY_NEVER_WARNING);
+  });
+
   it("when a form is reset, the warning follows the select back to 90 days", async () => {
     await act(async () => root.render(<AgentsClient agents={[]} keys={[]} />));
     const form = createForm();

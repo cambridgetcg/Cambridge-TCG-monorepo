@@ -6,6 +6,7 @@ import { GET as getMcpConfig } from "@/app/.well-known/mcp-config.json/route";
 import { GET as getMcpDiscovery } from "@/app/.well-known/mcp.json/route";
 import { GET as getToolCatalog } from "@/app/api/v1/tools/route";
 import { describeAgentToolGrant } from "@/lib/agents/tool-access";
+import { getGuide } from "@/lib/guides";
 import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
 
 function source(path: string): string {
@@ -113,6 +114,14 @@ describe("public claims match publication boundaries", () => {
     expect(agentKeyText).toContain("key_expires_at");
     expect(agentKeyText).toContain("X-Agent-Key-Expires");
     expect(agentKeyText).toContain("key_expired");
+
+    // The guide's gotcha: a key may have no expiry, and the header is on successful
+    // authenticated tool results only, never on agent.revoke_key's answers.
+    const gotcha = getGuide("wire-into-claude-code")!.gotchas.find((entry) => entry.title.startsWith("An agent key expires"))!;
+    expect(gotcha.title).toBe("An agent key expires when its minter chose, or never");
+    expect(gotcha.description).toContain(
+      "the X-Agent-Key-Expires header on each successful authenticated tool result (not agent.revoke_key's answers) say when",
+    );
 
     const realms = source("../../docs/connections/the-four-auth-realms.md");
     expect(realms).not.toContain("Agent keys never expire");

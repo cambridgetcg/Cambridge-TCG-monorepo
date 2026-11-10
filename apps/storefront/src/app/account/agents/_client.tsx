@@ -61,6 +61,12 @@ interface FreshToken {
   key_expires_at: string | null;
 }
 
+/** Under the select, by choice: only the presets count from minting; a
+ *  date has its own hint below it, and never has its warning. */
+const PRESET_HINT =
+  "Counted from when the key is minted, and never extended. To keep going after it ends, mint a new key.";
+const DATE_HINT = "Fixed at mint and never extended. To keep going after it ends, mint a new key.";
+
 /**
  * "Expires": a preset, a date or never, 90 days pre-selected. The date
  * picker's range is a convenience on this clock; the server checks it
@@ -84,12 +90,13 @@ function KeyExpiryField({ label = "Expires" }: { label?: string }) {
   }, []);
   const range = choice === KEY_EXPIRY_DATE_CHOICE ? keyExpiryDateRange() : null;
   const never = choice === KEY_EXPIRY_NEVER;
+  const hint = range ? DATE_HINT : never ? undefined : PRESET_HINT;
   return (
     <div className="space-y-3">
       <Field
         label={label}
         htmlFor={`${id}-choice`}
-        hint="Counted from when the key is minted, and never extended. To keep going after it ends, mint a new key."
+        hint={hint}
       >
         <Select
           ref={selectRef}

@@ -66,6 +66,10 @@ describe("/account/agents page", () => {
 
     expect(text).toContain("agent.self returns key_expires_at");
     expect(text).toContain("X-Agent-Key-Expires");
+    // Not every key has an expiry, and agent.revoke_key's answers carry no header.
+    expect(text).toContain("Each key stops working at the expiry chosen when it was minted, if one was chosen");
+    expect(text).toContain("a key minted with never, or before expiry existed, has none");
+    expect(text).toContain("each successful authenticated tool result (not agent.revoke_key's answers) carries an X-Agent-Key-Expires header");
     expect(text).toContain("Nothing is sent to you before a key expires.");
     expect(text).toContain("mint a new key, move the agent to it, check the old key's last use here, then revoke the old key");
     expect(html).toContain('href="/methodology/agents#key-expiry"');
