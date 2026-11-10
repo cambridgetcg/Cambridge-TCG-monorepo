@@ -1,0 +1,291 @@
+{
+  "file": "png/rewardspro_social_milestone-card_claim-rp-paid-trigger+rp-store-credit+rp-vip-tiers-draft_1080x1350_20261107_v01.png",
+  "brand": "RewardsPro",
+  "campaign": "social",
+  "asset": "milestone-card",
+  "variant": "claim-rp-paid-trigger+rp-store-credit+rp-vip-tiers-draft",
+  "brief_id": "STRATEGY.md §7 A6 (M1 instance, §6.2)",
+  "status": "PROPOSAL for the owner: not approved, not published",
+  "size": {
+    "width": 1080,
+    "height": 1350
+  },
+  "bytes": 124549,
+  "sha256": "8977023bab9a82a6dcde077f6da913c1be6b12f09a1caaa8f76a321d7b4e7881",
+  "format": "PNG, opaque, 3 channels, ICC profile embedded (sRGB)",
+  "review_only": false,
+  "max_bytes": 2000000,
+  "under_limit": true,
+  "platforms": [
+    "LinkedIn image post (4:5)"
+  ],
+  "use": "Review only. Shows the layout and wording for the owner; never post a draft. render.mjs drops the bands only when every claim is verified, inside its review_after date and cleared for social-post, and no placeholder is left, with a real screenshot embedded in the slot.",
+  "safe_before_g0": false,
+  "claim_ids": [
+    "rp-paid-trigger",
+    "rp-store-credit",
+    "rp-vip-tiers"
+  ],
+  "claim_status_at_build": {
+    "rp-paid-trigger": {
+      "status": "proposed",
+      "review_after": "2027-02-07",
+      "social_post": true,
+      "postable": false,
+      "why": "unverified"
+    },
+    "rp-store-credit": {
+      "status": "proposed",
+      "review_after": "2027-02-07",
+      "social_post": true,
+      "postable": false,
+      "why": "unverified"
+    },
+    "rp-vip-tiers": {
+      "status": "proposed",
+      "review_after": "2027-02-07",
+      "social_post": true,
+      "postable": false,
+      "why": "unverified"
+    }
+  },
+  "draft": true,
+  "blockers": [
+    "a real screenshot",
+    "a date"
+  ],
+  "screenshot_slot": {
+    "box": [
+      88,
+      96,
+      904,
+      744
+    ],
+    "size": "904x744 px",
+    "screenshot": null
+  },
+  "text_on_image": [
+    "DRAFT · NOT FOR POSTING",
+    "Real screenshot crop goes here",
+    "None captured yet: G0 shot list, @example.com buyers",
+    "Slot 904 x 744 px, cropped from the capture master",
+    "When a customer’s order is paid, RewardsPro adds cashback at their tier’s rate to their Shopify store credit.",
+    "<D Month YYYY>",
+    "RewardsPro (kit lockup, bottom left)",
+    "Needs verified claims: rp-paid-trigger, rp-store-credit, rp-vip-tiers · a real screenshot · a date"
+  ],
+  "alt_text": "Draft, not for posting. RewardsPro card. Top: an empty frame marked for a real screenshot. Below: \"When a customer’s order is paid, RewardsPro adds cashback at their tier’s rate to their Shopify store credit.\" Date: still to fill. RewardsPro logo at the bottom left.",
+  "alt_chars": 266,
+  "contrast": [
+    {
+      "text": "line",
+      "colours": "#1b1d1f on #ffffff",
+      "size_px": 44,
+      "weight": "SemiBold",
+      "wcag": 16.91,
+      "apca_lc": 103.84,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "date",
+      "colours": "#007c7a on #ffffff",
+      "size_px": 30,
+      "weight": "Regular",
+      "wcag": 5.04,
+      "apca_lc": 74.27,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "shot-1",
+      "colours": "#525659 on #f6f7f7",
+      "size_px": 34,
+      "weight": "SemiBold",
+      "wcag": 6.9,
+      "apca_lc": 80.87,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "shot-2",
+      "colours": "#525659 on #f6f7f7",
+      "size_px": 26,
+      "weight": "Regular",
+      "wcag": 6.9,
+      "apca_lc": 80.87,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "shot-3",
+      "colours": "#525659 on #f6f7f7",
+      "size_px": 26,
+      "weight": "Regular",
+      "wcag": 6.9,
+      "apca_lc": 80.87,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "band-top",
+      "colours": "#1b1d1f on #17bebb",
+      "size_px": 24,
+      "weight": "SemiBold",
+      "wcag": 7.34,
+      "apca_lc": 56.91,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "band-bottom",
+      "colours": "#1b1d1f on #17bebb",
+      "size_px": 21,
+      "weight": "Regular",
+      "wcag": 7.34,
+      "apca_lc": 56.91,
+      "needs": 4.5,
+      "pass": true
+    },
+    {
+      "text": "logo lockup-horizontal (exempt from WCAG)",
+      "colours": "#1a3e5c on #ffffff",
+      "wcag": 11.13,
+      "apca_lc": 95.52,
+      "needs": null,
+      "pass": null
+    },
+    {
+      "text": "logo lockup-horizontal (exempt from WCAG)",
+      "colours": "#17bebb on #ffffff",
+      "wcag": 2.3,
+      "apca_lc": 44.85,
+      "needs": null,
+      "pass": null
+    }
+  ],
+  "logo_display": [
+    {
+      "logo": "lockup-horizontal",
+      "native": "376.17x74 px",
+      "shown_at": "390 CSS px across 1080 source px [I] (phone feed width)",
+      "css_width": 135.84,
+      "css_cap_height": 13.36,
+      "css_height": 26.72,
+      "kit_minimum": "130 px wide, cap height 12 px",
+      "ok": true
+    }
+  ],
+  "notes": null,
+  "master": {
+    "path": "masters/rewardspro_social_milestone-card_claim-rp-paid-trigger+rp-store-credit+rp-vip-tiers-draft_1080x1350_20261107_v01.svg",
+    "sha256": "7113bb1709eade844120bbb6cdcb5db0ec0f171c03efc0df945fbf32517bb47f",
+    "source": "src/rewardspro_social_milestone-card_claim-rp-paid-trigger+rp-store-credit+rp-vip-tiers-draft_1080x1350_20261107_v01.src.svg"
+  },
+  "inputs": [
+    {
+      "path": "kit/colour/tokens.json",
+      "sha256": "538dd5aeefcaa3c215ba3866a5a807366354e759170a220a657cdda42cb0c00a",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. From the 2026-10-27 kit rebuild (676c10b4); not covered by an approval.",
+      "note": "Every token used here has the same value as in the approved 2026-10-20 tokens, except dark.bg: #09110F came with the rebuild as the dark landing's ink (it was neutral 950, #1B1D1F)."
+    },
+    {
+      "path": "kit/logo/lockup-horizontal.svg",
+      "sha256": "33042d204485d9a867c05518d77a41eb26e671ea3fa1e06997c16a970d5cc79d",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+    }
+  ],
+  "kernel_sha256": {
+    "kernel.toml": "3ca10d6949ee134102b27f53d35e02253c6852e4474647b3c4a23193200a3f22",
+    "brand.json": "713ff39ee0a33444848b58298a81f8ec59d828142cb2759dc593933b3aa0f657",
+    "kit/.brandkit-fingerprint": "bdb0874b5c9df2937c859d43c3d0e33dbfb8cf10e6fecc3a1408cef718b85265"
+  },
+  "tools": {
+    "render.mjs": "render.mjs v01 (2026-11-07, fix pass 1)",
+    "node": "v26.0.0",
+    "sharp": "0.34.5",
+    "libvips": "8.17.3",
+    "librsvg": "2.61.2",
+    "vectorcraft-cli": "vectorcraft-cli 0.21.0",
+    "font": "Inter Regular and SemiBold as bundled in vectorcraft-cli (OFL-1.1, github.com/rsms/inter; vectorcraft-cli ASSETS.md rows assets/fonts/Inter-*.ttf), outlined to paths"
+  },
+  "fonts_resolved": [
+    "Inter Regular (exact)",
+    "Inter SemiBold (exact)"
+  ],
+  "text_measured": [
+    {
+      "id": "line-0",
+      "width": 679.47,
+      "right": 768.54,
+      "top": 884.46,
+      "bottom": 926.98
+    },
+    {
+      "id": "line-1",
+      "width": 842.82,
+      "right": 934.04,
+      "top": 940.46,
+      "bottom": 974.49
+    },
+    {
+      "id": "line-2",
+      "width": 666.42,
+      "right": 757.38,
+      "top": 996.46,
+      "bottom": 1039.15
+    },
+    {
+      "id": "date-0",
+      "width": 244.94,
+      "right": 335.49,
+      "top": 1070.17,
+      "bottom": 1092.35
+    },
+    {
+      "id": "shot-1-0",
+      "width": 514.42,
+      "right": 797.75,
+      "top": 427.26,
+      "bottom": 459.34
+    },
+    {
+      "id": "shot-2-0",
+      "width": 673.22,
+      "right": 877.11,
+      "top": 480.46,
+      "bottom": 505.41
+    },
+    {
+      "id": "shot-3-0",
+      "width": 635.58,
+      "right": 858.23,
+      "top": 520.2,
+      "bottom": 545.31
+    },
+    {
+      "id": "band-top-0",
+      "width": 317.24,
+      "right": 698.86,
+      "top": 19.31,
+      "bottom": 37.27
+    },
+    {
+      "id": "band-bottom-0",
+      "width": 923.64,
+      "right": 1002.23,
+      "top": 1314,
+      "bottom": 1334.53
+    }
+  ],
+  "ai_involvement": "assistive",
+  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by the owner before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
+  "jurisdictions": [
+    "UK"
+  ],
+  "channel": "social (no account exists yet)",
+  "gate_report": null,
+  "approval_id": null,
+  "publish_url": null,
+  "created": "2026-11-07"
+}

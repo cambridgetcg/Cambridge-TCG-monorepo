@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "shopify app dev --config shopify.app.staging.toml",
     "build": "prisma generate && react-router build",
+    "check:migrations": "tsx scripts/check-production-migrations.ts",
+    "schema:admin": "tsx scripts/fetch-admin-schema.ts",
     "typecheck": "react-router typegen && tsc --noEmit",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
     "test:unit": "vitest run",
@@ -54,6 +56,7 @@
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.2",
+    "graphql": "^16.14.2",
     "graphql-config": "^5.1.6",
     "jsdom": "^24.1.3",
     "msw": "2.14.6",

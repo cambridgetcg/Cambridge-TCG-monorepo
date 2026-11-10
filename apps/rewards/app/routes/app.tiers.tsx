@@ -6,8 +6,10 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { formatMoney } from "~/admin/format";
 import { PASS_FOLLOW_MS, usePolling } from "~/admin/polling";
 import { requireMerchant } from "~/admin/require-merchant.server";
-import { TIER_WINDOW_LABEL } from "~/admin/words";
+import { useReviewAfterSave } from "~/admin/review-request";
+import { CASHBACK_BASE, TIER_WINDOW_LABEL } from "~/admin/words";
 import type { ConnectionContext } from "~/lib/merchant.server";
+import { reviewRequestDue } from "~/lib/stats.server";
 import {
   TIER_ERRORS,
   TIER_NAME_MAX,
@@ -49,9 +51,15 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { conn } = await requireMerchant(request);
-  const [tiers, moving] = await Promise.all([tierTable(conn.merchantId), tierPassPending(conn.connectionId)]);
+  const [tiers, moving, reviewDue] = await Promise.all([
+    tierTable(conn.merchantId),
+    tierPassPending(conn.connectionId),
+    reviewRequestDue(conn.merchantId, new Date()),
+  ]);
   return {
     currency: conn.currency,
+    // Asked only after a tier is saved (admin/review-request.ts, #173)
+    reviewDue,
     tierWindow: conn.tierWindow,
     nameMax: TIER_NAME_MAX,
     // A requested tier pass hasn't reached every buyer yet (TRUTH-10)
@@ -180,6 +188,7 @@ export default function Tiers() {
   const [changes, setChanges] = useState(0);
   // While buyers are moving to their new tiers (Ruling 76), for two minutes from the load or the last change (Ruling 82)
   usePolling(d.moving, MOVING_POLL_MS, { forMs: PASS_FOLLOW_MS, restartKey: changes });
+  useReviewAfterSave(d.reviewDue, saveFetcher, saveFetcher.data?.ok === true);
 
   // The tier being edited, or null while adding one
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -351,10 +360,7 @@ export default function Tiers() {
               </s-table-body>
             </s-table>
           )}
-          <s-paragraph color="subdued">
-            Cashback is paid on the product price after discounts. Shipping, and anything paid with store credit or gift cards, earns
-            nothing.
-          </s-paragraph>
+          <s-paragraph color="subdued">{CASHBACK_BASE}</s-paragraph>
         </s-stack>
       </s-section>
 

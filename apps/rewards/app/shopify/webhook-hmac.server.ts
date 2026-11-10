@@ -1,8 +1,7 @@
 /**
  * The app's own check of a Shopify webhook delivery, for the routes that
  * never call Shopify (plan Decision 11, Ruling 42): app/uninstalled, the
- * three compliance topics, orders/cancelled, app/scopes_update and the
- * ignored topics.
+ * three compliance topics, orders/cancelled and app/scopes_update.
  *
  * authenticate.webhook loads the store's offline session and refreshes an
  * expired token before the route runs, and a refresh Shopify refuses (as it
@@ -20,7 +19,6 @@
  * another topic.
  */
 import crypto from "node:crypto";
-import type { ActionFunctionArgs } from "react-router";
 import { isCanonicalShop } from "~/lib/shop-domain";
 import { monitoring } from "~/lib/telemetry.server";
 
@@ -53,15 +51,38 @@ const BOUND_TOPICS: Record<string, { domain: string; shaped: (payload: Payload) 
   APP_UNINSTALLED: { domain: "myshopify_domain", shaped: () => true },
   SHOP_REDACT: { domain: "shop_domain", shaped: (p) => has(p, "shop_id") && !has(p, "customer") },
   CUSTOMERS_REDACT: { domain: "shop_domain", shaped: (p) => has(p, "customer") && has(p, "orders_to_redact") },
-  CUSTOMERS_DATA_REQUEST: { domain: "shop_domain", shaped: (p) => has(p, "data_request") && has(p, "orders_requested") },
+  // Shopify's real data request has no `data_request` field, unlike its docs' example (production, 2026-11-07)
+  CUSTOMERS_DATA_REQUEST: { domain: "shop_domain", shaped: (p) => has(p, "orders_requested") },
 };
 
-/** Whether a bound topic's payload names `shop` and has the topic's shape; any other topic passes. */
-function boundToBody(topic: string, shop: string, payload: unknown): boolean {
+/** A header value or field name fit for a log line: anything but letters, digits, `_./-` becomes "?". */
+const safe = (value: string | null) => (value || "?").slice(0, 100).replace(/[^\w./-]/g, "?");
+
+/** The body's field names (never their values), for a refusal's log line. */
+const fieldsOf = (payload: Payload) => `(body fields: ${Object.keys(payload).sort().slice(0, 20).map(safe).join(", ")})`;
+
+/**
+ * Why a bound topic's payload doesn't name `shop` or lacks the topic's shape,
+ * or null when it does; any other topic passes.
+ */
+function unboundReason(topic: string, shop: string, payload: unknown): string | null {
   const bound = BOUND_TOPICS[topic];
-  if (!bound) return true;
-  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return false;
-  return (payload as Payload)[bound.domain] === shop && bound.shaped(payload as Payload);
+  if (!bound) return null;
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return "the body isn't a JSON object";
+  if ((payload as Payload)[bound.domain] !== shop) return `the body's ${bound.domain} isn't the header's shop ${fieldsOf(payload as Payload)}`;
+  if (!bound.shaped(payload as Payload)) return `the body hasn't the topic's fields ${fieldsOf(payload as Payload)}`;
+  return null;
+}
+
+/**
+ * Logs why a delivery is refused, so a 401 Shopify keeps retrying can be
+ * explained (production, 2026-11-07: compliance deliveries were refused with
+ * no trace of which check failed). Never a body value, a signature or the
+ * secret.
+ */
+function refuse(topic: string | null, shop: string | null, reason: string): null {
+  console.warn(`[webhook] refused ${safe(topic)} from ${safe(shop)}: ${reason}`);
+  return null;
 }
 
 /**
@@ -72,44 +93,38 @@ function boundToBody(topic: string, shop: string, payload: unknown): boolean {
  * app/uninstalled and the compliance topics, the signed body names that shop
  * and has the topic's shape (BOUND_TOPICS). Null for anything else (not a
  * POST, a header missing, a body that isn't the signed one or isn't JSON, a
- * shop or topic the body doesn't bear out, or no secret set); the route
- * answers 401. A verified delivery's store names every failure it reports
- * (OPERATIONS-8).
+ * shop or topic the body doesn't bear out, or no secret set), logged with
+ * the reason (refuse); the route answers 401. A verified delivery's store
+ * names every failure it reports (OPERATIONS-8).
  */
 export async function verifyShopifyWebhook(request: Request): Promise<VerifiedWebhook | null> {
   const secret = process.env.SHOPIFY_API_SECRET;
-  if (request.method !== "POST" || !secret) return null;
   const hmac = request.headers.get("X-Shopify-Hmac-Sha256");
   const shop = request.headers.get("X-Shopify-Shop-Domain");
   const topic = request.headers.get("X-Shopify-Topic");
   const webhookId = request.headers.get("X-Shopify-Webhook-Id");
-  if (!hmac || !shop || !topic || !webhookId) return null;
+  if (request.method !== "POST") return refuse(topic, shop, "it isn't a POST");
+  if (!secret) return refuse(topic, shop, "the app's secret isn't set");
+  const missing = Object.entries({ "X-Shopify-Hmac-Sha256": hmac, "X-Shopify-Shop-Domain": shop, "X-Shopify-Topic": topic, "X-Shopify-Webhook-Id": webhookId })
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+  if (!hmac || !shop || !topic || !webhookId) return refuse(topic, shop, `a header is missing (${missing.join(", ")})`);
 
   const body = await request.text();
-  if (body.length === 0 || !sameSignature(hmac, signatureOf(body, secret))) return null;
-  if (!isCanonicalShop(shop)) return null;
+  if (body.length === 0) return refuse(topic, shop, "the body is empty");
+  if (!sameSignature(hmac, signatureOf(body, secret))) return refuse(topic, shop, "the signature doesn't match");
+  if (!isCanonicalShop(shop)) return refuse(topic, shop, "the shop header isn't a myshopify.com domain");
   let payload: unknown;
   try {
     payload = JSON.parse(body);
   } catch {
-    return null;
+    return refuse(topic, shop, "the body isn't JSON");
   }
   const name = topic.toUpperCase().replace(/[/.]/g, "_");
-  if (!boundToBody(name, shop, payload)) return null;
+  const unbound = unboundReason(name, shop, payload);
+  if (unbound) return refuse(topic, shop, unbound);
   monitoring.tagShop(shop);
   return { topic: name, shop, webhookId, payload };
-}
-
-/**
- * The action of a route for a topic the released app subscribed to and the
- * rebuild ignores (spec 7, until the trimmed release B3): the delivery is
- * verified (401 when Shopify didn't sign it) and answered 200, so Shopify
- * stops sending it again. Nothing is read or written, and no session is
- * loaded (Ruling 42).
- */
-export async function acknowledgeIgnoredTopic({ request }: ActionFunctionArgs): Promise<Response> {
-  const webhook = await verifyShopifyWebhook(request);
-  return new Response(null, { status: webhook ? 200 : 401 });
 }
 
 /**

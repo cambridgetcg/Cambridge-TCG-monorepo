@@ -21,7 +21,7 @@ import {
 import { resolveReferencePrice } from "@/lib/market/reference-price";
 import { query } from "@/lib/db";
 import CardMarketClient, { type AlsoAtAuction } from "./CardMarketClient";
-import { SHARE_CARD } from "@/lib/share-card";
+import { SHARE_CARD, shareableImageUrl } from "@/lib/share-card";
 
 /**
  * Live auctions for this exact card (auctions.sku, migration 0113) — a
@@ -95,15 +95,17 @@ export async function generateMetadata({
     : `Order-book record for ${card.card_name} (${card.card_number}). New paid orders were retired on 23 September 2026.`;
   // A Japanese official image is not offered as the share image: a social
   // platform would fetch and cache it without its credit, beyond any takedown
-  // (docs/decisions/2026-10-30-japanese-official-images.md). The English
-  // og:image is unchanged, a gap recorded there.
+  // (docs/decisions/2026-10-30-japanese-official-images.md). Nor is the
+  // catalogue fallback (shareableImageUrl). The English og:image is
+  // unchanged, a gap recorded there.
+  const image = card.image_language === "ja" ? null : shareableImageUrl(card.image_url);
   return {
     title,
     description,
     openGraph: {
       title,
       description,
-      images: card.image_url && card.image_language !== "ja" ? [{ url: card.image_url }] : [SHARE_CARD],
+      images: image ? [{ url: image }] : [SHARE_CARD],
     },
   };
 }

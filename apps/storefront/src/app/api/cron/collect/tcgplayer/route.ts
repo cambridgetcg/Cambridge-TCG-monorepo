@@ -16,13 +16,16 @@
  * that refused an earlier run is left alone until its Retry-After (or 6 h)
  * has passed: ran:false, "host-backing-off". One suspended after three refused
  * runs in a row answers 503 HOST_SUSPENDED until a person clears it
- * (migration 0146).
+ * (migration 0146). Each enabled run then records its outcome in
+ * ops_job_outcomes (migration 0148), never failing the run; a disabled one
+ * records nothing.
  */
 
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/lib/cron-auth";
 import { collectionOn } from "@/lib/datafeed/collection-flags";
-import { collectTcgplayer } from "@/lib/datafeed/collectors/tcgplayer";
+import { collectTcgplayer, type TcgplayerRun, type TcgplayerRunRefused } from "@/lib/datafeed/collectors/tcgplayer";
+import { recordedRun, tcgplayerJobOutcome } from "@/lib/observability/job-outcomes";
 
 export const dynamic = "force-dynamic";
 // seconds — the run stops at 270. No storefront route asks for more than 300,
@@ -38,9 +41,13 @@ export async function GET(request: Request) {
   if (!collectionOn("tcgplayer")) {
     return NextResponse.json({ ok: true, ran: false, reason: "disabled" }, { headers });
   }
+  return recordedRun("collect/tcgplayer", collect, tcgplayerJobOutcome);
+}
 
+async function collect(observe: (run: TcgplayerRun | TcgplayerRunRefused) => void) {
   try {
     const run = await collectTcgplayer();
+    observe(run);
     if (!run.ran) {
       console.log("[cron/collect/tcgplayer]", JSON.stringify(run));
       if (run.reason === "host-suspended" || run.reason === "host-backing-off") {

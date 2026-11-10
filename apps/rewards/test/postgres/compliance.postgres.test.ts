@@ -67,7 +67,7 @@ function orderFacts(n: number, buyer: string): OrderFacts {
 /** A refund of £10 of products: takes back £0.50. */
 function refundFacts(n: number): RefundFacts {
   const pair = { amount: new Money("10.00"), shopAmount: new Money("10.00") };
-  return { externalRefundId: `gid://shopify/Refund/${n}`, productValue: pair, refundedAt: new Date(), completesOrder: false };
+  return { externalRefundId: `gid://shopify/Refund/${n}`, productValue: pair, refundedAt: new Date(), completesOrder: false, moneyPending: false };
 }
 
 const applied: RailAnswer = { outcome: "applied", transactionId: "gid://shopify/StoreCreditAccountCreditTransaction/1" };
@@ -739,6 +739,32 @@ describe.skipIf(!hasTestDatabase)("uninstall and compliance", () => {
   });
 
   describe("customers/data_request", () => {
+    // As Shopify really sends it (production, 2026-11-07): no data_request field, so no request id
+    const sentDataRequest = (webhookId: string) =>
+      compliance(
+        args(
+          signedWebhook(
+            "customers/data_request",
+            SHOP,
+            { shop_id: 1, shop_domain: SHOP, orders_requested: [5001], customer: { id: Number(ALICE), email: ALICE_EMAIL, phone: "+447700900000" } },
+            webhookId,
+            "2026-10",
+          ),
+        ),
+      );
+
+    it("a request as Shopify sends it opens once, keyed by its delivery, however often Shopify delivers it again", async () => {
+      await runningShop();
+      expect((await sentDataRequest("delivery-a")).status).toBe(200);
+      expect((await sentDataRequest("delivery-a")).status).toBe(200);
+      await expect(prisma.privacyRequest.findMany({ select: { shopifyRequestId: true, externalCustomerId: true } })).resolves.toEqual([
+        { shopifyRequestId: "delivery-a", externalCustomerId: ALICE },
+      ]);
+      // A second request from the store is a second delivery
+      expect((await sentDataRequest("delivery-b")).status).toBe(200);
+      await expect(prisma.privacyRequest.count()).resolves.toBe(2);
+    });
+
     it("data_request opens a request due in 30 days and the report holds the ledger", async () => {
       const conn = await runningShop();
       const paid = await creditFor(conn, 5001, ALICE, applied);

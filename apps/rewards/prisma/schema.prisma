@@ -150,6 +150,8 @@ model Merchant {
   reviewPromptShownAt     DateTime?  @map("review_prompt_shown_at")
   /// When Home first saw every setup step done (Ruling 60); the setup card stays closed after.
   setupCompletedAt        DateTime?  @map("setup_completed_at")
+  /// When the merchant pressed Finish later in the setup guide (RP-24); the guide stays away after.
+  guideDismissedAt        DateTime?  @map("guide_dismissed_at")
   createdAt               DateTime   @default(now()) @map("created_at")
   updatedAt               DateTime   @updatedAt @map("updated_at")
 
@@ -188,6 +190,10 @@ model Connection {
   importError          String?          @map("import_error")
   /// Polls in a row whose bulk file answered 4xx; the second ends the attempt.
   importFileRefusals   Int              @default(0) @map("import_file_refusals")
+  /// When startImport or a restart last claimed a launch of the bulk query: a running import with no operation id has lost its
+  /// start 5 minutes after it, whatever else has written the row since. Null on rows claimed before this column and after a
+  /// reactivation, which count as lost.
+  importLaunchedAt     DateTime?        @map("import_launched_at")
   /// When the merchant dismissed the import's outcome on Home; the setup card shows it until then.
   importDismissedAt    DateTime?        @map("import_dismissed_at")
   lastTierPassAt       DateTime?        @map("last_tier_pass_at")
@@ -320,17 +326,21 @@ model Order {
 }
 
 model Refund {
-  id                    String   @id @default(uuid()) @db.Uuid
-  merchantId            String   @map("merchant_id") @db.Uuid
-  connectionId          String   @map("connection_id") @db.Uuid
-  orderId               String   @map("order_id") @db.Uuid
-  externalRefundId      String   @map("external_refund_id")
-  productAmount         Decimal  @map("product_amount") @db.Decimal(19, 4)
-  shopProductAmount     Decimal  @map("shop_product_amount") @db.Decimal(19, 4)
-  refundedAt            DateTime @map("refunded_at")
-  appliedBeforeCashback Boolean  @default(false) @map("applied_before_cashback")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id                    String    @id @default(uuid()) @db.Uuid
+  merchantId            String    @map("merchant_id") @db.Uuid
+  connectionId          String    @map("connection_id") @db.Uuid
+  orderId               String    @map("order_id") @db.Uuid
+  externalRefundId      String    @map("external_refund_id")
+  productAmount         Decimal   @map("product_amount") @db.Decimal(19, 4)
+  shopProductAmount     Decimal   @map("shop_product_amount") @db.Decimal(19, 4)
+  refundedAt            DateTime  @map("refunded_at")
+  appliedBeforeCashback Boolean   @default(false) @map("applied_before_cashback")
+  /// When a refund of money with no items was recorded with its money still on its way (#195); its take-back waits, and the hourly check reads it again until the money settles (null once it has, or after 30 days).
+  moneyPendingSince     DateTime? @map("money_pending_since")
+  /// When the hourly check last read such a refund, so the least recently read goes first.
+  moneyCheckedAt        DateTime? @map("money_checked_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
   merchant      Merchant      @relation(fields: [merchantId], references: [id])
   connection    Connection    @relation(fields: [merchantId, connectionId], references: [merchantId, id])
@@ -340,6 +350,8 @@ model Refund {
   @@unique([connectionId, externalRefundId])
   @@unique([merchantId, id])
   @@index([merchantId, orderId])
+  // The hourly check's marked refunds (#195)
+  @@index([moneyPendingSince])
   @@map("refund")
 }
 

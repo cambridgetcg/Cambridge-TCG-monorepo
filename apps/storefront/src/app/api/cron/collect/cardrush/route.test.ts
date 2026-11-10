@@ -3,6 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const db = vi.hoisted(() => ({ query: vi.fn(), transaction: vi.fn() }));
 vi.mock("@/lib/db", () => db);
+const ops = vi.hoisted(() => ({ record: vi.fn() }));
+// The outcome row (lib/observability/job-outcomes.ts) goes to its own port, so
+// the statements this file counts on the database stay exactly the job's own.
+vi.mock("@/lib/observability/job-outcomes", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/observability/job-outcomes")>();
+  return { ...actual, recordedRun: ((job, work, outcomeOf) => actual.recordedRun(job, work, outcomeOf, ops.record)) as typeof actual.recordedRun };
+});
+/** Each ops_job_outcomes row the route wrote: job, HTTP status, outcome, counts. */
+const outcomes = () => ops.record.mock.calls.filter(([sql]) => String(sql).startsWith("INSERT INTO ops_job_outcomes"))
+  .map(([, params]) => ({ job: params[0], status: params[3], outcome: params[4], counts: JSON.parse(params[5]) }));
 import { CARDRUSH_MAX_BUDGET_MS } from "@cambridge-tcg/data-ingest/cardrush/member-prices";
 import { GET, maxDuration } from "./route";
 
@@ -13,6 +23,7 @@ let fetchSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   vi.stubEnv("CRON_SECRET", "fixture-cron-secret");
   db.query.mockReset(); db.transaction.mockReset();
+  ops.record.mockReset().mockResolvedValue({ rows: [], rowCount: 1 });
   fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => { throw new Error("the collector route must not reach the network here"); });
 });
 afterEach(() => { vi.unstubAllEnvs(); fetchSpy.mockRestore(); });
@@ -117,6 +128,41 @@ describe("CardRush collector cron", () => {
       expect(await response.json()).toMatchObject({ ...body, requested: 0 });
     }
     expect(fetchSpy).not.toHaveBeenCalled(); expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it("records each enabled run's outcome after it, and nothing for a disabled run", async () => {
+    const response = await GET(request("Bearer fixture-cron-secret"));
+    expect(await response.json()).toEqual({ ok: true, ran: false, reason: "disabled" });
+    expect(ops.record).not.toHaveBeenCalled();
+
+    vi.stubEnv("DATA_COLLECT_CARDRUSH", "on");
+    db.query.mockImplementation(async (sql: string) => sql.includes("INSERT INTO price_collector_leases") ? { rows: [{ holder: null, held_by: "another-run" }], rowCount: 1 } : { rows: [{ source: "cardrush" }], rowCount: 1 });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    expect((await GET(request("Bearer fixture-cron-secret"))).status).toBe(200);
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    expect((await GET(request("Bearer fixture-cron-secret"))).status).toBe(200);
+    expect(outcomes()).toEqual([
+      { job: "collect/cardrush", status: 200, outcome: "refused:run-in-progress", counts: { host: expect.stringMatching(/^www\.cardrush-[a-z]+\.jp$/), requested: 0 } },
+      { job: "collect/cardrush", status: 200, outcome: "refused:release-revoked-or-unreviewed", counts: { host: expect.any(String), requested: 0 } },
+    ]);
+    // The row is written after the work, never into the collector's own statements.
+    expect(db.query.mock.calls.some(([sql]) => String(sql).includes("ops_job_outcomes"))).toBe(false);
+  });
+
+  it("records a collector that threw as unavailable, and a failed outcome write changes no answer", async () => {
+    vi.stubEnv("DATA_COLLECT_CARDRUSH", "on");
+    db.query.mockRejectedValue(new Error("connection to 10.0.0.1 refused"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await GET(request("Bearer fixture-cron-secret"))).status).toBe(500);
+    expect(outcomes()).toEqual([{ job: "collect/cardrush", status: 500, outcome: "unavailable:collector-failed", counts: {} }]);
+    expect(JSON.stringify(ops.record.mock.calls)).not.toContain("10.0.0.1");
+
+    ops.record.mockRejectedValue(Object.assign(new Error("relation does not exist"), { code: "42P01" }));
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    const response = await GET(request("Bearer fixture-cron-secret"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, ran: false, reason: "release-revoked-or-unreviewed" });
+    error.mockRestore();
   });
 
   it("answers a failure without echoing it", async () => {

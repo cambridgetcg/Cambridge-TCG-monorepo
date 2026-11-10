@@ -562,31 +562,34 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
     expect((await load()).storeCreditReady).toBe(true);
   });
 
+  // #173: one time for everyone, setup done; the page asks only after a save (review-request.ts)
   describe("the review request", () => {
-    const sevenDaysOld = (conn: ConnectionContext, days = 7) =>
-      prisma.merchant.update({ where: { id: conn.merchantId }, data: { createdAt: new Date(Date.now() - days * DAY - 60_000) } });
+    /** Setup completed `days` days (and a minute) ago. */
+    const setUp = (conn: ConnectionContext, days = 30) =>
+      prisma.merchant.update({ where: { id: conn.merchantId }, data: { setupCompletedAt: new Date(Date.now() - days * DAY - 60_000) } });
 
-    it("is due once 3 orders earned cashback and the merchant is 7 days old", async () => {
+    it("is due 30 days after setup was completed, whether or not any order earned cashback", async () => {
       const conn = await seedShop();
-      await sevenDaysOld(conn);
-      await seedCashbackEntries(conn, 2);
+      await setUp(conn, 29);
       expect((await load()).reviewDue).toBe(false);
 
-      await seedCashbackEntries(conn, 1);
+      await setUp(conn, 30);
+      expect((await load()).reviewDue).toBe(true);
+
+      await seedCashbackEntries(conn, 3);
       expect((await load()).reviewDue).toBe(true);
     });
 
-    it("is not due before 7 days", async () => {
+    it("is not due while setup isn't completed, however long ago the app was first opened", async () => {
       const conn = await seedShop();
-      await sevenDaysOld(conn, 6);
+      await prisma.merchant.update({ where: { id: conn.merchantId }, data: { createdAt: new Date(Date.now() - 90 * DAY), setupCompletedAt: null } });
       await seedCashbackEntries(conn, 3);
       expect((await load()).reviewDue).toBe(false);
     });
 
-    it("is not due after the merchant dismissed it", async () => {
+    it("is not due after the merchant chose Don't ask again", async () => {
       const conn = await seedShop();
-      await sevenDaysOld(conn);
-      await seedCashbackEntries(conn, 3);
+      await setUp(conn);
 
       await expect(act({ intent: "review-dismissed" })).resolves.toEqual({ ok: true });
 
@@ -596,10 +599,9 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
 
     it("is recorded as shown only when Shopify showed it or the merchant had reviewed, and is then not due", async () => {
       const conn = await seedShop();
-      await sevenDaysOld(conn);
-      await seedCashbackEntries(conn, 3);
+      await setUp(conn);
 
-      // Declined for a reason that passes: a later visit tries again
+      // Declined for a reason that passes: a later save tries again
       await expect(act({ intent: "review-shown", code: "cooldown-period" })).resolves.toEqual({ ok: true });
       expect((await merchantOf(conn)).reviewPromptShownAt).toBeNull();
       expect((await load()).reviewDue).toBe(true);
@@ -609,33 +611,22 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       expect((await load()).reviewDue).toBe(false);
     });
 
-    // OPERATIONS-2: the cashback entries are read only while the request can still be due
-    it("reads the cashback entries only until the request was shown or dismissed", async () => {
+    // OPERATIONS-2: the rule reads the merchant's own row, never the ledger
+    it("reads no ledger entries", async () => {
       const conn = await seedShop();
-      await sevenDaysOld(conn);
+      await setUp(conn);
       await seedCashbackEntries(conn, 3);
-      const read = new Error("homeState read the ledger");
-      const withLedgerRefused = async () => {
-        failNextCall("ledgerEntry", "findMany", read);
-        try {
-          return await homeState(conn, new Date()).catch((error: unknown) => error);
-        } finally {
-          restoreFailedCalls();
-        }
-      };
-
-      await expect(withLedgerRefused()).resolves.toBe(read);
-
-      for (const field of ["reviewPromptShownAt", "reviewPromptDismissedAt"] as const) {
-        await prisma.merchant.update({ where: { id: conn.merchantId }, data: { reviewPromptShownAt: null, reviewPromptDismissedAt: null, [field]: new Date() } });
-        await expect(withLedgerRefused(), field).resolves.toMatchObject({ reviewDue: false });
+      failNextCall("ledgerEntry", "findMany", new Error("homeState read the ledger"));
+      try {
+        await expect(homeState(conn, new Date())).resolves.toMatchObject({ reviewDue: true });
+      } finally {
+        restoreFailedCalls();
       }
     });
 
-    it("is not due when it was shown before, whatever the counts", async () => {
+    it("is not due when it was shown before, however long ago setup was", async () => {
       const conn = await seedShop();
-      await sevenDaysOld(conn, 30);
-      await seedCashbackEntries(conn, 5);
+      await setUp(conn, 90);
       await prisma.merchant.update({ where: { id: conn.merchantId }, data: { reviewPromptShownAt: new Date(Date.now() - DAY) } });
       expect((await load()).reviewDue).toBe(false);
     });

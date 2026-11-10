@@ -1,8 +1,8 @@
 # The staging app (plan task A25): the leftover draft app "rewardspro-production",
 # reused with Yu's agreement (2026-11-04) and renamed "RewardsPro Staging". It is
 # not the released app (client_id 026ce3bf073bed0e44ae8eab09d1ae3a) and is only
-# installed on development stores. `pnpm dev` and `shopify app dev` use this file;
-# the released app's own config never lives in apps/rewards.
+# installed on development stores. `pnpm dev` uses this file. shopify.app.toml
+# beside it is the released app's: never run `shopify app dev` against it.
 # https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "f04b5854fb022d67ba9dd097767b465a"

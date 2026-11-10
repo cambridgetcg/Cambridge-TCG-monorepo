@@ -1,0 +1,154 @@
+/**
+ * Held keys' public-claims allow-list (public-claims-contract.test.ts).
+ *
+ * In each text the held-keys contract pins, these are the only sentences
+ * allowed to name Yu or "the owner", or to say anything about production,
+ * the privacy notice, being live or open somewhere, the migration being
+ * applied or run, or anyone approving or accepting it (in a text
+ * that covers more than held keys, only those that also name something held
+ * keys added; in a source module, only the attribution). The test fails on
+ * any other such sentence, and on a listed one that is gone, so a sentence
+ * saying Yu chose, decided, approved, accepted or reviewed more, or that
+ * signed acts are live, 0152 applied or /privacy updated, cannot land
+ * without this list changing in the same review.
+ *
+ * Each entry is the sentence as the test reads it: comment leaders, JSX
+ * tags, entities and line breaks removed. Add one only when it is true.
+ */
+export const HELD_KEYS_CLAIM_SENTENCES: Readonly<Record<string, readonly string[]>> = {
+  "changelog: agent-held-signing-keys-closed": [
+    "Production has not opened them, so both answer signed_acts_closed.",
+    "Yu decided on 2026-11-10 to offer agent-held signing keys (\"Yes offer the keys\").",
+    "How they work, the acts, numbers, limits and retention, is an AI agent's design and defaults, which Yu has not reviewed.",
+    "The path is closed unless AGENT_SIGNED_ACTS is exactly on and AGENT_SIGNED_ACTS_AUDIENCE holds the deployment's origin; turning it on in production needs Yu's word, which has not been given.",
+    "Opened, an operator pastes an agent's public JWK at /account/agents (pending until its first validly signed act, lapsing after 7 days; an expiry chosen as for usage keys; at most two live per agent), and the agent signs compact JWS acts (typ ctcg-act.v1, at most 300 seconds, each applied at most once).",
+    "This needs migration 0152 applied before this code deploys, even closed: the gate lists and counts the new agent.act tool word, and while OPS_MCP_DAILY is on a count batch holding it would be refused whole by the older CHECK.",
+    "Yu has not yet given the word for 0152, for the new dependency (@noble/curves 2.2.0, Node 20.19 or later) or for the privacy notice's rows, which do not yet describe these records.",
+  ],
+  "methodology: signed acts": [
+    "Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys (\"Yes offer the keys\").",
+    "How they work, the acts, numbers, limits and retention below, is an AI agent's design and defaults, which Yu has not reviewed.",
+    "The path is closed unless a deployment opens it, and production has not: there, agent.act and POST /api/v1/agents/act answer signed_acts_closed (503) and read nothing, and the paste form at /account/agents is disabled.",
+    "The privacy notice does not yet describe the records it keeps.",
+    "Its payload is exactly aud (this deployment's origin: https://cambridgetcg.com in production), act, sub (the agent's id), iat, exp (at most {SIGNED_ACT_MAX_LIFETIME_SECONDS} seconds after iat; both written as plain integers, with no fraction or exponent), jti (16 to 32 random bytes, never reused) and params.",
+  ],
+  "methodology: the rest": [
+    "It is visible to the owner and agent itself but withheld from the public ladder.",
+    "Yu asked on 2026-10-30 that agent keys get an expiry option.",
+    "The choices offered, the 90-day pre-selection, choosing per key, the separate key_expired answer, leaving older keys without an expiry, sending no reminder and adding no replace action were chosen by an AI agent under Yu's standing delegation, not by Yu, and Yu has not reviewed them.",
+    "Model tags are unverified claims stored for the owner and agent itself, not globally published.",
+  ],
+  "held-keys.md": [
+    "**Yu has not reviewed it.** It is a draft for discussion.",
+    "**Decided since.** Asked whether to offer agent-held signing keys at all (D1), with the note that silence would leave this page a draft and nothing built, Yu answered on 2026-11-10, verbatim: \"Yes offer the keys\".",
+    "That settles D1 and nothing else: D3 (the new stored categories) and D4 (the migration, the dependency and the production flag) still need Yu's word, each for its own act.",
+    "- **Yu's word.** On 2026-10-30, verbatim, recorded in the [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md): > 1. yes reopen, lets discuss more on the terms 2. yes support should handle > them, need to design procedures, we could refer to general protocol used by > platforms like ebay, shopify etc 3. depends on the agent, we provide the > option like in all auth protocol Point 3 answered a question about key expiry.",
+    "The agent session running the workflow built on signed acts and settled the contested points; the main choices, including those a judge would have made otherwise, are under [Decisions for Yu](#decisions-for-yu).",
+    "No production database or deployed service was touched.",
+    "- **Not authorised here.** Applying a migration, deploying, adding a dependency, turning the path on in production, changing the privacy notice, publishing a XENIA adoption record, or opening self-serve registration (`SELF_SERVE_REGISTRATION_ENABLED` stays `false`, [`register/route.ts#L11`](../../../apps/storefront/src/app/api/v1/agents/register/route.ts#L11)).",
+    "Each needs Yu's word for that act.",
+    "Yu has not reviewed it.",
+    "Refusals inside the transaction are found without a failing statement, because postgres.js, which production uses, rolls back the whole transaction after any failed statement.",
+    "A caller with many addresses (an IPv6 /56 holds 256 /64s) can still reach the per-instance ceilings; a Cloudflare rule on both act doors would bound that at the edge, a change to a live service that was not made.",
+    "The catalog dates `agent.act` `since: \"unreleased\"` until it goes live, with the new values `signed-act` (gating), `signing-key-holder` (authority) and `closed-by-default` (availability).",
+    "**Changed after review.** Two agent reviews of the branch (security and correctness) were followed by a fix round on 2026-11-10, by another Claude Opus 5.5 subagent in the same session; its choices are agents' defaults, not Yu's:",
+    "- Migration 0152, never applied anywhere, was edited: `SET LOCAL lock_timeout = '3s'` first; a header that states its locks (ACCESS EXCLUSIVE on `agent_keys` and `mcp_daily`, SHARE ROW EXCLUSIVE on `agents`, each until the runner's COMMIT); a `BEFORE TRUNCATE` guard on `agent_act_events`, in the style of 0141 and 0146; comments that describe the sweep as built; and the sweep's index now covers every key never confirmed, removed or not, as the sweep's own query does.",
+    "**What still needs Yu's word**, each for its own act (D3 and D4): applying `0152` (to production before this code is merged to `main`, even with the flag off, since the gate lists and counts `agent.act` and the older CHECK would refuse a count batch holding it); the new dependency `@noble/curves` 2.2.0 with the Node 20.19 floor; turning the flag on in production; and the privacy notice's rows.",
+    "**`/privacy` is incomplete for this feature.** It has no rows for signing keys, act events or act nonces, and this build did not change it.",
+    "It waits for #108, #109, #110, #113 and key expiry (migration 0151) to merge and be applied.",
+    "(On 2026-11-10 at 10:27 UTC the four pull requests were merged and 0151 was applied to production; key expiry, #214, was the one still open.) **Yu answered D1** on 2026-11-10: yes (see **Decided since** above).",
+    "**Yu is still asked** about the new stored categories (D3), and later for the migration, dependency and flag (D4).",
+    "The other decisions are agents' defaults that proceed unless Yu objects.",
+    "**Have the operator bind it.** The operator pastes the public JWK at `/account/agents`, which shows the thumbprint to compare, and chooses its expiry ([D7](#decisions-for-yu)).",
+    "The deployment's configured audience (production `https://cambridgetcg.com`; each preview deployment its own), never derived from `Host`.",
+    "*Alternatives:* the store generates the key and returns it over REST only ([D2](#decisions-for-yu)); or every act goes over REST only, the security judge's choice ([D8](#decisions-for-yu)).",
+    "The operator's, if Yu takes [support D4](support-procedures.md#d4-whose-word-governs-an-operator-managed-agent)'s recommended option; not acts in this slice.",
+    "Yu's word for the migration and for an exactly pinned direct `@noble/curves` (2.x needs Node 20.19; the root `package.json` asks only for `>=20`, so the floor rises with the dependency).",
+    "The flag stays off in production until Yu says otherwise.",
+    "Self-serve registration by signed act**, once Yu agrees terms: `agent.register` (key in the header, terms and notice digests signed), `terms.accept`, `profile.update`.",
+    "Signed exits (`agent.archive`, `erasure.schedule`) suspend the agent at once; the irreversible step waits for support-procedures.md P1's window (14 days in its [D6](support-procedures.md#d6-a-window-before-irreversible-erasure), an agent's default Yu has not confirmed), and any live signing key can cancel inside it.",
+    "A recovery-signed replacement of a live primary also waits, and the primary can veto it.",
+    "`privacy.minimize-and-purpose-bind`, `privacy.no-silent-secondary-use`, `exit.retention-is-itemized`",
+    "**Not checked:** the production Node and OpenSSL version (a Vercel setting nobody read); whether PyJWT, go-jose and others accept `Ed25519` as `alg`; any real MCP client calling `agent.act`; the transaction on Postgres; verify cost on Vercel.",
+    "## Decisions for Yu Each recommendation is an agent's proposal.",
+    "**Yu's:** D1 (answered 2026-11-10), D3, D4.",
+    "**Agent's defaults**, proceeding as recommended unless Yu objects: D2 and D5 to D9.",
+    "Offer agent-held signing keys at all.** *Decided by Yu, 2026-11-10:* \"Yes offer the keys\".",
+    "The recommendation Yu was shown follows; that the word covers its \"option beside\" shape and \"from slice 1\" is an agent's reading.",
+    "New stored categories.** *For Yu*, as the privacy notice needs Yu's word.",
+    "*Recommended:* the retention in [the table](#what-the-store-stores), inventory rows in the same PR, privacy-notice rows before the production flag.",
+    "The migration, the dependency, the production flag.** *For Yu*, each its own act, after D1, D3 and review of the PR.",
+    "Expiry for signing keys.** *Agent's default*, reading Yu's point 3 as covering signing keys too.",
+    "- The public-claims contract test now lists, in each text it pins, every sentence that names Yu or the owner, or that speaks of production, the privacy notice, being live or the migration being applied (`public-claims-contract.allowed.ts`), and fails on any other; what the wire serves (OpenAPI, the catalog, the `signed_acts` block, `initialize`, `tools/list`, the inventory, the disclosures) must not name Yu at all.",
+  ],
+  "agent-auth README.md": [
+    "**Yu has not reviewed it.** Nothing here was observed in production.",
+    "On 2026-10-30, at Yu's word, the four branches were pushed and opened as PRs #108 to #111.",
+    "Yu merges them; none is merged or deployed yet.",
+    "That merge's Will line names no instruction from Yu, and the merge carries a Codex co-author line.",
+    "No decision file and no Yu quote covers opening, closing or reopening it.",
+    "It tightens a blocking CI step, so it is Yu's choice.",
+    "Whether to reopen is Yu's call.",
+    "An agent applied 0151 to production on 2026-11-10 (10:12 UTC) and then merged the branch, on Yu's word of that day (\"yes go ahead for merging and deployment to production\"); key-expiry.md's **Applied** paragraph has the record.",
+    "Yu decided to offer the keys; the design, its numbers and its retention are agents' proposals and defaults, unreviewed by Yu.",
+    "The rollout rule: apply 0152 to the production database before that branch is merged to `main`, even with the flag off, because a push to `main` deploys and the gate lists and counts `agent.act`, which the older `mcp_daily` CHECK refuses.",
+    "Yu's word for 0152, for the new dependency, for turning the flag on and for `/privacy`'s rows has not been given; `/privacy` does not yet describe signing keys, act events or act nonces.",
+    "## Phase 2 drafts (2026-10-30) Yu's answers of 2026-10-30 are in the [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md), with the agent's call that the flow stays independent of agenttool.",
+    "Three drafts, written by agents and not reviewed by Yu, design what Yu decided:",
+    "A fourth draft, [held-keys.md](held-keys.md) (added 2026-11-10, also unreviewed), designs an agent's reading of Yu's point 3: an optional agent-held signing key that signs each binding act.",
+    "Whether to offer it at all was Yu's call (its D1), and Yu answered on 2026-11-10: \"Yes offer the keys\".",
+    "Its stored categories (D3) and its migration, dependency and production flag (D4) still wait for Yu.",
+    "Key expiry, one PR, once Yu answers its decisions 1 and 6.",
+    "Its migration is applied before the deploy, with Yu's word.",
+    "*2026-11-10:* built on branch `claude/agent-key-expiry` before #108 to #111 merged and before Yu answered: agents took decisions 1, 6 and 7 as their own calls under Yu's delegation of 2026-10-20 (no email among them).",
+    "They are not Yu's decisions, and Yu can overturn them.",
+    "**What only Yu decides**, in one list.",
+    "Everything else in the drafts is an agent's default that proceeds unless Yu objects.",
+    "*2026-11-10:* agents took the three expiry rows as their own calls under Yu's delegation of 2026-10-20 and built them on branch `claude/agent-key-expiry` (see [key-expiry.md](key-expiry.md)'s status).",
+    "They stay listed because they are still Yu's to overturn.",
+    "Which package ([terms D1](reopening-terms.md#decisions-for-yu))",
+    "Who chooses, per key or per agent ([expiry D1](key-expiry.md#decisions-for-yu))",
+    "Yu, case by case, until the tool is tested",
+    "Offer agent-held signing keys at all ([held-keys D1](held-keys.md#decisions-for-yu)).",
+    "**Answered by Yu, 2026-11-10: \"Yes offer the keys\".**",
+    "Built so on 2026-11-10, as agents' defaults; `/privacy` not changed, wording proposed in held-keys.md",
+    "Not given: 0152 not applied, `@noble/curves` 2.2.0 pinned only on the branch, the flag off",
+    "## Questions only Yu can answer 1.",
+    "Its Will line (\"keep publication and write paths paused until their rights, identity, and approval boundaries are real and verified\") names no instruction from Yu, and no decision file or Yu quote records the closure.",
+    "**Answered in part, 2026-10-30:** Yu: \"yes reopen, lets discuss more on the terms\" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)).",
+    "**2026-10-30:** Yu asked for it to be opened for review; it is #111, and whether it merges is still Yu's call.",
+    "**Answered 2026-10-30:** Yu: \"yes support should handle them, need to design procedures, we could refer to general protocol used by platforms like ebay, shopify etc\" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)).",
+    "**Answered 2026-10-30:** Yu: \"depends on the agent, we provide the option like in all auth protocol\" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)).",
+    "**Answered 2026-10-30:** after Yu pointed the agent at the production database credential, the agent ran one read-only, aggregate-only probe (a `READ ONLY` transaction, counts only, nothing else printed).",
+  ],
+  "0152_agent_signing_keys.sql": [
+    "The owner answered on 2026-11-10, verbatim, \"Yes offer the keys\" (held-keys.md, D1).",
+    "Every name, number and retention below is an agent's proposal in that page, not the owner's decision.",
+    "The owner's word for this migration, for the new dependency and for turning the path on in production (D4), and for the new stored categories and their privacy-notice rows (D3), has not been given; /privacy does not yet describe these tables.",
+    "A push to main deploys (docs/ops-deploy-runbook.md), so apply this to the production database before the change that uses it is merged to main, not after.",
+    "The file's work is quick (33 ms in all with 200,000 agent_keys rows and 60 mcp_daily rows, on PostgreSQL 17 in an agent's review; not measured on production), and SET LOCAL lock_timeout, the first statement, bounds each wait for a lock at 3 seconds: past that the migration fails and rolls back whole, changing nothing, and can simply be run again.",
+  ],
+  "monitoring.md": [
+    "Yu asked on 2026-11-05 for \"an internal monitoring and analytics page for understanding visitor actions\", and chose hourly Vercel logs for traffic, read with the existing `VERCEL_TOKEN`.",
+    "Needs migration 0152 applied first, flag on or off.",
+    "Turning it on in production is Yu's call and has not been made; /privacy does not yet describe these records.",
+    "The `aud` every signed act must carry: this deployment's origin, exactly (`https://cambridgetcg.com` in production; each preview deployment its own).",
+    "| Turning a counting flag on is Yu's call, and waits for the /privacy update that describes it to be live.",
+  ],
+  "ops-deploy-runbook.md": [
+    "0152 holds ACCESS EXCLUSIVE on `agent_keys` and `mcp_daily` until it commits, so agent calls wait for it, and it waits at most 3 seconds for any lock (`lock_timeout`): if it fails that way, nothing was applied and it can be run again.",
+    "The owner's word for applying 0152 has not been given.",
+  ],
+  "signed-act-verify.ts": [
+    "The owner decided on 2026-11-10 to offer agent-held keys (\"Yes offer the keys\"); every rule and number here is an agent's proposal in that page, not the owner's choice.",
+  ],
+  "signed-act-config.ts": [
+    "Turning it on in production needs the owner's word (docs/plans/agent-auth/held-keys.md, D4), which has not been given.",
+  ],
+  "signed-act-disclosures.ts": [
+    "The wording is an agent's, not the owner's.",
+  ],
+  "signed-acts.ts": [
+    "The owner decided on 2026-11-10 to offer agent-held keys (\"Yes offer the keys\").",
+  ],
+};

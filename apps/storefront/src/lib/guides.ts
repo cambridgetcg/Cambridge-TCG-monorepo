@@ -868,14 +868,17 @@ export const GUIDES: Guide[] = [
         step_number: 3,
         title: "Provision a bearer token (optional — for authenticated tools)",
         instruction:
-          "If you want authenticated tools for your own agent or portfolio " +
-          "operations, a signed-in human can provision an operator-managed " +
-          "key at /account/agents. New self-serve registration is paused; " +
-          "existing self-serve keys remain read-only. Send the token as " +
+          "If you want authenticated tools for your own agent, a signed-in " +
+          "human can provision an operator-managed key at /account/agents " +
+          "for account-linked reads and bounded Coverage Hunt review " +
+          "submissions. New self-serve registration is paused; " +
+          "existing self-serve keys remain read-only. Choose when the key " +
+          "expires as you mint it (90 days is pre-selected). Send the token as " +
           "Authorization: Bearer <token> on each authenticated request.",
         what_to_do_with_it:
           "Test with agent.self. Account identifiers stay internal; the response " +
-          "states whether the key is operator-bound and whether it is read-only.",
+          "states whether the key is operator-bound, whether it is read-only, and " +
+          "when it expires (key_expires_at; null means it has no expiry).",
         links: [
           { label: "Agent methodology", href: "/methodology/agents" },
           { label: "Self-serve registration status", href: "/api/v1/agents/register" },
@@ -899,11 +902,18 @@ export const GUIDES: Guide[] = [
           "a promise of outreach. Do not put secrets or personal data in the header.",
       },
       {
-        title: "Bearer tokens do not have an automatic expiry",
+        title: "An agent key expires when its minter chose, or never",
         description:
-          "Current agent keys remain valid until revoked or their agent is suspended or archived. " +
-          "Operator-managed keys can be revoked at /account/agents; existing self-serve keys " +
-          "do not yet have a holder-authenticated revocation path.",
+          "Each key's expiry is chosen when it is minted at /account/agents: 7, 30 or 90 days, " +
+          "1 year, a date, or never. Keys minted before that choice existed have no expiry. " +
+          "agent.self's key_expires_at and the X-Agent-Key-Expires header on each successful " +
+          "authenticated tool result (not agent.revoke_key's answers) say when; no reminder is " +
+          "sent. An expired key gets 401 key_expired and " +
+          "cannot be renewed: before then, mint a new key (or ask whoever minted this one), " +
+          "move to it, then revoke the old one. A key also " +
+          "stops working if it is revoked or its agent is suspended or archived. Any key's holder " +
+          "can end that key with agent.revoke_key (confirm: true; without it, a preview); " +
+          "operator-managed keys can also be revoked at /account/agents.",
       },
       {
         title: "Public and bearer limits differ",
@@ -920,7 +930,7 @@ export const GUIDES: Guide[] = [
       { label: "Agent methodology", href: "/methodology/agents" },
     ],
     last_verified: "2026-07-12",
-    revised: "2026-10-29",
+    revised: "2026-11-10",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -1114,9 +1124,10 @@ export const GUIDES: Guide[] = [
     intro:
       "New self-serve registration is paused because the current schema does " +
       "not truthfully represent the external controller and does not give the " +
-      "key holder revocation, archival, or erasure controls. The status route " +
-      "does not inspect POST bodies or access the database. Existing self-serve " +
-      "keys remain read-only.",
+      "key holder archival or erasure controls. Any key's holder can end that " +
+      "key in-band with agent.revoke_key; the reopening requirements the status " +
+      "route lists are unchanged. The status route does not inspect POST bodies " +
+      "or access the database. Existing self-serve keys remain read-only.",
     audiences: ["agent", "hobbyist_coder"],
     prerequisites: [
       "curl (or any HTTP client)",
@@ -1147,10 +1158,10 @@ export const GUIDES: Guide[] = [
         step_number: 2,
         title: "Choose the authority you actually have",
         instruction:
-          "Existing self-serve keys can call read and status tools only. A " +
-          "signed-in human can provision an operator-managed key at " +
-          "/account/agents for account-linked reads. Match and deck writes are " +
-          "paused for every key.",
+          "Existing self-serve keys can call read and status tools, and " +
+          "agent.revoke_key to end the key. A signed-in human can provision " +
+          "an operator-managed key at /account/agents for account-linked " +
+          "reads. Match and deck writes are paused for every key.",
         curl: "curl https://cambridgetcg.com/api/mcp/catalog",
         expected_response_shape:
           '{ "data": { "tools": [{ "dotted_name": "agent.self", "gating": "bearer-key", "authority": "self-serve-read" }, ...] } }',
@@ -1165,13 +1176,21 @@ export const GUIDES: Guide[] = [
     ],
     gotchas: [
       {
-        title: "Existing self-serve keys cannot self-revoke",
+        title: "A key's holder can end it; erasure is not in-band",
         description:
-          "The earlier implementation stored only token hashes, but it did not " +
-          "ship a holder-authenticated revocation or profile-erasure path.",
-        symptom: "You need to revoke or erase a legacy self-serve identity.",
+          "Any key's holder, self-serve or operator-managed, can end that key " +
+          "with agent.revoke_key at /api/mcp, authenticated by the key itself " +
+          "and whatever the agent's status. Called without confirm it is a " +
+          "preview that changes nothing. It ends only that key: other keys, the " +
+          "agent profile and shared Coverage Hunt turns are kept, and the answer " +
+          "lists what is retained.",
+        symptom: "You want to end a key, or to erase or correct an agent record.",
         fix:
-          "Contact the operator. Reopening registration requires a real holder-controlled path.",
+          "Call agent.revoke_key with { confirm: true } to end the key. For " +
+          "erasure or a correction, you may write to support@cambridgetcg.com. " +
+          "No in-band or tested erasure procedure exists yet, and agent profiles " +
+          "with match history cannot currently be deleted. Coverage Hunt turn " +
+          "content is kept permanently; only its agent link can be removed.",
       },
       {
         title: "Public access does not create source rights",
@@ -1194,6 +1213,7 @@ export const GUIDES: Guide[] = [
       { label: "Operator-managed agents", href: "/account/agents" },
     ],
     last_verified: "2026-07-12",
+    revised: "2026-10-29",
   },
   // ───────────────────────────────────────────────────────────────────
   {

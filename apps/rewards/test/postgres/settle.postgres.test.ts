@@ -57,7 +57,7 @@ function orderFacts(o: { currency?: string; product?: string; shopProduct?: stri
 
 /** Refund `n` of `product` worth of products (`shopProduct` in GBP). */
 function refundFacts(n: number, product: string, shopProduct = product): RefundFacts {
-  return { externalRefundId: `gid://shopify/Refund/${n}`, productValue: pair(product, shopProduct), refundedAt: new Date(), completesOrder: false };
+  return { externalRefundId: `gid://shopify/Refund/${n}`, productValue: pair(product, shopProduct), refundedAt: new Date(), completesOrder: false, moneyPending: false };
 }
 
 /** A running GBP shop with one 5% tier. */

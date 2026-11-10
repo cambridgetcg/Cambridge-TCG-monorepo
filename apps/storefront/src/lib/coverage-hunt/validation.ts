@@ -36,7 +36,9 @@ export type CoverageHuntErrorCode =
   | "case_terminal"
   | "evidence_not_found"
   | "daily_limit"
-  | "not_ready_for_human";
+  | "not_ready_for_human"
+  /** The actor's key was revoked or has expired (lockLiveActorKey). */
+  | "key_not_live";
 
 export class CoverageHuntError extends Error {
   readonly code: CoverageHuntErrorCode;

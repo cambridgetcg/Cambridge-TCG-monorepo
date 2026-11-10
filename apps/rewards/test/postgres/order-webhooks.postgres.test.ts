@@ -40,7 +40,6 @@ type Routes = {
   refunded: typeof import("~/routes/webhooks.orders.refunded");
   cancelled: typeof import("~/routes/webhooks.orders.cancelled");
   scopesUpdate: typeof import("~/routes/webhooks.app.scopes_update");
-  ignored: Array<[string, { action: (args: never) => Promise<Response> }]>;
 };
 
 const SHOP = "order-webhooks.myshopify.com";
@@ -129,13 +128,6 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
       refunded: await import("~/routes/webhooks.orders.refunded"),
       cancelled: await import("~/routes/webhooks.orders.cancelled"),
       scopesUpdate: await import("~/routes/webhooks.app.scopes_update"),
-      ignored: [
-        ["orders/create", await import("~/routes/webhooks.orders.create")],
-        ["orders/fulfilled", await import("~/routes/webhooks.orders.fulfilled")],
-        ["customers/create", await import("~/routes/webhooks.customers.create")],
-        ["customers/update", await import("~/routes/webhooks.customers.update")],
-        ["products/update", await import("~/routes/webhooks.products.update")],
-      ],
     };
   });
 
@@ -526,6 +518,61 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
       expect(calls).toHaveLength(2);
     });
 
+    describe("a refund whose money is still on its way (#195)", () => {
+      /** The money-only refund with these REFUND transactions. */
+      const withMoney = (txs: Array<{ status: string; amount: string }>) => {
+        const answer = moneyRefund("0.0");
+        Object.assign(answer.data.refund as object, {
+          transactions: {
+            nodes: txs.map((tx) => ({ kind: "REFUND", status: tx.status, amountSet: { shopMoney: { amount: tx.amount }, presentmentMoney: { amount: tx.amount } } })),
+          },
+        });
+        return answer;
+      };
+
+      it("answers 200 and marks it at £0; a redelivery writes nothing", async () => {
+        await seedShop();
+        mockOrderFacts(SHOP, { orders: [plainOrder()], refunds: [withMoney([{ status: "PENDING", amount: "20.0" }])] });
+        const calls = mockStoreCredit(SHOP, {});
+        expect((await deliverPaid()).status).toBe(200);
+        await flushWaitUntil();
+
+        expect((await deliverRefund()).status).toBe(200);
+        await flushWaitUntil();
+
+        const row = await prisma.refund.findFirstOrThrow();
+        expect([row.externalRefundId, row.productAmount.toFixed(2), row.moneyPendingSince instanceof Date]).toEqual([REFUND, "0.00", true]);
+        expect(await prisma.ledgerEntry.count({ where: { kind: "reversal" } })).toBe(0);
+        expect(sent(calls)).toEqual(["credit 2.50 GBP"]);
+
+        expect((await deliverRefund()).status).toBe(200);
+        await flushWaitUntil();
+        expect(await prisma.refund.findMany()).toEqual([row]);
+        expect(sent(calls)).toEqual(["credit 2.50 GBP"]);
+      });
+
+      it("a partly settled one answers 200 and resolves the tier, with no take-back sent", async () => {
+        const conn = await seedShop({ tiers: [{ name: "Bronze", minSpend: "0", percent: "2.00" }, { name: "Gold", minSpend: "40", percent: "5.00" }] });
+        mockOrderFacts(SHOP, { orders: [plainOrder()], refunds: [withMoney([{ status: "SUCCESS", amount: "15.0" }, { status: "PENDING", amount: "5.0" }])] });
+        const calls = mockStoreCredit(SHOP, {});
+        expect((await deliverPaid()).status).toBe(200);
+        await flushWaitUntil();
+        const tierName = async () => (await prisma.customer.findFirstOrThrow({ include: { tier: true } })).tier?.name;
+        await expect(tierName()).resolves.toBe("Gold");
+
+        expect((await deliverRefund()).status).toBe(200);
+        await flushWaitUntil();
+
+        // £50 less the £15 that has succeeded: £35, under Gold's £40
+        const customer = await prisma.customer.findFirstOrThrow();
+        expect((await tierSpend(customer.id, conn.tierWindow, new Date())).toFixed(2)).toBe("35.00");
+        await expect(tierName()).resolves.toBe("Bronze");
+        expect(sent(calls)).toEqual(["credit 1.00 GBP"]);
+        expect(await prisma.payout.count({ where: { direction: "debit" } })).toBe(0);
+        expect((await prisma.refund.findFirstOrThrow()).moneyPendingSince).toBeInstanceOf(Date);
+      });
+    });
+
     it("reads the refund and then its order within one deadline from receipt, inside Shopify's 5 s", async () => {
       await seedShop();
       const orders = [plainOrder((order) => (order.createdAt = new Date(Date.now() - HOUR).toISOString()))];
@@ -676,30 +723,16 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
         scope: "read_orders,read_customers",
       });
     });
-
-    it("the ignored topics are verified and answered 200, and write nothing", async () => {
-      await seedShop();
-      for (const [topic, route] of routes.ignored) {
-        await expect(route.action(args(signedWebhook(topic, SHOP, { id: 1 }))), topic).resolves.toMatchObject({ status: 200 });
-        const unsigned = signedWebhook(topic, SHOP, { id: 1 });
-        unsigned.headers.set("X-Shopify-Hmac-Sha256", "not-a-signature");
-        await expect(route.action(args(unsigned)), topic).resolves.toMatchObject({ status: 401 });
-      }
-      await expect(prisma.order.count()).resolves.toBe(0);
-    });
   });
 
   // Ruling 42: a route that never calls Shopify loads no session, so a refresh Shopify refuses can't fail it
   describe("routes that never call Shopify, while the store's refresh would be refused", () => {
-    it("an ignored topic and orders/cancelled answer 200 and start no refresh", async () => {
+    it("orders/cancelled answers 200 and starts no refresh", async () => {
       const conn = await seedShop({ session: false });
       const asked = await seedExpiredSessionWhoseRefreshIsRefused(SHOP);
       // Recorded before the token expired
       await recordOrder(conn, factsFromOrderNode(plainOrder().data.order, "GBP", { refunds: [] }), "live");
 
-      for (const [topic, route] of routes.ignored) {
-        await expect(route.action(args(signedWebhook(topic, SHOP, { id: 1 }))), topic).resolves.toMatchObject({ status: 200 });
-      }
       expect((await deliverCancelled(orderPayload(ORDER, { cancelled_at: "2026-11-03T09:00:00Z" }))).status).toBe(200);
 
       await expect(prisma.order.findFirstOrThrow()).resolves.toMatchObject({ cancelledAt: new Date("2026-11-03T09:00:00Z") });

@@ -11,6 +11,8 @@ const UNINSTALLED = { id: 1, domain: SHOP, myshopify_domain: SHOP };
 const SHOP_REDACT = { shop_id: 1, shop_domain: SHOP };
 const CUSTOMERS_REDACT = { shop_id: 1, shop_domain: SHOP, customer: { id: 7 }, orders_to_redact: [11] };
 const DATA_REQUEST = { shop_id: 1, shop_domain: SHOP, customer: { id: 7 }, orders_requested: [11], data_request: { id: 9 } };
+/** A data request as Shopify really sends it (production, 2026-11-07): no `data_request` field, unlike its docs' example. */
+const SENT_DATA_REQUEST = { shop_id: 1, shop_domain: SHOP, customer: { id: 7 }, orders_requested: [11] };
 
 const sign = (body: string, secret = SECRET) => crypto.createHmac("sha256", secret).update(body, "utf8").digest("base64");
 
@@ -108,6 +110,13 @@ describe("verifyShopifyWebhook", () => {
       await expect(as("app/uninstalled", SHOP_REDACT)).resolves.toBeNull();
     });
 
+    it("accepts a data request as Shopify sends it, without a data_request field", async () => {
+      await expect(as("customers/data_request", SENT_DATA_REQUEST)).resolves.toMatchObject({ topic: "CUSTOMERS_DATA_REQUEST", payload: SENT_DATA_REQUEST });
+      // and still refuses it relabelled: as a buyer redaction, or as the store's
+      await expect(as("customers/redact", SENT_DATA_REQUEST)).resolves.toBeNull();
+      await expect(as("shop/redact", SENT_DATA_REQUEST)).resolves.toBeNull();
+    });
+
     it("accepts a buyer redaction or data request whose customer has no id: the route decides", async () => {
       await expect(as("customers/redact", { ...CUSTOMERS_REDACT, customer: {} })).resolves.not.toBeNull();
       await expect(as("customers/data_request", { ...DATA_REQUEST, customer: null })).resolves.not.toBeNull();
@@ -160,6 +169,79 @@ describe("verifyShopifyWebhook", () => {
 
   it("refuses anything but a POST", async () => {
     await expect(verifyShopifyWebhook(delivery({ method: "GET" }))).resolves.toBeNull();
+  });
+});
+
+describe("a refused delivery says why, without its values", () => {
+  // Every refusal answers 401; on production (2026-11-06) the refused
+  // compliance deliveries left no trace of which check failed
+  const warned = () => vi.mocked(console.warn).mock.calls.map((call) => call.join(" "));
+  const PRIVATE = { ...DATA_REQUEST, customer: { id: 7, email: "buyer@example.com", phone: "555-0100" } };
+  const as = (topic: string, payload: unknown, o: { shop?: string; hmac?: string } = {}) => {
+    const body = JSON.stringify(payload);
+    return verifyShopifyWebhook(
+      delivery({ body, headers: { "X-Shopify-Topic": topic, "X-Shopify-Shop-Domain": o.shop ?? SHOP, "X-Shopify-Hmac-Sha256": o.hmac ?? sign(body) } }),
+    );
+  };
+
+  it("names a signature that doesn't match", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(as("customers/data_request", PRIVATE, { hmac: sign("{}") })).resolves.toBeNull();
+    expect(warned()).toEqual([`[webhook] refused customers/data_request from ${SHOP}: the signature doesn't match`]);
+  });
+
+  it("names a body whose shop isn't the header's, with the body's field names only", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(as("customers/data_request", { ...PRIVATE, shop_domain: "other.myshopify.com" })).resolves.toBeNull();
+    expect(warned()).toEqual([
+      `[webhook] refused customers/data_request from ${SHOP}: the body's shop_domain isn't the header's shop (body fields: customer, data_request, orders_requested, shop_domain, shop_id)`,
+    ]);
+    expect(warned().join(" ")).not.toMatch(/buyer@example\.com|555-0100|other\.myshopify/);
+  });
+
+  it("names a body without the topic's fields", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const withoutOrders: Record<string, unknown> = { ...PRIVATE };
+    delete withoutOrders.orders_requested;
+    await expect(as("customers/data_request", withoutOrders)).resolves.toBeNull();
+    expect(warned()).toEqual([
+      `[webhook] refused customers/data_request from ${SHOP}: the body hasn't the topic's fields (body fields: customer, data_request, shop_domain, shop_id)`,
+    ]);
+  });
+
+  it("names a missing header and a body that isn't JSON", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(verifyShopifyWebhook(delivery({ headers: { "X-Shopify-Webhook-Id": null } }))).resolves.toBeNull();
+    const body = "not json";
+    await expect(verifyShopifyWebhook(delivery({ body, headers: { "X-Shopify-Hmac-Sha256": sign(body) } }))).resolves.toBeNull();
+    expect(warned()).toEqual([
+      `[webhook] refused app/uninstalled from ${SHOP}: a header is missing (X-Shopify-Webhook-Id)`,
+      `[webhook] refused app/uninstalled from ${SHOP}: the body isn't JSON`,
+    ]);
+  });
+
+  it("names every other refusal", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(verifyShopifyWebhook(delivery({ method: "GET" }))).resolves.toBeNull();
+    await expect(verifyShopifyWebhook(delivery({ body: "", headers: { "X-Shopify-Hmac-Sha256": sign("") } }))).resolves.toBeNull();
+    const body = JSON.stringify(UNINSTALLED);
+    await expect(verifyShopifyWebhook(delivery({ body, headers: { "X-Shopify-Shop-Domain": "shop.example.com" } }))).resolves.toBeNull();
+    await expect(as("shop/redact", [SHOP_REDACT])).resolves.toBeNull();
+    delete process.env.SHOPIFY_API_SECRET;
+    await expect(verifyShopifyWebhook(delivery())).resolves.toBeNull();
+    expect(warned()).toEqual([
+      `[webhook] refused app/uninstalled from ${SHOP}: it isn't a POST`,
+      `[webhook] refused app/uninstalled from ${SHOP}: the body is empty`,
+      "[webhook] refused app/uninstalled from shop.example.com: the shop header isn't a myshopify.com domain",
+      `[webhook] refused shop/redact from ${SHOP}: the body isn't a JSON object`,
+      `[webhook] refused app/uninstalled from ${SHOP}: the app's secret isn't set`,
+    ]);
+  });
+
+  it("logs header values only in a safe shape", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(verifyShopifyWebhook(delivery({ headers: { "X-Shopify-Topic": "forged line <x> [y]", "X-Shopify-Hmac-Sha256": "bad" } }))).resolves.toBeNull();
+    expect(warned()).toEqual([`[webhook] refused forged?line??x???y? from ${SHOP}: the signature doesn't match`]);
   });
 });
 

@@ -1,0 +1,130 @@
+{
+  "file": "png/rewardspro_social_youtube-banner_dark-guides_2560x1440_20261107_v01.png",
+  "brand": "RewardsPro",
+  "campaign": "social",
+  "asset": "youtube-banner",
+  "variant": "dark-guides",
+  "brief_id": "STRATEGY.md §7 A4",
+  "status": "PROPOSAL for the owner: not approved, not published",
+  "size": {
+    "width": 2560,
+    "height": 1440
+  },
+  "bytes": 110942,
+  "sha256": "db56578f01e1ff434c42ae8c484764d4c268498327d992fab16eda5f8e2d104d",
+  "format": "PNG, opaque, 3 channels, ICC profile embedded (sRGB)",
+  "review_only": true,
+  "platforms": [
+    "none: review aid, never upload"
+  ],
+  "use": "Review aid: the master with its zones, safe areas and crop bands drawn on. Never upload.",
+  "safe_before_g0": false,
+  "claim_ids": [],
+  "claim_status_at_build": {},
+  "draft": false,
+  "blockers": [],
+  "text_on_image": [
+    "RewardsPro (the kit's outlined wordmark in the reversed horizontal lockup)",
+    "Safe area for text and logos on every device: 1544 x 423, centred (YouTube help 10456525: 1235 x 338 at 2048 x 1152, x1.25 [I]; third parties: 1546 x 423)",
+    "TVs show the whole 2560 x 1440 [I]; keep everything that matters inside the safe area"
+  ],
+  "alt_text": "Review sheet of the matching asset with dashed guide boxes and labels. Not for upload.",
+  "alt_chars": 86,
+  "contrast": [
+    {
+      "text": "logo lockup-horizontal-reversed (exempt from WCAG)",
+      "colours": "#658aad on #09110f",
+      "wcag": 5.27,
+      "apca_lc": -37.47,
+      "needs": null,
+      "pass": null
+    },
+    {
+      "text": "logo lockup-horizontal-reversed (exempt from WCAG)",
+      "colours": "#17bebb on #09110f",
+      "wcag": 8.3,
+      "apca_lc": -56.84,
+      "needs": null,
+      "pass": null
+    },
+    {
+      "text": "logo lockup-horizontal-reversed (exempt from WCAG)",
+      "colours": "#ffffff on #09110f",
+      "wcag": 19.11,
+      "apca_lc": -107.47,
+      "needs": null,
+      "pass": null
+    }
+  ],
+  "logo_display": [],
+  "notes": "Ground #09110F: the current kit's dark.bg, set by the 2026-10-27 rebuild (676c10b4) as the ink of the rewardspro.io landing that is being retired. Not in the pack the owner approved on 2026-10-20; the reversed lockup's bytes predate it. The R shape #658AAD measures 5.27:1 and |Lc| 37.47, clearing the kit's bar (3:1 and |Lc| 30). Logos are exempt from WCAG; the owner picks the ground.",
+  "master": {
+    "path": "masters/rewardspro_social_youtube-banner_dark_2560x1440_20261107_v01.svg",
+    "overlay": "masters/rewardspro_social_youtube-banner_dark_2560x1440_20261107_v01.guides.svg",
+    "sha256": "c0e3ca10b4e183ae818aa1a33a8de83ad7843819d8cae7a867a824090c21a866",
+    "overlay_sha256": "3195aa6685620cfe6108ae6af039b7f9675b71fe0f922286e966ee1c485d5260"
+  },
+  "inputs": [
+    {
+      "path": "kit/colour/tokens.json",
+      "sha256": "538dd5aeefcaa3c215ba3866a5a807366354e759170a220a657cdda42cb0c00a",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. From the 2026-10-27 kit rebuild (676c10b4); not covered by an approval.",
+      "note": "Every token used here has the same value as in the approved 2026-10-20 tokens, except dark.bg: #09110F came with the rebuild as the dark landing's ink (it was neutral 950, #1B1D1F)."
+    },
+    {
+      "path": "kit/logo/lockup-horizontal-reversed.svg",
+      "sha256": "f3440b861495ff5ae25c17ec84ece502442fdfec30609e1f8ed49d828170e665",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+    }
+  ],
+  "kernel_sha256": {
+    "kernel.toml": "3ca10d6949ee134102b27f53d35e02253c6852e4474647b3c4a23193200a3f22",
+    "brand.json": "713ff39ee0a33444848b58298a81f8ec59d828142cb2759dc593933b3aa0f657",
+    "kit/.brandkit-fingerprint": "bdb0874b5c9df2937c859d43c3d0e33dbfb8cf10e6fecc3a1408cef718b85265"
+  },
+  "tools": {
+    "render.mjs": "render.mjs v01 (2026-11-07, fix pass 1)",
+    "node": "v26.0.0",
+    "sharp": "0.34.5",
+    "libvips": "8.17.3",
+    "librsvg": "2.61.2",
+    "vectorcraft-cli": "vectorcraft-cli 0.21.0",
+    "font": "Inter Regular and SemiBold as bundled in vectorcraft-cli (OFL-1.1, github.com/rsms/inter; vectorcraft-cli ASSETS.md rows assets/fonts/Inter-*.ttf), outlined to paths"
+  },
+  "fonts_resolved": [
+    "Inter Regular (exact)"
+  ],
+  "text_measured": [
+    {
+      "id": "g-safe-0",
+      "width": 922.16,
+      "right": 1431.86,
+      "top": 961.15,
+      "bottom": 990.48
+    },
+    {
+      "id": "g-safe-1",
+      "width": 1233.16,
+      "right": 1744.36,
+      "top": 999.46,
+      "bottom": 1030.12
+    },
+    {
+      "id": "g-tv-0",
+      "width": 1376.6,
+      "right": 1438.23,
+      "top": 92.19,
+      "bottom": 127.34
+    }
+  ],
+  "ai_involvement": "assistive",
+  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by the owner before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
+  "jurisdictions": [
+    "UK"
+  ],
+  "channel": "social (no account exists yet)",
+  "gate_report": null,
+  "approval_id": null,
+  "publish_url": null,
+  "created": "2026-11-07"
+}

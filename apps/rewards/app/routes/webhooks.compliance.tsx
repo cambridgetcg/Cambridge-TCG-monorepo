@@ -45,6 +45,17 @@ type PrivacyPayload = {
   data_request?: { id?: unknown } | null;
 };
 
+/**
+ * The key a data request is opened under when its payload names no request:
+ * Shopify's real data request has no `data_request` field (production,
+ * 2026-11-07), and it delivers the same request again under the same
+ * X-Shopify-Webhook-Id. That header isn't signed, so only a plain token is
+ * used; anything else opens the request without one, as before.
+ */
+function deliveryKey(webhookId: string): string | null {
+  return /^[A-Za-z0-9-]{1,100}$/.test(webhookId) ? webhookId : null;
+}
+
 /** The topics served here, by the library's name, with Shopify's. */
 const TOPICS = new Map([
   ["CUSTOMERS_DATA_REQUEST", "customers/data_request"],
@@ -101,7 +112,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       .map((id) => `gid://shopify/Order/${id}`);
     await openPrivacyRequest(conn, {
       externalCustomerId,
-      shopifyRequestId: idOf(payload.data_request?.id),
+      shopifyRequestId: idOf(payload.data_request?.id) ?? deliveryKey(webhook.webhookId),
       ordersRequested,
       now: receivedAt,
     });

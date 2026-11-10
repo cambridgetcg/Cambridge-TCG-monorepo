@@ -1,0 +1,169 @@
+{
+  "file": "png/rewardspro_social_story_blank-guides_1080x1920_20261107_v01.png",
+  "brand": "RewardsPro",
+  "campaign": "social",
+  "asset": "story",
+  "variant": "blank-guides",
+  "brief_id": "Task brief (1080x1920 story). STRATEGY.md §7 lists vertical cuts under \"Not made\"",
+  "status": "PROPOSAL for the owner: not approved, not published",
+  "size": {
+    "width": 1080,
+    "height": 1920
+  },
+  "bytes": 122285,
+  "sha256": "1c701fa49d1fdd3d7b5df327dad6774e7b0fae451655f7b616f24e75f5ebfbb8",
+  "format": "PNG, opaque, 3 channels, ICC profile embedded (sRGB)",
+  "review_only": true,
+  "platforms": [
+    "none: review aid, never upload"
+  ],
+  "use": "Review aid: the master with its zones, safe areas and crop bands drawn on. Never upload.",
+  "safe_before_g0": false,
+  "claim_ids": [],
+  "claim_status_at_build": {},
+  "draft": false,
+  "blockers": [],
+  "text_on_image": [
+    "RewardsPro (kit outlined horizontal lockup, bottom left)",
+    "Platform UI may cover this band: keep text out (third-party guidance: top 14%, bottom 20%; ASSETS B5)",
+    "Platform UI may cover this band: keep text out (third-party guidance: top 14%, bottom 20%; ASSETS B5)",
+    "Z1 Kicker or date · Inter SemiBold 34/44 · #007C7A (5.04:1) · ≤1 line",
+    "Z2 Headline · Inter SemiBold 80/90 · #1B1D1F (16.91:1) · ≤4 lines",
+    "Z3 Body · Inter Regular 46/64 · #1B1D1F (16.91:1) · ≤7 lines",
+    "Z4 Source and date · Inter Regular 30/40 · #686C70 (5.29:1) · ≤2 lines",
+    "Kit lockup; dashed = clear space (cap height)"
+  ],
+  "alt_text": "Review sheet of the matching asset with dashed guide boxes and labels. Not for upload.",
+  "alt_chars": 86,
+  "contrast": [
+    {
+      "text": "logo lockup-horizontal (exempt from WCAG)",
+      "colours": "#1a3e5c on #ffffff",
+      "wcag": 11.13,
+      "apca_lc": 95.52,
+      "needs": null,
+      "pass": null
+    },
+    {
+      "text": "logo lockup-horizontal (exempt from WCAG)",
+      "colours": "#17bebb on #ffffff",
+      "wcag": 2.3,
+      "apca_lc": 44.85,
+      "needs": null,
+      "pass": null
+    }
+  ],
+  "logo_display": [],
+  "notes": null,
+  "master": {
+    "path": "masters/rewardspro_social_story_blank_1080x1920_20261107_v01.svg",
+    "overlay": "masters/rewardspro_social_story_blank_1080x1920_20261107_v01.guides.svg",
+    "sha256": "8ffc1c58932ac10a7c53c54b03297a0f1f0652c430712a2b5635f9c38a57c15d",
+    "overlay_sha256": "c34ce862bea3ea719a4a56b9663ddd24d4a886f9cd61e2b29460663d46fb4b9d"
+  },
+  "inputs": [
+    {
+      "path": "kit/colour/tokens.json",
+      "sha256": "538dd5aeefcaa3c215ba3866a5a807366354e759170a220a657cdda42cb0c00a",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. From the 2026-10-27 kit rebuild (676c10b4); not covered by an approval.",
+      "note": "Every token used here has the same value as in the approved 2026-10-20 tokens, except dark.bg: #09110F came with the rebuild as the dark landing's ink (it was neutral 950, #1B1D1F)."
+    },
+    {
+      "path": "kit/logo/lockup-horizontal.svg",
+      "sha256": "33042d204485d9a867c05518d77a41eb26e671ea3fa1e06997c16a970d5cc79d",
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+    }
+  ],
+  "kernel_sha256": {
+    "kernel.toml": "3ca10d6949ee134102b27f53d35e02253c6852e4474647b3c4a23193200a3f22",
+    "brand.json": "713ff39ee0a33444848b58298a81f8ec59d828142cb2759dc593933b3aa0f657",
+    "kit/.brandkit-fingerprint": "bdb0874b5c9df2937c859d43c3d0e33dbfb8cf10e6fecc3a1408cef718b85265"
+  },
+  "tools": {
+    "render.mjs": "render.mjs v01 (2026-11-07, fix pass 1)",
+    "node": "v26.0.0",
+    "sharp": "0.34.5",
+    "libvips": "8.17.3",
+    "librsvg": "2.61.2",
+    "vectorcraft-cli": "vectorcraft-cli 0.21.0",
+    "font": "Inter Regular and SemiBold as bundled in vectorcraft-cli (OFL-1.1, github.com/rsms/inter; vectorcraft-cli ASSETS.md rows assets/fonts/Inter-*.ttf), outlined to paths"
+  },
+  "fonts_resolved": [
+    "Inter Regular (exact)"
+  ],
+  "text_measured": [
+    {
+      "id": "g-unsafe0-0",
+      "width": 477.47,
+      "right": 579.4,
+      "top": 103.24,
+      "bottom": 124.58
+    },
+    {
+      "id": "g-unsafe0-1",
+      "width": 594.74,
+      "right": 697.08,
+      "top": 132.01,
+      "bottom": 154.75
+    },
+    {
+      "id": "g-unsafe1-0",
+      "width": 477.47,
+      "right": 579.4,
+      "top": 1639.24,
+      "bottom": 1660.58
+    },
+    {
+      "id": "g-unsafe1-1",
+      "width": 594.74,
+      "right": 697.08,
+      "top": 1668.01,
+      "bottom": 1690.75
+    },
+    {
+      "id": "g-z0-0",
+      "width": 631.3,
+      "right": 732.49,
+      "top": 379.64,
+      "bottom": 398.19
+    },
+    {
+      "id": "g-z1-0",
+      "width": 594.85,
+      "right": 696.05,
+      "top": 447.64,
+      "bottom": 466.19
+    },
+    {
+      "id": "g-z2-0",
+      "width": 542.26,
+      "right": 643.45,
+      "top": 847.64,
+      "bottom": 868.32
+    },
+    {
+      "id": "g-z3-0",
+      "width": 657.21,
+      "right": 758.4,
+      "top": 1311.64,
+      "bottom": 1332.32
+    },
+    {
+      "id": "g-footer-0",
+      "width": 425.6,
+      "right": 944.52,
+      "top": 1450.56,
+      "bottom": 1470.32
+    }
+  ],
+  "ai_involvement": "assistive",
+  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by the owner before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
+  "jurisdictions": [
+    "UK"
+  ],
+  "channel": "social (no account exists yet)",
+  "gate_report": null,
+  "approval_id": null,
+  "publish_url": null,
+  "created": "2026-11-07"
+}

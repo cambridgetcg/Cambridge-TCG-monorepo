@@ -40,6 +40,15 @@ describe("apps/rewards stack", () => {
     expect(read("react-router.config.ts")).toContain("vercelPreset()");
   });
 
+  it("checks production's migrations before the Vercel build, and only there (RP-25)", () => {
+    const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+
+    expect(JSON.parse(read("vercel.json")).buildCommand).toBe("pnpm run check:migrations && pnpm run build");
+    expect(pkg.scripts["check:migrations"]).toBe("tsx scripts/check-production-migrations.ts");
+    // CI's and local builds stay database-free
+    expect(pkg.scripts.build).toBe("prisma generate && react-router build");
+  });
+
   it("never migrates from shopify app dev", () => {
     expect(read("shopify.web.toml")).not.toContain("migrate deploy");
   });

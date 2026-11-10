@@ -134,12 +134,36 @@ export type SendResult =
   | { ok: false; error: "suppressed_by_preference"; category: EmailCategory }
   | { ok: false; error: "suppressed_by_memorial"; category: EmailCategory };
 
+// The plain-text part isn't HTML, so entities left in it reach the reader
+// as written ("You&apos;ve", "&rarr;", a name escaped to "O&#039;Brien").
+// Decode them after the tags are gone. One pass, so "&amp;lt;" becomes
+// "&lt;" and is not decoded again.
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  mdash: "—", ndash: "–", rarr: "→", larr: "←", middot: "·", hellip: "…",
+  lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”", times: "×", pound: "£",
+};
+
+function decodeEntities(text: string): string {
+  return text.replace(/&(#[xX][0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, (entity, body: string) => {
+    if (body[0] === "#") {
+      const code = body[1] === "x" || body[1] === "X"
+        ? parseInt(body.slice(2), 16)
+        : parseInt(body.slice(1), 10);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+    }
+    return NAMED_ENTITIES[body] ?? entity;
+  });
+}
+
 function stripTags(html: string): string {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return decodeEntities(
+    html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
 }
 
 function siteOrigin(): string {
@@ -153,10 +177,10 @@ function unsubscribeUrl(token: string): string {
 function appendUnsubscribeFooter(html: string, token: string, categoryLabel: string): string {
   const url = unsubscribeUrl(token);
   const fragment = `
-    <p style="color:#525252;font-size:11px;margin:20px 0 0;text-align:center;line-height:1.6;">
+    <p style="color:#5e574c;font-size:11px;margin:20px 0 0;text-align:center;line-height:1.6;">
       Don't want ${escapeHtml(categoryLabel)}?
-      <a href="${escapeHtml(url)}" style="color:#737373;text-decoration:underline;">Unsubscribe</a> ·
-      <a href="${escapeHtml(siteOrigin())}/account/emails" style="color:#737373;text-decoration:underline;">Manage all emails</a>
+      <a href="${escapeHtml(url)}" style="color:#5e574c;text-decoration:underline;">Unsubscribe</a> ·
+      <a href="${escapeHtml(siteOrigin())}/account/emails" style="color:#5e574c;text-decoration:underline;">Manage all emails</a>
     </p>
   `;
   // Insert just before the closing </body> so it sits under the content card.
