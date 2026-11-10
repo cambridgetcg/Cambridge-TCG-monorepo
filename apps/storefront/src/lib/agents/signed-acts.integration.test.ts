@@ -40,6 +40,7 @@ vi.mock("@/lib/auth", () => ({
 import { createCompatDb } from "@cambridge-tcg/db/compat";
 import { hashAgentToken, resolveAgentBearer } from "./auth";
 import { mintKey } from "./operator-actions";
+import { SIGNED_ACT_LIMITS } from "./signed-act-config";
 import { createActLimiter } from "./signed-act-limits";
 import { currentDisclosure, disclosureSha256 } from "./signed-act-disclosures";
 import { ed25519Thumbprint } from "./signed-act-verify";
@@ -94,14 +95,27 @@ async function newUser() {
   return id;
 }
 
-async function insertAgent(userId: string, opts: { status?: string } = {}) {
+async function insertAgent(userId: string, opts: { status?: string; registeredVia?: string } = {}) {
   seq += 1;
   const row = await pool.query(
     `INSERT INTO agents (operated_by_user_id, public_handle, display_name, model_tag, status, registered_via)
-     VALUES ($1, $2, 'Held keys', 'integration-test', $3, 'operator') RETURNING id`,
-    [userId, `hk${seq}-${randomUUID().slice(0, 8)}`, opts.status ?? "active"],
+     VALUES ($1, $2, 'Held keys', 'integration-test', $3, $4) RETURNING id`,
+    [userId, `hk${seq}-${randomUUID().slice(0, 8)}`, opts.status ?? "active", opts.registeredVia ?? "operator"],
   );
   return row.rows[0].id as string;
+}
+
+/** A signing key written straight into the tables, as a direct database
+ *  write would, past every check binding makes. */
+async function insertSigningKey(agentId: string, h: Holder, alg = "Ed25519") {
+  const event = randomUUID();
+  await state.db!.transaction(async (tx) => {
+    await tx(`INSERT INTO agent_act_events (id, agent_id, basis, act, outcome, thumbprint) VALUES ($1, $2, 'operator', 'signing_key.bind', 'applied', $3)`, [event, agentId, h.kid]);
+    await tx(
+      `INSERT INTO agent_signing_keys (agent_id, thumbprint, public_key, alg, bound_by_event, confirmed_at) VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [agentId, h.kid, Buffer.from(h.x, "base64url"), alg, event],
+    );
+  });
 }
 
 /** A fresh operator, agent and bound key; confirmed by a signer.check unless asked not to. */
@@ -471,6 +485,131 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     expect(await liveUsageKeys(agentId)).toBe(0);
     // A name with ordinary punctuation, accents and emoji is fine.
     expectApplied(await submit(sign(h, agentId, "key.mint", { ...usageKey().params, name: "Café laptop — 2026 😀" })));
+  });
+
+  it("looks up only operator-managed agents' Ed25519 keys: any other row is an unknown key, never verified as one", async () => {
+    // perKey 0: an act that got past the lookup and verified would answer act_limited.
+    const noPerKey = () => createActLimiter({ ...SIGNED_ACT_LIMITS, perKey: 0 });
+    const run = (act: string) => submitAgentAct({ act, preview: null }, { clientAddress: "203.0.113.2", env: ENV, limiter: noPerKey() });
+    state.userId = await newUser();
+
+    // A self-serve agent's key, written directly (binding refuses one).
+    const selfServe = await insertAgent(state.userId, { registeredVia: "self-serve" });
+    const h1 = holder();
+    await insertSigningKey(selfServe, h1);
+    expect(await run(sign(h1, selfServe, "signer.check"))).toMatchObject({ ok: false, status: 403, verified: false, refusal: { reason_code: "act_unverified" } });
+
+    // A row whose alg is not Ed25519 (a later algorithm, say) holding Ed25519
+    // bytes: never verified as Ed25519. Only 0152's CHECK stops such a row,
+    // so it is lifted for this one insert.
+    const operator = await insertAgent(state.userId);
+    const h2 = holder();
+    await pool.query(`ALTER TABLE agent_signing_keys DROP CONSTRAINT agent_signing_keys_alg_values`);
+    try {
+      await insertSigningKey(operator, h2, "ES256");
+      expect(await run(sign(h2, operator, "signer.check"))).toMatchObject({ ok: false, status: 403, verified: false, refusal: { reason_code: "act_unverified" } });
+      expect((await pool.query(`SELECT count(*)::int AS n FROM agent_act_nonces WHERE thumbprint = $1`, [h2.kid])).rows[0].n).toBe(0);
+    } finally {
+      await pool.query(`DELETE FROM agent_signing_keys WHERE agent_id = $1`, [operator]);
+      await pool.query(`ALTER TABLE agent_signing_keys ADD CONSTRAINT agent_signing_keys_alg_values CHECK (alg IN ('Ed25519'))`);
+    }
+    // The same key as Ed25519 is found and verified (so the two above were refused by the lookup).
+    await insertSigningKey(operator, h2);
+    expect(await run(sign(h2, operator, "signer.check"))).toMatchObject({ ok: false, status: 429, verified: true, refusal: { reason_code: "act_limited" } });
+  });
+
+  it("lets a signed act reach only its own agent's keys, and an archived agent only retire", async () => {
+    const a = await setup();
+    const b = await setup();
+    state.userId = a.userId;
+    const aKey = await mintKey({ agent_id: a.agentId, name: "a's", key_expiry: "30d" });
+    if (!aKey.ok) throw new Error(aKey.error);
+    state.userId = b.userId;
+    // B's signing key names A's usage key: as if it did not exist.
+    expect(await submit(sign(b.h, b.agentId, "key.revoke", { key_id: aKey.data.key_id }))).toMatchObject({
+      ok: false, status: 422, refusal: { reason_code: "act_params_invalid", detail: "key_id names no usage key of this agent" },
+    });
+    expect(await liveUsageKeys(a.agentId)).toBe(1);
+    // B's operator cannot list A's signing keys either.
+    expect(await listSigningKeys({ agent_id: a.agentId })).toEqual({ ok: false, error: "Agent not found." });
+
+    // Archived, A may check and retire its signing key, but not revoke a usage key.
+    await pool.query(`UPDATE agents SET status = 'archived', archived_at = NOW() WHERE id = $1`, [a.agentId]);
+    expect(await submit(sign(a.h, a.agentId, "key.revoke", { key_id: aKey.data.key_id }))).toMatchObject({
+      ok: false, status: 403, refusal: { reason_code: "agent_archived" },
+    });
+    expect(await liveUsageKeys(a.agentId)).toBe(1);
+    expect(codeOf(await submit(sign(a.h, a.agentId, "signer.check")))).toBe("applied");
+    expect(codeOf(await submit(sign(a.h, a.agentId, "key.revoke", { kid: a.h.kid })))).toBe("applied");
+  });
+
+  it("caps binding at two live signing keys, not counting lapsed or expired ones", async () => {
+    const { userId, agentId, signingKeyId } = await setup({ confirm: false });
+    // The first key lapses (never confirmed in 7 days); a second expires.
+    await pool.query(`UPDATE agent_signing_keys SET created_at = created_at - interval '8 days' WHERE id = $1`, [signingKeyId]);
+    const second = holder();
+    state.userId = userId;
+    const bound = await bindSigningKey({ agent_id: agentId, public_jwk: second.jwk, key_expiry: "7d" });
+    if (!bound.ok) throw new Error(bound.error);
+    await pool.query(
+      `UPDATE agent_signing_keys SET created_at = NOW() - interval '2 days', not_after = NOW() - interval '1 day' WHERE id = $1`,
+      [bound.data.signing_key_id],
+    );
+    // Neither counts: two more bind, and a third does not.
+    expect(await bindSigningKey({ agent_id: agentId, public_jwk: holder().jwk, key_expiry: "30d" })).toMatchObject({ ok: true });
+    expect(await bindSigningKey({ agent_id: agentId, public_jwk: holder().jwk, key_expiry: "30d" })).toMatchObject({ ok: true });
+    expect(await bindSigningKey({ agent_id: agentId, public_jwk: holder().jwk, key_expiry: "30d" })).toEqual({
+      ok: false, error: "This agent already has 2 live signing keys. Remove one first.",
+    });
+    // Leave no week-old pending key for the sweep's count below.
+    await pool.query(`DELETE FROM agent_signing_keys WHERE id = $1`, [signingKeyId]);
+  });
+
+  it("checks each event's digest against its act, and keeps created_at and agent_id as written", async () => {
+    const { agentId, h } = await setup();
+    const act = sign(h, agentId, "signer.check");
+    const digest = (text: string) => crypto.createHash("sha256").update(text).digest("hex");
+    const insert = (sha: string) =>
+      pool.query(
+        `INSERT INTO agent_act_events (agent_id, basis, act, outcome, act_jws, act_sha256) VALUES ($1, 'signed-act', 'signer.check', 'applied', $2, $3)`,
+        [agentId, act, sha],
+      );
+    await expect(insert(digest(`${act}x`))).rejects.toMatchObject({ code: "23514" });
+    await insert(digest(act));
+    const [first] = await events(agentId);
+    const other = await insertAgent(state.userId);
+    // Not even beside 7b's nulling, which alone is allowed.
+    const NULL_FOUR = "act_jws = NULL, thumbprint = NULL, verification = NULL, effect = NULL";
+    for (const [set, params] of [
+      ["created_at = created_at - interval '1 day'", []],
+      [`created_at = created_at - interval '1 day', ${NULL_FOUR}`, []],
+      ["agent_id = $2", [other]],
+      [`agent_id = $2, ${NULL_FOUR}`, [other]],
+    ] as const) {
+      await expect(pool.query(`UPDATE agent_act_events SET ${set} WHERE id = $1`, [first.id, ...params]), set).rejects.toThrow(/append-only/);
+    }
+    // Nulling the four erasable columns, agent kept (7b), is still allowed.
+    await pool.query(`UPDATE agent_act_events SET act_jws = NULL, thumbprint = NULL, verification = NULL, effect = NULL WHERE id = $1`, [first.id]);
+  });
+
+  it("needs 0152 before agent.act is counted: 0150's CHECK refuses the word, 0152's takes it", async () => {
+    const before = `held_keys_pre0152_${randomUUID().replaceAll("-", "")}`;
+    await admin.query(`CREATE SCHEMA ${before}`);
+    const scoped = new Pool({ connectionString: new URL(target!).toString(), options: `-c search_path=${before},public`, max: 1 });
+    try {
+      await scoped.query("CREATE TABLE users (id uuid PRIMARY KEY)");
+      for (const file of ["0090_agents.sql", "0112_agent_self_serve.sql", "0148_ops_observability.sql", "0150_mcp_daily_agent_revoke_key.sql", "0151_agent_key_expiry.sql"]) {
+        await scoped.query(await readFile(new URL(`../../../drizzle/${file}`, import.meta.url), "utf8"));
+      }
+      const count = (tool: string) => scoped.query(`INSERT INTO mcp_daily VALUES (current_date, 'tools/call', $1, false, 'ok', 1)`, [tool]);
+      await count("agent.revoke_key");
+      await expect(count("agent.act")).rejects.toMatchObject({ code: "23514" });
+      await scoped.query(await readFile(new URL("../../../drizzle/0152_agent_signing_keys.sql", import.meta.url), "utf8"));
+      await count("agent.act");
+    } finally {
+      await scoped.end();
+      await admin.query(`DROP SCHEMA IF EXISTS ${before} CASCADE`);
+    }
   });
 
   it("keeps events append-only, nulls their erasable columns with the agent, and lets 7b null them in place", async () => {

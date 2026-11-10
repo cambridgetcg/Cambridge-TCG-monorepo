@@ -79,6 +79,25 @@ describe("parseStrictJson", () => {
     expect(parseStrictJson(deep(STRICT_JSON_MAX_DEPTH)).ok).toBe(true);
     expect(parseStrictJson(deep(STRICT_JSON_MAX_DEPTH + 1)).ok).toBe(false);
     expect(parseStrictJson(deep(100_000)).ok).toBe(false);
+    // Objects too, and the two mixed.
+    const objects = (n: number) => '{"a":'.repeat(n) + "1" + "}".repeat(n);
+    expect(parseStrictJson(objects(STRICT_JSON_MAX_DEPTH)).ok).toBe(true);
+    expect(parseStrictJson(objects(STRICT_JSON_MAX_DEPTH + 1)).ok).toBe(false);
+    expect(parseStrictJson(objects(100_000)).ok).toBe(false);
+    const mixed = (n: number) => '[{"a":'.repeat(n / 2) + "1" + "}]".repeat(n / 2);
+    expect(parseStrictJson(mixed(STRICT_JSON_MAX_DEPTH)).ok).toBe(true);
+    expect(parseStrictJson(mixed(STRICT_JSON_MAX_DEPTH + 2)).ok).toBe(false);
+  });
+
+  it("refuses a raw lone surrogate in a string, which text decoded from UTF-8 never holds", () => {
+    // JavaScript strings holding the raw code unit (not a \u escape in the
+    // JSON text): a caller that hands in a string, not bytes, can send one.
+    for (const text of ["\"\uDC00\"", "\"\uD800x\"", "\"\uD800\"", "\"x\uDBFF\"", "{\"a\uDFFF\":1}"]) {
+      expect(text).toMatch(/[\uD800-\uDFFF]/);
+      expect(parseStrictJson(text), JSON.stringify(text)).toMatchObject({ ok: false, error: expect.stringContaining("lone surrogate") });
+    }
+    // A raw pair is one character.
+    expect(parseStrictJson("\"\uD83D\uDE00\"")).toEqual({ ok: true, value: "😀" });
   });
 
   it("with integerLiteralsOnly, takes a number only as an integer literal", () => {

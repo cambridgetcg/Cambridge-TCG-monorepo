@@ -104,6 +104,15 @@ describe("arguments", () => {
     }
     expect(query).not.toHaveBeenCalled();
   });
+
+  it("refuses any other argument name, even beside a valid preview", async () => {
+    for (const args of [{ preview: "key.mint", extra: 1 }, { act: null, preview: "key.mint", confirm: true }, { preview: "signer.check", arguments: {} }]) {
+      expect(await submit(args), JSON.stringify(args)).toMatchObject({
+        ok: false, status: 400, refusal: { reason_code: "act_malformed", detail: "send an object with act or preview only" },
+      });
+    }
+    expect((await submit({ preview: "key.mint" })).ok).toBe(true);
+  });
 });
 
 describe("previews", () => {
