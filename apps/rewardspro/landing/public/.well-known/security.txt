@@ -1,0 +1,4 @@
+Contact: mailto:contact@rewardspro.io
+Expires: 2027-11-08T23:59:59Z
+Preferred-Languages: en
+Canonical: https://rewardspro.io/.well-known/security.txt
