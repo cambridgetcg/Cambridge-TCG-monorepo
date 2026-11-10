@@ -14,6 +14,14 @@ re-read each challenge's lines at 9efc2f34 and agrees with all four. Those rows 
 **Revised after challenge**, and each needs a concur on its new wording. The second read's corrective notes on other
 rows are folded in below, marked "(second read)".
 
+**Third read, 2026-11-10.** An Air session (`5b65f404`) read the four revised sentences at origin/main 5c953f5c. It
+concurred with rp-review-ask and challenged the other three, each with a real case inside the stated scope. This
+session re-read every line it cites and agrees with all three. Those rows now carry a second revision, marked
+**Revised after third read**, which needs a concur from a session other than `2f4c6449`. Of the files cited, only
+`app/routes/app._index.tsx` and `app/lib/tiers.server.ts` differ between 9efc2f34 and 5c953f5c; their moved lines are
+listed under "Locators that moved". New locators added in this revision are the same at both commits unless marked
+@5c953f5c.
+
 ## How it was checked
 
 1. **Hashes, in code.** Each source with a file locator was hashed as `git show <commit>:<path> | sha256`, at
@@ -47,8 +55,8 @@ narrower sentence, which is given. **fails** means the code contradicts it. No r
 |---|---|---|---|
 | rp-store-credit | holds | `app/lib/record-order.server.ts:230` `rail: "shopify_store_credit"` | Concur; D6 (candidate `gates.md:20`) |
 | rp-paid-trigger | narrow | `app/routes/webhooks.orders.paid.tsx:55` | New sentence; concur; D6 (`gates.md:20`, `:40`) |
-| rp-cashback-base | narrow | `app/lib/order-facts.ts:81` `baseOf(...)` | Revised sentence (challenged); gift-card order never run; concur on the revision; D6 (`gates.md:20`, `:22`, `:44`) |
-| rp-refund-takeback | narrow | `app/lib/payouts.server.ts:257` `Money.min(amount, held)` | New sentence, revised scope (challenged); concur on the revision; D6 (`gates.md:23`, `:24`) |
+| rp-cashback-base | narrow | `app/lib/order-facts.ts:81` `baseOf(...)` | Scope revised after third read; gift-card order never run; concur on the revision; D6 (`gates.md:20`, `:22`, `:44`) |
+| rp-refund-takeback | narrow | `app/lib/payouts.server.ts:257` `Money.min(amount, held)` | New sentence, scope revised after third read; concur on the revision; D6 (`gates.md:23`, `:24`) |
 | rp-merchant-funds | holds (code part) | `app/shopify/store-credit-rail.server.ts:307` | Air re-read of the help.shopify.com capture; concur |
 | rp-vip-tiers | narrow | `app/lib/tiers.server.ts:236`, reached only when no lock applies (`:233-235`) | New sentence; no downgrade observed; concur; D6 (`gates.md:19`, `:25`) |
 | rp-tier-window | narrow | `app/lib/tiers.server.ts:101` | New sentence; a window change never observed; concur; D6 |
@@ -56,10 +64,10 @@ narrower sentence, which is given. **fails** means the code contradicts it. No r
 | rp-import-past | narrow | `app/shopify/install.server.ts:53-55` | New sentence; concur; D6 (`gates.md:34`, `:27`) |
 | rp-setup-steps | holds | `app/routes/app._index.tsx:363` | A capture of the card; concur |
 | rp-switch-off | holds | `app/lib/record-order.server.ts:68` and `app/lib/tiers.server.ts:96-103` | The tier half observed on production; concur; D6 (`gates.md:26`) |
-| rp-review-ask | narrow | `app/lib/stats.server.ts:242` | Revised sentence (challenged); guard test; concur on the revision |
+| rp-review-ask | narrow | `app/lib/stats.server.ts:242` | Revised sentence concurred (third read); guard test |
 | rp-help-in-settings | holds | `app/routes/app.settings._index.tsx:67` | A capture of Settings > Help; concur |
 | rp-contact-delivers | narrow (code shows publication only) | `app/routes/app.settings._index.tsx:16` | Yu's outside delivery test; concur |
-| rp-widget | narrow | `extensions/rewards-widget/assets/rewards-widget.js:137`, `:169` | Revised sentence (challenged); rest of gate C; concur on the revision; D6 (`gates.md:21`) |
+| rp-widget | narrow | `extensions/rewards-widget/assets/rewards-widget.js:137`, `:169` | Sentence and scope revised after third read; #205's fix or the scope; rest of gate C; concur on the revision; D6 (`gates.md:21`) |
 | rp-live-release | holds | `docs/switch.md:85` | Concur; rp-production-rebuild |
 | rp-no-tier-products | holds | `shopify.app.toml:49` (six scopes) | Guard test, or accept the scope pin; D9; concur |
 | rp-no-own-email | holds | `app/shopify/store-credit-rail.server.ts:307` (`notify`) | Yu's data-request email decision; guard test; concur |
@@ -69,7 +77,8 @@ narrower sentence, which is given. **fails** means the code contradicts it. No r
 
 Paths are relative to `apps/rewards/` unless they start with `apps/`. "D6" means Yu's choice of G0's form (ROADMAP
 Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only. Where a row says "concur", the second read
-(`74cb7025`) has given it for the verdict; the four challenged rows still need one for their revised wording.
+(`74cb7025`) has given it for the verdict. The third read (`5b65f404`) concurred with rp-review-ask's revised
+sentence; the other three challenged rows still need one for their second revision.
 
 ## Findings that cut across rows
 
@@ -106,7 +115,19 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only. Where a row
   at 5%: £100 paid, £5 earned; an edit adds a £100 item, which earns nothing; refunding the added item counts as
   £100 of £100 refunded, completes the order and takes back all £5, although the £100 item that earned it was kept.
   This is code reading only and has never been run. It affects rp-cashback-base, rp-refund-takeback and
-  rp-vip-tiers. The second-read session has told Yu and won't file it for the rewards lane without his word.
+  rp-vip-tiers. The second-read session has since filed it as #190.
+  - **The reverse case (third read).** "Once, at payment" means once, when the order is first recorded. A failed
+    orders/paid answers 500 and Shopify delivers it again (`webhook-helpers.server.ts:27-31`), and each delivery
+    reads the order as it is then (`webhooks.orders.paid.tsx:48-55`). recordOrder checks no payment status
+    (`record-order.server.ts:54-71`), and an added line counts in full (`order-source.server.ts:396`, `:502-507`).
+    The hourly sweep records a missed order the same way (`payout-check.server.ts:299`, `:323-327`), up to
+    SWEEP_DAYS = 3 back (`:56`). So an item an edit adds before that first record earns cashback: £50 paid, a £30
+    item added before the redelivery, gives a base of £80 and £4.00 at 5%, not £2.50. An edit's removal before the
+    first record goes through the same read of today's lines (`removedUnits`, `:390-397`); this session hasn't
+    traced that case either way.
+  - **Exchanges (third read, on #190).** An exchange is a Shopify return, not an order edit, so "edited" doesn't
+    name it. Whether an exchange's new item behaves like an added line depends on how Shopify writes it, which
+    nobody has run.
 - **Locators that moved:**
   - `docs/switch.md`: lines after :248 moved by 2. For example :259 → :261, :262 → :264, :263 → :265, :267 → :269
     and :269 → :271. :298 is now :300 and reads "OK" (row 7b is closed by `gates.md:40`). The same diff also
@@ -119,6 +140,11 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only. Where a row
     - (Second read:) readOrder and readRefund value all of an order's refunds together (`:540`, `:731`), so one
       refund past a limit blocks every later refund of that order.
   - `social/STRATEGY.md`: the data-request email decision the ledger cites at :58 and :506 is now at :79 and :528.
+  - (Third read; each checked line for line.) Two cited files changed between 9efc2f34 and 5c953f5c.
+    - `app/routes/app._index.tsx` (#157): lines up to :379 are unchanged (:178, :192-195, :271-273, :363, :365).
+      The review card moved by 3: :511-525 → :514-528, :511 → :514 and :516 → :519.
+    - `app/lib/tiers.server.ts`: :96-103 → :97-104, :101 → :102, :123-131 → :124-132, :233-236 → :234-237
+      (:236 → :237), :280 → :281, :595 → :683 and :602 → :690.
 - **Negative rows have no guard test.** That covers rp-no-own-email, rp-no-chance, rp-no-points, rp-scope,
   rp-no-tier-products and rp-review-ask's "nothing is offered".
   - `test/unit/config/production-toml.test.ts:81-93` pins the six scopes. It would fail on a new products,
@@ -192,12 +218,22 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only. Where a row
     For £100 of products plus £10 of shipping with £10 of credit applied, the base is £90, not £100.
   - **Tenders by gateway name.** They are recognised by name (`order-source.server.ts:206-210`). A third-party
     gift-card gateway named another way would earn. This is code reading only.
-  - **Items added by an edit after payment** (second read's challenge). The base is written once, at payment
-    (`record-order.server.ts:177-182`), so an added item earns nothing (see the cross-row finding).
+  - **Items added by an edit after payment** (second read's challenge). The base is written once, when the order is
+    first recorded (`record-order.server.ts:177`, `:182`), so an item added after that earns nothing (see the
+    cross-row finding).
+  - **An order first recorded after an edit** (third read's challenge). A redelivered orders/paid, or the sweep,
+    reads the order as it is then, so an item added before the first record earns: £50 paid and £30 added gives
+    £4.00 at 5%, not £2.50 (the cross-row finding's reverse case).
 - **Proposed sentence, revised after challenge:** "Cashback is paid on the product price after discounts, as the
   order stood when it was paid, less any part of the order paid with store credit or gift cards. Shipping, and gift
   cards bought as products, earn nothing." The first version left out "as the order stood when it was paid" and was
   false for an item added after payment.
+- **Scope, revised after third read:** "for orders no edit changed before RewardsPro first records them". The third
+  read proposed "with no item added by an edit"; this session widened it to any edit, because a removal before the
+  first record is read from today's lines too and hasn't been traced. The sentence stays. Rewording it to "as the
+  order stood when RewardsPro recorded it" was the other route, and the third read showed why not: refunds are
+  never netted from the base (`app/lib/order-facts.ts:84-90`), so an order refunded before it is recorded would
+  read wrongly.
 - **Candidates:**
   - `gates.md:20` (B: "5% of £399.60, the product price after the discount, with shipping earning nothing");
   - `gates.md:22` (D: #1013, paid fully with store credit, earned nothing);
@@ -227,17 +263,24 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only. Where a row
      (`store-credit-rail.server.ts:363-370`; `gates.md:45`).
   3. A refund too large to read takes nothing back. That covers more than 100 lines (`order-source.server.ts:328-332`),
      20 or more transactions or shipping lines on any refund (`:351-352`, called at `:462`), or the 20th refund
-     (`:674-675`). refunds/create answers 500, and the sweep logs it while the order is inside 3 days
-     (`payout-check.server.ts:56`).
+     (`:674-675`, checked at `:725` before the refund itself is left out). readRefund values all of an order's
+     refunds together (`:727-731`), so one such refund also blocks every later refund of that order.
+     refunds/create answers 500 before recordRefund runs (`app/routes/webhooks.orders.refunded.tsx:65-74`), and
+     the sweep logs the limit, or counts a problem, and records nothing (`payout-check.server.ts:365-368`,
+     `:395-400`) while the order is inside 3 days (`:56`). A tax-inclusive, unedited order of 120 different singles
+     refunded in one refund takes back £0.
   4. An erased buyer's take-back is closed (`refunds.server.ts:278-284`).
   5. (Second read's challenge.) Refunding an item added by an edit after payment takes back more than its share,
      up to all of the order's cashback, because the refund is valued on today's lines against the product value
      stored at payment (see the cross-row finding).
 - **Proposed sentence:** "When items are refunded, RewardsPro takes back their share of the cashback, up to the
   store credit the customer still holds in the order's currency. A refund of shipping alone takes nothing back."
-- **Scope, revised after challenge:** "on stores whose prices include tax (until Ruling 12's bend is fixed or
-  accepted), for orders not edited to add items after payment (until that is fixed)". The first version carried only
-  the tax limit.
+- **Scope, revised after third read:** "on stores whose prices include tax (until Ruling 12's bend is fixed or
+  accepted), for orders with no item added after payment by an edit or an exchange (until that is fixed), and for
+  refunds within the app's read limits: fewer than 20 refunds on the order, and no refund of it with more than 100
+  lines or with 20 or more transactions or shipping lines". The first version carried only the tax limit. The second
+  left out "Why narrow" 3, the read limits, and didn't name exchanges (third read's challenge). Exchanges are scoped
+  out because nobody has run one, not because the sentence is known to be false for them.
 - **Candidates:**
   - `gates.md:23` (E: "Refunding 1 of #1011's 2 items took back £9.99, half of the £19.98.");
   - `gates.md:24` (F: "asked for £9.99 and took the £8.99 left");
@@ -403,9 +446,11 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only. Where a row
 - **Rests on:** `app/lib/stats.server.ts:242` @9efc2f34,
   `if (now.getTime() - merchant.createdAt.getTime() < REVIEW_MIN_AGE_DAYS * DAY_MS) return false;`.
 - **Why narrow:**
-  - The seven days run from `merchant.createdAt`, set at the first open. A reinstall keeps the row
-    (`merchant.server.ts:55-58`; `gates.md:28` "The store's rows stayed"), so days without the app count.
-    "Seven days with the app" overstates.
+  - The seven days run from `merchant.createdAt`, set at the first open (`merchant.server.ts:84-85`). A reinstall
+    keeps the row (`merchant.server.ts:55-58`; `gates.md:28` "The store's rows stayed"), so days without the app
+    count. "Seven days with the app" overstates. (Third read:) once shop/redact has erased an uninstalled store, the
+    row is gone (`erasure.server.ts:123-132`), so a store that dismissed the card and later reinstalls is asked
+    again, after a new seven days and three new cashback entries.
   - The request also stops when Shopify answers "already-reviewed" (`home-rules.ts:44`), which Shopify doesn't show.
     Only Shopify's answer counts (`app._index.tsx:192-195`, `:271-273`): a merchant who reviews through the card's
     own link (`:516`) gets the card again on the next visit (`:511`), as the second read's challenge showed.
@@ -415,8 +460,12 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only. Where a row
   cashback entry, and no sooner than seven days after you first opened the app. It stops once you dismiss it,
   Shopify has shown its request, or Shopify says you have already reviewed the app. Nothing is offered for a review."
   The first version said "or you have already reviewed the app", which is false for a review left through the link.
-- **Note:** while the request is due, it is asked on every Home visit. STRATEGY's "asks once" is false; the sentence
-  above doesn't say "once". If RP-13 changes the timing, this row is re-read after it merges (#165).
+  **Concurred** by the third read (`5b65f404`, 2026-11-10), with the notes folded in here. At 5c953f5c the card is at
+  `app._index.tsx:514-528` (#157 moved it by 3), and both the card and Shopify's request wait on `reviewDue`
+  (`:269`, `:514`).
+- **Note:** while the request is due, it is asked on every Home visit, because every answer from Shopify but
+  "success" and "already-reviewed" records nothing (`app._index.tsx:193-195`). STRATEGY's "asks once" is false;
+  the sentence above doesn't say "once". If RP-13 changes the timing, this row is re-read after it merges (#165).
 - **Inference [I]:** rewardsprotesting's merchant row dates from 2026-11-06 and has more than three cashback
   entries, so Home there should start asking around 2026-11-13 unless dismissed.
 - **Still between:** a guard test for "nothing is offered" (none exists; `test/` has 0 incentive hits); a concur.
@@ -462,11 +511,26 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only. Where a row
     shows no amount, only "Your store credit shows at checkout" (`:141-150`). That includes a buyer whose only credit
     is in another currency (`shopify/live-balance.server.ts:92-97`), seen on production (`gates.md:32`), as well as a
     slow or refused read.
-- **Proposed sentence, revised after challenge:** "While cashback is on, a widget you turn on in your theme editor
-  shows signed-in customers their tier and cashback rate, their store credit in the currency they are shopping in
-  when Shopify returns it, and how far they are from the next tier when there is one they can reach. Guests see your
-  base rate and a sign-in prompt." The scope should carry the proxy-path limit and the 0%-base case. The first
-  version said plainly that customers see "their … store credit", which is false when no amount comes back.
+  - **A buyer from before the first tier** (third read's challenge). A buyer recorded while the store had no tier
+    has no tier (`record-order.server.ts:126`). Until a tier pass places them, the widget shows the tier their spend
+    reaches, with its rate (`app/routes/api.proxy.$.tsx:74`, `?? qualify(spend, tiers)`; the rate at `:87`). Their
+    next order is placed in the lowest tier and paid at its rate (`record-order.server.ts:136-149`), and the tier
+    moves only after that order (`webhooks.orders.paid.tsx:55`, `:62`; `resolveTier`, `tiers.server.ts:237`
+    @5c953f5c). The pass after a tier save stops at 25 s (`tiers.server.ts:320-322`, `:362` @5c953f5c), so this
+    needs more unplaced buyers than that pass reaches, and lasts until the nightly pass. `api.proxy.$.tsx` is the
+    same at 9efc2f34. Draft #205 (head e8557485) changes `:74` to `?? tiers[0]`; once that is on main, this row is
+    re-read and the scope's last clause can go.
+- **Proposed sentence, revised after third read:** "While cashback is on, a widget you turn on in your theme editor
+  shows guests your base rate and a sign-in prompt, and shows signed-in customers their tier and cashback rate, their
+  store credit in the currency they are shopping in when Shopify returns it, and how far they are from the next tier
+  when there is one they can reach." The guests' clause now sits inside "While cashback is on": on its own sentence
+  it lost that condition, and guests see nothing when cashback is off (`rewards-widget.js:164`). The first version
+  said plainly that customers see "their … store credit", which is false when no amount comes back.
+- **Scope, revised after third read:** "on the app proxy path `/apps/rewardspro`; for guests, with a base rate above
+  0% and the widget's own guest words; and except a customer recorded before your first tier whom no tier pass has
+  placed yet (until #205's fix is on main)". The first two limits were named above but missing from the
+  scope (third read). The guest words (`:165`, `:173-174`) are this session's addition: a merchant's own message and
+  link replace the sign-in prompt.
 - **Candidates:**
   - `gates.md:21` (C: "Pass" on Yu's iPhone, signed in, as a guest and in Dark). It still states no 390 px, no Light
     and no product page, and C is not among Yu's acceptances at `gates.md:12`.
@@ -599,13 +663,15 @@ Pre-1, STRATEGY D6); the `gates.md` lines named are candidates only. Where a row
 ## Next
 
 - **Concur:** done for the verdicts. The second read (`74cb7025`, 2026-11-09) concurred with 17 rows and challenged
-  4 sentences. The four revised sentences above need a concur on their new wording from a session other than
-  `2f4c6449`.
-- **RP-06 (Air):** apply the concurred verdicts, the new sentences where taken (the revised ones once concurred), the
-  candidate `gates.md` locators under D6, and the moved line numbers.
+  4 sentences. The third read (`5b65f404`, 2026-11-10) concurred with rp-review-ask's revised sentence and challenged
+  the other three. Their second revisions (rp-cashback-base's scope, rp-refund-takeback's scope, and rp-widget's
+  sentence and scope) need a concur from a session other than `2f4c6449`. Much of the new wording is `5b65f404`'s
+  own proposal, so a read by `74cb7025` or a fresh session is the stronger check; `5b65f404` may still give it.
+- **RP-06 (Air, #207):** apply the concurred verdicts, the new sentences where taken (the revised ones once
+  concurred), the candidate `gates.md` locators under D6, and the moved line numbers, including the third read's.
 - **For Yu:**
   - D6 (whether `gates.md` counts as G0).
   - Whether the negative rows need a guard test (AGENTS.md principle 8).
   - The data-request email decision behind rp-no-own-email.
-  - The order-edit finding (cross-row): whether to fix it, and in which lane. Until then the revised scopes keep
+  - The order-edit finding (cross-row, #190): whether to fix it, and in which lane. Until then the revised scopes keep
     edited orders out of the sentences.
