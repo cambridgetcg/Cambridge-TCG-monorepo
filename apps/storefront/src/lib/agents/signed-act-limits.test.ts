@@ -104,6 +104,27 @@ describe("createActLimiter", () => {
     expect(limiter.afterVerification("kid")).toEqual({ allowed: false, retryAfterSeconds: 20, scope: "key" });
   });
 
+  it("starts every count again when the window turns, the exit ceiling included", () => {
+    let now = 1_000_000;
+    const limiter = createActLimiter({ ...SIGNED_ACT_LIMITS, perAddress: 1, perInstance: 1, exitPerInstance: 1, perKey: 1 }, () => now);
+    const spend = () => [
+      limiter.beforeVerification("a", "exit").allowed,
+      limiter.beforeVerification("b", "exit").allowed, // the exit ceiling
+      limiter.beforeVerification("c", "other").allowed,
+      limiter.beforeVerification("d", "other").allowed, // the other ceiling
+      limiter.preview("e").allowed,
+      limiter.preview("e").allowed, // per address
+      limiter.afterVerification("kid").allowed,
+      limiter.afterVerification("kid").allowed, // per key
+    ];
+    const once = [true, false, true, false, true, false, true, false];
+    expect(spend()).toEqual(once);
+    now += 19_000; // still the 60-second window that began at 960 s
+    expect(spend()).toEqual(once.map(() => false));
+    now += 1_000;
+    expect(spend()).toEqual(once);
+  });
+
   it("past the address cap, shares one overflow bucket per class, not one for both", () => {
     const limiter = createActLimiter({ ...SIGNED_ACT_LIMITS, perAddress: 1, maxTrackedAddresses: 1 }, () => 1_000_000);
     expect(limiter.beforeVerification("a", "exit").allowed).toBe(true);

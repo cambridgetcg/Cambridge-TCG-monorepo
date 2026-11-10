@@ -556,6 +556,53 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     expect(await events(a.agentId)).toEqual(before.events);
   });
 
+  it("refuses key.mint params the store cannot keep: a name over 80 characters, a bad expiry, a hash not 64 lower-case hex", async () => {
+    const { agentId, h } = await setup();
+    const cases: [Record<string, string>, string][] = [
+      // agent_keys.name is VARCHAR(80): past it the insert would fail, and the act answer 503 for ever.
+      [{ name: "n".repeat(81) }, "name"],
+      [{ name: "😀".repeat(81) }, "name"],
+      [{ expires: "forever" }, "expires"],
+      [{ expires: "90" }, "expires"],
+      [{ expires: "2020-01-01" }, "expires"],
+      [{ expires: "2999-01-01" }, "expires"],
+      [{ key_sha256: "A".repeat(64) }, "key_sha256 malformed or in use"],
+      [{ key_sha256: "a".repeat(63) }, "key_sha256 malformed or in use"],
+      [{ key_sha256: "g".repeat(64) }, "key_sha256 malformed or in use"],
+    ];
+    for (const [change, detail] of cases) {
+      const before = (await events(agentId)).length;
+      const answer = await submit(sign(h, agentId, "key.mint", { ...usageKey().params, ...change }));
+      expect(answer, JSON.stringify(change)).toMatchObject({ ok: false, status: 422, refusal: { reason_code: "act_params_invalid", detail } });
+      // An ordinary recorded refusal: one event.
+      expect((await events(agentId)).slice(before).map((row) => row.refusal)).toEqual(["act_params_invalid"]);
+    }
+    expect(await liveUsageKeys(agentId)).toBe(0);
+    // Exactly 80 is kept.
+    expect(expectApplied(await submit(sign(h, agentId, "key.mint", { ...usageKey().params, name: "n".repeat(80) }))).body).toMatchObject({ key: { name: "n".repeat(80) } });
+  });
+
+  it("lets only one row confirm a thumbprint, at the database too", async () => {
+    const { agentId, h } = await setup();
+    state.userId = await newUser();
+    const other = await insertAgent(state.userId);
+    const event = randomUUID();
+    // A direct write that skips the act path's check: the unique index refuses it.
+    await expect(state.db!.transaction(async (tx) => {
+      await tx(`INSERT INTO agent_act_events (id, agent_id, basis, act, outcome, thumbprint) VALUES ($1, $2, 'operator', 'signing_key.bind', 'applied', $3)`, [event, other, h.kid]);
+      await tx(
+        `INSERT INTO agent_signing_keys (agent_id, thumbprint, public_key, bound_by_event, confirmed_at) VALUES ($1, $2, $3, $4, NOW())`,
+        [other, h.kid, Buffer.from(h.x, "base64url"), event],
+      );
+    })).rejects.toMatchObject({ code: "23505", constraint_name: "agent_signing_keys_confirmed_thumbprint" });
+    // Pending, the same key may sit beside it (pasting someone's key squats nothing).
+    await expect(state.db!.transaction(async (tx) => {
+      await tx(`INSERT INTO agent_act_events (id, agent_id, basis, act, outcome, thumbprint) VALUES ($1, $2, 'operator', 'signing_key.bind', 'applied', $3)`, [event, other, h.kid]);
+      await tx(`INSERT INTO agent_signing_keys (agent_id, thumbprint, public_key, bound_by_event) VALUES ($1, $2, $3, $4)`, [other, h.kid, Buffer.from(h.x, "base64url"), event]);
+    })).resolves.toBeUndefined();
+    void agentId;
+  });
+
   it("caps binding at two live signing keys, not counting lapsed or expired ones", async () => {
     const { userId, agentId, signingKeyId } = await setup({ confirm: false });
     // The first key lapses (never confirmed in 7 days); a second expires.
