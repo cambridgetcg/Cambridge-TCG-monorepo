@@ -543,6 +543,19 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     expect(codeOf(await submit(sign(a.h, a.agentId, "key.revoke", { kid: a.h.kid })))).toBe("applied");
   });
 
+  it("binds only to the signed-in operator's own agents: another operator's agent gets the missing agent's answer, and nothing is written", async () => {
+    const a = await setup({ confirm: false });
+    const b = await setup({ confirm: false });
+    const before = { keys: await pool.query(`SELECT id FROM agent_signing_keys WHERE agent_id = $1`, [a.agentId]), events: await events(a.agentId) };
+    state.userId = b.userId;
+    const theirs = await bindSigningKey({ agent_id: a.agentId, public_jwk: holder().jwk, key_expiry: "30d" });
+    const missing = await bindSigningKey({ agent_id: randomUUID(), public_jwk: holder().jwk, key_expiry: "30d" });
+    expect(theirs).toEqual({ ok: false, error: "Signing keys can be bound only to your active operator-managed agents." });
+    expect(theirs).toEqual(missing);
+    expect((await pool.query(`SELECT id FROM agent_signing_keys WHERE agent_id = $1`, [a.agentId])).rows).toEqual(before.keys.rows);
+    expect(await events(a.agentId)).toEqual(before.events);
+  });
+
   it("caps binding at two live signing keys, not counting lapsed or expired ones", async () => {
     const { userId, agentId, signingKeyId } = await setup({ confirm: false });
     // The first key lapses (never confirmed in 7 days); a second expires.
