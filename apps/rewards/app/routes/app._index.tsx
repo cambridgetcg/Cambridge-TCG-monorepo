@@ -21,6 +21,7 @@ import {
 } from "~/admin/home-rules";
 import { PASS_FOLLOW_MS, usePolling } from "~/admin/polling";
 import { requireMerchant } from "~/admin/require-merchant.server";
+import { useReviewAfterSave } from "~/admin/review-request";
 import { TierChip } from "~/admin/TierChip";
 import { CASHBACK_BASE, ERASED_BUYER, rewardLine } from "~/admin/words";
 import { type ConnectionContext, dismissImportOutcome, markSetupCompleted, recordReviewPrompt, setRunning } from "~/lib/merchant.server";
@@ -54,8 +55,10 @@ import { syncWidgetConfig } from "~/shopify/widget-config.server";
  *   than 416 px; a phone up to 430 px wide gives it at most 414 px.
  */
 
-/** The App Store listing, opened on its review form. */
-const REVIEW_URL = "https://apps.shopify.com/rewards-pro#modal-show=ReviewListingModal";
+/** The App Store listing, opened on its review form (the anchor Shopify's manage-app-reviews page documents). */
+const REVIEW_URL = "https://apps.shopify.com/rewards-pro#modal-show=WriteReviewModal";
+/** The review card's one sentence: neutral, asking for no sentiment (App Store requirement 1.3.1). */
+const REVIEW_ASK = "How is RewardsPro working for your shop? An honest review, good or bad, helps other merchants decide.";
 /** How often the page reloads its data while the import runs or buyers are being placed. */
 const FOLLOW_MS = 10_000;
 /** How long one Home load may spend moving the import on. */
@@ -254,27 +257,15 @@ export default function Home() {
   const d = useLoaderData<typeof loader>();
   const switchFetcher = useFetcher<typeof action>();
   const rateFetcher = useFetcher<typeof action>();
-  const reviewFetcher = useFetcher<typeof action>();
-  // Its own, so a Dismiss never aborts the review-shown post in flight (A19-F7)
+  // Its own, so "Don't ask again" never aborts the review-shown post in flight (A19-F7)
   const reviewDismissFetcher = useFetcher<typeof action>();
   const importFetcher = useFetcher<typeof action>();
   const setupFetcher = useFetcher<typeof action>();
   const widgetOn = useWidgetEmbed();
   const [rate, setRate] = useState("");
 
-  // The review request: asked once per visit by an effect, as Shopify advises (not from a click)
-  const asked = useRef(false);
-  const submitReview = reviewFetcher.submit;
-  useEffect(() => {
-    if (!d.reviewDue || asked.current || typeof shopify === "undefined" || typeof shopify.reviews?.request !== "function") return;
-    asked.current = true;
-    shopify.reviews.request().then(
-      (result) => {
-        if (reviewWasShown(result.code)) void submitReview({ intent: "review-shown", code: result.code }, { method: "post" });
-      },
-      () => {},
-    );
-  }, [d.reviewDue, submitReview]);
+  // The review request follows a save that worked: here, cashback switched on (#173)
+  useReviewAfterSave(d.reviewDue, switchFetcher, switchFetcher.data?.ok === true && d.running);
 
   const hasTiers = d.stats.tiers.length > 0;
   // Hidden at once on Dismiss, before the action answers
@@ -511,16 +502,17 @@ export default function Home() {
               </s-stack>
             </s-section>
 
+            {/* One neutral sentence for everyone; nothing offered or withheld (#173) */}
             {d.reviewDue && !reviewDismissed ? (
-              <s-section>
+              <s-section data-review-card="">
                 <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="small-200">
-                  <s-text>A review helps other merchants find RewardsPro.</s-text>
+                  <s-text>{REVIEW_ASK}</s-text>
                   <s-stack direction="inline" gap="small-200" alignItems="center">
                     <s-link href={REVIEW_URL} target="_blank">
                       Leave a review
                     </s-link>
                     <s-button variant="tertiary" onClick={() => reviewDismissFetcher.submit({ intent: "review-dismissed" }, { method: "post" })}>
-                      Dismiss
+                      {"Don't ask again"}
                     </s-button>
                   </s-stack>
                 </s-stack>
