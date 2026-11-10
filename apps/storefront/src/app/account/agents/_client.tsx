@@ -20,9 +20,17 @@
  * a listed key has expired comes from the page's SQL, never this clock.
  * Nothing is sent to anyone when a key nears or reaches its expiry; this
  * list is where the operator sees it.
+ *
+ * Signing keys (agent-held Ed25519 keys, docs/plans/agent-auth/held-keys.md)
+ * have their own block on each operator-managed agent: the bound keys with
+ * their state, a remove button on a live one, and a paste form for a public
+ * JWK. A paste that holds a private key is refused in the browser and never
+ * sent (signing-key-ui.ts); the server checks every paste again. While the
+ * path is closed on this deployment the form is disabled and says so, and
+ * the page reads none of it.
  */
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Actor, Button, Card, ErrorAlert, Field, Input, Select, Textarea } from "@/lib/ui";
@@ -32,6 +40,13 @@ import {
   revokeKey,
   archiveAgent,
 } from "@/lib/agents/operator-actions";
+import {
+  bindSigningKey,
+  removeSigningKey,
+  type SigningKeyRow,
+} from "@/lib/agents/signing-key-actions";
+import { MAX_LIVE_SIGNING_KEYS } from "@/lib/agents/key-caps";
+import { PENDING_SIGNING_KEY_DAYS } from "@/lib/agents/signed-act-config";
 import {
   KEY_EXPIRY_NEVER,
   KEY_EXPIRY_NEVER_WARNING,
@@ -49,6 +64,17 @@ import {
   keyInstantIso,
   keyListState,
 } from "./key-expiry-ui";
+import {
+  isLiveSigningKey,
+  pasteHoldsPrivateKey,
+  PRIVATE_KEY_PASTE_ERROR,
+  SIGNING_KEY_DATE_HINT,
+  SIGNING_KEY_JWK_FIELD,
+  SIGNING_KEY_NEVER_WARNING,
+  SIGNING_KEY_PRESET_HINT,
+  SIGNING_KEY_STATE_LABEL,
+  signingKeyCountsLabel,
+} from "./signing-key-ui";
 import type { AgentRow, KeyRow } from "./page";
 
 interface FreshToken {
@@ -77,7 +103,17 @@ const DATE_HINT = "Fixed at mint and never extended. To keep going after it ends
  * select then returns to its default, and the reset listener brings the
  * date picker and the warning back with it.
  */
-function KeyExpiryField({ label = "Expires" }: { label?: string }) {
+function KeyExpiryField({
+  label = "Expires",
+  presetHint = PRESET_HINT,
+  dateHint = DATE_HINT,
+  neverWarning = KEY_EXPIRY_NEVER_WARNING,
+}: {
+  label?: string;
+  presetHint?: string;
+  dateHint?: string;
+  neverWarning?: string;
+}) {
   const id = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
   const [choice, setChoice] = useState(KEY_EXPIRY_INITIAL_CHOICE);
@@ -90,7 +126,7 @@ function KeyExpiryField({ label = "Expires" }: { label?: string }) {
   }, []);
   const range = choice === KEY_EXPIRY_DATE_CHOICE ? keyExpiryDateRange() : null;
   const never = choice === KEY_EXPIRY_NEVER;
-  const hint = range ? DATE_HINT : never ? undefined : PRESET_HINT;
+  const hint = range ? dateHint : never ? undefined : presetHint;
   return (
     <div className="space-y-3">
       <Field
@@ -134,7 +170,7 @@ function KeyExpiryField({ label = "Expires" }: { label?: string }) {
           id={`${id}-never`}
           className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-ink-muted"
         >
-          <strong className="text-danger">No expiry.</strong> {KEY_EXPIRY_NEVER_WARNING}
+          <strong className="text-danger">No expiry.</strong> {neverWarning}
         </p>
       )}
     </div>
@@ -163,12 +199,276 @@ function KeyExpiryLabel({ keyRow }: { keyRow: KeyRow }) {
   );
 }
 
+/** A stored instant as the list words it, in a <time>. */
+function Instant({ at }: { at: string }) {
+  return <time dateTime={keyInstantIso(at)}>{formatKeyInstant(at)}</time>;
+}
+
+/** What the list says after a key's state. */
+function SigningKeyDetail({ signingKey }: { signingKey: SigningKeyRow }) {
+  const ends = signingKey.not_after ? (
+    <> · expires <Instant at={signingKey.not_after} /></>
+  ) : (
+    " · no expiry"
+  );
+  switch (signingKey.state) {
+    case "pending":
+      return (
+        <>
+          {signingKey.pending_until ? (
+            <> · lapses <Instant at={signingKey.pending_until} /> unless the agent signs an act first</>
+          ) : null}
+          {ends}
+        </>
+      );
+    case "confirmed":
+      return (
+        <>
+          {signingKey.confirmed_at ? <> · confirmed <Instant at={signingKey.confirmed_at} /></> : null}
+          {ends}
+        </>
+      );
+    case "expired":
+      return signingKey.not_after ? <> <Instant at={signingKey.not_after} /></> : null;
+    case "lapsed":
+      return signingKey.pending_until ? <> <Instant at={signingKey.pending_until} /></> : null;
+    case "removed":
+    case "retired":
+      return signingKey.revoked_at ? <> <Instant at={signingKey.revoked_at} /></> : null;
+  }
+}
+
+/**
+ * One operator-managed agent's signing keys: the list, a remove button on
+ * each live key, and the paste form. `keys` is undefined while the path is
+ * closed (nothing was read) and null when the read failed.
+ */
+function SigningKeys({
+  agent,
+  open,
+  keys,
+}: {
+  agent: AgentRow;
+  open: boolean;
+  keys: SigningKeyRow[] | null | undefined;
+}) {
+  const id = useId();
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [formOpen, setFormOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [bound, setBound] = useState<{ kid: string; pending_until: string; not_after: string | null } | null>(null);
+  const active = agent.status === "active";
+  const live = (keys ?? []).filter(isLiveSigningKey).length;
+  const atCap = live >= MAX_LIVE_SIGNING_KEYS;
+
+  function handleBind(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const paste = String(data.get(SIGNING_KEY_JWK_FIELD) ?? "");
+    // A private key never leaves the browser: refused here, field cleared.
+    if (pasteHoldsPrivateKey(paste)) {
+      const field = form.elements.namedItem(SIGNING_KEY_JWK_FIELD);
+      if (field instanceof HTMLTextAreaElement) field.value = "";
+      setError(PRIVATE_KEY_PASTE_ERROR);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const res = await bindSigningKey({
+        agent_id: agent.id,
+        public_jwk: paste,
+        key_expiry: keyExpiryFromForm(data),
+      });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setBound({ kid: res.data.kid, pending_until: res.data.pending_until, not_after: res.data.not_after });
+      setFormOpen(false);
+      router.refresh();
+    });
+  }
+
+  function handleRemove(signingKey: SigningKeyRow) {
+    const ok = window.confirm(
+      `Remove signing key ${signingKey.kid.slice(0, 8)}…?\n\nThe agent can no longer sign acts with it, from now on. Usage keys it minted keep working; revoke them in the key list if you need to.`,
+    );
+    if (!ok) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await removeSigningKey({ signing_key_id: signingKey.id });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  // Closed on this deployment: nothing was read, and nothing can be bound.
+  if (!open) {
+    if (!active) return null;
+    return (
+      <section aria-labelledby={`${id}-title`} className="mt-4 border-t border-border-subtle pt-3 space-y-3">
+        <h4 id={`${id}-title`} className="text-[11px] uppercase tracking-wider text-ink-faint">
+          Signing keys
+        </h4>
+        <p id={`${id}-closed`} className="text-base text-ink-muted">
+          Agent-held signing keys are closed on this deployment, so no key can be bound here and
+          no signed act is accepted. Usage keys work as before.{" "}
+          <Link href="/methodology/agents#signed-acts" className="text-accent hover:text-accent-strong underline">
+            Signed acts
+          </Link>
+          .
+        </p>
+        <Button variant="secondary" size="sm" disabled>
+          Bind a signing key
+        </Button>
+      </section>
+    );
+  }
+
+  if (!active && (!keys || keys.length === 0)) return null;
+
+  return (
+    <section aria-labelledby={`${id}-title`} className="mt-4 border-t border-border-subtle pt-3 space-y-3">
+      <h4 id={`${id}-title`} className="text-[11px] uppercase tracking-wider text-ink-faint">
+        Signing keys
+        {keys && <span className="text-border-strong"> · {signingKeyCountsLabel(keys)}</span>}
+      </h4>
+
+      {keys === null && (
+        <p className="text-base text-ink-muted">This agent&apos;s signing keys could not be read just now.</p>
+      )}
+
+      {bound && (
+        <div role="status" className="rounded-md border border-border-subtle bg-surface p-3 space-y-2 text-base text-ink">
+          <p>
+            Bound. The key is pending until the agent&apos;s first validly signed act; if none comes
+            by <Instant at={bound.pending_until} />, it lapses.
+          </p>
+          <p>
+            Thumbprint (kid): <code className="font-mono break-all">{bound.kid}</code>
+          </p>
+          <p className="text-ink-muted">
+            Compare it with the thumbprint your agent&apos;s signer printed. If they differ, remove this key.
+          </p>
+          <Button variant="ghost" size="sm" onClick={() => setBound(null)}>
+            Dismiss
+          </Button>
+        </div>
+      )}
+
+      {keys && keys.length > 0 && (
+        <ul className="space-y-3">
+          {keys.map((signingKey) => (
+            <li key={signingKey.id} className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 text-base">
+                <code className="block font-mono text-ink-muted break-all">{signingKey.kid}</code>
+                <p className="text-ink-faint">
+                  <span className={isLiveSigningKey(signingKey) ? "text-ink" : "text-danger"}>
+                    {SIGNING_KEY_STATE_LABEL[signingKey.state]}
+                  </span>
+                  <SigningKeyDetail signingKey={signingKey} />
+                </p>
+              </div>
+              {isLiveSigningKey(signingKey) && (
+                <Button variant="secondary" size="sm" onClick={() => handleRemove(signingKey)} disabled={pending}>
+                  Remove
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {active && !formOpen && (
+        <div className="space-y-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setError(null);
+              setFormOpen(true);
+            }}
+            disabled={pending || atCap || keys === null}
+            aria-expanded={false}
+            aria-describedby={atCap ? `${id}-cap` : undefined}
+          >
+            Bind a signing key
+          </Button>
+          {atCap && (
+            <p id={`${id}-cap`} className="text-base text-ink-muted">
+              This agent has {MAX_LIVE_SIGNING_KEYS} live signing keys. Remove one to bind another.
+            </p>
+          )}
+        </div>
+      )}
+
+      {active && formOpen && (
+        <form
+          aria-label={`Bind a signing key to agent:${agent.public_handle}`}
+          className="space-y-3"
+          onSubmit={handleBind}
+        >
+          <Field
+            label="Public key (JWK)"
+            htmlFor={`${id}-jwk`}
+            hint={'Only the public JWK your agent\'s signer printed: {"kty":"OKP","crv":"Ed25519","x":"…"}. Never paste a private key.'}
+          >
+            <Textarea
+              id={`${id}-jwk`}
+              name={SIGNING_KEY_JWK_FIELD}
+              rows={3}
+              required
+              spellCheck={false}
+              autoComplete="off"
+              autoCapitalize="off"
+              className="font-mono"
+            />
+          </Field>
+          <KeyExpiryField
+            label="This signing key expires"
+            presetHint={SIGNING_KEY_PRESET_HINT}
+            dateHint={SIGNING_KEY_DATE_HINT}
+            neverWarning={SIGNING_KEY_NEVER_WARNING}
+          />
+          <p className="text-base text-ink-muted">
+            The key stays pending until the agent&apos;s first validly signed act, and lapses after{" "}
+            {PENDING_SIGNING_KEY_DAYS} days if none comes. A signature proves control of the key over
+            what it signs: not who holds it, and not your consent.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? "Binding…" : "Bind key"}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setFormOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {error && <ErrorAlert description={error} />}
+    </section>
+  );
+}
+
 export function AgentsClient({
   agents,
   keys,
+  signedActs = { open: false },
+  signingKeys = {},
 }: {
   agents: AgentRow[];
   keys: KeyRow[];
+  /** Whether agent-held signing keys are open on this deployment. */
+  signedActs?: { open: boolean };
+  /** Each operator-managed agent's signing keys while open (null: the read
+   *  failed). Empty while closed: the page reads none. */
+  signingKeys?: Record<string, SigningKeyRow[] | null>;
 }) {
   const [fresh, setFresh] = useState<FreshToken | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -511,6 +811,9 @@ export function AgentsClient({
                             <span className="text-danger ml-2">{k.revoked_by ?? "revoked"}</span>
                           )}
                           <KeyExpiryLabel keyRow={k} />
+                          {k.minted_by_signed_act && (
+                            <span className="text-ink-faint ml-2">· minted by a signed act</span>
+                          )}
                           {!k.revoked_at && k.last_used_at && (
                             <span className="text-ink-faint ml-2">
                               · last used {new Date(k.last_used_at).toLocaleString()}
@@ -538,6 +841,14 @@ export function AgentsClient({
                     ))}
                   </ul>
                 </div>
+              )}
+
+              {a.registered_via === "operator" && (
+                <SigningKeys
+                  agent={a}
+                  open={signedActs.open}
+                  keys={signedActs.open ? (signingKeys[a.id] === undefined ? null : signingKeys[a.id]) : undefined}
+                />
               )}
             </div>
           </Card>

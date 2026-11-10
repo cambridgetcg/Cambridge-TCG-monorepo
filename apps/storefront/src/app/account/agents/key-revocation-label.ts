@@ -30,7 +30,7 @@ export function keyRevocationLabel(reason: string | null): string {
 
 /** A key row as page.tsx selects it, stored reason included. The driver
  *  returns a timestamptz as a Date. */
-export interface StoredKeyRow extends Omit<KeyRow, "revoked_by" | "expires_at"> {
+export interface StoredKeyRow extends Omit<KeyRow, "revoked_by" | "expires_at" | "minted_by_signed_act"> {
   revoked_reason: string | null;
   expires_at: string | Date | null;
 }
@@ -39,8 +39,12 @@ export interface StoredKeyRow extends Omit<KeyRow, "revoked_by" | "expires_at"> 
  * The key rows page.tsx hands to the client component. Each field is
  * named here, so the stored reason, and any column a later edit adds to
  * the query, stays on the server unless it is listed below.
+ *
+ * `signedMints` holds the ids of usage keys a signed key.mint act created
+ * (agent_keys.minted_by_event, read only while signed acts are open); a
+ * key not in it is not marked.
  */
-export function toKeyRows(rows: readonly StoredKeyRow[]): KeyRow[] {
+export function toKeyRows(rows: readonly StoredKeyRow[], signedMints: ReadonlySet<string> = new Set()): KeyRow[] {
   return rows.map((row) => ({
     id: row.id,
     agent_id: row.agent_id,
@@ -55,6 +59,7 @@ export function toKeyRows(rows: readonly StoredKeyRow[]): KeyRow[] {
     expires_at: expiresAtIso(row.expires_at),
     // Computed by the page's SQL; only an explicit true reads as expired.
     expired: row.expired === true,
+    minted_by_signed_act: signedMints.has(row.id),
     created_at: row.created_at,
   }));
 }

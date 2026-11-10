@@ -10,9 +10,15 @@ vi.mock("@/lib/agents/operator-actions", () => ({
   revokeKey: vi.fn(),
   archiveAgent: vi.fn(),
 }));
+vi.mock("@/lib/agents/signing-key-actions", () => ({
+  bindSigningKey: vi.fn(),
+  removeSigningKey: vi.fn(),
+  listSigningKeys: vi.fn(),
+}));
 
 import { AgentsClient } from "./_client";
 import type { AgentRow, KeyRow } from "./page";
+import type { SigningKeyRow } from "@/lib/agents/signing-key-actions";
 
 const source = readFileSync(resolve(process.cwd(), "src/app/account/agents/_client.tsx"), "utf8");
 
@@ -47,6 +53,7 @@ function key(overrides: Partial<KeyRow>): KeyRow {
     revoked_by: null,
     expires_at: null,
     expired: false,
+    minted_by_signed_act: false,
     created_at: "2026-10-29T10:00:00Z",
     ...overrides,
   };
@@ -143,4 +150,82 @@ describe("/account/agents client", () => {
     expect(selfServe).toContain("archive");
     expect(suspended).not.toContain("+ mint key");
   });
+
+  it("shows the signing-key form disabled while signed acts are closed, and says why", () => {
+    const html = renderToStaticMarkup(<AgentsClient agents={[agent({})]} keys={[]} />);
+    const text = html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'");
+
+    expect(text).toContain("Signing keys");
+    expect(text).toContain("Agent-held signing keys are closed on this deployment, so no key can be bound here");
+    expect(html).toContain('href="/methodology/agents#signed-acts"');
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Bind a signing key<\/button>/);
+    expect(html).not.toContain(`name="public_jwk"`);
+    // Self-serve agents never take a signing key, open or not.
+    const selfServe = renderToStaticMarkup(
+      <AgentsClient agents={[agent({ registered_via: "self-serve" })]} keys={[]} signedActs={{ open: true }} signingKeys={{}} />,
+    );
+    expect(selfServe).not.toContain("Signing keys");
+  });
+
+  it("lists each signing key with its state, and offers removal only on a live one", () => {
+    const html = renderToStaticMarkup(
+      <AgentsClient
+        agents={[agent({})]}
+        keys={[]}
+        signedActs={{ open: true }}
+        signingKeys={{
+          "agent-1": [
+            signingKey({ id: "s1", kid: "A".repeat(43), state: "confirmed", confirmed_at: "2026-11-10T12:00:01.000Z", not_after: "2027-02-08T12:00:00.000Z", pending_until: null }),
+            signingKey({ id: "s2", kid: "B".repeat(43), state: "pending", pending_until: "2026-11-17T12:00:00.000Z", not_after: null }),
+            signingKey({ id: "s3", kid: "C".repeat(43), state: "retired", revoked_at: "2026-11-10T13:00:00.000Z", pending_until: null }),
+          ],
+        }}
+      />,
+    );
+    const text = html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'");
+
+    expect(text).toContain("1 confirmed, 1 pending, 1 ended");
+    expect(text).toContain("A".repeat(43));
+    expect(text).toContain("confirmed · confirmed 2026-11-10 12:00:01 UTC · expires 2027-02-08 12:00:00 UTC");
+    expect(text).toContain("pending · lapses 2026-11-17 12:00:00 UTC unless the agent signs an act first · no expiry");
+    expect(text).toContain("retired by its holder 2026-11-10 13:00:00 UTC");
+    expect(html.match(/>Remove</g)).toHaveLength(2);
+    // Two live keys: the cap, so binding a third waits for a removal.
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Bind a signing key<\/button>/);
+    expect(text).toContain("This agent has 2 live signing keys. Remove one to bind another.");
+  });
+
+  it("says when an agent's signing keys could not be read, rather than showing none", () => {
+    const html = renderToStaticMarkup(
+      <AgentsClient agents={[agent({})]} keys={[]} signedActs={{ open: true }} signingKeys={{ "agent-1": null }} />,
+    );
+    expect(html.replace(/&#x27;/g, "'")).toContain("This agent's signing keys could not be read just now.");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Bind a signing key<\/button>/);
+  });
+
+  it("marks a usage key that a signed act minted, and no other", () => {
+    const html = renderToStaticMarkup(
+      <AgentsClient
+        agents={[agent({})]}
+        keys={[key({ id: "k1", name: "signed", minted_by_signed_act: true }), key({ id: "k2", name: "paged" })]}
+        signedActs={{ open: true }}
+        signingKeys={{ "agent-1": [] }}
+      />,
+    );
+    expect(html.match(/minted by a signed act/g)).toHaveLength(1);
+  });
 });
+
+function signingKey(overrides: Partial<SigningKeyRow>): SigningKeyRow {
+  return {
+    id: "s1",
+    kid: "A".repeat(43),
+    state: "pending",
+    created_at: "2026-11-10T12:00:00.000Z",
+    not_after: null,
+    confirmed_at: null,
+    pending_until: "2026-11-17T12:00:00.000Z",
+    revoked_at: null,
+    ...overrides,
+  };
+}

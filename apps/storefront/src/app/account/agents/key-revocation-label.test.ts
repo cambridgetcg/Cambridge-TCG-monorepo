@@ -14,6 +14,7 @@ const KEY_ROW_FIELDS = [
   "id",
   "key_prefix",
   "last_used_at",
+  "minted_by_signed_act",
   "name",
   "rate_limit_tier",
   "revoked_at",
