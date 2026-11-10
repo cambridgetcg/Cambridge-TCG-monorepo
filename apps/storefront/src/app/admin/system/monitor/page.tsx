@@ -30,17 +30,17 @@ import {
 } from "@/lib/admin/ui";
 import { DATA_COLLECT_FLAGS } from "@/lib/datafeed/collection-flags";
 import { MCP_DAILY_FLAG } from "@/lib/observability/mcp-daily";
-import { SIGNED_ACTS_FLAG } from "@/lib/agents/signed-act-config";
+import { SIGNED_ACTS_AUDIENCE_ENV, SIGNED_ACTS_FLAG } from "@/lib/agents/signed-act-config";
 import { SIGNED_ACT_SWEEP_JOB } from "@/lib/agents/signed-act-sweep";
 import { TRAFFIC_PULL_FLAG, trafficPullOn } from "@/lib/traffic/pull";
 import {
-  MIN_HOLDERS, apiRouteView, loadMonitor, mcpView,
+  MIN_HOLDERS, NONCE_PURGE_OVERDUE_MINUTES, apiRouteView, loadMonitor, mcpView,
   type BatchGroup, type ClassGroup, type CollectorLease, type CoverageDay, type DerivationDay, type DerivedCount, type ErrorCount,
   type JobOutcomeRow, type JobOutcomeTally, type McpTally, type NotFoundSpot, type RateBucketDay, type RetentionState,
   type RouteHits, type TrafficDay, type UsageMonth,
 } from "@/lib/observability/monitor";
 import type { CollectorHostHealth } from "@/app/api/v1/sources/collector-health";
-import { Flag, Outcome, Pairs, Panel, Unknown, When, n, pct } from "./_components";
+import { Flag, Outcome, Pairs, Panel, SettingState, Unknown, When, n, pct } from "./_components";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -493,6 +493,17 @@ function SignedActNonces({ signedActs, jobs }: {
   signedActs: Awaited<ReturnType<typeof loadMonitor>>["agents"]["signedActs"];
   jobs: Awaited<ReturnType<typeof loadMonitor>>["collectors"]["jobs"];
 }) {
+  if (signedActs.state === "no-audience") {
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-4">
+          <Flag name={SIGNED_ACTS_FLAG} on />
+          <SettingState name={SIGNED_ACTS_AUDIENCE_ENV} state="missing" tone="amber" />
+        </div>
+        <p className="text-sm text-neutral-500">{SIGNED_ACTS_FLAG} is on, but {SIGNED_ACTS_AUDIENCE_ENV} is not set to this deployment&apos;s origin, so signed acts stay closed and agent_act_nonces is not read.</p>
+      </div>
+    );
+  }
   if (!signedActs.open || !signedActs.nonces) {
     return (
       <div className="space-y-2">
@@ -509,7 +520,12 @@ function SignedActNonces({ signedActs, jobs }: {
       {nonces.state === "unknown" ? <Unknown reason={nonces.reason} /> : (
         <KpiGrid cols={4}>
           <KpiCard label="Act nonces" value={n(nonces.data.rows)} sub="kept until exp + 60 s" />
-          <KpiCard label="Past their time" value={n(nonces.data.expired)} urgency={nonces.data.expired ? "warning" : "neutral"} sub="awaiting a purge" />
+          <KpiCard
+            label="Past their time"
+            value={n(nonces.data.expired)}
+            urgency={nonces.data.overdue ? "warning" : "neutral"}
+            sub={`normal between hourly sweeps; a warning once the oldest is over ${NONCE_PURGE_OVERDUE_MINUTES} minutes past`}
+          />
           <KpiCard label="Oldest past its time" value={nonces.data.oldestExpiredAt ? fmtDateTime(nonces.data.oldestExpiredAt) : "none"} empty={!nonces.data.oldestExpiredAt} />
           <KpiCard
             label="Last sweep"
