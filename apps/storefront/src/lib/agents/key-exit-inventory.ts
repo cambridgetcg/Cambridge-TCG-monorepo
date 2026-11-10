@@ -83,8 +83,8 @@ export const KEY_EXIT_RETAINED: readonly KeyExitRetainedCategory[] = [
   },
   // Agent-held signing keys (migration 0152; docs/plans/agent-auth/held-keys.md).
   // Written only while a deployment has opened signed acts; production has
-  // not. Retention is an agent's proposal; the privacy notice does not yet
-  // describe these stores.
+  // not. Retention is an agent's proposal; the privacy notice has described
+  // these stores since 2026-11-10, in words an AI agent wrote.
   {
     category: "agent_signing_keys rows, if the agent's operator bound a signing key",
     fields: [

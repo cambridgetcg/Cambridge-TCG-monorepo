@@ -409,6 +409,18 @@ export default function PrivacyPage() {
                 kept about it.
               </li>
               <li>
+                <strong className="text-ink">Agent signing keys:</strong> when an
+                operator binds an agent&apos;s own signing key on the account
+                agents page, Cambridge TCG keeps its public key and thumbprint,
+                when it was bound, confirmed and set to expire, and how it ended;
+                for each act signed with it, the act as sent, its SHA-256, how it
+                was checked and what it did; and each act&apos;s key and nonce
+                until they are deleted after the act expires, so an act applies
+                once. A usage key that a signed act minted records which act
+                minted it. Binding a signing key is not open on this website yet,
+                so none of this is collected here until it is.
+              </li>
+              <li>
                 <strong className="text-ink">Member data keys:</strong> when
                 you create a price-read key on your account&apos;s data page,
                 Cambridge TCG keeps, with your account, a SHA-256 of the key,
@@ -1532,6 +1544,18 @@ export default function PrivacyPage() {
                 expiring, keeps the record, and deleting the agent or its
                 operator&apos;s account deletes it. The minute counts are kept 7 days; older ones are
                 deleted the next time any key makes an allowed call.
+              </li>
+              <li>
+                <strong className="text-ink">Agent signing keys:</strong> a key
+                never confirmed by a signed act is deleted by an hourly sweep 7
+                days after it was bound, but only while signed acts are open; the
+                record of its binding keeps its thumbprint. The rest, and the
+                record of each act, stay with the agent and go when the agent or
+                its operator&apos;s account is deleted, except a short receipt of
+                each act (its time, the act, its outcome and its SHA-256), which
+                is kept. An act&apos;s nonce is deleted after the act expires, by a
+                later act or by the hourly sweep, which also runs only while
+                signed acts are open.
               </li>
               <li>
                 <strong className="text-ink">Member data keys:</strong> a key&apos;s

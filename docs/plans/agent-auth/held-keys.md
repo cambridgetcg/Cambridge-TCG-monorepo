@@ -129,7 +129,8 @@ purges 16; the REST body is at most 16 KiB; statuses 503 for closed, 400 for
 malformed or stale, 403 for unverified or ended, 409 for a replay, a stale
 disclosure, a key in use or the cap, 422 for params and 429 for a limit;
 page actions are recorded as `signing_key.bind` and `signing_key.remove`;
-disclosures are versioned `…/2026-11-10.1`; the sweep records itself as
+disclosures are versioned `…/2026-11-10.1`, then `…/2026-11-10.2` once
+`/privacy` described these records; the sweep records itself as
 `sweep/held-keys`.
 
 **Departures from this page:**
@@ -276,9 +277,16 @@ would refuse a count batch holding it), the new dependency `@noble/curves`
 2.2.0 with the Node 20.19 floor, and the privacy notice's rows (D3);
 **Applied** above records the word an agent read as covering those three.
 
-**`/privacy` is incomplete for this feature.** It has no rows for signing
-keys, act events or act nonces, and this build did not change it. The
-wording an agent would propose, not applied, for its list of what is kept:
+**`/privacy` describes this feature since 2026-11-10.** When the build
+finished it had no rows for signing keys, act events or act nonces, and the
+build did not change it. On the word in **Applied** above, an agent added
+the two items this page had proposed, in that wording, fitted to the
+notice's markup: the first beside "Agent keys" in its list of what is kept,
+with one sentence more, that binding a signing key is not open on the
+website yet, so none of this is collected there until it is; the second
+beside "Agent keys" in its retention list. The notice's date stayed 10
+November 2026, the same day. An agent wrote the wording; Yu has not reviewed
+it. The first, for the list of what is kept:
 
 > **Agent signing keys:** when an operator binds an agent's own signing key
 > on the account agents page, Cambridge TCG keeps its public key and
@@ -288,7 +296,7 @@ wording an agent would propose, not applied, for its list of what is kept:
 > deleted after the act expires, so an act applies once. A usage key that a
 > signed act minted records which act minted it.
 
-and for its retention list:
+and the second, for its retention list:
 
 > **Agent signing keys:** a key never confirmed by a signed act is deleted
 > by an hourly sweep 7 days after it was bound, but only while signed acts

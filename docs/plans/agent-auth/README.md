@@ -263,8 +263,9 @@ remains.
   **Applied** paragraph has the record. The rule still holds for any other
   database this code runs against. Turning the flag on in production still
   needs Yu's word, which has not been given, and no rate rule for the act
-  doors exists at the edge. `/privacy` does not yet describe signing keys,
-  act events or act nonces. What remains of it: self-serve registration by
+  doors exists at the edge. `/privacy` has described signing keys, act
+  events and act nonces since 2026-11-10, in the two items an agent proposed
+  in held-keys.md and wrote. What remains of it: self-serve registration by
   signed act (S2), recovery keys and signed exits (S3), and S4.
 - **`consent.exact-authority`.** Per-key audience and scope (expiry: the
   bullet above).
@@ -357,7 +358,7 @@ still Yu's to overturn.
 | Support | How long support records are kept (D9) | Six years from closure; counsel confirms |
 | Support | When the procedures are published (D10) | Once erasure, access and correction have tooling |
 | Held keys | Offer agent-held signing keys at all ([held-keys D1](held-keys.md#decisions-for-yu)). **Answered by Yu, 2026-11-10: "Yes offer the keys".** | Yes, as an option beside usage keys and package B's token |
-| Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag. Built so on 2026-11-10, as agents' defaults; `/privacy` not changed, wording proposed in held-keys.md |
+| Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag. Built so on 2026-11-10, as agents' defaults; `/privacy`'s two items added the same day, in the wording an agent proposed in held-keys.md |
 | Held keys | Its migration, dependency and production flag (D4) | Each its own act, after D1, D3 and review of the PR. Given on 2026-11-10 for the migration and the dependency, as an agent read Yu's word: 0152 applied to production, `@noble/curves` 2.2.0 merged with #230. Not given: the production flag, which is off |
 
 ## Questions only Yu can answer

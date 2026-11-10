@@ -399,8 +399,9 @@ describe("public claims match publication boundaries", () => {
     // What still waits for Yu, and the notice this build did not change.
     expect(detail).toContain('Yu answered, verbatim: "yes to 230, and go for what pulls you and what you recommended". An AI agent read that as covering 0152, the merge with its new dependency (@noble/curves 2.2.0, Node 20.19 or later) and the privacy notice\'s rows');
     expect(detail).toContain("turning the path on in production was not asked, and has had no word.");
-    expect(plan).toContain("It has no rows for signing keys, act events or act nonces, and this build did not change it.");
-    expect(methodology).toContain("does not yet describe the records it keeps.");
+    expect(plan).toContain("When the build finished it had no rows for signing keys, act events or act nonces, and the build did not change it.");
+    expect(methodology).toContain("Since 10 November 2026 the privacy notice describes the records it keeps, in words an AI agent wrote.");
+    expect(detail).toContain("which /privacy has carried since 2026-11-10 in words an AI agent wrote");
     // The one change outside the slice, which applies with the flag on or off.
     expect(detail).toContain(
       "Outside signed acts, with the flag on or off, minting a usage key at /account/agents now refuses a key name holding a control character, such as a tab or NUL; before, a tab was stored and a NUL made the request fail.",

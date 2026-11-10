@@ -135,7 +135,8 @@ describe("previews", () => {
       expect(a).toEqual(b);
       expect(first.verified).toBe(false);
       expect(disclosure.text).toContain("not identity, not consent");
-      expect(disclosure.text).toContain("does not yet describe these records");
+      expect(disclosure.text).toContain("The privacy notice at https://cambridgetcg.com/privacy describes these records.");
+      expect(disclosure.version).toBe(`${name}/2026-11-10.2`);
     }
     const mint = await submit({ preview: "key.mint" });
     if (!mint.ok) throw new Error("refused");
@@ -150,6 +151,11 @@ describe("previews", () => {
   it("keeps one current disclosure per act, with distinct versions", () => {
     for (const name of ["signer.check", "key.mint", "key.revoke"]) {
       expect(SIGNED_ACT_DISCLOSURES.filter((entry) => entry.act === name && entry.current)).toHaveLength(1);
+      // Every version an agent may have signed stays readable, not current.
+      const first = SIGNED_ACT_DISCLOSURES.find((entry) => entry.version === `${name}/2026-11-10.1`);
+      expect(first).toMatchObject({ current: false });
+      expect(first?.text).toContain("does not yet describe these records");
+      expect(isCurrentDisclosureDigest(name as "key.mint", disclosureSha256(first!.text))).toBe(false);
     }
     expect(new Set(SIGNED_ACT_DISCLOSURES.map((entry) => entry.version)).size).toBe(SIGNED_ACT_DISCLOSURES.length);
   });

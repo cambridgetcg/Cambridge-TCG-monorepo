@@ -318,6 +318,28 @@ describe("storefront privacy notice contract", () => {
     );
   });
 
+  it("lists agent signing keys, what is kept and for how long, and says binding is not open here", () => {
+    // 0152's stores, in the wording proposed in held-keys.md's Built section.
+    // Applied on 2026-11-10; the path is closed on cambridgetcg.com, so none
+    // of this is collected there until it opens.
+    expect(compactPage).toContain("Last updated 10 November 2026");
+    expect(compactPage).toContain(
+      "<strong className=\"text-ink\">Agent signing keys:</strong> when an operator binds an agent&apos;s own signing key on the account agents page, Cambridge TCG keeps its public key and thumbprint, when it was bound, confirmed and set to expire, and how it ended; for each act signed with it, the act as sent, its SHA-256, how it was checked and what it did; and each act&apos;s key and nonce until they are deleted after the act expires, so an act applies once. A usage key that a signed act minted records which act minted it.",
+    );
+    expect(compactPage).toContain(
+      "Binding a signing key is not open on this website yet, so none of this is collected here until it is.",
+    );
+    expect(compactPage).toContain(
+      "<strong className=\"text-ink\">Agent signing keys:</strong> a key never confirmed by a signed act is deleted by an hourly sweep 7 days after it was bound, but only while signed acts are open; the record of its binding keeps its thumbprint. The rest, and the record of each act, stay with the agent and go when the agent or its operator&apos;s account is deleted, except a short receipt of each act (its time, the act, its outcome and its SHA-256), which is kept. An act&apos;s nonce is deleted after the act expires, by a later act or by the hourly sweep, which also runs only while signed acts are open.",
+    );
+    // Each beside the matching "Agent keys" item.
+    const kept = compactPage.indexOf("<strong className=\"text-ink\">Agent keys:</strong> when an operator creates");
+    const retained = compactPage.indexOf("<strong className=\"text-ink\">Agent keys:</strong> a key and its last-used time");
+    expect(compactPage.indexOf("Agent signing keys:</strong> when an operator binds")).toBeGreaterThan(kept);
+    expect(compactPage.indexOf("Agent signing keys:</strong> when an operator binds")).toBeLessThan(retained);
+    expect(compactPage.indexOf("Agent signing keys:</strong> a key never confirmed")).toBeGreaterThan(retained);
+  });
+
   it("says an agent key's expiry is kept, and that expiring keeps the record", () => {
     // agent_keys.expires_at (0151) is stored for a key minted with an expiry,
     // and an expired key's row stays, as a revoked key's does.
