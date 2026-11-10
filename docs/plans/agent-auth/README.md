@@ -198,8 +198,9 @@ wire responses.
 
 ## What remains (designs only)
 
-Nothing below is built, and none of it has a migration, except key expiry:
-its bullet says what was built on a branch and what of it remains.
+Nothing below is built, and none of it has a migration, except key expiry
+and held keys: their bullets say what was built on a branch and what of it
+remains.
 
 - **External-controller schema.** A column, table or key binding that records
   who controls a self-serve agent, so the steward stops standing in as owner
@@ -247,6 +248,19 @@ its bullet says what was built on a branch and what of it remains.
   They now read "when it was created, when it expires (if an expiry was
   chosen), and when it was revoked and last used" and "revoking a key, or its
   expiring, keeps the record". An agent wrote the wording.
+- **Held keys.** Slice 1 of agent-held signing keys
+  ([held-keys.md](held-keys.md)) was built on 2026-11-10 on branch
+  `claude/agent-held-keys-slice1`, with migration 0152, behind
+  `AGENT_SIGNED_ACTS`, which is off. Yu decided to offer the keys; the
+  design, its numbers and its retention are agents' proposals and defaults,
+  unreviewed by Yu. The rollout rule: apply 0152 to the production database
+  before that branch is merged to `main`, even with the flag off, because a
+  push to `main` deploys and the gate lists and counts `agent.act`, which
+  the older `mcp_daily` CHECK refuses. Yu's word for 0152, for the new
+  dependency, for turning the flag on and for `/privacy`'s rows has not been
+  given; `/privacy` does not yet describe signing keys, act events or act
+  nonces. What remains of it: self-serve registration by signed act (S2),
+  recovery keys and signed exits (S3), and S4.
 - **`consent.exact-authority`.** Per-key audience and scope (expiry: the
   bullet above).
 - **Suspension history.** Unsuspend sets `suspended_reason` and
@@ -293,7 +307,10 @@ unreviewed), designs an agent's reading of Yu's point 3: an optional
 agent-held signing key that signs each binding act. Whether to offer it at
 all was Yu's call (its D1), and Yu answered on 2026-11-10: "Yes offer the
 keys". Its stored categories (D3) and its migration, dependency and
-production flag (D4) still wait for Yu; nothing is built.
+production flag (D4) still wait for Yu. Slice 1 was built on 2026-11-10 by
+AI agents on branch `claude/agent-held-keys-slice1`, with its flag off
+(held-keys.md's [Built](held-keys.md#built-2026-11-10) section); when the
+build finished it was not merged, applied or deployed.
 
 **Build order** (an agent's proposal):
 
@@ -331,8 +348,8 @@ still Yu's to overturn.
 | Support | How long support records are kept (D9) | Six years from closure; counsel confirms |
 | Support | When the procedures are published (D10) | Once erasure, access and correction have tooling |
 | Held keys | Offer agent-held signing keys at all ([held-keys D1](held-keys.md#decisions-for-yu)). **Answered by Yu, 2026-11-10: "Yes offer the keys".** | Yes, as an option beside usage keys and package B's token |
-| Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag |
-| Held keys | Its migration, dependency and production flag (D4) | Each its own act, after D1, D3 and review of the PR |
+| Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag. Built so on 2026-11-10, as agents' defaults; `/privacy` not changed, wording proposed in held-keys.md |
+| Held keys | Its migration, dependency and production flag (D4) | Each its own act, after D1, D3 and review of the PR. Not given: 0152 not applied, `@noble/curves` 2.2.0 pinned only on the branch, the flag off |
 
 ## Questions only Yu can answer
 

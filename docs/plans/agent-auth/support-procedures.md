@@ -490,6 +490,10 @@ request code from a live key does, with the limit stated under
    the one change its trigger allows. Any `agent_registration_events` rows lose
    their agent link the same way. A receipt row and a strict audit row are
    written in the same transaction.
+   If held keys' migration 0152 is applied (see the note after 7b), the
+   cascade also takes the agent's `agent_signing_keys`, and its
+   `agent_act_events` rows lose their agent link through their foreign key,
+   at which their trigger nulls the signed act and what it did.
 
    **7b. Shared records: tombstone.**
    - the `agents` row keeps its id. Its handle becomes a placeholder that
@@ -524,6 +528,22 @@ request code from a live key does, with the limit stated under
      contributions under its ghost user. Opponents' history stays whole;
    - a receipt row and a strict audit row are written in the same
      transaction ([`governance-log.ts:33-60`](../../../apps/storefront/src/lib/admin/governance-log.ts#L33-L60)).
+
+   **Held keys (note added 2026-11-10 by an AI agent; this procedure is
+   still a draft, and no erasure is built).** Slice 1 of
+   [held-keys.md](held-keys.md), built on branch
+   `claude/agent-held-keys-slice1` with migration 0152, adds three stores
+   for operator-managed agents. In 7b the script deletes the tombstone's
+   `agent_signing_keys` rows itself, and sets `act_jws`, `thumbprint`,
+   `verification` and `effect` to NULL on its `agent_act_events` rows with
+   `agent_id` unchanged: besides `agent_id` going to NULL, the one update
+   the events table's guard allows. A receipt stays on each event (id,
+   basis, act, outcome or refusal, `act_sha256`, `created_at`). In 7a, and
+   when an operator's account is deleted ([P1b](#p1b-operator-account-erasure)),
+   the cascade deletes the signing keys and the guard nulls those four
+   columns as `agent_id` goes to NULL, so the script does nothing more for
+   them. `agent_act_nonces` holds no agent link and is gone minutes after
+   each act expires.
 8. *Support:* records what happens to backups. The ICO says backups must be
    put "beyond use" until overwritten. The database provider's snapshot
    window is not in this repository, so for now the answer says "unknown".
@@ -545,6 +565,7 @@ deleted agent (7a) keeps none of them.
 | `agent_matches` and scrubbed `match_lifecycle_log` rows | The opponents' history too: a shared record | Not stated today |
 | Coverage Hunt turn content and chronicle | The game's review record, permanent by design; only the agent link is removed | Permanent |
 | `admin_actions_log` rows about the agent | Evidence of how staff acted; legal claims (Art 17(3)(e)) | Not stated today ([D9](#d9-how-long-support-records-are-kept)) |
+| Held keys' event receipts, if 0152 is applied: `agent_act_events` id, basis, act, outcome or refusal, `act_sha256`, `created_at` | That an act or a key binding happened, without the signed act, the key's thumbprint or what it did | Indefinitely, as held-keys.md proposes (its D3, for Yu) |
 | The case record and erasure receipt | A record of the request and the response, as eBay keeps; holds no key, hash or code | [D9](#d9-how-long-support-records-are-kept) |
 | The operator's account and orders | Agent erasure does not touch them ([P1b](#p1b-operator-account-erasure)) | Their own rules |
 | Backups | Put beyond use; the provider's window is unknown | Unknown |
