@@ -380,6 +380,10 @@ describe("public claims match publication boundaries", () => {
     expect(detail).toContain("Yu has not yet given the word for 0152, for the new dependency (@noble/curves 2.2.0, Node 20.19 or later) or for the privacy notice's rows, which do not yet describe these records.");
     expect(plan).toContain("It has no rows for signing keys, act events or act nonces, and this build did not change it.");
     expect(methodology).toContain("does not yet describe the records it keeps.");
+    // The one change outside the slice, which applies with the flag on or off.
+    expect(detail).toContain(
+      "Outside signed acts, with the flag on or off, minting a usage key at /account/agents now refuses a key name holding a control character, such as a tab or NUL; before, a tab was stored and a NUL made the request fail.",
+    );
   });
 
   it("promises no more deletion of held-keys records than the code does", () => {
