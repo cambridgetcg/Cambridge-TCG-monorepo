@@ -5,16 +5,17 @@
 # history, is in git: this file on main before PR #207, and PR #207's earlier commits (up to e8c90600).
 #
 # Kept: the rows behind a sentence on the live App Store listing or rewardspro.io, or in the listing text of PR #208
-# (App Store ads are built from the listing), plus the four rows PR #187 re-checked. The other 25 rows backed only
+# (App Store ads are built from the listing), plus the four rows PR #187 re-checked. The other 24 rows backed only
 # drafts, social posts or internal notes, and were cut.
 #
 # status
-#   verified  checked on 10 Nov 2026. Product rows: against the code under apps/rewards at origin/main dbd67564.
-#             rp-maker, and the Shopify halves of rp-free, rp-merchant-funds and the sh-* rows: against the saved
-#             copies named (not fetched again). Production serves apps/rewards from main (docs/gates.md:7, the
-#             record of 7 Nov 2026; not probed today), and the live Shopify release, rewardspromembership-217
-#             (74a0be5a, docs/switch.md:85), has the same extensions/ and shopify.app.toml as main (git diff
-#             74a0be5a dbd67564 on those paths is empty).
+#   verified  checked on 10 Nov 2026, twice: by the writer and by the one read. Product rows: against the code under
+#             apps/rewards at origin/main dbd67564, which is unchanged at 8a930f1a. rp-maker, and the Shopify
+#             halves of rp-free, rp-merchant-funds and the sh-* rows: against the saved copies named (not fetched
+#             again). Production serves apps/rewards from main (docs/gates.md:7, the record of 7 Nov 2026; not
+#             probed today), and the live Shopify release, rewardspromembership-217 (74a0be5a,
+#             docs/switch.md:85), has the same extensions/ and shopify.app.toml as main (git diff 74a0be5a
+#             8a930f1a on those paths is empty).
 #   proposed  not shown true yet; the row says what is missing.
 #
 # A sentence is used only with its scope. Locators are under apps/rewards/, with lines at dbd67564. The sh-* rows are
@@ -72,6 +73,23 @@ uncertainties = []
 review_after = "2027-02-10"
 
 [[claim]]
+id = "rp-tier-lock"
+claim = "You can lock a customer to a tier."
+scope = "From the customer's page in the app, for a customer RewardsPro has recorded an order for and whose data hasn't been erased, on a store with at least one tier. A locked customer keeps that tier and its rate whatever their spend, until 'Return to automatic'."
+status = "verified"
+channels = ["listing", "landing"]
+sources = [
+  "app/routes/app.customers.$id.tsx:158-184: 'Lock to a tier' (shown only when the store has tiers, :168), and 'Locked to <tier>.' with 'Return to automatic'",
+  "app/routes/app.customers.$id.tsx:87-101 and app/lib/tiers.server.ts:276-286: lockTier sets the lock, or with null clears it, then resolves the tier",
+  "app/lib/tiers.server.ts:234-235 and app/lib/record-order.server.ts:149: a locked tier wins, for the tier and for an order's rate",
+  "app/lib/record-order.server.ts:120-131: customer rows are made only when an order is recorded; app/lib/stats.server.ts:478-485: an erased customer has no page",
+]
+uncertainties = [
+  "No lock has been seen on a store yet; PR #208's preparation (§1) plans the first.",
+]
+review_after = "2027-02-10"
+
+[[claim]]
 id = "rp-tier-window"
 claim = "Tiers count a loyal customer's spend over the last 12 months or over all time, from the orders RewardsPro has recorded: those since install, and past orders from up to 12 months before it."
 scope = "The merchant picks one window for the store; the default is the last 12 months. 'All time' is used only with this sentence's limit. Without the read_all_orders scope the import reads 60 days back, and if the import fails, past orders don't count."
@@ -100,6 +118,7 @@ sources = [
 uncertainties = [
   "A store-credit or gift-card payment comes off the product value even when it paid for shipping.",
   "An item added by an edit after the order is first recorded earns nothing (#190).",
+  "Store-credit and gift-card payments are recognised by the gateway's name (app/shopify/order-source.server.ts:206-210): one named another way is not taken off.",
   "No order paid with a gift card has been run.",
 ]
 review_after = "2027-02-10"
@@ -121,6 +140,7 @@ uncertainties = [
   "'Still holds' means Shopify's balance in that currency from any source, not only RewardsPro's credit.",
   "Exchanges are left out because none has been run, not because the sentence is known to fail for them.",
   "A money-only refund whose money is still pending takes nothing back (#195; draft PR #206 fixes it).",
+  "Nothing is taken back from a customer whose data was erased (customers/redact): app/lib/refunds.server.ts:278-284.",
 ]
 review_after = "2027-02-10"
 
@@ -138,7 +158,9 @@ sources = [
   "app/routes/api.proxy.$.tsx:71-91: the tier shown is the locked one, the held one, or else the one spend reaches",
   "app/lib/record-order.server.ts:126, 136-149: a customer with no tier is placed in the lowest tier at their next order",
 ]
-uncertainties = []
+uncertainties = [
+  "The signed-in view stays hidden after a failed call or one slower than 8 seconds, with no retry (rewards-widget.js:16, 190-198).",
+]
 review_after = "2027-02-10"
 
 [[claim]]
@@ -162,7 +184,7 @@ review_after = "2027-02-10"
 [[claim]]
 id = "rp-no-tier-products"
 claim = "RewardsPro doesn't sell tiers as products, memberships or subscriptions."
-scope = "Internal: why the live listing's tier-product text must go (PR #208, step 6a)."
+scope = "Internal: why the live listing's tier-product text must go (PR #208's sitting, steps 4, 6, 7, 11 and 16)."
 status = "verified"
 channels = ["internal"]
 sources = [
