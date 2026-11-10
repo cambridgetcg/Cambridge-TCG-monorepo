@@ -16,8 +16,10 @@ const RECORD_ACTION = "/app?index";
  * a successful workflow than when a merchant first opens your app, or at any
  * point that interrupts their task. Don't trigger a request with a merchant
  * action, as rate-limiting might prevent the modal from displaying, making
- * your app appear to be broken." The save has already answered on the page,
- * so a modal Shopify holds back leaves nothing looking broken.
+ * your app appear to be broken." Its use cases: "Request an app review modal
+ * at strategic moments like after a successful merchant action." The save
+ * has already answered on the page, so a modal Shopify holds back leaves
+ * nothing looking broken.
  *
  * `save` is the fetcher that saved: each answer is a new `data` object, so a
  * save is acted on once, when the fetcher is idle again (its revalidation

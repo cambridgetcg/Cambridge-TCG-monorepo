@@ -264,9 +264,6 @@ export default function Home() {
   const widgetOn = useWidgetEmbed();
   const [rate, setRate] = useState("");
 
-  // The review request follows a save that worked: here, cashback switched on (#173)
-  useReviewAfterSave(d.reviewDue, switchFetcher, switchFetcher.data?.ok === true && d.running);
-
   const hasTiers = d.stats.tiers.length > 0;
   // Hidden at once on Dismiss, before the action answers
   const importDismissed = d.setup.importDismissed || importFetcher.formData?.get("intent") === "import-dismissed";
@@ -289,6 +286,9 @@ export default function Home() {
   const showImportOutcome = importOutcomeShown(d.setup.importState, importDismissed);
   const showSetup = setupCardShown(setupFacts);
   const reviewDismissed = reviewDismissFetcher.state !== "idle" || reviewDismissFetcher.data?.ok === true;
+  // The review request follows a save that worked: here, cashback switched on (#173). "Don't ask again" counts at
+  // once, so a save answered before its post is done never asks
+  useReviewAfterSave(d.reviewDue && !reviewDismissed, switchFetcher, switchFetcher.data?.ok === true && d.running);
   const money = (amount: string) => formatMoney(amount, d.currency);
   const switchError = switchFetcher.data && !switchFetcher.data.ok ? switchFetcher.data.error : null;
   const rateError = rateFetcher.data && !rateFetcher.data.ok ? rateFetcher.data.error : null;

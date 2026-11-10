@@ -601,4 +601,20 @@ describe("the review request", () => {
     expect(abortedByPage(posted[1].request)).toBe(false);
     expect(reviewCard()).toBeNull();
   });
+
+  it("doesn't ask after a save made while Don't ask again is still being recorded", async () => {
+    const request = vi.fn(async () => ({ code: "success" }));
+    stubAppBridge("active", request);
+    const posted: Posted[] = [];
+    // Its post stays in flight, and each reload still says due
+    await renderSaving({ running: false }, posted);
+    await act(async () => {
+      fireEvent.click(screen.getByText("Don't ask again", { selector: "s-section s-button" }));
+    });
+
+    await flip(true);
+
+    expect(posted.map((post) => post.fields)).toEqual([{ intent: "review-dismissed" }, { intent: "running", running: "on" }]);
+    expect(request).not.toHaveBeenCalled();
+  });
 });
