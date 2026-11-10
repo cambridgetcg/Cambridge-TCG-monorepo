@@ -54,20 +54,40 @@ function sentences(text: string): string[] {
     .filter(Boolean);
 }
 
+// These triggers are a net with holes, not a parser: they catch the shapes
+// of claim seen so far (each proved below) and the sentences around them,
+// and a claim worded around every one of them gets through. They exist to
+// make an added claim ask for review, not to prove the texts true.
+
 /** Who decided: Yu, by name, or "the owner". */
-const ATTRIBUTION = /\bYu\b|\bthe owner\b/i;
-/** Whether it is live, applied or noticed: production, the privacy notice,
- *  being (now) live, turned on or enabled, or the migration applied. */
-const STATUS =
-  /\bproduction\b|\blive\b(?!\s+(?:usage|signing|keys?)\b)|\bnow\s+(?:open|on)\b|\b(?:turned|switched)\s+on\b|\benabled\b|\bprivacy\b|\bapplied\b[^.]*\b(?:0152|migration)\b|\b(?:0152|migration)\b[^.]*\bapplied\b/i;
+const NAMES_YU = /\bYu\b|\bthe owner\b/i;
+const ATTRIBUTION = NAMES_YU;
+/** Whether it is live, applied, noticed or approved: production, the
+ *  privacy notice, being (now) live, turned on or enabled, the migration
+ *  applied or run, the path said to be open somewhere in particular, or
+ *  anyone said to have approved, accepted or signed off on it. */
+const STATUS = new RegExp(
+  [
+    /\b(?:approved|endorsed|signed off|sanctioned|ratified)\b/.source,
+    /\b(?:has|have|had)\s+(?:since\s+)?(?:\w+\s+and\s+)?accepted\b|\baccepted\s+(?:the|these|this|its|their)\s+(?:design|limits?|numbers?|retention|defaults?|wording|proposal)\b/.source,
+    /\bproduction\b|\blive\b(?!\s+(?:usage|signing|keys?)\b)|\bnow\s+(?:open|on)\b|\b(?:turned|switched)\s+on\b|\benabled\b|\bprivacy\b/.source,
+    /\bapplied\b[^.]*\b(?:0152|migration)\b|\b(?:0152|migration)\b[^.]*\bapplied\b/.source,
+    // "0152 has run", "the migration was executed", "ran 0152".
+    /\b(?:0152|migrations?)\b[^.]*\b(?:has|have|had|was|were)\s+(?:(?:now|been|already)\s+)*(?:run|ran|executed|deployed)\b|\b(?:ran|executed)\s+(?:the\s+)?(?:migration\s+)?0152\b/.source,
+    // "are open on cambridgetcg.com", not "open on the deployment" or "on a deployment".
+    /\b(?:is|are|was|were|been)\s+(?:now\s+)?(?:open|opened|on)\s+(?:on|in|at|for)\s+(?!(?:this|a|an|the|any|each|that|every)\b)/.source,
+  ].join("|"),
+  "i",
+);
 /** Names something held keys added, in a text that covers more. */
 const HELD_KEYS = /signed acts?\b|signing keys?|held.keys|agent\.act\b|\b0152\b|AGENT_SIGNED_ACTS|agent_act_|agent_signing_keys/i;
 
 /**
  * The sentences in a text that make a claim the held-keys contract
  * controls: every sentence that names Yu or the owner; and, by `status`,
- * every sentence about production, the privacy notice, being live or the
- * migration being applied ("all", a held-keys text), only those that also
+ * every sentence about production, the privacy notice, being live or open
+ * somewhere, the migration being applied or run, or an approval ("all", a
+ * held-keys text), only those that also
  * name something held keys added ("held-keys", a shared text), or none
  * (source modules, whose code would match).
  */
@@ -572,6 +592,10 @@ describe("public claims match publication boundaries", () => {
         "The numbers were approved by Yu.",
         "Signed acts are now live.",
         "0152 has been applied.",
+        // Claims that avoid the first triggers' words.
+        "Signed acts are open on cambridgetcg.com.",
+        "0152 has run on the store's database.",
+        "Cambridge TCG approved these limits.",
       ];
       const anchor = "Usage keys work as before, with or without a signing key.";
       for (const sentence of added) {
@@ -606,11 +630,11 @@ describe("public claims match publication boundaries", () => {
       };
       for (const [name, text] of Object.entries(served)) expect(text.length, name).toBeGreaterThan(0);
       const naming = Object.entries(served)
-        .filter(([, text]) => ATTRIBUTION.test(text))
-        .map(([name, text]) => `${name}: …${text.slice(Math.max(0, text.search(ATTRIBUTION) - 60), text.search(ATTRIBUTION) + 40)}…`);
+        .filter(([, text]) => NAMES_YU.test(text))
+        .map(([name, text]) => `${name}: …${text.slice(Math.max(0, text.search(NAMES_YU) - 60), text.search(NAMES_YU) + 40)}…`);
       expect(naming).toEqual([]);
       // The check would see one: the same block with a sentence added.
-      expect(JSON.stringify({ ...AGENT_SIGNED_ACTS, scope: `${AGENT_SIGNED_ACTS.scope}. Yu chose it.` })).toMatch(ATTRIBUTION);
+      expect(JSON.stringify({ ...AGENT_SIGNED_ACTS, scope: `${AGENT_SIGNED_ACTS.scope}. Yu chose it.` })).toMatch(NAMES_YU);
     });
   });
 });

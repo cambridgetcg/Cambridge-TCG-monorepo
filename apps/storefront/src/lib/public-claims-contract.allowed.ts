@@ -3,7 +3,8 @@
  *
  * In each text the held-keys contract pins, these are the only sentences
  * allowed to name Yu or "the owner", or to say anything about production,
- * the privacy notice, being live, or the migration being applied (in a text
+ * the privacy notice, being live or open somewhere, the migration being
+ * applied or run, or anyone approving or accepting it (in a text
  * that covers more than held keys, only those that also name something held
  * keys added; in a source module, only the attribution). The test fails on
  * any other such sentence, and on a listed one that is gone, so a sentence
