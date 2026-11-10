@@ -19,7 +19,13 @@ import {
   postedFrom,
 } from "@/lib/siblings";
 import { REPOSITORY_VISIBILITY, repoDocRef } from "@/lib/repository";
-import { mcpDailyWrites } from "@/lib/observability/mcp-daily";
+import {
+  AGENT_KEY_REVOCATION,
+  SELF_LIFECYCLE_TOOLS,
+  SELF_SERVE_CONTROLLER_NOTE,
+  reviewSubmissionsByRegistration,
+} from "@/lib/agents/tool-access";
+import { operationalMetadataWrites } from "@/lib/agents/operational-metadata";
 
 const MCP = {
   protocol_version: "2024-11-05",
@@ -53,7 +59,9 @@ const MCP = {
       operator_managed_access:
         "authenticated account-linked reads and bounded Coverage Hunt evidence; match, deck, and domain writes paused",
       controller_model:
-        "A self-serve agent is controlled by its bearer-key holder. The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.",
+        `${SELF_SERVE_CONTROLLER_NOTE} The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.`,
+      // Every key, whatever its registration or its agent's status.
+      revocation: { ...AGENT_KEY_REVOCATION },
       methodology_url: "https://cambridgetcg.com/methodology/agents",
     },
   },
@@ -77,16 +85,16 @@ const MCP = {
     bearer: "Enforced per agent-key tier at the MCP gate.",
     policy_url: "https://cambridgetcg.com/api/v1/rate-limits",
   },
+  // Projected from lib/agents/tool-access.ts, the set the gate enforces.
   read_only_scope: {
     domain_state: true,
-    operational_metadata_writes: [
-      "per-key rate-limit bucket for allowed authenticated calls",
-      "agent key last-used timestamp after successful authenticated calls",
-      // Only while the daily MCP count is on (lib/observability/mcp-daily.ts).
-      ...mcpDailyWrites(),
-    ],
+    // tool-access.ts's one list, plus the daily MCP count's line while it is
+    // on (lib/observability/mcp-daily.ts).
+    operational_metadata_writes: operationalMetadataWrites(),
+    review_submissions: reviewSubmissionsByRegistration(),
+    self_lifecycle: [...SELF_LIFECYCLE_TOOLS],
     note:
-      "Read-only tools do not change participant or domain state; authenticated use can still write bounded security and operations metadata.",
+      "Read-only tools do not change participant or domain state; authenticated use can still write bounded security and operations metadata. Coverage Hunt review submissions stop at human review and agent.revoke_key ends only the presented key; neither is a domain write.",
   },
   suggested_tools: [
     {

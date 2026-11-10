@@ -30,9 +30,12 @@ async function inTransaction(statements: [string, unknown[]?][]) {
   catch (error) { await client.query("ROLLBACK"); throw error; }
   finally { client.release(); }
 }
-const today = new Date().toISOString().slice(0, 10);
-const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
-const hourAgo = (hours: number) => new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000 - hours * 3_600_000).toISOString();
+// One instant for the dates these tests write and the monitor reads them at,
+// so a run that crosses midnight or the hour (UTC) still agrees with itself.
+const now = new Date();
+const today = now.toISOString().slice(0, 10);
+const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString().slice(0, 10);
+const hourAgo = (hours: number) => new Date(Math.floor(now.getTime() / 3_600_000) * 3_600_000 - hours * 3_600_000).toISOString();
 
 describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 0148 (explicit loopback DB only)", () => {
   beforeAll(async () => {
@@ -44,7 +47,8 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     pool = new Pool({ connectionString: localUrl, options: `-c search_path=${schema}`, max: 6 });
     await pool.query("CREATE TABLE users (id uuid PRIMARY KEY)");
     for (const name of ["0090_agents.sql", "0137_member_price_observations.sql", "0138_member_data_keys.sql", "0139_widen_price_sources.sql", "0140_price_source_crosswalks.sql",
-      "0141_market_derived.sql", "0142_data_api_plans.sql", "0143_price_collector_leases.sql", "0146_price_collector_hosts.sql", "0148_ops_observability.sql"]) await apply(pool, name);
+      "0141_market_derived.sql", "0142_data_api_plans.sql", "0143_price_collector_leases.sql", "0146_price_collector_hosts.sql", "0148_ops_observability.sql",
+      "0150_mcp_daily_agent_revoke_key.sql", "0151_agent_key_expiry.sql"]) await apply(pool, name);
   });
   afterAll(async () => {
     if (postgresJs) await postgresJs.close();
@@ -64,6 +68,35 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     } finally { await bare.end(); }
     const sql = await migration("0148_ops_observability.sql");
     expect(sql).not.toMatch(/\b(ALTER|DROP|DELETE|UPDATE|INSERT|TRUNCATE)\b/);
+  });
+
+  it("0150 adds agent.revoke_key to mcp_daily.tool, keeps every row and word 0148 allowed, and re-applies harmlessly", async () => {
+    const own = `ops_observability_0150_${id}`;
+    await admin.query(`CREATE SCHEMA ${own}`);
+    const bare = new Pool({ connectionString: localUrl, options: `-c search_path=${own}`, max: 1 });
+    const row = (tool: string, count: number) => `INSERT INTO mcp_daily VALUES (current_date, 'tools/call', '${tool}', false, 'ok', ${count})`;
+    try {
+      await apply(bare, "0148_ops_observability.sql");
+      await bare.query(row("agent.self", 2));
+      await expect(bare.query(row("agent.revoke_key", 1))).rejects.toMatchObject({ code: "23514" });
+      await apply(bare, "0150_mcp_daily_agent_revoke_key.sql");
+      await bare.query(row("agent.revoke_key", 1));
+      await bare.query(row("coverage.hunt.my_cases", 1));
+      await expect(bare.query(row("secret.tool", 1))).rejects.toMatchObject({ code: "23514" });
+      await expect(bare.query(`INSERT INTO mcp_daily VALUES (current_date, 'tools/list', 'agent.revoke_key', false, 'ok', 1)`)).rejects.toMatchObject({ code: "23514" });
+      // The runner records it and never applies it twice; if it were, the
+      // same constraint is dropped and re-added and every row stays.
+      await apply(bare, "0150_mcp_daily_agent_revoke_key.sql");
+      expect((await bare.query(`SELECT tool, count FROM mcp_daily ORDER BY tool`)).rows).toEqual([
+        { tool: "agent.revoke_key", count: 1 }, { tool: "agent.self", count: 2 }, { tool: "coverage.hunt.my_cases", count: 1 },
+      ]);
+      expect((await bare.query(`SELECT conname FROM pg_constraint WHERE conrelid = 'mcp_daily'::regclass AND contype = 'c' ORDER BY 1`)).rows.map(r => r.conname))
+        .toEqual(["mcp_daily_check", "mcp_daily_count_check", "mcp_daily_method_check", "mcp_daily_outcome_check", "mcp_daily_tool_check"]);
+    } finally {
+      await bare.end();
+      await admin.query(`DROP SCHEMA IF EXISTS ${own} CASCADE`);
+    }
+    expect(await migration("0150_mcp_daily_agent_revoke_key.sql")).not.toMatch(/\b(DELETE|UPDATE|INSERT|TRUNCATE|BEGIN|COMMIT)\b|DROP TABLE/);
   });
 
   it("refuses malformed rows: words outside the lists, text, prices, raw paths, overlapping counts", async () => {
@@ -96,10 +129,11 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     await refused(pull(`date_trunc('hour', now()) - interval '25 hours', date_trunc('hour', now()), 'ok', 1, 1, NULL`));
     await refused(pull(`date_trunc('hour', now()) - interval '1 hour', date_trunc('hour', now()), 'ok', 1, 1, 'http-500'`));
     await refused(pull(`date_trunc('hour', now()) - interval '1 hour', date_trunc('hour', now()), 'partial', 1, 1, 'Page 3 failed'`));
-    await pool.query(pull(`date_trunc('hour', now()) - interval '30 hours', date_trunc('hour', now()) - interval '29 hours', 'ok', 10, 1, NULL`));
+    // These three name the same hour, read once: each statement's own now() can sit either side of an hour.
+    await pool.query(pull(`'${hourAgo(30)}', '${hourAgo(29)}', 'ok', 10, 1, NULL`));
     // A counted hour is never counted again; a failed pull counted nothing and may be retried.
-    await refused(pull(`date_trunc('hour', now()) - interval '30 hours', date_trunc('hour', now()) - interval '28 hours', 'partial', 3, 1, 'page-failed'`), "23P01");
-    await pool.query(pull(`date_trunc('hour', now()) - interval '30 hours', date_trunc('hour', now()) - interval '29 hours', 'failed', 0, 0, 'http-500'`));
+    await refused(pull(`'${hourAgo(30)}', '${hourAgo(28)}', 'partial', 3, 1, 'page-failed'`), "23P01");
+    await pool.query(pull(`'${hourAgo(30)}', '${hourAgo(29)}', 'failed', 0, 0, 'http-500'`));
     await refused(`INSERT INTO error_daily (day, tag, status, count) VALUES (current_date, 'relation users does not exist', 500, 1)`);
     await refused(`INSERT INTO error_daily (day, tag, status, count) VALUES (current_date, 'wholesale', 99, 1)`);
     await pool.query(`DELETE FROM traffic_pulls`);
@@ -109,7 +143,8 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     await pool.query(`INSERT INTO ops_job_outcomes (job, started_at, finished_at, http_status, outcome) VALUES ('collect/tcgplayer', now() - interval '14 months', now() - interval '14 months', 200, 'ran'),
       ('collect/tcgplayer', now() - interval '12 months', now() - interval '12 months', 200, 'ran')`);
     await pool.query(`INSERT INTO mcp_daily VALUES (current_date - 400, 'tools/list', 'none', false, 'ok', 3), (current_date - 300, 'tools/list', 'none', false, 'ok', 2)`);
-    await pool.query(`INSERT INTO error_daily VALUES (current_date - 400, 'wholesale', 503, 9), (current_date - 30, 'wholesale', 503, 4)`);
+    // Dated from `today`: the 30-day-old row must stay outside the 30 days the monitor reads at `now`.
+    await pool.query(`INSERT INTO error_daily VALUES ($1::date - 400, 'wholesale', 503, 9), ($1::date - 30, 'wholesale', 503, 4)`, [today]);
     await pool.query(`INSERT INTO traffic_hourly VALUES (date_trunc('hour', now()) - interval '36 days', 'apex', '/', false, 'browser-like', 'ctcg.actor-class/v1', '2xx', 'miss', 'none', 5),
       (date_trunc('hour', now()) - interval '34 days', 'apex', '/', false, 'browser-like', 'ctcg.actor-class/v1', '2xx', 'miss', 'none', 6)`);
     await pool.query(`INSERT INTO traffic_pulls (window_start, window_end, status, records, pages) VALUES (date_trunc('hour', now()) - interval '36 days', date_trunc('hour', now()) - interval '36 days' + interval '1 hour', 'ok', 5, 1)`);
@@ -148,7 +183,7 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     const today = (await pool.query(`SELECT ((now() AT TIME ZONE 'UTC')::date)::text AS day`)).rows[0].day as string;
     expect(await recordMcpDaily([{ day: today, ...words, count: 2 }], run)).toBe(true);
     expect(await recordMcpDaily([{ day: today, ...words, count: 1 }, { day: today, ...words, outcome: "rate-limited", count: 1 }], run)).toBe(true);
-    expect((await pool.query(`SELECT method, tool, authenticated, outcome, count FROM mcp_daily WHERE day = (now() AT TIME ZONE 'UTC')::date ORDER BY outcome`)).rows).toEqual([
+    expect((await pool.query(`SELECT method, tool, authenticated, outcome, count FROM mcp_daily WHERE day = $1::date ORDER BY outcome`, [today])).rows).toEqual([
       { ...words, count: 3 }, { ...words, outcome: "rate-limited", count: 1 },
     ]);
   });
@@ -162,7 +197,13 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
       ($1, repeat('b', 64), 'ctcg_agt_bbbb', now() - interval '3 days', NULL),
       ($1, repeat('c', 64), 'ctcg_agt_cccc', NULL, NULL),
       ($1, repeat('d', 64), 'ctcg_agt_dddd', now() - interval '40 days', now()) RETURNING id`, [agentId])).rows.map(row => row.id);
-    await pool.query(`INSERT INTO agent_rate_buckets (key_id, bucket_minute, request_count) VALUES ($1, date_trunc('minute', now()), 7), ($2, date_trunc('minute', now()) - interval '1 minute', 2)`, [keys[0], keys[1]]);
+    // Used two days ago, expired yesterday (0151): not active, so not in a band.
+    await pool.query(`INSERT INTO agent_keys (agent_id, key_hash, key_prefix, last_used_at, created_at, expires_at)
+      VALUES ($1, repeat('e', 64), 'ctcg_agt_eeee', now() - interval '2 days', now() - interval '10 days', now() - interval '1 day')`, [agentId]);
+    // Two minutes of one UTC day, the last two of yesterday: now()'s minute and
+    // the one before it fall on two days in the first minute after midnight.
+    await pool.query(`INSERT INTO agent_rate_buckets (key_id, bucket_minute, request_count) VALUES
+      ($1, date_trunc('day', now(), 'UTC') - interval '1 minute', 7), ($2, date_trunc('day', now(), 'UTC') - interval '2 minutes', 2)`, [keys[0], keys[1]]);
     await pool.query(`INSERT INTO data_api_usage_months (user_id, month, request_count) VALUES ($1, date_trunc('month', now() AT TIME ZONE 'UTC')::date, 41)`, [userId]);
     await inTransaction([
       ["SELECT pg_advisory_xact_lock(137, 1)"],
@@ -195,7 +236,7 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     postgresJs = createDb({ url: url.toString(), ssl: false, max: 2 });
     const unsafe: RunQuery = async (sql, params) => ({ rows: await postgresJs!.client.unsafe(sql, (params ?? []) as never[]) as unknown as Record<string, unknown>[] });
     for (const [driver, read] of [["pg", run], ["postgres.js", unsafe]] as const) {
-      const data = await loadMonitor(read, new Date());
+      const data = await loadMonitor(read, now);
       const label = `${driver}: `;
       expect(data.collectors.batches, label).toMatchObject({ state: "known", data: { window: [{ source: "cardrush", host: "www.cardrush-op.jp", batches: 1, sourceRows: 103, missingPrices: 2, quarantined: 1 }] } });
       const cardrush = data.collectors.sources.find(source => source.source === "cardrush")!;
@@ -215,7 +256,7 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
       expect(data.api.usage, label).toMatchObject({ state: "known", data: [{ requests: 41, accounts: 1 }] });
       expect(data.api.routes, label).toMatchObject({ state: "known", data: [{ pathGroup: "/api/v1/member-prices", statusClass: "401", requests: 5 }] });
       expect(data.agents.mcp, label).toMatchObject({ state: "known", data: { tally: expect.arrayContaining([{ method: "tools/call", tool: "agent.self", authenticated: true, outcome: "ok", requests: 3 }]) } });
-      expect(data.agents.keys, label).toEqual({ state: "known", data: { keys: 4, active: 3, never: 1, lastHour: 1, lastDay: 0, lastWeek: 1, lastMonth: 0, older: 0 } });
+      expect(data.agents.keys, label).toEqual({ state: "known", data: { keys: 5, active: 3, never: 1, lastHour: 1, lastDay: 0, lastWeek: 1, lastMonth: 0, older: 0 } });
       expect(data.agents.buckets, label).toMatchObject({ state: "known", data: [{ requests: 9, keys: 2, busiestMinute: 7 }] });
       expect(data.traffic.coverage, label).toMatchObject({ state: "known", data: { ok: 1, failed: 1, partial: 0, unknown: 35 * 24 - 2 } });
       expect(data.traffic.counts, label).toMatchObject({ state: "known", data: {
