@@ -397,7 +397,8 @@ describe("public claims match publication boundaries", () => {
     expect(plan).toContain("applying `0152` (to production before this code is merged to `main`, even with the flag off");
 
     // What still waits for Yu, and the notice this build did not change.
-    expect(detail).toContain("Yu has not yet given the word for 0152, for the new dependency (@noble/curves 2.2.0, Node 20.19 or later) or for the privacy notice's rows, which do not yet describe these records.");
+    expect(detail).toContain('Yu answered, verbatim: "yes to 230, and go for what pulls you and what you recommended". An AI agent read that as covering 0152, the merge with its new dependency (@noble/curves 2.2.0, Node 20.19 or later) and the privacy notice\'s rows');
+    expect(detail).toContain("turning the path on in production was not asked, and has had no word.");
     expect(plan).toContain("It has no rows for signing keys, act events or act nonces, and this build did not change it.");
     expect(methodology).toContain("does not yet describe the records it keeps.");
     // The one change outside the slice, which applies with the flag on or off.

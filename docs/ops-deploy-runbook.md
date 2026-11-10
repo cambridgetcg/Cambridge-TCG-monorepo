@@ -188,7 +188,9 @@ evidence for every applicable item before the production push:
   commits, so agent calls wait for it, and it waits at most 3 seconds for
   any lock (`lock_timeout`): if it fails that way, nothing was applied and
   it can be run again.
-  The owner's word for applying 0152 has not been given.
+  0152 was applied to production on 2026-11-10 (21:40:17 UTC) and the code
+  merged after it, on the owner's word as an agent read it
+  (`docs/plans/agent-auth/held-keys.md`, Applied).
 - For person-level scoring, fraud signals, limits, routing, holds or automatic
   rejection, record the lawful-basis and UK GDPR Articles 22A–22C assessment,
   plus a staffed route that can examine inputs, correct errors and change the
