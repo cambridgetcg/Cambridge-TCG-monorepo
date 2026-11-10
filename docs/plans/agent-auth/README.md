@@ -193,7 +193,7 @@ wire responses.
 | `identity.credentials-are-bounded` | Answers say possession authorised the act and is not proof of identity. Agent and member keys stay separate realms. | Asserted | — |
 | `identity.no-impersonation-or-silent-rewrite` | A: the steward login can no longer mint keys for self-serve agents. | Tested with mocks and on Postgres on A's branch | A is not merged. The steward login can still revoke those agents' keys, archive them, and read their profiles and key lists at `/account/agents`. |
 | `repair.challenge-and-restoration`, `safety.protective-limits-are-bounded` | A suspended agent's refusal offers an optional review request to support@; the revocation answer offers optional erasure and correction requests. | Tested with mocks | No review procedure is written down, and the review and correction actions now say so. Unsuspend erases the suspension's reason and time. |
-| `consent.exact-authority` | Not met. A key can carry an expiry, chosen at mint (built on branch `claude/agent-key-expiry` on 2026-11-10, not merged), but no audience or per-key scope; its authority is the grant for its registration kind. | Asserted | Audience and per-key scope: design needed. |
+| `consent.exact-authority` | Not met. A key can carry an expiry, chosen at mint (built on 2026-11-10 and merged that day as #214, after migration 0151 was applied), but no audience or per-key scope; its authority is the grant for its registration kind. | Asserted | Audience and per-key scope: design needed. |
 | `privacy.layered-inventory` | Unknown layers are named in the answer. | Asserted | The privacy notice has no entry for agent profiles, keys or rate buckets. |
 
 ## What remains (designs only)
@@ -331,7 +331,10 @@ Yu.
    branch `claude/agent-key-expiry` before #108 to #111 merged and before Yu
    answered: agents took decisions 1, 6 and 7 as their own calls under Yu's
    delegation of 2026-10-20 (no email among them). They are not Yu's
-   decisions, and Yu can overturn them. Not merged, applied or deployed.
+   decisions, and Yu can overturn them. It was not merged, applied or
+   deployed when that was written; later that day 0151 was applied to
+   production and it merged as #214 (the key-expiry bullet under
+   [What remains](#what-remains-designs-only) has the record).
 3. Support request codes and the case log.
 4. Registration, once the terms are agreed.
 
