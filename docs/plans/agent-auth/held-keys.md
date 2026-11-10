@@ -78,7 +78,8 @@ before the build.
 - A reference signer, `examples/agents/held-key-signer.mjs`.
 - OpenAPI, the tool catalog, `GET /api/mcp`, the `initialize` instructions,
   the discovery documents, `/methodology/agents#signed-acts`, the key-exit
-  inventory (version 2026-11-10.2) and a changelog entry.
+  inventory (version 2026-11-10.2, then 2026-11-10.3 after review) and a
+  changelog entry.
 - The maintenance sweep (`signed-act-sweep.ts`) and a nonce row on
   `/admin/system/monitor`.
 - Unit tests for each part, and the opt-in Postgres suite
@@ -206,6 +207,9 @@ not Yu's:
 - The reference signer's `--submit` follows no redirect (`redirect:
   "error"`): a 307 used to carry the signed act to the other origin and
   take that origin's answer as the result.
+- The key-exit inventory names the holder of a signing key, through
+  `signer.check`, as a reader of the usage key's row and the agent's row;
+  its version is 2026-11-10.3.
 - The tool grant (`describeAgentToolGrant`) lists `agent.act` under
   `signed_acts` only for operator-managed agents and only while the
   deployment has signed acts open; it listed it with the flag off.

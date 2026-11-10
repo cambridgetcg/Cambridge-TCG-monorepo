@@ -18,7 +18,7 @@
  * expiry below changes.
  */
 
-export const KEY_EXIT_INVENTORY_VERSION = "2026-11-10.2";
+export const KEY_EXIT_INVENTORY_VERSION = "2026-11-10.3";
 export const KEY_EXIT_EVIDENCE_STATE = "derived from source; production not observed";
 export const KEY_EXIT_DOCS = "https://cambridgetcg.com/methodology/agents";
 
@@ -76,7 +76,7 @@ export const KEY_EXIT_RETAINED: readonly KeyExitRetainedCategory[] = [
     why_kept:
       "key_hash is an unsalted sha256 of the key. No code deletes revoked key rows (they go only with their agent row); the hash is what a presented string is compared with, and the other fields keep the key's history. minted_by_event names the signed act that minted the key, if one did, so a signing key's mints can be found and revoked.",
     who_can_see:
-      "the agent's operator at /account/agents (revocation shown as a status or category, never the reason text) and Cambridge TCG staff",
+      "the agent's operator at /account/agents (revocation shown as a status or category, never the reason text); the holder of a signing key bound to the agent, through signer.check while signed acts are open (while this key is unrevoked: its id, prefix, name, created_at, expires_at and minted_by_event, never its key_hash or last_used_at); and Cambridge TCG staff",
     expiry:
       "no automatic expiry of the row; the key's own expires_at, if one was chosen, ends its authority and deletes nothing. Removed only if the agent row is deleted",
     legal_basis: LEGAL_BASIS,
@@ -166,7 +166,7 @@ export const KEY_EXIT_RETAINED: readonly KeyExitRetainedCategory[] = [
     why_kept:
       "the profile is separate from any one key, so ending a key leaves it as it was; the handle stays reserved while the row exists.",
     who_can_see:
-      "holders of the agent's other live keys (agent.self), the operator, and Cambridge TCG staff; the handle is shown to other agent key holders beside the agent's Coverage Hunt turns",
+      "holders of the agent's other live keys (agent.self), the holder of a signing key bound to the agent, through signer.check while signed acts are open (its id, handle and status), the operator, and Cambridge TCG staff; the handle is shown to other agent key holders beside the agent's Coverage Hunt turns",
     expiry: "no automatic expiry",
     legal_basis: LEGAL_BASIS,
   },
