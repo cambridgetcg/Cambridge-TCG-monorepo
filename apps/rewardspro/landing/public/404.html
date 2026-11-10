@@ -3,103 +3,58 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!--
-      rewardspro.io's 404 page, the review copy (package RP-09, issue #169). Cloudflare Pages serves this file, with a
-      404 status, for any path it can't find; without it, Pages would answer unknown paths with the home page and a 200
-      (RECOMMENDATION section 3.1).
-      - The head's four icon and manifest lines are PR #95's. The files they name (favicon.ico, favicon.svg,
-        apple-touch-icon.png, site.webmanifest) aren't on main: they arrive with RP-08, and #95's manifest still
-        describes "points", which RP-08 corrects. Until those files are on main, each request for them gets this
-        page back. So an early ship of this page needs RP-08's files and corrected manifest on main first, or ships
-        without those four lines.
-      - The old-links block points to /help/, so it ships the day /help/ ships (ROADMAP Pre-6). Its sentence rests
-        on rp-old-docs-removed (new: the docs site was unpublished on 2026-11-07; RP-06 adds the row or declines it).
-        It ships only once that row is verified and lists this page's channel ("landing", unless RP-06 rules
-        otherwise). To ship this page earlier, delete from "BEGIN block:old-links" to "END block:old-links".
-      - "There is no page at this address." states the response's 404 status in words; it makes no claim about
-        RewardsPro, so it carries no row.
-      - Header and footer: none yet. The page takes RP-08's shared header and footer bytes when they exist (DESIGN.md
-        "Layout": the same bytes on every page).
-      - The deploy copy carries no comments: strip every HTML comment before Yu's review pack hashes the bytes.
-    -->
     <title>Page not found – RewardsPro</title>
     <meta name="robots" content="noindex" />
-    <meta name="theme-color" content="#09110f" />
+    <meta name="theme-color" content="#09110F" />
     <meta name="color-scheme" content="dark" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <style>
-      :root {
-        color-scheme: dark;
-        --bg: #09110f;
-        --text: #f6f7f7;
-        --text-muted: #9ea2a6;
-        --accent: #17bebb;
-        --focus: #658aad;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font-family: Inter, system-ui, sans-serif;
-        font-size: 1.0625rem;
-        line-height: 1.6;
-      }
-
-      main {
-        width: 100%;
-        max-width: calc(68ch + 32px);
-        margin: 0 auto;
-        padding: 64px 16px;
-      }
-
-      h1 {
-        margin: 0 0 16px;
-        font-size: clamp(2rem, 6vw, 3rem);
-        font-weight: 600;
-        letter-spacing: -0.02em;
-        line-height: 1.1;
-      }
-
-      p {
-        margin: 0 0 16px;
-      }
-
-      .muted {
-        color: var(--text-muted);
-      }
-
-      a {
-        color: var(--accent);
-        text-decoration: underline;
-        text-underline-offset: 0.18em;
-      }
-
-      a:focus-visible {
-        outline: 2px solid var(--focus);
-        outline-offset: 2px;
-        border-radius: 2px;
-      }
-    </style>
+    <link rel="stylesheet" href="/assets/site.css" />
   </head>
   <body>
-    <main>
-      <h1>Page not found</h1>
-      <p class="muted">There is no page at this address.</p>
-      <!-- BEGIN block:old-links (ships with /help/). Rows: rp-old-docs-removed (new). -->
-      <p>
-        <span data-claim="rp-old-docs-removed">If you followed an old link to our help pages, that page described an older version of RewardsPro and has been removed.</span>
-        Help is at <a href="/help/">rewardspro.io/help/</a>.
-      </p>
-      <!-- END block:old-links -->
-      <p><a href="/">Go to the RewardsPro home page</a></p>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="wrap">
+        <a class="logo" href="/">
+          <img
+            src="/assets/rewardspro-lockup-reversed.svg"
+            alt="RewardsPro"
+            width="163"
+            height="32"
+          />
+        </a>
+        <nav aria-label="Main">
+          <ul class="nav-list">
+            <li><a href="/#contact">Contact</a></li>
+            <li><a href="/#existing-agreements">Existing agreements</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <div class="wrap">
+        <div class="intro">
+          <h1>Page not found</h1>
+          <p class="lead">There is no page at this address.</p>
+          <p><a href="/">Go to the RewardsPro home page</a></p>
+        </div>
+      </div>
     </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>© 2026 Cambridge TCG Limited</p>
+        <nav aria-label="Footer">
+          <ul class="nav-list">
+            <li><a href="/#contact">Contact</a></li>
+            <li><a href="/privacy-policy/">Privacy</a></li>
+          </ul>
+        </nav>
+      </div>
+    </footer>
   </body>
 </html>
