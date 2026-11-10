@@ -207,10 +207,16 @@ describe("public claims match publication boundaries", () => {
     const plan = prose("../../docs/plans/agent-auth/key-expiry.md");
     expect(plan).toContain("agents took them as their own calls under Yu's delegation of 2026-10-20");
     expect(plan).toContain("and they are not Yu's decisions.");
-    expect(plan).toContain("Nothing is merged, no migration is applied, and nothing is deployed.");
+    expect(plan).toContain("When the build finished, nothing was merged, no migration was applied and nothing was deployed");
+    // The word for the migration, the deploy and the notice is quoted, and the
+    // reading of it is recorded as an agent's.
+    expect(plan).toContain('Yu answered on 2026-11-10, verbatim: "yes go ahead for merging and deployment to production."');
+    expect(plan).toContain("An agent (Claude Code session 99296f25) read that as covering all three");
+    expect(plan).toContain("remain agents' calls, not Yu's decisions.");
     const plans = prose("../../docs/plans/agent-auth/README.md");
     expect(plans).toContain("agents took decisions 1, 6 and 7 as their own calls under Yu's delegation of 2026-10-20 (no email among them). They are not Yu's decisions");
-    expect(plans).toContain("it was not merged, applied or deployed when this was written.");
+    expect(plans).toContain("An agent applied 0151 to production on 2026-11-10 (10:12 UTC) and then merged the branch, on Yu's word of that day");
+    expect(plans).toContain("An agent wrote the wording.");
     for (const path of [
       "src/lib/agents/key-expiry.ts",
       "src/app/account/agents/key-expiry-ui.ts",

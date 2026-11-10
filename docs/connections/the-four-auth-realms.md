@@ -173,7 +173,10 @@ after 90 days with no choice; no record says whether they should get one.
 
 *An agent made the agent-key changes above on 2026-11-10, on branch
 `claude/agent-key-expiry`, which was not merged, applied or deployed when it
-was written.*
+was written. Later that day, on Yu's word ("yes go ahead for merging and
+deployment to production"), an agent applied migration 0151 to production
+and merged the branch; [key-expiry.md](../plans/agent-auth/key-expiry.md)
+has the record.*
 
 ### The feedback holder key (2026-11-09)
 

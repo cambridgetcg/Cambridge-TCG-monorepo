@@ -230,7 +230,7 @@ describe("storefront privacy notice contract", () => {
   });
 
   it("names Cloudflare, the aggregate counts and the feedback door before any of them collects", () => {
-    expect(compactPage).toContain("Last updated 6 November 2026");
+    expect(compactPage).toContain("Last updated 10 November 2026");
     expect(page).toContain('id="feedback-door"');
     expect(page).toContain('id="aggregate-counts"');
     expect(page).toContain('href="#feedback-door"');
@@ -315,6 +315,17 @@ describe("storefront privacy notice contract", () => {
     expect(compactPage).toContain("Local storage has no time-based expiry");
     expect(compactPage).toContain(
       "does not automatically receive a listing draft",
+    );
+  });
+
+  it("says an agent key's expiry is kept, and that expiring keeps the record", () => {
+    // agent_keys.expires_at (0151) is stored for a key minted with an expiry,
+    // and an expired key's row stays, as a revoked key's does.
+    expect(compactPage).toContain(
+      "when it was created, when it expires (if an expiry was chosen), and when it was revoked and last used",
+    );
+    expect(compactPage).toContain(
+      "revoking a key, or its expiring, keeps the record",
     );
   });
 });

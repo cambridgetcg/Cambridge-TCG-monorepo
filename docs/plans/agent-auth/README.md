@@ -228,21 +228,25 @@ its bullet says what was built on a branch and what of it remains.
   one handle reused for opponents, Coverage Hunt readers and the
   `X-Agent-Handle` header, `agent.self`'s UUIDs, and room codes.
 - **Key expiry.** Per-key expiry ([key-expiry.md](key-expiry.md)) was built
-  on 2026-11-10 on branch `claude/agent-key-expiry`, with migration 0151; it
-  was not merged, applied or deployed when this was written. Apply 0151 to
+  on 2026-11-10 on branch `claude/agent-key-expiry`, with migration 0151.
+  The rollout rule was: Apply 0151 to
   the production database before that branch is merged to `main`: a push to
   `main` deploys, and the code has no fallback for the missing column, so
-  every authenticated agent call would answer 503. What remains of
+  every authenticated agent call would answer 503. An agent applied 0151 to
+  production on 2026-11-10 (10:12 UTC) and then merged the branch, on Yu's
+  word of that day ("yes go ahead for merging and deployment to
+  production"); key-expiry.md's **Applied** paragraph has the record. The
+  rule still holds for any other database this code runs against. What remains of
   it: no reminder before a key expires (the plan's §8 email was not built, so
   nothing is sent), no replace action, no end for keys nobody uses, and no
-  expiry choice for self-serve keys until registration reopens. It also
-  leaves `/privacy` incomplete, and that page was not changed: its "Agent
-  keys" item lists what is kept for each key ("when it was created, revoked
-  and last used") without the expiry a key minted by this code stores, and
-  its retention item says "revoking a key keeps the record" without saying
-  that expiring does too. The wording proposed for them, "when it was created, when it expires (if an expiry was
+  expiry choice for self-serve keys until registration reopens. `/privacy`
+  was changed with it on the same word: its "Agent keys" item listed what is
+  kept for each key ("when it was created, revoked and last used") without
+  the expiry a key minted by this code stores, and its retention item said
+  "revoking a key keeps the record" without saying that expiring does too.
+  They now read "when it was created, when it expires (if an expiry was
   chosen), and when it was revoked and last used" and "revoking a key, or its
-  expiring, keeps the record", needs Yu's word before or with the deploy.
+  expiring, keeps the record". An agent wrote the wording.
 - **`consent.exact-authority`.** Per-key audience and scope (expiry: the
   bullet above).
 - **Suspension history.** Unsuspend sets `suspended_reason` and

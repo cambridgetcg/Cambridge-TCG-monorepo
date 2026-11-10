@@ -3,8 +3,20 @@
 **Status.** Written **2026-10-30** by an AI agent: a Claude Code subagent run
 by a workflow in session 99296f25. **Yu has not reviewed it.** It was written
 as a draft for discussion that decides nothing. It has since been built on
-branch `claude/agent-key-expiry` (2026-11-10; see **Built** below), which is
-not merged; the proposal below is unchanged.
+branch `claude/agent-key-expiry` (2026-11-10; see **Built** below); the
+proposal below is unchanged.
+
+**Applied, 2026-11-10.** Asked for a word on the stack's merge, on applying
+0151 to production and on the two `/privacy` sentences, Yu answered on
+2026-11-10, verbatim: "yes go ahead for merging and deployment to
+production." An agent (Claude Code session 99296f25) read that as covering
+all three, and then: applied `0151_agent_key_expiry.sql` to the production
+database with `scripts/migrate.mjs` (recorded in `schema_migrations` at
+10:12:35 UTC; the plan run listed only 0151, and afterwards the column and
+its CHECK were read back); changed the two `/privacy` sentences and the
+notice's date on this branch; and merged the branch after its checks passed.
+The per-key choice, no expiry for existing keys and no email remain agents'
+calls, not Yu's decisions.
 
 - **Yu's word.** On 2026-10-30, verbatim, recorded in the
   [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md):
@@ -74,8 +86,9 @@ not merged; the proposal below is unchanged.
   header, as 0112 did for its column, in the deploy runbook's migration list
   and in the README's key-expiry bullet, which all say to apply 0151 before
   the branch is merged to `main`, because a push to `main` deploys; and as a
-  condition in the changelog entry. Nothing is merged, no migration is applied, and nothing is
-  deployed. The line links on this page still cite the code
+  condition in the changelog entry. When the build finished, nothing was
+  merged, no migration was applied and nothing was deployed; **Applied**
+  above says what changed on 2026-11-10. The line links on this page still cite the code
   before the build (`81c63959`); at the build's last commit (`34ebdd33`), 26
   of its 41 line-anchored links landed on lines the build changed, so read
   them at `81c63959`.
@@ -91,17 +104,20 @@ not merged; the proposal below is unchanged.
   revoking one ends no authority, yet records it as revoked and turns
   `agent.revoke_key`'s answer for it into the not-active one. These fixes
   are not Yu's decisions either.
-- **`/privacy` is now incomplete, and was not changed.** Its "Agent keys"
-  item lists what is kept for each key ("when it was created, revoked and
+- **`/privacy` was changed with this build, on 2026-11-10.** Its "Agent keys"
+  item listed what is kept for each key ("when it was created, revoked and
   last used") without the expiry that a key minted by this code stores, and
-  its retention item says "revoking a key keeps the record" without saying that
-  expiring does too. Proposed: "when it was created, when it expires (if an
-  expiry was chosen), and when it was revoked and last used" and "revoking a
-  key, or its expiring, keeps the record". Changing the notice needs Yu's
-  word, before or with the deploy.
+  its retention item said "revoking a key keeps the record" without saying that
+  expiring does too. They now read "when it was created, when it expires (if
+  an expiry was chosen), and when it was revoked and last used" and "revoking
+  a key, or its expiring, keeps the record", and the notice is dated 10
+  November 2026. An agent wrote the wording; Yu's word for the change is in
+  **Applied** above.
 - **Acts this page does not authorise.** Applying a migration, deploying,
   sending email to operators, or changing the privacy notice. Each needs Yu's
-  word for that act.
+  word for that act. **Applied** above records the word given on 2026-11-10
+  for the migration, the deploy and the notice. No email has been sent, and
+  none is built.
 - **Siblings.** [reopening-terms.md](reopening-terms.md) covers the key a
   self-serve registrant receives, and [support-procedures.md](support-procedures.md)
   covers support requests. Where they touch expiry, this page says so.
