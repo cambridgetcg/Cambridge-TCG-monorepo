@@ -50,7 +50,8 @@ export interface KeyRow {
   revoked_at: string | null;
   /** Who ended the key, as a category; null while it is live. */
   revoked_by: string | null;
-  /** When the key stops (or stopped) authenticating; null: no expiry. */
+  /** When the key stops (or stopped) authenticating, as ISO 8601
+   *  (toKeyRows converts the driver's Date); null: no expiry. */
   expires_at: string | null;
   /** Past its expiry by the database's clock when the page was read. A
    *  revoked key reads false here: revocation is its state. */

@@ -101,6 +101,12 @@ describe("toKeyRows", () => {
       ["odd", null, false],
     ]);
   });
+
+  it("sends the expiry as an ISO 8601 string when the driver returns a Date, as postgres.js does", () => {
+    const [row] = toKeyRows([stored({ expires_at: new Date("2027-01-28T15:04:07.000Z") })]);
+    expect(row.expires_at).toBe("2027-01-28T15:04:07.000Z");
+    expect(typeof row.expires_at).toBe("string");
+  });
 });
 
 describe("keyRevocationLabel", () => {

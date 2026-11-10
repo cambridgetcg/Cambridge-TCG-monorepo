@@ -35,7 +35,8 @@ beforeEach(() => {
               revoked_at: "2026-10-29T11:00:00Z",
               revoked_reason: STAFF_NOTE,
               created_at: "2026-10-29T10:00:00Z",
-              expires_at: "2026-11-05T10:00:00Z",
+              // postgres.js returns a timestamptz as a Date.
+              expires_at: new Date("2026-11-05T10:00:00Z"),
               expired: false,
             },
           ],
@@ -76,6 +77,7 @@ describe("/account/agents page", () => {
     const keySql = String(mocks.query.mock.calls.find(([sql]) => String(sql).includes("FROM agent_keys"))![0]);
     expect(keySql).toContain(`(k.revoked_at IS NULL AND ${expiredAgentKeySql("k")}) AS expired`);
     const [props] = mocks.client.mock.calls[0];
-    expect(props.keys[0]).toMatchObject({ expires_at: "2026-11-05T10:00:00Z", expired: false });
+    // The client gets an ISO 8601 string, as KeyRow says, not the driver's Date.
+    expect(props.keys[0]).toMatchObject({ expires_at: "2026-11-05T10:00:00.000Z", expired: false });
   });
 });

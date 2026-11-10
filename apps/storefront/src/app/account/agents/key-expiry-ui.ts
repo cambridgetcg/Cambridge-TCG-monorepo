@@ -49,8 +49,8 @@ export function keyExpiryFromForm(form: FormData): string {
 
 /**
  * A stored instant as "2027-01-28 15:04:07 UTC": the exact second, in UTC,
- * so the server's render and the browser's agree. pg hands the page a
- * Date; a string is read as ISO 8601.
+ * so the server's render and the browser's agree. The key list and the
+ * fresh-key card pass ISO 8601 strings; a Date is read too.
  */
 export function formatKeyInstant(value: string | Date): string {
   const iso = keyInstantIso(value);

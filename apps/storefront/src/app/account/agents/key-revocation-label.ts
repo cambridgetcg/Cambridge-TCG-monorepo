@@ -10,6 +10,7 @@
  * operator's own view.
  */
 
+import { expiresAtIso } from "@/lib/agents/key-expiry";
 import {
   ARCHIVE_REVOCATION_REASON,
   HOLDER_REVOCATION_REASON,
@@ -23,9 +24,11 @@ export function keyRevocationLabel(reason: string | null): string {
   return "revoked from this page";
 }
 
-/** A key row as page.tsx selects it, stored reason included. */
-export interface StoredKeyRow extends Omit<KeyRow, "revoked_by"> {
+/** A key row as page.tsx selects it, stored reason included. The driver
+ *  returns a timestamptz as a Date. */
+export interface StoredKeyRow extends Omit<KeyRow, "revoked_by" | "expires_at"> {
   revoked_reason: string | null;
+  expires_at: string | Date | null;
 }
 
 /**
@@ -43,7 +46,9 @@ export function toKeyRows(rows: readonly StoredKeyRow[]): KeyRow[] {
     last_used_at: row.last_used_at,
     revoked_at: row.revoked_at,
     revoked_by: row.revoked_at ? keyRevocationLabel(row.revoked_reason) : null,
-    expires_at: row.expires_at,
+    // An ISO 8601 string, whatever the driver returned, so the client's
+    // type is the value it gets.
+    expires_at: expiresAtIso(row.expires_at),
     // Computed by the page's SQL; only an explicit true reads as expired.
     expired: row.expired === true,
     created_at: row.created_at,
