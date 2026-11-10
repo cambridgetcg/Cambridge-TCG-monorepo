@@ -223,4 +223,72 @@ describe("held-key-signer", () => {
       expect(existsSync(mismatchFile)).toBe(false);
     });
   });
+
+  describe("with --submit, against a door that redirects", () => {
+    // The audience answers 307 to another origin, which would answer
+    // "applied" to anything; the signer must not take the act there.
+    const elsewhere: string[] = [];
+    let redirecting: Server;
+    let other: Server;
+    let audience: string;
+    const listen = (server: Server) => new Promise<string>((done) => server.listen(0, "127.0.0.1", () => done(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)));
+
+    beforeAll(async () => {
+      other = createServer((request, response) => {
+        let text = "";
+        request.on("data", (chunk) => (text += chunk));
+        request.on("end", () => {
+          elsewhere.push(`${request.method} ${request.url}`);
+          const body = JSON.parse(text || "{}") as { act?: string | null; preview?: string | null };
+          const params = body.act ? (JSON.parse(Buffer.from(body.act.split(".")[1], "base64url").toString()).params as Record<string, string>) : {};
+          response.writeHead(200, { "Content-Type": "application/json" });
+          response.end(JSON.stringify({ act: "key.mint", outcome: "applied", key: { key_prefix: params.key_prefix } }));
+        });
+      });
+      const otherOrigin = await listen(other);
+      redirecting = createServer((request, response) => {
+        request.resume();
+        request.on("end", () => {
+          response.writeHead(307, { Location: `${otherOrigin}/api/v1/agents/act` });
+          response.end();
+        });
+      });
+      audience = await listen(redirecting);
+    });
+
+    afterAll(async () => {
+      await new Promise<void>((done) => redirecting.close(() => done()));
+      await new Promise<void>((done) => other.close(() => done()));
+    });
+
+    const runSubmit = async (args: string[]) => {
+      try {
+        const { stdout, stderr } = await promisify(execFile)(process.execPath, [SIGNER, "sign", "--key", keyFile, "--agent", AGENT, ...args, "--aud", audience, "--submit"], { cwd: dir, encoding: "utf8" });
+        return { stdout, stderr, status: 0 };
+      } catch (error) {
+        const failed = error as { stdout: string; stderr: string; code: number };
+        return { stdout: failed.stdout, stderr: failed.stderr, status: failed.code };
+      }
+    };
+
+    it("does not follow it: the act goes nowhere else, and no answer from elsewhere is taken", async () => {
+      const check = await runSubmit(["--act", "signer.check"]);
+      expect(check.status).not.toBe(0);
+      expect(check.stderr).toContain("no answer from the deployment");
+      expect(check.stdout).not.toContain("applied");
+
+      const usageFile = join(dir, "redirected.txt");
+      const mint = await runSubmit(["--act", "key.mint", "--expires", "30d", "--usage-key-out", usageFile, "--preview-sha256", "a".repeat(64)]);
+      expect(mint.status).not.toBe(0);
+      expect(mint.stderr).not.toContain("Minted.");
+      expect(mint.stderr).toContain("Outcome unknown");
+      // A preview that redirects is refused the same way, before anything is signed.
+      const preview = await runSubmit(["--act", "key.mint", "--expires", "30d", "--usage-key-out", join(dir, "never.txt")]);
+      expect(preview.status).not.toBe(0);
+      expect(preview.stderr).toContain("the key.mint preview was not available; nothing was signed");
+      expect(existsSync(join(dir, "never.txt"))).toBe(false);
+
+      expect(elsewhere).toEqual([]);
+    });
+  });
 });

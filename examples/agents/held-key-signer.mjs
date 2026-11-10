@@ -16,7 +16,8 @@
  *   preview  Prints the body that asks what an act does (no key needed).
  *
  * No network call is made unless you pass --submit, which POSTs to
- * <aud>/api/v1/agents/act (the REST twin of the MCP tool agent.act).
+ * <aud>/api/v1/agents/act (the REST twin of the MCP tool agent.act) and
+ * follows no redirect: one is answered as no answer at all.
  *
  * The usage key a key.mint act adds is made here, from the CSPRNG
  * (ctcg_agt_ plus 22 base62 characters), and written to a second new 0600
@@ -148,11 +149,15 @@ function signAct(privateKey, kid, payload) {
   return `${signingInput}.${b64url(signature)}`;
 }
 
+/** POSTs to the act door. A redirect is never followed: it would carry the
+ *  act to, and take the answer from, wherever it points. It is an error, so
+ *  the caller gets no answer. */
 async function submit(aud, body) {
   const response = await fetch(`${aud}/api/v1/agents/act`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    redirect: "error",
   });
   let answer;
   try {
@@ -221,7 +226,12 @@ if (command === "keygen") {
     let previewSha256 = values["preview-sha256"];
     if (!previewSha256) {
       if (!values.submit) fail("--preview-sha256 is required without --submit: read the key.mint preview first");
-      const preview = await submit(aud, { act: null, preview: "key.mint" });
+      let preview;
+      try {
+        preview = await submit(aud, { act: null, preview: "key.mint" });
+      } catch {
+        fail("the key.mint preview was not available; nothing was signed");
+      }
       if (preview.status !== 200 || typeof preview.answer?.disclosure_sha256 !== "string") {
         print(preview);
         fail("the key.mint preview was not available; nothing was signed");

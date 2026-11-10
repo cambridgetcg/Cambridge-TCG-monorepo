@@ -203,6 +203,9 @@ not Yu's:
   lapsed row is deleted first, as the sweep would delete it, and its bind
   event stays. It used to answer "already bound" until the operator removed
   the old row.
+- The reference signer's `--submit` follows no redirect (`redirect:
+  "error"`): a 307 used to carry the signed act to the other origin and
+  take that origin's answer as the result.
 - The tool grant (`describeAgentToolGrant`) lists `agent.act` under
   `signed_acts` only for operator-managed agents and only while the
   deployment has signed acts open; it listed it with the flag off.
