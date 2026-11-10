@@ -14,31 +14,23 @@
  */
 
 import type { SigningKeyRow, SigningKeyState } from "@/lib/agents/signing-key-actions";
+import { looksLikePrivateKey, PRIVATE_KEY_PASTE_ERROR } from "@/lib/agents/private-key-paste";
 
 /** The form field that carries the paste. */
 export const SIGNING_KEY_JWK_FIELD = "public_jwk";
 
-/** What the operator is told when the paste holds a private key. The
- *  server's text for the same refusal (BINDING_JWK_ERRORS["private key"]
- *  in signed-act-verify.ts) is the same; a test holds them together. */
-export const PRIVATE_KEY_PASTE_ERROR =
-  "That is a private key (it has a \"d\" member). It was not stored or logged. Treat it as exposed: make a new key pair and paste only its public JWK.";
+/** What the operator is told when the paste looks like a private key: the
+ *  server's words for the same refusal (BINDING_JWK_ERRORS["private key"]). */
+export { PRIVATE_KEY_PASTE_ERROR };
 
 /**
- * Whether a paste holds, or looks like it holds, a private key: a JWK
- * member named "d" (parsed, or spelled out in text that does not parse), or
- * a PEM private key block. Generous on purpose: a false alarm costs a
- * re-paste, a miss sends the private half over the network.
+ * Whether a paste looks like a private key: a "d" member in any spelling,
+ * or PEM private-key armour. The server's binding runs the same check
+ * (private-key-paste.ts), so the browser refuses exactly what the server
+ * would refuse as a private key, and refuses it before anything is sent.
  */
 export function pasteHoldsPrivateKey(paste: string): boolean {
-  if (/PRIVATE KEY/i.test(paste)) return true;
-  if (/["']d["']\s*:/.test(paste)) return true;
-  try {
-    const value: unknown = JSON.parse(paste);
-    return typeof value === "object" && value !== null && !Array.isArray(value) && Object.prototype.hasOwnProperty.call(value, "d");
-  } catch {
-    return false;
-  }
+  return looksLikePrivateKey(paste);
 }
 
 /** Live: may sign now (confirmed) or after its first act (pending). */

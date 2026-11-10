@@ -519,6 +519,36 @@ describe("binding a pasted JWK", () => {
     }
   });
 
+  it("refuses anything that looks like a private key before parsing it, valid JSON or not, with the exposed-key words", () => {
+    const { x } = keyPair();
+    const d = b64u(crypto.randomBytes(32));
+    // PEM armour built at run time, so the tracked-secret audit's pattern
+    // never matches this file; there is no key inside.
+    const armour = (kind: string) => ["-----BEGIN", `${kind}-----`].join(" ");
+    for (const paste of [
+      `{"kty":"OKP","crv":"Ed25519","x":"${x}","d":"${d}",}`, // trailing comma
+      `{"kty":"OKP","crv":"Ed25519","x":"${x}","x":"${x}","d":"${d}"}`, // duplicate member
+      JSON.stringify({ keys: [{ kty: "OKP", crv: "Ed25519", x, d }] }), // a JWK Set
+      `${armour("PRIVATE KEY")}\n(no key here)\n`,
+      armour("OPENSSH PRIVATE KEY"),
+      armour("ENCRYPTED PRIVATE KEY"),
+      JSON.stringify({ kty: "OKP", crv: "Ed25519", x, d, pad: "a".repeat(3000) }), // over 2 KiB
+      `{"kty":"OKP","crv":"Ed25519","x":"${x}","\\u0064":"${d}"}`, // d escaped
+      `{"kty":"OKP","crv":"Ed25519","x":"${x}","\\u0064" : "${d}"}`,
+      `{'kty':'OKP','crv':'Ed25519','x':'${x}','d':'${d}'}`,
+      `{kty: "OKP", crv: "Ed25519", x: "${x}", d: "${d}"}`,
+      `kty: OKP\ncrv: Ed25519\nx: ${x}\nd: ${d}\n`,
+    ]) {
+      const checked = checkBindingJwk(paste);
+      expect(checked, paste.slice(0, 60)).toEqual({ ok: false, refusal: "private key", error: BINDING_JWK_ERRORS["private key"] });
+      expect(JSON.stringify(checked)).not.toContain(d);
+      expect(BINDING_JWK_ERRORS["private key"]).toContain("Treat it as exposed");
+    }
+    // A public JWK, and one whose kid merely contains a d, are not private keys.
+    expect(checkBindingJwk(JSON.stringify({ kty: "OKP", crv: "Ed25519", x }))).toMatchObject({ ok: true });
+    expect(checkBindingJwk(JSON.stringify({ kty: "OKP", crv: "Ed25519", x, kid: "used: laptop" }))).toMatchObject({ refusal: "members" });
+  });
+
   it("refuses other members, other key types, duplicates and non-JSON", () => {
     const { x } = keyPair();
     expect(checkBindingJwk(JSON.stringify({ kty: "OKP", crv: "Ed25519", x, kid: "k" }))).toMatchObject({ refusal: "members" });

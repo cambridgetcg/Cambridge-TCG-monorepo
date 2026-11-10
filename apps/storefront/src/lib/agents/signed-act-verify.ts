@@ -25,6 +25,7 @@
 
 import { createHash } from "node:crypto";
 import { ed25519 } from "@noble/curves/ed25519.js";
+import { looksLikePrivateKey, PRIVATE_KEY_PASTE_ERROR } from "./private-key-paste";
 import { hasExactMembers, isJsonObject, parseStrictJson, type StrictJsonOptions } from "./strict-json";
 
 // ── The statement's numbers (held-keys.md D6, an agent's defaults) ───────
@@ -405,8 +406,8 @@ export type BindingJwkCheck =
 /** What the operator is told for each refusal. Fixed text: never the paste. */
 export const BINDING_JWK_ERRORS: Readonly<Record<BindingJwkRefusal, string>> = {
   "not a JSON object": "Paste the public key as a JSON object (a JWK).",
-  "private key":
-    "That is a private key (it has a \"d\" member). It was not stored or logged. Treat it as exposed: make a new key pair and paste only its public JWK.",
+  // The paste form's words too (private-key-paste.ts).
+  "private key": PRIVATE_KEY_PASTE_ERROR,
   members: 'The public JWK must have exactly three members: "kty", "crv" and "x".',
   "not an Ed25519 key": 'Only Ed25519 keys are accepted: "kty" must be "OKP" and "crv" must be "Ed25519".',
   "x encoding": '"x" must be 32 bytes in unpadded base64url (43 characters).',
@@ -418,17 +419,22 @@ const refuse = (refusal: BindingJwkRefusal): BindingJwkCheck => ({ ok: false, re
 
 /**
  * "At binding": the pasted JWK is exactly {kty: "OKP", crv: "Ed25519", x}.
- * A `d` member is refused before anything else is looked at; the caller
- * must neither store nor log the paste. `x` is 32 bytes, canonical, not of
+ * Anything that looks like a private key (a `d` member in any spelling, or
+ * PEM private-key armour; private-key-paste.ts) is refused first, on the
+ * raw paste, before its length is checked or it is parsed, so a broken or
+ * oversized private JWK gets the same words; the caller must neither store
+ * nor log the paste. `x` is 32 bytes, canonical, not of
  * small order and torsion-free, and not a published test key or the dummy
  * verification key.
  */
 export function checkBindingJwk(paste: unknown): BindingJwkCheck {
-  if (typeof paste !== "string" || paste.length > BINDING_JWK_MAX_LENGTH) return refuse("not a JSON object");
+  if (typeof paste !== "string") return refuse("not a JSON object");
+  // Covers every way parsed JSON can hold a "d" member ("d" or "\u0064").
+  if (looksLikePrivateKey(paste)) return refuse("private key");
+  if (paste.length > BINDING_JWK_MAX_LENGTH) return refuse("not a JSON object");
   const parsed = parseStrictJson(paste.trim());
   if (!parsed.ok || !isJsonObject(parsed.value)) return refuse("not a JSON object");
   const jwk = parsed.value;
-  if (Object.prototype.hasOwnProperty.call(jwk, "d")) return refuse("private key");
   if (!hasExactMembers(jwk, ["kty", "crv", "x"])) return refuse("members");
   if (jwk.kty !== "OKP" || jwk.crv !== "Ed25519") return refuse("not an Ed25519 key");
   if (typeof jwk.x !== "string") return refuse("x encoding");

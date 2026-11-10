@@ -174,6 +174,12 @@ not Yu's:
 - `iat` and `exp` must be written as integer literals
   (`-?(0|[1-9][0-9]*)`): no fraction and no exponent, even where the value
   is whole, so a checker that reads exact decimals sees the same integers.
+- A paste that looks like a private key (a `d` member in any spelling, an
+  escaped `d`, or PEM private-key armour) is refused before it is parsed
+  or its length checked, so a broken, oversized or wrapped private JWK also
+  gets the "treat it as exposed" words. The server and the paste form run
+  one shared check (`private-key-paste.ts`), so they refuse the same
+  pastes.
 
 **What is off.** `AGENT_SIGNED_ACTS` is off unless set to exactly `on` with
 an audience. Off, both doors answer `signed_acts_closed`, binding is

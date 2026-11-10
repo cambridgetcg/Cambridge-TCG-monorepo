@@ -35,6 +35,30 @@ describe("pasteHoldsPrivateKey", () => {
     expect(pasteHoldsPrivateKey(paste)).toBe(false);
   });
 
+  it("agrees with the server on every paste: the browser refuses exactly what the server refuses as a private key", () => {
+    const corpus = [
+      `{"kty":"OKP","crv":"Ed25519","x":"${X}"}`,
+      `{"kty":"OKP","crv":"Ed25519","x":"${X}","d":"${X}"}`,
+      `{"kty":"OKP","crv":"Ed25519","x":"${X}","d":"${X}",}`,
+      `{"kty":"OKP","crv":"Ed25519","x":"${X}","x":"${X}","d":"${X}"}`,
+      `{"keys":[{"kty":"OKP","crv":"Ed25519","x":"${X}","d":"${X}"}]}`,
+      `{"kty":"OKP","crv":"Ed25519","x":"${X}","\\u0064":"${X}"}`,
+      `{'d': '${X}'}`,
+      `{d: "${X}"}`,
+      `d: ${X}`,
+      `{"kty":"OKP","crv":"Ed25519","x":"${X}","d":"${X}","pad":"${"a".repeat(3000)}"}`,
+      `${armour("PRIVATE KEY")}\n(no key here)`,
+      armour("EC PRIVATE KEY"),
+      `{"kty":"OKP","crv":"Ed25519","x":"${X}","kid":"used: laptop"}`,
+      "not json at all",
+      "",
+    ];
+    for (const paste of corpus) {
+      expect(pasteHoldsPrivateKey(paste), paste.slice(0, 60)).toBe(checkBindingJwk(paste).ok === false && (checkBindingJwk(paste) as { refusal: string }).refusal === "private key");
+    }
+    expect(corpus.filter(pasteHoldsPrivateKey)).toHaveLength(11);
+  });
+
   it("tells the operator what the server would, word for word", () => {
     expect(PRIVATE_KEY_PASTE_ERROR).toBe(BINDING_JWK_ERRORS["private key"]);
     // And the server refuses the same paste for the same reason.

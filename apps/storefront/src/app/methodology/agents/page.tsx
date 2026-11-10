@@ -483,7 +483,8 @@ export default function AgentsMethodology() {
         printed. The key is pending until its first validly signed act, and lapses if none
         comes within {PENDING_SIGNING_KEY_DAYS} days. An agent holds at most{" "}
         {MAX_LIVE_SIGNING_KEYS} live signing keys, so a new one can be bound before the old
-        one is removed. A pasted private key (a JWK with a <code>d</code> member) is
+        one is removed. Anything pasted that looks like a private key (a JWK with a{" "}
+        <code>d</code> member, however it is written, or private-key armour) is
         refused, in the browser before it is sent and again on the server, and never
         stored or logged; make a new key pair if that happens.
       </p>
