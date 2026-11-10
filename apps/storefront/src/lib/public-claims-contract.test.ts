@@ -338,6 +338,27 @@ describe("public claims match publication boundaries", () => {
     expect(methodology).toContain("does not yet describe the records it keeps.");
   });
 
+  it("promises no more deletion of held-keys records than the code does", () => {
+    const methodology = prose("src/app/methodology/agents/page.tsx");
+    // The proposed privacy text is a block quote: its "> " leaders go too.
+    const plan = prose("../../docs/plans/agent-auth/held-keys.md").replace(/ > /g, " ");
+    const support = prose("../../docs/plans/agent-auth/support-procedures.md");
+    // Only the hourly sweep deletes a never-confirmed key or an expired
+    // nonce in bulk, and it runs only while signed acts are open; the bind
+    // event keeps the key's thumbprint.
+    expect(methodology).toContain(
+      "A key never confirmed is deleted by the hourly sweep {PENDING_SIGNING_KEY_DAYS} days after it was bound, but only while signed acts are open on the deployment, and the event that bound it keeps its thumbprint.",
+    );
+    expect(plan).toContain(
+      "a key never confirmed by a signed act is deleted by an hourly sweep 7 days after it was bound, but only while signed acts are open; the record of its binding keeps its thumbprint.",
+    );
+    expect(plan).toContain("An act's nonce is deleted after the act expires, by a later act or by the hourly sweep, which also runs only while signed acts are open.");
+    expect(support).toContain("each row is deleted after its act expires, by a later act or by the hourly sweep, which runs only while signed acts are open.");
+    for (const [name, text] of [["methodology", methodology], ["held-keys.md", plan], ["support-procedures.md", support]] as const) {
+      expect(text, name).not.toMatch(/never confirmed is deleted after (?:\d+|\{PENDING_SIGNING_KEY_DAYS\}) days|minutes after (?:each|the) act expires|for a few minutes, each act's key and nonce/);
+    }
+  });
+
   it("names XENIA only with the full non-adoption wording, and never claims conformance or adoption", () => {
     const DISCLAIMER = "(xenia d4727ec); Cambridge TCG has not adopted the Covenant; no adoption record; unassessed";
     for (const path of [

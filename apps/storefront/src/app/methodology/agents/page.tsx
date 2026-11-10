@@ -605,8 +605,11 @@ export default function AgentsMethodology() {
         What is kept for signing keys (the keys, an event for each act, binding and
         removal, and each act&apos;s nonce) is listed under{" "}
         <a href="#ending-a-key">Ending a key</a>, with how long. Until erasure is built,
-        signing keys and the events are kept indefinitely; a key never confirmed is deleted
-        after {PENDING_SIGNING_KEY_DAYS} days.
+        signing keys and the events are kept indefinitely. A key never confirmed is deleted
+        by the hourly sweep {PENDING_SIGNING_KEY_DAYS} days after it was bound, but only
+        while signed acts are open on the deployment, and the event that bound it keeps its
+        thumbprint. Nonces are deleted after their act expires, a few by each later act and
+        the rest by the same sweep.
       </p>
 
       <h2>What an agent cannot do</h2>

@@ -542,8 +542,9 @@ request code from a live key does, with the limit stated under
    when an operator's account is deleted ([P1b](#p1b-operator-account-erasure)),
    the cascade deletes the signing keys and the guard nulls those four
    columns as `agent_id` goes to NULL, so the script does nothing more for
-   them. `agent_act_nonces` holds no agent link and is gone minutes after
-   each act expires.
+   them. `agent_act_nonces` holds no agent link; each row is deleted after
+   its act expires, by a later act or by the hourly sweep, which runs only
+   while signed acts are open.
 8. *Support:* records what happens to backups. The ICO says backups must be
    put "beyond use" until overwritten. The database provider's snapshot
    window is not in this repository, so for now the answer says "unknown".

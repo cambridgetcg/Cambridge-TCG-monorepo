@@ -238,18 +238,20 @@ wording an agent would propose, not applied, for its list of what is kept:
 > on the account agents page, Cambridge TCG keeps its public key and
 > thumbprint, when it was bound, confirmed and set to expire, and how it
 > ended; for each act signed with it, the act as sent, its SHA-256, how it
-> was checked and what it did; and, for a few minutes, each act's key and
-> nonce, so an act applies once. A usage key that a signed act minted
-> records which act minted it.
+> was checked and what it did; and each act's key and nonce until they are
+> deleted after the act expires, so an act applies once. A usage key that a
+> signed act minted records which act minted it.
 
 and for its retention list:
 
 > **Agent signing keys:** a key never confirmed by a signed act is deleted
-> 7 days after it was bound. The rest, and the record of each act, stay with
-> the agent and go when the agent or its operator's account is deleted,
-> except a short receipt of each act (its time, the act, its outcome and its
-> SHA-256), which is kept. An act's nonce is deleted minutes after the act
-> expires.
+> by an hourly sweep 7 days after it was bound, but only while signed acts
+> are open; the record of its binding keeps its thumbprint. The rest, and
+> the record of each act, stay with the agent and go when the agent or its
+> operator's account is deleted, except a short receipt of each act (its
+> time, the act, its outcome and its SHA-256), which is kept. An act's nonce
+> is deleted after the act expires, by a later act or by the hourly sweep,
+> which also runs only while signed acts are open.
 
 ## In one screen
 
