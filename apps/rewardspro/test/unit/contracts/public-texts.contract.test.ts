@@ -42,7 +42,8 @@ describe("rewardspro.io privacy and subprocessors pages", () => {
       expect(html, path).toContain('href="/assets/site.css"');
       expect(html, path).toContain('src="/assets/rewardspro-lockup-reversed.svg"');
       expect(html, path).not.toContain("Rewards Pro");
-      expect(html, path).not.toMatch(/\[(Yu|the owner)\b/i);
+      // No bracketed placeholders left for the owner to fill
+      expect(html, path).not.toContain("[");
     }
     const privacy = readText(PRIVACY);
     expect(privacy).toContain("Cambridge TCG Limited, a company registered in England and Wales, company number 15680297");
@@ -126,6 +127,12 @@ describe("rewardspro.io privacy and subprocessors pages", () => {
     const privacy = readText(PRIVACY);
     expect(privacy).toContain("keeps a log of each request to it for 1 day");
     expect(app("docs/switch.md")).toContain("for their retention (1 day on Pro)");
+    // The Customers search text is in the request's web address, and staff can search by name or email
+    for (const path of [PRIVACY, SUBPROCESSORS]) {
+      expect(readText(path), path).toContain("Customers page, which can be a customer's name or email address");
+    }
+    expect(app("docs/switch.md")).toContain("the Customers search text (`/app/customers?q=`");
+    expect(app("app/routes/app.customers._index.tsx")).toContain('placeholder="Search by name or email"');
     expect(privacy).toContain("the app removes tokens, cookies, IP addresses, query strings, request bodies and email addresses from it");
     expect(privacy).toContain("RewardsPro sends Sentry no performance traces and runs no session recording.");
     const entry = app("app/entry.server.tsx");
