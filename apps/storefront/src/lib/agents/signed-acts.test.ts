@@ -3,12 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ed25519 } from "@noble/curves/ed25519.js";
 
 vi.mock("@/lib/db", () => ({ query: vi.fn(), transaction: vi.fn() }));
+// The real verifier, watched: how often it runs, and against which key.
+vi.mock("./signed-act-verify", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./signed-act-verify")>();
+  return { ...actual, verifyActSignature: vi.fn(actual.verifyActSignature) };
+});
 
 import { query, transaction } from "@/lib/db";
 import { signedActsConfig, SIGNED_ACT_LIMITS } from "./signed-act-config";
 import { createActLimiter } from "./signed-act-limits";
 import { currentDisclosure, disclosureSha256, isCurrentDisclosureDigest, SIGNED_ACT_DISCLOSURES } from "./signed-act-disclosures";
-import { ed25519Thumbprint } from "./signed-act-verify";
+import { DUMMY_VERIFICATION_KEY, DUMMY_VERIFICATION_SEED_TEXT, ed25519Thumbprint, verifyActSignature } from "./signed-act-verify";
 import { submitAgentAct, SIGNED_ACT_STATUS, type AgentActAnswer } from "./signed-acts";
 
 // The act path before and around the database. The transaction itself runs
@@ -54,6 +59,7 @@ function expectInvariant(answer: AgentActAnswer) {
 beforeEach(() => {
   vi.mocked(query).mockReset();
   vi.mocked(transaction).mockReset();
+  vi.mocked(verifyActSignature).mockClear();
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -221,6 +227,26 @@ describe("before the database", () => {
     const [sql, params] = vi.mocked(query).mock.calls[0];
     expect(sql).toContain("FROM agent_signing_keys");
     expect(params).toEqual([AGENT, kid]);
+  });
+
+  it("runs the verifier exactly once on the unknown-key path, against the dummy key", async () => {
+    const { secretKey, kid } = keyPair();
+    vi.mocked(query).mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    expect(await submit({ act: signAct(secretKey, kid) })).toMatchObject({ ok: false, status: 403, refusal: { reason_code: "act_unverified" } });
+    expect(verifyActSignature).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(verifyActSignature).mock.calls[0][1]).toEqual(DUMMY_VERIFICATION_KEY);
+    expect(vi.mocked(verifyActSignature).mock.results[0]).toEqual({ type: "return", value: false });
+  });
+
+  it("refuses an act the dummy key signs for an unknown key, though its signature verifies", async () => {
+    // The dummy key's private half is public (its seed is in the source).
+    const seed = new Uint8Array(crypto.createHash("sha256").update(DUMMY_VERIFICATION_SEED_TEXT, "utf8").digest());
+    const kid = ed25519Thumbprint(b64u(DUMMY_VERIFICATION_KEY));
+    vi.mocked(query).mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    const answer = await submit({ act: signAct(seed, kid) });
+    expect(vi.mocked(verifyActSignature).mock.results).toEqual([{ type: "return", value: true }]);
+    expect(answer).toMatchObject({ ok: false, status: 403, verified: false, refusal: { reason_code: "act_unverified" } });
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it("answers a failed lookup with auth_unavailable and logs only the error's code", async () => {

@@ -346,11 +346,11 @@ export function verifyActSignature(
  * an unknown key costs the same work as a bad signature and shares its
  * answer. It is the public key of the seed SHA-256("cambridgetcg.com held
  * keys: dummy verification key"); anyone can compute that seed, which is
- * harmless: whatever this verify returns, an unknown key is refused.
+ * harmless: whatever this verify returns, an unknown key is refused, and the
+ * key is refused at binding (checkBindingJwk), so it never names a real one.
  */
-export const DUMMY_VERIFICATION_KEY = new Uint8Array(
-  Buffer.from("72a3c59085817c7e20171ffd88af925af5a3ab6bedfb9f48b479165e20ee9cc1", "hex"),
-);
+const DUMMY_VERIFICATION_KEY_HEX = "72a3c59085817c7e20171ffd88af925af5a3ab6bedfb9f48b479165e20ee9cc1";
+export const DUMMY_VERIFICATION_KEY = new Uint8Array(Buffer.from(DUMMY_VERIFICATION_KEY_HEX, "hex"));
 export const DUMMY_VERIFICATION_SEED_TEXT = "cambridgetcg.com held keys: dummy verification key";
 
 /** RFC 7638 thumbprint of an Ed25519 OKP key given its x (base64url). */
@@ -407,7 +407,8 @@ const refuse = (refusal: BindingJwkRefusal): BindingJwkCheck => ({ ok: false, re
  * "At binding": the pasted JWK is exactly {kty: "OKP", crv: "Ed25519", x}.
  * A `d` member is refused before anything else is looked at; the caller
  * must neither store nor log the paste. `x` is 32 bytes, canonical, not of
- * small order and torsion-free, and not a published test key.
+ * small order and torsion-free, and not a published test key or the dummy
+ * verification key.
  */
 export function checkBindingJwk(paste: unknown): BindingJwkCheck {
   if (typeof paste !== "string" || paste.length > BINDING_JWK_MAX_LENGTH) return refuse("not a JSON object");
@@ -422,7 +423,10 @@ export function checkBindingJwk(paste: unknown): BindingJwkCheck {
   if (!publicKey || publicKey.length !== 32) return refuse("x encoding");
   if (checkPoint(publicKey) !== "ok") return refuse("x point");
   const hex = Buffer.from(publicKey).toString("hex");
-  if (PUBLISHED_TEST_KEYS_HEX.includes(hex)) return refuse("published test key");
+  // The dummy verification key too: its seed is in this file, so anyone can
+  // sign with it, and bound it would turn the unknown-key path's check into
+  // a real one.
+  if (PUBLISHED_TEST_KEYS_HEX.includes(hex) || hex === DUMMY_VERIFICATION_KEY_HEX) return refuse("published test key");
   return { ok: true, x: jwk.x, publicKey, thumbprint: ed25519Thumbprint(jwk.x) };
 }
 

@@ -527,4 +527,18 @@ describe("the dummy verification key", () => {
     if (!parsed.ok) throw new Error(parsed.detail);
     expect(verifyActSignature(parsed.act, DUMMY_VERIFICATION_KEY)).toBe(false);
   });
+
+  it("is refused at binding, beside the published test keys: its private half is in the source", () => {
+    const x = b64u(DUMMY_VERIFICATION_KEY);
+    expect(checkBindingJwk(JSON.stringify({ kty: "OKP", crv: "Ed25519", x }))).toEqual({
+      ok: false,
+      refusal: "published test key",
+      error: BINDING_JWK_ERRORS["published test key"],
+    });
+    // Anyone can sign with it, which is why it must never be bound.
+    const seed = new Uint8Array(crypto.createHash("sha256").update(DUMMY_VERIFICATION_SEED_TEXT, "utf8").digest());
+    const parsed = parseSignedAct(sign({ alg: "Ed25519", typ: "ctcg-act.v1", kid: ed25519Thumbprint(x) }, payloadFor(), seed), AUD);
+    if (!parsed.ok) throw new Error(parsed.detail);
+    expect(verifyActSignature(parsed.act, DUMMY_VERIFICATION_KEY)).toBe(true);
+  });
 });
