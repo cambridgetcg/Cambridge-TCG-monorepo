@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// jsx-entity-space-audit.cjs: finds page text the production build renders
+// jsx-entity-space-audit.mjs: finds page text the production build renders
 // without the space in front of it.
 //
 // What goes wrong. The compiler Next uses for production (its bundled SWC,
@@ -28,17 +28,22 @@
 // (AGENTS.md principle 8). Run it by hand:
 //
 //     pnpm --filter cambridgetcg-storefront audit:jsx-spaces
-//     node scripts/jsx-entity-space-audit.cjs src/app/privacy --list
+//     node scripts/jsx-entity-space-audit.mjs src/app/privacy --list
 //
 // Two pages' own tests call findDroppedSpaces() on their source: the privacy
 // notice and the agents methodology page, where the defect was found.
 //
 // Written by an AI agent (Claude Code session 99296f25).
-const fs = require("node:fs");
-const path = require("node:path");
-const from = (name) => require(require.resolve(name, { paths: [process.cwd()] }));
-const ts = from("typescript");
-const swc = from("next/dist/build/swc");
+import fs from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+// typescript and Next's bundled compiler are CommonJS, resolved from the app
+// this is run in (apps/storefront).
+const require = createRequire(path.join(process.cwd(), "package.json"));
+const ts = require("typescript");
+const swc = require("next/dist/build/swc");
 
 const ENTITY = /&(#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);/i;
 
@@ -54,7 +59,7 @@ function sourceFiles(target, out = []) {
 }
 
 // true: the compiler drops the space; false: it keeps it; null: not known.
-async function dropsLeadingSpace(raw) {
+export async function dropsLeadingSpace(raw) {
   // Compile <x><y />TEXT</x> with the classic runtime and a stand-in h(), then
   // read the text child back, so quotes and escapes in the text do not matter.
   const src = "const a = <x><y />" + raw + "</x>;";
@@ -74,7 +79,7 @@ async function dropsLeadingSpace(raw) {
  * production compiler drops, plus any candidate it could not classify.
  * @returns {Promise<{scanned: number, candidates: number, hits: {file: string, line: number, start: string}[], unknown: {file: string, line: number, start: string}[]}>}
  */
-async function findDroppedSpaces(target) {
+export async function findDroppedSpaces(target) {
   await swc.loadBindings();
   const hits = [];
   const unknown = [];
@@ -105,9 +110,7 @@ async function findDroppedSpaces(target) {
   return { scanned, candidates, hits, unknown };
 }
 
-module.exports = { findDroppedSpaces, dropsLeadingSpace };
-
-if (require.main === module) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const target = process.argv[2] || "src";
   const jsonOut = process.argv.includes("--json") ? process.argv[process.argv.indexOf("--json") + 1] : null;
   findDroppedSpaces(target).then(({ scanned, candidates, hits, unknown }) => {

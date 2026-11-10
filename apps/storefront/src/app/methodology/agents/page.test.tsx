@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
@@ -238,10 +238,10 @@ describe("agents methodology: spaces in the production build", () => {
     // Next's production compiler drops the leading space of a JSX text that
     // wraps over lines and holds an entity ("</code>takes an act ..."), and
     // Vitest's does not, so this asks the production compiler itself
-    // (scripts/jsx-entity-space-audit.cjs). The fix is an explicit {" "}.
-    const { findDroppedSpaces } = createRequire(import.meta.url)(
-      resolve(process.cwd(), "scripts/jsx-entity-space-audit.cjs"),
-    ) as { findDroppedSpaces: (target: string) => Promise<{ hits: unknown[]; unknown: unknown[] }> };
+    // (scripts/jsx-entity-space-audit.mjs). The fix is an explicit {" "}.
+    const { findDroppedSpaces } = (await import(
+      pathToFileURL(resolve(process.cwd(), "scripts/jsx-entity-space-audit.mjs")).href
+    )) as { findDroppedSpaces: (target: string) => Promise<{ hits: unknown[]; unknown: unknown[] }> };
     const found = await findDroppedSpaces(resolve(process.cwd(), "src/app/methodology/agents/page.tsx"));
     expect(found.hits).toEqual([]);
     expect(found.unknown).toEqual([]);
