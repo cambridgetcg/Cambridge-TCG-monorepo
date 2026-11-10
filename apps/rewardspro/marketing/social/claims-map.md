@@ -4,8 +4,9 @@ The agents' working map for the social kit, made 2026-11-07 by the Clerk (the cl
 by the claims fix maker after the verifier's findings. The ledger itself is [`../claims.toml`](../claims.toml). This
 page says, for each row, what would verify it and which bios, posts and assets use it.
 
-**Every row is `proposed`. None may appear on a live surface yet.** A row becomes `verified` only after its
-evidence check and a second session's concurrence. Where the "What verifies it" column names a dev-store or
+**As made on 7 Nov, every row was `proposed`, and a row became `verified` only after its evidence check and a
+second session's concurrence.** Since 10 Nov there is no concurrence step: `claims.toml` keeps 19 rows (17 of the
+ids below), 18 of them `verified` by their writer and the one read, and isn't extended (its header). Where the "What verifies it" column names a dev-store or
 production check, that check must be recorded first.
 
 **How to read the columns**

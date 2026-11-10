@@ -84,8 +84,9 @@ the agents' reading, in `…/wf8/FOCUS.md` and `…/wf9/signals.md`, for his yes
 - **rewardspro.io** [V]: #191 ("yes strip", live 9 Nov) removed the false features, the old spelling, the docs link
   and an old tagline; live equals main. Unverified lines wait for state A (#210); the privacy page describes
   the old stack [V, 9 Nov audit, #167]; `/help/`, `/terms/`, `/subprocessors/` 404; the docs host 307s to GitBook.
-- **DNS** [V, DNS over HTTPS]: only SPF at the apex, one DMARC (`p=none`). SPF fails (its include has no record) and
-  there is no Google DKIM key, so contact@ is unproven. `rewardspro-marketing` is private, `rewardspro-docs` archived.
+- **DNS** [V, DNS over HTTPS]: only SPF at the apex, one DMARC (`p=none`). SPF failed (its include had no record) and
+  there was no Google DKIM key until later on 10 Nov, when SPF was corrected and DKIM turned on (#164); the owner's
+  test that day reached contact@ (#223). `rewardspro-marketing` is private, `rewardspro-docs` archived.
 - **Claims** [V]: 36 rows on main, all `proposed`. Draft #207 adds 7, with `sh-sc-subscriptions` and
   `rp-no-order-rules` for the listing's limit lines; three of #187's rows were waiting for a concur on #165, which
   is now the one read of the PR that uses them (the charter).

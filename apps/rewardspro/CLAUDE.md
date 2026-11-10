@@ -1,12 +1,19 @@
 # RewardsPro — per-app agent guide
 
-## Free-only, without commercial targets
+## Free-only; growth is the priority
 
 RewardsPro relaunches free-only: Free Forever is the whole offer, and paid plans
 and billing webhooks stay off
 ([2026-10-20 decision](../../docs/decisions/2026-10-20-rewardspro-free-only-relaunch.md),
-an agent's call under Yu's delegation). Since 2026-09-23 there has been no KPI,
-revenue, conversion or growth target. Merchant-facing copy says paid plans
+an agent's call under the owner's delegation). Since 9 Nov 2026 the owner has
+made RewardsPro's growth the priority: marketing, search, and AI agents
+recommending it; since 10 Nov, through organic work and ads, with no cold
+email to shops. The team's charter is
+[`.claude/skills/rp-team/SKILL.md`](../../.claude/skills/rp-team/SKILL.md);
+the week's work is the pinned issue "RewardsPro: this week" (#223). The rebuilt
+app, which production serves, is `apps/rewards`
+([gates.md](../rewards/docs/gates.md)); the notes below are about this folder's
+older app. Merchant-facing copy says paid plans
 aren't offered; it doesn't talk about retirement, and it never tells a shop
 that still pays that RewardsPro is free (`paidPlansNotOfferedMessage` in
 `app/constants/commercial-retirement.ts` branches on that). Existing agreements keep

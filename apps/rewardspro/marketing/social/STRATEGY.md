@@ -41,7 +41,7 @@ same day, in their own files. Where they differ from this file, theirs are curre
 5. **One feed is active: LinkedIn, and it posts only milestones (0–2 a month).** YouTube holds 1–3 real recordings. X and Bluesky (`@rewardspro.io`) have a bio that points elsewhere and never post.
 6. **The handle is `rewardsproapp`** everywhere, with the domain handle on Bluesky. The display name is exactly "RewardsPro". "Shopify" never appears in a name, handle, URL slug or hashtag.
 7. **The owner's time:** about 2 hours once, then ≤10–15 minutes a week on average after S2. That leaves most of the 45-minute weekly approval budget for the listing, the site and outreach.
-8. **Outreach from social stays consent-first.** The Partner Program Agreement says "Do not email a Merchant without their prior consent." For email, the owner decided on 2026-11-07 ("Emailing business directly is fine."): the prospect list is now the outreach design's Lane B, built only at its W-gate (§9, last paragraph).
+8. **Outreach from social stays consent-first.** The Partner Program Agreement says "Do not email a Merchant without their prior consent." For email, the owner decided on 2026-11-07 ("Emailing business directly is fine."), but since 10 Nov, after Shopify Partner support's answer, there is no cold email to shops, and Lane B and its prospect list are dropped (ROADMAP §2).
 9. **Recurring cost is £0.** No paid badges, schedulers or ads. Posting does bring forward one product cost: point-in-time recovery (about $100 a month), or the owner's written acceptance of going without it.
 10. **Positioning stays empty.** The pillars, the bios and the "free" wording are hypotheses or proposals until about five merchant interviews have happened.
 
@@ -262,7 +262,7 @@ Until the interviews: no card-shop or TCG framing, no outcome lines, and nothing
 
 ### 6.3 Claim ids (for the claims maker, who alone edits `claims.toml`)
 
-All rows start as `proposed`. A row becomes `verified` only after its evidence check and a second session's concurrence. Each row carries `commercial_interest = "We make RewardsPro."`, the channels `social-profile` and/or `social-post`, and a `review_after` date. The **sh-*** rows each need:
+All rows started as `proposed`; until 10 Nov a row became `verified` only after its evidence check and a second session's concurrence. Since then a row is `verified` by its writer and the one read, and a new public sentence's source goes in its PR body (`claims.toml`'s header). Each row carries `commercial_interest = "We make RewardsPro."`, the channels `social-profile` and/or `social-post`, and a `review_after` date. The **sh-*** rows each need:
 - a raw re-fetch of the help page, with its sha256 stored;
 - a verbatim-or-paraphrase flag;
 - a 30-day `review_after`;
@@ -394,7 +394,7 @@ Social isn't the acquisition lever. The listing and conversations with merchants
 - the interview guide additions (§5);
 - listing search wording in plain sentences, no keyword lists. In the 2026-10-18 capture, "store credit" and "vip tiers" didn't rank and "cashback" was #43. That predates the listing change, so agents re-capture it read-only.
 
-The owner has answered for email (2026-11-07: "Emailing business directly is fine."). The step-9 prospect list is now Lane B of the outreach pipeline (`wf3/outreach/PIPELINE.md`): built only when the W-gate holds, company-level only, first-segment companies only (never card shops while that lane is held, wf8 F-2), and kept on the owner's encrypted disk image (PIPELINE §8), not in `private/`. The email rules are `wf7/email-rules.md`; the outreach design, not social, carries them.
+**Superseded on 10 Nov 2026:** after Shopify Partner support's answer there is no cold email to shops, and Lane B is dropped (ROADMAP §2); the rest of this paragraph is history. The owner has answered for email (2026-11-07: "Emailing business directly is fine."). The step-9 prospect list is now Lane B of the outreach pipeline (`wf3/outreach/PIPELINE.md`): built only when the W-gate holds, company-level only, first-segment companies only (never card shops while that lane is held, wf8 F-2), and kept on the owner's encrypted disk image (PIPELINE §8), not in `private/`. The email rules are `wf7/email-rules.md`; the outreach design, not social, carries them.
 
 The design's targets (week 6: 30 contacted, 6 conversations, 3 installs; day 90: 5–10 partners) count from S3, not from today.
 
@@ -432,7 +432,7 @@ There are no follower, impression or engagement targets. Each number is read by 
 | Truth | Negative claims (no email, nothing stored) quietly become false | Guard tests (agent PR under apps/rewards; the owner merges, because a merge deploys production) |
 | Truth | Screenshots leak personal or test data (it has happened on the listing) | @example.com only; the checker zooms every capture; G6 |
 | Legal | CAP "free" (3.23–3.26), comparisons (3.32–3.43), reviews (3.44+), identifiable ads (2.1, 2.3, TALA) | The never-say list; "Ad ·" on any personal post; no comparisons |
-| Legal | PPA email and marketing clauses (§9) | Consent-first doors for social; email only through the outreach design's W-gate, on the owner's word of 7 Nov (§9, last paragraph) |
+| Legal | PPA email and marketing clauses (§9) | Consent-first doors for social; no cold email to shops since 10 Nov (ROADMAP §2) |
 | Legal | PPA 5.3 Shopify marks in names, URLs or hashtags | The no-shopify-in-identity rule, extended to slugs, UTM values and hashtags; the badge unaltered only |
 | Legal | UK GDPR for inbound contacts | Personal data only in git-ignored `private/` |
 | Platform | X, LinkedIn and Community ban automation and AI replies | Agents never post, reply, like or schedule; the owner writes Community answers himself |
@@ -473,7 +473,7 @@ There are no follower, impression or engagement targets. Each number is read by 
 **Now (S0 and S1).** The owner's words first, about 25 minutes:
 1. **Y-W.** Are Instagram `@rewardspro.io`, TikTok `@rewardspro`, the GitHub org `RewardsPro` and X `@RewardsPro` yours?
 2. **Y-W.** Yes, no or edits on: the channel roles (§3), the handle `rewardsproapp` plus Bluesky `@rewardspro.io`, and the S0 texts (§3.2).
-3. **Y-W.** The PPA question. **Decided for email on 7 Nov:** "Emailing business directly is fine." (§9, last paragraph). Still open: letters (does the word cover post?), and whether to send the Shopify question as protection (recommended; ROADMAP action 1). A legal read is optional (OUTREACH D16).
+3. **Y-W.** The PPA question. **Settled on 10 Nov:** Shopify Partner support answered, and there is no cold email to shops (ROADMAP §2).
 4. **Y-W.** Remove the KINGDOM TXT records and one DMARC record? Which form of G0 do you accept? Where does `marketing/` move before B5?
 
 Agents, in parallel:
@@ -545,7 +545,7 @@ Then the owner's hand, about 1 h 30 m, with nothing posted:
 - Open every channel with a content calendar, or post "coming soon" teasers before G0.
 - Post anything before S2, or link the listing or rewardspro.io before they are true.
 - Run more than one active feed, or mirror posts to X or Bluesky by default.
-- Send cold email or DMs from social, or buy or build lists of shops we may not contact. (First emails run only in the outreach design, under its W-gate: §9, last paragraph.)
+- Send cold email or DMs from social, or buy or build lists of shops we may not contact. (Since 10 Nov there is no cold email to shops at all: ROADMAP §2.)
 - Write Community answers, Reddit posts or reviews for the owner, or anything shaped like a reply for him to paste.
 - Post on Reddit, Facebook groups, Mastodon or TikTok, or post Instagram content.
 - Use paid badges, ads, boosts, third-party schedulers, automation or AI reply bots.
