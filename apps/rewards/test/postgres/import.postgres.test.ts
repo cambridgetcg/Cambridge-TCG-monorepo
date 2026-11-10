@@ -412,22 +412,49 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
   it("restarts a bulk query Shopify failed up to 3 times, then fails with Shopify's error", async () => {
     const { conn, shopify } = await firstOpen();
     Object.assign(shopify.bulk, { status: "FAILED", errorCode: "TIMEOUT" });
+    let launchedAt = (await connectionRow()).importLaunchedAt!.getTime();
 
     for (let restart = 1; restart <= 3; restart++) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
       await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("running");
       expect(shopify.started).toHaveLength(1 + restart);
-      await expect(connectionRow()).resolves.toMatchObject({
+      const row = await connectionRow();
+      expect(row).toMatchObject({
         importState: "running",
         importOperationId: `gid://shopify/BulkOperation/${1 + restart}`,
         importAttempts: 1 + restart,
         importError: expect.stringContaining("TIMEOUT"),
       });
+      // Each restart claims a new launch, so its grace runs from then
+      expect(row.importLaunchedAt!.getTime()).toBeGreaterThan(launchedAt);
+      launchedAt = row.importLaunchedAt!.getTime();
     }
 
     await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("failed");
     expect(shopify.started).toHaveLength(4);
     await expect(connectionRow()).resolves.toMatchObject({ importState: "failed", importError: expect.stringContaining("TIMEOUT") });
     await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("failed");
+  });
+
+  it("starts a lost start again at the first poll after a reinstall, which resets its launch time", async () => {
+    const { conn, shopify } = await firstOpen();
+    // Its start was lost a minute ago, inside the grace, and then the store was uninstalled
+    await prisma.connection.updateMany({ data: { importOperationId: null, importLaunchedAt: new Date(Date.now() - 60_000) } });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await markUninstalled(SHOP, new Date());
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    await onAppOpened({ session, admin: shopify.admin as unknown as AdminApiContext });
+    await flushWaitUntil();
+
+    await expect(connectionRow()).resolves.toMatchObject({ status: "active", importState: "running", importOperationId: null, importLaunchedAt: null });
+    await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("running");
+    expect(shopify.started).toHaveLength(2);
+    await expect(connectionRow()).resolves.toMatchObject({
+      importOperationId: "gid://shopify/BulkOperation/2",
+      importAttempts: 2,
+      importLaunchedAt: expect.any(Date),
+    });
   });
 
   it("leaves an order from before install that the sweep recorded first earning nothing, and the import skips it", async () => {
@@ -581,6 +608,7 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       externalRefundId: id,
       refundedAt: new Date(),
       completesOrder: false,
+      moneyPending: false,
       productValue: { amount: new Money(amount), shopAmount: new Money(amount) },
     });
     const refundOf9002 = async () =>
@@ -716,6 +744,88 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       });
     });
 
+    /** Shopify starting a bulk query (or, with `fail`, answering its start with errors) as unauthenticated.admin reaches it; returns the queries started. */
+    function mockStartForCron(o: { fail?: boolean } = {}) {
+      const started: string[] = [];
+      const link = graphql.link(adminGraphqlUrl(SHOP));
+      server.use(
+        link.query("RewardsAccessScopes", () =>
+          HttpResponse.json({ data: { currentAppInstallation: { accessScopes: [{ handle: "read_orders" }, { handle: "read_all_orders" }] } } }),
+        ),
+        link.mutation("RewardsBulkOrders", ({ variables }) => {
+          started.push(String(variables.query));
+          if (o.fail) return HttpResponse.json({ errors: [{ message: "Internal error" }] });
+          return HttpResponse.json({
+            data: { bulkOperationRunQuery: { bulkOperation: { id: "gid://shopify/BulkOperation/77", status: "CREATED" }, userErrors: [] } },
+          });
+        }),
+      );
+      return started;
+    }
+
+    /** The first open's start of the import lost (running, no operation id), its launch claimed at `launchedAt`. */
+    async function lostStart(launchedAt: Date) {
+      const { conn } = await firstOpen();
+      await prisma.connection.updateMany({ data: { importOperationId: null, importLaunchedAt: launchedAt } });
+      await seedOfflineSession(SHOP);
+      return conn;
+    }
+
+    async function runHourly() {
+      process.env.CRON_SECRET = CRON_SECRET;
+      const { loader } = await import("~/routes/api.cron.payouts");
+      const response = await loader({
+        request: new Request("https://test.example.com/api/cron/payouts", { headers: { Authorization: `Bearer ${CRON_SECRET}` } }),
+        params: {},
+        context: {},
+      } as never);
+      expect(response.status).toBe(200);
+      return response.json();
+    }
+
+    it("starts again an import whose start was lost, although the payout sweep stamped the store first", async () => {
+      const launched = new Date(Date.now() - 6 * 60_000);
+      await lostStart(launched);
+      mockShopifyForCron({});
+      const started = mockStartForCron();
+
+      await expect(runHourly()).resolves.toMatchObject({ success: true, importsPolled: 1, importsFailed: 0, problems: 0 });
+
+      expect(started).toHaveLength(1);
+      const row = await connectionRow();
+      // The sweep wrote the row just before the import was polled
+      expect(row.lastSweptAt).toEqual(expect.any(Date));
+      expect(row).toMatchObject({ importState: "running", importOperationId: "gid://shopify/BulkOperation/77", importAttempts: 2 });
+      expect(row.importLaunchedAt!.getTime()).toBeGreaterThan(launched.getTime());
+    });
+
+    it("counts a relaunch that fails as a problem of the hourly run", async () => {
+      const launched = new Date(Date.now() - 6 * 60_000);
+      await lostStart(launched);
+      mockShopifyForCron({});
+      const started = mockStartForCron({ fail: true });
+
+      await expect(runHourly()).resolves.toMatchObject({ success: true, importsPolled: 0, importsFailed: 1, problems: 1 });
+
+      expect(started).toHaveLength(1);
+      const partial = await prisma.cronRun.findUniqueOrThrow({ where: { job_outcome: { job: "payouts", outcome: "partial" } } });
+      expect(partial.errorMessage).toMatch(/^1 failed; first: .*The bulk query could not be started again: .*Internal error/);
+      const row = await connectionRow();
+      expect(row).toMatchObject({ importState: "running", importOperationId: null, importAttempts: 2, importError: expect.stringContaining("Internal error") });
+      // The failed relaunch's claim starts a new grace
+      expect(row.importLaunchedAt!.getTime()).toBeGreaterThan(launched.getTime());
+    });
+
+    it("leaves a start inside its grace for the next run, as no problem", async () => {
+      await lostStart(new Date());
+      mockShopifyForCron({});
+      // No start is answered: one asked for would fail the test (onUnhandledRequest: "error")
+
+      await expect(runHourly()).resolves.toMatchObject({ success: true, importsPolled: 1, importsFailed: 0, problems: 0 });
+
+      await expect(connectionRow()).resolves.toMatchObject({ importState: "running", importOperationId: null, importAttempts: 1 });
+    });
+
     // Ruling 85: no second renewal beside a running one; the store is polled next run
     it("skips a store whose token another call is still renewing, as no failure", async () => {
       await firstOpen();
@@ -761,6 +871,22 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       await expect(response.json()).resolves.toMatchObject({ success: true, importsPolled: 0, importsFailed: 1, problems: 1 });
       const partial = await prisma.cronRun.findUniqueOrThrow({ where: { job_outcome: { job: "payouts", outcome: "partial" } } });
       expect(partial.errorMessage).toMatch(/^1 failed; first: .*Internal error/);
+    });
+
+    it("counts the imports the deadline left unpolled as one problem of the hourly run (RP25-F2)", async () => {
+      await firstOpen();
+      await seedOfflineSession(SHOP);
+      const asked = mockShopifyForCron({});
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const result = await pollRunningImports(Date.now() - 1);
+
+      expect(result).toMatchObject({ polled: 0, failed: 1 });
+      expect(String(result.firstProblem)).toMatch(/1 of 1 past-orders imports were not polled before the deadline/);
+      expect(warn.mock.calls.map((args) => args.join(" "))).toEqual(["[import] 1 of 1 past-orders imports were not polled before the deadline"]);
+      warn.mockRestore();
+      expect(asked).toEqual([]);
+      await expect(connectionRow()).resolves.toMatchObject({ importState: "running" });
     });
 
     it("runs after the payout check in the hourly route", async () => {
