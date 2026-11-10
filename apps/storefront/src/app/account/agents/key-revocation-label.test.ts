@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ARCHIVE_REVOCATION_REASON,
   HOLDER_REVOCATION_REASON,
+  SIGNED_ACT_REVOCATION_REASON,
 } from "@/lib/agents/revocation-reasons";
 import { keyRevocationLabel, toKeyRows, type StoredKeyRow } from "./key-revocation-label";
 
@@ -113,6 +114,7 @@ describe("keyRevocationLabel", () => {
   it.each([
     [HOLDER_REVOCATION_REASON, "revoked by the key holder"],
     [ARCHIVE_REVOCATION_REASON, "revoked when the agent was archived"],
+    [SIGNED_ACT_REVOCATION_REASON, "revoked by a signed act"],
     ["admin archive: repeated abuse from 203.0.113.9", "revoked by Cambridge TCG staff"],
     ["admin revoke: leaked in a support ticket", "revoked by Cambridge TCG staff"],
     ["rotated after laptop loss", "revoked from this page"],
@@ -137,5 +139,6 @@ describe("keyRevocationLabel", () => {
   it("matches the sentinels exactly", () => {
     expect(keyRevocationLabel(`${HOLDER_REVOCATION_REASON} extra`)).toBe("revoked from this page");
     expect(keyRevocationLabel(`${ARCHIVE_REVOCATION_REASON} `)).toBe("revoked from this page");
+    expect(keyRevocationLabel(`${SIGNED_ACT_REVOCATION_REASON}.`)).toBe("revoked from this page");
   });
 });

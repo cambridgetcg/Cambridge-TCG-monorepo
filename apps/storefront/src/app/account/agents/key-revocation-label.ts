@@ -14,11 +14,15 @@ import { expiresAtIso } from "@/lib/agents/key-expiry";
 import {
   ARCHIVE_REVOCATION_REASON,
   HOLDER_REVOCATION_REASON,
+  SIGNED_ACT_REVOCATION_REASON,
 } from "@/lib/agents/revocation-reasons";
 import type { KeyRow } from "./page";
 
 export function keyRevocationLabel(reason: string | null): string {
   if (reason === HOLDER_REVOCATION_REASON) return "revoked by the key holder";
+  // A signed key.revoke act from one of the agent's signing keys
+  // (lib/agents/signed-acts.ts), not this page.
+  if (reason === SIGNED_ACT_REVOCATION_REASON) return "revoked by a signed act";
   if (reason === ARCHIVE_REVOCATION_REASON) return "revoked when the agent was archived";
   if (reason?.startsWith("admin")) return "revoked by Cambridge TCG staff";
   return "revoked from this page";
