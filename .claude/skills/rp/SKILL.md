@@ -25,8 +25,8 @@ The owner asks: $ARGUMENTS
 
 - **Exactly `week`:** write the weekly issue below, in 300 words or fewer, and replace the body of the pinned issue
   "RewardsPro: this week" (create, label `rewardspro` and pin it if none exists). That needs his standing yes for
-  board upkeep, given in his own words (see the charter). Without it, show the text here and stop. From a scheduled
-  run, write the issue and stop.
+  board upkeep, given in his own words (see the charter). Without it, show the text here and stop. A scheduled run
+  follows the same rule: with that yes it writes the issue and stops; without it, it writes nothing.
 - **`product` or `growth` plus an ask:** brief that lead (the objective, the output, what not to touch, when to
   stop), pass `model: opus`, and return its answer in ten lines or fewer. For the lab, give him this line once a
   week: `claude --agent rp-product --bg -n "rp-product week" "work your rp:product board"`.

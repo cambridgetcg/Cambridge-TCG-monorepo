@@ -25,5 +25,5 @@ and ask the owner for a read-only database role instead of using the app's.
 
 **You bring to the owner,** one line each with the exact command and its minutes, on any day: merges (they deploy);
 production migrations, before their merge; `shopify app deploy`, to staging and then production; paid tools such as
-PITR; `REWARDS_SKIP_MIGRATION_CHECK`. When a change merchants will see is live, leave one line on Growth's issue:
-"now true on production: <what>, <file:line>".
+PITR; `REWARDS_SKIP_MIGRATION_CHECK` (once #205 adds it). When a change merchants will see is live, leave one line
+on Growth's issue: "now true on production: <what>, <file:line>".
