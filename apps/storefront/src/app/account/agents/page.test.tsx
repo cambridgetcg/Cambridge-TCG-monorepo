@@ -126,7 +126,7 @@ describe("/account/agents page", () => {
           open: true,
           max_live_signing_keys: 2,
           signing_keys: [{ id: "s1", kid: "A".repeat(43), state: "confirmed" }],
-          signed_mints: [{ key_id: "k1" }],
+          signed_mints: [{ key_id: "k1", minted_by_kid: "A".repeat(43) }],
         },
       };
     });
@@ -138,6 +138,6 @@ describe("/account/agents page", () => {
     const [props] = mocks.client.mock.calls[0];
     expect(props.signedActs).toEqual({ open: true });
     expect(props.signingKeys).toEqual({ a1: [{ id: "s1", kid: "A".repeat(43), state: "confirmed" }], a3: null });
-    expect(props.keys.map((key) => [key.id, key.minted_by_signed_act])).toEqual([["k1", true], ["k2", false]]);
+    expect(props.keys.map((key) => [key.id, key.minted_by_signed_act, key.minted_by_kid])).toEqual([["k1", true, "A".repeat(43)], ["k2", false, null]]);
   });
 });

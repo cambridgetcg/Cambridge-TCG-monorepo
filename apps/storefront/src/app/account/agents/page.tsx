@@ -67,6 +67,9 @@ export interface KeyRow {
   /** Created by a signed key.mint act; false while signed acts are closed
    *  (the page then does not read it). */
   minted_by_signed_act: boolean;
+  /** The thumbprint of the signing key whose act minted it; null otherwise,
+   *  or while signed acts are closed. */
+  minted_by_kid: string | null;
   created_at: string;
 }
 
@@ -75,10 +78,10 @@ export interface KeyRow {
  *  leaves that agent's list null (shown as unreadable), never empty. */
 async function readSigningKeys(agents: readonly AgentRow[]): Promise<{
   byAgent: Record<string, SigningKeyRow[] | null>;
-  signedMints: Set<string>;
+  signedMints: Map<string, string | null>;
 }> {
   const byAgent: Record<string, SigningKeyRow[] | null> = {};
-  const signedMints = new Set<string>();
+  const signedMints = new Map<string, string | null>();
   // One at a time: production's pool holds one connection.
   for (const agent of agents) {
     if (agent.registered_via !== "operator") continue;
@@ -89,7 +92,7 @@ async function readSigningKeys(agents: readonly AgentRow[]): Promise<{
         continue;
       }
       byAgent[agent.id] = res.data.signing_keys;
-      for (const mint of res.data.signed_mints) signedMints.add(mint.key_id);
+      for (const mint of res.data.signed_mints) signedMints.set(mint.key_id, mint.minted_by_kid);
     } catch {
       byAgent[agent.id] = null;
     }

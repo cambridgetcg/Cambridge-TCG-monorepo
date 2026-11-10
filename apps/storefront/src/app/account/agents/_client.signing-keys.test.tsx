@@ -168,6 +168,8 @@ describe("/account/agents signing-key paste form", () => {
     await act(async () => button("Remove").click());
 
     expect(confirm.mock.calls[1]?.[0]).toContain("Usage keys it minted keep working");
+    // It names the mark those usage keys carry in the key list.
+    expect(confirm.mock.calls[1]?.[0]).toContain(`"minted by a signed act with signing key ${KID.slice(0, 8)}…"`);
     expect(mocks.removeSigningKey).toHaveBeenCalledWith({ signing_key_id: "s1" });
     expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
   });

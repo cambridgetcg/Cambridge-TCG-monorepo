@@ -74,6 +74,7 @@ import {
   SIGNING_KEY_PRESET_HINT,
   SIGNING_KEY_STATE_LABEL,
   signingKeyCountsLabel,
+  signingKeyShortKid,
 } from "./signing-key-ui";
 import type { AgentRow, KeyRow } from "./page";
 
@@ -297,7 +298,7 @@ function SigningKeys({
 
   function handleRemove(signingKey: SigningKeyRow) {
     const ok = window.confirm(
-      `Remove signing key ${signingKey.kid.slice(0, 8)}…?\n\nThe agent can no longer sign acts with it, from now on. Usage keys it minted keep working; revoke them in the key list if you need to.`,
+      `Remove signing key ${signingKeyShortKid(signingKey.kid)}?\n\nThe agent can no longer sign acts with it, from now on. Usage keys it minted keep working; revoke them in the key list if you need to: they are marked "minted by a signed act with signing key ${signingKeyShortKid(signingKey.kid)}".`,
     );
     if (!ok) return;
     setError(null);
@@ -816,7 +817,14 @@ export function AgentsClient({
                           )}
                           <KeyExpiryLabel keyRow={k} />
                           {k.minted_by_signed_act && (
-                            <span className="text-ink-faint ml-2">· minted by a signed act</span>
+                            <span className="text-ink-faint ml-2">
+                              · minted by a signed act
+                              {k.minted_by_kid && (
+                                <>
+                                  {" "}with signing key <code className="font-mono">{signingKeyShortKid(k.minted_by_kid)}</code>
+                                </>
+                              )}
+                            </span>
                           )}
                           {!k.revoked_at && k.last_used_at && (
                             <span className="text-ink-faint ml-2">

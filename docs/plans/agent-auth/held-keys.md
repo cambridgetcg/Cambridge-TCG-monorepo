@@ -211,6 +211,10 @@ not Yu's:
   16px text on 44px targets, a heading size and text colours the page's
   other sections use, and a disabled bind button that names the paragraph
   saying why (`aria-describedby`, which the shared `Button` now passes on).
+- The "minted by a signed act" mark on a usage key names the signing key
+  that signed the act by its thumbprint's first eight characters, as the
+  removal dialog does, so an operator removing a leaked key can find what
+  it minted.
 - The key-exit inventory names the holder of a signing key, through
   `signer.check`, as a reader of the usage key's row and the agent's row;
   its version is 2026-11-10.3.

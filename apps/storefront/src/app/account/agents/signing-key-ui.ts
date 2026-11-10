@@ -33,6 +33,12 @@ export function pasteHoldsPrivateKey(paste: string): boolean {
   return looksLikePrivateKey(paste);
 }
 
+/** A thumbprint's first eight characters, as the removal dialog and the
+ *  usage keys a signed act minted name the signing key. */
+export function signingKeyShortKid(kid: string): string {
+  return `${kid.slice(0, 8)}…`;
+}
+
 /** Live: may sign now (confirmed) or after its first act (pending). */
 export function isLiveSigningKey(key: Pick<SigningKeyRow, "state">): boolean {
   return key.state === "pending" || key.state === "confirmed";

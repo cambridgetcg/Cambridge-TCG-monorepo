@@ -54,6 +54,7 @@ function key(overrides: Partial<KeyRow>): KeyRow {
     expires_at: null,
     expired: false,
     minted_by_signed_act: false,
+    minted_by_kid: null,
     created_at: "2026-10-29T10:00:00Z",
     ...overrides,
   };
@@ -239,12 +240,17 @@ describe("/account/agents client", () => {
     const html = renderToStaticMarkup(
       <AgentsClient
         agents={[agent({})]}
-        keys={[key({ id: "k1", name: "signed", minted_by_signed_act: true }), key({ id: "k2", name: "paged" })]}
+        keys={[
+          key({ id: "k1", name: "signed", minted_by_signed_act: true, minted_by_kid: "Ab_-".repeat(10) + "xyz" }),
+          key({ id: "k2", name: "paged" }),
+        ]}
         signedActs={{ open: true }}
         signingKeys={{ "agent-1": [] }}
       />,
     );
     expect(html.match(/minted by a signed act/g)).toHaveLength(1);
+    // Which signing key: its first characters, as the removal dialog names it.
+    expect(html.replace(/<[^>]+>/g, "")).toContain("minted by a signed act with signing key Ab_-Ab_-…");
   });
 });
 
