@@ -16,6 +16,12 @@
  *     key whatever its registration or its agent's status, so the MCP route
  *     runs it in a carve-out before the gate; canInvokeAgentTool never
  *     admits it, so the normal dispatch path can never run it.
+ *   - signed_acts: agent.act, which takes a signed statement instead of a
+ *     bearer key (lib/agents/signed-acts.ts). Its own carve-out in the MCP
+ *     route runs it before the gate, apart from self_lifecycle (that
+ *     carve-out would end the presented bearer key). canInvokeAgentTool
+ *     never admits it. Signing keys are bound only to operator-managed
+ *     agents, and the path is closed unless AGENT_SIGNED_ACTS is on.
  *   - domain_writes: none while AGENT_DOMAIN_WRITE_TOOLS_ENABLED is false.
  */
 
@@ -47,6 +53,11 @@ const OPERATOR_MANAGED_REVIEW_TOOLS = new Set(["coverage.hunt.contribute"]);
  *  self-lifecycle carve-out, never by canInvokeAgentTool's path. */
 export const SELF_LIFECYCLE_TOOLS: ReadonlySet<string> = new Set(["agent.revoke_key"]);
 
+/** Tools that take a signed act rather than a bearer key. Run by the MCP
+ *  route's signed-act carve-out, never by canInvokeAgentTool's path, and
+ *  never in SELF_LIFECYCLE_TOOLS. */
+export const SIGNED_ACT_TOOLS: ReadonlySet<string> = new Set(["agent.act"]);
+
 /** The first two lines below, as /.well-known/mcp.json has published them
  *  since 2026-11-06. agent.self's recorded_about_this_key quotes them back
  *  (self-record.ts), so each item it reads says where it is listed. */
@@ -68,6 +79,9 @@ export interface AgentToolGrant {
   reads: string[];
   review_submissions: string[];
   self_lifecycle: string[];
+  /** Tools authenticated by a signed act from a bound signing key; operator-
+   *  managed agents only. Open only while AGENT_SIGNED_ACTS is on. */
+  signed_acts: string[];
   /** Always empty while AGENT_DOMAIN_WRITE_TOOLS_ENABLED is false. */
   domain_writes: [];
   operational_metadata_writes: string[];
@@ -99,6 +113,7 @@ export function describeAgentToolGrant(
     ],
     review_submissions: operator ? [...OPERATOR_MANAGED_REVIEW_TOOLS] : [],
     self_lifecycle: [...SELF_LIFECYCLE_TOOLS],
+    signed_acts: operator ? [...SIGNED_ACT_TOOLS] : [],
     domain_writes: [],
     operational_metadata_writes: [...AGENT_OPERATIONAL_METADATA_WRITES],
   };
@@ -153,3 +168,26 @@ export function reviewSubmissionsByRegistration(): {
     self_serve: describeAgentToolGrant("self-serve").review_submissions,
   };
 }
+
+/**
+ * agent.act's input schema. Both members take ["string", "null"], so a
+ * client that marks every property required can still send one of them as
+ * null, the lesson of agent.revoke_key's schema above. Send exactly one as
+ * a string: `act`, a compact JWS, or `preview`, an act name.
+ */
+export const AGENT_ACT_INPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    act: {
+      type: ["string", "null"],
+      description:
+        "A signed act: a compact JWS (header.payload.signature) of at most 8 KiB, typ ctcg-act.v1, signed with a key the operator bound to this agent. null to ask for a preview instead.",
+    },
+    preview: {
+      type: ["string", "null"],
+      description:
+        "An act name (signer.check, key.mint or key.revoke) to preview: writes nothing and needs no key. null when sending an act.",
+    },
+  },
+  additionalProperties: false,
+} as const;
