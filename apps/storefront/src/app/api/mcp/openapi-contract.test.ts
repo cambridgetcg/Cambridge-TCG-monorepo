@@ -73,6 +73,8 @@ function keyRow(overrides: Record<string, unknown> = {}) {
   return {
     key_id: "key-1",
     rate_limit_tier: "free",
+    expires_at: null,
+    key_expired: false,
     agent_id: "agent-1",
     public_handle: "agent-one",
     operated_by_user_id: "user-1",
@@ -154,6 +156,7 @@ describe("OpenAPI describes the agent key", () => {
       authRefusal({ ok: false, status: 401, reason_code: "missing_credentials", error: "" }),
       authRefusal({ ok: false, status: 401, reason_code: "malformed_credentials", error: "" }),
       authRefusal({ ok: false, status: 401, reason_code: "unknown_or_revoked_key", error: "" }),
+      authRefusal({ ok: false, status: 401, reason_code: "key_expired", error: "" }),
       authRefusal({
         ok: false,
         status: 403,
@@ -215,6 +218,27 @@ describe("the gate answers with the statuses and carriers OpenAPI lists", () => 
     }
     // Only the well-formed token cost a lookup.
     expect(mocks.query).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers an expired key, through the real gate, with the documented 401 and its error_description", async () => {
+    const { responses, refusal } = await documented();
+    expect(responses["401"].headers).toHaveProperty("WWW-Authenticate");
+    // Expired and suspended: expiry is answered first.
+    mocks.query.mockResolvedValueOnce({
+      rows: [keyRow({ expires_at: new Date("2026-11-01T00:00:00Z"), key_expired: true, agent_status: "suspended" })],
+    });
+    const response = await POST(request("agent.self", {}, `Bearer ${AGENT_TOKEN}`));
+    const body = await response.json();
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toBe(
+      'Bearer realm="cambridgetcg-mcp", error="invalid_token", error_description="The access token expired"',
+    );
+    expect(response.headers.get("x-agent-key-expires")).toBeNull();
+    expect(body.error.code).toBe(-32001);
+    expect(body.error.data.reason_code).toBe("key_expired");
+    expect(refusal.properties.reason_code.enum).toContain("key_expired");
+    expectDocumentedRefusal(body.error.data, refusal);
+    expect(mocks.checkAndConsume).not.toHaveBeenCalled();
   });
 
   it("answers a suspended agent with a documented 403 that lists the key's own exit", async () => {
@@ -292,13 +316,20 @@ describe("the gate answers with the statuses and carriers OpenAPI lists", () => 
     for (const header of Object.keys(responses["200"].headers ?? {})) {
       expect(response.headers.get(header), header).not.toBeNull();
     }
+    expect(responses["200"].headers).toHaveProperty("X-Agent-Key-Expires");
     expect(response.headers.get("x-ratelimit-remaining")).toBe("29");
+    expect(response.headers.get("x-agent-key-expires")).toBe("never");
+
+    mocks.query.mockResolvedValueOnce({ rows: [keyRow({ expires_at: new Date("2027-01-28T00:00:00Z") })] });
+    const dated = await POST(request("agent.self", {}, `Bearer ${AGENT_TOKEN}`));
+    expect(dated.status).toBe(200);
+    expect(dated.headers.get("x-agent-key-expires")).toBe("2027-01-28T00:00:00.000Z");
   });
 
   it("previews agent.revoke_key as a 200 without a confirm, and its unknown state as a 503", async () => {
     const { responses } = await documented();
     mocks.query.mockResolvedValueOnce({
-      rows: [{ key_prefix: AGENT_TOKEN.slice(0, 12), registered_via: "operator", status: "active", other_live_keys: 0 }],
+      rows: [{ key_prefix: AGENT_TOKEN.slice(0, 12), expires_at: null, key_expired: false, registered_via: "operator", status: "active", other_live_keys: 0 }],
     });
     const preview = await POST(request("agent.revoke_key", {}, `Bearer ${AGENT_TOKEN}`));
     expect(preview.status).toBe(200);

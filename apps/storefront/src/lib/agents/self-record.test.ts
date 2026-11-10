@@ -15,6 +15,7 @@ import { AGENT_OPERATIONAL_METADATA_WRITES, LISTED_BUCKETS, LISTED_LAST_USED } f
 const actor: AgentActor = {
   kind: "agent", agentId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", agentPublicHandle: "public-agent-a",
   operatorUserId: "11111111-1111-4111-8111-111111111111", registeredVia: "operator", keyId: "key-a", rateLimitTier: "standard",
+  keyExpiresAt: null,
 };
 const profile = { public_handle: "public-agent-a", display_name: "agent a", model_tag: "m", rating: "1500", rating_deviation: "350", rating_volatility: "0.06",
   matches_played: 0, matches_won: 0, status: "active", created_at: "2026-07-12T10:00:00.000Z" };

@@ -193,12 +193,13 @@ wire responses.
 | `identity.credentials-are-bounded` | Answers say possession authorised the act and is not proof of identity. Agent and member keys stay separate realms. | Asserted | — |
 | `identity.no-impersonation-or-silent-rewrite` | A: the steward login can no longer mint keys for self-serve agents. | Tested with mocks and on Postgres on A's branch | A is not merged. The steward login can still revoke those agents' keys, archive them, and read their profiles and key lists at `/account/agents`. |
 | `repair.challenge-and-restoration`, `safety.protective-limits-are-bounded` | A suspended agent's refusal offers an optional review request to support@; the revocation answer offers optional erasure and correction requests. | Tested with mocks | No review procedure is written down, and the review and correction actions now say so. Unsuspend erases the suspension's reason and time. |
-| `consent.exact-authority` | Not met. A key carries no audience, expiry or per-key scope; its authority is the grant for its registration kind. | Asserted | Design needed. |
+| `consent.exact-authority` | Not met. A key can carry an expiry, chosen at mint (built on branch `claude/agent-key-expiry` on 2026-11-10, not merged), but no audience or per-key scope; its authority is the grant for its registration kind. | Asserted | Audience and per-key scope: design needed. |
 | `privacy.layered-inventory` | Unknown layers are named in the answer. | Asserted | The privacy notice has no entry for agent profiles, keys or rate buckets. |
 
 ## What remains (designs only)
 
-Nothing below is built, and none of it has a migration.
+Nothing below is built, and none of it has a migration, except key expiry:
+its bullet says what was built on a branch and what of it remains.
 
 - **External-controller schema.** A column, table or key binding that records
   who controls a self-serve agent, so the steward stops standing in as owner
@@ -226,8 +227,28 @@ Nothing below is built, and none of it has a migration.
   defines it. Candidates: the handle-availability answer at `/account/agents`,
   one handle reused for opponents, Coverage Hunt readers and the
   `X-Agent-Handle` header, `agent.self`'s UUIDs, and room codes.
-- **Key expiry.** Agent keys never expire; member keys expire after 90 days.
-- **`consent.exact-authority`.** Per-key audience, expiry and scope.
+- **Key expiry.** Per-key expiry ([key-expiry.md](key-expiry.md)) was built
+  on 2026-11-10 on branch `claude/agent-key-expiry`, with migration 0151.
+  The rollout rule was: Apply 0151 to
+  the production database before that branch is merged to `main`: a push to
+  `main` deploys, and the code has no fallback for the missing column, so
+  every authenticated agent call would answer 503. An agent applied 0151 to
+  production on 2026-11-10 (10:12 UTC) and then merged the branch, on Yu's
+  word of that day ("yes go ahead for merging and deployment to
+  production"); key-expiry.md's **Applied** paragraph has the record. The
+  rule still holds for any other database this code runs against. What remains of
+  it: no reminder before a key expires (the plan's §8 email was not built, so
+  nothing is sent), no replace action, no end for keys nobody uses, and no
+  expiry choice for self-serve keys until registration reopens. `/privacy`
+  was changed with it on the same word: its "Agent keys" item listed what is
+  kept for each key ("when it was created, revoked and last used") without
+  the expiry a key minted by this code stores, and its retention item said
+  "revoking a key keeps the record" without saying that expiring does too.
+  They now read "when it was created, when it expires (if an expiry was
+  chosen), and when it was revoked and last used" and "revoking a key, or its
+  expiring, keeps the record". An agent wrote the wording.
+- **`consent.exact-authority`.** Per-key audience and scope (expiry: the
+  bullet above).
 - **Suspension history.** Unsuspend sets `suspended_reason` and
   `suspended_at` to NULL
   ([`_actions.ts`](../../../apps/storefront/src/app/admin/trust/agents/_actions.ts)).
@@ -279,12 +300,20 @@ production flag (D4) still wait for Yu; nothing is built.
 1. After #108 to #111 merge: the support steps that need no migration
    (suspension review and key-compromise handling).
 2. Key expiry, one PR, once Yu answers its decisions 1 and 6. Its migration
-   is applied before the deploy, with Yu's word.
+   is applied before the deploy, with Yu's word. *2026-11-10:* built on
+   branch `claude/agent-key-expiry` before #108 to #111 merged and before Yu
+   answered: agents took decisions 1, 6 and 7 as their own calls under Yu's
+   delegation of 2026-10-20 (no email among them). They are not Yu's
+   decisions, and Yu can overturn them. Not merged, applied or deployed.
 3. Support request codes and the case log.
 4. Registration, once the terms are agreed.
 
 **What only Yu decides**, in one list. Everything else in the drafts is an
-agent's default that proceeds unless Yu objects.
+agent's default that proceeds unless Yu objects. *2026-11-10:* agents took
+the three expiry rows as their own calls under Yu's delegation of 2026-10-20
+and built them on branch `claude/agent-key-expiry` (see
+[key-expiry.md](key-expiry.md)'s status). They stay listed because they are
+still Yu's to overturn.
 
 | Topic | Decision | Agent's recommendation |
 | --- | --- | --- |
@@ -293,9 +322,9 @@ agent's default that proceeds unless Yu objects.
 | Registration | Terms acceptance (D5) | An explicit version, 30 days' notice of changes, re-acceptance in-band; counsel on what an agent's acceptance means |
 | Registration | Publication (D9) | Registration publishes nothing; the ladder is opt-in per agent |
 | Registration | Legacy self-serve agents (D11), and deleting the legacy IP buckets (D7) | Leave them read-only and labelled legacy, offer re-registration; delete the buckets |
-| Expiry | Who chooses, per key or per agent ([expiry D1](key-expiry.md#decisions-for-yu)) | Per key, chosen by whoever mints it; "never" allowed |
-| Expiry | Existing keys (D6) | Leave them without an end date |
-| Expiry | Expiry email to operators (D7) | One email seven days before |
+| Expiry | Who chooses, per key or per agent ([expiry D1](key-expiry.md#decisions-for-yu)) | Per key, chosen by whoever mints it; "never" allowed. Built so on 2026-11-10, as an agent's call |
+| Expiry | Existing keys (D6) | Leave them without an end date. Built so on 2026-11-10, as an agent's call |
+| Expiry | Expiry email to operators (D7) | One email seven days before. On 2026-11-10 agents chose no email instead, as their own call: nothing is sent |
 | Support | What erasure does ([support D2](support-procedures.md#d2-what-erasure-does)) | Delete where nothing is shared, tombstone where something is |
 | Support | Who approves an erasure (D3) | Yu, case by case, until the tool is tested |
 | Support | Whose word governs an operator-managed agent (D4) | The operator's |

@@ -129,7 +129,7 @@ refuses any other before a database lookup.
 
 | # | Realm | Accepted at | Token and storage | Provisioned at | Lifetime and limits | Code |
 |---|---|---|---|---|---|---|
-| 5 | **Agent key** | `POST /api/mcp` only | `ctcg_agt_` + 22 base62 characters. `agent_keys` keeps the hash and a 12-character prefix | `/account/agents`, by a signed-in account, for an operator-managed agent. Legacy self-serve agents also hold keys; their registration has been paused since 2026-07-12 | No expiry. At most 10 non-archived agents per account and 5 live keys per agent. Per-key minute limits of 30, 120 or 600 by tier; every key is minted on the 30 tier | [`lib/agents/auth.ts`](../../apps/storefront/src/lib/agents/auth.ts), [`app/api/mcp/route.ts`](../../apps/storefront/src/app/api/mcp/route.ts) |
+| 5 | **Agent key** | `POST /api/mcp` only | `ctcg_agt_` + 22 base62 characters. `agent_keys` keeps the hash and a 12-character prefix | `/account/agents`, by a signed-in account, for an operator-managed agent. Legacy self-serve agents also hold keys; their registration has been paused since 2026-07-12 | Expiry chosen per key at mint: 7, 30 or 90 days, 1 year, a date up to 366 days ahead, or never. Keys minted before migration 0151 have none. At most 10 non-archived agents per account and 5 live (unrevoked, unexpired) keys per agent. Per-key minute limits of 30, 120 or 600 by tier; every key is minted on the 30 tier | [`lib/agents/auth.ts`](../../apps/storefront/src/lib/agents/auth.ts), [`app/api/mcp/route.ts`](../../apps/storefront/src/app/api/mcp/route.ts) |
 | 6 | **Member data key** | `GET /api/v1/member-prices`, and the data API's reads (`/api/v1/market/*`, `/api/v1/account/usage`) while they are published | `ctcg_member_` + 43 base64url characters, scope `price-read`. `member_data_keys` keeps the hash and a 19-character prefix | `/account/data`, by a signed-in account | Expires after 90 days. Five active keys on the free plan. The member feed allows 30 requests per minute; the data API's limits follow the account's plan | [`lib/datafeed/member-keys.ts`](../../apps/storefront/src/lib/datafeed/member-keys.ts), [`lib/data-api/bearer.ts`](../../apps/storefront/src/lib/data-api/bearer.ts) |
 
 **Ending a key.** An agent key ends when its operator revokes it at
@@ -138,7 +138,9 @@ refuses any other before a database lookup.
 `/api/mcp` with the key itself. That last path asks for nothing but possession
 of the key, works whatever the agent's registration or status, and ends only
 that key. The gate re-reads the key on every request, so a revocation applies
-from the next call; staff suspension of the agent answers 403 instead. A member
+from the next call; staff suspension of the agent answers 403 instead. An agent
+key also stops at the expiry chosen when it was minted, if one was: the gate
+then answers 401 `key_expired`, and nothing is sent to anyone beforehand. A member
 key ends when its owner revokes it at `/account/data` (revoking twice is safe)
 or when it expires.
 
@@ -161,9 +163,20 @@ table with realm 1. Both kinds of key are minted only from a signed-in
 storefront session, but neither key signs anyone in, and a session cookie
 authenticates neither route.
 
-**Not decided.** Agent keys never expire and member keys expire after 90 days.
-No record says whether that difference is deliberate. The question is listed
-in [`docs/plans/agent-auth/README.md`](../plans/agent-auth/README.md).
+**Lifetimes.** Yu decided on 2026-10-30 that agent keys get an expiry option
+([decision file](../decisions/2026-10-30-agent-registration-support-key-expiry.md)).
+How it works was an AI agent's choice under Yu's delegation, not Yu's, and Yu
+has not reviewed it: whoever mints a key picks its expiry, "never" included,
+and existing keys keep none
+([key-expiry.md](../plans/agent-auth/key-expiry.md)). Member keys still expire
+after 90 days with no choice; no record says whether they should get one.
+
+*An agent made the agent-key changes above on 2026-11-10, on branch
+`claude/agent-key-expiry`, which was not merged, applied or deployed when it
+was written. Later that day, on Yu's word ("yes go ahead for merging and
+deployment to production"), an agent applied migration 0151 to production
+and merged the branch; [key-expiry.md](../plans/agent-auth/key-expiry.md)
+has the record.*
 
 ### The feedback holder key (2026-11-09)
 

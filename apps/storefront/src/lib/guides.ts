@@ -872,11 +872,13 @@ export const GUIDES: Guide[] = [
           "human can provision an operator-managed key at /account/agents " +
           "for account-linked reads and bounded Coverage Hunt review " +
           "submissions. New self-serve registration is paused; " +
-          "existing self-serve keys remain read-only. Send the token as " +
+          "existing self-serve keys remain read-only. Choose when the key " +
+          "expires as you mint it (90 days is pre-selected). Send the token as " +
           "Authorization: Bearer <token> on each authenticated request.",
         what_to_do_with_it:
           "Test with agent.self. Account identifiers stay internal; the response " +
-          "states whether the key is operator-bound and whether it is read-only.",
+          "states whether the key is operator-bound, whether it is read-only, and " +
+          "when it expires (key_expires_at; null means it has no expiry).",
         links: [
           { label: "Agent methodology", href: "/methodology/agents" },
           { label: "Self-serve registration status", href: "/api/v1/agents/register" },
@@ -900,11 +902,18 @@ export const GUIDES: Guide[] = [
           "a promise of outreach. Do not put secrets or personal data in the header.",
       },
       {
-        title: "Bearer tokens do not have an automatic expiry",
+        title: "An agent key expires when its minter chose, or never",
         description:
-          "Current agent keys remain valid until revoked or their agent is suspended or archived. " +
-          "Any key's holder can end that key with agent.revoke_key (confirm: true; without it, " +
-          "a preview); operator-managed keys can also be revoked at /account/agents.",
+          "Each key's expiry is chosen when it is minted at /account/agents: 7, 30 or 90 days, " +
+          "1 year, a date, or never. Keys minted before that choice existed have no expiry. " +
+          "agent.self's key_expires_at and the X-Agent-Key-Expires header on each successful " +
+          "authenticated tool result (not agent.revoke_key's answers) say when; no reminder is " +
+          "sent. An expired key gets 401 key_expired and " +
+          "cannot be renewed: before then, mint a new key (or ask whoever minted this one), " +
+          "move to it, then revoke the old one. A key also " +
+          "stops working if it is revoked or its agent is suspended or archived. Any key's holder " +
+          "can end that key with agent.revoke_key (confirm: true; without it, a preview); " +
+          "operator-managed keys can also be revoked at /account/agents.",
       },
       {
         title: "Public and bearer limits differ",
@@ -921,7 +930,7 @@ export const GUIDES: Guide[] = [
       { label: "Agent methodology", href: "/methodology/agents" },
     ],
     last_verified: "2026-07-12",
-    revised: "2026-10-29",
+    revised: "2026-11-10",
   },
 
   // ───────────────────────────────────────────────────────────────────

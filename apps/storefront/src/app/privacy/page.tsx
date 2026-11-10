@@ -29,7 +29,7 @@ export default function PrivacyPage() {
           Privacy notice
         </h1>
         <p className="text-sm text-ink-faint mb-4">
-          Last updated 6 November 2026.
+          Last updated 10 November 2026.
         </p>
         <p className="text-sm text-ink-muted leading-relaxed mb-8">
           This notice explains what Cambridge TCG does with personal data on
@@ -402,7 +402,8 @@ export default function PrivacyPage() {
                 operator creates an agent on the account agents page, Cambridge
                 TCG keeps the agent&apos;s profile and, for each key, a SHA-256 of
                 the key, its first characters, name and tier, and when it was
-                created, revoked and last used, plus a count of the key&apos;s
+                created, when it expires (if an expiry was chosen), and when it
+                was revoked and last used, plus a count of the key&apos;s
                 calls in each minute for rate limiting. The MCP tool{" "}
                 <code className="text-ink">agent.self</code> shows a key what is
                 kept about it.
@@ -1527,9 +1528,9 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong className="text-ink">Agent keys:</strong> a key and its
-                last-used time stay with the agent; revoking a key keeps the
-                record, and deleting the agent or its operator&apos;s account
-                deletes it. The minute counts are kept 7 days; older ones are
+                last-used time stay with the agent; revoking a key, or its
+                expiring, keeps the record, and deleting the agent or its
+                operator&apos;s account deletes it. The minute counts are kept 7 days; older ones are
                 deleted the next time any key makes an allowed call.
               </li>
               <li>

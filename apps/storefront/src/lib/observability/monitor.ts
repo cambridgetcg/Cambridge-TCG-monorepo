@@ -13,6 +13,7 @@ import { FRESHNESS, type FreshnessKey } from "@cambridge-tcg/data-spec";
 import { BATCH_COLLECTED_SOURCES, collectionOn, type CollectedSource } from "@/lib/datafeed/collection-flags";
 import { dataApiCheckoutIntake, dataApiPlansPublished, dataApiReadsPublished, dataApiSaleStatus } from "@/lib/data-api/posture";
 import { deriveHostHealth, readCollectorHostStates, type CollectorHostsHealth } from "@/app/api/v1/sources/collector-health";
+import { liveAgentKeySql } from "@/lib/agents/key-expiry";
 import { mcpDailyOn } from "./mcp-daily";
 import { OBSERVABILITY_TABLES, RETENTION_BY_TABLE, expiredRowsSql, retentionLabel, type ObservabilityTable } from "./retention";
 import type { TrafficPullStatus } from "./vocabulary";
@@ -321,18 +322,20 @@ export function mcpView(mcp: McpCounts, keys: Known<AgentKeyUse>): McpView {
   };
 }
 
-/** agent_keys (0090): how many, and when the active ones were last used, in
- * bands. Counts only: no key, prefix, name or agent beside a time. */
+/** agent_keys (0090; expiry 0151): how many, and when the active (live:
+ * not revoked, not expired) ones were last used, in bands. Counts only: no
+ * key, prefix, name or agent beside a time. */
 export function readAgentKeys(run: RunQuery): Promise<Known<AgentKeyUse>> {
+  const live = liveAgentKeySql("");
   return known("agent_keys", "0090", async () => {
     const row = (await run(`SELECT count(*)::int AS keys,
-        count(*) FILTER (WHERE revoked_at IS NULL)::int AS active,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at IS NULL)::int AS never,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at >= now() - interval '1 hour')::int AS last_hour,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at < now() - interval '1 hour' AND last_used_at >= now() - interval '1 day')::int AS last_day,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at < now() - interval '1 day' AND last_used_at >= now() - interval '7 days')::int AS last_week,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at < now() - interval '7 days' AND last_used_at >= now() - interval '30 days')::int AS last_month,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at < now() - interval '30 days')::int AS older
+        count(*) FILTER (WHERE ${live})::int AS active,
+        count(*) FILTER (WHERE ${live} AND last_used_at IS NULL)::int AS never,
+        count(*) FILTER (WHERE ${live} AND last_used_at >= now() - interval '1 hour')::int AS last_hour,
+        count(*) FILTER (WHERE ${live} AND last_used_at < now() - interval '1 hour' AND last_used_at >= now() - interval '1 day')::int AS last_day,
+        count(*) FILTER (WHERE ${live} AND last_used_at < now() - interval '1 day' AND last_used_at >= now() - interval '7 days')::int AS last_week,
+        count(*) FILTER (WHERE ${live} AND last_used_at < now() - interval '7 days' AND last_used_at >= now() - interval '30 days')::int AS last_month,
+        count(*) FILTER (WHERE ${live} AND last_used_at < now() - interval '30 days')::int AS older
       FROM agent_keys`)).rows[0] ?? {};
     return {
       keys: num(row.keys), active: num(row.active), never: num(row.never), lastHour: num(row.last_hour), lastDay: num(row.last_day),

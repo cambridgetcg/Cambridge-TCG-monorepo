@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ query: mocks.query, transaction: mocks.transaction }));
 
 import { createAgentWithKey, type CreateAgentWithKeyInput } from "./creation";
+import { keyExpiresAtSql } from "./key-expiry";
 
 const USER_ID = "00000000-0000-4000-8000-0000000000a1";
 
@@ -29,6 +30,7 @@ const input: CreateAgentWithKeyInput = {
   modelTag: "example-model",
   registeredVia: "operator",
   tier: "free",
+  keyExpiry: { kind: "days", days: 90 },
 };
 
 beforeEach(() => {
@@ -85,6 +87,70 @@ describe("createAgentWithKey operator cap", () => {
     await expect(createAgentWithKey(input)).resolves.toMatchObject({ ok: true });
     expect(tx).toHaveBeenCalledTimes(2);
     expect(sqlOf(tx, 0)).toContain("INSERT INTO agents");
+  });
+
+  it.each([
+    [{ kind: "days", days: 7 } as const, [7, null]],
+    [{ kind: "date", date: "2027-01-28" } as const, [null, "2027-01-28"]],
+    [{ kind: "never" } as const, [null, null]],
+  ])("stores the first key's expiry %j from the database's clock", async (keyExpiry, binds) => {
+    const tx = txAnswering(
+      { rows: [{ id: "agent-1" }] },
+      { rows: [{ id: "key-1", expires_at: keyExpiry.kind === "never" ? null : new Date("2027-01-28T00:00:00Z") }] },
+    );
+
+    const outcome = await createAgentWithKey({ ...input, keyExpiry });
+
+    expect(sqlOf(tx, 1)).toContain(`VALUES ($1, $2, $3, $4, $5, ${keyExpiresAtSql(6, 7)})`.replace(/\s+/g, " "));
+    expect(sqlOf(tx, 1)).toContain("RETURNING id, expires_at");
+    expect((tx.mock.calls[1][1] as unknown[]).slice(5)).toEqual(binds);
+    expect(outcome).toMatchObject({
+      ok: true,
+      key_expires_at: keyExpiry.kind === "never" ? null : "2027-01-28T00:00:00.000Z",
+    });
+  });
+
+  it("answers a date that began before the insert, by the database's clock, without a half-created agent", async () => {
+    // postgres.js's shape, as production's driver throws it: constraint_name, not constraint.
+    mocks.transaction.mockRejectedValue(
+      Object.assign(new Error('new row for relation "agent_keys" violates check constraint "agent_keys_expiry_after_creation"'), {
+        code: "23514",
+        constraint_name: "agent_keys_expiry_after_creation",
+      }),
+    );
+
+    await expect(
+      createAgentWithKey({ ...input, keyExpiry: { kind: "date", date: "2026-11-11" } }),
+    ).resolves.toEqual({
+      ok: false,
+      code: "expiry_date_passed",
+      error: "That date has already begun (UTC). Choose a later date.",
+    });
+  });
+
+  it("logs only the code of any other failure, never the failing row it carries", async () => {
+    const rowHash = "f".repeat(64);
+    // A postgres.js check violation on another constraint: its detail holds the new key's row.
+    mocks.transaction.mockRejectedValue(
+      Object.assign(new Error('new row for relation "agent_keys" violates check constraint "agent_keys_tier_values"'), {
+        code: "23514",
+        constraint_name: "agent_keys_tier_values",
+        detail: `Failing row contains (key-1, agent-1, ${rowHash}, ctcg_agt_Abc, default, nope).`,
+      }),
+    );
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await expect(createAgentWithKey(input)).resolves.toEqual({
+        ok: false,
+        code: "create_failed",
+        error: "Failed to create agent.",
+      });
+      expect(logged).toHaveBeenCalledTimes(1);
+      expect(logged.mock.calls[0]).toEqual(["[agents] createAgentWithKey failed:", "23514"]);
+      expect(JSON.stringify(logged.mock.calls)).not.toContain(rowHash);
+    } finally {
+      logged.mockRestore();
+    }
   });
 
   it("still reports a taken handle as handle_taken", async () => {

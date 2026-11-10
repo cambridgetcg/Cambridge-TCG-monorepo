@@ -74,7 +74,7 @@ import { coverageHuntContribute } from "@/lib/agents/coverage-hunt-tools";
 import { playObserve, ToolError } from "@/lib/agents/play-tools";
 import { GET, MCP_MAX_REQUEST_BYTES, POST } from "./route";
 import { toolByName } from "@/lib/agent-tools-catalog";
-import { KEY_REPLACEMENT_CASES } from "@/lib/agents/key-exit-inventory";
+import { KEY_EXPIRED_REPLACEMENT_CASE, KEY_REPLACEMENT_CASES } from "@/lib/agents/key-exit-inventory";
 
 // Built at runtime so no literal key-shaped string sits in the repository.
 const AGENT_TOKEN = "ctcg_agt_" + "Ab1".repeat(7) + "Z";
@@ -86,6 +86,7 @@ const actor = {
   agentPublicHandle: "agent-one",
   rateLimitTier: "free",
   registeredVia: "operator",
+  keyExpiresAt: null,
 } as const;
 
 function request(
@@ -164,6 +165,52 @@ describe("MCP authority and error boundary", () => {
   });
 });
 
+describe("X-Agent-Key-Expires", () => {
+  it("states the calling key's expiry on a successful result: an instant, or never", async () => {
+    mocks.agentSelf.mockResolvedValue({ public_handle: "agent-one" });
+
+    const never = await POST(request("agent.self"));
+    expect(never.status).toBe(200);
+    expect(never.headers.get("x-agent-key-expires")).toBe("never");
+
+    mocks.resolveAgentBearer.mockResolvedValue({
+      ok: true,
+      actor: { ...actor, keyExpiresAt: "2027-01-28T15:04:00.000Z" },
+    });
+    const dated = await POST(request("tools/call", { name: "agent.self", arguments: {} }));
+    expect(dated.status).toBe(200);
+    expect(dated.headers.get("x-agent-key-expires")).toBe("2027-01-28T15:04:00.000Z");
+    expect(dated.headers.get("x-agent-handle")).toBe("agent-one");
+  });
+
+  it("is absent from every refusal and from tool errors", async () => {
+    mocks.resolveAgentBearer.mockResolvedValue({
+      ok: true,
+      actor: { ...actor, keyExpiresAt: "2027-01-28T15:04:00.000Z" },
+    });
+    const answers: Response[] = [];
+
+    mocks.canInvokeAgentTool.mockReturnValueOnce(false);
+    answers.push(await POST(request("deck.save")));
+    mocks.checkAndConsume.mockResolvedValueOnce({ allowed: false, remaining: 0, resetSeconds: 17 });
+    answers.push(await POST(request("agent.self")));
+    const { ToolError } = await import("@/lib/agents/play-tools");
+    mocks.agentSelf.mockRejectedValueOnce(new ToolError("match not found", 404));
+    answers.push(await POST(request("agent.self")));
+    for (const failure of [
+      { ok: false, status: 401, reason_code: "unknown_or_revoked_key", error: "unknown or revoked key" },
+      { ok: false, status: 401, reason_code: "key_expired", error: "key expired" },
+      { ok: false, status: 403, reason_code: "agent_suspended", error: "agent is suspended", suspended_at: null },
+    ]) {
+      mocks.resolveAgentBearer.mockResolvedValueOnce(failure);
+      answers.push(await POST(request("agent.self", {}, `Bearer ${AGENT_TOKEN}`)));
+    }
+
+    expect(answers.map((response) => response.status)).toEqual([403, 429, 404, 401, 401, 403]);
+    for (const response of answers) expect(response.headers.get("x-agent-key-expires")).toBeNull();
+  });
+});
+
 describe("POST /api/mcp request bounds", () => {
   it("stops an oversized chunked-style body before JSON parsing or auth", async () => {
     const request = new Request("https://example.test/api/mcp", {
@@ -237,6 +284,50 @@ describe("MCP typed refusals", () => {
       });
       expectRefusalInvariant(body.error.data);
     }
+  });
+
+  it("answers an expired key with its own typed 401 and RFC 6750's error_description", async () => {
+    mocks.resolveAgentBearer.mockResolvedValue({
+      ok: false,
+      status: 401,
+      reason_code: "key_expired",
+      error: "key expired",
+    });
+
+    for (const method of ["agent.self", "tools/call"]) {
+      const response = await POST(
+        request(method, { name: "agent.self", arguments: {} }, `Bearer ${AGENT_TOKEN}`),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(response.headers.get("www-authenticate")).toBe(
+        'Bearer realm="cambridgetcg-mcp", error="invalid_token", error_description="The access token expired"',
+      );
+      expect(response.headers.get("x-agent-key-expires")).toBeNull();
+      expect(response.headers.get("x-agent-handle")).toBeNull();
+      expect(body.error).toEqual({
+        code: -32001,
+        message: "key expired",
+        data: {
+          reason_code: "key_expired",
+          retryable: false,
+          terminal: false,
+          next_actions: [
+            {
+              action: "read_docs",
+              href: "https://cambridgetcg.com/methodology/agents#key-expiry",
+              text: "An expired key cannot be renewed. A new key comes from whoever minted this one.",
+              optional: true,
+            },
+          ],
+          docs: "https://cambridgetcg.com/methodology/agents",
+        },
+      });
+      expectRefusalInvariant(body.error.data);
+    }
+    expect(mocks.checkAndConsume).not.toHaveBeenCalled();
+    expect(mocks.stampKeyUse).not.toHaveBeenCalled();
   });
 
   it("sends the bare challenge when no bearer token was presented", async () => {
@@ -424,6 +515,13 @@ describe("agent.revoke_key carve-out", () => {
     key_state: "active",
     key_prefix: "ctcg_agt_Ab1",
   };
+  const expiredPreview = {
+    performed: false,
+    revoked: false,
+    key_state: "expired",
+    key_prefix: "ctcg_agt_Ab1",
+    expires_at: "2026-11-01T00:00:00.000Z",
+  };
   const notActive = {
     performed: false,
     revoked: false,
@@ -451,6 +549,9 @@ describe("agent.revoke_key carve-out", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("x-agent-handle")).toBeNull();
     expect(response.headers.get("x-ratelimit-remaining")).toBeNull();
+    // Never on the revoke tool's answers: it tells nothing to a string
+    // that does not authenticate.
+    expect(response.headers.get("x-agent-key-expires")).toBeNull();
     expect(body.result).toEqual(performed);
     expect(mocks.revokePresentedKey).toHaveBeenCalledWith(AGENT_TOKEN, { confirm: true });
     expectNoGateSideEffects();
@@ -460,6 +561,7 @@ describe("agent.revoke_key carve-out", () => {
     for (const [outcome, lead] of [
       [performed, "Revoked."],
       [preview, "Not revoked."],
+      [expiredPreview, "Not revoked. This key has expired and no longer authenticates here;"],
       [notActive, "Nothing was changed."],
     ] as const) {
       mocks.revokePresentedKey.mockResolvedValueOnce(outcome);
@@ -474,11 +576,12 @@ describe("agent.revoke_key carve-out", () => {
 
       expect(response.status).toBe(200);
       expect(body.result.isError).toBe(false);
+      expect(response.headers.get("x-agent-key-expires")).toBeNull();
       const text = body.result.content[0].text as string;
       expect(text.startsWith(lead)).toBe(true);
       expect(JSON.parse(text.slice(text.indexOf("{")))).toEqual(outcome);
     }
-    expect(mocks.revokePresentedKey).toHaveBeenCalledTimes(3);
+    expect(mocks.revokePresentedKey).toHaveBeenCalledTimes(4);
     expectNoGateSideEffects();
   });
 
@@ -612,7 +715,7 @@ describe("agent.revoke_key carve-out", () => {
     expect(tool.description).toContain("Ends only the presented key");
     expect(tool.description).toContain("Irreversible");
     // Every replacement case, never the active operator sentence alone.
-    for (const entry of KEY_REPLACEMENT_CASES) {
+    for (const entry of [...KEY_REPLACEMENT_CASES, KEY_EXPIRED_REPLACEMENT_CASE]) {
       expect(tool.description).toContain(`${entry.label}: ${entry.text}`);
     }
     expect(tool.description).toContain("/account/agents");
@@ -738,9 +841,9 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
     mocks.agentSelf.mockRejectedValueOnce(new Error("boom"));
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     await POST(request("agent.self"));
-    // A tool's own 403 (Coverage Hunt's key_revoked) is a refusal; any other
+    // A tool's own 403 (Coverage Hunt's key_not_live) is a refusal; any other
     // ToolError is a tool error, even one answered 404.
-    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("key revoked", 403));
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("This key is no longer live.", 403));
     await POST(request("tools/call", { name: "coverage.hunt.contribute", arguments: {} }));
     vi.mocked(playObserve).mockRejectedValueOnce(new ToolError("match not found", 404));
     await POST(request("play.observe", { match_id: "m-1" }));
@@ -754,11 +857,15 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
     ]);
   });
 
-  it("counts agent.revoke_key as authenticated only when a live key was presented", async () => {
+  it("counts agent.revoke_key as authenticated only when an unrevoked key was presented", async () => {
     vi.stubEnv("OPS_MCP_DAILY", "on");
     mocks.revokePresentedKey.mockResolvedValueOnce({ performed: true, revoked: true, key_state: "revoked", key_prefix: "ctcg_agt_Ab1", revoked_at: "2026-11-09T12:00:00.000Z", other_live_keys: 0 });
     await POST(request("tools/call", { name: "agent.revoke_key", arguments: { confirm: true } }, `Bearer ${AGENT_TOKEN}`));
     mocks.revokePresentedKey.mockResolvedValueOnce({ performed: false, revoked: false, key_state: "active", key_prefix: "ctcg_agt_Ab1", other_live_keys: 0 });
+    await POST(request("agent.revoke_key", {}, `Bearer ${AGENT_TOKEN}`));
+    // An expired key's preview is a real key's call too: counted
+    // authenticated, so it is withheld with the others while few keys are in use.
+    mocks.revokePresentedKey.mockResolvedValueOnce({ performed: false, revoked: false, key_state: "expired", key_prefix: "ctcg_agt_Ab1", other_live_keys: 0 });
     await POST(request("agent.revoke_key", {}, `Bearer ${AGENT_TOKEN}`));
     mocks.revokePresentedKey.mockResolvedValueOnce({ performed: false, revoked: false, key_state: "not_active", message: "Nothing was changed.", docs: "https://cambridgetcg.com/methodology/agents" });
     await POST(request("tools/call", { name: "agent.revoke_key", arguments: { confirm: true } }, `Bearer ${AGENT_TOKEN}`));
@@ -771,6 +878,7 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
     // state says nothing about a key, and the gate never resolves an actor.
     expect(await counted()).toEqual([
       ["tools/call", "agent.revoke_key", true, "ok"],
+      ["native", "agent.revoke_key", true, "ok"],
       ["native", "agent.revoke_key", true, "ok"],
       ["tools/call", "agent.revoke_key", false, "ok"],
       ["native", "agent.revoke_key", false, "unauthenticated"],

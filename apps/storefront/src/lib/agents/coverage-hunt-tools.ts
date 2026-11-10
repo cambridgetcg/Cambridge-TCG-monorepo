@@ -121,9 +121,9 @@ function publicCase(state: CoverageHuntCase, viewerAgentId?: string) {
 function toToolError(error: unknown): never {
   if (error instanceof ToolError) throw error;
   if (error instanceof CoverageHuntError) {
-    // The key was revoked before this contribution's write transaction
-    // could lock it; nothing was written.
-    if (error.code === "key_revoked") throw new ToolError(error.message, 403);
+    // The key was revoked, or had expired, before this contribution's write
+    // transaction could lock it; nothing was written.
+    if (error.code === "key_not_live") throw new ToolError(error.message, 403);
     const status =
       error.code === "daily_limit"
         ? 429

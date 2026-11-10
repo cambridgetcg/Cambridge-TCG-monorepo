@@ -1,8 +1,22 @@
 # Agent key expiry: an option per key
 
 **Status.** Written **2026-10-30** by an AI agent: a Claude Code subagent run
-by a workflow in session 99296f25. **Yu has not reviewed it.** It is a draft
-for discussion. It decides nothing, and nothing in it is built.
+by a workflow in session 99296f25. **Yu has not reviewed it.** It was written
+as a draft for discussion that decides nothing. It has since been built on
+branch `claude/agent-key-expiry` (2026-11-10; see **Built** below); the
+proposal below is unchanged.
+
+**Applied, 2026-11-10.** Asked for a word on the stack's merge, on applying
+0151 to production and on the two `/privacy` sentences, Yu answered on
+2026-11-10, verbatim: "yes go ahead for merging and deployment to
+production." An agent (Claude Code session 99296f25) read that as covering
+all three, and then: applied `0151_agent_key_expiry.sql` to the production
+database with `scripts/migrate.mjs` (recorded in `schema_migrations` at
+10:12:35 UTC; the plan run listed only 0151, and afterwards the column and
+its CHECK were read back); changed the two `/privacy` sentences and the
+notice's date on this branch; and merged the branch after its checks passed.
+The per-key choice, no expiry for existing keys and no email remain agents'
+calls, not Yu's decisions.
 
 - **Yu's word.** On 2026-10-30, verbatim, recorded in the
   [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md):
@@ -40,9 +54,70 @@ for discussion. It decides nothing, and nothing in it is built.
   Nothing proposed changed. A second pass the same day pointed the line
   links at the refreshed tree (`main` with #108 to #110) and corrected what
   `agent.self` returns; it did not re-read every claim.
+- **Built 2026-11-10** by AI agents (Claude Code subagents run by a workflow
+  in session 99296f25) on branch `claude/agent-key-expiry`, cut from
+  `claude/agent-auth-phase2-design` at `81c63959`. They built decisions 1 to 9
+  as follows. 1: per key, chosen at mint by whoever mints it. 2: as
+  recommended (7, 30, 90 or 365 days, a date from tomorrow UTC to 366 days
+  ahead, or never with the warning; the range is enforced in the app and the
+  CHECK says only that expiry comes after creation). 3: 90 days pre-selected.
+  4: only the shared parser; self-serve registration stays closed. 5: as
+  recommended. 6: existing keys unchanged, NULL meaning never. 7: no email;
+  the operator sees `/account/agents` (§9) and the holder the in-band facts
+  (§6), and nothing is sent to anyone. 8: nothing new; the methodology page
+  documents mint, move, check last use, revoke. 9: not now. Decisions 1, 6
+  and 7 were listed for Yu; agents took them as their own calls under Yu's
+  delegation of 2026-10-20 (as the
+  [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)
+  cites it), and they are not Yu's decisions. The others are this page's
+  agent's defaults, also unreviewed by Yu. §8's email, sweep, queue handler,
+  category and email migration are not built. Departures from the proposal
+  below, which is unchanged: a lifetime is `make_interval(hours => 24 * n)`,
+  because a `days` interval follows daylight saving in a non-UTC session;
+  0151 has no `idx_agent_keys_expiring`, which only the unbuilt sweep needed;
+  the guide keeps its `last_verified` date, which records a person's
+  walk-through, with `revised` moved instead; §9's key list shows no expiry
+  for a revoked key, since revocation is its state; the list and the
+  fresh-key card give the instant to the second, in UTC; `agent.revoke_key`'s
+  call by an expired, unrevoked key is counted as authenticated in the daily
+  MCP count, as a live key's is; and the operations monitor's five-key
+  threshold counts live keys only. The §11 rollout rule (apply
+  0151, then deploy; no fallback for a missing column) is written in 0151's
+  header, as 0112 did for its column, in the deploy runbook's migration list
+  and in the README's key-expiry bullet, which all say to apply 0151 before
+  the branch is merged to `main`, because a push to `main` deploys; and as a
+  condition in the changelog entry. When the build finished, nothing was
+  merged, no migration was applied and nothing was deployed; **Applied**
+  above says what changed on 2026-11-10. The line links on this page still cite the code
+  before the build (`81c63959`); at the build's last commit (`34ebdd33`), 26
+  of its 41 line-anchored links landed on lines the build changed, so read
+  them at `81c63959`.
+- **Review fixes 2026-11-10**, by an AI agent in the same session, after a
+  review of the branch. The typed refusal for a chosen date that has already
+  begun now fires under postgres.js, the driver production uses, which names
+  the CHECK's field `constraint_name`; the code had read only `constraint`,
+  node-postgres's name, which the opt-in Postgres tests use. `agent.revoke_key`'s answers for an
+  expired key give one replacement text whatever the agent's registration
+  or status, so they tell its holder nothing of that status, as §5 intends
+  for the gate; they keep `other_live_keys`, as §6 says. §9's "No revoke
+  button on an expired key" is kept, but its reason is not quite true:
+  revoking one ends no authority, yet records it as revoked and turns
+  `agent.revoke_key`'s answer for it into the not-active one. These fixes
+  are not Yu's decisions either.
+- **`/privacy` was changed with this build, on 2026-11-10.** Its "Agent keys"
+  item listed what is kept for each key ("when it was created, revoked and
+  last used") without the expiry that a key minted by this code stores, and
+  its retention item said "revoking a key keeps the record" without saying that
+  expiring does too. They now read "when it was created, when it expires (if
+  an expiry was chosen), and when it was revoked and last used" and "revoking
+  a key, or its expiring, keeps the record", and the notice is dated 10
+  November 2026. An agent wrote the wording; Yu's word for the change is in
+  **Applied** above.
 - **Acts this page does not authorise.** Applying a migration, deploying,
   sending email to operators, or changing the privacy notice. Each needs Yu's
-  word for that act.
+  word for that act. **Applied** above records the word given on 2026-11-10
+  for the migration, the deploy and the notice. No email has been sent, and
+  none is built.
 - **Siblings.** [reopening-terms.md](reopening-terms.md) covers the key a
   self-serve registrant receives, and [support-procedures.md](support-procedures.md)
   covers support requests. Where they touch expiry, this page says so.
@@ -680,6 +755,9 @@ for all of them.
 **Which are Yu's.** Decision 1 (who chooses, per key or per agent, which is
 how to read Yu's own words), decision 6 (whether existing keys get an end
 date) and decision 7 (whether operators get expiry email) wait for Yu.
+*2026-11-10:* agents took all three as their own calls under Yu's
+delegation of 2026-10-20 and built them (decision 7 as no email); see the
+status. They remain Yu's to overturn.
 **The rest are agent's defaults:** 2, 3, 5, 8 and 9 each proceed as
 recommended unless Yu objects. Decision 4 is asked only on
 reopening-terms.md.

@@ -8,6 +8,7 @@ import type {
   ScoutSubmission,
 } from "./types";
 import { createCoverageCandidate } from "./candidates";
+import { liveAgentKeySql } from "@/lib/agents/key-expiry";
 
 const db = vi.hoisted(() => ({
   query: vi.fn(),
@@ -238,10 +239,14 @@ describe("Coverage Hunt writes are ordered after a key revocation", () => {
       actor_key_id: KEY_ID,
       client_request_id: "revoked-1",
       submission: scoutSubmission,
-    })).rejects.toMatchObject({ code: "key_revoked", message: "This key was revoked." });
+    })).rejects.toMatchObject({ code: "key_not_live", message: "This key is no longer live." });
 
     expect(statements).toHaveLength(2);
-    expect(statements[1]).toMatch(/WHERE id = \$1 AND agent_id = \$2 AND revoked_at IS NULL\s+FOR SHARE/);
+    // The one live rule: not revoked and not expired, by the database's clock.
+    expect(statements[1]).toContain(
+      `WHERE id = $1 AND agent_id = $2 AND ${liveAgentKeySql("")}\n      FOR SHARE`,
+    );
+    expect(statements[1]).toContain("expires_at > NOW()");
     expect(db.query).not.toHaveBeenCalled();
   });
 
@@ -255,7 +260,7 @@ describe("Coverage Hunt writes are ordered after a key revocation", () => {
       actor_key_id: KEY_ID,
       client_request_id: "revoked-2",
       submission: scoutSubmission,
-    })).rejects.toMatchObject({ code: "key_revoked" });
+    })).rejects.toMatchObject({ code: "key_not_live" });
 
     expect(statements.some((sql) => /INSERT|UPDATE|pg_advisory/i.test(sql))).toBe(false);
   });

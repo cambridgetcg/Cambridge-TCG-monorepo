@@ -14,6 +14,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { expiredAgentKeySql } from "@/lib/agents/key-expiry";
 import { PageHeader, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
 import { AgentsClient } from "./_client";
 import { toKeyRows, type StoredKeyRow } from "./key-revocation-label";
@@ -49,6 +50,12 @@ export interface KeyRow {
   revoked_at: string | null;
   /** Who ended the key, as a category; null while it is live. */
   revoked_by: string | null;
+  /** When the key stops (or stopped) authenticating, as ISO 8601
+   *  (toKeyRows converts the driver's Date); null: no expiry. */
+  expires_at: string | null;
+  /** Past its expiry by the database's clock when the page was read. A
+   *  revoked key reads false here: revocation is its state. */
+  expired: boolean;
   created_at: string;
 }
 
@@ -68,9 +75,13 @@ export default async function AgentsAccountPage() {
         ORDER BY (status = 'active') DESC, created_at DESC`,
       [session.user.id],
     ),
+    // Whether a key has expired is decided here, by the database's clock,
+    // with the one rule (key-expiry.ts), never in the browser.
     query(
       `SELECT k.id, k.agent_id, k.key_prefix, k.name, k.rate_limit_tier,
-              k.last_used_at, k.revoked_at, k.revoked_reason, k.created_at
+              k.last_used_at, k.revoked_at, k.revoked_reason, k.created_at,
+              k.expires_at,
+              (k.revoked_at IS NULL AND ${expiredAgentKeySql("k")}) AS expired
          FROM agent_keys k
          JOIN agents a ON a.id = k.agent_id
         WHERE a.operated_by_user_id = $1
@@ -137,6 +148,20 @@ export default async function AgentsAccountPage() {
         Coverage Hunt contributions are review submissions, not domain writes, and{" "}
         <code>agent.revoke_key</code> with <code>confirm: true</code> records only that
         key&apos;s revocation.
+      </p>
+      <p className="mt-3 text-xs text-ink-faint">
+        Each key stops working at the expiry chosen when it was minted, if one was chosen,
+        shown in your key list above; a key minted with never, or before expiry existed, has
+        none. The agent can read it too: <code>agent.self</code> returns{" "}
+        <code>key_expires_at</code>, and each successful authenticated tool result (not{" "}
+        <code>agent.revoke_key</code>&apos;s answers) carries an{" "}
+        <code>X-Agent-Key-Expires</code> header. Nothing is sent to you
+        before a key expires. To keep an agent running, mint a new key, move the agent to
+        it, check the old key&apos;s last use here, then revoke the old key.{" "}
+        <Link href="/methodology/agents#key-expiry" className="text-accent hover:text-accent-strong underline">
+          Key expiry
+        </Link>
+        .
       </p>
     </div>
   );

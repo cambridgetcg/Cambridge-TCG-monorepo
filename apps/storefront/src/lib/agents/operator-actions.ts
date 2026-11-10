@@ -30,6 +30,12 @@
  * through this page. The shared steward account also operates the legacy
  * self-serve agents, and must not reissue authority for them; revoking
  * and archiving stay open there because they only reduce authority.
+ *
+ * Every mint states its key's expiry as a wire value (key-expiry.ts:
+ * 7d, 30d, 90d, 365d, never, or a date). The forms pre-select 90 days; the
+ * server applies no default, and refuses a missing or unknown value before
+ * touching the database. Revocation and archive still end every unrevoked
+ * key, expired or not.
  */
 
 "use server";
@@ -37,6 +43,15 @@
 import { auth } from "@/lib/auth";
 import { transaction } from "@/lib/db";
 import { createAgentWithKey, mintRawToken, HANDLE_RE } from "./creation";
+import {
+  expiresAtIso,
+  isExpiryAfterCreationViolation,
+  KEY_EXPIRY_DATE_PASSED_ERROR,
+  keyExpiresAtSql,
+  keyExpiryBinds,
+  liveAgentKeySql,
+  parseKeyExpiry,
+} from "./key-expiry";
 import { ARCHIVE_REVOCATION_REASON } from "./revocation-reasons";
 
 export type OperatorActionResult<T> =
@@ -68,11 +83,23 @@ export interface CreateAgentInput {
   display_name: string;
   model_tag: string;
   description?: string;
+  /** The first key's expiry as a wire value (parseKeyExpiry). Optional in
+   *  the type only because a client may omit it; omitting it is refused. */
+  key_expiry?: string;
 }
 
 export async function createAgent(
   input: CreateAgentInput,
-): Promise<OperatorActionResult<{ agent_id: string; public_handle: string; token: string; key_prefix: string }>> {
+): Promise<
+  OperatorActionResult<{
+    agent_id: string;
+    public_handle: string;
+    token: string;
+    key_prefix: string;
+    /** ISO 8601, by the database's clock; null: no expiry. */
+    key_expires_at: string | null;
+  }>
+> {
   const user = await requireUser();
   if (!user.ok) return user;
 
@@ -90,6 +117,8 @@ export async function createAgent(
   if (description.length > DESCRIPTION_MAX) {
     return { ok: false, error: `Description too long (max ${DESCRIPTION_MAX}).` };
   }
+  const expiry = parseKeyExpiry(input.key_expiry);
+  if (!expiry.ok) return { ok: false, error: expiry.error };
 
   // Shared minting core (lib/agents/creation.ts) — agent + first key in
   // one transaction. The paused self-serve route does not import or call
@@ -104,6 +133,7 @@ export async function createAgent(
     registeredVia: "operator",
     tier: "free",
     maxActiveAgentsForOperator: MAX_ACTIVE_AGENTS,
+    keyExpiry: expiry.expiry,
   });
   if (!outcome.ok) return { ok: false, error: outcome.error };
 
@@ -114,6 +144,7 @@ export async function createAgent(
       public_handle: outcome.public_handle,
       token: outcome.token,
       key_prefix: outcome.key_prefix,
+      key_expires_at: outcome.key_expires_at,
     },
   };
 }
@@ -121,49 +152,77 @@ export async function createAgent(
 export interface MintKeyInput {
   agent_id: string;
   name: string;
+  /** The key's expiry as a wire value (parseKeyExpiry). Optional in the
+   *  type only because a client may omit it; omitting it is refused. */
+  key_expiry?: string;
 }
 
 export async function mintKey(
   input: MintKeyInput,
-): Promise<OperatorActionResult<{ key_id: string; token: string; key_prefix: string }>> {
+): Promise<
+  OperatorActionResult<{
+    key_id: string;
+    token: string;
+    key_prefix: string;
+    /** ISO 8601, by the database's clock; null: no expiry. */
+    key_expires_at: string | null;
+  }>
+> {
   const user = await requireUser();
   if (!user.ok) return user;
   if (!isId(input.agent_id)) return { ok: false, error: "Agent not found." };
   const name = (typeof input.name === "string" ? input.name.trim() : "") || "key";
   if (name.length > 80) return { ok: false, error: "Key name too long (max 80)." };
+  const expiry = parseKeyExpiry(input.key_expiry);
+  if (!expiry.ok) return { ok: false, error: expiry.error };
   const agentId = input.agent_id;
 
   const { token, prefix, hash } = mintRawToken();
-  const outcome = await transaction(async (tx) => {
-    // Ownership, status and door under a row lock, so a concurrent mint or
-    // archive of this agent is ordered with this one: a mint after an
-    // archive finds no active row, and an archive after a mint revokes
-    // the new key with the rest.
-    const agent = await tx(
-      `SELECT id FROM agents
-        WHERE id = $1 AND operated_by_user_id = $2
-          AND status = 'active' AND registered_via = 'operator'
-        FOR NO KEY UPDATE`,
-      [agentId, user.userId],
-    );
-    if (agent.rows.length === 0) return { kind: "refused" as const };
+  let outcome;
+  try {
+    outcome = await transaction(async (tx) => {
+      // Ownership, status and door under a row lock, so a concurrent mint or
+      // archive of this agent is ordered with this one: a mint after an
+      // archive finds no active row, and an archive after a mint revokes
+      // the new key with the rest.
+      const agent = await tx(
+        `SELECT id FROM agents
+          WHERE id = $1 AND operated_by_user_id = $2
+            AND status = 'active' AND registered_via = 'operator'
+          FOR NO KEY UPDATE`,
+        [agentId, user.userId],
+      );
+      if (agent.rows.length === 0) return { kind: "refused" as const };
 
-    // Soft cap: 5 live keys per agent.
-    const live = await tx(
-      `SELECT count(*)::int AS n FROM agent_keys
-        WHERE agent_id = $1 AND revoked_at IS NULL`,
-      [agentId],
-    );
-    if (Number(live.rows[0]?.n ?? 0) >= MAX_LIVE_KEYS) return { kind: "cap_reached" as const };
+      // Soft cap: 5 live keys per agent. An expired key frees its slot, as
+      // a revoked one does (the one live rule, key-expiry.ts).
+      const live = await tx(
+        `SELECT count(*)::int AS n FROM agent_keys
+          WHERE agent_id = $1 AND ${liveAgentKeySql("")}`,
+        [agentId],
+      );
+      if (Number(live.rows[0]?.n ?? 0) >= MAX_LIVE_KEYS) return { kind: "cap_reached" as const };
 
-    const insert = await tx(
-      `INSERT INTO agent_keys (agent_id, key_hash, key_prefix, name)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id`,
-      [agentId, hash, prefix, name],
-    );
-    return { kind: "minted" as const, keyId: insert.rows[0].id as string };
-  });
+      // expires_at on the database's clock, from the same NOW() as
+      // created_at (keyExpiresAtSql).
+      const insert = await tx(
+        `INSERT INTO agent_keys (agent_id, key_hash, key_prefix, name, expires_at)
+         VALUES ($1, $2, $3, $4, ${keyExpiresAtSql(5, 6)})
+         RETURNING id, expires_at`,
+        [agentId, hash, prefix, name, ...keyExpiryBinds(expiry.expiry)],
+      );
+      return {
+        kind: "minted" as const,
+        keyId: insert.rows[0].id as string,
+        keyExpiresAt: expiresAtIso(insert.rows[0].expires_at),
+      };
+    });
+  } catch (err) {
+    // A chosen date that began on the database's clock between the range
+    // check and the insert; the transaction rolled back whole.
+    if (isExpiryAfterCreationViolation(err)) return { ok: false, error: KEY_EXPIRY_DATE_PASSED_ERROR };
+    throw err;
+  }
 
   if (outcome.kind === "refused") {
     return { ok: false, error: "Keys can be minted only for your active operator-managed agents." };
@@ -173,7 +232,7 @@ export async function mintKey(
   }
   return {
     ok: true,
-    data: { key_id: outcome.keyId, token, key_prefix: prefix },
+    data: { key_id: outcome.keyId, token, key_prefix: prefix, key_expires_at: outcome.keyExpiresAt },
   };
 }
 
