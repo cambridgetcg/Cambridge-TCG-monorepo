@@ -178,7 +178,11 @@ export default async function AuctionReadPage({
           {/* Left: image + seller */}
           <div className="space-y-6">
             {primaryImage ? (
-              <CardImage src={primaryImage} alt={meta.title} className="w-full rounded-xl border border-border-subtle" />
+              <CardImage
+                src={primaryImage}
+                alt={meta.title}
+                className="aspect-[5/7] w-full rounded-xl border border-border-subtle bg-surface object-contain"
+              />
             ) : (
               <CardImagePlaceholder className="w-full" />
             )}

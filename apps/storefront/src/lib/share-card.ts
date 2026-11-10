@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { OFFICIAL_HOSTS } from "@/lib/cards/image-publication";
 
 /** The default share card, from the brand kit (marketing/kit/web/og.jpg,
  *  served from public/). The root layout uses it; a page that sets its own
@@ -13,29 +14,34 @@ export const SHARE_CARD = {
   alt: "The Cambridge TCG mark beside the headline “TCG data. Made to connect.”",
 };
 
-/** Catalogue image hosts: the retired CardRush-scan buckets (`jp-*-photos`,
- *  docs/infra/aws-resources.md) under either S3 endpoint form, and CardRush's
- *  own shop hosts (next.config.ts lists both kinds). */
-function isCatalogueImageHost(imageUrl: string): boolean {
-  let host: string;
-  try {
-    host = new URL(imageUrl).hostname.toLowerCase();
-  } catch {
-    return false;
-  }
-  return /^jp-[a-z]+-photos\.s3(\.[a-z0-9-]+)?\.amazonaws\.com$/.test(host)
-    || /^(www\.)?cardrush-[a-z]+\.jp$/.test(host);
+/** The hosts the site itself serves images from today: its own official
+ *  image bucket (OFFICIAL_HOSTS, both S3 endpoint forms) and the auction
+ *  photo bucket that lot photos are uploaded to (lib/auction/s3.ts builds the
+ *  same origin from the same two variables). Read per call, like s3.ts. */
+function ownImageHosts(): Set<string> {
+  const bucket = (process.env.AUCTION_S3_BUCKET || "cambridgetcg-auction-images").trim();
+  const region = (process.env.AWS_REGION || "us-east-1").trim();
+  return new Set([...OFFICIAL_HOSTS, `${bucket}.s3.${region}.amazonaws.com`]);
 }
 
-/** The page's own image, if it may be offered as og:image; else null, and the
- *  page falls back to SHARE_CARD as it does when it has no image. An image on
- *  a catalogue host is never offered: such a host answers 403 to a crawler
- *  for a missing object, the image has no verified source or printing, and a
- *  platform's cached copy outlives any takedown. Any other image is offered
- *  as before; the English official image's og:image is a recorded gap
- *  (docs/decisions/2026-10-30-japanese-official-images.md). */
+/** The page's own image, if it may be offered as og:image (and so
+ *  twitter:image) or as a JSON-LD image; else null, and the page falls back
+ *  to SHARE_CARD as it does when it has no image. Only an https image on one
+ *  of the site's own image hosts is offered. Anything else is not: a
+ *  catalogue host (the retired jp-*-photos buckets) answers 403 to a crawler
+ *  for a missing object, a lot photo's URL is supplied by the client and
+ *  unchecked when saved, and a platform's cached copy outlives any takedown.
+ *  The English official image, on the site's own bucket, is still offered: a
+ *  recorded gap (docs/decisions/2026-10-30-japanese-official-images.md). */
 export function shareableImageUrl(imageUrl: string | null | undefined): string | null {
-  return imageUrl && !isCatalogueImageHost(imageUrl) ? imageUrl : null;
+  if (!imageUrl) return null;
+  let url: URL;
+  try {
+    url = new URL(imageUrl);
+  } catch {
+    return null;
+  }
+  return url.protocol === "https:" && ownImageHosts().has(url.hostname) ? imageUrl : null;
 }
 
 /** A fixed share card for a page whose title or description echoes the URL

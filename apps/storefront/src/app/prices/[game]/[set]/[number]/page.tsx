@@ -139,7 +139,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
         "@context": "https://schema.org",
         "@type": "Product",
         name: `${card.name} - ${config.display_name} ${setCode}`,
-        image: card.image_url ?? undefined,
+        image: shareableImageUrl(card.image_url) ?? undefined,
         description: `${card.name} (${card.card_number}) from ${config.display_name} ${setMeta.name} (${setCode}).`,
         sku: card.sku,
         offers: {

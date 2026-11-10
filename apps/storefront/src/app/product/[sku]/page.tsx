@@ -116,7 +116,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
     "@type": "Product",
     name: `${cardName} ${card.card_number}`,
     description: `${cardName} from ${card.set_name || ""} (${card.card_number}). ${card.rarity || ""} rarity. Japanese. Reference data and collector listings at Cambridge TCG.`,
-    image: card.image_url || undefined,
+    image: shareableImageUrl(card.image_url) ?? undefined,
     sku: card.sku,
     brand: { "@type": "Brand", name: brandName },
     category: "Trading Cards",

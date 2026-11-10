@@ -602,29 +602,27 @@ function CatalogGrid({
 /* ------------------------------------------------------------------ */
 
 /** A grid tile's image with its label and credit; the placeholder when there
- *  is none, or when it does not load (a catalogue host can answer 403). */
+ *  is none. When the image does not load (a catalogue host can answer 403),
+ *  the placeholder takes its 5:7 box and the caption stays, so nothing moves. */
 function GridImage({ card }: { card: CatalogCardWithImage }) {
   const { failed, onError, checkComplete } = useImageFailed(card.image_url);
-  if (!card.image_url || failed) {
-    return (
-      <CardImagePlaceholder
-        label={card.image_url ? "Image did not load" : "No image"}
-        className="mb-3 w-full"
-      />
-    );
-  }
+  if (!card.image_url) return <CardImagePlaceholder className="mb-3 w-full" />;
   return (
     <figure className="relative mb-3">
-      <Image
-        ref={checkComplete}
-        onError={onError}
-        src={card.image_url}
-        alt={imageAlt(card)}
-        width={240}
-        height={336}
-        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
-        className="aspect-[2.5/3.5] w-full object-cover rounded-lg border border-border-subtle group-hover:scale-[1.02] transition"
-      />
+      {failed ? (
+        <CardImagePlaceholder label="Image did not load" className="w-full" />
+      ) : (
+        <Image
+          ref={checkComplete}
+          onError={onError}
+          src={card.image_url}
+          alt={imageAlt(card)}
+          width={240}
+          height={336}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
+          className="aspect-[2.5/3.5] w-full object-cover rounded-lg border border-border-subtle group-hover:scale-[1.02] transition"
+        />
+      )}
       <figcaption className="mt-2 text-[10px] leading-snug text-ink-muted">
         <span className="block">{imageLabel(card)}</span>
         {card.image_attribution && <span lang={imageCreditLang(card)} className="mt-1 block text-ink-faint">{card.image_attribution}</span>}

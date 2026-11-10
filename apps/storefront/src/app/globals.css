@@ -45,11 +45,16 @@ body {
  * The site notice (DevBanner) says that new paid commerce is retired. A page
  * whose own notice says it marks that notice `data-replaces-site-notice`,
  * and the banner steps aside there, so the fact is said once per screen.
- * CSS only: public pages don't pass the proxy, so the layout can't know the
- * route. A browser without :has() shows both, as before.
+ * Only from 48rem (md), where the card page's three columns sit side by side
+ * and its notice is in the first screen; on a phone that notice is a screen
+ * further down, so the banner stays. CSS only: public pages don't pass the
+ * proxy, so the layout can't know the route. A browser without :has() shows
+ * both, as before.
  */
-body:has([data-replaces-site-notice]) #dev-banner {
-  display: none;
+@media (min-width: 48rem) {
+  body:has([data-replaces-site-notice]) #dev-banner {
+    display: none;
+  }
 }
 
 /*

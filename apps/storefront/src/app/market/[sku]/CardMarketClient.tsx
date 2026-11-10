@@ -831,7 +831,7 @@ export default function CardMarketClient({
         <div className={`grid md:grid-cols-[240px_1fr_320px] gap-6 ${weatherClass(gameFromSku(sku))}`}>
           {/* Left: Card image + spot info */}
           <div>
-            {book.image_url && !cardImageFailed ? (
+            {book.image_url ? (
               <div
                 className="wardrobe-aura"
                 style={
@@ -841,13 +841,19 @@ export default function CardMarketClient({
                 }
               >
                 <div className="wardrobe-panel p-2">
-                  <img
-                    ref={checkCardImage}
-                    onError={onCardImageError}
-                    src={book.image_url}
-                    alt={`${book.card_name || sku}: ${marketImageLabel(book)}`}
-                    className="w-full rounded"
-                  />
+                  {/* The 5:7 box is held before the image loads, so a
+                      failed image becomes the placeholder in place. */}
+                  {cardImageFailed ? (
+                    <CardImagePlaceholder label="Image did not load" className="w-full" />
+                  ) : (
+                    <img
+                      ref={checkCardImage}
+                      onError={onCardImageError}
+                      src={book.image_url}
+                      alt={`${book.card_name || sku}: ${marketImageLabel(book)}`}
+                      className="aspect-[5/7] w-full rounded object-contain"
+                    />
+                  )}
                   <p className="mt-2 px-0.5 text-xs leading-snug text-ink-muted">
                     {marketImageLabel(book)}
                   </p>
@@ -860,10 +866,7 @@ export default function CardMarketClient({
                 </div>
               </div>
             ) : (
-              <CardImagePlaceholder
-                label={book.image_url ? "Image did not load" : "No image"}
-                className="w-full"
-              />
+              <CardImagePlaceholder className="w-full" />
             )}
             <div className="flex items-start justify-between gap-2 mt-4">
               <div className="min-w-0">
@@ -1025,7 +1028,8 @@ export default function CardMarketClient({
 
           {/* Right: the order form — collectors trading with collectors */}
           <div className="space-y-4">
-            {/* The card page's one retirement notice: the site notice steps aside. */}
+            {/* The card page's one retirement notice: from md up, where it is in
+                the first screen, the site notice steps aside (globals.css). */}
             {NEW_PAID_COMMERCE_RETIRED ? <CommercialRetirementNotice replacesSiteNotice /> : (<>
             {/* ========== P2P Order Form ========== */}
             <div

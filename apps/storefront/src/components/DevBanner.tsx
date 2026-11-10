@@ -10,9 +10,9 @@
  *   before deciding whether to render this component at all.
  * - Dismissible per session: dismiss button sets a session cookie
  *   (no max-age → expires on browser close). On the next visit the banner re-appears.
- * - Steps aside on a page whose own notice says the same (the card page):
- *   that notice carries `data-replaces-site-notice`, and globals.css hides
- *   #dev-banner while it is on the page.
+ * - Steps aside on a page whose own notice says the same (the card page),
+ *   from the md width up, where that notice is in the first screen: it
+ *   carries `data-replaces-site-notice`, and globals.css hides #dev-banner.
  */
 
 import DevBannerDismiss from "./DevBannerDismiss";

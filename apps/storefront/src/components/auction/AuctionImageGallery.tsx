@@ -8,6 +8,27 @@ interface AuctionImageGalleryProps {
   images: Array<{ id?: string; url: string; display_order: number }>;
 }
 
+/** A thumbnail in its fixed 64 px square; the compact placeholder if it does not load. */
+function GalleryThumb({ url, index }: { url: string; index: number }) {
+  const { failed, onError, checkComplete } = useImageFailed(url);
+  if (failed) {
+    return (
+      <span className="flex h-full items-center justify-center p-1">
+        <CardImagePlaceholder compact label="Image did not load" className="h-full w-auto" />
+      </span>
+    );
+  }
+  return (
+    <img
+      ref={checkComplete}
+      onError={onError}
+      src={url}
+      alt={`Thumbnail ${index + 1}`}
+      className="w-full h-full object-cover"
+    />
+  );
+}
+
 export default function AuctionImageGallery({ images }: AuctionImageGalleryProps) {
   const sorted = [...images].sort((a, b) => a.display_order - b.display_order);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -53,11 +74,7 @@ export default function AuctionImageGallery({ images }: AuctionImageGalleryProps
                   : "border-transparent hover:border-border-strong"
               }`}
             >
-              <img
-                src={img.url}
-                alt={`Thumbnail ${i + 1}`}
-                className="w-full h-full object-cover"
-              />
+              <GalleryThumb url={img.url} index={i} />
             </button>
           ))}
         </div>

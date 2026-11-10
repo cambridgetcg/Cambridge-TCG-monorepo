@@ -134,13 +134,16 @@ draws other paths than `cambridge-tcg-mark-nav.svg`.
 - `src/app/layout.tsx` declares the icons, the manifest and `og.jpg` as the default share card for
   Open Graph and X. Next.js replaces the whole `openGraph` object on a page that sets its own, so
   those pages add `images: [SHARE_CARD]` from `src/lib/share-card.ts`. Card, market and auction
-  pages use the card's image when there is one and fall back to `SHARE_CARD`. An image on a
-  catalogue host (the retired `jp-*-photos` buckets, CardRush's hosts) is never offered:
-  `shareableImageUrl()` drops it and the brand card stands in, because such a host can answer 403
-  to a crawler and a platform's copy outlives a takedown. A Japanese official image gets the brand
-  card too; the English official image is still offered, a gap recorded in
-  `docs/decisions/2026-10-30-japanese-official-images.md`. The test fails if a page's `openGraph`
-  doesn't name `SHARE_CARD`.
+  pages use the card's image when there is one and fall back to `SHARE_CARD`. `shareableImageUrl()`
+  offers an image (as og:image, so twitter:image, and as a JSON-LD image) only when it is an https
+  URL on a host the site serves images from: its official-image bucket
+  (`ctcg-card-images.s3.us-east-1.amazonaws.com`, `ctcg-card-images.s3.amazonaws.com`) and the
+  auction photo bucket (`cambridgetcg-auction-images.s3.us-east-1.amazonaws.com` by default, from
+  `AUCTION_S3_BUCKET` and `AWS_REGION`). Anything else, such as a catalogue scan on a `jp-*-photos`
+  bucket (which answers 403 for a missing object) or a lot photo URL from another host, gets the
+  brand card. A Japanese official image gets the brand card too; the English official image is
+  still offered, a gap recorded in `docs/decisions/2026-10-30-japanese-official-images.md`. The
+  test fails if a page's `openGraph` doesn't name `SHARE_CARD`.
 - `SHARE_CARD.url` carries a version, `/og.jpg?v=2026-10-27`. Platforms cache a share card by its
   URL, so change `v` whenever the card is rebuilt.
 - The Organization logo in the layout's JSON-LD, the publisher logo in `guides/buying` and

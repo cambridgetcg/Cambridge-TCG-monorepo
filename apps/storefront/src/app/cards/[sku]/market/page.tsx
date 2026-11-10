@@ -139,7 +139,7 @@ export default async function CardMarketReadPage({
                 <CardImage
                   src={meta.image_url}
                   alt={meta.card_name || sku}
-                  className="w-full rounded"
+                  className="aspect-[5/7] w-full rounded object-contain"
                 />
               </div>
             ) : (
