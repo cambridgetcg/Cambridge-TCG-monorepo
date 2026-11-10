@@ -266,6 +266,7 @@ drafts, written by agents and not reviewed by Yu, design what Yu decided:
   on eBay, Shopify, Stripe, GitHub, Etsy and Amazon and on the UK GDPR clocks.
 - [key-expiry.md](key-expiry.md): the expiry option offered when a key is
   minted.
+- [held-keys.md](held-keys.md) (added 2026-11-10, also unreviewed): an optional agent-held signing key that signs each binding act.
 
 **Build order** (an agent's proposal):
 
