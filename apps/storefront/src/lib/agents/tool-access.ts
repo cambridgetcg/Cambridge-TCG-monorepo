@@ -129,6 +129,23 @@ export const AGENT_KEY_REVOCATION = {
 } as const;
 
 /**
+ * Agent-held signing keys (docs/plans/agent-auth/held-keys.md), as GET
+ * /api/mcp and the discovery documents publish them. The words hold whether
+ * or not a deployment has opened the path; GET /api/mcp, which is never
+ * cached, adds whether this one has. The owner decided to offer the keys
+ * (2026-11-10); the wording is an agent's.
+ */
+export const AGENT_SIGNED_ACTS = {
+  tool: "agent.act",
+  rest_twin: "POST https://cambridgetcg.com/api/v1/agents/act",
+  auth: "one signed act (a compact JWS, typ ctcg-act.v1, Ed25519) from a key the agent's operator bound at /account/agents; Authorization is not read",
+  scope: "operator-managed agents only; acts signer.check, key.mint and key.revoke, each with a preview that writes nothing",
+  availability: "closed unless the deployment opens it; closed, it answers signed_acts_closed and reads nothing",
+  proves: "control of the key over the signed bytes; not identity, consent, or authority to act for anyone else",
+  docs: "https://cambridgetcg.com/methodology/agents#signed-acts",
+} as const;
+
+/**
  * agent.revoke_key's input schema, for tools/list and the tool catalog.
  *
  * `confirm` is a plain boolean, not `const: true`. Clients that convert MCP

@@ -26,6 +26,7 @@ import { GET as getMcpConfig } from "./mcp-config.json/route";
 import { GET as getMcpDiscovery } from "./mcp.json/route";
 import {
   AGENT_KEY_REVOCATION,
+  AGENT_SIGNED_ACTS,
   SELF_SERVE_CONTROLLER_NOTE,
   describeAgentToolGrant,
 } from "@/lib/agents/tool-access";
@@ -240,6 +241,7 @@ describe("well-known agent discovery boundaries", () => {
     );
     expectHolderScope(auth.controller_model);
     expect(auth.revocation).toEqual(AGENT_KEY_REVOCATION);
+    expect(auth.signed_acts).toEqual(AGENT_SIGNED_ACTS);
     expectKeyScope(body.read_only_scope);
     expectPausedPublicationBoundaries(body.publication_boundaries);
     expect(body.rate_limits.public_unauthenticated).toContain("Advisory");
@@ -271,6 +273,7 @@ describe("well-known agent discovery boundaries", () => {
     expect(server.auth.controller_model).toContain("bearer-key holder");
     expectHolderScope(server.auth.controller_model);
     expect(server.auth.revocation).toEqual(AGENT_KEY_REVOCATION);
+    expect(server.auth.signed_acts).toEqual(AGENT_SIGNED_ACTS);
     expectKeyScope(body.read_only_scope);
     expect(server.auth.note).toContain("New self-serve registration is paused");
     expectPausedPublicationBoundaries(body.publication_boundaries);
@@ -318,6 +321,7 @@ describe("well-known agent discovery boundaries", () => {
     expect(body.agent_access.self_serve.holder_scope).toContain("not holder-authenticated");
     expect(body.agent_access.operator_managed.access).toBe(OPERATOR_ACCESS);
     expect(body.agent_access.revocation).toEqual(AGENT_KEY_REVOCATION);
+    expect(body.agent_access.signed_acts).toEqual(AGENT_SIGNED_ACTS);
     expectPausedPublicationBoundaries(body.publication_boundaries);
     expect(body.rate_limits.unauth).toContain("Advisory");
     expect(body.rate_limits.unauth).not.toContain("60/minute per IP");

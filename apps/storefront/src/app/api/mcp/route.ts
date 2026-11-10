@@ -69,6 +69,7 @@ import { deckSave, deckListMine } from "@/lib/agents/write-tools";
 import {
   AGENT_ACT_INPUT_SCHEMA,
   AGENT_KEY_REVOCATION,
+  AGENT_SIGNED_ACTS,
   AGENT_REVOKE_KEY_INPUT_SCHEMA,
   canInvokeAgentTool,
   SELF_LIFECYCLE_TOOLS,
@@ -76,6 +77,7 @@ import {
 } from "@/lib/agents/tool-access";
 import { submitAgentAct, type AgentActAnswer } from "@/lib/agents/signed-acts";
 import { actClientAddress } from "@/lib/agents/signed-act-limits";
+import { signedActsOpen } from "@/lib/agents/signed-act-config";
 import { operationalMetadataWrites } from "@/lib/agents/operational-metadata";
 import {
   revokePresentedKey,
@@ -858,7 +860,10 @@ export async function GET() {
       mcp_spec: 'POST { jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments } }',
       cambridge_native: 'POST { jsonrpc: "2.0", id, method: "<dotted-name>", params: {...} }',
     },
-    auth: "Authorization: Bearer ctcg_agt_<token>",
+    auth: "Authorization: Bearer ctcg_agt_<token> on every tools/call except mcp.list_tools and agent.act; agent.act takes a signed act instead (signed_acts below)",
+    // The same words as the discovery documents, and whether this
+    // deployment has opened the path now (this answer is never cached).
+    signed_acts: { ...AGENT_SIGNED_ACTS, open_on_this_deployment: signedActsOpen() },
     provision: {
       self_serve_registration: "paused",
       existing_self_serve_keys: "read-only",
