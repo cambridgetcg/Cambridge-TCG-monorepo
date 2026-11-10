@@ -200,6 +200,13 @@ not Yu's:
   lapsed row is deleted first, as the sweep would delete it, and its bind
   event stays. It used to answer "already bound" until the operator removed
   the old row.
+- The tool grant (`describeAgentToolGrant`) lists `agent.act` under
+  `signed_acts` only for operator-managed agents and only while the
+  deployment has signed acts open; it listed it with the flag off.
+  `agent.self` publishes no part of that list and says nothing of
+  `agent.act`; the catalog, `GET /api/mcp` and the discovery documents
+  describe the path as closed unless a deployment opens it, which is true
+  with the flag off.
 
 **What is off.** `AGENT_SIGNED_ACTS` is off unless set to exactly `on` with
 an audience. Off, both doors answer `signed_acts_closed`, binding is

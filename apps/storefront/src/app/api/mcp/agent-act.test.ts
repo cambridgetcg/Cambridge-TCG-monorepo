@@ -98,7 +98,8 @@ describe("agent.act while closed (the default)", () => {
     expect(tool.description).toContain("signed_acts_closed");
     expect(SIGNED_ACT_TOOLS.has("agent.act")).toBe(true);
     expect(SELF_LIFECYCLE_TOOLS.has("agent.act")).toBe(false);
-    expect(describeAgentToolGrant("operator").signed_acts).toEqual(["agent.act"]);
+    // Closed, no grant lists it: an operator-managed agent cannot use it here.
+    expect(describeAgentToolGrant("operator").signed_acts).toEqual([]);
     expect(describeAgentToolGrant("self-serve").signed_acts).toEqual([]);
     const native = await (await POST(request("mcp.list_tools"))).json();
     expect(native.result.tools.map((entry: { name: string }) => entry.name)).toContain("agent.act");
@@ -114,6 +115,13 @@ describe("agent.act while open", () => {
   beforeEach(() => {
     vi.stubEnv("AGENT_SIGNED_ACTS", "on");
     vi.stubEnv("AGENT_SIGNED_ACTS_AUDIENCE", "https://cambridgetcg.com");
+  });
+
+  it("lists agent.act in an operator-managed agent's grant only while this deployment is open", () => {
+    expect(describeAgentToolGrant("operator").signed_acts).toEqual(["agent.act"]);
+    expect(describeAgentToolGrant("self-serve").signed_acts).toEqual([]);
+    vi.stubEnv("AGENT_SIGNED_ACTS_AUDIENCE", "");
+    expect(describeAgentToolGrant("operator").signed_acts).toEqual([]);
   });
 
   it("passes only the tool's arguments and the client address; Authorization changes nothing", async () => {

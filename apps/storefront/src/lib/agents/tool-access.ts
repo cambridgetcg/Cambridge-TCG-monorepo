@@ -21,9 +21,13 @@
  *     route runs it before the gate, apart from self_lifecycle (that
  *     carve-out would end the presented bearer key). canInvokeAgentTool
  *     never admits it. Signing keys are bound only to operator-managed
- *     agents, and the path is closed unless AGENT_SIGNED_ACTS is on.
+ *     agents, and the path is closed unless AGENT_SIGNED_ACTS is on, so a
+ *     grant lists it only for those agents and only while this deployment
+ *     has it open.
  *   - domain_writes: none while AGENT_DOMAIN_WRITE_TOOLS_ENABLED is false.
  */
+
+import { signedActsOpen } from "./signed-act-config";
 
 export const AGENT_DOMAIN_WRITE_TOOLS_ENABLED = false as const;
 
@@ -79,8 +83,10 @@ export interface AgentToolGrant {
   reads: string[];
   review_submissions: string[];
   self_lifecycle: string[];
-  /** Tools authenticated by a signed act from a bound signing key; operator-
-   *  managed agents only. Open only while AGENT_SIGNED_ACTS is on. */
+  /** Tools authenticated by a signed act from a bound signing key: for
+   *  operator-managed agents, and empty while this deployment has signed
+   *  acts closed (AGENT_SIGNED_ACTS), when agent.act only answers
+   *  signed_acts_closed. */
   signed_acts: string[];
   /** Always empty while AGENT_DOMAIN_WRITE_TOOLS_ENABLED is false. */
   domain_writes: [];
@@ -101,9 +107,11 @@ export function canInvokeAgentTool(
   return false;
 }
 
-/** What a key of this registration kind may do, derived from the sets above. */
+/** What a key of this registration kind may do, derived from the sets above
+ *  and, for signed_acts, from whether this deployment has them open. */
 export function describeAgentToolGrant(
   registeredVia: "operator" | "self-serve",
+  env: Readonly<Record<string, string | undefined>> = process.env,
 ): AgentToolGrant {
   const operator = registeredVia === "operator";
   return {
@@ -113,7 +121,7 @@ export function describeAgentToolGrant(
     ],
     review_submissions: operator ? [...OPERATOR_MANAGED_REVIEW_TOOLS] : [],
     self_lifecycle: [...SELF_LIFECYCLE_TOOLS],
-    signed_acts: operator ? [...SIGNED_ACT_TOOLS] : [],
+    signed_acts: operator && signedActsOpen(env) ? [...SIGNED_ACT_TOOLS] : [],
     domain_writes: [],
     operational_metadata_writes: [...AGENT_OPERATIONAL_METADATA_WRITES],
   };
