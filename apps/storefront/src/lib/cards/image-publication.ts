@@ -13,7 +13,8 @@ export const OFFICIAL_MEDIA_POLICY = {
 } as const;
 
 export const DEFAULT_CARD_IMAGE_CDN = "https://ctcg-card-images.s3.us-east-1.amazonaws.com";
-const OFFICIAL_HOSTS = new Set(["ctcg-card-images.s3.us-east-1.amazonaws.com", "ctcg-card-images.s3.amazonaws.com"]);
+/** The site's own official-image bucket, under both S3 endpoint forms; share-card.ts allows it too. */
+export const OFFICIAL_HOSTS: ReadonlySet<string> = new Set(["ctcg-card-images.s3.us-east-1.amazonaws.com", "ctcg-card-images.s3.amazonaws.com"]);
 const CATALOG_HOSTS = new Set(["jp-op-photos.s3.us-east-1.amazonaws.com", "jp-pk-photos.s3.us-east-1.amazonaws.com", "jp-db-photos.s3.us-east-1.amazonaws.com"]);
 
 export interface StoredOfficialImage {

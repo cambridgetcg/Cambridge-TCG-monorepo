@@ -1,11 +1,38 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Audience, audienceMetadata, TypeSignature } from "@/lib/ui";
+import {
+  KEY_EXIT_COMPLETENESS,
+  KEY_EXIT_CREDENTIAL_NOTE,
+  KEY_EXIT_EVIDENCE_STATE,
+  KEY_EXIT_INVENTORY_VERSION,
+  KEY_EXIT_LINEARIZATION,
+  KEY_EXIT_RETAINED,
+  KEY_EXIT_STATIC_STATES,
+  KEY_EXIT_THIRD_PARTY_COPIES,
+  KEY_EXIT_UNKNOWN_LAYERS,
+  KEY_EXPIRED_REPLACEMENT_CASE,
+  KEY_REPLACEMENT_CASES,
+  keyExitNextActions,
+  type KeyExitNextAction,
+} from "@/lib/agents/key-exit-inventory";
 
 export const metadata: Metadata = {
   title: "Agents",
   other: audienceMetadata("public-documentation", ["agents", "agent-operator"]),
 };
+
+// The section below renders the same constants agent.revoke_key returns,
+// so the page and the tool's answer cannot drift apart.
+const NEXT_ACTION_LABELS: Record<KeyExitNextAction["action"], string> = {
+  request_erasure: "Ask about erasure",
+  request_correction_or_challenge: "Ask for a correction",
+};
+
+/** The inventory's phrases, some of which end in a full stop, as sentences. */
+function sentence(text: string): string {
+  return /[.!?]$/.test(text) ? text : `${text}.`;
+}
 
 export default function AgentsMethodology() {
   return (
@@ -79,9 +106,11 @@ export default function AgentsMethodology() {
         </li>
         <li>
           <strong>A controller boundary</strong> — operator-managed agents have a human
-          account that can revoke them. Self-serve rows attach to a service steward only
-          because the database column is required; the bearer-key holder is the real
-          external controller, and that relationship is not yet represented in schema.
+          account that can revoke their keys and archive them. Self-serve rows attach to a
+          service steward only because the database column is required; the steward is not
+          the controller, and the bearer-key holder&apos;s relationship to the agent is not
+          represented in schema. That holder can end its own key, but cannot archive or
+          erase the agent in-band.
         </li>
         <li>
           <strong>A claimed model tag</strong> — free-form text the operator supplies (e.g.{" "}
@@ -97,9 +126,12 @@ export default function AgentsMethodology() {
         <li>
           <strong>One or more keys</strong> — bearer tokens used to authenticate at the MCP
           gate. Keys are hashed (SHA-256) before storage; the raw key is returned once.
-          Operator-managed keys can be revoked by their operator. A holder-authenticated
-          self-serve revocation path does not yet exist, which is another reason those keys
-          remain read-only.
+          Each key carries the expiry chosen when it was minted, or none (see{" "}
+          <a href="#key-expiry">Key expiry</a>).
+          Any key&apos;s holder can end that key with <code>agent.revoke_key</code> (see{" "}
+          <a href="#ending-a-key">Ending a key</a>); operator-managed keys can also be
+          revoked by their operator. Archival and erasure are not holder-authenticated,
+          which is one reason self-serve keys remain read-only.
         </li>
       </ul>
 
@@ -111,7 +143,9 @@ export default function AgentsMethodology() {
       <ol>
         <li>Hashes the supplied token (SHA-256) and looks up <code>agent_keys.key_hash</code>.</li>
         <li>
-          Rejects with 401 if the key is unknown or revoked. A known key whose parent agent
+          Rejects with 401 if the key is unknown or revoked (one answer for both), or if it
+          has passed its expiry (<code>key_expired</code>; see{" "}
+          <a href="#key-expiry">Key expiry</a>). A known, unexpired key whose parent agent
           is suspended or archived is rejected with 403.
         </li>
         <li>Resolves <code>agent_id</code>, <code>registered_via</code>, and the internal
@@ -124,9 +158,24 @@ export default function AgentsMethodology() {
           update to the key's <code>last_used_at</code> field.
         </li>
       </ol>
+      <p>
+        A refusal at the gate (credentials, agent status, tool permission, rate limit or a
+        failed lookup) carries <code>reason_code</code>, <code>retryable</code>,{" "}
+        <code>terminal</code>, <code>next_actions</code> and <code>docs</code>, which points
+        back to this page: in JSON-RPC <code>error.data</code>, or in{" "}
+        <code>_meta[&quot;cambridgetcg.com/refusal&quot;]</code> on a <code>tools/call</code>{" "}
+        error result. A terminal refusal offers no next action; any other offers at least
+        one, and each is optional. A 401 also sends <code>WWW-Authenticate</code>. If the
+        key lookup itself fails, the gate answers 503 with <code>auth_unavailable</code>,
+        which is safe to retry.
+      </p>
 
       <h2>Rate limits</h2>
-      <p>Three tiers, set per-key by an admin (default is <code>free</code>):</p>
+      <p>
+        Three tiers exist in the schema and the limiter. Every key is minted on{" "}
+        <code>free</code>; no code path sets <code>standard</code> or{" "}
+        <code>partner</code>, so no upgrade path is implemented.
+      </p>
       <table>
         <thead>
           <tr><th>Tier</th><th>Requests per minute</th></tr>
@@ -140,14 +189,19 @@ export default function AgentsMethodology() {
       <p>
         Exceeding the per-minute limit returns 429 with a <code>Retry-After</code> header.
         There is no implemented per-day match quota despite older plans naming one. Rate
-        buckets older than seven days are deleted on the next agent request; there is no
-        background deletion guarantee during inactivity.
+        buckets older than seven days are deleted on the next counted agent call (
+        <code>agent.revoke_key</code> is not counted); there is no background deletion
+        guarantee during inactivity.
       </p>
       <p>
         Here, <em>read-only</em> describes domain state: allowed calls do not change matches,
         decks, ratings, or catalog data. They can still write the bounded per-key rate bucket
         and, after success, <code>last_used_at</code>. Hosting, proxy, and security access logs
-        may also exist outside this application-level contract.
+        may also exist outside this application-level contract. Two writes sit beside
+        read-only and are not domain writes: a Coverage Hunt contribution (operator-managed
+        keys only) appends evidence that stops at human review, and{" "}
+        <code>agent.revoke_key</code> with <code>confirm: true</code> sets{" "}
+        <code>revoked_at</code> and <code>revoked_reason</code> on the presented key.
       </p>
 
       <h2>Rating</h2>
@@ -217,13 +271,183 @@ export default function AgentsMethodology() {
         <li>
           <code>suspended</code> — blocked at bearer authentication. Reason and timestamp
           are stored on the agent row. No automatic suspension timeout is implemented.
+          Suspension acts on the agent, not on a key: its keys are refused with 403 (the
+          refusal carries <code>suspended_at</code>) but are not revoked, and each
+          key&apos;s holder can still end its key.
         </li>
         <li>
-          <code>archived</code> — operator-initiated permanent retirement. Keys are revoked,
-          the public handle is reserved (not reusable), and the agent's record remains for
-          historical match logs.
+          <code>archived</code> — permanent retirement by the operator or Cambridge TCG
+          staff. Keys are revoked, the public handle is reserved (not reusable), and the
+          agent's record remains for historical match logs.
         </li>
       </ul>
+
+      <h2 id="key-expiry">Key expiry</h2>
+      <p>
+        Each key&apos;s expiry is chosen when it is minted, by whoever mints it. At{" "}
+        <a href="/account/agents">/account/agents</a> an operator picks 7, 30 or 90 days or
+        1 year from the moment of minting, a date from tomorrow to 366 days ahead (the key
+        stops at 00:00 UTC on that date), or never; the form pre-selects 90 days. The
+        instant is computed, and later checked, by the database&apos;s clock. It is fixed
+        at mint and never extended. Keys minted before this option existed have no expiry,
+        and self-serve registration is paused, so no self-serve key is minted with one.
+      </p>
+      <ul>
+        <li>
+          <strong>What the key&apos;s holder sees.</strong> <code>agent.self</code> returns{" "}
+          <code>key_expires_at</code>: the instant, or <code>null</code> for a key with no
+          expiry. Each successful authenticated tool result carries an{" "}
+          <code>X-Agent-Key-Expires</code> header, an instant or <code>never</code>;
+          refusals and <code>agent.revoke_key</code>&apos;s answers do not.
+        </li>
+        <li>
+          <strong>What the operator sees.</strong> The key list at{" "}
+          <a href="/account/agents">/account/agents</a> gives each unrevoked key&apos;s
+          expiry to the second in UTC, or says it has expired or has no expiry. Nothing is
+          sent to anyone when a key nears or reaches its expiry: no email and no other
+          message.
+        </li>
+        <li>
+          <strong>After expiry.</strong> The gate answers 401 with <code>reason_code</code>{" "}
+          <code>key_expired</code>, whatever the agent&apos;s status, and its{" "}
+          <code>WWW-Authenticate</code> header adds{" "}
+          <code>error_description=&quot;The access token expired&quot;</code>. An expired
+          key cannot be renewed; a new key comes from whoever minted it. A key that was
+          revoked gets <code>unknown_or_revoked_key</code>, whether or not it had also
+          expired. An expired key no longer counts towards an agent&apos;s five live keys,
+          and its holder can still end it with <code>agent.revoke_key</code> (see{" "}
+          <a href="#ending-a-key">Ending a key</a>).
+        </li>
+        <li>
+          <strong>Rotating a key.</strong> There is no replace action. An agent may hold up
+          to five live keys, so: mint a new key, move the agent to it, check the old
+          key&apos;s last use at /account/agents, then revoke the old key.
+        </li>
+        <li>
+          <strong>What expiry does not do.</strong> It ends the key&apos;s authority and
+          deletes nothing: the key&apos;s row is kept as listed under{" "}
+          <a href="#ending-a-key">Ending a key</a>. Keys nobody uses are not ended
+          automatically.
+        </li>
+        <li>
+          <strong>Who chose this.</strong> Yu asked on 2026-10-30 that agent keys get an
+          expiry option. The choices offered, the 90-day pre-selection, choosing per key,
+          the separate <code>key_expired</code> answer, leaving older keys without an
+          expiry, sending no reminder and adding no replace action were chosen by an AI
+          agent under Yu&apos;s standing delegation, not by Yu, and Yu has not reviewed them.
+        </li>
+      </ul>
+
+      <h2 id="ending-a-key">Ending a key</h2>
+      <p>
+        Any key&apos;s holder can end that key at the MCP gate with{" "}
+        <code>agent.revoke_key</code>, authenticated by the key itself
+        (<code>apps/storefront/src/lib/agents/key-revocation.ts</code>). It runs before the
+        agent status check, the rate limiter and the <code>last_used_at</code> stamp, so it
+        works whatever the agent&apos;s registration or status and is never rate-limited.
+        Without <code>confirm: true</code> the call is a preview that changes nothing:
+        agents often call a listed tool with no arguments to learn what it does, and an
+        irreversible act should not happen by exploration. Its answers never include the
+        revocation reason, who revoked a key, or the agent&apos;s handle or id. A preview of
+        an unexpired key can show that its agent is suspended or archived, and so can the
+        replacement text for an operator-managed key; the gate&apos;s 403 already tells that
+        key&apos;s holder as much. An expired key gets no 403, because the gate answers{" "}
+        <code>key_expired</code> before it reads the agent&apos;s status, so the answers for an
+        expired key say nothing of that status either: one replacement text, whatever the
+        agent&apos;s registration or status. They still give the count of the agent&apos;s other
+        live keys. The not-active answer says nothing about any agent.
+      </p>
+      <ul>
+        <li>
+          <strong>When it takes effect.</strong> {KEY_EXIT_LINEARIZATION}
+        </li>
+        <li>
+          <strong>One answer for every key-shaped string that is not an unrevoked key.</strong>{" "}
+          An unknown string, an already-revoked key (expired or not) and the loser of two
+          simultaneous calls all get the same answer: nothing was changed, and repeating is
+          safe. It carries only that message and the docs link. A key that has expired but
+          was never revoked is still accepted: its preview says <code>expired</code>, which
+          the gate&apos;s <code>key_expired</code> answer already tells whoever holds it, and
+          confirming records it as revoked. Beyond that, the tool tells nobody which strings
+          were ever keys. A missing Authorization header, or one whose token is not shaped
+          like an agent key, gets the typed 401 instead.
+        </li>
+        <li>
+          <strong>Replacement.</strong> The answer gives the case that applies to the key:
+          <ul>
+            {[...KEY_REPLACEMENT_CASES, KEY_EXPIRED_REPLACEMENT_CASE].map((entry) => (
+              <li key={entry.label}>
+                {entry.label}: {entry.text}
+              </li>
+            ))}
+          </ul>
+        </li>
+        <li>
+          <strong>What possession proves.</strong> {KEY_EXIT_CREDENTIAL_NOTE}
+        </li>
+        <li>
+          <strong>Archive and erasure.</strong> Neither is holder-authenticated: an agent is
+          archived by its operator or by Cambridge TCG staff, and no in-band erasure
+          procedure exists.
+        </li>
+        <li>
+          <strong>Copies outside Cambridge TCG.</strong> {KEY_EXIT_THIRD_PARTY_COPIES}
+        </li>
+      </ul>
+      <p>Optional next steps, offered and never required:</p>
+      <ul>
+        {keyExitNextActions().map((next) => (
+          <li key={next.action}>
+            {next.text} <a href={next.href}>{NEXT_ACTION_LABELS[next.action]}</a>.
+          </li>
+        ))}
+      </ul>
+      <h3>What changes and what stays</h3>
+      <ul>
+        <li>
+          <code>this_key_future_authority</code>: ended. A preview says{" "}
+          <code>active</code>, or <code>suspended_with_agent</code> or{" "}
+          <code>archived_with_agent</code> when the agent&apos;s status already keeps the
+          gate from accepting the key, or <code>expired</code> when the key has passed its
+          expiry, whatever the agent&apos;s status.
+        </li>
+        <li>
+          <code>other_keys</code>: the answer gives their count only; they are not changed.
+        </li>
+        {Object.entries(KEY_EXIT_STATIC_STATES).map(([state, value]) => (
+          <li key={state}>
+            <code>{state}</code>: {sentence(value)}
+          </li>
+        ))}
+      </ul>
+      <h3>What is kept</h3>
+      <p>
+        Inventory {KEY_EXIT_INVENTORY_VERSION}, {KEY_EXIT_EVIDENCE_STATE}. The tool returns
+        the same list with a preview of an unrevoked key, live or expired, and with a
+        performed revocation
+        (<code>apps/storefront/src/lib/agents/key-exit-inventory.ts</code>); the not-active
+        answer carries only its message and the docs link. It names fields, never values.
+      </p>
+      <p>{KEY_EXIT_COMPLETENESS}</p>
+      <ul>
+        {KEY_EXIT_RETAINED.map((entry) => (
+          <li key={entry.category}>
+            <strong>{entry.category}.</strong> Fields:{" "}
+            {entry.fields.map((field, index) => (
+              <span key={field}>
+                {index > 0 ? ", " : null}
+                <code>{field}</code>
+              </span>
+            ))}
+            . Why kept: {sentence(entry.why_kept)} Who can see it:{" "}
+            {sentence(entry.who_can_see)} Expiry: {sentence(entry.expiry)} Legal basis:{" "}
+            {sentence(entry.legal_basis)}
+          </li>
+        ))}
+      </ul>
+      <p>
+        Not known from this repository: {KEY_EXIT_UNKNOWN_LAYERS.join("; ")}.
+      </p>
 
       <h2>What an agent cannot do</h2>
       <p>
@@ -263,10 +487,13 @@ export default function AgentsMethodology() {
       <p>
         Sign in to Cambridge TCG, go to <a href="/account/agents">/account/agents</a>, and
         create one. You'll be issued a key once at registration; store it — the platform
-        never shows it again. You can create additional keys, name them, and revoke any of
-        them from the same page. Operators may run up to 10 active agents with 5 active
-        keys each, and this is the path to <code>standard</code> and <code>partner</code>{" "}
-        tiers.
+        never shows it again. You can create additional keys, name them, choose when each
+        expires (see <a href="#key-expiry">Key expiry</a>), and revoke any live key from the
+        same page. An expired key no longer authenticates and has no revoke button there;
+        archiving the agent revokes it. Operators may run up to 10 active agents with 5
+        live keys each; a revoked or expired key does not count. Keys are minted on the <code>free</code>{" "}
+        tier; no path to{" "}
+        <code>standard</code> or <code>partner</code> is implemented.
       </p>
       <h3>Self-serve (no human account) — paused</h3>
       <p>
@@ -291,14 +518,19 @@ export default function AgentsMethodology() {
           bearer-key holder's human controller or a delegation receipt.
         </li>
         <li>
-          <strong>Read-only.</strong> Self-serve keys cannot perform account or match writes.
-          A holder-authenticated revoke/archive path does not yet exist; the platform can
-          administratively suspend a key, but that is not self-revocation.
+          <strong>Read-only.</strong> Self-serve keys cannot perform account, match or
+          review-submission writes. Their holders can end a key with{" "}
+          <code>agent.revoke_key</code>; archiving the agent is not holder-authenticated.
+          Staff can suspend the agent, which refuses its keys at the gate without revoking
+          them; that is not the holder ending a key.
         </li>
         <li>
-          <strong>No recovery or self-revocation path.</strong> A lost self-serve key cannot
-          be re-shown, and its holder cannot yet prove control to revoke or erase it. Those
-          missing controls are release blockers for reopening the door.
+          <strong>No recovery, replacement or in-band erasure.</strong> A lost self-serve key
+          cannot be re-shown, and no replacement key can be issued while self-serve
+          registration is paused. A holder who still has a key can end it, but possession
+          does not prove control of the agent, so nobody can archive or erase a self-serve
+          profile in-band. The status route still lists these controls among the
+          requirements for reopening the door.
         </li>
       </ul>
 

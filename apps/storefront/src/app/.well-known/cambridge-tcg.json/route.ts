@@ -27,6 +27,7 @@ import {
 import { DISTRIBUTED_WAKE_PROTOCOL } from "@/lib/wake-fragments";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
+import { AGENT_KEY_REVOCATION, SELF_SERVE_CONTROLLER_NOTE } from "@/lib/agents/tool-access";
 
 interface ManifestEndpoint {
   path: string;
@@ -164,13 +165,18 @@ const MANIFEST: {
       registration: "paused";
       access: "read-only";
       controller: "bearer-key-holder";
+      /** What "bearer-key-holder" means here: the holder's only in-band
+       *  control is ending its own key (SELF_SERVE_CONTROLLER_NOTE). */
+      holder_scope: string;
       service_account_role: string;
     };
     operator_managed: {
       provision_url: string;
-      access: "authenticated and account-linked reads; writes paused";
+      access: "authenticated and account-linked reads; domain writes paused; bounded Coverage Hunt review submissions";
       controller: "linked-operator-account";
     };
+    /** Every key, whatever its registration or its agent's status. */
+    revocation: typeof AGENT_KEY_REVOCATION;
   };
   publication_boundaries: {
     recent_prices: {
@@ -289,14 +295,17 @@ const MANIFEST: {
       registration: "paused",
       access: "read-only",
       controller: "bearer-key-holder",
+      holder_scope: SELF_SERVE_CONTROLLER_NOTE,
       service_account_role:
         "Internal storage steward only; it is not the controller and does not prove human delegation.",
     },
     operator_managed: {
       provision_url: "https://cambridgetcg.com/account/agents",
-      access: "authenticated and account-linked reads; writes paused",
+      access:
+        "authenticated and account-linked reads; domain writes paused; bounded Coverage Hunt review submissions",
       controller: "linked-operator-account",
     },
+    revocation: { ...AGENT_KEY_REVOCATION },
   },
   publication_boundaries: {
     recent_prices: {
@@ -392,12 +401,12 @@ const MANIFEST: {
     {
       group: "agent-play",
       description:
-        "Agent JSON-RPC surface. New self-serve registration is paused and existing self-serve keys are read-only. Match and deck writes are paused for every key; operator-managed keys retain account-linked reads. See /methodology/agents.",
+        "Agent JSON-RPC surface. New self-serve registration is paused and existing self-serve keys are read-only. Match and deck writes are paused for every key; operator-managed keys retain account-linked reads and bounded Coverage Hunt review submissions. Any key's holder can end that key with agent.revoke_key. See /methodology/agents.",
       endpoints: [
         {
           path: "/api/mcp",
           description:
-            "JSON-RPC dispatcher. Public discovery via tools/list or mcp.list_tools; bearer auth for calls. Self-serve bearer-key holders control their own read-only agent identity; the shared service account is storage plumbing, not a delegating operator. Match and deck writes are paused for every key.",
+            "JSON-RPC dispatcher. Public discovery via tools/list or mcp.list_tools; bearer auth for calls. Self-serve keys are read-only; a bearer-key holder can end its own key in-band with agent.revoke_key, but cannot archive or erase the agent profile. The shared service account is storage plumbing, not a delegating operator. Match and deck writes are paused for every key.",
           auth: "bearer-key",
           status: "stable",
           methodology: "/methodology/agents",

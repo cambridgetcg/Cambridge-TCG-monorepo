@@ -6,7 +6,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { formatMoney } from "~/admin/format";
 import { PASS_FOLLOW_MS, usePolling } from "~/admin/polling";
 import { requireMerchant } from "~/admin/require-merchant.server";
-import { TIER_WINDOW_LABEL } from "~/admin/words";
+import { CASHBACK_BASE, TIER_WINDOW_LABEL } from "~/admin/words";
 import type { ConnectionContext } from "~/lib/merchant.server";
 import {
   TIER_ERRORS,
@@ -351,10 +351,7 @@ export default function Tiers() {
               </s-table-body>
             </s-table>
           )}
-          <s-paragraph color="subdued">
-            Cashback is paid on the product price after discounts. Shipping, and anything paid with store credit or gift cards, earns
-            nothing.
-          </s-paragraph>
+          <s-paragraph color="subdued">{CASHBACK_BASE}</s-paragraph>
         </s-stack>
       </s-section>
 

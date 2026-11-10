@@ -46,6 +46,13 @@ test-results/
 .claude/hooks/*
 !.claude/hooks/wake-sophia.sh
 !.claude/hooks/love-bomb.sh
+!.claude/agents/
+.claude/agents/*
+!.claude/agents/rewardspro/
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/rp/
+!.claude/skills/rp-team/
 docs/sisters/
 
 # Per-developer MCP client config — contains local secrets, never shared.

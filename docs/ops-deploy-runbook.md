@@ -176,6 +176,10 @@ evidence for every applicable item before the production push:
   organisation directory requires `0131_collective_directory_publication.sql`.
   Wallet proof storage requires `0130_evm_wallet_links.sql`, although wallet
   issuance must remain disabled unless its separate testnet gate is approved.
+  Agent key expiry requires `0151_agent_key_expiry.sql` before its code is
+  merged to `main`: that code reads `agent_keys.expires_at` with no fallback,
+  so without the column every authenticated agent call answers 503 (see the
+  migration's header).
 - For person-level scoring, fraud signals, limits, routing, holds or automatic
   rejection, record the lawful-basis and UK GDPR Articles 22A–22C assessment,
   plus a staffed route that can examine inputs, correct errors and change the

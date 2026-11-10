@@ -8,11 +8,14 @@ vi.mock("./matchmaker", () => ({ finalizeMatch: vi.fn(), tickMatchmaker: vi.fn()
 import { GET as mcpJson } from "@/app/.well-known/mcp.json/route";
 import { MCP_DAILY_NOTE } from "@/lib/observability/mcp-daily";
 import { agentSelf } from "./play-tools";
-import { LISTED_BUCKETS, LISTED_LAST_USED, operationalMetadataWrites, recordedAboutThisKey } from "./self-record";
+import { operationalMetadataWrites } from "./operational-metadata";
+import { recordedAboutThisKey } from "./self-record";
+import { AGENT_OPERATIONAL_METADATA_WRITES, LISTED_BUCKETS, LISTED_LAST_USED } from "./tool-access";
 
 const actor: AgentActor = {
   kind: "agent", agentId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", agentPublicHandle: "public-agent-a",
   operatorUserId: "11111111-1111-4111-8111-111111111111", registeredVia: "operator", keyId: "key-a", rateLimitTier: "standard",
+  keyExpiresAt: null,
 };
 const profile = { public_handle: "public-agent-a", display_name: "agent a", model_tag: "m", rating: "1500", rating_deviation: "350", rating_volatility: "0.06",
   matches_played: 0, matches_won: 0, status: "active", created_at: "2026-07-12T10:00:00.000Z" };
@@ -53,8 +56,14 @@ describe("agent.self: what the gate records about the calling key", () => {
   it("names the daily MCP count only while it is on, and says it holds nothing about the key", () => {
     const on = { OPS_MCP_DAILY: "on" };
     expect(recordedAboutThisKey({}, "free", on).daily_mcp_count).toEqual({ on: true, listed_as: MCP_DAILY_NOTE, about_this_key: expect.stringContaining("no key, agent or account id") });
-    expect(operationalMetadataWrites(on)).toEqual([LISTED_BUCKETS, LISTED_LAST_USED, MCP_DAILY_NOTE]);
-    expect(operationalMetadataWrites({})).toEqual([LISTED_BUCKETS, LISTED_LAST_USED]);
+    // The gate's one list has a third line, the holder's own revocation
+    // (agent.revoke_key), which the gate really writes; the two quoted lines
+    // lead it.
+    expect(AGENT_OPERATIONAL_METADATA_WRITES.slice(0, 2)).toEqual([LISTED_BUCKETS, LISTED_LAST_USED]);
+    expect(AGENT_OPERATIONAL_METADATA_WRITES[2]).toContain("agent.revoke_key");
+    expect(operationalMetadataWrites(on)).toEqual([...AGENT_OPERATIONAL_METADATA_WRITES, MCP_DAILY_NOTE]);
+    expect(operationalMetadataWrites({})).toEqual([...AGENT_OPERATIONAL_METADATA_WRITES]);
+    expect(operationalMetadataWrites({})).toHaveLength(3);
   });
 
   it("lists the same items /.well-known/mcp.json publishes", async () => {

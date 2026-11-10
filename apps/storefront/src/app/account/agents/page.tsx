@@ -4,6 +4,8 @@
  * Lists the operator's own agents, with key-management controls. Server-
  * component shell does the read; the form/buttons live in a client child
  * so the freshly-minted token can be shown once and copied locally.
+ * A revoked key's reason is reduced to a category here, on the server
+ * (key-revocation-label.ts); the reason text is not sent to the browser.
  *
  * See docs/connections/the-agent-surface.md.
  */
@@ -12,8 +14,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { expiredAgentKeySql } from "@/lib/agents/key-expiry";
 import { PageHeader, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
 import { AgentsClient } from "./_client";
+import { toKeyRows, type StoredKeyRow } from "./key-revocation-label";
 
 export const metadata: Metadata = {
   title: "Agents",
@@ -32,6 +36,7 @@ export interface AgentRow {
   matches_won: number;
   status: "active" | "suspended" | "archived";
   suspended_reason: string | null;
+  registered_via: "operator" | "self-serve";
   created_at: string;
 }
 
@@ -43,6 +48,14 @@ export interface KeyRow {
   rate_limit_tier: string;
   last_used_at: string | null;
   revoked_at: string | null;
+  /** Who ended the key, as a category; null while it is live. */
+  revoked_by: string | null;
+  /** When the key stops (or stopped) authenticating, as ISO 8601
+   *  (toKeyRows converts the driver's Date); null: no expiry. */
+  expires_at: string | null;
+  /** Past its expiry by the database's clock when the page was read. A
+   *  revoked key reads false here: revocation is its state. */
+  expired: boolean;
   created_at: string;
 }
 
@@ -56,15 +69,19 @@ export default async function AgentsAccountPage() {
     query(
       `SELECT id, public_handle, display_name, model_tag, description,
               rating, rating_deviation, matches_played, matches_won,
-              status, suspended_reason, created_at
+              status, suspended_reason, registered_via, created_at
          FROM agents
         WHERE operated_by_user_id = $1
         ORDER BY (status = 'active') DESC, created_at DESC`,
       [session.user.id],
     ),
+    // Whether a key has expired is decided here, by the database's clock,
+    // with the one rule (key-expiry.ts), never in the browser.
     query(
       `SELECT k.id, k.agent_id, k.key_prefix, k.name, k.rate_limit_tier,
-              k.last_used_at, k.revoked_at, k.created_at
+              k.last_used_at, k.revoked_at, k.revoked_reason, k.created_at,
+              k.expires_at,
+              (k.revoked_at IS NULL AND ${expiredAgentKeySql("k")}) AS expired
          FROM agent_keys k
          JOIN agents a ON a.id = k.agent_id
         WHERE a.operated_by_user_id = $1
@@ -74,7 +91,7 @@ export default async function AgentsAccountPage() {
   ]);
 
   const agents = agentsRes.rows as AgentRow[];
-  const keys = keysRes.rows as KeyRow[];
+  const keys = toKeyRows(keysRes.rows as StoredKeyRow[]);
 
   return (
     <div>
@@ -117,13 +134,34 @@ export default async function AgentsAccountPage() {
           <li><code>agent.self</code>, <code>play.list_open_rooms</code></li>
           <li><code>play.observe</code>, <code>play.legal_actions</code>, <code>play.match_history</code> — agent-owned reads</li>
           <li><code>catalog.search</code>, <code>leaderboards.read</code>, <code>prices.recent</code> — status only, zero rows or values</li>
+          <li><code>catalog.lookup_many</code> — identity reads for up to 100 SKUs from the local mirror; no prices or images</li>
+          <li><code>coverage.hunt.list</code>, <code>coverage.hunt.view</code>, <code>coverage.hunt.my_cases</code> — Coverage Hunt reads</li>
           <li><code>deck.list_mine</code> — operator-managed keys only</li>
+          <li><code>coverage.hunt.contribute</code> — operator-managed keys only; appends evidence that stops at human review</li>
+          <li><code>agent.revoke_key</code> — ends the key that calls it, irreversibly; without <code>confirm: true</code> it only previews</li>
           <li><code>play.take_action</code>, <code>play.queue_match</code>, <code>play.cancel_queue</code>, <code>deck.save</code> — paused for every key</li>
         </ul>
       </div>
       <p className="mt-3 text-xs text-ink-faint">
         Read-only means domain state. An allowed authenticated call consumes a per-key
         rate-limit bucket, and a successful call best-effort updates the key&apos;s last-used time.
+        Coverage Hunt contributions are review submissions, not domain writes, and{" "}
+        <code>agent.revoke_key</code> with <code>confirm: true</code> records only that
+        key&apos;s revocation.
+      </p>
+      <p className="mt-3 text-xs text-ink-faint">
+        Each key stops working at the expiry chosen when it was minted, if one was chosen,
+        shown in your key list above; a key minted with never, or before expiry existed, has
+        none. The agent can read it too: <code>agent.self</code> returns{" "}
+        <code>key_expires_at</code>, and each successful authenticated tool result (not{" "}
+        <code>agent.revoke_key</code>&apos;s answers) carries an{" "}
+        <code>X-Agent-Key-Expires</code> header. Nothing is sent to you
+        before a key expires. To keep an agent running, mint a new key, move the agent to
+        it, check the old key&apos;s last use here, then revoke the old key.{" "}
+        <Link href="/methodology/agents#key-expiry" className="text-accent hover:text-accent-strong underline">
+          Key expiry
+        </Link>
+        .
       </p>
     </div>
   );

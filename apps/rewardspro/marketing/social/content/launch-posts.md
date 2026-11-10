@@ -1,7 +1,7 @@
 # RewardsPro content kit: posts
 
 Content maker (agent), 2026-11-07, revised the same day after the verifier's truth, wording and platform review.
-**PROPOSAL for Yu. Nothing is posted, scheduled or decided.** Built on [`../STRATEGY.md`](../STRATEGY.md) (§2 stages,
+**PROPOSAL for the owner. Nothing is posted, scheduled or decided.** Built on [`../STRATEGY.md`](../STRATEGY.md) (§2 stages,
 §3 channels, §4 voice, §5 pillars, §6 claims, §7 assets, §8 cadence). The profile texts (R0, T0, A0, A0c, YT0, YT0c, TK0,
 AI0, R1, T1, T1F, L1, L1W, MK1, YT1) are the profiles maker's, in [`../profiles.json`](../profiles.json); this file doesn't repeat them.
 The Community bio has no paste text: it is the owner's own words (`../profiles.md` §4.3, which dropped CB and CB1).
@@ -49,8 +49,8 @@ The Community bio has no paste text: it is the owner's own words (`../profiles.m
   `docs/switch.md:64-90` at 6bd092cb (B2 step 6 and B3, recorded 2026-11-07).
 - **Before any post:** G1 (every claim `verified` and unexpired; sh-* rows checked ≤30 days ago, re-checked on
   publish day), the checker's G4 rules (free pair, no "shopify" in names, handles, slugs, UTM values or hashtags,
-  R1 lexicon, banned spellings, chance words, numbers only from the ledger), G6 on every image, Yu's approval
-  recorded, then Yu posts by hand or with LinkedIn's own scheduler.
+  R1 lexicon, banned spellings, chance words, numbers only from the ledger), G6 on every image, the owner's approval
+  recorded, then the owner posts by hand or with LinkedIn's own scheduler.
 - **Links.** Our links appear only from S2, and only to rewardspro.io with UTM tags:
   `https://rewardspro.io/?utm_source=<platform>&utm_medium=<social|video>&utm_campaign=<post-id>` (the path is
   `/changes` for a correction), where the post id is this file's id in lower case (m1, car1, v1, e12, corr). Never
@@ -60,7 +60,7 @@ The Community bio has no paste text: it is the owner's own words (`../profiles.m
   address. Whether LinkedIn turns a bare address into a link is [I].
 - **No hashtags, no emoji, no exclamation marks.** "Shopify" appears only to say what the app works with
   (PPA Part C s.3, ppa.txt:718).
-- **Register: business** (Yu, 2026-11-07: "用loyal customers, take a more business approach on wordings.";
+- **Register: business** (the owner, 2026-11-07: "用loyal customers, take a more business approach on wordings.";
   `../../approvals.jsonl`). The posts below already state facts in short declarative sentences, so none changed;
   any new line says "loyal customers", never "regulars", and follows `../../MESSAGING.md` §4.
 - **Images** are the assets maker's, under `social/assets/png/`, named
@@ -94,7 +94,7 @@ The first draft also used rp-merchant-funds' full sentence and said these texts 
 does". That was wrong. "The cashback is store credit in your own shop" states the mechanism rp-store-credit covers,
 so no text using it can be verified before rp-store-credit is. rp-store-credit is `proposed`: it now has one
 production observation (test order #1010, `docs/switch.md:77` at 6bd092cb), but no production refund, and whether
-B4 check B is needed too follows Yu's D6. STRATEGY §6.3 and `claims-map.md` class rp-merchant-funds as needing no
+B4 check B is needed too follows the owner's D6. STRATEGY §6.3 and `claims-map.md` class rp-merchant-funds as needing no
 observation and rp-store-credit as needing one; the claims maker should settle that split. Until then:
 - H0-LI uses only the short form "You fund the cashback you give." (the form L1 uses). It isn't a ledger sentence,
   so it is **NO-ROW** until the claims maker adopts it as an rp-merchant-funds variant. It still takes for granted
@@ -112,8 +112,8 @@ Two things the brief asked for are left out on purpose:
 **Not by default.** Every post waits for S2 (STRATEGY §14: "Post anything before S2"), and §14 also rules out
 "coming soon" teasers before G0. D7 covers only S2 condition (d), posting before the site is fixed. A hello before
 S2 would also skip whichever of (a) G0, (b) B3, (c) the listing fully fixed and (f) contact@ delivering don't hold
-yet, while (g), every claim verified, holds whatever Yu decides. So:
-- H0-LI before S2 needs Yu's explicit word waiving each unmet S2 condition, not just D7. PROPOSAL: put it to him as
+yet, while (g), every claim verified, holds whatever the owner decides. So:
+- H0-LI before S2 needs the owner's explicit word waiving each unmet S2 condition, not just D7. PROPOSAL: put it to him as
   one new decision, **D13: one claim-light hello on LinkedIn before S2** (default no). Without D13, S1 holding and
   every row it uses `verified`, it is **not usable**. It never carries a link.
 - Otherwise it doesn't run. At S2, M1 (§2.1) is the first post and H0-LI is dropped.
@@ -123,10 +123,10 @@ yet, while (g), every claim verified, holds whatever Yu decides. So:
 | Channel (role) | Hello | Notes |
 |---|---|---|
 | App Store listing (primary surface) | none | It has no feed. Its text belongs to the listing pack (the #131 rewrite), not here. |
-| rewardspro.io (primary surface) | H0-CH, the `/changes` intro | It ships only inside the #130 rewrite deploy, which is Yu's (S2 condition d). |
+| rewardspro.io (primary surface) | H0-CH, the `/changes` intro | It ships only inside the #130 rewrite deploy, which is the owner's (S2 condition d). |
 | LinkedIn Page (primary social) | H0-LI | Held, see §1.2 (D13). The Page's About is A0 (profiles.json). |
 | YouTube (secondary) | none; the channel description YT0 is the whole hello | YT1 replaces it in the S2 sitting. No upload before S2 (STRATEGY §3). |
-| Shopify Community (secondary, Yu's own words) | none from agents | His bio is his own words from S1, with no paste text (`../profiles.md` §4.3). Agents never write posts or replies for him there (STRATEGY §3, §14; Community bans "generic, templated, or AI-generated messages"). See `community-rules.md`. |
+| Shopify Community (secondary, the owner's own words) | none from agents | His bio is his own words from S1, with no paste text (`../profiles.md` §4.3). Agents never write posts or replies for him there (STRATEGY §3, §14; Community bans "generic, templated, or AI-generated messages"). See `community-rules.md`. |
 | X, Bluesky (reserve only) | none | Bio R0, then R1 at S2. They never post (STRATEGY §3). |
 
 **H0-LI** · LinkedIn Page · 616 / 3,000 chars (570 without the last line)
@@ -151,11 +151,11 @@ yet, while (g), every claim verified, holds whatever Yu decides. So:
   the app changes" would have been broken by this file's own calendar (L-C2, CAR1). The ledger's new row
   rp-post-on-change (added 12:43 on 2026-11-07, channel social-profile only) says "We post here when the app
   changes, and not otherwise." for A0 and L1, and its contrary evidence names the same conflict and proposes
-  widening it. One sentence for profiles and posts is for the claims maker, the profiles maker and Yu to agree;
+  widening it. One sentence for profiles and posts is for the claims maker, the profiles maker and the owner to agree;
   until then this line is NO-ROW.
 - Image: none (text only). Link: none.
 - Status: `after claim rp-free, rp-on-app-store, rp-maker, sh-sc-fee, rp-ai-drafted verified` (and
-  rp-contact-delivers for the last line), plus rows for the short form and the posting line, S1 holding and Yu's
+  rp-contact-delivers for the last line), plus rows for the short form and the posting line, S1 holding and the owner's
   D13. Default: never posted.
 
 **H0-CH** · rewardspro.io `/changes`, intro paragraph · 193 chars (no platform limit)
@@ -170,9 +170,9 @@ yet, while (g), every claim verified, holds whatever Yu decides. So:
 
 ## 2. Launch posts: after G0, posted only once S2 holds
 
-Order of the S2 week (STRATEGY §13 step 19): Yu approves M1; swaps the bios to T1, L1 and R1, and **YT0 to YT1**
+Order of the S2 week (STRATEGY §13 step 19): the owner approves M1; swaps the bios to T1, L1 and R1, and **YT0 to YT1**
 (`../profiles.md` §2.2, set B); his Community bio stays his own words (§4.3); posts and pins M1; checks that the YouTube channel
-is verified (§2.4); and uploads V1. Step 19 lists only T1, L1 and R1, so the strategy owner should add YT1:
+is verified (§2.4); and uploads V1. Step 19 lists only T1, L1 and R1, so the strategy maker should add YT1:
 once V1 is up, YT0's "Nothing is posted here yet" is false. The carousel and the store-credit limits post follow as
 the first batch (`calendar.md`). No thread is written: X and Bluesky never post, and mirroring is on the strategy's
 "do not" list (§14).
@@ -189,21 +189,21 @@ the first batch (`calendar.md`). No thread is written: X and Bluesky never post,
 > https://rewardspro.io/?utm_source=linkedin&utm_medium=social&utm_campaign=m1
 
 - Text: STRATEGY §6.2 M1 (444 characters here) plus the link line (78 with its line break), with four changes. The
-  strategy owner should make the same changes in §6.2:
+  strategy maker should make the same changes in §6.2:
   - "no paid plans" becomes "no paid plans offered", following rp-free's rewording: it offers no plan rather than
-    denying the two old paid agreements, and a public post reaches those shops too. The wording is Yu's D4.
+    denying the two old paid agreements, and a public post reaches those shops too. The wording is the owner's D4.
   - The refund sentence is rp-refund-takeback in full. The short "A refund takes back its share." drops "from store
     credit the customer still holds", and staging check F took only £16.06 of £27.00 because the buyer had spent the
     rest (`docs/staging-run.md:27`; `app/lib/refunds.server.ts:22-24`).
   - "Tiers count spend over the last 12 months or all time." is dropped. "All time" starts at the import horizon, at
     most 12 months before install, or 60 days without `read_all_orders` (`app/shopify/bulk-import.server.ts:1-4,
     37-39`; `app/lib/tiers.server.ts:67-68, 95-103`). rp-tier-window now carries that limit, and E7 and CAR1 page 4
-    use it; adding it here would cost about 160 characters, which Yu may prefer.
+    use it; adding it here would cost about 160 characters, which the owner may prefer.
   - The fee sentence is sh-sc-fee word for word ("third-party transaction fees", not "its own … fee").
 - **Optional opening line (PROPOSAL, added later on 2026-11-07):** "RewardsPro is built for rewarding loyal
   customers with store credit in your own shop." (85) [rp-purpose, no row yet (`../../MESSAGING.md` §7);
   rp-merchant-funds, rp-store-credit], before "The current version of RewardsPro is live." It is the umbrella idea
-  in Yu's term (`../../MESSAGING.md` §1, O1). With it, M1 is 608 / 3,000. It carries rp-store-credit because "store
+  in the owner's term (`../../MESSAGING.md` §1, O1). With it, M1 is 608 / 3,000. It carries rp-store-credit because "store
   credit in your own shop" states that row's mechanism (§1.1); M1 posts only at S2, after G0.
 - Media, one of:
   - **V1** (A11), uploaded natively. Its pack is `../video-walkthrough.md` (§2.4).
@@ -289,7 +289,7 @@ description, captions, the transcript and caption-track decision (D-video-1), th
 copy here disagreed with it on the title, description, UTM value and captions, so it is removed. Whether V1 also
 fills the listing's video slot is D-video-2 there.
 
-Points from this file for that pack and for Yu:
+Points from this file for that pack and for the owner:
 - **For the video maker to reconcile** (that file as read at 12:45 on 2026-11-07; it was being revised too): the
   Links rule here asks `utm_campaign=v1` (the pack uses `v1-paid-order`); the optional free block says "its own
   third-party transaction fee" where sh-sc-fee says "third-party transaction fees", and "free, with no paid plans"
@@ -298,8 +298,8 @@ Points from this file for that pack and for Yu:
 - **Captions:** the pack's "The order is marked as paid" is right. The G0 order is a draft order marked as paid
   (`docs/switch.md:177` at 6f3a57b6, `:205` at 6bd092cb, where production test order #1010 was one, `:77`; `../shot-list.md` §2, O1), because RewardsPro gives no cashback on orders Shopify flags as
   test orders (`app/lib/record-order.server.ts:66`, `if (facts.test) return "test";`). "A customer pays for an
-  order" (STRATEGY A11) is used only if a real checkout is recorded; the strategy owner should update A11.
-- **Before the upload (Yu's hand, in the S2 sitting):** phone-verify the `@rewardsproapp` channel and check that its
+  order" (STRATEGY A11) is used only if a real checkout is recorded; the strategy maker should update A11.
+- **Before the upload (the owner's hand, in the S2 sitting):** phone-verify the `@rewardsproapp` channel and check that its
   advanced features are on. "For URLs in the description to be rendered as clickable links in the YouTube UI, the
   channel must meet platform-level requirements, such as channel verification or having Advanced Features enabled"
   (Data API videos resource), and a custom thumbnail can be uploaded "if your account is verified" (help 72431),
@@ -318,12 +318,12 @@ Points from this file for that pack and for Yu:
 > [rp-paid-trigger, rp-store-credit] A refund takes back its share of the cashback, from store credit the customer
 > still holds. [rp-refund-takeback]
 
-- This is for whoever rewrites #130. It is updated only inside a deploy Yu is already doing (STRATEGY §3).
+- This is for whoever rewrites #130. It is updated only inside a deploy the owner is already doing (STRATEGY §3).
 - Status: `after G0`.
 
 ### 2.6 Shopify Community at S2
 
-Nothing from agents. From S2, Yu may write **one** disclosed Ask & Offer post in his own words, and reply to Ask &
+Nothing from agents. From S2, the owner may write **one** disclosed Ask & Offer post in his own words, and reply to Ask &
 Offer requests that fit. What it must contain is listed in `community-rules.md` §2.4.
 
 ---
@@ -398,7 +398,7 @@ shipped or a held claim became verified, and only inside the cadence of 0–2 Li
 - Text: rp-review-ask word for word. The strategy's C3 says "once", which the code doesn't do: while the request is
   due, every Home visit asks Shopify to show it and shows the card, until the merchant dismisses it or Shopify
   answers `success` or `already-reviewed` (`app/routes/app._index.tsx:265-277, 189-197`; `app/admin/home-rules.ts:43-44`;
-  `app/lib/stats.server.ts:238-245`; rp-review-ask's uncertainties). The strategy owner should fix C3 in STRATEGY §6.2.
+  `app/lib/stats.server.ts:238-245`; rp-review-ask's uncertainties). The strategy maker should fix C3 in STRATEGY §6.2.
 - Image: none. The shot list has no frame of Home's review card (SH-1 to SH-8). If one is wanted, it's a request to
   the shot-list maker: the card reads "A review helps other merchants find RewardsPro." with "Leave a review" and
   "Dismiss" (`app/routes/app._index.tsx:511-525`), and it needs a store with 3 cashback entries that is 7 days old
@@ -542,7 +542,7 @@ placeholders as written, so the real sentences add to it)
   is at the bottom."
 - Posted within 7 days of finding the error. The ledger's `correction_url` is filled in, and nothing is silently
   edited, typos aside (STRATEGY §5).
-- PROPOSAL: a correction doesn't count towards the 0–2 a month ceiling, because it is a duty, not promotion. Yu
+- PROPOSAL: a correction doesn't count towards the 0–2 a month ceiling, because it is a duty, not promotion. The owner
   decides.
 
 ---
@@ -557,4 +557,4 @@ placeholders as written, so the real sentences add to it)
   apps, "only", "best" (STRATEGY §4, §14).
 - Teasers, countdowns, deadlines, "spots left".
 - Any text for Shopify Community, Reddit or Facebook groups.
-- The Shopify App Store badge (A14). Only Shopify's unaltered file, from S2, if Yu wants it.
+- The Shopify App Store badge (A14). Only Shopify's unaltered file, from S2, if the owner wants it.

@@ -5,7 +5,7 @@
   "asset": "linkedin-cover",
   "variant": "navy",
   "brief_id": "STRATEGY.md §7 A3",
-  "status": "PROPOSAL for Yu: not approved, not published",
+  "status": "PROPOSAL for the owner: not approved, not published",
   "size": {
     "width": 1512,
     "height": 256
@@ -19,9 +19,9 @@
   "platforms": [
     "LinkedIn Page cover (1512x256; PNG or JPEG ≤3 MB [V] LinkedIn help a563309, which also recommends JPEG over PNG)"
   ],
-  "use": "LinkedIn Page cover. One of three grounds; Yu picks (README, Doubt 1).",
+  "use": "LinkedIn Page cover. One of three grounds; the owner picks (README, Doubt 1).",
   "safe_before_g0": null,
-  "safe_before_g0_reason": "No product claim, but on navy the mark misses the kit's own |Lc| 30 bar: Yu's call (README, Doubt 1).",
+  "safe_before_g0_reason": "No product claim, but on navy the mark misses the kit's own |Lc| 30 bar: the owner's call (README, Doubt 1).",
   "claim_ids": [],
   "claim_status_at_build": {},
   "draft": false,
@@ -69,7 +69,7 @@
       "ok": true
     }
   ],
-  "notes": "Ground #1A3E5C (navy, as STRATEGY.md §7 names it). The reversed lockup's R shape #658AAD clears 3:1 (3.07:1) but misses the kit's APCA bar for a mark on a dark ground (|Lc| 29.34 against 30; kit/BRAND.md \"Colour versions\"). Logos are exempt from WCAG; this is Yu's call.",
+  "notes": "Ground #1A3E5C (navy, as STRATEGY.md §7 names it). The reversed lockup's R shape #658AAD clears 3:1 (3.07:1) but misses the kit's APCA bar for a mark on a dark ground (|Lc| 29.34 against 30; kit/BRAND.md \"Colour versions\"). Logos are exempt from WCAG; this is the owner's call.",
   "master": {
     "path": "masters/rewardspro_social_linkedin-cover_navy_1512x256_20261107_v01.svg",
     "sha256": "71ed353a6fc3892b94d8e3325311ab080b3c8d4a9931940468121707f3918b12",
@@ -85,7 +85,7 @@
     {
       "path": "kit/logo/lockup-horizontal-reversed.svg",
       "sha256": "f3440b861495ff5ae25c17ec84ece502442fdfec30609e1f8ed49d828170e665",
-      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
     }
   ],
   "kernel_sha256": {

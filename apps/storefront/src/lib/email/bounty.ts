@@ -38,8 +38,8 @@ async function lookupUser(userId: string): Promise<{ email: string; name: string
 function cardLine(name: string, number: string | null, rarity: string | null): string {
   return (
     `${escapeHtml(name)}` +
-    (number ? ` <span style="color:#737373;">(${escapeHtml(number)})</span>` : "") +
-    (rarity ? ` <span style="color:#737373;">· ${escapeHtml(rarity)}</span>` : "")
+    (number ? ` <span style="color:#5e574c;">(${escapeHtml(number)})</span>` : "") +
+    (rarity ? ` <span style="color:#5e574c;">· ${escapeHtml(rarity)}</span>` : "")
   );
 }
 
@@ -67,14 +67,14 @@ export async function sendVaultExpiredEmail(args: VaultExpiredEmailArgs): Promis
       Your vault held on to a card for 180 days without redemption. It's now been
       auto-converted to store credit so the value doesn't sit idle.
     </p>
-    <div style="background:#262626;border-radius:8px;padding:14px 16px;margin:16px 0;">
-      <p style="margin:0 0 6px;color:#fff;font-weight:600;">${cardLine(args.cardName, args.cardNumber, args.rarity)}</p>
-      <p style="margin:0;font-size:13px;color:#a3a3a3;">
+    <div style="background:#f3f0e9;border-radius:8px;padding:14px 16px;margin:16px 0;">
+      <p style="margin:0 0 6px;color:#201d18;font-weight:600;">${cardLine(args.cardName, args.cardNumber, args.rarity)}</p>
+      <p style="margin:0;font-size:13px;color:#5e574c;">
         Spot value at acquisition: £${args.spotPriceGbp.toFixed(2)}
       </p>
       <p style="margin:4px 0 0;font-size:13px;">
-        <span style="color:#34d399;font-weight:600;">+£${args.soldBackCreditGbp.toFixed(2)} store credit</span>
-        <span style="color:#737373;"> (77% of spot)</span>
+        <span style="color:#36634d;font-weight:600;">+£${args.soldBackCreditGbp.toFixed(2)} store credit</span>
+        <span style="color:#5e574c;"> (77% of spot)</span>
       </p>
     </div>
     <p style="margin:0;">
@@ -134,43 +134,43 @@ export async function sendPullResolvedEmail(args: PullResolvedEmailArgs): Promis
   const imageBlock = args.imageUrl
     ? `<div style="text-align:center;margin:16px 0;">
          <img src="${escapeHtml(args.imageUrl)}" alt="${escapeHtml(args.cardName)}"
-              width="160" style="border-radius:10px;border:2px solid #f59e0b;max-width:160px;height:auto;" />
+              width="160" style="border-radius:10px;border:1px solid #e7e2d8;max-width:160px;height:auto;" />
        </div>`
     : "";
 
   const bodyHtml = `
     <p style="margin:0 0 12px;">Hi ${greetingName},</p>
     <p style="margin:0 0 12px;">
-      Your <strong style="color:#fff;">${escapeHtml(prettyTier)} Pull</strong> resolved.
-      You pulled a <strong style="color:#f59e0b;">${escapeHtml(args.rolledRarity)}</strong>:
+      Your <strong style="color:#201d18;">${escapeHtml(prettyTier)} Pull</strong> resolved.
+      You pulled a <strong style="color:#86661c;">${escapeHtml(args.rolledRarity)}</strong>:
     </p>
     ${imageBlock}
-    <div style="background:#262626;border-radius:8px;padding:14px 16px;margin:16px 0;">
-      <p style="margin:0 0 6px;color:#fff;font-weight:600;">${cardLine(args.cardName, args.cardNumber, args.rarity)}</p>
-      <p style="margin:0;font-size:13px;color:#a3a3a3;">
-        Frozen sell-back value: <span style="color:#34d399;">£${(args.spotPriceGbp * TRADEIN_CREDIT_MULT).toFixed(2)}</span>
-        <span style="color:#737373;"> · spot £${args.spotPriceGbp.toFixed(2)}</span>
+    <div style="background:#f3f0e9;border-radius:8px;padding:14px 16px;margin:16px 0;">
+      <p style="margin:0 0 6px;color:#201d18;font-weight:600;">${cardLine(args.cardName, args.cardNumber, args.rarity)}</p>
+      <p style="margin:0;font-size:13px;color:#5e574c;">
+        Frozen sell-back value: <span style="color:#36634d;">£${(args.spotPriceGbp * TRADEIN_CREDIT_MULT).toFixed(2)}</span>
+        <span style="color:#5e574c;"> · spot £${args.spotPriceGbp.toFixed(2)}</span>
       </p>
-      <p style="margin:4px 0 0;font-size:13px;color:#a3a3a3;">
+      <p style="margin:4px 0 0;font-size:13px;color:#5e574c;">
         Expires ${escapeHtml(formatDate(args.expiresAt))} unless redeemed or sold back.
       </p>
     </div>
 
-    <p style="margin:16px 0 8px;color:#fff;font-weight:600;font-size:13px;">Draw proof</p>
-    <div style="background:#0f0f0f;border:1px solid #262626;border-radius:6px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#a3a3a3;line-height:1.6;word-break:break-all;">
-      <div><span style="color:#737373;">commit:</span> ${escapeHtml(args.rngCommitment)}</div>
-      <div><span style="color:#737373;">seed:</span>   ${escapeHtml(args.rngServerSeed)}</div>
-      <div><span style="color:#737373;">client:</span> ${escapeHtml(args.rngClientSeed)}</div>
-      <div><span style="color:#737373;">nonce:</span>  ${args.rngNonce}</div>
+    <p style="margin:16px 0 8px;color:#201d18;font-weight:600;font-size:13px;">Draw proof</p>
+    <div style="background:#faf8f4;border:1px solid #e7e2d8;border-radius:6px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#201d18;line-height:1.6;word-break:break-all;">
+      <div><span style="color:#5e574c;">commit:</span> ${escapeHtml(args.rngCommitment)}</div>
+      <div><span style="color:#5e574c;">seed:</span>   ${escapeHtml(args.rngServerSeed)}</div>
+      <div><span style="color:#5e574c;">client:</span> ${escapeHtml(args.rngClientSeed)}</div>
+      <div><span style="color:#5e574c;">nonce:</span>  ${args.rngNonce}</div>
     </div>
-    <p style="margin:8px 0 0;font-size:12px;color:#737373;">
-      Verify: <code style="color:#a3a3a3;">sha256(seed) == commit</code>.
-      The first hex digits of <code style="color:#a3a3a3;">sha256(seed:client:nonce)</code>
+    <p style="margin:8px 0 0;font-size:12px;color:#5e574c;">
+      Verify: <code style="color:#201d18;">sha256(seed) == commit</code>.
+      The first hex digits of <code style="color:#201d18;">sha256(seed:client:nonce)</code>
       reproduce the recorded rarity and SKU. These server-chosen inputs verify consistency,
       not independent seed selection.
     </p>
     <p style="margin:8px 0 0;font-size:12px;">
-      <a href="https://cambridgetcg.com/bounty/verify/${escapeHtml(args.pullId)}" style="color:#a3a3a3;text-decoration:underline;">
+      <a href="https://cambridgetcg.com/bounty/verify/${escapeHtml(args.pullId)}" style="color:#5e574c;text-decoration:underline;">
         Run the verification in your browser &rarr;
       </a>
     </p>
@@ -222,7 +222,7 @@ export async function sendVaultRedeemedEmail(args: VaultRedeemedEmailArgs): Prom
   const imageBlock = args.imageUrl
     ? `<div style="text-align:center;margin:16px 0;">
          <img src="${escapeHtml(args.imageUrl)}" alt="${escapeHtml(args.cardName)}"
-              width="140" style="border-radius:10px;border:2px solid #34d399;max-width:140px;height:auto;" />
+              width="140" style="border-radius:10px;border:1px solid #e7e2d8;max-width:140px;height:auto;" />
        </div>`
     : "";
 
@@ -232,12 +232,12 @@ export async function sendVaultRedeemedEmail(args: VaultRedeemedEmailArgs): Prom
 
   const trackingBlock = args.tracking
     ? `<p style="margin:6px 0 0;font-size:13px;">
-         <span style="color:#a3a3a3;">${carrierLabel ? escapeHtml(carrierLabel) + " tracking:" : "Tracking:"}</span>
+         <span style="color:#5e574c;">${carrierLabel ? escapeHtml(carrierLabel) + " tracking:" : "Tracking:"}</span>
          ${trackingUrl
-           ? `<a href="${escapeHtml(trackingUrl)}" style="color:#fbbf24;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:underline;">${escapeHtml(args.tracking)}</a>`
-           : `<span style="color:#fff;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escapeHtml(args.tracking)}</span>`}
+           ? `<a href="${escapeHtml(trackingUrl)}" style="color:#86661c;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:underline;">${escapeHtml(args.tracking)}</a>`
+           : `<span style="color:#201d18;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escapeHtml(args.tracking)}</span>`}
        </p>`
-    : `<p style="margin:6px 0 0;font-size:12px;color:#737373;font-style:italic;">
+    : `<p style="margin:6px 0 0;font-size:12px;color:#5e574c;font-style:italic;">
          No tracking number attached — reach out if you want one.
        </p>`;
 
@@ -248,19 +248,19 @@ export async function sendVaultRedeemedEmail(args: VaultRedeemedEmailArgs): Prom
       packaged and in the post.
     </p>
     ${imageBlock}
-    <div style="background:#262626;border-radius:8px;padding:14px 16px;margin:16px 0;">
-      <p style="margin:0 0 6px;color:#fff;font-weight:600;">${cardLine(args.cardName, args.cardNumber, args.rarity)}</p>
-      <p style="margin:0;font-size:12px;color:#737373;">
+    <div style="background:#f3f0e9;border-radius:8px;padding:14px 16px;margin:16px 0;">
+      <p style="margin:0 0 6px;color:#201d18;font-weight:600;">${cardLine(args.cardName, args.cardNumber, args.rarity)}</p>
+      <p style="margin:0;font-size:12px;color:#5e574c;">
         Acquired ${escapeHtml(formatDate(args.acquiredAt))} · Order #${args.orderId}
       </p>
     </div>
-    <div style="background:#262626;border-radius:8px;padding:14px 16px;margin:16px 0;">
-      <p style="margin:0 0 6px;color:#fff;font-weight:600;font-size:13px;">Shipping to</p>
-      <p style="margin:0;font-size:13px;color:#a3a3a3;">${escapeHtml(args.shippingName)}</p>
-      <p style="margin:0;font-size:13px;color:#a3a3a3;white-space:pre-line;">${escapeHtml(args.shippingAddress)}</p>
+    <div style="background:#f3f0e9;border-radius:8px;padding:14px 16px;margin:16px 0;">
+      <p style="margin:0 0 6px;color:#201d18;font-weight:600;font-size:13px;">Shipping to</p>
+      <p style="margin:0;font-size:13px;color:#5e574c;">${escapeHtml(args.shippingName)}</p>
+      <p style="margin:0;font-size:13px;color:#5e574c;white-space:pre-line;">${escapeHtml(args.shippingAddress)}</p>
       ${trackingBlock}
     </div>
-    <p style="margin:0;font-size:13px;color:#a3a3a3;">
+    <p style="margin:0;font-size:13px;color:#5e574c;">
       Tracked delivery, usually 2–4 business days. If anything looks off, reply
       to this email before the card arrives and we'll fix it.
     </p>
@@ -316,17 +316,17 @@ export async function sendVaultRedeemedBulkEmail(args: VaultRedeemedBulkEmailArg
   // Compact card grid — at-a-glance proof we've got the right cards.
   const cardsHtml = args.items.map((it) => `
     <tr>
-      <td style="padding:8px 0;border-bottom:1px solid #262626;">
+      <td style="padding:8px 0;border-bottom:1px solid #e7e2d8;">
         <table style="width:100%;border-collapse:collapse;"><tr>
           <td style="width:48px;padding-right:10px;">
             ${it.imageUrl
               ? `<img src="${escapeHtml(it.imageUrl)}" alt="${escapeHtml(it.cardName)}"
-                       width="40" style="border-radius:4px;border:1px solid #34d399;" />`
+                       width="40" style="border-radius:4px;border:1px solid #e7e2d8;" />`
               : ""}
           </td>
           <td>
-            <div style="color:#fff;font-weight:600;font-size:13px;">${escapeHtml(it.cardName)}</div>
-            <div style="color:#737373;font-size:11px;">${escapeHtml(it.cardNumber ?? "—")}${it.rarity ? " · " + escapeHtml(it.rarity) : ""}</div>
+            <div style="color:#201d18;font-weight:600;font-size:13px;">${escapeHtml(it.cardName)}</div>
+            <div style="color:#5e574c;font-size:11px;">${escapeHtml(it.cardNumber ?? "—")}${it.rarity ? " · " + escapeHtml(it.rarity) : ""}</div>
           </td>
         </tr></table>
       </td>
@@ -339,12 +339,12 @@ export async function sendVaultRedeemedBulkEmail(args: VaultRedeemedBulkEmailArg
 
   const trackingBlock = args.tracking
     ? `<p style="margin:6px 0 0;font-size:13px;">
-         <span style="color:#a3a3a3;">${carrierLabel ? escapeHtml(carrierLabel) + " tracking:" : "Tracking:"}</span>
+         <span style="color:#5e574c;">${carrierLabel ? escapeHtml(carrierLabel) + " tracking:" : "Tracking:"}</span>
          ${trackingUrl
-           ? `<a href="${escapeHtml(trackingUrl)}" style="color:#fbbf24;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:underline;">${escapeHtml(args.tracking)}</a>`
-           : `<span style="color:#fff;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escapeHtml(args.tracking)}</span>`}
+           ? `<a href="${escapeHtml(trackingUrl)}" style="color:#86661c;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:underline;">${escapeHtml(args.tracking)}</a>`
+           : `<span style="color:#201d18;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escapeHtml(args.tracking)}</span>`}
        </p>`
-    : `<p style="margin:6px 0 0;font-size:12px;color:#737373;font-style:italic;">
+    : `<p style="margin:6px 0 0;font-size:12px;color:#5e574c;font-style:italic;">
          No tracking number attached — reach out if you want one.
        </p>`;
 
@@ -354,19 +354,19 @@ export async function sendVaultRedeemedBulkEmail(args: VaultRedeemedBulkEmailArg
       Your bundled Vault shipment is on its way. <strong>${count} cards</strong>,
       packed together in one envelope.
     </p>
-    <div style="background:#0a0a0a;border-radius:8px;padding:8px 16px;margin:16px 0;">
+    <div style="background:#faf8f4;border:1px solid #e7e2d8;border-radius:8px;padding:8px 16px;margin:16px 0;">
       <table style="width:100%;border-collapse:collapse;">
         ${cardsHtml}
       </table>
     </div>
-    <div style="background:#262626;border-radius:8px;padding:14px 16px;margin:16px 0;">
-      <p style="margin:0 0 6px;color:#fff;font-weight:600;font-size:13px;">Shipping to</p>
-      <p style="margin:0;font-size:13px;color:#a3a3a3;">${escapeHtml(args.shippingName)}</p>
-      <p style="margin:0;font-size:13px;color:#a3a3a3;white-space:pre-line;">${escapeHtml(args.shippingAddress)}</p>
+    <div style="background:#f3f0e9;border-radius:8px;padding:14px 16px;margin:16px 0;">
+      <p style="margin:0 0 6px;color:#201d18;font-weight:600;font-size:13px;">Shipping to</p>
+      <p style="margin:0;font-size:13px;color:#5e574c;">${escapeHtml(args.shippingName)}</p>
+      <p style="margin:0;font-size:13px;color:#5e574c;white-space:pre-line;">${escapeHtml(args.shippingAddress)}</p>
       ${trackingBlock}
-      <p style="margin:8px 0 0;font-size:11px;color:#737373;">Order #${args.orderId}</p>
+      <p style="margin:8px 0 0;font-size:11px;color:#5e574c;">Order #${args.orderId}</p>
     </div>
-    <p style="margin:0;font-size:13px;color:#a3a3a3;">
+    <p style="margin:0;font-size:13px;color:#5e574c;">
       Tracked delivery, usually 2–4 business days. Reply to this email
       if anything looks off and we'll sort it before the package arrives.
     </p>

@@ -23,7 +23,7 @@ import {
 } from "@/lib/auction/public";
 import { getCardIdentity } from "@/lib/market/catalog-card";
 import AuctionDetailClient, { type AuctionCardIdentity } from "./AuctionDetailClient";
-import { SHARE_CARD } from "@/lib/share-card";
+import { SHARE_CARD, shareableImageUrl } from "@/lib/share-card";
 
 // getAuction runs the scheduled→live / live→ended sweeps and the order book
 // is live-polled, so this page is inherently dynamic. force-dynamic keeps a
@@ -49,7 +49,7 @@ export async function generateMetadata({
   const description =
     auction.description?.trim() ||
     `Auction record for ${auction.title} at Cambridge TCG. New bids were retired on 23 September 2026.`;
-  const image = auction.images?.[0]?.url;
+  const image = shareableImageUrl(auction.images?.[0]?.url);
   return {
     title,
     description,

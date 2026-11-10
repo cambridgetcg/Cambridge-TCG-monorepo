@@ -203,19 +203,23 @@ describe("RewardsPro pricing contract", () => {
     }
   });
 
-  it("keeps the public landing focused on retired subscriptions and existing account support", () => {
+  it("keeps the public landing's path for existing agreements and offers no plan to buy", () => {
     const landing = readFileSync(
       resolve(process.cwd(), "landing/public/index.html"),
       "utf8",
     );
 
+    // Two frozen stores still hold paid charges from the old app until the owner cancels them in B4
+    // (apps/rewards/docs/switch.md, Decision 20). The rebuild that production runs has no billing code
+    // and no records page, and the old app's records sit only in schema `rewardspro` until B5, so the
+    // landing promises those shops only a way to reach us, linked from the header. Merchant-facing
+    // copy doesn't talk about retirement (docs/decisions/2026-10-20-rewardspro-free-only-relaunch.md).
+    // This check, the section and its header link go once B4 has cancelled both charges.
     expect(landing).toContain(
-      "New paid subscriptions are retired.",
+      "If your store has an existing paid agreement for RewardsPro, write to us about its records or about cancelling it.",
     );
-    expect(landing).toContain(
-      "Existing subscription records, cancellation, refunds and support remain available under the agreed terms.",
-    );
-    expect(landing).toContain('href="#subscription-records"');
+    expect(landing).toContain('href="/#existing-agreements"');
+    expect(landing).toContain('id="existing-agreements"');
     expect(landing).toContain('href="mailto:contact@rewardspro.io"');
     expect(landing).toContain("Existing account support");
 

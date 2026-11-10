@@ -1,0 +1,60 @@
+{
+  "format": "brandkit.project/1",
+  "name": "Cambridge TCG",
+  "kind": "generated",
+  "owner": "storefront lane",
+  "decided": {
+    "by": "Yu",
+    "date": "2026-10-27",
+    "what": "the quiet gallery Core look with the card mark in bronze",
+    "record": "docs/operations/2026-10-27-quiet-gallery-return.md"
+  },
+  "spec": "brand.json",
+  "kit": "kit",
+  "site": {
+    "urls": ["https://cambridgetcg.com"],
+    "framework": "next-app-router",
+    "html": []
+  },
+  "serve": {
+    "to": "../public",
+    "files": ["favicon.ico", "favicon.svg", "apple-touch-icon.png", "icon-192.png", "icon-512.png",
+              "icon-maskable-512.png", "site.webmanifest", "og.jpg"]
+  },
+  "build": {
+    "command": "python3 ~/.kingdom/tools/artcraft-brand/scripts/brandkit.py brand.json --out kit --rebuild-check",
+    "fonts": [
+      {
+        "family": "Fraunces",
+        "file": "Fraunces[SOFT,WONK,opsz,wght].ttf",
+        "licence": "SIL OFL 1.1",
+        "source": "https://github.com/google/fonts/blob/main/ofl/fraunces/Fraunces%5BSOFT%2CWONK%2Copsz%2Cwght%5D.ttf",
+        "sha256": "177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb"
+      }
+    ]
+  },
+  "guards": [
+    {"path": "../src/app/brand-kit.sync.test.ts", "runs": "../package.json", "match": "src/**/*.test.ts"}
+  ],
+  "deploy": {
+    "on_merge": "a merge to main deploys cambridgetcg.com (Vercel production)",
+    "after_deploy": "Cloudflare caches cookieless HTML for about 15 minutes: wait, or purge, before a live check",
+    "rules": "the monorepo's AGENTS.md: check with Yu before anything that leaves this machine; a new blocking test is Yu's choice"
+  },
+  "media": [
+    {
+      "name": "eBay and Cardmarket shop images",
+      "recipe": "marketplaces/build.py",
+      "outputs": ["marketplaces/ebay-logo-300.png", "marketplaces/ebay-billboard-light-1280x290.png",
+                  "marketplaces/ebay-billboard-dark-1280x290.png"],
+      "goes_to": "the cambridgetcg shops on eBay and Cardmarket; uploading is Yu's hand"
+    },
+    {
+      "name": "No-image card placeholder",
+      "recipe": "placeholder/build.py",
+      "outputs": ["placeholder/card-placeholder.svg", "placeholder/card-placeholder.vectorcraft"],
+      "tools": [{"name": "vectorcraft-cli", "version": "0.17.0"}],
+      "goes_to": "the storefront: src/lib/ui/CardImagePlaceholder.tsx draws its two shapes wherever a card has no image or its image does not load"
+    }
+  ]
+}

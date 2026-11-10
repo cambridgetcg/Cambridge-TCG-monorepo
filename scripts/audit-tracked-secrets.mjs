@@ -17,7 +17,45 @@ const tokenPatterns = [
     (value) => !value.endsWith("EXAMPLE"),
   ],
   ["private key", /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/g, () => true],
+  [
+    "Cambridge TCG agent key",
+    /ctcg_agt_[A-Za-z0-9]{22}(?![A-Za-z0-9])/g,
+    (value) =>
+      mixesCharacterClasses(
+        value.slice("ctcg_agt_".length),
+        agentKeyCharacterClasses,
+      ),
+  ],
+  [
+    "Cambridge TCG member key",
+    /ctcg_member_[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])/g,
+    (value) =>
+      mixesCharacterClasses(
+        value.slice("ctcg_member_".length),
+        memberKeyCharacterClasses,
+      ),
+  ],
 ];
+
+// The two Cambridge TCG key patterns have no leading \b: the prefix is
+// distinctive, and a key glued after a word character (`%20`, an escaped
+// `\n`, `_`, an ANSI escape code) must still be found. Each trailing lookahead
+// follows its key's alphabet, so a longer run is never cut down to key length;
+// a key directly followed by a character of its own alphabet (for member
+// keys that includes `-` and `_`) is therefore missed, because it cannot be
+// told apart from a longer run.
+//
+// Minted keys are near-uniformly random (agent keys base62 from
+// `byte % 62`, which slightly favours a-h; member keys base64url), so a random
+// part drawn from one character class, such as a repeated letter or the
+// lowercase alphabet, is treated as a test fixture. One or two minted agent
+// keys in 10^8 fall in one class and would be missed.
+const agentKeyCharacterClasses = [/[a-z]/, /[A-Z]/, /[0-9]/];
+const memberKeyCharacterClasses = [...agentKeyCharacterClasses, /[-_]/];
+
+function mixesCharacterClasses(random, classes) {
+  return classes.filter((pattern) => pattern.test(random)).length >= 2;
+}
 
 const forbiddenTrackedArtifactPatterns = [
   [
@@ -498,6 +536,89 @@ function runSelfTest() {
       "Shopify access token",
     ),
   );
+
+  const keyShapes = [
+    {
+      label: "Cambridge TCG agent key",
+      prefix: "ctcg_agt_",
+      length: 22,
+      classes: agentKeyCharacterClasses,
+      classSamples: ["q", "Q", "7"],
+      // `_` is outside the agent alphabet, so a trailing `_` (Markdown
+      // `_italic_`, a snake_case suffix) still ends the key.
+      trailingContexts: (key) => [`${key}_`, `_${key}_`],
+      concrete: ["aB3dE6gH9jK2mN5pQ8sT1v"],
+      quiet: [
+        "abcdefghijklmnopqrstuv",
+        "a".repeat(22),
+        "X".repeat(22),
+        "0123456789".repeat(2) + "01",
+        "aB3".repeat(7),
+        "aB3".repeat(7) + "xY",
+      ],
+    },
+    {
+      label: "Cambridge TCG member key",
+      prefix: "ctcg_member_",
+      length: 43,
+      classes: memberKeyCharacterClasses,
+      classSamples: ["q", "Q", "7", "-"],
+      concrete: [
+        "aB3-_dE6gH9jK2mN5pQ8sT1vwXyZ0cF4hJ7kL_nP-rU",
+        "9_".repeat(21) + "9",
+      ],
+      quiet: [
+        "a".repeat(43),
+        "Z".repeat(43),
+        "7".repeat(43),
+        "-_".repeat(21) + "-",
+        "aB3-_".repeat(8) + "aB",
+        "aB3-_".repeat(8) + "aB3-",
+      ],
+    },
+  ];
+  for (const shape of keyShapes) {
+    const { label, prefix, length, classes, classSamples } = shape;
+    // One sample per character class, so every two-class pair is a positive
+    // by construction.
+    assert.equal(classSamples.length, classes.length);
+    classSamples.forEach((sample, index) =>
+      assert(classes[index].test(sample)),
+    );
+    const pairs = classSamples.flatMap((first, index) =>
+      classSamples
+        .slice(index + 1)
+        .map((second) => (first + second).repeat(length).slice(0, length)),
+    );
+    for (const [randoms, expected] of [
+      [[...shape.concrete, ...pairs], true],
+      [shape.quiet, false],
+    ]) {
+      for (const random of randoms) {
+        const key = `${prefix}${random}`;
+        for (const body of [
+          key,
+          `Authorization: Bearer ${key}`,
+          JSON.stringify({ k: key }),
+          `curl -H "Authorization: Bearer ${key}" ${mcpUrl}`,
+          // Glued after a word character, so no leading boundary may be used.
+          JSON.stringify({ log: `Your key (shown once):\n${key}` }),
+          `${mcpUrl}?authorization=Bearer%20${key}`,
+          `${mcpUrl}?next=%2Fapi%2Fmcp%3Ftoken%3D${key}`,
+          `\x1b[1m${key}\x1b[0m`,
+          JSON.stringify({ text: `\x1b[1m${key}\x1b[0m` }),
+          `_${key}.`,
+          ...(shape.trailingContexts?.(key) ?? []),
+        ]) {
+          assert.equal(
+            labelsInBody(body, "apps/storefront/src/lib/client.ts").has(label),
+            expected,
+            `tracked-secret self-test failed for a ${label} shape`,
+          );
+        }
+      }
+    }
+  }
   assert.deepEqual(labelsForTrackedPath("infra/terraform/tfplan"), [
     "Terraform plan artifact",
   ]);

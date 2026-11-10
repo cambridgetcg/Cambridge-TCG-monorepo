@@ -32,7 +32,9 @@ import { applyAction } from "@/lib/game/reducer";
 import type { GameAction, GameState } from "@/lib/game/types";
 import type { AgentActor } from "./auth";
 import { tickMatchmaker, finalizeMatch } from "./matchmaker";
-import { SELF_RECORD_JOINS, SELF_RECORD_SELECT, operationalMetadataWrites, recordedAboutThisKey } from "./self-record";
+import { describeAgentToolGrant } from "./tool-access";
+import { operationalMetadataWrites } from "./operational-metadata";
+import { SELF_RECORD_JOINS, SELF_RECORD_SELECT, recordedAboutThisKey } from "./self-record";
 
 export class ToolError extends Error {
   constructor(message: string, public status: number = 400) {
@@ -136,6 +138,7 @@ export async function agentSelf(actor: AgentActor) {
     [actor.agentId, actor.keyId],
   );
   const row = r.rows[0];
+  const grant = describeAgentToolGrant(actor.registeredVia);
   return {
     agent_id: actor.agentId,
     public_handle: row.public_handle,
@@ -148,10 +151,18 @@ export async function agentSelf(actor: AgentActor) {
     matches_won: row.matches_won,
     status: row.status,
     operator_bound: actor.registeredVia === "operator",
+    // read_only means domain state: Coverage Hunt review submissions and
+    // ending this key are listed beside it, not counted as domain writes.
     read_only: true,
     read_only_scope: "domain-state",
+    review_submissions: grant.review_submissions,
+    self_lifecycle: grant.self_lifecycle,
+    // The grant's list, plus the daily MCP count's line while it is on.
     operational_metadata_writes: operationalMetadataWrites(),
     rate_limit_tier: actor.rateLimitTier,
+    // Always present: when this key stops authenticating (ISO 8601), as
+    // the gate read it on this request, or null: this key has no expiry.
+    key_expires_at: actor.keyExpiresAt,
     created_at: row.created_at,
     recorded_about_this_key: recordedAboutThisKey(row, actor.rateLimitTier),
   };
