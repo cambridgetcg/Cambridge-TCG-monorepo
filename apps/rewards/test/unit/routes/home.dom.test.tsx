@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { abortedByPage, fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
@@ -109,13 +109,24 @@ function stubAppBridge(embed: "active" | "available", review: () => Promise<{ co
 /** Each post Home makes, with its request. */
 type Posted = { fields: Record<string, string>; request: Request };
 
-async function renderHome(data: HomeData, posted: Posted[] = []) {
+/**
+ * Home with `data`. Each post goes to `posted`; by default it never answers.
+ * With `answer`, the action gives back what it returns for the post's
+ * fields, and each later load (the revalidation after a post) reads `next()`.
+ */
+async function renderHome(
+  data: HomeData,
+  posted: Posted[] = [],
+  o: { answer?: (fields: Record<string, string>) => Promise<unknown>; next?: () => HomeData } = {},
+) {
   letFetchersPost();
   const action = async ({ request }: { request: Request }) => {
-    posted.push({ fields: await fieldsOf(request), request });
-    return new Promise(() => {});
+    const fields = await fieldsOf(request);
+    posted.push({ fields, request });
+    return o.answer ? o.answer(fields) : new Promise(() => {});
   };
-  const Stub = createRoutesStub([{ id: "routes/app._index", path: "/app", Component: Home, action }]);
+  const loader = o.next;
+  const Stub = createRoutesStub([{ id: "routes/app._index", path: "/app", Component: Home, action, ...(loader ? { loader: () => loader() } : {}) }]);
   render(<Stub initialEntries={["/app"]} hydrationData={{ loaderData: { "routes/app._index": data } }} />);
   await screen.findByText("All orders", { selector: "s-button" });
   // Let the widget check settle
@@ -486,19 +497,124 @@ describe("Home's controls", () => {
     expect(posted.map((post) => post.fields)).toEqual([{ intent: "base-rate", percent: "6" }]);
   });
 
-  it("dismisses the review request without aborting the post that recorded it shown", async () => {
+});
+
+// #173: asked only right after a save that worked, never when the page loads, with one neutral sentence
+describe("the review request", () => {
+  const due = { reviewDue: true, setupCompleted: true, importDismissed: true };
+  const switches = () => [...document.querySelectorAll("s-switch")];
+  const reviewCard = () => document.querySelector("[data-review-card]");
+  const flip = async (checked: boolean) => {
+    const toggle = switches()[0];
+    await act(async () => {
+      Object.defineProperty(toggle, "checked", { value: checked, configurable: true, writable: true });
+      fireEvent.change(toggle);
+    });
+    // The switch is enabled again once the post and the reload after it are done
+    await waitFor(() => expect(switches()[0].hasAttribute("disabled")).toBe(false));
+  };
+  /** Home whose switch saves: each "running" post answers `answer` and the page reloads with its new state. */
+  const renderSaving = async (o: { running: boolean; reviewDue?: boolean; answer?: { ok: boolean; error?: string } }, posted: Posted[] = []) => {
+    let running = o.running;
+    const data = () => homeData({ ...due, reviewDue: o.reviewDue ?? true, running });
+    await renderHome(data(), posted, {
+      answer: async (fields) => {
+        // What Shopify showed is recorded by a post that stays in flight
+        if (fields.intent !== "running") return new Promise(() => {});
+        const answer = o.answer ?? { ok: true };
+        if (answer.ok) running = fields.running === "on";
+        return answer;
+      },
+      next: data,
+    });
+  };
+
+  it("never asks when the page loads, and shows its one sentence with a link to the review form and Don't ask again", async () => {
+    const request = vi.fn(async () => ({ code: "success" }));
+    stubAppBridge("active", request);
+    const posted: Posted[] = [];
+    await renderHome(homeData(due), posted);
+    await act(async () => {});
+
+    expect(request).not.toHaveBeenCalled();
+    expect(posted).toEqual([]);
+    // The whole card: nothing offered, no sentiment asked for (App Store requirement 1.3.1)
+    expect(reviewCard()?.textContent).toBe(
+      "How is RewardsPro working for your shop? An honest review, good or bad, helps other merchants decide.Leave a reviewDon't ask again",
+    );
+    const link = reviewCard()?.querySelector("s-link");
+    expect([link?.getAttribute("href"), link?.getAttribute("target")]).toEqual(["https://apps.shopify.com/rewards-pro#modal-show=WriteReviewModal", "_blank"]);
+    cleanup();
+
+    await renderHome(homeData({ ...due, reviewDue: false }));
+    expect(reviewCard()).toBeNull();
+  });
+
+  it("asks once a visit, right after cashback is switched on, and records what Shopify showed", async () => {
+    const request = vi.fn(async () => ({ code: "success" }));
+    stubAppBridge("active", request);
+    const posted: Posted[] = [];
+    await renderSaving({ running: false }, posted);
+
+    await flip(true);
+    await waitFor(() => expect(posted.map((post) => post.fields)).toEqual([{ intent: "running", running: "on" }, { intent: "review-shown", code: "success" }]));
+    expect(request).toHaveBeenCalledTimes(1);
+
+    // Off and on again in the same visit asks nothing more
+    await flip(false);
+    await flip(true);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("doesn't ask after cashback is switched off, after a save that failed, or while it isn't due", async () => {
+    for (const [o, to] of [
+      [{ running: true }, false],
+      [{ running: false, answer: { ok: false, error: "Set your base cashback rate first." } }, true],
+      [{ running: false, reviewDue: false }, true],
+    ] as const) {
+      const request = vi.fn(async () => ({ code: "success" }));
+      stubAppBridge("active", request);
+      const posted: Posted[] = [];
+      await renderSaving(o, posted);
+
+      await flip(to);
+
+      expect(posted.map((post) => post.fields)).toEqual([{ intent: "running", running: to ? "on" : "off" }]);
+      expect(request).not.toHaveBeenCalled();
+      cleanup();
+    }
+  });
+
+  it("takes Don't ask again without aborting the post that recorded the request shown", async () => {
     stubAppBridge("active", async () => ({ code: "success" }));
     const posted: Posted[] = [];
-    await renderHome(homeData({ reviewDue: true, importDismissed: true, setupCompleted: true }), posted);
-    await act(async () => {});
-    expect(posted.map((post) => post.fields)).toEqual([{ intent: "review-shown", code: "success" }]);
+    await renderSaving({ running: false }, posted);
+    await flip(true);
+    await waitFor(() => expect(posted.at(-1)?.fields).toEqual({ intent: "review-shown", code: "success" }));
 
     await act(async () => {
-      fireEvent.click(screen.getByText("Dismiss", { selector: "s-section s-button" }));
+      fireEvent.click(screen.getByText("Don't ask again", { selector: "s-section s-button" }));
     });
 
-    expect(posted.map((post) => post.fields)).toEqual([{ intent: "review-shown", code: "success" }, { intent: "review-dismissed" }]);
-    expect(abortedByPage(posted[0].request)).toBe(false);
-    expect(screen.queryByText("A review helps other merchants find RewardsPro.")).toBeNull();
+    expect(posted.map((post) => post.fields).slice(1)).toEqual([{ intent: "review-shown", code: "success" }, { intent: "review-dismissed" }]);
+    // A19-F7: its own fetcher, so the record stays in flight
+    expect(abortedByPage(posted[1].request)).toBe(false);
+    expect(reviewCard()).toBeNull();
+  });
+
+  it("doesn't ask after a save made while Don't ask again is still being recorded", async () => {
+    const request = vi.fn(async () => ({ code: "success" }));
+    stubAppBridge("active", request);
+    const posted: Posted[] = [];
+    // Its post stays in flight, and each reload still says due
+    await renderSaving({ running: false }, posted);
+    await act(async () => {
+      fireEvent.click(screen.getByText("Don't ask again", { selector: "s-section s-button" }));
+    });
+
+    await flip(true);
+
+    expect(posted.map((post) => post.fields)).toEqual([{ intent: "review-dismissed" }, { intent: "running", running: "on" }]);
+    expect(request).not.toHaveBeenCalled();
   });
 });

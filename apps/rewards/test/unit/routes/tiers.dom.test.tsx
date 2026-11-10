@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
@@ -35,10 +35,11 @@ const TIERS = [
   { id: "t1", name: "Gold", minSpend: "500", percent: "10", members: 1, lowest: false, version: "2026-11-02T10:00:00.000Z" },
 ];
 
-type Page = { currency: string; tierWindow: string; nameMax: number; moving: boolean; goneError: string; tiers: typeof TIERS };
+type Page = { currency: string; reviewDue: boolean; tierWindow: string; nameMax: number; moving: boolean; goneError: string; tiers: typeof TIERS };
 
 const page = (o: Partial<Page> = {}): Page => ({
   currency: "GBP",
+  reviewDue: false,
   tierWindow: "rolling_12_months",
   nameMax: 40,
   moving: false,
@@ -51,12 +52,20 @@ const page = (o: Partial<Page> = {}): Page => ({
  * The page with `first` as its data; each later load (the revalidation after
  * a post) reads `next()`. Each post goes to `posted`; `answer` is what the
  * action gives back (a promise that never settles keeps the post in flight).
+ * A post to Home's action (the review request's record) goes to `home`.
  */
 async function renderTiers(
   first: Page = page(),
-  o: { next?: () => Page; posted?: Array<Record<string, string>>; answer?: () => Promise<unknown> } = {},
+  o: { next?: () => Page; posted?: Array<Record<string, string>>; answer?: () => Promise<unknown>; home?: Array<Record<string, string>> } = {},
 ) {
   const Stub = createRoutesStub([
+    {
+      path: "/app",
+      action: async ({ request }) => {
+        o.home?.push(await fieldsOf(request));
+        return { ok: true };
+      },
+    },
     {
       id: "routes/app.tiers",
       path: "/app/tiers",
@@ -361,5 +370,61 @@ describe("Tiers page", () => {
 
     await renderTiers(page({ moving: false }));
     expect(document.querySelector("s-banner")).toBeNull();
+  });
+
+  // #173: the review request follows a save that worked, never the page's load
+  describe("the review request", () => {
+    const addTier = async (name: string) => {
+      await type(document.querySelector('s-text-field[name="name"]')!, name);
+      await type(document.querySelector('s-money-field[name="minSpend"]')!, "250");
+      await type(document.querySelector('s-number-field[name="percent"]')!, "7");
+      await act(async () => {
+        fireEvent.click(screen.getByText("Add tier", { selector: "s-section s-button" }));
+      });
+      // The form clears once the save is answered and the page reloaded
+      await waitFor(() => expect(document.querySelector('s-text-field[name="name"]')?.getAttribute("value")).toBe(""));
+    };
+
+    it("asks once a visit, right after a tier is saved while it is due, and records what Shopify showed", async () => {
+      letFetchersPost();
+      const request = vi.fn(async () => ({ code: "success" }));
+      vi.stubGlobal("shopify", { reviews: { request } });
+      const home: Array<Record<string, string>> = [];
+      await renderTiers(page({ reviewDue: true }), { home });
+      await act(async () => {});
+      expect(request).not.toHaveBeenCalled();
+
+      await addTier("Silver");
+      await waitFor(() => expect(home).toEqual([{ intent: "review-shown", code: "success" }]));
+      expect(request).toHaveBeenCalledTimes(1);
+
+      await addTier("Platinum");
+      expect(request).toHaveBeenCalledTimes(1);
+    });
+
+    it("doesn't ask after a save that failed, or while it isn't due", async () => {
+      for (const [due, answer] of [
+        [true, { ok: false, errors: { percent: "Enter a whole number from 0 to 100." } }],
+        [false, { ok: true }],
+      ] as const) {
+        letFetchersPost();
+        const request = vi.fn(async () => ({ code: "success" }));
+        vi.stubGlobal("shopify", { reviews: { request } });
+        const posted: Array<Record<string, string>> = [];
+        await renderTiers(page({ reviewDue: due }), { posted, answer: async () => answer });
+
+        await type(document.querySelector('s-text-field[name="name"]')!, "Silver");
+        await type(document.querySelector('s-number-field[name="percent"]')!, "7");
+        await act(async () => {
+          fireEvent.click(screen.getByText("Add tier", { selector: "s-section s-button" }));
+        });
+        await waitFor(() => expect(screen.getByText("Add tier", { selector: "s-section s-button" }).hasAttribute("loading")).toBe(false));
+
+        expect(posted).toHaveLength(1);
+        expect(request).not.toHaveBeenCalled();
+        cleanup();
+        vi.unstubAllGlobals();
+      }
+    });
   });
 });

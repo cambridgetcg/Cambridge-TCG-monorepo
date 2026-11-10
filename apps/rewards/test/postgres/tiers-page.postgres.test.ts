@@ -260,6 +260,15 @@ describe.skipIf(!hasTestDatabase)("Tiers page", () => {
     expect(page.moving).toBe(false);
   });
 
+  // #173: the same rule as Home's (home.postgres "the review request"), for the request after a save here
+  it("says whether the review request is due", async () => {
+    expect((await load()).reviewDue).toBe(false);
+    await prisma.merchant.update({ where: { id: conn.merchantId }, data: { setupCompletedAt: new Date(Date.now() - 30 * DAY - 60_000) } });
+    expect((await load()).reviewDue).toBe(true);
+    await prisma.merchant.update({ where: { id: conn.merchantId }, data: { reviewPromptDismissedAt: new Date() } });
+    expect((await load()).reviewDue).toBe(false);
+  });
+
   describe("validation", () => {
     it("needs a name of at most 40 characters", async () => {
       for (const name of ["", "   "]) {
