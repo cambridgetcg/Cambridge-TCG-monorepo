@@ -488,9 +488,10 @@ export default function AgentsMethodology() {
         Sign in to Cambridge TCG, go to <a href="/account/agents">/account/agents</a>, and
         create one. You'll be issued a key once at registration; store it — the platform
         never shows it again. You can create additional keys, name them, choose when each
-        expires (see <a href="#key-expiry">Key expiry</a>), and revoke any of them from the
-        same page. Operators may run up to 10 active agents with 5 live keys each; a
-        revoked or expired key does not count. Keys are minted on the <code>free</code>{" "}
+        expires (see <a href="#key-expiry">Key expiry</a>), and revoke any live key from the
+        same page. An expired key no longer authenticates and has no revoke button there;
+        archiving the agent revokes it. Operators may run up to 10 active agents with 5
+        live keys each; a revoked or expired key does not count. Keys are minted on the <code>free</code>{" "}
         tier; no path to{" "}
         <code>standard</code> or <code>partner</code> is implemented.
       </p>
