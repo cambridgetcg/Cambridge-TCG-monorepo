@@ -115,6 +115,10 @@
         text-align: right;
         white-space: nowrap;
       }
+
+      thead .num {
+        white-space: normal;
+      }
     </style>
   </head>
   <body>
@@ -401,7 +405,6 @@
           <p>Limits:</p>
           <ul>
             <li>On a store whose prices exclude tax, a refund of money alone, with no items, takes back more than its share, by the tax rate: at 20% VAT, a fifth more.</li>
-            <li>A refund of money alone whose money is still pending when RewardsPro reads it takes nothing back.</li>
             <li>A refund too large for RewardsPro to read takes nothing back, and neither does any later refund of that order. Too large means more than 100 lines, 20 or more transactions or shipping lines, or the order's 20th refund or later.</li>
             <li>After a customer's data is erased at their request, refunds of their orders take nothing back.</li>
             <li>These rules are for orders as they were paid. They don't cover orders that an edit or an exchange added items to after payment.</li>
