@@ -421,6 +421,50 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     })).rejects.toMatchObject({ code: "23514" });
   });
 
+  it("refuses TRUNCATE of the events, directly or by a cascade from agents", async () => {
+    const { agentId } = await setup();
+    const client = await pool.connect();
+    try {
+      // A plain TRUNCATE is refused already: other tables reference the events.
+      for (const statement of ["TRUNCATE agent_act_events CASCADE", "TRUNCATE agents CASCADE"]) {
+        // Inside a transaction rolled back either way, so a missing guard
+        // empties nothing for the tests after this one.
+        await client.query("BEGIN");
+        await expect(client.query(statement), statement).rejects.toThrow(/agent_act_events is append-only and is not truncated/);
+        await client.query("ROLLBACK");
+      }
+    } finally {
+      await client.query("ROLLBACK").catch(() => {});
+      client.release();
+    }
+    expect((await events(agentId)).length).toBeGreaterThan(0);
+  });
+
+  it("0152 waits at most 3 seconds for a lock, then fails whole instead of queueing the gate behind it", async () => {
+    // A reader holds agent_keys, as the gate's lookup does for a moment.
+    const reader = await pool.connect();
+    const migrator = await pool.connect();
+    try {
+      await reader.query("BEGIN");
+      await reader.query("SELECT 1 FROM agent_keys LIMIT 1");
+      await migrator.query("BEGIN");
+      const started = Date.now();
+      // Without lock_timeout this waits for the reader until statement_timeout (5 s here).
+      await expect(migrator.query(await readFile(new URL("../../../drizzle/0152_agent_signing_keys.sql", import.meta.url), "utf8")))
+        .rejects.toMatchObject({ code: "55P03" });
+      const waited = Date.now() - started;
+      expect(waited).toBeGreaterThanOrEqual(2900);
+      expect(waited).toBeLessThan(4900);
+    } finally {
+      await migrator.query("ROLLBACK").catch(() => {});
+      await reader.query("ROLLBACK").catch(() => {});
+      migrator.release();
+      reader.release();
+    }
+    // The setting ended with that transaction.
+    expect((await pool.query("SHOW lock_timeout")).rows[0].lock_timeout).toBe("0");
+  }, 15000);
+
   it("0152 adds agent.act to mcp_daily.tool and keeps the words 0150 allowed", async () => {
     const row = (tool: string) => `INSERT INTO mcp_daily VALUES (current_date, 'tools/call', '${tool}', false, 'ok', 1)`;
     await pool.query(row("agent.act"));

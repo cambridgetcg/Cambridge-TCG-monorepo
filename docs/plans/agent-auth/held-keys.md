@@ -184,6 +184,13 @@ not Yu's:
   as `act_params_invalid` (`name`) before any statement runs. A NUL used to
   fail the insert, so the act answered `auth_unavailable` with "repeating
   is safe" for ever and recorded nothing.
+- Migration 0152, never applied anywhere, was edited: `SET LOCAL
+  lock_timeout = '3s'` first; a header that states its locks (ACCESS
+  EXCLUSIVE on `agent_keys` and `mcp_daily`, SHARE ROW EXCLUSIVE on
+  `agents`, each until the runner's COMMIT); a `BEFORE TRUNCATE` guard on
+  `agent_act_events`, in the style of 0141 and 0146; comments that describe
+  the sweep as built; and the sweep's index now covers every key never
+  confirmed, removed or not, as the sweep's own query does.
 
 **What is off.** `AGENT_SIGNED_ACTS` is off unless set to exactly `on` with
 an audience. Off, both doors answer `signed_acts_closed`, binding is

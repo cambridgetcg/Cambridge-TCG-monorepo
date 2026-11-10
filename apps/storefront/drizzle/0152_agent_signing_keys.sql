@@ -12,8 +12,10 @@
 --     agent_keys (both archive paths, agent.revoke_key, the Coverage Hunt key
 --     lock) can never touch one.
 --   - agent_act_nonces: (thumbprint, jti) seen, until the act's exp plus 60
---     seconds, so an act is applied at most once. Purged a few rows at a time
---     inside each act; the maintenance sweep is to purge the rest.
+--     seconds, so an act is applied at most once. Each act purges a few
+--     expired rows as it commits; the hourly maintenance sweep
+--     (lib/agents/signed-act-sweep.ts) purges the rest while signed acts are
+--     open.
 --   - agent_act_events: one append-only row per act and per binding or
 --     removal at the page, with the signed bytes, their SHA-256, the
 --     verification record and the effect: evidence for the agent, its
@@ -32,9 +34,14 @@
 --
 -- Retention, as proposed. Signing keys and events are kept until the agent is
 -- erased, and erasure is not built (support-procedures.md P1 is a draft), so
--- until it is they are kept indefinitely, archived agents included. Pending
--- keys (never confirmed) are to be deleted by the maintenance sweep after 7
--- days. When an event's agent_id goes to NULL (P1's delete, its case 7a, or
+-- until it is they are kept indefinitely, archived agents included. A key
+-- never confirmed by a signed act is deleted 7 days after binding, whether or
+-- not the operator removed it meanwhile, by the hourly maintenance sweep
+-- (lib/agents/signed-act-sweep.ts). The sweep runs only while signed acts are
+-- open (AGENT_SIGNED_ACTS), as no code reads or writes these tables while they
+-- are closed, so after a close such keys and expired nonces stay until the
+-- path opens again; nothing can use them meanwhile. When an event's agent_id
+-- goes to NULL (P1's delete, its case 7a, or
 -- an account deletion cascading through agents), the guard below also nulls
 -- act_jws, thumbprint, verification and effect, so a receipt stays: event id,
 -- basis, act, outcome or refusal, act_sha256, date. P1's tombstone (7b) keeps
@@ -76,16 +83,34 @@
 -- is the name PostgreSQL generated for 0148's column constraint, re-added by
 -- 0150 under the same name; it is re-added here under that name, widened.
 --
--- Adding minted_by_event (nullable, no default) does not rewrite agent_keys;
--- adding its foreign key scans the table once under a SHARE ROW EXCLUSIVE
--- lock, and every existing row passes because every value is NULL. Rolling
--- the code back is safe for this schema. Do not drop these tables or the
--- column: the events are the only record of what a signed act did. Change
--- them with a new migration.
+-- Locks. The runner (scripts/migrate.mjs) wraps this file in one
+-- transaction, so every lock below is held until its COMMIT. The file's work
+-- is quick (33 ms in all with 200,000 agent_keys rows and 60 mcp_daily rows,
+-- on PostgreSQL 17 in an agent's review; not measured on production), and
+-- SET LOCAL lock_timeout, the first statement, bounds each wait for a lock
+-- at 3 seconds: past that the migration fails and rolls back whole, changing
+-- nothing, and can simply be run again. Held until COMMIT:
+--   - agent_keys, ACCESS EXCLUSIVE (ADD COLUMN): every read or write of
+--     agent_keys waits, the gate's key lookup on each authenticated agent
+--     call included, and so does every statement queued behind the
+--     migration while it waits for this lock. Adding minted_by_event
+--     (nullable, no default) does not rewrite the table; its foreign key
+--     then scans it once, and every row passes because every value is NULL.
+--   - mcp_daily, ACCESS EXCLUSIVE (swapping its tool CHECK, which scans the
+--     table): recordMcpDaily's writes and the monitor's reads wait.
+--   - agents, SHARE ROW EXCLUSIVE (the foreign keys to it from the two new
+--     tables, taken as they are created): reads and row locks (FOR UPDATE,
+--     FOR NO KEY UPDATE) go on; INSERT, UPDATE and DELETE on agents wait.
+--   - The three new tables, which nothing else can use yet.
+-- Rolling the code back is safe for this schema. Do not drop these tables
+-- or the column: the events are the only record of what a signed act did.
+-- Change them with a new migration.
 --
--- The runner (scripts/migrate.mjs) wraps this file in its own transaction,
--- so it has no BEGIN or COMMIT. Constraint style follows 0151: drop if
--- exists, then add.
+-- The file has no BEGIN or COMMIT, since the runner supplies them, and its
+-- SET LOCAL ends with that transaction. Constraint style follows 0151: drop
+-- if exists, then add.
+
+SET LOCAL lock_timeout = '3s';
 
 CREATE TABLE IF NOT EXISTS agent_act_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -143,12 +168,17 @@ CREATE INDEX IF NOT EXISTS idx_agent_act_events_agent
 -- Append-only, except agent erasure: (7a, or a cascade from agents) agent_id
 -- goes to NULL and the guard nulls the four erasable columns with it; (7b)
 -- agent_id unchanged and those four set to NULL. Nothing else may change, and
--- no row may be deleted.
+-- no row may be deleted. TRUNCATE, which fires no row trigger, is refused by
+-- a statement trigger of its own, as 0141 and 0146 do; that also refuses a
+-- TRUNCATE ... CASCADE that would reach this table (from agents, say).
 CREATE OR REPLACE FUNCTION guard_agent_act_event_mutation()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  IF TG_OP = 'TRUNCATE' THEN
+    RAISE EXCEPTION '% is append-only and is not truncated', TG_TABLE_NAME;
+  END IF;
   IF TG_OP = 'INSERT' AND NEW.agent_id IS NOT NULL THEN
     RETURN NEW;
   END IF;
@@ -193,6 +223,10 @@ DROP TRIGGER IF EXISTS agent_act_events_append_only ON agent_act_events;
 CREATE TRIGGER agent_act_events_append_only
   BEFORE INSERT OR UPDATE OR DELETE ON agent_act_events
   FOR EACH ROW EXECUTE FUNCTION guard_agent_act_event_mutation();
+DROP TRIGGER IF EXISTS agent_act_events_truncate_guard ON agent_act_events;
+CREATE TRIGGER agent_act_events_truncate_guard
+  BEFORE TRUNCATE ON agent_act_events
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_agent_act_event_mutation();
 
 CREATE TABLE IF NOT EXISTS agent_signing_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -263,15 +297,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS agent_signing_keys_unrevoked_per_agent
 -- The act path's (sub, kid) lookup, in any state.
 CREATE INDEX IF NOT EXISTS idx_agent_signing_keys_lookup
   ON agent_signing_keys (agent_id, thumbprint);
--- The sweep's week-old pending keys.
+-- The sweep's keys never confirmed, by age, removed or not (its WHERE).
 CREATE INDEX IF NOT EXISTS idx_agent_signing_keys_pending
-  ON agent_signing_keys (created_at) WHERE confirmed_at IS NULL AND revoked_at IS NULL;
+  ON agent_signing_keys (created_at) WHERE confirmed_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS agent_act_nonces (
   thumbprint VARCHAR(43) NOT NULL,
   -- 16 to 32 random bytes in base64url.
   jti VARCHAR(43) NOT NULL,
-  -- The act's exp plus 60 seconds.
+  -- The act's exp plus 60 seconds; each act and the hourly sweep delete rows
+  -- past it.
   expires_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (thumbprint, jti)
 );
@@ -287,9 +322,9 @@ CREATE INDEX IF NOT EXISTS idx_agent_keys_minted_by_event
   ON agent_keys (minted_by_event) WHERE minted_by_event IS NOT NULL;
 
 COMMENT ON TABLE agent_signing_keys IS
-  'Agent-held Ed25519 public keys bound by an operator (held-keys.md). Kept until the agent is erased; pending keys swept after 7 days.';
+  'Agent-held Ed25519 public keys bound by an operator (held-keys.md). Kept until the agent is erased, except a key never confirmed by a signed act, which the hourly sweep deletes 7 days after binding while signed acts are open.';
 COMMENT ON TABLE agent_act_nonces IS
-  'Signed-act (thumbprint, jti) pairs seen, until exp plus 60 seconds: refuses replays.';
+  'Signed-act (thumbprint, jti) pairs seen, until exp plus 60 seconds: refuses replays. Each act purges a few expired rows; the hourly sweep purges the rest while signed acts are open.';
 COMMENT ON TABLE agent_act_events IS
   'Append-only evidence of each signed act and each signing-key binding or removal. Erasable columns null with agent_id; the receipt stays.';
 COMMENT ON COLUMN agent_keys.minted_by_event IS

@@ -184,6 +184,10 @@ evidence for every applicable item before the production push:
   with `AGENT_SIGNED_ACTS` off: the gate lists and counts the new `agent.act`
   tool word, and while `OPS_MCP_DAILY` is on a count batch holding that word
   would be refused whole by the older CHECK (see the migration's header).
+  0152 holds ACCESS EXCLUSIVE on `agent_keys` and `mcp_daily` until it
+  commits, so agent calls wait for it, and it waits at most 3 seconds for
+  any lock (`lock_timeout`): if it fails that way, nothing was applied and
+  it can be run again.
   The owner's word for applying 0152 has not been given.
 - For person-level scoring, fraud signals, limits, routing, holds or automatic
   rejection, record the lawful-basis and UK GDPR Articles 22A–22C assessment,
