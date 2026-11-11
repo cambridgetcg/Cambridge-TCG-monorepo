@@ -408,9 +408,21 @@ describe("a web page on another site", () => {
     expect(mocks.resolveAgentBearer).not.toHaveBeenCalled();
   });
 
-  it("lets this deployment's own origin, a null origin and a desktop webview through", async () => {
+  it("refuses a null origin too, which any page on another site can choose to send", async () => {
+    // Fetch standard, "append a request Origin header": a POST in no-cors
+    // mode with referrer policy "no-referrer" (or "same-origin", cross-site)
+    // is sent with Origin: null.
+    for (const caller of ["plain", "bridge", "sdk"] as const) {
+      const response = await answer(await post(caller, { jsonrpc: "2.0", id: 1, method: "tools/list" }, { headers: { origin: "null" } }));
+      expect(response.status, caller).toBe(403);
+      expect(JSON.parse(response.text)).toMatchObject({ id: null, error: { code: -32600 } });
+    }
+    expect((await GET(new Request(URL_, { headers: { origin: " null " } }))).status).toBe(403);
+  });
+
+  it("lets this deployment's own origin and a desktop webview through", async () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://cambridgetcg.com");
-    for (const origin of ["https://cambridgetcg.com", "null", "vscode-webview://abc"]) {
+    for (const origin of ["https://cambridgetcg.com", "vscode-webview://abc"]) {
       expect((await post("sdk", { jsonrpc: "2.0", id: 1, method: "tools/list" }, { headers: { origin } })).status, origin).toBe(200);
     }
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://127.0.0.1:3001");

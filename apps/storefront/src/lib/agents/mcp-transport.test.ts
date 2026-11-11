@@ -120,17 +120,19 @@ describe("cross-site origins", () => {
     expect(ownOrigin({ NEXT_PUBLIC_SITE_URL: "not a url" })).toBe("https://cambridgetcg.com");
   });
 
-  it("refuses only a present http or https origin that is not this deployment's", () => {
+  it("refuses a present http or https origin that is not this deployment's, and null", () => {
     const foreign = (origin?: string) =>
       isForeignWebOrigin(new Headers(origin === undefined ? {} : { origin }), env);
     expect(foreign("https://evil.example")).toBe(true);
     expect(foreign("http://localhost:6274")).toBe(true);
     expect(foreign("http://cambridgetcg.com")).toBe(true);
     expect(foreign("https://cambridgetcg-storefront.vercel.app")).toBe(true);
+    // A page on another site can send null by choosing its referrer policy.
+    expect(foreign("null")).toBe(true);
+    expect(foreign(" null ")).toBe(true);
     expect(foreign(undefined)).toBe(false);
     expect(foreign("https://cambridgetcg.com")).toBe(false);
     expect(foreign("HTTPS://CambridgeTCG.com")).toBe(false);
-    expect(foreign("null")).toBe(false);
     expect(foreign("vscode-webview://abc")).toBe(false);
     expect(foreign("file://")).toBe(false);
     expect(foreign("")).toBe(false);

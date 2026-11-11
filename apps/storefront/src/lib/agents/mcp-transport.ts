@@ -182,8 +182,9 @@ export function ownOrigin(env: Readonly<Record<string, string | undefined>> = pr
 }
 
 /**
- * Whether a request comes from a web page on another site: its Origin header
- * is present, is an http or https origin, and is not this deployment's own.
+ * Whether a request may come from a web page on another site: its Origin
+ * header is present and is either "null" or an http or https origin that is
+ * not this deployment's own.
  *
  * This is narrower than the spec's sentence ("Servers MUST validate the
  * Origin header on all incoming connections", 403 when it is "present and
@@ -191,11 +192,16 @@ export function ownOrigin(env: Readonly<Record<string, string | undefined>> = pr
  * cross-site use from a browser. In production, routing by Host already stops
  * rebinding, and the gate sends no CORS headers, so a page on another site
  * cannot read any answer; what is left is a page that sends a simple
- * cross-site POST (text/plain) to the paths that need no key. Refusing http
- * and https origins other than this one stops that. Every other Origin passes:
- * a missing one (servers, scripts, the bridge, SDK clients in Node), "null"
- * and non-web schemes (sandboxed frames, desktop and editor webviews), which
- * can no more read an answer than another site can.
+ * cross-site POST (text/plain) to the paths that need no key. A browser sends
+ * Origin on every POST (Fetch standard, "append a request Origin header"):
+ * the page's own origin, or "null" when it asks for that with referrer policy
+ * "no-referrer" (or "same-origin", cross-site), or runs in a sandboxed frame
+ * or a file:// page. So both are refused, and a browser page on another site
+ * cannot get a POST through. Its cross-site GET in no-cors mode carries no
+ * Origin and is answered, but only with the public description, which it
+ * cannot read. Every other Origin passes: a missing one (servers, scripts,
+ * the bridge, SDK clients in Node) and non-web schemes (browser extensions,
+ * desktop and editor webviews), which are not pages on another site.
  */
 export function isForeignWebOrigin(
   headers: Headers,
@@ -203,6 +209,7 @@ export function isForeignWebOrigin(
 ): boolean {
   const origin = headers.get("origin");
   if (origin === null) return false;
+  if (origin.trim() === "null") return true;
   let parsed: URL;
   try {
     parsed = new URL(origin.trim());
