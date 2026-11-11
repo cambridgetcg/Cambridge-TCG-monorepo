@@ -140,8 +140,11 @@ export function initializeRevision(requested: unknown): string {
  * Whether a standard MCP client's message names a revision the gate does not
  * answer: an MCP-Protocol-Version header naming one, or a server/discover
  * request (the 2026-07-28 probe, which the gate does not implement). Null
- * when it may proceed; otherwise the revision it asked for, when it named
- * one. A missing header is accepted, as both 2025 revisions allow.
+ * when it may proceed; otherwise the unanswered revision it asked for, when
+ * it named one: the header, or for a probe the revision its _meta claims. A
+ * probe's header that names a revision the gate answers is never reported as
+ * the one requested, since the answer lists it as supported. A missing
+ * header is accepted, as both 2025 revisions allow.
  */
 export function unsupportedRevision(
   headers: Headers,
@@ -151,7 +154,6 @@ export function unsupportedRevision(
   const header = headers.get("mcp-protocol-version")?.trim();
   if (header !== undefined && !ANSWERED.includes(header)) return { requested: header };
   if (method !== "server/discover") return null;
-  if (header) return { requested: header };
   const meta = params._meta;
   const claimed =
     meta && typeof meta === "object" ? (meta as Record<string, unknown>)[PROTOCOL_VERSION_META_KEY] : undefined;

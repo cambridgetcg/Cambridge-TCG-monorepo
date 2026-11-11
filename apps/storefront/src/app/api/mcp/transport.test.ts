@@ -268,6 +268,15 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
     expect(mocks.resolveAgentBearer).not.toHaveBeenCalled();
   });
 
+  it("answers a probe that carries an answered revision header without naming that revision as unsupported", async () => {
+    const response = await answer(await sdk({ jsonrpc: "2.0", id: "p", method: "server/discover", params: {} }, { version: "2025-11-25" }));
+    expect(response.status).toBe(400);
+    expect(JSON.parse(response.text)).toEqual({
+      jsonrpc: "2.0", id: "p",
+      error: { code: -32022, message: "Unsupported protocol version", data: { supported: ["2025-11-25", "2025-06-18"] } },
+    });
+  });
+
   it("refuses any other revision it does not answer with the same 400, and accepts the three it does", async () => {
     for (const version of ["2025-03-26", "2026-07-28", "1900-01-01"]) {
       const response = await answer(await sdk({ jsonrpc: "2.0", id: 1, method: "tools/list" }, { version }));

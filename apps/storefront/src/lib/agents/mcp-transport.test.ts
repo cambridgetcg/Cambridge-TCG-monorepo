@@ -91,6 +91,20 @@ describe("protocol revisions", () => {
     expect(unsupportedRevision(new Headers(SDK_POST), "server/discover", {})).toEqual({});
   });
 
+  it("never names an answered revision as the one requested", () => {
+    // server/discover with a header the gate answers: still -32022 (the
+    // method is the 2026-07-28 probe), but requested comes from _meta or is
+    // left out, so the answer does not list it as both supported and not.
+    for (const version of ["2025-11-25", "2025-06-18", "2024-11-05"]) {
+      const headers = new Headers({ ...SDK_POST, "mcp-protocol-version": version });
+      expect(unsupportedRevision(headers, "server/discover", {}), version).toEqual({});
+      expect(
+        unsupportedRevision(headers, "server/discover", { _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" } }),
+        version,
+      ).toEqual({ requested: "2026-07-28" });
+    }
+  });
+
   it("lists only the offered revisions as supported, as SDK 2.4.0 reads them", () => {
     expect(unsupportedRevisionData("2026-07-28")).toEqual({ supported: ["2025-11-25", "2025-06-18"], requested: "2026-07-28" });
     expect(unsupportedRevisionData()).toEqual({ supported: ["2025-11-25", "2025-06-18"] });
