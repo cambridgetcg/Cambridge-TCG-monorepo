@@ -22,8 +22,20 @@
  * `notifications/initialized`). Spec methods are aliases — `tools/call`
  * with `{name: "catalog.search", arguments: {...}}` dispatches the same
  * handler as `catalog.search` directly, just wraps the result in MCP's
- * `{content: [{type:"text",text:...}]}` shape. Per MCP spec revision
- * `2024-11-05`. A stdio bridge for local Claude Desktop / Cursor /
+ * `{content: [{type:"text",text:...}]}` shape.
+ *
+ * Standard MCP clients (the rule is isStandardMcpClient in
+ * `lib/agents/mcp-transport.ts`) get the JSON-response form of MCP
+ * Streamable HTTP, revisions 2025-06-18 and 2025-11-25: one JSON answer per
+ * POST, no event stream, no session; 202 for a notification, {} for ping,
+ * 400 -32022 for a revision the gate does not answer (the 2026-07-28
+ * server/discover probe included), 405 for a GET that asks for an event
+ * stream, and a refused tools/call sent with 200 so the client can read it.
+ * Every other caller (the stdio bridge, plain JSON-RPC POSTs) gets the
+ * answers it got before 2026-11-11, revision 2024-11-05 included. A web
+ * page on another site is refused with 403 whoever it is (isForeignWebOrigin).
+ *
+ * A stdio bridge for local Claude Desktop / Cursor /
  * Continue integration is vendored in-repo at `packages/mcp-server/`;
  * npm publication as `@cambridge-tcg/mcp-server` is pending (the
  * registry returned 404 as of 2026-07-05 — don't promise `npx` until
@@ -106,6 +118,18 @@ import {
   unseenMcpRequest,
   type McpRequestSeen,
 } from "@/lib/observability/mcp-daily";
+import {
+  ERR_UNSUPPORTED_PROTOCOL_VERSION,
+  MCP_ALLOWED_METHODS,
+  MCP_EARLIER_REVISION,
+  acceptsEventStream,
+  initializeRevision,
+  isForeignWebOrigin,
+  isStandardMcpClient,
+  standardClientToolStatus,
+  unsupportedRevision,
+  unsupportedRevisionData,
+} from "@/lib/agents/mcp-transport";
 
 interface JsonRpcRequest {
   jsonrpc?: "2.0";
@@ -131,10 +155,30 @@ const ERR_UNAUTHENTICATED = -32001;
 const ERR_RATE_LIMITED = -32002;
 const ERR_TOOL_ERROR = -32003;
 
-// MCP spec version this server implements.
-// See https://spec.modelcontextprotocol.io/specification/
-const MCP_PROTOCOL_VERSION = "2024-11-05";
+// The revision initialize names to every caller that is not a standard MCP
+// client, as before 2026-11-11. Standard clients get initializeRevision.
+const MCP_PROTOCOL_VERSION = MCP_EARLIER_REVISION;
 export const MCP_MAX_REQUEST_BYTES = 1024 * 1024;
+
+/** What POST knows of a request beyond the daily count's words: whether it
+ *  came from a standard MCP client, and whether it was a tools/call. */
+interface McpExchange {
+  standard: boolean;
+  toolsCall: boolean;
+}
+
+/** A web page on another site: refused before the body is read. JSON-RPC
+ *  error with no id, as the transport spec allows. */
+function crossSiteRefusal() {
+  return NextResponse.json(
+    rpcError(
+      null,
+      ERR_INVALID_REQUEST,
+      "requests from a web page on another site are refused here; call from a server, a script or a local MCP client, which send no Origin header",
+    ),
+    { status: 403 },
+  );
+}
 
 const SERVER_INFO = {
   name: "cambridge-tcg",
@@ -550,7 +594,10 @@ function toolErrorResponse(
 
 /** `seen` collects the words the daily count records (method, tool, whether
  *  the bearer resolved); it never holds the key, the agent or the body. */
-async function handlePost(request: Request, seen: McpRequestSeen) {
+async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpExchange) {
+  // Counted as invalid (the body is never read) and forbidden.
+  if (isForeignWebOrigin(request.headers)) return crossSiteRefusal();
+
   const declaredLength = request.headers.get("content-length");
   if (declaredLength !== null) {
     const parsedLength = Number(declaredLength);
@@ -601,6 +648,39 @@ async function handlePost(request: Request, seen: McpRequestSeen) {
   const method = body.method;
   const params = body.params ?? {};
   Object.assign(seen, mcpMethodAndTool(method, params.name, (name) => Object.hasOwn(TOOLS, name)));
+  exchange.toolsCall = method === "tools/call";
+
+  // ── Streamable HTTP, for standard MCP clients only (no auth) ──────────
+  // Each answer below is one the transport spec asks for and the stdio
+  // bridge and plain JSON-RPC callers never see (lib/agents/mcp-transport.ts).
+  if (exchange.standard) {
+    // A revision the gate does not answer, the 2026-07-28 server/discover
+    // probe included: 400 with UnsupportedProtocolVersionError, whose list
+    // holds no 2026 revision, so a client in auto mode falls back to
+    // initialize. Counted as other or its method, invalid-request.
+    const unsupported = unsupportedRevision(request.headers, method, params);
+    if (unsupported) {
+      return NextResponse.json(
+        rpcError(
+          body.id,
+          ERR_UNSUPPORTED_PROTOCOL_VERSION,
+          "Unsupported protocol version",
+          unsupportedRevisionData(unsupported.requested),
+        ),
+        { status: 400 },
+      );
+    }
+    // A notification is accepted with 202 and no body. Only names under
+    // notifications/ without an id: an id-less agent.act or agent.revoke_key
+    // is still answered below. Counted as notification.
+    if (body.id === undefined && method.startsWith("notifications/")) {
+      return new NextResponse(null, { status: 202 });
+    }
+    // ping: an empty result, before any key. Counted as other, ok.
+    if (method === "ping" && body.id !== undefined) {
+      return NextResponse.json(rpcResult(body.id, {}));
+    }
+  }
 
   // ── tools/call (MCP-spec) — unwrap to dotted-name dispatch ────────────
   // `tools/call` carries `{name: "<dotted-name>", arguments: {...}}`. The
@@ -628,7 +708,9 @@ async function handlePost(request: Request, seen: McpRequestSeen) {
     // client knows the categories exist (callable but currently empty).
     return NextResponse.json(
       rpcResult(body.id, {
-        protocolVersion: MCP_PROTOCOL_VERSION,
+        protocolVersion: exchange.standard
+          ? initializeRevision(params.protocolVersion)
+          : MCP_PROTOCOL_VERSION,
         capabilities: {
           tools: { listChanged: false },
           resources: { listChanged: false, subscribe: false },
@@ -765,6 +847,15 @@ async function handlePost(request: Request, seen: McpRequestSeen) {
 
   const handler = TOOLS[dispatchName];
   if (!handler) {
+    // A tools/call naming no tool is invalid params (-32602) for a standard
+    // MCP client, as the 2025-11-25 tools page shows; every other caller
+    // keeps -32601. Both are counted not-found.
+    if (isMcpCall && exchange.standard) {
+      return NextResponse.json(
+        rpcError(body.id, ERR_INVALID_PARAMS, `unknown tool: ${dispatchName}`),
+        { status: 404 },
+      );
+    }
     return NextResponse.json(
       rpcError(body.id, ERR_METHOD_NOT_FOUND, `unknown method: ${dispatchName}`),
       { status: 404 },
@@ -828,16 +919,40 @@ async function handlePost(request: Request, seen: McpRequestSeen) {
 
 export async function POST(request: Request) {
   const seen = unseenMcpRequest();
-  const response = await handlePost(request, seen);
+  const exchange: McpExchange = { standard: isStandardMcpClient(request.headers), toolsCall: false };
+  const response = await handlePost(request, seen, exchange);
   response.headers.set("Cache-Control", "private, no-store");
   // Counted after the response, only while OPS_MCP_DAILY is on
-  // (lib/observability/mcp-daily.ts); it never changes this answer.
+  // (lib/observability/mcp-daily.ts); it never changes this answer. The
+  // status counted is the one the gate decided, so a refusal sent to a
+  // standard client with 200 below still counts as what it was.
   countMcpRequest(seen, response.status);
-  return response;
+  if (!exchange.standard || !exchange.toolsCall) return response;
+  // Both SDKs throw on any status outside 2xx and drop the body, isError and
+  // the refusal in _meta with it: the same body, sent with 200, unless it is
+  // a 401 or a fault (standardClientToolStatus).
+  const status = standardClientToolStatus(response.status);
+  if (status === response.status) return response;
+  return new NextResponse(response.body, { status, headers: response.headers });
 }
 
 // Friendly GET — the gate's "what is this?" surface for humans typing the URL.
-export async function GET() {
+// A GET that asks for an event stream is a standard MCP client opening one,
+// which this gate does not offer: 405, as the transport spec says. Shipped
+// with the 202 above: without it, SDK 1.32.2 reconnects to a GET that ends
+// at once, about every second, without telling anyone.
+export async function GET(request: Request) {
+  if (isForeignWebOrigin(request.headers)) {
+    const refused = crossSiteRefusal();
+    refused.headers.set("Cache-Control", "no-store");
+    return refused;
+  }
+  if (acceptsEventStream(request.headers.get("accept"))) {
+    return new NextResponse(null, {
+      status: 405,
+      headers: { Allow: MCP_ALLOWED_METHODS, "Cache-Control": "no-store" },
+    });
+  }
   return NextResponse.json({
     name: SERVER_INFO.name,
     version: SERVER_INFO.version,

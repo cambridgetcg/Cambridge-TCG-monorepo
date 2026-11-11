@@ -147,8 +147,10 @@ export const ERROR_TAGS = [
 
 /** The JSON-RPC method of an /api/mcp request: an MCP-spec method, "native"
  * for a Cambridge dotted tool name used as the method, "other" for any other
- * name, "invalid" for a body that is not a request. The caller's own method
- * text is never stored. */
+ * name (ping, server/discover and notifications other than
+ * notifications/initialized among them), "invalid" for a body that is not a
+ * request or was never read (a web page on another site, refused first). The
+ * caller's own method text is never stored. */
 export const MCP_METHODS = [
   "initialize",
   "notifications/initialized",
