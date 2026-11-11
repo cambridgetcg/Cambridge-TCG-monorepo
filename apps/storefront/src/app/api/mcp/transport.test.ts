@@ -253,6 +253,13 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
     expect(mocks.resolveAgentBearer).not.toHaveBeenCalled();
   });
 
+  it("answers an id-less ping as before: it is not a notifications/ name, so it goes through the gate", async () => {
+    const keyed = await answer(await sdk({ jsonrpc: "2.0", method: "ping" }));
+    expect(keyed.status).toBe(404);
+    expect(keyed.text).toBe(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32601, message: "unknown method: ping" } }));
+    expect((await sdk({ jsonrpc: "2.0", method: "ping" }, { key: false })).status).toBe(401);
+  });
+
   it("answers the 2026-07-28 probe with 400 -32022 listing the offered revisions, with or without a key", async () => {
     for (const key of [true, false]) {
       const response = await answer(await post("sdk", PROBE, {
@@ -374,11 +381,17 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
       const response = await GET(new Request(URL_, { headers }));
       expect(response.status).toBe(405);
       expect(response.headers.get("allow")).toBe("GET, HEAD, OPTIONS, POST");
+      expect(response.headers.get("cache-control")).toBe("no-store");
       expect(await response.text()).toBe("");
     }
     for (const accept of ["application/json", "text/html,application/xhtml+xml,*/*;q=0.8", "*/*"]) {
       expect((await GET(new Request(URL_, { headers: { accept } }))).status, accept).toBe(200);
     }
+    // Only Accept decides: a GET that carries MCP-Protocol-Version but asks
+    // for JSON still gets the description.
+    const versioned = await GET(new Request(URL_, { headers: { accept: "application/json", "mcp-protocol-version": "2025-11-25" } }));
+    expect(versioned.status).toBe(200);
+    expect((await versioned.json()).name).toBe("cambridge-tcg");
   });
 });
 
@@ -389,7 +402,9 @@ describe("a web page on another site", () => {
       expect(response.status, caller).toBe(403);
       expect(JSON.parse(response.text)).toMatchObject({ jsonrpc: "2.0", id: null, error: { code: -32600 } });
     }
-    expect((await GET(new Request(URL_, { headers: { origin: "https://elsewhere.example" } }))).status).toBe(403);
+    const refusedGet = await GET(new Request(URL_, { headers: { origin: "https://elsewhere.example" } }));
+    expect(refusedGet.status).toBe(403);
+    expect(refusedGet.headers.get("cache-control")).toBe("no-store");
     expect(mocks.resolveAgentBearer).not.toHaveBeenCalled();
   });
 
