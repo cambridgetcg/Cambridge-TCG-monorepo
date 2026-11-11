@@ -167,7 +167,8 @@ export default async function AgentsAccountPage() {
           JSON-RPC body{" "}
           <code className="text-accent">{`{ "id": 1, "method": "agent.self" }`}</code>. The
           route speaks the JSON-response form of MCP Streamable HTTP, so an MCP client
-          that can send this header can use the URL directly; it has no OAuth. Clients
+          that can send this header should be able to use the URL directly (two MCP SDK
+          clients did on 2026-11-11, with the route run locally); it has no OAuth. Clients
           that only speak stdio need the bridge, which is not published to npm; build it
           from <code className="text-accent">packages/mcp-server</code> in the public
           repository. The reference implementation is{" "}

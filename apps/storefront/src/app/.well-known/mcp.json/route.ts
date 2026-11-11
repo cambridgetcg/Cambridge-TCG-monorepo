@@ -54,7 +54,7 @@ const MCP = {
       repository_visibility: REPOSITORY_VISIBILITY,
       publicly_obtainable: REPOSITORY_VISIBILITY === "public",
       note:
-        "For MCP clients that only speak stdio. It is not published to npm; build it from packages/mcp-server in the public repository. MCP clients that speak Streamable HTTP, and clients that can POST JSON-RPC 2.0, call /api/mcp directly.",
+        "For MCP clients that only speak stdio. It is not published to npm; build it from packages/mcp-server in the public repository. Clients that can POST JSON-RPC 2.0 call /api/mcp directly, and an MCP client that speaks Streamable HTTP and can send a static Authorization header should be able to as well: two MCP SDK clients did on 2026-11-11, with the route run locally; no editor, desktop app or hosted app was run (see streamable_http.checked).",
     },
     auth: {
       type: "bearer",

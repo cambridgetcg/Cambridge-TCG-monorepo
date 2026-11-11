@@ -449,7 +449,7 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Every public Cambridge TCG endpoint as a callable LLM function in your provider shape (Anthropic / OpenAI / Gemini / Cohere). Multi-format; drop into your LLM call.",
         ),
         ptr(
-          "Bearer-gated tools live behind /api/mcp, which speaks the JSON-response form of MCP Streamable HTTP (revisions 2025-06-18 and 2025-11-25) to MCP clients that can send an Authorization header; it has no OAuth. Clients that can POST JSON-RPC 2.0 call it directly too. The stdio bridge (packages/mcp-server, not on npm) remains for clients that only speak stdio.",
+          "Bearer-gated tools live behind /api/mcp, which speaks the JSON-response form of MCP Streamable HTTP (revisions 2025-06-18 and 2025-11-25) to MCP clients that can send an Authorization header (checked on 2026-11-11 with two MCP SDK clients against the route run locally; no editor or desktop app was run); it has no OAuth. Clients that can POST JSON-RPC 2.0 call it directly too. The stdio bridge (packages/mcp-server, not on npm) remains for clients that only speak stdio.",
           "/.well-known/mcp-config.json",
           "Connection facts and the current stdio-bridge status. Token at /account/agents; MCP endpoint at /api/mcp.",
         ),

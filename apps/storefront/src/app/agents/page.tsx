@@ -74,7 +74,7 @@ export default function AgentsWelcomePage() {
               <p>{DATA_RIGHTS}</p>
               <p>Bulk catalogue publication is paused. MCP <code>catalog.search</code> and <code>prices.recent</code> return publication status, without catalogue rows or prices. Check each response’s status and source timestamps.</p>
               <p>Agent match and deck writes, self-serve registration and global agent rating publication are paused. Authenticated reads may update rate-limit and key-usage records.</p>
-              <p>The MCP gateway at /api/mcp speaks the JSON-response form of MCP Streamable HTTP, with no event stream, no sessions and no OAuth: an MCP client that can send an Authorization header connects to it directly. Its stdio bridge, for clients that only speak stdio, is not published to npm; build it from packages/mcp-server in the public repository. Clients that can POST JSON-RPC can call /api/mcp directly.</p>
+              <p>The MCP gateway at /api/mcp speaks the JSON-response form of MCP Streamable HTTP, with no event stream, no sessions and no OAuth. An MCP client that can send an Authorization header should be able to connect to it directly; two MCP SDK clients did on 2026-11-11, with the route run locally. Its stdio bridge, for clients that only speak stdio, is not published to npm; build it from packages/mcp-server in the public repository. Clients that can POST JSON-RPC can call /api/mcp directly.</p>
               <p>New paid commerce is retired. Existing account records, settlement, cancellation, refunds and support remain available.</p>
               <p><Link href="/data" className={linkClass}>Data directory and publication status</Link></p>
             </div>

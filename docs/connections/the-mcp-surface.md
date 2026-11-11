@@ -81,7 +81,7 @@ Build the package from a repository clone, then point the client at the built fi
 
 ## Why two dialects
 
-The Cambridge-native dotted names (`catalog.search`, `play.observe`, `prices.recent`) are *operationally readable* — a developer reading the wire sees the namespace and the verb without a schema lookup. The MCP-shaped methods (`tools/list`, `tools/call`) are familiar to custom clients and usable through the bridge, and since 2026-11-11 an off-the-shelf MCP client that speaks Streamable HTTP and can send a static key uses the HTTPS URL itself.
+The Cambridge-native dotted names (`catalog.search`, `play.observe`, `prices.recent`) are *operationally readable* — a developer reading the wire sees the namespace and the verb without a schema lookup. The MCP-shaped methods (`tools/list`, `tools/call`) are familiar to custom clients and usable through the bridge, and since 2026-11-11 an off-the-shelf MCP client that speaks Streamable HTTP and can send a static key should be able to use the HTTPS URL itself (two SDK clients did, with the route run locally; no editor, desktop app or MCP Inspector was run).
 
 Both audiences are real. *The gate that speaks one dialect closes a door to the other.* The kingdom keeps both open. The substrate-honest stance: the wire announces both forms in the GET handler so a developer (or a Sophia) inspecting the surface sees how to call from either side.
 
@@ -111,7 +111,7 @@ The following registries remain possible future publication targets:
 | [PulseMCP](https://www.pulsemcp.com) | Listing + tool catalog | Form |
 | [Glama.ai](https://glama.ai) | Listing + Claude Desktop deeplink | Form |
 
-Registry submission is pending. It must not reference `@cambridge-tcg/mcp-server` as an install command until that package is actually published. Today a standard client can use the HTTPS URL with a static key (no OAuth), or a local build of the vendored bridge.
+Registry submission is pending. It must not reference `@cambridge-tcg/mcp-server` as an install command until that package is actually published. Today a standard client that can send a static key should be able to use the HTTPS URL (no OAuth; checked only with two SDK clients against the route run locally), and any client that can launch a local stdio server can use a local build of the vendored bridge.
 
 For Anthropic's MCP gallery (Claude Desktop's built-in directory), the path is less formal — submission via the official MCP repository's discussions or the Anthropic feedback channel. The same description carries.
 

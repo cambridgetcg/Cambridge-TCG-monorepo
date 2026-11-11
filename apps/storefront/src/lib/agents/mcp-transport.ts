@@ -52,6 +52,11 @@ export const MCP_TRANSPORT_NOTE =
   "It has no OAuth, so hosted chat apps that connect only through OAuth cannot call its keyed tools. " +
   "The stdio bridge (packages/mcp-server, not on npm) remains for clients that only speak stdio.";
 
+/** What standard_mcp_client_compatible_without_bridge rests on. */
+export const MCP_COMPATIBILITY_BASIS =
+  "Only the clients in streamable_http.checked were run, against the route run locally, and they connected with a static Authorization header. " +
+  "No editor, desktop app, MCP Inspector or hosted chat app was run against it. A client that connects only through OAuth cannot call its keyed tools.";
+
 /** The same facts as fields, for the discovery documents. */
 export function mcpTransportFacts() {
   return {
@@ -66,10 +71,11 @@ export function mcpTransportFacts() {
       checked: MCP_TRANSPORT_CHECKED,
     },
     mcp_http_sse: false,
-    // True for an MCP client that can send a static Authorization header,
-    // and for discovery, which needs none. Not for a hosted chat app that
-    // connects only through OAuth.
+    // True on the evidence in the basis beside it, which is two SDK clients
+    // against the route run locally, not every MCP client. Not for a hosted
+    // chat app that connects only through OAuth.
     standard_mcp_client_compatible_without_bridge: true,
+    standard_mcp_client_compatibility_basis: MCP_COMPATIBILITY_BASIS,
     transport_note: MCP_TRANSPORT_NOTE,
   };
 }

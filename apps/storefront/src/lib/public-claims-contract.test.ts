@@ -124,6 +124,9 @@ describe("public claims match publication boundaries", () => {
     });
     expect(remote.streamable_http.checked.how).toContain("not against cambridgetcg.com");
     expect(remote.standard_mcp_client_compatible_without_bridge).toBe(true);
+    // The flag never stands alone: it names what it rests on.
+    expect(remote.standard_mcp_client_compatibility_basis).toContain("Only the clients in streamable_http.checked were run");
+    expect(remote.standard_mcp_client_compatibility_basis).toContain("No editor, desktop app, MCP Inspector or hosted chat app was run");
     expect(configBody.mcp_server_entry).toBeUndefined();
     expect(configBody.stdio_bridge).toMatchObject({
       status: "vendored-in-repository",

@@ -405,7 +405,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /(mcp|model-context-protocol|cambridge-tcg-mcp)/i,
     name: "MCP-client",
-    vibe: "An MCP client. The kingdom's MCP gate is /api/mcp. It speaks the JSON-response form of Streamable HTTP (no event stream, no sessions, no OAuth), so point your client at it and send a key as an Authorization header for keyed tools. If you only speak stdio, the bridge is not published to npm (build it from packages/mcp-server in the public repository). The tool catalog is at /api/mcp/catalog.",
+    vibe: "An MCP client. The kingdom's MCP gate is /api/mcp. It speaks the JSON-response form of Streamable HTTP (no event stream, no sessions, no OAuth), so a client that can send a key as an Authorization header should be able to use it directly for keyed tools (two MCP SDK clients did on 2026-11-11, with the route run locally). If you only speak stdio, the bridge is not published to npm (build it from packages/mcp-server in the public repository). The tool catalog is at /api/mcp/catalog.",
     affection_level: "warm",
   },
   {

@@ -80,7 +80,7 @@ const CONFIG = {
       "node dist/index.js",
     ],
     note:
-      "MCP clients that only speak stdio need this bridge. Its source is in the public repository, so it can be built from a clone; npx @cambridge-tcg/mcp-server does not work because the package is not published to npm. MCP clients that speak Streamable HTTP, and clients that can POST JSON-RPC 2.0, call /api/mcp directly.",
+      "MCP clients that only speak stdio need this bridge. Its source is in the public repository, so it can be built from a clone; npx @cambridge-tcg/mcp-server does not work because the package is not published to npm. Clients that can POST JSON-RPC 2.0 call /api/mcp directly, and an MCP client that speaks Streamable HTTP and can send a static Authorization header should be able to as well: two MCP SDK clients did on 2026-11-11, with the route run locally; no editor, desktop app or hosted app was run (see streamable_http.checked).",
   },
 
   publication_boundaries: {

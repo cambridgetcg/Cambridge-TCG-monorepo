@@ -1025,10 +1025,11 @@ export async function GET(request: Request) {
       honest_note:
         "Not on the npm registry (404, rechecked 2026-10-10), so 'npx @cambridge-tcg/mcp-server' " +
         "does not work. The source repository is public, so the bridge can be built from a " +
-        "clone (packages/mcp-server: npm install, npm run build). MCP clients that speak " +
-        "Streamable HTTP and can send an Authorization header, and clients that can POST " +
-        "JSON-RPC 2.0, call this endpoint directly; the bridge remains for clients that only " +
-        "speak stdio.",
+        "clone (packages/mcp-server: npm install, npm run build). Clients that can POST " +
+        "JSON-RPC 2.0 call this endpoint directly, and MCP clients that speak Streamable HTTP " +
+        "and can send an Authorization header should be able to (two MCP SDK clients did on " +
+        "2026-11-11, with the route run locally; see standard_remote_transport.checked); the " +
+        "bridge remains for clients that only speak stdio.",
       for: "Any MCP client that only speaks stdio and expects a local server.",
     },
     config_snippet: "https://cambridgetcg.com/.well-known/mcp-config.json",
