@@ -16,8 +16,9 @@
  *   cd <repository>/apps/storefront
  *   MCP_SDK_DIR=/tmp/mcp-sdks/node_modules pnpm exec vitest run --config scripts/mcp-sdk-harness/vitest.config.mts
  *
- * route.test.ts replays, request by request, what each SDK and the bridge sent
- * here, so the app's suite holds the same answers without the SDKs.
+ * src/app/api/mcp/transport.test.ts replays, request by request, what each SDK
+ * and the bridge sent here, so the app's suite holds the same answers without
+ * the SDKs; src/app/api/mcp/stdio-bridge.test.ts runs the bridge against a 202.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import http from "node:http";
