@@ -49,7 +49,7 @@ export const MCP_TRANSPORT_CHECKED = {
 export const MCP_TRANSPORT_NOTE =
   "/api/mcp speaks the JSON-response form of MCP Streamable HTTP, revisions 2025-06-18 and 2025-11-25, with no event stream and no sessions. " +
   "On 2026-11-11 @modelcontextprotocol/sdk 1.32.2 and @modelcontextprotocol/client 2.4.0 connected to it with a static bearer key, listed and called its tools and read a refusal (the route run locally with its database, key lookup, rate limiter and tool handlers mocked, not cambridgetcg.com). " +
-  "It has no OAuth, so hosted chat apps that connect only through OAuth cannot call its keyed tools. " +
+  "It has no OAuth, so hosted chat apps that connect only through OAuth cannot call its keyed tools, and an MCP client set up for OAuth may, on a 401, look for OAuth metadata that does not exist here and report that instead of the refusal. " +
   "The stdio bridge (packages/mcp-server, not on npm) remains for clients that only speak stdio.";
 
 /** What standard_mcp_client_compatible_without_bridge rests on. */
