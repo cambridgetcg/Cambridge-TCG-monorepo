@@ -1,0 +1,165 @@
+/**
+ * The MCP gate's transport rules (app/api/mcp/route.ts): which callers are
+ * standard MCP clients, which protocol revisions the gate answers, which web
+ * origins it refuses, and the status a standard client's refused tools/call
+ * is sent with.
+ *
+ * Two kinds of caller reach the gate. The stdio bridge (packages/mcp-server)
+ * and plain JSON-RPC callers (a script, curl) POST one JSON-RPC message and
+ * read one JSON answer; they get exactly the answers they got before
+ * 2026-11-11. Standard MCP clients speak the Streamable HTTP transport
+ * (revisions 2025-06-18 and 2025-11-25), in its JSON-response form: no event
+ * stream, no session. They get that transport's answers: 202 for a
+ * notification, {} for ping, 405 for a GET that asks for an event stream, the
+ * revision they asked for, and a refused tool call they can read.
+ *
+ * Chosen by an AI agent on 2026-11-11 as defaults for review; Yu, who runs
+ * Cambridge TCG, has not decided them.
+ */
+
+/** Offered to standard MCP clients, newest first. 2025-03-26 is not offered:
+ * it lets a POST carry a batch, which the gate refuses. 2026-07-28 is not
+ * implemented. */
+export const MCP_OFFERED_REVISIONS = ["2025-11-25", "2025-06-18"] as const;
+
+/** Answered, not offered: the revision the gate named to every caller until
+ * 2026-11-11, and what SDK clients that connected before then still send in
+ * MCP-Protocol-Version. Refusing it would break their connections. */
+export const MCP_EARLIER_REVISION = "2024-11-05";
+
+const ANSWERED: readonly string[] = [...MCP_OFFERED_REVISIONS, MCP_EARLIER_REVISION];
+
+/** JSON-RPC code for UnsupportedProtocolVersionError (MCP 2026-07-28,
+ * /basic/versioning). */
+export const ERR_UNSUPPORTED_PROTOCOL_VERSION = -32022;
+
+/** What the gate's GET answers with its 405: every method it serves. */
+export const MCP_ALLOWED_METHODS = "GET, HEAD, OPTIONS, POST";
+
+const PROTOCOL_VERSION_META_KEY = "io.modelcontextprotocol/protocolVersion";
+
+/** Whether an Accept header names text/event-stream (with a q above 0).
+ * A wildcard does not count: the bridge and most HTTP libraries send one. */
+export function acceptsEventStream(accept: string | null): boolean {
+  if (!accept) return false;
+  return accept.split(",").some((range) => {
+    const [type, ...parameters] = range.split(";").map((part) => part.trim().toLowerCase());
+    if (type !== "text/event-stream") return false;
+    const q = parameters.find((parameter) => parameter.startsWith("q="));
+    return q === undefined || Number(q.slice(2)) > 0;
+  });
+}
+
+/**
+ * THE RULE. A request is from a standard MCP client when it carries an
+ * MCP-Protocol-Version header, or its Accept header names
+ * text/event-stream. The Streamable HTTP transport makes a client send
+ * Accept listing application/json and text/event-stream on every POST (every
+ * revision since 2025-03-26) and MCP-Protocol-Version on every request after
+ * initialize (since 2025-06-18); @modelcontextprotocol/sdk 1.32.2 and
+ * @modelcontextprotocol/client 2.4.0 send both. The stdio bridge sends
+ * neither (Node's fetch adds a wildcard Accept), nor does a plain JSON-RPC POST, so
+ * they keep the answers they had. Every transport difference in the gate
+ * reads this one function.
+ */
+export function isStandardMcpClient(headers: Headers): boolean {
+  return headers.has("mcp-protocol-version") || acceptsEventStream(headers.get("accept"));
+}
+
+/** The revision initialize answers a standard MCP client with: the one it
+ * asked for when the gate answers it, 2024-11-05 when it named none (what
+ * the gate answered everyone before), else the newest offered. */
+export function initializeRevision(requested: unknown): string {
+  if (requested === undefined || requested === null) return MCP_EARLIER_REVISION;
+  if (typeof requested === "string" && ANSWERED.includes(requested)) return requested;
+  return MCP_OFFERED_REVISIONS[0];
+}
+
+/**
+ * Whether a standard MCP client's message names a revision the gate does not
+ * answer: an MCP-Protocol-Version header naming one, or a server/discover
+ * request (the 2026-07-28 probe, which the gate does not implement). Null
+ * when it may proceed; otherwise the revision it asked for, when it named
+ * one. A missing header is accepted, as both 2025 revisions allow.
+ */
+export function unsupportedRevision(
+  headers: Headers,
+  method: string,
+  params: Record<string, unknown>,
+): { requested?: string } | null {
+  const header = headers.get("mcp-protocol-version")?.trim();
+  if (header !== undefined && !ANSWERED.includes(header)) return { requested: header };
+  if (method !== "server/discover") return null;
+  if (header) return { requested: header };
+  const meta = params._meta;
+  const claimed =
+    meta && typeof meta === "object" ? (meta as Record<string, unknown>)[PROTOCOL_VERSION_META_KEY] : undefined;
+  return typeof claimed === "string" ? { requested: claimed } : {};
+}
+
+/** The error data -32022 carries: the revisions offered, and the one asked
+ * for. A client in auto mode finds no 2026-07-28 revision here and falls back
+ * to initialize. */
+export function unsupportedRevisionData(requested?: string): { supported: string[]; requested?: string } {
+  return requested === undefined
+    ? { supported: [...MCP_OFFERED_REVISIONS] }
+    : { supported: [...MCP_OFFERED_REVISIONS], requested };
+}
+
+const DEFAULT_OWN_ORIGIN = "https://cambridgetcg.com";
+
+/** This deployment's own origin, from configuration (NEXT_PUBLIC_SITE_URL),
+ * never from the Host header a caller sends. */
+export function ownOrigin(env: Readonly<Record<string, string | undefined>> = process.env): string {
+  try {
+    return new URL(env.NEXT_PUBLIC_SITE_URL?.trim() || DEFAULT_OWN_ORIGIN).origin;
+  } catch {
+    return DEFAULT_OWN_ORIGIN;
+  }
+}
+
+/**
+ * Whether a request comes from a web page on another site: its Origin header
+ * is present, is an http or https origin, and is not this deployment's own.
+ *
+ * This is narrower than the spec's sentence ("Servers MUST validate the
+ * Origin header on all incoming connections", 403 when it is "present and
+ * invalid"), on purpose. The sentence guards against DNS rebinding and
+ * cross-site use from a browser. In production, routing by Host already stops
+ * rebinding, and the gate sends no CORS headers, so a page on another site
+ * cannot read any answer; what is left is a page that sends a simple
+ * cross-site POST (text/plain) to the paths that need no key. Refusing http
+ * and https origins other than this one stops that. Every other Origin passes:
+ * a missing one (servers, scripts, the bridge, SDK clients in Node), "null"
+ * and non-web schemes (sandboxed frames, desktop and editor webviews), which
+ * can no more read an answer than another site can.
+ */
+export function isForeignWebOrigin(
+  headers: Headers,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  const origin = headers.get("origin");
+  if (origin === null) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(origin.trim());
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  return parsed.origin !== ownOrigin(env);
+}
+
+/**
+ * The HTTP status a standard MCP client's tools/call answer is sent with.
+ * Both SDKs throw on any status outside 2xx and drop the body, so a refusal
+ * (an isError result with its refusal in _meta, or a JSON-RPC error with one
+ * in error.data) is sent with 200 and the same body: any 4xx but 401, and
+ * 503. 401 stays 401 with its WWW-Authenticate header, the HTTP layer's own
+ * signal to authenticate; 500 is a fault, not a refusal, and stays 500. The
+ * daily count records the status the gate decided, before this.
+ */
+export function standardClientToolStatus(status: number): number {
+  if (status === 503 || (status >= 400 && status < 500 && status !== 401)) return 200;
+  return status;
+}
