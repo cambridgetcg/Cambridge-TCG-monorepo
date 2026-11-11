@@ -22,6 +22,16 @@ export interface RefundFacts {
    * values; a refund of money with no items never completes the order this way.
    */
   completesOrder: boolean;
+  /**
+   * Whether this refund's money is still on its way (#195): a refund with no
+   * items that would be worth more if all its money that hasn't failed
+   * succeeded. Its value counts only its successful money, so it is recorded
+   * at that, marked, and read again until its money settles. Never true for
+   * a refund of items, whose value never depends on its money, nor for
+   * pending money that would only repay what an order edit left owed or
+   * that lies beyond the product value not yet refunded.
+   */
+  moneyPending: boolean;
 }
 
 /** What the engine needs to know about one order, whatever platform it came from. */

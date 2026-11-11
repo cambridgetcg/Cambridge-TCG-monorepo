@@ -114,7 +114,7 @@ const r2 = n => Math.round(n * 100) / 100;
 const absLc = (a, b) => r2(Math.abs(apca(a, b)));
 
 // ---------------------------------------------------------------------------------------------
-// Provenance of kit inputs. Yu approved the look on 2026-10-20 (approvals.jsonl:1), pinning
+// Provenance of kit inputs. The owner approved the look on 2026-10-20 (approvals.jsonl:1), pinning
 // kit/.brandkit-fingerprint sha256 0c6a0614… (the file at commit 5e68e57e). These are the hashes
 // that fingerprint lists for the files used here. The kit on disk is the 2026-10-27 rebuild
 // (676c10b4), for which "no new approval is claimed" (its commit message).
@@ -132,7 +132,7 @@ const INPUT_NOTES = {
 };
 function licenceFor(p, hash) {
   const base = 'RewardsPro brand kit, Cambridge TCG Limited. ';
-  if (APPROVED_20261020[p] === hash) return base + 'Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash).';
+  if (APPROVED_20261020[p] === hash) return base + 'Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash).';
   return base + 'From the 2026-10-27 kit rebuild (676c10b4); not covered by an approval.';
 }
 
@@ -295,18 +295,18 @@ const R_SHAPE = '#658aad'; // the reversed lockup's R shape (primary 500)
 const GROUNDS = {
   neutral950: {
     hex: C.n950, words: 'a dark charcoal-grey ground',
-    note: () => `Ground #1B1D1F (neutral 950): the dark ground of the kit Yu approved on 2026-10-20 (tokens.json at 5e68e57e: dark.bg = neutral 950), where the reversed lockup was measured (kit/BRAND.md at 5e68e57e: #658AAD "4.66:1 and APCA Lc -36.2 on #1B1D1F"). Here the R shape #658AAD measures ${r2(wcag(R_SHAPE, C.n950))}:1 and |Lc| ${absLc(R_SHAPE, C.n950)}, clearing the kit's bar for a mark on a dark ground (3:1 and |Lc| 30). Logos are exempt from WCAG; Yu picks the ground.`,
+    note: () => `Ground #1B1D1F (neutral 950): the dark ground of the kit the owner approved on 2026-10-20 (tokens.json at 5e68e57e: dark.bg = neutral 950), where the reversed lockup was measured (kit/BRAND.md at 5e68e57e: #658AAD "4.66:1 and APCA Lc -36.2 on #1B1D1F"). Here the R shape #658AAD measures ${r2(wcag(R_SHAPE, C.n950))}:1 and |Lc| ${absLc(R_SHAPE, C.n950)}, clearing the kit's bar for a mark on a dark ground (3:1 and |Lc| 30). Logos are exempt from WCAG; the owner picks the ground.`,
     safe: true,
   },
   dark: {
     hex: C.dark, words: 'a near-black ground',
-    note: () => `Ground #09110F: the current kit's dark.bg, set by the 2026-10-27 rebuild (676c10b4) as the ink of the rewardspro.io landing that is being retired. Not in the pack Yu approved on 2026-10-20; the reversed lockup's bytes predate it. The R shape #658AAD measures ${r2(wcag(R_SHAPE, C.dark))}:1 and |Lc| ${absLc(R_SHAPE, C.dark)}, clearing the kit's bar (3:1 and |Lc| 30). Logos are exempt from WCAG; Yu picks the ground.`,
+    note: () => `Ground #09110F: the current kit's dark.bg, set by the 2026-10-27 rebuild (676c10b4) as the ink of the rewardspro.io landing that is being retired. Not in the pack the owner approved on 2026-10-20; the reversed lockup's bytes predate it. The R shape #658AAD measures ${r2(wcag(R_SHAPE, C.dark))}:1 and |Lc| ${absLc(R_SHAPE, C.dark)}, clearing the kit's bar (3:1 and |Lc| 30). Logos are exempt from WCAG; the owner picks the ground.`,
     safe: true,
   },
   navy: {
     hex: C.navy, words: 'a navy ground',
-    note: () => `Ground #1A3E5C (navy, as STRATEGY.md §7 names it). The reversed lockup's R shape #658AAD clears 3:1 (${r2(wcag(R_SHAPE, C.navy))}:1) but misses the kit's APCA bar for a mark on a dark ground (|Lc| ${absLc(R_SHAPE, C.navy)} against 30; kit/BRAND.md "Colour versions"). Logos are exempt from WCAG; this is Yu's call.`,
-    safe: null, safeReason: 'No product claim, but on navy the mark misses the kit\'s own |Lc| 30 bar: Yu\'s call (README, Doubt 1).',
+    note: () => `Ground #1A3E5C (navy, as STRATEGY.md §7 names it). The reversed lockup's R shape #658AAD clears 3:1 (${r2(wcag(R_SHAPE, C.navy))}:1) but misses the kit's APCA bar for a mark on a dark ground (|Lc| ${absLc(R_SHAPE, C.navy)} against 30; kit/BRAND.md "Colour versions"). Logos are exempt from WCAG; this is the owner's call.`,
+    safe: null, safeReason: 'No product claim, but on navy the mark misses the kit\'s own |Lc| 30 bar: the owner\'s call (README, Doubt 1).',
   },
 };
 const altLockup = g => `The RewardsPro logo: the R mark in blue-grey and teal beside the white word RewardsPro, centred on ${GROUNDS[g].words}. No other text.`;
@@ -402,7 +402,7 @@ const TEMPLATES = [
   },
   {
     asset: 'story', W: 1080, H: 1920, briefId: 'Task brief (1080x1920 story). STRATEGY.md §7 lists vertical cuts under "Not made"',
-    platforms: ['none planned: STRATEGY.md §7 makes no vertical cuts; kept as a blank template only, Yu decides'],
+    platforms: ['none planned: STRATEGY.md §7 makes no vertical cuts; kept as a blank template only, the owner decides'],
     rule: [88, 330, 80, 10],
     unsafe: [[0, 0, 1080, 269], [0, 1536, 1080, 1920]],
     zones: [
@@ -545,7 +545,7 @@ const CARDS = [
   },
 ];
 
-const ALT_MAX_CARD = 300;   // LinkedIn's alt-text cap is [U]; third parties report 300 [S]. Yu checks once.
+const ALT_MAX_CARD = 300;   // LinkedIn's alt-text cap is [U]; third parties report 300 [S]. The owner checks once.
 const ALT_MAX = 1000;
 
 function cardAsset(c) {
@@ -610,7 +610,7 @@ function cardAsset(c) {
   return {
     kind: 'svg', asset: c.asset, variant, W: c.W, H: c.H, ground: C.white, briefId: c.briefId,
     platforms: c.platforms, maxBytes: 2_000_000, claims: ids, gates, safe_before_g0: false, draft, ai: 'assistive', view: { ...PHONE, srcW: c.W },
-    use: draft ? `Review only. Shows the layout and wording for Yu; never post a draft. ${useTail}` : 'Postable from S2 after Yu approves the pack; re-check the sh-* rows before each use (STRATEGY.md §6.3).',
+    use: draft ? `Review only. Shows the layout and wording for the owner; never post a draft. ${useTail}` : 'Postable from S2 after the owner approves the pack; re-check the sh-* rows before each use (STRATEGY.md §6.3).',
     items: [...items, ...rects.map(r => ({ ...r, overlay: true }))], texts,
     text_on_image: drawn, alt, altMax: ALT_MAX_CARD, blockers,
     slot: c.slot ? { box: c.slot.box, size: `${c.slot.box[2]}x${c.slot.box[3]} px`, screenshot: shot ? { path: shot.path, sha256: shot.sha256 } : null } : undefined,
@@ -619,7 +619,7 @@ function cardAsset(c) {
 
 const AVATAR_USE = 'Profile picture. Upload as is. Platforms crop it to a circle or show it square (X Premium Business, LinkedIn Page logo [I]); the mark stays inside either. The opaque white tile shows as a white square on a dark-mode page (LinkedIn says the logo "will be displayed on both light and dark backgrounds"): check once in the private test.';
 const AVATARS = [
-  { asset: 'avatar', variant: 'tile', W: 1024, H: 1024, from: 'kit/social/avatar-1024.png', platforms: ['Bluesky (PNG or JPEG ≤1,000,000 bytes)', 'YouTube (shown at 98x98; ≤15 MB)', 'Instagram/TikTok only if Yu keeps them'], maxBytes: 1_000_000 },
+  { asset: 'avatar', variant: 'tile', W: 1024, H: 1024, from: 'kit/social/avatar-1024.png', platforms: ['Bluesky (PNG or JPEG ≤1,000,000 bytes)', 'YouTube (shown at 98x98; ≤15 MB)', 'Instagram/TikTok only if the owner keeps them'], maxBytes: 1_000_000 },
   { asset: 'avatar', variant: 'tile', W: 400, H: 400, from: 'kit/social/avatar-400.png', platforms: ['X (400x400 recommended; ≤2 MB)', 'LinkedIn Page logo (400x400 recommended, 268x268 minimum; ≤3 MB)'], maxBytes: 1_000_000 },
 ];
 
@@ -629,13 +629,13 @@ const SPEC = [
   ...['neutral950', 'dark', 'navy'].flatMap(g => [
     banner({ asset: 'header', W: 1500, H: 500, markH: 120, ground: g, briefId: 'STRATEGY.md §7 A2', view: { ...PHONE, srcW: 1500 },
       platforms: ['X header (1500x500 recommended; X states no file cap for headers [U])', 'Bluesky banner (3:1, ≤1,000,000 bytes)'], maxBytes: 1_000_000,
-      use: 'X header and Bluesky banner (one file serves both). One of three grounds; Yu picks (README, Doubt 1).', guides: g === 'dark' ? { rects: headerGuides, texts: headerGuideTexts } : undefined }),
+      use: 'X header and Bluesky banner (one file serves both). One of three grounds; the owner picks (README, Doubt 1).', guides: g === 'dark' ? { rects: headerGuides, texts: headerGuideTexts } : undefined }),
     banner({ asset: 'linkedin-cover', W: 1512, H: 256, markH: 100, ground: g, briefId: 'STRATEGY.md §7 A3', view: { ...PHONE, srcW: 1512 },
       platforms: ['LinkedIn Page cover (1512x256; PNG or JPEG ≤3 MB [V] LinkedIn help a563309, which also recommends JPEG over PNG)'], maxBytes: 3_000_000,
-      use: 'LinkedIn Page cover. One of three grounds; Yu picks (README, Doubt 1).', guides: g === 'dark' ? { rects: liGuides, texts: liGuideTexts } : undefined }),
+      use: 'LinkedIn Page cover. One of three grounds; the owner picks (README, Doubt 1).', guides: g === 'dark' ? { rects: liGuides, texts: liGuideTexts } : undefined }),
     banner({ asset: 'youtube-banner', W: 2560, H: 1440, markH: 200, ground: g, briefId: 'STRATEGY.md §7 A4', view: { cssW: 390, srcW: 1544, basis: 'phone width showing the 1544 px safe area' },
       platforms: ['YouTube channel banner (2560x1440 recommended, ≤6 MB)'], maxBytes: 6_000_000,
-      use: 'YouTube banner. Everything sits inside the centred 1544x423 safe area. One of three grounds; Yu picks (README, Doubt 1).', guides: g === 'dark' ? { rects: ytGuides, texts: ytGuideTexts } : undefined }),
+      use: 'YouTube banner. Everything sits inside the centred 1544x423 safe area. One of three grounds; the owner picks (README, Doubt 1).', guides: g === 'dark' ? { rects: ytGuides, texts: ytGuideTexts } : undefined }),
   ]),
   ...TEMPLATES.map(templateAsset),
   ...CARDS.map(cardAsset),
@@ -833,7 +833,7 @@ const TOOLS = {
 };
 const AI_NOTE = {
   none: 'No generative-AI image, texture or text-to-image step, and no AI-written words on the image. A Claude Code agent wrote this layout code and chose the placement; every shape is the kit\'s own path data or a plain rectangle.',
-  assistive: 'Words on the image were drafted by AI agents (the agents\' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by Yu before any use. No generative-AI image step: every shape is the kit\'s own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.',
+  assistive: 'Words on the image were drafted by AI agents (the agents\' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by the owner before any use. No generative-AI image step: every shape is the kit\'s own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.',
 };
 
 async function writeSidecar(a, file, extra) {
@@ -850,7 +850,7 @@ async function writeSidecar(a, file, extra) {
   const ai = extra.ai || a.ai || 'none';
   const meta = {
     file: `png/${file}`, brand: 'RewardsPro', campaign: 'social', asset: a.asset, variant: extra.variant || a.variant,
-    brief_id: a.briefId, status: 'PROPOSAL for Yu: not approved, not published',
+    brief_id: a.briefId, status: 'PROPOSAL for the owner: not approved, not published',
     size: { width: a.W, height: a.H }, bytes: buf.length, sha256: sha(buf), format: fmt,
     review_only: review,
     ...(review ? {} : { max_bytes: a.maxBytes, under_limit: buf.length <= a.maxBytes }),

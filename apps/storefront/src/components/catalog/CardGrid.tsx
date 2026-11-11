@@ -12,6 +12,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { type PriceItem, cardAltText } from "@/lib/wholesale/client";
 import { formatRetailPrice } from "@/lib/pricing";
+import { CardImagePlaceholder } from "@/lib/ui/CardImagePlaceholder";
 
 function rarityBadge(rarity: string | null) {
   if (!rarity) return null;
@@ -55,7 +56,10 @@ export default function CardGrid({ cards }: { cards: PriceItem[] }) {
                 sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
               />
             ) : (
-              <div className="w-full h-full bg-surface-subtle" />
+              // pt-9 keeps the card's outline clear of the rarity badge
+              <div className="flex h-full items-center justify-center bg-surface-subtle p-3 pt-9">
+                <CardImagePlaceholder className="h-full w-auto" />
+              </div>
             )}
 
             {/* Rarity badge */}

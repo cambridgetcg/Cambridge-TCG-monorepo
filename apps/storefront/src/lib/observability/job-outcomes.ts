@@ -29,7 +29,10 @@ import type { HostClosed } from "@/lib/datafeed/collector-hosts";
 import type { MarketDerivationResult } from "@/lib/market-derived/derive";
 import { pruneObservability } from "./retention";
 
-export const OPS_JOBS = ["collect/cardmarket", "collect/cardrush", "collect/tcgplayer", "derive/market"] as const;
+/** sweep/held-keys is the maintenance cron's signed-act sweep
+ *  (lib/agents/signed-act-sweep.ts), recorded only while signed acts are
+ *  open; the monitor reads its latest row as the nonce table's last purge. */
+export const OPS_JOBS = ["collect/cardmarket", "collect/cardrush", "collect/tcgplayer", "derive/market", "sweep/held-keys"] as const;
 export type OpsJob = (typeof OPS_JOBS)[number];
 
 type OpsScalar = number | boolean | string | null;

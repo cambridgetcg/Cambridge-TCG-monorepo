@@ -53,6 +53,7 @@ function refundFacts(n: number, product: string, o: { shopProduct?: string; comp
     productValue: pair(product, o.shopProduct),
     refundedAt: new Date(),
     completesOrder: o.completesOrder ?? false,
+    moneyPending: false,
   };
 }
 

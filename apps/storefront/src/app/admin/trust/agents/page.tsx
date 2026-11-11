@@ -16,6 +16,7 @@
 
 import * as React from "react";
 import { sfQuery } from "@/lib/admin/db";
+import { expiredAgentKeySql, liveAgentKeySql } from "@/lib/agents/key-expiry";
 import { fmtDateTime } from "@/lib/format";
 import {
   PageHeader,
@@ -57,7 +58,10 @@ interface AgentRow {
   operator_email: string | null;
   operator_id: string;
   created_at: string;
+  /** Live: not revoked and not expired (lib/agents/key-expiry.ts). */
   active_keys: number;
+  /** Not revoked, but past their expiry. */
+  expired_keys: number;
 }
 
 interface CountRow {
@@ -105,7 +109,10 @@ export default async function Page({
               u.email AS operator_email,
               a.created_at::text AS created_at,
               (SELECT count(*)::int FROM agent_keys k
-                 WHERE k.agent_id = a.id AND k.revoked_at IS NULL) AS active_keys
+                 WHERE k.agent_id = a.id AND ${liveAgentKeySql("k")}) AS active_keys,
+              (SELECT count(*)::int FROM agent_keys k
+                 WHERE k.agent_id = a.id AND k.revoked_at IS NULL
+                   AND ${expiredAgentKeySql("k")}) AS expired_keys
          FROM agents a
          LEFT JOIN users u ON u.id = a.operated_by_user_id
          ${whereSql}
@@ -292,7 +299,10 @@ export default async function Page({
             label: "Keys",
             align: "right",
             render: (r: AgentRow) => (
-              <div className="text-right text-xs text-neutral-400">{r.active_keys}</div>
+              <div className="text-right text-xs text-neutral-400">
+                {r.active_keys} live
+                {r.expired_keys > 0 && ` · ${r.expired_keys} expired`}
+              </div>
             ),
           },
           {

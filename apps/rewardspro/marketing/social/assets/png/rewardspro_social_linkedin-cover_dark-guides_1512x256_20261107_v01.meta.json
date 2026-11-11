@@ -5,7 +5,7 @@
   "asset": "linkedin-cover",
   "variant": "dark-guides",
   "brief_id": "STRATEGY.md §7 A3",
-  "status": "PROPOSAL for Yu: not approved, not published",
+  "status": "PROPOSAL for the owner: not approved, not published",
   "size": {
     "width": 1512,
     "height": 256
@@ -57,7 +57,7 @@
     }
   ],
   "logo_display": [],
-  "notes": "Ground #09110F: the current kit's dark.bg, set by the 2026-10-27 rebuild (676c10b4) as the ink of the rewardspro.io landing that is being retired. Not in the pack Yu approved on 2026-10-20; the reversed lockup's bytes predate it. The R shape #658AAD measures 5.27:1 and |Lc| 37.47, clearing the kit's bar (3:1 and |Lc| 30). Logos are exempt from WCAG; Yu picks the ground.",
+  "notes": "Ground #09110F: the current kit's dark.bg, set by the 2026-10-27 rebuild (676c10b4) as the ink of the rewardspro.io landing that is being retired. Not in the pack the owner approved on 2026-10-20; the reversed lockup's bytes predate it. The R shape #658AAD measures 5.27:1 and |Lc| 37.47, clearing the kit's bar (3:1 and |Lc| 30). Logos are exempt from WCAG; the owner picks the ground.",
   "master": {
     "path": "masters/rewardspro_social_linkedin-cover_dark_1512x256_20261107_v01.svg",
     "overlay": "masters/rewardspro_social_linkedin-cover_dark_1512x256_20261107_v01.guides.svg",
@@ -74,7 +74,7 @@
     {
       "path": "kit/logo/lockup-horizontal-reversed.svg",
       "sha256": "f3440b861495ff5ae25c17ec84ece502442fdfec30609e1f8ed49d828170e665",
-      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
     }
   ],
   "kernel_sha256": {
@@ -125,7 +125,7 @@
     }
   ],
   "ai_involvement": "assistive",
-  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by Yu before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
+  "ai_involvement_note": "Words on the image were drafted by AI agents (the agents' PROPOSAL, STRATEGY.md §6.2/§7, adjusted in review) and are to be checked by the owner before any use. No generative-AI image step: every shape is the kit's own path data or a plain rectangle, and every letter is Inter outlined by vectorcraft-cli.",
   "jurisdictions": [
     "UK"
   ],

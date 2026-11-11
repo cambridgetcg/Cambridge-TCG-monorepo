@@ -225,7 +225,10 @@ export async function runTradeCompletionSweep(): Promise<TradeCompletionSweepRes
   // Eligibility mirrors isBuyerConfirmableState: shipped_to_buyer in any
   // tier, plus direct-tier 'verified' (post-delivery hold). The window
   // clock starts at the dispatch stamp; dispute_window_hours COALESCEs to
-  // the tier default for rows that predate window stamping.
+  // the tier default for rows that predate window stamping. The tier
+  // defaults are cast: with every CASE branch an untyped parameter,
+  // Postgres resolves the CASE to text and COALESCE(integer, text) fails
+  // (42804). Production failed this way on every cron tick (seen 2026-11-06).
   const candidates = await query(
     `SELECT t.id
        FROM market_trades t
@@ -235,9 +238,9 @@ export async function runTradeCompletionSweep(): Promise<TradeCompletionSweepRes
         AND COALESCE(t.shipped_to_buyer_at, t.seller_shipped_at)
             + make_interval(hours => COALESCE(t.dispute_window_hours,
                 CASE t.escrow_tier
-                  WHEN 'direct' THEN $1
-                  WHEN 'verified' THEN $2
-                  ELSE $3
+                  WHEN 'direct' THEN $1::int
+                  WHEN 'verified' THEN $2::int
+                  ELSE $3::int
                 END)) < NOW()
         AND NOT EXISTS (
           SELECT 1 FROM trade_disputes d

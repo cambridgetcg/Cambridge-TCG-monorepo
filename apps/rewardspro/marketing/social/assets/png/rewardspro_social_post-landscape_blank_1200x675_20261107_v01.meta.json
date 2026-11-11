@@ -5,7 +5,7 @@
   "asset": "post-landscape",
   "variant": "blank",
   "brief_id": "Task brief (visuals maker, 2026-11-07); size from shot-list.md (1200x675, landscape post or site)",
-  "status": "PROPOSAL for Yu: not approved, not published",
+  "status": "PROPOSAL for the owner: not approved, not published",
   "size": {
     "width": 1200,
     "height": 675
@@ -97,12 +97,12 @@
     {
       "path": "kit/logo/wordmark.svg",
       "sha256": "acfb7b588059987bd886d544669146053df66b9109807588b1a545dd33132d4f",
-      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
     },
     {
       "path": "kit/logo/mark.svg",
       "sha256": "7a411708b461601061a00ce8075b754393982519d6e1963ccf17e91534a8bc6a",
-      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit Yu approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
+      "licence": "RewardsPro brand kit, Cambridge TCG Limited. Same bytes as the kit the owner approved on 2026-10-20 (approvals.jsonl:1 pins kit/.brandkit-fingerprint 0c6a0614…, which lists this hash)."
     }
   ],
   "kernel_sha256": {

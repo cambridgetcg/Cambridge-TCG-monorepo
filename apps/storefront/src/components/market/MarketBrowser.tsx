@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Badge, EmptyState, ErrorAlert, Icon, Money, Palettes, WhyLink } from "@/lib/ui";
 import { useVoice } from "@/lib/wardrobe/context";
 import { weatherClass } from "@/lib/wardrobe/weather";
+import { CardImagePlaceholder } from "@/lib/ui/CardImagePlaceholder";
+import { useImageFailed } from "@/lib/ui/useImageFailed";
 import type { ImageReference } from "@/lib/cards/image-reference";
 import { imageCreditLang, marketImageLabel, type MarketImageFields } from "@/lib/cards/image-labels";
 import {
@@ -557,26 +559,7 @@ function CatalogGrid({
         const collectorBids = card.p2p_buyers;
         return (
           <Link key={card.sku} href={`/market/${card.sku}`} className="wardrobe-panel p-3 hover:bg-surface-subtle transition group">
-            {card.image_url ? (
-              <figure className="relative mb-3">
-                <Image
-                  src={card.image_url}
-                  alt={imageAlt(card)}
-                  width={240}
-                  height={336}
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
-                  className="aspect-[2.5/3.5] w-full object-cover rounded-lg border border-border-subtle group-hover:scale-[1.02] transition"
-                />
-                <figcaption className="mt-2 text-[10px] leading-snug text-ink-muted">
-                  <span className="block">{imageLabel(card)}</span>
-                  {card.image_attribution && <span lang={imageCreditLang(card)} className="mt-1 block text-ink-faint">{card.image_attribution}</span>}
-                </figcaption>
-              </figure>
-            ) : (
-              <div className="aspect-[2.5/3.5] w-full bg-surface-subtle border border-border-subtle rounded-lg mb-3 flex items-center justify-center">
-                <span className="text-ink-faint text-xs">No Image</span>
-              </div>
-            )}
+            <GridImage card={card} />
 
             <h3 className="text-sm font-semibold text-ink truncate">{card.name}</h3>
             <p className="text-xs text-ink-faint font-mono mb-2 truncate">
@@ -618,11 +601,44 @@ function CatalogGrid({
 /*  Small pieces                                                       */
 /* ------------------------------------------------------------------ */
 
+/** A grid tile's image with its label and credit; the placeholder when there
+ *  is none. When the image does not load (a catalogue host can answer 403),
+ *  the placeholder takes its 5:7 box and the caption stays, so nothing moves. */
+function GridImage({ card }: { card: CatalogCardWithImage }) {
+  const { failed, onError, checkComplete } = useImageFailed(card.image_url);
+  if (!card.image_url) return <CardImagePlaceholder className="mb-3 w-full" />;
+  return (
+    <figure className="relative mb-3">
+      {failed ? (
+        <CardImagePlaceholder label="Image did not load" className="w-full" />
+      ) : (
+        <Image
+          ref={checkComplete}
+          onError={onError}
+          src={card.image_url}
+          alt={imageAlt(card)}
+          width={240}
+          height={336}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
+          className="aspect-[2.5/3.5] w-full object-cover rounded-lg border border-border-subtle group-hover:scale-[1.02] transition"
+        />
+      )}
+      <figcaption className="mt-2 text-[10px] leading-snug text-ink-muted">
+        <span className="block">{imageLabel(card)}</span>
+        {card.image_attribution && <span lang={imageCreditLang(card)} className="mt-1 block text-ink-faint">{card.image_attribution}</span>}
+      </figcaption>
+    </figure>
+  );
+}
+
 function CardThumb({ card }: { card: CatalogCardWithImage }) {
+  const { failed, onError, checkComplete } = useImageFailed(card.image_url);
   // Next/Image resizes the ~200KB card art server-side to a real thumb;
   // a plain <img> would pull every full image on scroll.
-  return card.image_url ? (
+  return card.image_url && !failed ? (
     <Image
+      ref={checkComplete}
+      onError={onError}
       src={card.image_url}
       alt={imageAlt(card)}
       width={40}
@@ -630,9 +646,11 @@ function CardThumb({ card }: { card: CatalogCardWithImage }) {
       className="w-10 h-14 object-cover rounded border border-border-subtle shadow-mat shrink-0"
     />
   ) : (
-    <span className="w-10 h-14 bg-surface-subtle border border-border-subtle rounded flex items-center justify-center shrink-0">
-      <span className="text-ink-faint text-[8px]">N/A</span>
-    </span>
+    <CardImagePlaceholder
+      compact
+      label={card.image_url ? "Image did not load" : "No image"}
+      className="w-10 shrink-0"
+    />
   );
 }
 

@@ -6,8 +6,9 @@
  * Every request is verified first (verifyProxyRequest), so the shop is the
  * signed one and the buyer the signed `logged_in_customer_id`. A guest gets
  * no personal data and Shopify is not asked anything for them. A buyer
- * RewardsPro hasn't seen yet gets the lowest tier, computed on read; nothing
- * is written for a widget view. The balance is Shopify's own, read live
+ * RewardsPro hasn't seen yet, or a known buyer not yet placed in a tier,
+ * gets the lowest tier, as their next order earns; nothing is written for a
+ * widget view. The balance is Shopify's own, read live
  * (2.5 s), or null when Shopify can't say; RewardsPro keeps no copy.
  * Nothing from the query string is logged.
  */
@@ -71,7 +72,11 @@ async function membership(conn: ConnectionContext, tiers: TierRow[], visitor: Ve
   // Unseen: no orders, so no spend, and the lowest tier
   const spend = customer ? await tierSpend(customer.id, conn.tierWindow, new Date()) : fromDb(0);
   const locked = tiers.find((t) => t.id === customer?.lockedTierId);
-  const tier = locked ?? tiers.find((t) => t.id === customer?.tierId) ?? qualify(spend, tiers);
+  // The rate the next order earns, as recordOrder (record-order.server.ts)
+  // picks it (rule 2): the locked tier, else the held one, else the lowest. A
+  // buyer with no tier yet earns the lowest's, not the one their spend
+  // reaches; that move waits for the tier pass, and `stuck` hides the way to it.
+  const tier = locked ?? tiers.find((t) => t.id === customer?.tierId) ?? tiers[0];
   const toNext = progress(spend, tier.id, tiers);
   // Only progress the buyer can make (MONEY-1, as the buyer panel's TRUTH-11
   // and A21-F2): a locked buyer's spend moves nothing, and a buyer whose spend

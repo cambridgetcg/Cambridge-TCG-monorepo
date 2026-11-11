@@ -4,19 +4,22 @@
 // tolerates transport retry latency.
 
 import { sendMail } from "@cambridge-tcg/email";
+import { EMAIL_HEAD } from "@/lib/email/layout";
 import { buildTrackingUrl, getCarrierTracker } from "@/lib/shipping/carriers";
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com").trim().replace(/\/+$/, "");
 
 function tpl(title: string, body: string, ctaText: string, ctaUrl: string): string {
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;padding:32px;background:#171717;border-radius:16px;">
-    <h1 style="color:#fff;font-size:20px;margin:0 0 8px;">Cambridge <span style="color:#34d399;">TCG</span></h1>
-    <h2 style="color:#fff;font-size:16px;margin:0 0 16px;">${title}</h2>
-    <div style="color:#a3a3a3;font-size:14px;line-height:1.6;">${body}</div>
-    <a href="${ctaUrl}" style="display:inline-block;padding:12px 32px;background:#f59e0b;color:#000;font-weight:700;text-decoration:none;border-radius:8px;font-size:14px;margin-top:16px;">${ctaText}</a>
-    <p style="color:#525252;font-size:12px;margin:24px 0 0;">Cambridge TCG &mdash; Rewards</p>
+  return `<!DOCTYPE html><html lang="en">
+${EMAIL_HEAD}
+<body style="margin:0;padding:0 16px;background:#faf8f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#201d18;">
+  <div style="max-width:480px;margin:40px auto;padding:32px;background:#ffffff;border:1px solid #e7e2d8;border-radius:12px;">
+    <h1 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:20px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid #e7e2d8;">Cambridge TCG</h1>
+    <h2 style="color:#201d18;font-family:Georgia,'Times New Roman',Times,serif;font-size:16px;font-weight:600;margin:0 0 16px;">${title}</h2>
+    <div style="color:#5e574c;font-size:14px;line-height:1.6;">${body}</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;"><tr><td bgcolor="#201d18" style="background:#201d18;border-radius:8px;"><a href="${ctaUrl}" style="display:inline-block;padding:12px 32px;background:#201d18;color:#faf8f4;font-weight:600;text-decoration:none;border-radius:8px;font-size:14px;">${ctaText}</a></td></tr></table>
+    <p style="color:#5e574c;font-size:12px;margin:24px 0 0;">Cambridge TCG &mdash; Rewards</p>
   </div>
 </body></html>`;
 }
@@ -43,7 +46,7 @@ export async function sendPrizeShippedEmail(d: {
   if (d.trackingNumber) {
     const prefix = carrierLabel ? `${carrierLabel} tracking` : "Tracking";
     if (trackerUrl) {
-      trackingHtml = `${prefix}: <a href="${trackerUrl}" style="color:#fbbf24;font-family:monospace;text-decoration:underline;">${d.trackingNumber}</a>`;
+      trackingHtml = `${prefix}: <a href="${trackerUrl}" style="color:#86661c;font-family:monospace;text-decoration:underline;">${d.trackingNumber}</a>`;
       trackingText = `${prefix}: ${d.trackingNumber} (${trackerUrl})`;
     } else {
       trackingHtml = `${prefix}: <strong style="font-family:monospace;">${d.trackingNumber}</strong>`;
@@ -94,7 +97,7 @@ export async function sendPrizeBundleShippedEmail(d: {
   if (d.trackingNumber) {
     const prefix = carrierLabel ? `${carrierLabel} tracking` : "Tracking";
     if (trackerUrl) {
-      trackingHtml = `${prefix}: <a href="${trackerUrl}" style="color:#fbbf24;font-family:monospace;text-decoration:underline;">${d.trackingNumber}</a>`;
+      trackingHtml = `${prefix}: <a href="${trackerUrl}" style="color:#86661c;font-family:monospace;text-decoration:underline;">${d.trackingNumber}</a>`;
       trackingText = `${prefix}: ${d.trackingNumber} (${trackerUrl})`;
     } else {
       trackingHtml = `${prefix}: <strong style="font-family:monospace;">${d.trackingNumber}</strong>`;
@@ -114,7 +117,7 @@ export async function sendPrizeBundleShippedEmail(d: {
   const html = tpl(
     "Your prize bundle is on the way",
     `<p>${d.name ? `Hi ${d.name}, ` : ""}we&apos;ve shipped <strong>${count}</strong> prize${count === 1 ? "" : "s"} together in one package:</p>
-     <ul style="color:#e5e5e5;padding-left:20px;">${prizeListHtml}</ul>
+     <ul style="color:#201d18;padding-left:20px;">${prizeListHtml}</ul>
      <p>${trackingHtml}</p>`,
     "View prizes",
     url,
@@ -138,7 +141,7 @@ export async function sendRaffleWinnerEmail(d: {
   const html = tpl(
     "You won the raffle!",
     `<p>${d.name ? `Hi ${d.name}, ` : ""}your name was drawn for the <strong>${d.raffleTitle}</strong> raffle.</p>
-     <p style="color:#fff;font-size:16px;"><strong>Prize:</strong> ${d.prizeDescription}</p>
+     <p style="color:#201d18;font-size:16px;"><strong>Prize:</strong> ${d.prizeDescription}</p>
      <p>Visit your rewards page to confirm your shipping address. Physical prizes ship within a few business days.</p>`,
     "Claim your prize",
     url,

@@ -13,6 +13,8 @@ import { FRESHNESS, type FreshnessKey } from "@cambridge-tcg/data-spec";
 import { BATCH_COLLECTED_SOURCES, collectionOn, type CollectedSource } from "@/lib/datafeed/collection-flags";
 import { dataApiCheckoutIntake, dataApiPlansPublished, dataApiReadsPublished, dataApiSaleStatus } from "@/lib/data-api/posture";
 import { deriveHostHealth, readCollectorHostStates, type CollectorHostsHealth } from "@/app/api/v1/sources/collector-health";
+import { liveAgentKeySql } from "@/lib/agents/key-expiry";
+import { SIGNED_ACTS_FLAG, signedActsOpen } from "@/lib/agents/signed-act-config";
 import { mcpDailyOn } from "./mcp-daily";
 import { OBSERVABILITY_TABLES, RETENTION_BY_TABLE, expiredRowsSql, retentionLabel, type ObservabilityTable } from "./retention";
 import type { TrafficPullStatus } from "./vocabulary";
@@ -321,18 +323,20 @@ export function mcpView(mcp: McpCounts, keys: Known<AgentKeyUse>): McpView {
   };
 }
 
-/** agent_keys (0090): how many, and when the active ones were last used, in
- * bands. Counts only: no key, prefix, name or agent beside a time. */
+/** agent_keys (0090; expiry 0151): how many, and when the active (live:
+ * not revoked, not expired) ones were last used, in bands. Counts only: no
+ * key, prefix, name or agent beside a time. */
 export function readAgentKeys(run: RunQuery): Promise<Known<AgentKeyUse>> {
+  const live = liveAgentKeySql("");
   return known("agent_keys", "0090", async () => {
     const row = (await run(`SELECT count(*)::int AS keys,
-        count(*) FILTER (WHERE revoked_at IS NULL)::int AS active,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at IS NULL)::int AS never,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at >= now() - interval '1 hour')::int AS last_hour,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at < now() - interval '1 hour' AND last_used_at >= now() - interval '1 day')::int AS last_day,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at < now() - interval '1 day' AND last_used_at >= now() - interval '7 days')::int AS last_week,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at < now() - interval '7 days' AND last_used_at >= now() - interval '30 days')::int AS last_month,
-        count(*) FILTER (WHERE revoked_at IS NULL AND last_used_at < now() - interval '30 days')::int AS older
+        count(*) FILTER (WHERE ${live})::int AS active,
+        count(*) FILTER (WHERE ${live} AND last_used_at IS NULL)::int AS never,
+        count(*) FILTER (WHERE ${live} AND last_used_at >= now() - interval '1 hour')::int AS last_hour,
+        count(*) FILTER (WHERE ${live} AND last_used_at < now() - interval '1 hour' AND last_used_at >= now() - interval '1 day')::int AS last_day,
+        count(*) FILTER (WHERE ${live} AND last_used_at < now() - interval '1 day' AND last_used_at >= now() - interval '7 days')::int AS last_week,
+        count(*) FILTER (WHERE ${live} AND last_used_at < now() - interval '7 days' AND last_used_at >= now() - interval '30 days')::int AS last_month,
+        count(*) FILTER (WHERE ${live} AND last_used_at < now() - interval '30 days')::int AS older
       FROM agent_keys`)).rows[0] ?? {};
     return {
       keys: num(row.keys), active: num(row.active), never: num(row.never), lastHour: num(row.last_hour), lastDay: num(row.last_day),
@@ -350,6 +354,43 @@ export function readAgentRateBuckets(run: RunQuery): Promise<Known<RateBucketDay
     `SELECT (bucket_minute AT TIME ZONE 'UTC')::date::text AS day, sum(request_count)::bigint AS requests, count(DISTINCT key_id)::int AS keys,
         max(request_count)::int AS busiest FROM agent_rate_buckets GROUP BY 1 ORDER BY 1 DESC`,
   )).rows.map(row => ({ day: text(row.day), requests: num(row.requests), keys: num(row.keys), busiestMinute: num(row.busiest) })));
+}
+
+/** Expired nonces are normal between hourly sweeps; one expired longer ago
+ *  than this has outlived a sweep that should have taken it. */
+export const NONCE_PURGE_OVERDUE_MINUTES = 90;
+
+export interface NonceTable {
+  rows: number;
+  expired: number;
+  oldestExpiredAt: string | null;
+  /** The oldest expired row is more than NONCE_PURGE_OVERDUE_MINUTES past. */
+  overdue: boolean;
+}
+
+/** agent_act_nonces (0152, held keys): how many rows, how many are past the
+ * time they are kept to (each act and the hourly sweep delete those), and
+ * when the oldest of those expired. Counts only: no thumbprint or jti. The
+ * page reads it only while signed acts are open; closed, no code path reads
+ * the held-keys tables. */
+export function readSignedActNonces(run: RunQuery, now: Date = new Date()): Promise<Known<NonceTable>> {
+  return known("agent_act_nonces", "0152", async () => {
+    const row = (await run(`SELECT count(*)::bigint AS rows, (count(*) FILTER (WHERE expires_at < now()))::bigint AS expired,
+        min(expires_at) FILTER (WHERE expires_at < now()) AS oldest_expired FROM agent_act_nonces`)).rows[0] ?? {};
+    const oldestExpiredAt = iso(row.oldest_expired);
+    const overdue = oldestExpiredAt !== null && now.getTime() - Date.parse(oldestExpiredAt) > NONCE_PURGE_OVERDUE_MINUTES * 60_000;
+    return { rows: num(row.rows), expired: num(row.expired), oldestExpiredAt, overdue };
+  });
+}
+
+/** Whether signed acts are open here; closed, whether only because the flag
+ *  is on with no usable audience, which the page names rather than showing
+ *  the flag as off. */
+export type SignedActsState = "open" | "off" | "no-audience";
+
+function signedActsState(env: Readonly<Record<string, string | undefined>> = process.env): SignedActsState {
+  if (signedActsOpen(env)) return "open";
+  return env[SIGNED_ACTS_FLAG] === "on" ? "no-audience" : "off";
 }
 
 // ── 5. Traffic ───────────────────────────────────────────────────────────
@@ -481,25 +522,33 @@ export interface MonitorData {
   collectors: { sources: CollectorSourceState[]; batches: Known<CollectorBatches>; leases: Known<CollectorLease[]>; jobs: Known<JobOutcomes> };
   derivation: Known<Derivation>;
   api: { posture: ApiPosture; usage: Known<UsageMonth[]>; routes: Known<RouteHits[]> };
-  agents: { mcp: Known<McpCounts>; keys: Known<AgentKeyUse>; buckets: Known<RateBucketDay[]> };
+  agents: {
+    mcp: Known<McpCounts>; keys: Known<AgentKeyUse>; buckets: Known<RateBucketDay[]>;
+    /** Held keys: whether signed acts are open here, and the nonce table
+     *  (null while closed: not read). */
+    signedActs: { open: boolean; state: SignedActsState; nonces: Known<NonceTable> | null };
+  };
   traffic: { coverage: Known<TrafficCoverage>; counts: Known<Traffic> };
   errors: Known<ErrorCount[]>;
   retention: Known<RetentionState[]>;
 }
 
 export async function loadMonitor(run: RunQuery, now: Date = new Date()): Promise<MonitorData> {
-  const [sources, batches, leases, jobs, derivation, usage, routes, mcp, keys, buckets, trafficCoverage, counts, errors, retention] = await Promise.all([
+  const signedState = signedActsState();
+  const signedOpen = signedState === "open";
+  const [sources, batches, leases, jobs, derivation, usage, routes, mcp, keys, buckets, trafficCoverage, counts, errors, retention, nonces] = await Promise.all([
     readCollectorSources(run, now), readCollectorBatches(run), readCollectorLeases(run), readJobOutcomes(run),
     readDerivation(run, now), readDataApiUsage(run), readApiRouteHits(run),
     readMcpDaily(run, now), readAgentKeys(run), readAgentRateBuckets(run),
     readTrafficCoverage(run, now), readTraffic(run, now), readErrors(run, now), readRetention(run),
+    signedOpen ? readSignedActNonces(run, now) : Promise.resolve(null),
   ]);
   return {
     readAt: now.toISOString(),
     collectors: { sources, batches, leases, jobs },
     derivation,
     api: { posture: readApiPosture(), usage, routes },
-    agents: { mcp, keys, buckets },
+    agents: { mcp, keys, buckets, signedActs: { open: signedOpen, state: signedState, nonces } },
     traffic: { coverage: trafficCoverage, counts },
     errors,
     retention,

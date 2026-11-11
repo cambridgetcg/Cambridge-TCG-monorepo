@@ -942,6 +942,134 @@ describe("readRefund (one refund, valued against its order's lines)", () => {
   });
 });
 
+describe("a refund of money whose money is still on its way (#195)", () => {
+  const LINE = "gid://shopify/LineItem/6201";
+  type Tx = { status: string; amount: string; shopAmount?: string };
+  /** A refund of order 5012 with no items and no shipping, whose REFUND transactions are `txs`. */
+  const withMoney = (id: string, txs: Tx[], createdAt = "2026-11-04T11:00:00Z"): Answer => {
+    const answer = moneyRefund(id, "0.0", createdAt);
+    Object.assign(answer.data.refund as object, {
+      transactions: {
+        nodes: txs.map((tx) => ({
+          kind: "REFUND",
+          status: tx.status,
+          amountSet: { presentmentMoney: { amount: tx.amount }, shopMoney: { amount: tx.shopAmount ?? tx.amount } },
+        })),
+      },
+    });
+    return answer;
+  };
+  /** Order 5012 as bought ($20 × 2, $40 of products, no edit), with these refunds. */
+  const order = (ids: string[]) => editedUsd(ids, { removed: 0 });
+  const facts = (f: { refunds: Array<{ productValue: { amount: { toFixed(n: number): string } }; moneyPending: boolean }> }) =>
+    f.refunds.map((r) => [r.productValue.amount.toFixed(2), r.moneyPending]);
+
+  it("values a money-only refund whose money is PENDING at 0.00 and says its money is pending", async () => {
+    const { facts: f } = await readOrder(order(["gid://shopify/Refund/8001"]), [withMoney("gid://shopify/Refund/8001", [{ status: "PENDING", amount: "20.0" }])]);
+    expect(f.refunds[0].productValue.amount.toFixed(2)).toBe("0.00");
+    expect(f.refunds[0].productValue.shopAmount.toFixed(2)).toBe("0.00");
+    expect(f.refunds[0].moneyPending).toBe(true);
+  });
+
+  it("values a partly settled one at its successful money, and it is still pending", async () => {
+    const refund = withMoney("gid://shopify/Refund/8011", [
+      { status: "SUCCESS", amount: "5.0" },
+      { status: "PENDING", amount: "15.0" },
+    ]);
+    const { facts: f } = await readOrder(order(["gid://shopify/Refund/8011"]), [refund]);
+    expect(facts(f)).toEqual([["5.00", true]]);
+  });
+
+  it("once its money succeeds it is worth all of it and no longer pending", async () => {
+    const { facts: f } = await readOrder(order(["gid://shopify/Refund/8021"]), [withMoney("gid://shopify/Refund/8021", [{ status: "SUCCESS", amount: "20.0" }])]);
+    expect(facts(f)).toEqual([["20.00", false]]);
+  });
+
+  it.each(["FAILURE", "ERROR"])("money that ended %s is not pending", async (status) => {
+    const { facts: f } = await readOrder(order(["gid://shopify/Refund/8031"]), [withMoney("gid://shopify/Refund/8031", [{ status, amount: "20.0" }])]);
+    expect(facts(f)).toEqual([["0.00", false]]);
+  });
+
+  it("pending money that only repays what an edit left owed is not pending", async () => {
+    const owedBack = withMoney("gid://shopify/Refund/7092", [{ status: "PENDING", amount: "20.0" }]);
+    const refunds = [removalRefund("gid://shopify/Refund/7091", "2026-11-04T10:00:00Z", LINE), owedBack, moneyRefund("gid://shopify/Refund/7093", "5.0", "2026-11-04T12:00:00Z")];
+    const { facts: f } = await readOrder(editedUsd(["gid://shopify/Refund/7091", "gid://shopify/Refund/7092", "gid://shopify/Refund/7093"]), refunds);
+    expect(facts(f)).toEqual([
+      ["20.00", false],
+      ["0.00", false],
+      ["5.00", false],
+    ]);
+  });
+
+  it("pending money partly repaying what an edit left owed and partly beyond it is pending", async () => {
+    // $20 owed, then $30 PENDING: once settled, the $10 beyond what is owed counts
+    const owedBack = withMoney("gid://shopify/Refund/7112", [{ status: "PENDING", amount: "30.0" }]);
+    const refunds = [removalRefund("gid://shopify/Refund/7111", "2026-11-04T10:00:00Z", LINE), owedBack];
+    const { facts: f } = await readOrder(editedUsd(["gid://shopify/Refund/7111", "gid://shopify/Refund/7112"]), refunds);
+    expect(facts(f)).toEqual([
+      ["20.00", false],
+      ["0.00", true],
+    ]);
+  });
+
+  it("a refund of units whose money is pending is never marked", async () => {
+    const pending = removalRefund("gid://shopify/Refund/7081", "2026-11-04T10:00:00Z", LINE);
+    Object.assign(pending.data.refund as object, { transactions: { nodes: [{ kind: "REFUND", status: "PENDING", amountSet: bag("20.0") }] } });
+    const refunds = [pending, moneyRefund("gid://shopify/Refund/7082", "5.0", "2026-11-04T12:00:00Z")];
+    const { facts: f } = await readOrder(editedUsd(["gid://shopify/Refund/7081", "gid://shopify/Refund/7082"]), refunds);
+    expect(facts(f)).toEqual([
+      ["20.00", false],
+      ["5.00", false],
+    ]);
+  });
+
+  it("pending money beyond the product value not yet refunded is not pending", async () => {
+    const refunds = [
+      withMoney("gid://shopify/Refund/8041", [{ status: "SUCCESS", amount: "40.0" }], "2026-11-04T10:00:00Z"),
+      withMoney("gid://shopify/Refund/8042", [{ status: "PENDING", amount: "10.0" }]),
+    ];
+    const { facts: f } = await readOrder(order(["gid://shopify/Refund/8041", "gid://shopify/Refund/8042"]), refunds);
+    expect(facts(f)).toEqual([
+      ["40.00", false],
+      ["0.00", false],
+    ]);
+  });
+
+  it.each([
+    ["the buyer's currency", { amount: "5.0", shopAmount: "0.0" }],
+    ["the shop's currency", { amount: "0.0", shopAmount: "5.0" }],
+  ])("marks it when settling would raise its value in %s alone", async (_, money) => {
+    const refund = withMoney("gid://shopify/Refund/8051", [{ status: "PENDING", ...money }]);
+    const { facts: f } = await readOrder(order(["gid://shopify/Refund/8051"]), [refund]);
+    expect(f.refunds[0].moneyPending).toBe(true);
+  });
+
+  it("an item refund is never marked, whatever its money", async () => {
+    const items = itemRefund("gid://shopify/Refund/8061", "2026-11-04T11:00:00Z", LINE);
+    Object.assign(items.data.refund as object, { transactions: { nodes: [{ kind: "REFUND", status: "PENDING", amountSet: bag("20.0") }] } });
+    const { facts: f } = await readOrder(order(["gid://shopify/Refund/8061"]), [items]);
+    expect(facts(f)).toEqual([["20.00", false]]);
+  });
+
+  it("readOrder and readRefund agree on moneyPending", async () => {
+    const refunds = [
+      withMoney("gid://shopify/Refund/8071", [{ status: "SUCCESS", amount: "10.0" }], "2026-11-04T10:00:00Z"),
+      withMoney("gid://shopify/Refund/8072", [{ status: "PENDING", amount: "10.0" }]),
+    ];
+    const ids = ["gid://shopify/Refund/8071", "gid://shopify/Refund/8072"];
+    const { facts: f } = await readOrder(order(ids), refunds);
+    expect(facts(f)).toEqual([
+      ["10.00", false],
+      ["0.00", true],
+    ]);
+    for (const [i, id] of ids.entries()) {
+      const one = await createShopifyOrderSource(fromFixtures([order(ids)], refunds)).readRefund(id);
+      expect(one?.refund.moneyPending).toBe(f.refunds[i].moneyPending);
+      expect(one?.refund.productValue.amount.toFixed(2)).toBe(f.refunds[i].productValue.amount.toFixed(2));
+    }
+  });
+});
+
 describe("the refund that completes the order (Ruling 34: decided by units)", () => {
   const ORDER_ID = "gid://shopify/Order/5091";
   const LINE_ID = "gid://shopify/LineItem/5991";

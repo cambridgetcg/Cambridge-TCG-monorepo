@@ -29,8 +29,8 @@ a few keys or accounts are in use, though, such a count can still describe
 their use, so the page withholds those counts until at least five
 (`MIN_HOLDERS` in `monitor.ts`) are counted: panels 3 and 4 below. Words come from fixed lists in
 `src/lib/observability/vocabulary.ts`; migration 0148's CHECKs hold the same
-lists (`vocabulary.test.ts` compares them), so a word outside them is refused
-by the database. Changing a list is a privacy change: the traffic lists are
+lists (0150's, for `mcp_daily.tool`; `vocabulary.test.ts` compares them), so
+a word outside them is refused by the database. Changing a list is a privacy change: the traffic lists are
 versioned (`ctcg.actor-class/v1`) and a new version comes with a migration
 and its /privacy note.
 
@@ -45,7 +45,7 @@ why. It never shows that as zero.
 | 1. Collectors | `member_price_batches` (0137) for 7 days, per source and, for CardRush, per host (its ingest key names the host); each source's newest batch; `price_collector_hosts` (0146) judged as `/api/v1/sources` judges it; `price_collector_leases` (0143); `ops_job_outcomes` for the three collect jobs; the `DATA_COLLECT_*` flags in this deployment | Observations per batch (not counted: a Cardmarket file is about 74,600 rows); quarantine entries' text (counted only, it holds source text); a run that failed before writing a batch; any run before 0148 |
 | 2. Derivation | The last 14 UTC dates: each date's `market_derivation_runs` row (0141) with the reference, index and premium rows it wrote, its sources and ECB quote dates; the outcomes recorded for that date (refusal, excluded sources, non-zero skips); the latest run's rows by game, market and scope or confidence; `DATA_DERIVE_MARKET` | Any value: no amount, level, ratio or FX rate is read. A date before 0148 with no run row is unknown, since a refused day left no trace then |
 | 3. Data API | `DATA_API_READS`, `DATA_API_PLANS_PUBLISHED`, `DATA_API_CHECKOUT_INTAKE`; `data_api_usage_months` (0142) summed per month with the number of accounts that made any request; `traffic_hourly` for `/api/v1/market/*`, `/api/v1/member-prices`, `/api/v1/plans`, `/api/v1/account/*` and `/api/data-api/*`, totalled over 35 days by route and status, with no day or hour | Which account made a request (never read). On the key-gated routes, every answer but 401 and 404 (no key, a wrong one, not published) while fewer than five accounts used the data API in either month the 35 days touch, and always for member prices and checkout, whose holders nothing counts past a day (`apiRouteView`); requests Vercel did not see; hours no pull counted |
-| 4. Agents | `mcp_daily` for 30 days by method, tool, authenticated or not, and outcome; `agent_keys` counted, and active keys by when they were last used (under an hour, a day, a week, a month, older, never); `agent_rate_buckets` per day (its own 7 days): requests, keys, busiest key-minute | Which key or agent did anything; authenticated MCP rows while fewer than five active keys were used in the 30 days (`mcpView`); MCP requests while `OPS_MCP_DAILY` is off (read as not counting, not zero); the other agent doors, which appear in traffic by route group |
+| 4. Agents | `mcp_daily` for 30 days by method, tool, authenticated or not, and outcome; `agent_keys` counted, and active keys by when they were last used (under an hour, a day, a week, a month, older, never); `agent_rate_buckets` per day (its own 7 days): requests, keys, busiest key-minute; while signed acts are open (`AGENT_SIGNED_ACTS`), `agent_act_nonces` (0152) counted, with the rows past their time and when the oldest of those expired (a warning only once that is over 90 minutes ago, since expired rows are normal between hourly sweeps), and the held-keys sweep's last run from `ops_job_outcomes` | Which key or agent did anything; authenticated MCP rows while fewer than five active keys were used in the 30 days (`mcpView`); MCP requests while `OPS_MCP_DAILY` is off (read as not counting, not zero); the other agent doors, which appear in traffic by route group; any held-keys table while signed acts are closed (not read); each act's own small nonce purge, which is not recorded |
 | 5. Traffic | `traffic_pulls` for which of the last 35 days' hours were counted (ok, partly, failed, skipped at a start, unknown), in total and for each of the last 7 days; `traffic_hourly` for 7 days: requests per day beside that day's counted hours, RSC page-data share, share reaching Vercel directly (the `*.vercel.app` hosts), status mix, declared class by day (each day's header gives its counted hours), class by route group, 404 hot spots | Anything Cloudflare answered from its own cache (cookie-less HTML is cached there, so page views are undercounted); IP addresses, so no user agent's claim is verified and no class is "human"; query strings, referrers and bodies; requests older than Vercel keeps logs (about 24 h on the current plan), if a pull is missed. A partly counted day shows only its counted hours, so read its total beside its hours |
 | 6. Errors | `error_daily` for 30 days by tag (a fixed list) and status, each line beside its day's counted hours | The line's text; invocations that printed nothing (runtime logs hold only those that did); hours no pull counted |
 | Retention | Each 0148 table's rows, oldest row and rows past its period | |
@@ -53,7 +53,10 @@ why. It never shows that as zero.
 ## The tables (migration 0148)
 
 - `ops_job_outcomes`: one row per run of `collect/cardmarket`,
-  `collect/cardrush`, `collect/tcgplayer` and `derive/market`: start, finish,
+  `collect/cardrush`, `collect/tcgplayer` and `derive/market`, and, while
+  signed acts are open, of the maintenance cron's held-keys sweep
+  (`sweep/held-keys`, counting the nonces and pending signing keys it
+  deleted; `src/lib/agents/signed-act-sweep.ts`): start, finish,
   HTTP status, outcome and counts. Outcomes: `ran`, `already-derived`,
   `refused:<code>` (the job declined by its own rule: a lease held, request
   spacing, a host backing off or suspended, a revoked release, an
@@ -65,7 +68,13 @@ why. It never shows that as zero.
   short tokens (a host, a date, a code), at most two levels deep, checked by
   `ops_counts_valid`; text with spaces, decimals and arrays do not fit.
 - `mcp_daily`: per UTC day, method, tool, authenticated or not, outcome →
-  count. No key, agent or account id.
+  count. No key, agent or account id. Migration 0150 adds `agent.revoke_key`
+  to the tool words, and is applied before the code that counts it (a
+  refused row drops its whole batch). A holder's `agent.revoke_key` runs
+  before the gate authenticates an actor; possession of the presented key
+  is its authentication, so a revocation or preview by a live key is
+  counted as authenticated (withheld with the others while few keys are in
+  use), and a string that is not a live key as not authenticated.
 - `traffic_hourly`: per UTC hour, host class, route group, RSC or not,
   declared actor class, classifier version, status class, cache result,
   firewall action → count.
@@ -273,6 +282,8 @@ no raw log is ever stored.
 | `TRAFFIC_PULL` | off | Runs the hourly traffic pull, which reads Vercel's logs with `VERCEL_TOKEN` and writes `traffic_hourly`, `traffic_pulls` and `error_daily`. Turn on only after /privacy names the counts, their purpose and their periods. Its first run counts nothing; the first hour counted begins after it. |
 | `PUBLIC_FEEDBACK` | off | Opens POST `/api/v1/feedback` (and so the /contact form) to new messages; see Doors. Holders read and erase their messages with the key either way. |
 | `PEER_HELLO_COUNT` | off | Counts each valid POST `/api/v1/peers` into `peer_hello_daily`; see Doors. |
+| `AGENT_SIGNED_ACTS` | off | Exactly `on` opens agent-held signing keys (`docs/plans/agent-auth/held-keys.md`): the MCP tool `agent.act`, POST `/api/v1/agents/act` and binding a public key at `/account/agents`. Off, or with no audience below, both doors answer `signed_acts_closed` before reading the act, binding is refused, and nothing reads or writes `agent_signing_keys`, `agent_act_nonces`, `agent_act_events` or `agent_keys.minted_by_event`; bearer keys are untouched. The hourly held-keys sweep (expired nonces, signing keys never confirmed 7 days after binding) and panel 4's nonce row run only while it is open. Needs migration 0152 applied first, flag on or off; production has had it since 2026-11-10. Turning it on in production is Yu's call and has not been made; /privacy has described these records since 2026-11-10, in an AI agent's wording. |
+| `AGENT_SIGNED_ACTS_AUDIENCE` | unset | The `aud` every signed act must carry: this deployment's origin, exactly (`https://cambridgetcg.com` in production; each preview deployment its own). Never taken from the request's Host. Unset or not an `http(s)` origin with nothing after it, the path stays closed, and panel 4 shows it as missing when `AGENT_SIGNED_ACTS` is on. |
 | `VERCEL_TOKEN` | set for the deploys page | Read by the pull from the environment only; never logged or returned. |
 | `DATA_COLLECT_*`, `DATA_DERIVE_MARKET`, `DATA_API_*` | as set | Read and shown, never changed, by the page. |
 
@@ -357,8 +368,9 @@ serve the API around Cloudflare. The monitor counts their requests as
 ## Checks
 
 - `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/observability src/lib/traffic src/app/admin/system/monitor src/app/api/mcp src/app/api/cron`
-- The integration test applies 0148 and the migrations it reads beside on a
-  disposable loopback database, and reads every panel through both pg and
+- The integration test applies 0148, 0150 and the migrations it reads beside
+  on a disposable loopback database (and checks that 0150 keeps 0148's rows
+  and words and adds only `agent.revoke_key`), and reads every panel through both pg and
   postgres.js (the page's driver):
   `OPS_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/<a name containing test> pnpm --filter cambridgetcg-storefront exec vitest run src/lib/observability/observability.integration.test.ts src/lib/traffic/pull.integration.test.ts`.
   The traffic one runs the pull against a mocked Vercel and the real 0148

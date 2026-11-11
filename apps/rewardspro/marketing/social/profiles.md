@@ -86,7 +86,9 @@ Shopify stores. It is made by Cambridge TCG Limited, a UK company in London. Not
 
 **Contact variants.** Use these only once `rp-contact-delivers` is `verified`: the owner sends a test
 message to contact@rewardspro.io from an outside address and sees it arrive, the claims maker records
-that result as the row's evidence, and a second session concurs (STRATEGY §3.2, §13 step 10). MX being
+that result as the row's evidence, and the one read checks it (STRATEGY §3.2, §13 step 10; since 10 Nov, in
+place of a second session's concurrence). The owner's test on 10 Nov reached contact@ (#223); the row is still
+`proposed`. MX being
 Google Workspace doesn't prove the mailbox delivers. R0 never gets the address: the reserve accounts point
 elsewhere from S2.
 

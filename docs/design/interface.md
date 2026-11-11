@@ -43,6 +43,24 @@ cookie IDs stay valid.
 The [return record](../operations/2026-10-27-quiet-gallery-return.md) lists
 what changed and what was checked.
 
+Transactional emails use the Light values, written inline because mail
+clients can't read `themes.css`: paper ground, a white mat with a hairline,
+ink and muted-ink text, bronze for links and prices, a solid-ink button and a
+text wordmark, with system serif and sans stacks instead of web fonts. Each
+email declares a light colour scheme, so clients that honour it don't
+recolour it in dark mode. `src/lib/email/layout.ts` lists the values and the
+other email shells that copy them. Bringing email into this look was an
+agents' call on 2026-11-10, extending Yu's 2026-10-27 choice to a surface it
+didn't name; reverting that change undoes it.
+
+One departure, also an agents' call of 2026-11-10: the emails set the name
+as a text wordmark and leave out the card mark Yu chose ("Card mark in
+bronze"). Many mail clients block remote images until the reader allows
+them, and Gmail doesn't show SVG, so an image mark would often appear as a
+blank box or alt text in the one place the name has to read; text always
+renders. Adding the mark later means a hosted PNG with alt text "Cambridge
+TCG", beside the text name rather than replacing it.
+
 The status tones are darker in Light (and danger lighter in Dark) than the
 values first drafted for this build, so that tone text stays at 4.5:1 or more
 on its own 10–20% tint: badges, trust tiers and status chips draw

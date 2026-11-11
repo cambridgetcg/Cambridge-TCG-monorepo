@@ -12,6 +12,9 @@
  *   - There is no recovery path — lose it, mint a new one.
  *   - Agent + first key are inserted in one transaction so a half-created
  *     agent (row without key) cannot exist.
+ *   - An optional per-operator cap is checked inside that same transaction,
+ *     behind a lock on the operator's users row, so two concurrent creates
+ *     cannot both pass it.
  *
  * Substrate honesty: handle uniqueness is the DB's UNIQUE constraint on
  * agents.public_handle; this module surfaces the conflict as a typed
@@ -20,7 +23,15 @@
 
 import crypto from "crypto";
 import { transaction } from "@/lib/db";
-import { hashAgentToken } from "./auth";
+import { hashAgentToken, loggableErrorCode } from "./auth";
+import {
+  expiresAtIso,
+  isExpiryAfterCreationViolation,
+  KEY_EXPIRY_DATE_PASSED_ERROR,
+  keyExpiresAtSql,
+  keyExpiryBinds,
+  type KeyExpiry,
+} from "./key-expiry";
 
 export const TOKEN_PREFIX = "ctcg_agt_";
 const TOKEN_RANDOM_LEN = 22; // base62 length
@@ -51,9 +62,17 @@ export interface CreateAgentWithKeyInput {
   modelTag: string;
   description?: string | null;
   keyName?: string;
+  /** The first key's expiry, parsed by parseKeyExpiry (key-expiry.ts).
+   *  Required: the core never chooses a lifetime for the minter. */
+  keyExpiry: KeyExpiry;
   /** Column added by migration 0112. 'operator' (default) or 'self-serve'. */
   registeredVia?: "operator" | "self-serve";
   tier?: "free" | "standard" | "partner";
+  /**
+   * When set, refuse with `agent_cap_reached` if the operator already has
+   * this many non-archived agents. Checked inside the creating transaction.
+   */
+  maxActiveAgentsForOperator?: number;
 }
 
 export type CreateAgentWithKeyOutcome =
@@ -64,13 +83,25 @@ export type CreateAgentWithKeyOutcome =
       key_id: string;
       token: string;
       key_prefix: string;
+      /** As stored, by the database's clock (ISO 8601), or null: no expiry. */
+      key_expires_at: string | null;
     }
-  | { ok: false; code: "handle_taken" | "create_failed"; error: string };
+  | {
+      ok: false;
+      code: "handle_taken" | "create_failed" | "agent_cap_reached" | "expiry_date_passed";
+      error: string;
+    };
 
 /**
  * Insert an agent + its first key in one transaction. Validation of
  * display name / model tag lengths is the caller's job; handle format is checked here since
  * the DB CHECK would reject it anyway and this error message is kinder.
+ *
+ * Callers resolve the session before calling: production's pool holds one
+ * connection (packages/db/src/index.ts), so `auth()` or a root `query()`
+ * awaited inside the callback below would wait on the connection the
+ * transaction already holds. Only `tx` is used in there. Lock order is
+ * users, then agents, then agent_keys, as elsewhere for agent writes.
  */
 export async function createAgentWithKey(
   input: CreateAgentWithKeyInput,
@@ -86,8 +117,27 @@ export async function createAgentWithKey(
 
   const { token, prefix, hash } = mintRawToken();
 
+  const cap = input.maxActiveAgentsForOperator;
+
   try {
     const result = await transaction(async (tx) => {
+      if (cap !== undefined) {
+        // Serialises concurrent creates for this operator: the count below
+        // runs after any earlier create has committed, so the cap cannot
+        // race. NO KEY UPDATE still lets other rows reference the user.
+        const owner = await tx(
+          `SELECT id FROM users WHERE id = $1 FOR NO KEY UPDATE`,
+          [input.operatedByUserId],
+        );
+        if (owner.rows.length === 0) return { kind: "no_operator" as const };
+        const active = await tx(
+          `SELECT count(*)::int AS n FROM agents
+            WHERE operated_by_user_id = $1 AND status <> 'archived'`,
+          [input.operatedByUserId],
+        );
+        if (Number(active.rows[0]?.n ?? 0) >= cap) return { kind: "cap_reached" as const };
+      }
+
       const insert = await tx(
         `INSERT INTO agents
            (operated_by_user_id, public_handle, display_name, model_tag, description, registered_via)
@@ -104,15 +154,40 @@ export async function createAgentWithKey(
       );
       const agentId = insert.rows[0].id as string;
 
+      // expires_at is computed here, on the database's clock, from the
+      // same NOW() as created_at (key-expiry.ts keyExpiresAtSql).
       const key = await tx(
-        `INSERT INTO agent_keys (agent_id, key_hash, key_prefix, name, rate_limit_tier)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id`,
-        [agentId, hash, prefix, input.keyName ?? "default", input.tier ?? "free"],
+        `INSERT INTO agent_keys (agent_id, key_hash, key_prefix, name, rate_limit_tier, expires_at)
+         VALUES ($1, $2, $3, $4, $5, ${keyExpiresAtSql(6, 7)})
+         RETURNING id, expires_at`,
+        [
+          agentId,
+          hash,
+          prefix,
+          input.keyName ?? "default",
+          input.tier ?? "free",
+          ...keyExpiryBinds(input.keyExpiry),
+        ],
       );
 
-      return { agentId, keyId: key.rows[0].id as string };
+      return {
+        kind: "created" as const,
+        agentId,
+        keyId: key.rows[0].id as string,
+        keyExpiresAt: expiresAtIso(key.rows[0].expires_at),
+      };
     });
+
+    if (result.kind === "cap_reached") {
+      return {
+        ok: false,
+        code: "agent_cap_reached",
+        error: `You already operate ${cap} active agents. Archive one first.`,
+      };
+    }
+    if (result.kind === "no_operator") {
+      return { ok: false, code: "create_failed", error: "Failed to create agent." };
+    }
 
     return {
       ok: true,
@@ -121,13 +196,21 @@ export async function createAgentWithKey(
       key_id: result.keyId,
       token,
       key_prefix: prefix,
+      key_expires_at: result.keyExpiresAt,
     };
   } catch (err) {
+    // A chosen date that began on the database's clock between the range
+    // check and the insert; the transaction rolled back whole.
+    if (isExpiryAfterCreationViolation(err)) {
+      return { ok: false, code: "expiry_date_passed", error: KEY_EXPIRY_DATE_PASSED_ERROR };
+    }
     const message = err instanceof Error ? err.message : "create failed";
     if (message.includes("agents_public_handle_key") || message.includes("duplicate key")) {
       return { ok: false, code: "handle_taken", error: "That handle is already taken." };
     }
-    console.error("[agents] createAgentWithKey failed:", err);
+    // The code only: a failed agent_keys insert's error carries the row
+    // ("Failing row contains ..."), key_hash included.
+    console.error("[agents] createAgentWithKey failed:", loggableErrorCode(err));
     return { ok: false, code: "create_failed", error: "Failed to create agent." };
   }
 }

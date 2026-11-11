@@ -9,7 +9,8 @@
  *   1. Collectors   member_price_batches, price_collector_hosts, _leases, ops_job_outcomes
  *   2. Derivation   market_derivation_runs and its rows, ops_job_outcomes
  *   3. API          posture flags, data_api_usage_months, traffic on its routes
- *   4. Agents       mcp_daily, agent_keys, agent_rate_buckets
+ *   4. Agents       mcp_daily, agent_keys, agent_rate_buckets; agent_act_nonces
+ *                   while signed acts are open
  *   5. Traffic      traffic_hourly and traffic_pulls (what reached Vercel)
  *   6. Errors       error_daily
  *
@@ -29,15 +30,17 @@ import {
 } from "@/lib/admin/ui";
 import { DATA_COLLECT_FLAGS } from "@/lib/datafeed/collection-flags";
 import { MCP_DAILY_FLAG } from "@/lib/observability/mcp-daily";
+import { SIGNED_ACTS_AUDIENCE_ENV, SIGNED_ACTS_FLAG } from "@/lib/agents/signed-act-config";
+import { SIGNED_ACT_SWEEP_JOB } from "@/lib/agents/signed-act-sweep";
 import { TRAFFIC_PULL_FLAG, trafficPullOn } from "@/lib/traffic/pull";
 import {
-  MIN_HOLDERS, apiRouteView, loadMonitor, mcpView,
+  MIN_HOLDERS, NONCE_PURGE_OVERDUE_MINUTES, apiRouteView, loadMonitor, mcpView,
   type BatchGroup, type ClassGroup, type CollectorLease, type CoverageDay, type DerivationDay, type DerivedCount, type ErrorCount,
   type JobOutcomeRow, type JobOutcomeTally, type McpTally, type NotFoundSpot, type RateBucketDay, type RetentionState,
   type RouteHits, type TrafficDay, type UsageMonth,
 } from "@/lib/observability/monitor";
 import type { CollectorHostHealth } from "@/app/api/v1/sources/collector-health";
-import { Flag, Outcome, Pairs, Panel, Unknown, When, n, pct } from "./_components";
+import { Flag, Outcome, Pairs, Panel, SettingState, Unknown, When, n, pct } from "./_components";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -231,8 +234,8 @@ export default async function Page() {
       <Panel
         id="agents"
         title="4. Agents"
-        source={<>mcp_daily (0148), written while <code>{MCP_DAILY_FLAG}</code> is on; agent_keys and agent_rate_buckets (0090).</>}
-        covers={<>MCP requests for 30 days by method, tool, authentication and outcome, with no key beside a tool, and the authenticated rows withheld while fewer than {MIN_HOLDERS} active keys were used in those 30 days; key counts and when active keys were last used, in bands; the rate buckets&apos; 7 days. Other agent doors appear in traffic (panel 5) by route group.</>}
+        source={<>mcp_daily (0148), written while <code>{MCP_DAILY_FLAG}</code> is on; agent_keys and agent_rate_buckets (0090); agent_act_nonces (0152) and the signed-act sweep&apos;s latest ops_job_outcomes row, while signed acts are open (<code>{SIGNED_ACTS_FLAG}</code>).</>}
+        covers={<>MCP requests for 30 days by method, tool, authentication and outcome, with no key beside a tool, and the authenticated rows withheld while fewer than {MIN_HOLDERS} active keys were used in those 30 days; key counts and when active keys were last used, in bands; the rate buckets&apos; 7 days. Signed-act nonces as counts, the oldest past its time, and the hourly sweep&apos;s last run; each act&apos;s own small purge is not recorded. Other agent doors appear in traffic (panel 5) by route group.</>}
       >
         {agents.mcp.state === "unknown" ? <Unknown reason={agents.mcp.reason} /> : mcp && (
           <>
@@ -276,6 +279,7 @@ export default async function Page() {
             ]}
           />
         )}
+        <SignedActNonces signedActs={agents.signedActs} jobs={collectors.jobs} />
       </Panel>
 
       {/* 5 ── Traffic */}
@@ -480,5 +484,58 @@ function ClassByDay({ rows, coverage }: { rows: { day: string; actorClass: strin
         { key: "total", header: "7 d", align: "right", render: (row) => n(row.total) },
       ]}
     />
+  );
+}
+
+/** Held keys' nonce table: size, the oldest row past its time, and the
+ * sweep's last recorded run. Closed, nothing is read and it says so. */
+function SignedActNonces({ signedActs, jobs }: {
+  signedActs: Awaited<ReturnType<typeof loadMonitor>>["agents"]["signedActs"];
+  jobs: Awaited<ReturnType<typeof loadMonitor>>["collectors"]["jobs"];
+}) {
+  if (signedActs.state === "no-audience") {
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-4">
+          <Flag name={SIGNED_ACTS_FLAG} on />
+          <SettingState name={SIGNED_ACTS_AUDIENCE_ENV} state="missing" tone="amber" />
+        </div>
+        <p className="text-sm text-neutral-500">{SIGNED_ACTS_FLAG} is on, but {SIGNED_ACTS_AUDIENCE_ENV} is not set to this deployment&apos;s origin, so signed acts stay closed and agent_act_nonces is not read.</p>
+      </div>
+    );
+  }
+  if (!signedActs.open || !signedActs.nonces) {
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-4"><Flag name={SIGNED_ACTS_FLAG} on={false} /></div>
+        <p className="text-sm text-neutral-500">Signed acts are closed here, so agent_act_nonces is not read: while closed, no code path reads the held-keys tables.</p>
+      </div>
+    );
+  }
+  const nonces = signedActs.nonces;
+  const sweep = jobs.state === "known" ? jobs.data.latest.find((row) => row.job === SIGNED_ACT_SWEEP_JOB) : undefined;
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-4"><Flag name={SIGNED_ACTS_FLAG} on /></div>
+      {nonces.state === "unknown" ? <Unknown reason={nonces.reason} /> : (
+        <KpiGrid cols={4}>
+          <KpiCard label="Act nonces" value={n(nonces.data.rows)} sub="kept until exp + 60 s" />
+          <KpiCard
+            label="Past their time"
+            value={n(nonces.data.expired)}
+            urgency={nonces.data.overdue ? "warning" : "neutral"}
+            sub={`normal between hourly sweeps; a warning once the oldest is over ${NONCE_PURGE_OVERDUE_MINUTES} minutes past`}
+          />
+          <KpiCard label="Oldest past its time" value={nonces.data.oldestExpiredAt ? fmtDateTime(nonces.data.oldestExpiredAt) : "none"} empty={!nonces.data.oldestExpiredAt} />
+          <KpiCard
+            label="Last sweep"
+            value={jobs.state === "unknown" ? "unknown" : sweep?.startedAt ? fmtDateTime(sweep.startedAt) : "none recorded"}
+            empty={!sweep}
+            urgency={sweep && sweep.outcome !== "ran" ? "warning" : "neutral"}
+            sub={sweep ? `${sweep.outcome} · ${n(Number(sweep.counts.nonces ?? 0))} nonces, ${n(Number(sweep.counts.pendingKeys ?? 0))} pending keys deleted` : "hourly at :23 while open"}
+          />
+        </KpiGrid>
+      )}
+    </div>
   );
 }

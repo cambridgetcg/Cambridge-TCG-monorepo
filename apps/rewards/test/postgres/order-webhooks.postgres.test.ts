@@ -518,6 +518,61 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
       expect(calls).toHaveLength(2);
     });
 
+    describe("a refund whose money is still on its way (#195)", () => {
+      /** The money-only refund with these REFUND transactions. */
+      const withMoney = (txs: Array<{ status: string; amount: string }>) => {
+        const answer = moneyRefund("0.0");
+        Object.assign(answer.data.refund as object, {
+          transactions: {
+            nodes: txs.map((tx) => ({ kind: "REFUND", status: tx.status, amountSet: { shopMoney: { amount: tx.amount }, presentmentMoney: { amount: tx.amount } } })),
+          },
+        });
+        return answer;
+      };
+
+      it("answers 200 and marks it at £0; a redelivery writes nothing", async () => {
+        await seedShop();
+        mockOrderFacts(SHOP, { orders: [plainOrder()], refunds: [withMoney([{ status: "PENDING", amount: "20.0" }])] });
+        const calls = mockStoreCredit(SHOP, {});
+        expect((await deliverPaid()).status).toBe(200);
+        await flushWaitUntil();
+
+        expect((await deliverRefund()).status).toBe(200);
+        await flushWaitUntil();
+
+        const row = await prisma.refund.findFirstOrThrow();
+        expect([row.externalRefundId, row.productAmount.toFixed(2), row.moneyPendingSince instanceof Date]).toEqual([REFUND, "0.00", true]);
+        expect(await prisma.ledgerEntry.count({ where: { kind: "reversal" } })).toBe(0);
+        expect(sent(calls)).toEqual(["credit 2.50 GBP"]);
+
+        expect((await deliverRefund()).status).toBe(200);
+        await flushWaitUntil();
+        expect(await prisma.refund.findMany()).toEqual([row]);
+        expect(sent(calls)).toEqual(["credit 2.50 GBP"]);
+      });
+
+      it("a partly settled one answers 200 and resolves the tier, with no take-back sent", async () => {
+        const conn = await seedShop({ tiers: [{ name: "Bronze", minSpend: "0", percent: "2.00" }, { name: "Gold", minSpend: "40", percent: "5.00" }] });
+        mockOrderFacts(SHOP, { orders: [plainOrder()], refunds: [withMoney([{ status: "SUCCESS", amount: "15.0" }, { status: "PENDING", amount: "5.0" }])] });
+        const calls = mockStoreCredit(SHOP, {});
+        expect((await deliverPaid()).status).toBe(200);
+        await flushWaitUntil();
+        const tierName = async () => (await prisma.customer.findFirstOrThrow({ include: { tier: true } })).tier?.name;
+        await expect(tierName()).resolves.toBe("Gold");
+
+        expect((await deliverRefund()).status).toBe(200);
+        await flushWaitUntil();
+
+        // £50 less the £15 that has succeeded: £35, under Gold's £40
+        const customer = await prisma.customer.findFirstOrThrow();
+        expect((await tierSpend(customer.id, conn.tierWindow, new Date())).toFixed(2)).toBe("35.00");
+        await expect(tierName()).resolves.toBe("Bronze");
+        expect(sent(calls)).toEqual(["credit 1.00 GBP"]);
+        expect(await prisma.payout.count({ where: { direction: "debit" } })).toBe(0);
+        expect((await prisma.refund.findFirstOrThrow()).moneyPendingSince).toBeInstanceOf(Date);
+      });
+    });
+
     it("reads the refund and then its order within one deadline from receipt, inside Shopify's 5 s", async () => {
       await seedShop();
       const orders = [plainOrder((order) => (order.createdAt = new Date(Date.now() - HOUR).toISOString()))];

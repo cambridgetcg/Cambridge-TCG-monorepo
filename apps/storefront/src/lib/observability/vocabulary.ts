@@ -4,9 +4,9 @@
  * request, actor, route or error a count is about holds one of these words,
  * never the request's own text: no raw path, user agent, query string,
  * referrer, body, message, IP address, or visitor, account or key id. The
- * migration's CHECKs hold the same lists (vocabulary.test.ts compares them),
- * so a writer that drifts is refused by the database rather than storing
- * something new.
+ * migrations' CHECKs hold the same lists (0148, and 0150 for mcp_daily.tool;
+ * vocabulary.test.ts compares them), so a writer that drifts is refused by
+ * the database rather than storing something new.
  *
  * Changing a list is a privacy change: a new word is a new thing counted.
  * Traffic words are versioned by CLASSIFIER_VERSION; a new version comes with
@@ -163,9 +163,12 @@ export const MCP_METHODS = [
 
 /** The gate's tool names (the TOOLS table in app/api/mcp/route.ts), plus
  * "none" (the method names no tool) and "unknown" (it names one the gate does
- * not have; that name is not stored). */
+ * not have; that name is not stored). agent.revoke_key came with migration
+ * 0150 and agent.act with 0152, which holds this list's CHECK since. */
 export const MCP_TOOLS = [
   "agent.self",
+  "agent.revoke_key",
+  "agent.act",
   "play.list_open_rooms",
   "play.observe",
   "play.legal_actions",

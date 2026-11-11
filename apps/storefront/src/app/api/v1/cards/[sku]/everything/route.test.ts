@@ -134,6 +134,20 @@ describe("GET /api/v1/cards/[sku]/everything", () => {
     expect(data.prices_today.note).toContain("malformed");
   });
 
+  it("reports withheld price sources as blocked, not absent", async () => {
+    mockFetchPriceSources.mockResolvedValue({
+      withheld: true,
+      note: "No stored source row is currently cleared for publication.",
+    });
+    const data = (await (await compose("op-op01-001-ja")).json()).data;
+    expect(data.prices_today.rows).toEqual([]);
+    expect(data.prices_today.snapshot_date).toBeNull();
+    expect(data.prices_today.agreement).toBeNull();
+    expect(data.prices_today.note).toBe("No stored source row is currently cleared for publication.");
+    expect(data.composition.falcon_calls.price_sources).toBe("blocked");
+    expect(mockFetchPriceSources).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects a price response for a different stored identifier", async () => {
     mockFetchPriceSources.mockResolvedValue({
       sku: "op-op02-001-ja", snapshot_date: "2026-07-11", card_id: 2, count: 0,

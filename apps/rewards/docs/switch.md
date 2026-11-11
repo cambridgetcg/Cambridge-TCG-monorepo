@@ -137,7 +137,7 @@ Then Ai sends Yu one message with steps 1 to 6 and the rollback, and waits for h
    unset PW REWARDS_DIRECT_URL
    ```
 
-   Expected: every migration in `apps/rewards/prisma/migrations` applied, nine today (`20261105000000_init` to `20261107100000_page_indexes_and_widget_sync`), and the drift check exits 0. A URL of the wrong shape stops here with the expected shape printed.
+   Expected: every migration in `apps/rewards/prisma/migrations` applied, and the drift check exits 0. A URL of the wrong shape stops here with the expected shape printed.
 4. **Ai on Yu's yes:** reads Yu's pasted output (never the URL).
 
 ### Step 2 (Yu): add the runtime variables in Vercel Production
@@ -171,7 +171,7 @@ Paste it as the value, then clear the clipboard with `pbcopy < /dev/null`. On 20
 Push a commit touching `apps/rewards` to main (the B1 PR stays unmerged). Checks:
 
 - The production deployment is READY. Read its build log once, to see the Output Directory change took.
-- `GET /api/health` answers `200 {"status":"ok","database":"ready"}`. Since F1 the probe reads one of the app's own tables (`cron_lock`), so a URL with the right host but the wrong schema or role answers 503 here instead of passing (READINESS-3).
+- `GET /api/health` answers `200 {"status":"ok","database":"ready"}`. Since F1 the probe reads one of the app's own tables (`cron_lock`), so a URL with the right host but the wrong schema or role answers 503 here instead of passing (READINESS-3). Since RP-25 it also reads one whole row each of `merchant`, `connection` and `refund`, so a column of those three tables that the code knows and the database lacks answers 503 too; a column missing from any other table doesn't show here.
 - A `POST` with a bad HMAC to each webhook URI answers 401: `/webhooks/orders/paid`, `/webhooks/orders/refunded`, `/webhooks/orders/cancelled`, `/webhooks/app/uninstalled`, `/webhooks/app/scopes_update`, `/webhooks/compliance`. (Before B3 the released version also had `/webhooks/orders/create`, `/webhooks/orders/fulfilled`, `/webhooks/customers/create`, `/webhooks/customers/update` and `/webhooks/products/update`; B3 step 5 removed their routes, so they now answer 404.)
 - A webhook signed with the released app's real secret answers 200. A bad HMAC answers 401 whatever secret Vercel holds, so only this proves `SHOPIFY_API_SECRET` is Rewards Pro's (client id `026ce3bf…`), not the staging app's. The CLI's sample `orders/cancelled` names no real store, so the app logs "No store connection for shop.myshopify.com; nothing to do" and answers 200, writing nothing:
 
@@ -281,6 +281,52 @@ As the plan says, plus:
 - **Yu:** delete the old app's own env names (`DATABASE_URL` ×2, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_REGION` ×3 each, `GITBOOK_API_KEY`, `GITBOOK_ORG_ID`, `GITBOOK_SITE_ID`, `SENDGRID_API_KEY`) and revoke those keys at their providers;
 - **Yu:** dump, then drop, schema `rewardspro` and its role, within 30 days of the switch. Both are irreversible.
 
+## A pull request with a migration
+
+**Apply a PR's migration to production and see `migrate:drift` pass, then merge.** A merge to main builds and goes live at once. Code that reads a column production doesn't have yet breaks every webhook, the widget proxy, every admin page and the hourly sweep (`findConnection` reads every merchant and connection column). `/api/health` answers 503 only when the missing column is in `merchant`, `connection` or `refund`, the three tables whose whole rows it reads; the production build's check below covers every migration (RP-25).
+
+1. **Yu:** from a clean checkout of the PR's head commit, run B2 step 1's item 3 (`migrate:deploy && migrate:drift`). The drift check must exit 0. Migrations are additive and nullable, so the live code runs on the new schema until the merge.
+2. **Ai on Yu's yes:** reads Yu's pasted output (never the URL), then merges.
+
+**The build refuses otherwise.** `vercel.json` runs `pnpm run check:migrations` (`scripts/check-production-migrations.ts`) before the build. It reads `rewards._prisma_migrations` through `REWARDS_DATABASE_URL`, read-only, and refuses the build when any migration in prisma/migrations has no row, has a row that didn't finish or was rolled back, or has a row whose checksum isn't the sha256 of its `migration.sql` (a migration applied, then edited in review). A refused build fails the deployment: Vercel keeps the live one, and deploy-health raises the ERROR deploy and the drift alarm. Previews, CI and local builds have no `REWARDS_DATABASE_URL` and skip with one line saying so; a production build without it is refused. The log names migrations and the outcome, never the URL.
+
+To recover, apply the migration and check it, then **redeploy the failed deployment** of that commit in Vercel. Redeploying the live one is skipped (`scripts/vercel-ignore-build.sh`: same commit).
+
+**The escape hatch (Yu only):** `REWARDS_SKIP_MIGRATION_CHECK=<the commit's SHA, at least its first 7 hex characters>` in Vercel Production. It is honoured only by the build of the commit it names, which prints a loud warning and builds unchecked; any other value is ignored, with a line saying so. Use it when that commit must go live unchecked, for example during a Supabase outage. Then redeploy the failed deployment, and delete the variable once it is live. No code and no agent ever sets it.
+
+**If review changes a `migration.sql` after it was applied,** production holds the old SQL and the build refuses it ("applied with different SQL"). Don't just change the row's checksum: put the change in a new migration, or bring production to the edited SQL first and check it, and only then set the row's checksum to the new file's.
+
+**Until the `rewards_app` password reset: the SQL-editor fallback (Yu).** While `migrate:deploy` and `migrate:drift` can't run against production, apply a migration in Supabase's SQL editor as one transaction, as Prisma does. The editor runs as `postgres`, so the script takes the app's role (objects then belong to `rewards_app`, as `migrate:deploy` makes them) and its search path (`SET ROLE` doesn't apply `rewards_app`'s own `search_path`, and the migrations use unqualified names):
+
+```sql
+BEGIN;
+SET LOCAL ROLE rewards_app;
+SET LOCAL search_path = rewards;
+-- paste the migration's migration.sql here, whole
+INSERT INTO rewards._prisma_migrations (id, checksum, migration_name, started_at, finished_at, applied_steps_count)
+  VALUES (gen_random_uuid()::text, '<checksum>', '<directory name>', now(), now(), 1);
+COMMIT;
+```
+
+- `<directory name>` is the migration's folder, such as `20261109090000_merchant_guide_dismissed_at`.
+- `<checksum>` is the file's sha256, the first field of:
+
+  ```sh
+  shasum -a 256 apps/rewards/prisma/migrations/<directory name>/migration.sql
+  ```
+
+- If `SET LOCAL ROLE rewards_app` is refused, run `GRANT rewards_app TO postgres;` first, as in B2 step 1.
+- Read back the rows: `select migration_name, checksum, finished_at, rolled_back_at from rewards._prisma_migrations order by migration_name;`. Every row needs `finished_at` set, `rolled_back_at` null, and the checksum `shasum -a 256` prints for its file. A row proves only that the INSERT committed, not that the migration's SQL ran with it: the paste line above is a comment, so a transaction with nothing pasted still commits the row, and the build check then passes.
+- Then, after COMMIT, read back what the migration created: its columns from `information_schema.columns` and its indexes from `pg_indexes`, for example
+
+  ```sql
+  select table_name, column_name from information_schema.columns
+    where table_schema = 'rewards' and (table_name, column_name) in (('<table>', '<column>'));
+  select indexname from pg_indexes where schemaname = 'rewards' and indexname in ('<index>');
+  ```
+
+  Every PR with a migration gives the exact read-back queries in its body, with the number of rows each must answer. Both read-backs stand in for the drift check until the reset; neither catches a hand-made schema change outside a migration.
+
 ## Spec 9.2 checklist
 
 From the final review's readiness lens, at e80bfecc, with F1's fixes. "Owner" means a Yu step above.
@@ -291,7 +337,7 @@ From the final review's readiness lens, at e80bfecc, with F1's fixes. "Owner" me
 | 1b | Region and Node as the project default | OK | Read back at B2 step 3: `lhr1`, Node 24.x. |
 | 2 | Schema and role isolated, not exposed via the Data API | OK | B2 step 1: `false, false` for `anon` and `authenticated`, and the health probe reads the app's own table as `rewards_app`. |
 | 3 | Pool settings | OK | Max 3, idle 5 s, connect 10 s, `attachDatabasePool`, pinned CA; since #150 no query at module load. B4: a burst of 15 signed deliveries, all that arrived answered 200 with no pool error ([gates.md](gates.md)). |
-| 4 | Migrations and drift check | OK | B2 step 1: nine migrations, no drift. |
+| 4 | Migrations and drift check | OK | B2 step 1: every migration in prisma/migrations, no drift. Since then each one is applied before its PR merges, and the production build refuses a commit whose migrations production lacks ([A pull request with a migration](#a-pull-request-with-a-migration)). |
 | 5 | Previews: no production database, no production Shopify secret | Owner | Before the sitting, row 2. `REWARDS_DATABASE_URL` is Production only. |
 | 6a | Secrets: only the names the app reads | OK | Shared: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL`, `ENCRYPTION_SECRET`, `ENCRYPTION_SALT`, `CRON_SECRET`, `SENTRY_DSN`. Added at B2: `REWARDS_DATABASE_URL`, and `REWARDS_SENTRY_CRON_MONITORS` on Yu's yes. Read but unset, harmless: `SCOPES`, `SHOP_CUSTOM_DOMAIN`. |
 | 6b | Production secrets typed sensitive | OK | Read back on 2026-11-06: `SHOPIFY_API_SECRET`, `REWARDS_DATABASE_URL`, `ENCRYPTION_SECRET`, `ENCRYPTION_SALT` and `CRON_SECRET` are sensitive. `SENTRY_DSN` stays encrypted: a DSN only lets a sender submit events, and Sentry treats it as public. |

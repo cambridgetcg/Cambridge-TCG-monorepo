@@ -176,6 +176,21 @@ evidence for every applicable item before the production push:
   organisation directory requires `0131_collective_directory_publication.sql`.
   Wallet proof storage requires `0130_evm_wallet_links.sql`, although wallet
   issuance must remain disabled unless its separate testnet gate is approved.
+  Agent key expiry requires `0151_agent_key_expiry.sql` before its code is
+  merged to `main`: that code reads `agent_keys.expires_at` with no fallback,
+  so without the column every authenticated agent call answers 503 (see the
+  migration's header). Agent-held signing keys require
+  `0152_agent_signing_keys.sql` before their code is merged to `main`, even
+  with `AGENT_SIGNED_ACTS` off: the gate lists and counts the new `agent.act`
+  tool word, and while `OPS_MCP_DAILY` is on a count batch holding that word
+  would be refused whole by the older CHECK (see the migration's header).
+  0152 holds ACCESS EXCLUSIVE on `agent_keys` and `mcp_daily` until it
+  commits, so agent calls wait for it, and it waits at most 3 seconds for
+  any lock (`lock_timeout`): if it fails that way, nothing was applied and
+  it can be run again.
+  0152 was applied to production on 2026-11-10 (21:40:17 UTC) and the code
+  merged after it, on the owner's word as an agent read it
+  (`docs/plans/agent-auth/held-keys.md`, Applied).
 - For person-level scoring, fraud signals, limits, routing, holds or automatic
   rejection, record the lawful-basis and UK GDPR Articles 22A–22C assessment,
   plus a staffed route that can examine inputs, correct errors and change the
@@ -377,10 +392,15 @@ the last-green build silently.
 
 ### What does NOT fix it
 
-**`gitForkProtection: false` does NOT bypass this block.** All three
-projects have the setting at `false` already (verified via API
-2026-05-14) and pushes from `asha@ai-love.cc` still error with the
-committer-association reason. Don't waste time toggling it.
+**Git fork protection has nothing to do with this block.** Fork
+protection only holds pull requests opened from forks until a team
+member authorizes them. On 2026-05-14 it was off on all three projects,
+and pushes from an unverified committer email still errored with the
+committer-association reason. Since 2026-11-10 it is on for every
+Vercel project linked to this repository (storefront, admin,
+rewardspro-production). tcg-wholesale has no Git link, so the setting
+does nothing there; turn it on before linking it. Don't toggle it to
+work around this block.
 
 ### The durable fix
 
@@ -720,7 +740,7 @@ Use safe local fixtures; the hook does not cover other contributors.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `vercel deploy --prod` fails with `deploy_failed`, no events | Workspace deps don't resolve when uploading app dir alone | Use admin `/system/deploys` button or the gitSource Python script |
-| Auto-deploy stuck on `ERROR` with "could not associate the committer" | Local git config uses an unverified email; Vercel can't link it to a GitHub user | Either change `git config user.email` to a verified address (durable), or trigger the deploy via the gitSource API (`.github/scripts/deploy-from-main.py` per project — see [Untrusted committer](#untrusted-committer-the-auto-deploy-block)). `gitForkProtection: false` does NOT bypass this — don't waste time toggling it. |
+| Auto-deploy stuck on `ERROR` with "could not associate the committer" | Local git config uses an unverified email; Vercel can't link it to a GitHub user | Either change `git config user.email` to a verified address (durable), or trigger the deploy via the gitSource API (`.github/scripts/deploy-from-main.py` per project — see [Untrusted committer](#untrusted-committer-the-auto-deploy-block)). Git fork protection (on since 2026-11-10) does not affect this block — don't toggle it. |
 | Wholesale build fails on `S3 client unavailable — AWS credentials not configured` | A module is calling `createS3ClientOrThrow()` at import time | Defer init to first call (see `apps/wholesale/src/lib/s3.ts` for the pattern) |
 | `/system/deploys` shows "VERCEL_TOKEN env var not set" | Missing token in admin env | Add to `apps/admin/.env.local` (local) and Vercel project env vars (prod) |
 | Health check workflow fails | Missing `VERCEL_TOKEN` repo secret | Add at repo Settings → Secrets → Actions |

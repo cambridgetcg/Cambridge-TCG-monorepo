@@ -5,7 +5,8 @@
  * repeats): the key's minute rate-limit buckets, its last-used time, and,
  * while OPS_MCP_DAILY is on, the daily MCP count, which holds no key id and
  * so has nothing to read back. Its tier limit and the retention of each
- * item come with them.
+ * item come with them. The list's third line, the holder's own revocation
+ * of the key, is not read back: a revoked key no longer reaches agent.self.
  *
  * Nothing new is collected to answer. The read rides in agent.self's one
  * query (SELF_RECORD_SELECT), and the call itself is recorded exactly as any
@@ -15,6 +16,7 @@
 
 import { MCP_DAILY_NOTE, mcpDailyOn } from "@/lib/observability/mcp-daily";
 import { tierLimits, type RateLimitTier } from "./rate-limit";
+import { LISTED_BUCKETS, LISTED_LAST_USED } from "./tool-access";
 
 /** Columns agent.self adds to its agents row: the key's own row, and its
  * buckets summed per UTC day. $1 is the agent id, $2 the key id. */
@@ -28,10 +30,6 @@ export const SELF_RECORD_JOINS = `LEFT JOIN agent_keys k ON k.id = $2 AND k.agen
            FROM (SELECT (bucket_minute AT TIME ZONE 'UTC')::date::text AS day, count(*)::int AS minutes, sum(request_count)::int AS requests
                    FROM agent_rate_buckets WHERE key_id = $2 GROUP BY 1) d
        ) b ON true`;
-
-/** The lines mcp.json publishes, quoted so each item says where it is listed. */
-export const LISTED_BUCKETS = "per-key rate-limit bucket for allowed authenticated calls";
-export const LISTED_LAST_USED = "agent key last-used timestamp after successful authenticated calls";
 
 const iso = (value: unknown) => (value === null || value === undefined ? null : (value instanceof Date ? value : new Date(String(value))).toISOString());
 const days = (value: unknown): { day: string; minutes: number; requests: number }[] => {
@@ -65,9 +63,4 @@ export function recordedAboutThisKey(row: Record<string, unknown>, tier: RateLim
       "No tool name, arguments, request body, IP address or user agent is stored with this key. Hosting and proxy logs (Cloudflare, Vercel) can still hold ordinary request metadata.",
     collected_to_answer: "Nothing new: this call counts in its minute's bucket and stamps last_used_at, as any allowed call does.",
   };
-}
-
-/** The operational metadata the gate writes, as mcp.json lists it. */
-export function operationalMetadataWrites(env?: Readonly<Record<string, string | undefined>>): string[] {
-  return [LISTED_BUCKETS, LISTED_LAST_USED, ...(mcpDailyOn(env) ? [MCP_DAILY_NOTE] : [])];
 }

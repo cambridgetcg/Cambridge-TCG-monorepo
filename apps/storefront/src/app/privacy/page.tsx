@@ -29,7 +29,7 @@ export default function PrivacyPage() {
           Privacy notice
         </h1>
         <p className="text-sm text-ink-faint mb-4">
-          Last updated 6 November 2026.
+          Last updated 10 November 2026.
         </p>
         <p className="text-sm text-ink-muted leading-relaxed mb-8">
           This notice explains what Cambridge TCG does with personal data on
@@ -376,7 +376,7 @@ export default function PrivacyPage() {
                 status, never their text; requests to the MCP gate per UTC day by
                 method, tool, whether the request authenticated and how it was
                 answered, with no key, agent or account id; hellos to{" "}
-                <code className="text-ink">/api/v1/peers</code> per UTC day by the
+                <code className="text-ink">/api/v1/peers</code>{" "}per UTC day by the
                 kind the caller declared; and what each of Cambridge&apos;s own
                 price-collection and derivation jobs did on each run. The user
                 agent, path, country, request id and any error text of each log
@@ -398,17 +398,30 @@ export default function PrivacyPage() {
                 counts are incomplete by design.
               </li>
               <li>
-                <strong className="text-ink">Agent keys:</strong> when an
+                <strong className="text-ink">Agent keys:</strong>{" "}when an
                 operator creates an agent on the account agents page, Cambridge
                 TCG keeps the agent&apos;s profile and, for each key, a SHA-256 of
                 the key, its first characters, name and tier, and when it was
-                created, revoked and last used, plus a count of the key&apos;s
+                created, when it expires (if an expiry was chosen), and when it
+                was revoked and last used, plus a count of the key&apos;s
                 calls in each minute for rate limiting. The MCP tool{" "}
                 <code className="text-ink">agent.self</code> shows a key what is
                 kept about it.
               </li>
               <li>
-                <strong className="text-ink">Member data keys:</strong> when
+                <strong className="text-ink">Agent signing keys:</strong>{" "}when an
+                operator binds an agent&apos;s own signing key on the account
+                agents page, Cambridge TCG keeps its public key and thumbprint,
+                when it was bound, confirmed and set to expire, and how it ended;
+                for each act signed with it, the act as sent, its SHA-256, how it
+                was checked and what it did; and each act&apos;s key and nonce
+                until they are deleted after the act expires, so an act applies
+                once. A usage key that a signed act minted records which act
+                minted it. Binding a signing key is not open on this website yet,
+                so none of this is collected here until it is.
+              </li>
+              <li>
+                <strong className="text-ink">Member data keys:</strong>{" "}when
                 you create a price-read key on your account&apos;s data page,
                 Cambridge TCG keeps, with your account, a SHA-256 of the key,
                 its first characters, name and scope, and when it was created,
@@ -816,7 +829,7 @@ export default function PrivacyPage() {
               displayed tier or trust-based commission rate, route a future
               trade through stricter escrow or inspection, and lengthen a hold
               on a future seller payout. The signal row&rsquo;s stored{" "}
-              <code className="text-ink">auto_action</code> label is not itself
+              <code className="text-ink">auto_action</code>{" "}label is not itself
               executed: current detection does not directly suspend the account
               or stop an already-earned payout. An operator can resolve or
               dismiss a signal; recalculating the score then removes that
@@ -1082,7 +1095,7 @@ export default function PrivacyPage() {
                 .
               </li>
               <li>
-                <strong className="text-ink">Stripe</strong> receives payment,
+                <strong className="text-ink">Stripe</strong>{" "}receives payment,
                 checkout and, where requested, Connect identity, bank and payout
                 onboarding data. Stripe may act as a controller for parts of its
                 regulated payment and verification processing. See
@@ -1103,7 +1116,7 @@ export default function PrivacyPage() {
                 and message content when it is used instead.
               </li>
               <li>
-                <strong className="text-ink">Cloudflare</strong> sits in front of
+                <strong className="text-ink">Cloudflare</strong>{" "}sits in front of
                 cambridgetcg.com and www.cambridgetcg.com as a proxy, cache and
                 firewall. Every request to those addresses passes through it, so
                 it processes the IP address, user agent and other request
@@ -1132,7 +1145,7 @@ export default function PrivacyPage() {
                 the request is not used for general marketing.
               </li>
               <li>
-                <strong className="text-ink">Telegram</strong> receives and
+                <strong className="text-ink">Telegram</strong>{" "}receives and
                 processes your interaction when you choose to open or message
                 the configured PRISM preview bot, and sends the resulting update
                 to Cambridge TCG&apos;s Vercel-hosted webhook. Telegram is an
@@ -1526,14 +1539,26 @@ export default function PrivacyPage() {
                 period.
               </li>
               <li>
-                <strong className="text-ink">Agent keys:</strong> a key and its
-                last-used time stay with the agent; revoking a key keeps the
-                record, and deleting the agent or its operator&apos;s account
-                deletes it. The minute counts are kept 7 days; older ones are
+                <strong className="text-ink">Agent keys:</strong>{" "}a key and its
+                last-used time stay with the agent; revoking a key, or its
+                expiring, keeps the record, and deleting the agent or its
+                operator&apos;s account deletes it. The minute counts are kept 7 days; older ones are
                 deleted the next time any key makes an allowed call.
               </li>
               <li>
-                <strong className="text-ink">Member data keys:</strong> a key&apos;s
+                <strong className="text-ink">Agent signing keys:</strong>{" "}a key
+                never confirmed by a signed act is deleted by an hourly sweep 7
+                days after it was bound, but only while signed acts are open; the
+                record of its binding keeps its thumbprint. The rest, and the
+                record of each act, stay with the agent and go when the agent or
+                its operator&apos;s account is deleted, except a short receipt of
+                each act (its time, the act, its outcome and its SHA-256), which
+                is kept. An act&apos;s nonce is deleted after the act expires, by a
+                later act or by the hourly sweep, which also runs only while
+                signed acts are open.
+              </li>
+              <li>
+                <strong className="text-ink">Member data keys:</strong>{" "}a key&apos;s
                 record stays with your account after it expires or is revoked,
                 and deleting the account deletes it with its counts. Minute
                 counts older than a day are deleted, up to 100 at a time, when
