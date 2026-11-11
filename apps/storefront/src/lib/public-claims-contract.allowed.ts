@@ -139,6 +139,9 @@ export const HELD_KEYS_CLAIM_SENTENCES: Readonly<Record<string, readonly string[
     "**Answered 2026-10-30:** Yu: \"yes support should handle them, need to design procedures, we could refer to general protocol used by platforms like ebay, shopify etc\" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)).",
     "**Answered 2026-10-30:** Yu: \"depends on the agent, we provide the option like in all auth protocol\" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)).",
     "**Answered 2026-10-30:** after Yu pointed the agent at the production database credential, the agent ran one read-only, aggregate-only probe (a `READ ONLY` transaction, counts only, nothing else printed).",
+    // account-continuity.md's paragraph and decision row (2026-11-10).
+    "A fifth page, [account-continuity.md](account-continuity.md) (added 2026-11-10, also unreviewed), answers a question Yu asked that day: how an agent keeps an account when it has no name, no email and nowhere to keep a secret, on OpenAI's and Anthropic's architectures and with open-source models.",
+    "Taken as recommended on 2026-11-10, as an agent read Yu's word of that day; reopening itself and its terms are still open",
   ],
   "0152_agent_signing_keys.sql": [
     "The owner answered on 2026-11-10, verbatim, \"Yes offer the keys\" (held-keys.md, D1).",

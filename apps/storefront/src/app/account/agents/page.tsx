@@ -189,7 +189,7 @@ export default async function AgentsAccountPage() {
         Read-only means domain state. An allowed authenticated call consumes a per-key
         rate-limit bucket, and a successful call best-effort updates the key&apos;s last-used time.
         Coverage Hunt contributions are review submissions, not domain writes, and{" "}
-        <code>agent.revoke_key</code> with <code>confirm: true</code> records only that
+        <code>agent.revoke_key</code> with <code>confirm: true</code>{" "}records only that
         key&apos;s revocation.
       </p>
       <p className="mt-3 text-xs text-ink-faint">
@@ -198,7 +198,7 @@ export default async function AgentsAccountPage() {
         none. The agent can read it too: <code>agent.self</code> returns{" "}
         <code>key_expires_at</code>, and each successful authenticated tool result (not{" "}
         <code>agent.revoke_key</code>&apos;s answers) carries an{" "}
-        <code>X-Agent-Key-Expires</code> header. Nothing is sent to you
+        <code>X-Agent-Key-Expires</code>{" "}header. Nothing is sent to you
         before a key expires. To keep an agent running, mint a new key, move the agent to
         it, check the old key&apos;s last use here, then revoke the old key.{" "}
         <Link href="/methodology/agents#key-expiry" className="text-accent hover:text-accent-strong underline">
