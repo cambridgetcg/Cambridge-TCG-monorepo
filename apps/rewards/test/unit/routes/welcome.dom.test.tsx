@@ -214,7 +214,7 @@ const click = (element: Element) =>
 const liveText = () => document.querySelector('s-box[accessibilityRole="status"]')?.textContent ?? null;
 
 /** The sign-in limit on spending credit (spec 5), as the guide words it: "signed in", "Signed-in" or "sign in". */
-const SIGNED_IN = /sign(ed)?[ -]in/i;
+const SIGNED_IN = /\bsign(ed)?[ -]in\b/i;
 /** What buyers spent on orders, which the tiers measure: not spending credit, so no limit goes with it. */
 const ORDER_SPEND = /their spend changes|what they spent|the highest spend/gi;
 

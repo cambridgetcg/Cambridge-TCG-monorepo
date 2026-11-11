@@ -441,6 +441,8 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       const merchant = await merchantOf();
       expect(merchant.running).toBe(true);
       expect(merchant.setupCompletedAt).toBeInstanceOf(Date);
+      // The stamp starts the review clock (#229); the next test shows it not starting
+      expect(await reviewRequestDue(conn.merchantId, new Date(Date.now() + 31 * DAY))).toBe(true);
       expect(widgetValues(admin)).toEqual([{ running: true, basePercent: 3 }]);
 
       const buyer = await seedBuyer(conn, "7001");
