@@ -641,6 +641,7 @@ function StepTwo({
                   <s-text key={i}>{GUIDE.tierCount(names[i].trim() || GUIDE.defaultNames[i], count)}</s-text>
                 ))}
                 {cost ? <s-text>{GUIDE.cost(money(cost), d.period)}</s-text> : null}
+                {cost ? <s-text color="subdued">{GUIDE.costFee}</s-text> : null}
                 {beyondPicture ? <s-text color="subdued">{GUIDE.beyondPicture}</s-text> : null}
               </s-stack>
             ) : null}

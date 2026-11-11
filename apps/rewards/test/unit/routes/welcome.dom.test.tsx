@@ -200,7 +200,7 @@ const shown = (name: string) => {
 };
 
 /** Step 3's line about buyer emails, with its Settings link. */
-const emailsLine = () => [...document.querySelectorAll("s-text")].find((text) => text.textContent?.startsWith("Shopify emails a buyer")) ?? null;
+const emailsLine = () => [...document.querySelectorAll("s-text")].find((text) => text.textContent?.startsWith("A switch in")) ?? null;
 
 /** A button by its text. */
 const button = (text: string) => [...document.querySelectorAll("s-button")].find((b) => b.textContent === text)!;
@@ -213,10 +213,10 @@ const click = (element: Element) =>
 /** The live region's text: a Polaris box in the status role, polite. */
 const liveText = () => document.querySelector('s-box[accessibilityRole="status"]')?.textContent ?? null;
 
-/** The sign-in limit on spending credit (spec 5), as the guide words it: "signed in" or "Signed-in". */
-const SIGNED_IN = /signed[ -]in/i;
+/** The sign-in limit on spending credit (spec 5), as the guide words it: "signed in", "Signed-in" or "sign in". */
+const SIGNED_IN = /sign(ed)?[ -]in/i;
 /** What buyers spent on orders, which the tiers measure: not spending credit, so no limit goes with it. */
-const ORDER_SPEND = /their spend grows|what they spent|the highest spend/gi;
+const ORDER_SPEND = /their spend changes|what they spent|the highest spend/gi;
 
 /** The attributes whose text is shown or spoken: a section's or the page's heading, and a label. */
 const SPOKEN = ["heading", "accessibilityLabel", "aria-label"];
@@ -674,6 +674,20 @@ describe("Step 2: Your tiers", () => {
     expect(["name0", "name1", "name2"].map(shown)).toEqual(["Bronze", "Silver", "Gold"]);
     // The live region stays, empty
     expect(liveText()).toBe("");
+  });
+
+  // Ledger row sh-sc-fee: Shopify's fee on the part of an order paid with store credit isn't in the estimate
+  it("says under the estimate, in subdued text, that Shopify's fee isn't counted, whenever the estimate shows", async () => {
+    await renderWelcome(step2());
+    const lines = [...document.querySelectorAll('s-box[accessibilityRole="status"] s-text')];
+    const estimate = lines.findIndex((line) => line.textContent === GUIDE.cost("£60.00", "12 months"));
+    expect(estimate).toBeGreaterThanOrEqual(0);
+    expect([lines[estimate + 1]?.textContent, lines[estimate + 1]?.getAttribute("color")]).toEqual([GUIDE.costFee, "subdued"]);
+    expect(screen.getAllByText(GUIDE.costFee)).toHaveLength(1);
+    cleanup();
+    // No estimate, no fee line
+    await renderWelcome(step2({ importedOrders: 0, ladder: ladder({ fromData: false, spenders: 0, buyers: buyers.map(() => 0) }) }));
+    expect(screen.queryByText(GUIDE.costFee)).toBeNull();
   });
 
   // I-2: partial figures from a running import would understate the cost, and change on every refresh

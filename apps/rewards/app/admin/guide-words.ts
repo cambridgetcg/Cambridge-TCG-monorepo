@@ -26,14 +26,14 @@ export const GUIDE = {
   editTiers: "Edit your tiers on the Tiers page",
   creditTitle: "Store credit is Shopify's own",
   creditBody:
-    "It's a balance in the buyer's Shopify account. RewardsPro adds cashback to it when an order is paid, and buyers spend it at checkout on a later order when they're signed in to their account. You can see a buyer's balance on their page in Shopify.",
-  creditCurrency: "Credit is spent in the currency it was earned in.",
-  nextTimeTitle: "Earned now, spent next time",
+    "It's a balance on the buyer's account in your store. RewardsPro adds cashback to it when an order is paid. Buyers can choose to spend it at checkout on a later order, when signed in with Shopify's new customer accounts or Shop Pay. You can see a buyer's balance on their page in Shopify.",
+  creditCurrency: "Credit applies only at a checkout in the currency it was earned in.",
+  nextTimeTitle: "Earned now, spent later",
   nextTimeBody:
-    "It isn't a discount: the price of today's order stays the same. The credit gives the buyer a reason to come back: they spend it on a later order when signed in to their account.",
-  example: (order: string, credit: string) => `Order ${order}, then ${credit} in store credit, spent on the next order when they're signed in`,
+    "It isn't a discount: the price of today's order stays the same. The credit gives the buyer a reason to come back: they can spend it on a later order, when signed in with new customer accounts or Shop Pay.",
+  example: (order: string, credit: string) => `Order ${order}, then ${credit} in store credit, to spend on a later order when signed in`,
   tiersIntro: (period: string) =>
-    `Buyers move up a tier as their spend grows. Where each tier starts is suggested from your orders over the last ${period}.`,
+    `Buyers move between tiers as their spend changes, unless you lock them to one. Where each tier starts is suggested from your orders over the last ${period}.`,
   tiersFallback: "These are starting suggestions. Change any of them.",
   tiersFewBuyers: "There are too few past buyers to suggest from yet, so these are starting suggestions.",
   tiersNoOrders: "There are no past orders yet, so these are starting suggestions.",
@@ -61,14 +61,20 @@ export const GUIDE = {
   tierCount: (name: string, n: number) => `${name}: ${buyers(n)}`,
   cost: (amount: string, period: string) =>
     `At these rates, the orders you brought in from the last ${period} would have earned buyers about ${amount} in store credit. This is an estimate: past orders earn no cashback.`,
+  /** Under the estimate, in subdued text, whenever it shows: Shopify's charge to the merchant, which the estimate leaves out (ledger row sh-sc-fee) */
+  costFee:
+    "Not counted: Shopify's third-party transaction fees on the part of an order paid with store credit, for stores created on or after 12 May 2025.",
   saveTiers: "Save tiers",
   defaultNames: ["Bronze", "Silver", "Gold"] as const,
   checksHeading: "Before you switch on",
   /** The same checks once cashback is on (M-3) */
   checksHeadingLive: "Your store's checks",
-  /** Step 3's store-credit check, worded with who can spend (spec 5); Home's row still says "Store credit can be spent" */
-  storeCreditYes: "Signed-in buyers can spend store credit",
-  storeCreditNo: "Signed-in buyers can't spend store credit yet",
+  /**
+   * Step 3's store-credit check, worded with who can spend (spec 5). Not Home's row ("Store credit can be spent")
+   * on purpose: this row names who can do what, and step 1 names the accounts they sign in with.
+   */
+  storeCreditYes: "Buyers can sign in and spend store credit",
+  storeCreditNo: "Buyers can't sign in and spend store credit yet",
   storeCreditUnknown: "Store credit: Shopify didn't say",
   widgetYes: "Widget is on",
   widgetNo: "Widget is off",
@@ -95,7 +101,7 @@ export const GUIDE = {
   tryItNone: "No orders since you switched on yet.",
   openOrder: "Open the order",
   goHome: "Go to Home",
-  emails: "Shopify emails a buyer about store credit only if buyer emails are switched on in RewardsPro's Settings.",
+  emails: "A switch in RewardsPro's Settings, off by default, asks Shopify to email buyers when they earn store credit.",
   /** The part of `emails` the page links to RewardsPro's Settings page (M-8) */
   emailsSettings: "RewardsPro's Settings",
 } as const;

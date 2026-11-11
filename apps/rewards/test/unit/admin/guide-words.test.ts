@@ -60,8 +60,9 @@ describe("guide words", () => {
       for (const banned of ["free", "costs nothing", "no fees", "instant", "in minutes", "members", "!", "points", "loyalty program"]) {
         expect(text, sentence).not.toContain(banned);
       }
-      // "Buyers", never "customer(s)", except Shopify's own field: a draft order "with yourself as the customer"
-      expect(text.replaceAll("yourself as the customer", ""), sentence).not.toMatch(/\bcustomer/i);
+      // "Buyers", never "customer(s)", except Shopify's own names: a draft order "with yourself as the customer",
+      // and the setting buyers sign in with, "customer accounts"
+      expect(text.replaceAll("yourself as the customer", "").replaceAll("customer accounts", ""), sentence).not.toMatch(/\bcustomer/i);
     }
   });
 
