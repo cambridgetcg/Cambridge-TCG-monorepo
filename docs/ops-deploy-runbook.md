@@ -392,10 +392,15 @@ the last-green build silently.
 
 ### What does NOT fix it
 
-**`gitForkProtection: false` does NOT bypass this block.** All three
-projects have the setting at `false` already (verified via API
-2026-05-14) and pushes from `asha@ai-love.cc` still error with the
-committer-association reason. Don't waste time toggling it.
+**Git fork protection has nothing to do with this block.** Fork
+protection only holds pull requests opened from forks until a team
+member authorizes them. On 2026-05-14 it was off on all three projects,
+and pushes from an unverified committer email still errored with the
+committer-association reason. Since 2026-11-10 it is on for every
+Vercel project linked to this repository (storefront, admin,
+rewardspro-production). tcg-wholesale has no Git link, so the setting
+does nothing there; turn it on before linking it. Don't toggle it to
+work around this block.
 
 ### The durable fix
 
@@ -735,7 +740,7 @@ Use safe local fixtures; the hook does not cover other contributors.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `vercel deploy --prod` fails with `deploy_failed`, no events | Workspace deps don't resolve when uploading app dir alone | Use admin `/system/deploys` button or the gitSource Python script |
-| Auto-deploy stuck on `ERROR` with "could not associate the committer" | Local git config uses an unverified email; Vercel can't link it to a GitHub user | Either change `git config user.email` to a verified address (durable), or trigger the deploy via the gitSource API (`.github/scripts/deploy-from-main.py` per project — see [Untrusted committer](#untrusted-committer-the-auto-deploy-block)). `gitForkProtection: false` does NOT bypass this — don't waste time toggling it. |
+| Auto-deploy stuck on `ERROR` with "could not associate the committer" | Local git config uses an unverified email; Vercel can't link it to a GitHub user | Either change `git config user.email` to a verified address (durable), or trigger the deploy via the gitSource API (`.github/scripts/deploy-from-main.py` per project — see [Untrusted committer](#untrusted-committer-the-auto-deploy-block)). Git fork protection (on since 2026-11-10) does not affect this block — don't toggle it. |
 | Wholesale build fails on `S3 client unavailable — AWS credentials not configured` | A module is calling `createS3ClientOrThrow()` at import time | Defer init to first call (see `apps/wholesale/src/lib/s3.ts` for the pattern) |
 | `/system/deploys` shows "VERCEL_TOKEN env var not set" | Missing token in admin env | Add to `apps/admin/.env.local` (local) and Vercel project env vars (prod) |
 | Health check workflow fails | Missing `VERCEL_TOKEN` repo secret | Add at repo Settings → Secrets → Actions |
