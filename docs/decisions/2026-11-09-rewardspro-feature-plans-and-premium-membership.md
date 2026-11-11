@@ -44,7 +44,8 @@ Only what his sentences say. Where a line needs a reading, the reading is marked
 
 ## What it replaces, and what still stands
 
-The older records are not edited; the later record names the earlier ones (`docs/README.md:65`).
+This record edits neither older record; `docs/README.md:65` says to "check later decisions for
+supersession".
 
 **[2026-10-20, free-only relaunch](2026-10-20-rewardspro-free-only-relaunch.md).** Its status
 (`:3-4`) says it is an agent's call that the owner overturns by saying so. He has, as a direction:
@@ -112,8 +113,8 @@ go from the owner, and their own line there, when the time comes.
 11. **The privacy position** if the app ever asks for subscription or payment-method access. The
     privacy page says the app's records hold no names, emails, phones or addresses
     (`apps/rewardspro/landing/public/privacy-policy/index.html:99`).
-12. **Order and dates.** None given. The two old paid charges still frozen on two shops: cancel them
-    first, or accept `rp-free` in writing while they run (`apps/rewardspro/marketing/ROADMAP.md:289`;
+12. **Order and dates.** None given. The two old paid charges still frozen on two shops: cancel
+    them, or accept `rp-free` in writing while they run (`apps/rewardspro/marketing/ROADMAP.md:289`;
     two shops: `apps/rewardspro/test/unit/contracts/pricing-contract.test.ts:212`). Still open.
 
 ## What has to change on the day each part ships
@@ -121,8 +122,8 @@ go from the owner, and their own line there, when the time comes.
 Not now. Each lead gets a pointer to its rows. Product owns `apps/rewards/**`; Growth owns the
 listing, rewardspro.io and `apps/rewardspro/marketing/**` (`SKILL.md:12-16`). Tests under
 `apps/rewardspro/test/` that read rewardspro.io are put with Growth here; that is the agent's reading,
-as the charter names no owner for them. Paths without a folder are under `apps/rewardspro/marketing/`;
-every other path is given in full.
+as the charter names no owner for them. Paths that start with neither `apps/` nor `docs/` are under
+`apps/rewardspro/marketing/`, except `AGENTS.md` (the repo root) and `SKILL.md` (the charter).
 
 ### Any paid plan at all
 
