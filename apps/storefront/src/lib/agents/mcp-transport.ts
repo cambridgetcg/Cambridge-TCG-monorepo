@@ -149,8 +149,13 @@ export function initializeRevision(requested: unknown): string {
  * when it may proceed; otherwise the unanswered revision it asked for, when
  * it named one: the header, or for a probe the revision its _meta claims. A
  * probe's header that names a revision the gate answers is never reported as
- * the one requested, since the answer lists it as supported. A missing
- * header is accepted, as both 2025 revisions allow.
+ * the one requested, since the answer lists it as supported.
+ *
+ * A missing header is accepted, and the request is served as every request
+ * was before 2026-11-11. This departs from a SHOULD: without the header the
+ * 2025 transport pages say a server "SHOULD assume protocol version
+ * 2025-03-26". The gate does not, because it refuses that revision's batches
+ * (400, as before) and so does not offer 2025-03-26 at all.
  */
 export function unsupportedRevision(
   headers: Headers,

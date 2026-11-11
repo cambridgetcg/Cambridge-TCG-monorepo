@@ -1105,7 +1105,7 @@ const SPEC = {
             name: "MCP-Protocol-Version",
             in: "header",
             required: false,
-            description: "Sent by a standard MCP client after initialize. 2025-11-25, 2025-06-18 and 2024-11-05 are answered; any other value gets 400 with -32022. Absent: accepted.",
+            description: "Sent by a standard MCP client after initialize. 2025-11-25, 2025-06-18 and 2024-11-05 are answered; any other value gets 400 with -32022. Absent: accepted, and served as before. It is not treated as 2025-03-26, which the transport spec says a server SHOULD assume without the header, since that revision's batches are refused (400), which is why 2025-03-26 is not offered.",
             schema: { type: "string" },
           },
         ],
