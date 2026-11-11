@@ -37,6 +37,7 @@ import {
   describeAgentToolGrant,
 } from "@/lib/agents/tool-access";
 import { currentDisclosure, disclosureSha256 } from "@/lib/agents/signed-act-disclosures";
+import { MCP_OFFERED_REVISIONS, MCP_TRANSPORT_NOTE } from "@/lib/agents/mcp-transport";
 import {
   KEY_EXIT_COMPLETENESS,
   KEY_EXIT_DOCS,
@@ -857,10 +858,11 @@ export const TOOLS_CATALOG_SUMMARY = {
     return counts;
   },
   dispatch_url: "/api/mcp",
-  protocol: "JSON-RPC 2.0 over HTTP POST",
-  transport_scope:
-    "Custom request/response HTTPS endpoint; not MCP Streamable HTTP or HTTP+SSE. The stdio bridge for native MCP clients is not published to npm (its source is packages/mcp-server in the public repository).",
-  mcp_spec_version: "2024-11-05",
+  protocol: "JSON-RPC 2.0 over HTTP POST (MCP Streamable HTTP, JSON responses only, for standard MCP clients)",
+  transport_scope: MCP_TRANSPORT_NOTE,
+  // The newest revision offered; 2025-06-18 is offered too, and 2024-11-05
+  // is what callers that are not standard MCP clients are answered with.
+  mcp_spec_version: MCP_OFFERED_REVISIONS[0],
   auth:
     "mcp.list_tools/tools/list is public; agent.act takes a signed act instead of a key (closed unless the deployment opens it); every other tool requires Bearer <agent-key>",
   authority:

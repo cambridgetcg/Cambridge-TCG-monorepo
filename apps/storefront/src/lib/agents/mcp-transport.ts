@@ -29,6 +29,47 @@ export const MCP_EARLIER_REVISION = "2024-11-05";
 
 const ANSWERED: readonly string[] = [...MCP_OFFERED_REVISIONS, MCP_EARLIER_REVISION];
 
+/** When, how and against which clients the transport was checked
+ * (apps/storefront/scripts/mcp-sdk-harness). The discovery documents and
+ * GET /api/mcp publish it beside the transport. */
+export const MCP_TRANSPORT_CHECKED = {
+  on: "2026-11-11",
+  clients: [
+    "@modelcontextprotocol/sdk 1.32.2",
+    "@modelcontextprotocol/client 2.4.0 (default and auto version negotiation)",
+  ],
+  how: "connected with a static bearer key and with none, listed tools, called one, read a refusal, pinged; the route served on 127.0.0.1 with its database and key lookup mocked (apps/storefront/scripts/mcp-sdk-harness), not against cambridgetcg.com",
+} as const;
+
+/** What a public text says about the transport, in one place. */
+export const MCP_TRANSPORT_NOTE =
+  "/api/mcp speaks the JSON-response form of MCP Streamable HTTP, revisions 2025-06-18 and 2025-11-25, with no event stream and no sessions. " +
+  "On 2026-11-11 @modelcontextprotocol/sdk 1.32.2 and @modelcontextprotocol/client 2.4.0 connected to it with a static bearer key, listed and called its tools and read a refusal (the route run locally with its database mocked, not cambridgetcg.com). " +
+  "It has no OAuth, so hosted chat apps that connect only through OAuth cannot call its keyed tools. " +
+  "The stdio bridge (packages/mcp-server, not on npm) remains for clients that only speak stdio.";
+
+/** The same facts as fields, for the discovery documents. */
+export function mcpTransportFacts() {
+  return {
+    mcp_streamable_http: true,
+    streamable_http: {
+      revisions: [...MCP_OFFERED_REVISIONS],
+      also_answered: MCP_EARLIER_REVISION,
+      responses: "application/json",
+      event_stream: false,
+      sessions: false,
+      oauth: false,
+      checked: MCP_TRANSPORT_CHECKED,
+    },
+    mcp_http_sse: false,
+    // True for an MCP client that can send a static Authorization header,
+    // and for discovery, which needs none. Not for a hosted chat app that
+    // connects only through OAuth.
+    standard_mcp_client_compatible_without_bridge: true,
+    transport_note: MCP_TRANSPORT_NOTE,
+  };
+}
+
 /** JSON-RPC code for UnsupportedProtocolVersionError (MCP 2026-07-28,
  * /basic/versioning). */
 export const ERR_UNSUPPORTED_PROTOCOL_VERSION = -32022;

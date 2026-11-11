@@ -122,6 +122,9 @@ import {
   ERR_UNSUPPORTED_PROTOCOL_VERSION,
   MCP_ALLOWED_METHODS,
   MCP_EARLIER_REVISION,
+  MCP_OFFERED_REVISIONS,
+  MCP_TRANSPORT_CHECKED,
+  MCP_TRANSPORT_NOTE,
   acceptsEventStream,
   initializeRevision,
   isForeignWebOrigin,
@@ -957,13 +960,21 @@ export async function GET(request: Request) {
     name: SERVER_INFO.name,
     version: SERVER_INFO.version,
     protocol: "Model Context Protocol",
-    protocolVersion: MCP_PROTOCOL_VERSION,
-    transport: "custom JSON-RPC 2.0 request/response over HTTPS POST",
+    protocolVersion: MCP_OFFERED_REVISIONS[0],
+    protocolVersions: {
+      offered: [...MCP_OFFERED_REVISIONS],
+      also_answered: MCP_EARLIER_REVISION,
+      note: "initialize names the revision a standard MCP client asked for when it is one of these; callers that are not standard MCP clients (the stdio bridge, plain JSON-RPC POSTs) get 2024-11-05.",
+    },
+    transport: "MCP Streamable HTTP, JSON responses only, over HTTPS POST; plain JSON-RPC 2.0 POSTs are answered too",
     standard_remote_transport: {
-      streamable_http: false,
+      streamable_http: true,
       http_sse: false,
-      note:
-        "This is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients need the stdio bridge, which is not on npm and is built from the public repository, unless they explicitly support custom JSON-RPC HTTP endpoints.",
+      event_stream: false,
+      sessions: false,
+      oauth: false,
+      checked: MCP_TRANSPORT_CHECKED,
+      note: MCP_TRANSPORT_NOTE,
     },
     methodology: "https://cambridgetcg.com/methodology/agents",
     discover: {
@@ -999,11 +1010,11 @@ export async function GET(request: Request) {
       honest_note:
         "Not on the npm registry (404, rechecked 2026-10-10), so 'npx @cambridge-tcg/mcp-server' " +
         "does not work. The source repository is public, so the bridge can be built from a " +
-        "clone (packages/mcp-server: npm install, npm run build). Clients that can POST " +
-        "JSON-RPC 2.0 can call this endpoint directly. The HTTPS gate accepts MCP-shaped " +
-        "JSON-RPC methods but is not MCP Streamable HTTP or HTTP+SSE; native MCP clients " +
-        "need the stdio bridge.",
-      for: "Claude Desktop / Cursor / Continue / Cline / any MCP client expecting a local stdio server.",
+        "clone (packages/mcp-server: npm install, npm run build). MCP clients that speak " +
+        "Streamable HTTP and can send an Authorization header, and clients that can POST " +
+        "JSON-RPC 2.0, call this endpoint directly; the bridge remains for clients that only " +
+        "speak stdio.",
+      for: "Any MCP client that only speaks stdio and expects a local server.",
     },
     config_snippet: "https://cambridgetcg.com/.well-known/mcp-config.json",
     discovery_doc: "https://cambridgetcg.com/.well-known/mcp.json",

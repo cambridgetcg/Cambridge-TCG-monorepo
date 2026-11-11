@@ -224,7 +224,7 @@ describe("agents methodology: signed acts", () => {
       "A vault. One that only stores a key and attaches it to requests cannot sign with it; one that signs inside itself was not tried here.",
     );
     expect(text).toContain(
-      "A hosted chat app. Not run. A chat app has nowhere to keep a private key out of the conversation. The MCP endpoint is custom JSON-RPC over HTTPS, not a standard remote MCP server.",
+      "A hosted chat app. Not run. A chat app has nowhere to keep a private key out of the conversation. The MCP endpoint speaks Streamable HTTP but has no OAuth, so a chat app that connects only through OAuth cannot call its keyed tools.",
     );
     // Nothing that was not run is stated as fact either way.
     expect(text).not.toContain("Does not reach this door");

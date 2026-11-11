@@ -812,19 +812,23 @@ export const GUIDES: Guide[] = [
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "wire-into-claude-code",
-    title: "Connect an MCP client: current transport limits",
-    subtitle: "The HTTPS gate is custom JSON-RPC; the stdio bridge is not on npm.",
+    title: "Connect an MCP client: what the transport is and is not",
+    subtitle: "Streamable HTTP with JSON responses and a static key; no OAuth; the stdio bridge is not on npm.",
     intro:
-      "Cambridge TCG accepts one JSON-RPC request per HTTPS POST at /api/mcp, " +
-      "but that endpoint is not MCP Streamable HTTP or HTTP+SSE. Native MCP " +
-      "clients need the stdio bridge in packages/mcp-server. " +
-      "@cambridge-tcg/mcp-server is not on npm (404, rechecked 2026-10-10), but " +
-      "the source repository is public, so the bridge can be built from a clone " +
-      "(see packages/mcp-server/README.md). Otherwise use a client that can POST " +
-      "JSON-RPC 2.0 to /api/mcp, or call the public REST routes directly.",
+      "/api/mcp speaks the JSON-response form of MCP Streamable HTTP, revisions " +
+      "2025-06-18 and 2025-11-25, with no event stream and no sessions. On " +
+      "2026-11-11 @modelcontextprotocol/sdk 1.32.2 and @modelcontextprotocol/client " +
+      "2.4.0 connected to it with a static bearer key, listed and called its tools " +
+      "and read a refusal, with the route run locally and its database mocked. " +
+      "It has no OAuth, so a hosted chat app that connects only through OAuth " +
+      "cannot call its keyed tools. The stdio bridge in packages/mcp-server " +
+      "remains for clients that only speak stdio; @cambridge-tcg/mcp-server is " +
+      "not on npm (404, rechecked 2026-10-10), but the source repository is " +
+      "public, so it can be built from a clone. A client that can POST JSON-RPC " +
+      "2.0, or the public REST routes, work too.",
     audiences: ["agent", "hobbyist_coder"],
     prerequisites: [
-      "An HTTP client that can send JSON-RPC 2.0 POST requests, or an MCP client that supports a custom JSON-RPC HTTP endpoint",
+      "An MCP client that speaks Streamable HTTP and lets you set a request header, or an HTTP client that can send JSON-RPC 2.0 POST requests",
       "Optional: a Cambridge TCG account to provision a bearer token at /account/agents",
     ],
     estimated_minutes: 10,
@@ -833,12 +837,13 @@ export const GUIDES: Guide[] = [
         step_number: 1,
         title: "Read the connection facts",
         instruction:
-          "Fetch the discovery document. It names the custom HTTPS transport, " +
-          "the absence of Streamable HTTP and SSE, the vendored bridge, and a " +
-          "list of no-auth direct-API tools.",
+          "Fetch the discovery document. It names the transport (Streamable " +
+          "HTTP, JSON responses only, no event stream, no sessions, no OAuth), " +
+          "when and how it was checked, the vendored bridge, and a list of " +
+          "no-auth direct-API tools.",
         curl: "curl https://cambridgetcg.com/.well-known/mcp-config.json",
         expected_response_shape:
-          '{ "remote_json_rpc_endpoint": { "cambridge-tcg": { "url": "...", "transport": "custom-json-rpc-over-https-post", "mcp_streamable_http": false } }, ' +
+          '{ "remote_json_rpc_endpoint": { "cambridge-tcg": { "url": "...", "transport": "streamable-http", "mcp_streamable_http": true, "streamable_http": { "revisions": ["2025-11-25", "2025-06-18"], "oauth": false, ... } } }, ' +
           '"stdio_bridge": { "status": "vendored-in-repository", "npm_published": false, ... }, ' +
           '"no_auth_alternative_tools": [{ "tool_name": "ctcg_get_card", "url_template": "...", ... }], ' +
           '"recommended_user_agent": "...", "first_request_guide": "..." }',
@@ -849,13 +854,19 @@ export const GUIDES: Guide[] = [
       },
       {
         step_number: 2,
-        title: "Call the gate directly",
+        title: "Point a client at the gate",
         instruction:
-          "Send JSON-RPC 2.0 requests to https://cambridgetcg.com/api/mcp. " +
-          "initialize and tools/list are public; other tool calls need a bearer " +
-          "token. Do not use npx @cambridge-tcg/mcp-server: the package is not on " +
-          "npm. A native MCP client needs the stdio bridge built from a clone of " +
-          "the public repository.",
+          "Give an MCP client that speaks Streamable HTTP the URL " +
+          "https://cambridgetcg.com/api/mcp, with an Authorization: Bearer " +
+          "header if you have a key; Claude Code's form is claude mcp add " +
+          "--transport http cambridge-tcg https://cambridgetcg.com/api/mcp " +
+          "--header \"Authorization: Bearer <token>\" (Claude Code itself was " +
+          "not run against the gate; the two SDKs named above were). Or send " +
+          "JSON-RPC 2.0 requests yourself, as below. initialize, tools/list and " +
+          "ping are public; other tool calls need a bearer token. Do not use npx " +
+          "@cambridge-tcg/mcp-server: the package is not on npm. A client that " +
+          "only speaks stdio needs the bridge built from a clone of the public " +
+          "repository.",
         curl:
           "curl -s https://cambridgetcg.com/api/mcp \\\n" +
           "  -H 'Content-Type: application/json' \\\n" +
@@ -888,11 +899,13 @@ export const GUIDES: Guide[] = [
     ],
     gotchas: [
       {
-        title: "A remote MCP URL setting will not work",
+        title: "A remote MCP URL works only where the client can send the key",
         description:
-          "The HTTPS gate accepts MCP-shaped methods but does not implement MCP " +
-          "Streamable HTTP or HTTP+SSE. Use a custom ordinary-HTTP JSON-RPC " +
-          "client, or the stdio bridge built from the public repository; it is not on npm.",
+          "The gate speaks Streamable HTTP but has no OAuth. A client whose " +
+          "remote-server setting can carry a static Authorization header can " +
+          "call keyed tools; one that connects only through OAuth (hosted chat " +
+          "apps) can list tools but not call keyed ones. It offers no event " +
+          "stream (a GET asking for one gets 405) and no HTTP+SSE.",
       },
       {
         title: "Set User-Agent in MCP server config too",
@@ -930,7 +943,7 @@ export const GUIDES: Guide[] = [
       { label: "Agent methodology", href: "/methodology/agents" },
     ],
     last_verified: "2026-07-12",
-    revised: "2026-11-10",
+    revised: "2026-11-11",
   },
 
   // ───────────────────────────────────────────────────────────────────

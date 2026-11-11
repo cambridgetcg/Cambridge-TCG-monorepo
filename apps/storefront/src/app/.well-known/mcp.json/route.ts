@@ -3,9 +3,10 @@
  *
  * Surfaces the platform's MCP gate (already live at /api/mcp, kingdom-051
  * S18 — the bearer-token agent door) plus a curated list of read-tools the
- * platform suggests an MCP client wire into its toolbelt. The actual MCP
- * request/response gate lives at /api/mcp; this discovery doc describes it
- * without claiming a standard MCP remote transport.
+ * platform suggests an MCP client wire into its toolbelt. The MCP gate
+ * lives at /api/mcp: since 2026-11-11 it speaks the JSON-response form of
+ * MCP Streamable HTTP to standard MCP clients (lib/agents/mcp-transport.ts,
+ * which also holds the facts published here).
  *
  * Filed for kingdom-082 (the-hospitality.md). Phase F.
  */
@@ -27,9 +28,15 @@ import {
   reviewSubmissionsByRegistration,
 } from "@/lib/agents/tool-access";
 import { operationalMetadataWrites } from "@/lib/agents/operational-metadata";
+import { MCP_EARLIER_REVISION, MCP_OFFERED_REVISIONS, mcpTransportFacts } from "@/lib/agents/mcp-transport";
 
 const MCP = {
-  protocol_version: "2024-11-05",
+  protocol_version: MCP_OFFERED_REVISIONS[0],
+  protocol_versions: {
+    offered: [...MCP_OFFERED_REVISIONS],
+    also_answered: MCP_EARLIER_REVISION,
+    note: "initialize names the revision a standard MCP client asked for when it is one of these. Callers that are not standard MCP clients (the stdio bridge, plain JSON-RPC POSTs) get 2024-11-05, as before 2026-11-11.",
+  },
   server: {
     name: "cambridge-tcg",
     version: "1.0.0",
@@ -37,10 +44,8 @@ const MCP = {
       "Cambridge TCG MCP server. Read tools cover the structural catalog, federation, and methodology. " +
       "Recent-price and agent-ladder tools return publication status only. Self-serve bearer keys are " +
       "read-only; new self-serve registration is paused. Match and deck writes are paused for every key.",
-    transport: "custom-json-rpc-over-https-post",
-    mcp_streamable_http: false,
-    mcp_http_sse: false,
-    standard_mcp_client_compatible_without_bridge: false,
+    transport: "streamable-http",
+    ...mcpTransportFacts(),
     endpoint: "https://cambridgetcg.com/api/mcp",
     stdio_bridge: {
       status: "vendored-in-repository",
@@ -49,7 +54,7 @@ const MCP = {
       repository_visibility: REPOSITORY_VISIBILITY,
       publicly_obtainable: REPOSITORY_VISIBILITY === "public",
       note:
-        "Native MCP clients need the stdio bridge. It is not published to npm; build it from packages/mcp-server in the public repository. Clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
+        "For MCP clients that only speak stdio. It is not published to npm; build it from packages/mcp-server in the public repository. MCP clients that speak Streamable HTTP, and clients that can POST JSON-RPC 2.0, call /api/mcp directly.",
     },
     auth: {
       type: "bearer",

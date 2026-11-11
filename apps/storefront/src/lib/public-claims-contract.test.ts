@@ -105,15 +105,25 @@ const KEY_EXPIRY_ENTRY = CHANGELOG_ENTRIES.find((entry) => entry.id === "agent-k
 const HELD_KEYS_ENTRY = CHANGELOG_ENTRIES.find((entry) => entry.id === "agent-held-signing-keys-closed")!;
 
 describe("public claims match publication boundaries", () => {
-  it("describes the MCP endpoint as custom JSON-RPC and requires the vendored bridge", async () => {
+  it("describes the MCP endpoint as the JSON form of Streamable HTTP, without OAuth, as far as it was checked", async () => {
     const config = await getMcpConfig();
     const configBody = await config.json();
     const remote = configBody.remote_json_rpc_endpoint["cambridge-tcg"];
 
-    expect(remote.transport).toBe("custom-json-rpc-over-https-post");
-    expect(remote.mcp_streamable_http).toBe(false);
+    // Checked on 2026-11-11 against two SDKs with the route run locally
+    // (scripts/mcp-sdk-harness); said so wherever it is claimed.
+    expect(remote.transport).toBe("streamable-http");
+    expect(remote.mcp_streamable_http).toBe(true);
     expect(remote.mcp_http_sse).toBe(false);
-    expect(remote.standard_mcp_client_compatible_without_bridge).toBe(false);
+    expect(remote.streamable_http).toMatchObject({
+      revisions: ["2025-11-25", "2025-06-18"],
+      event_stream: false,
+      sessions: false,
+      oauth: false,
+      checked: { on: "2026-11-11" },
+    });
+    expect(remote.streamable_http.checked.how).toContain("not against cambridgetcg.com");
+    expect(remote.standard_mcp_client_compatible_without_bridge).toBe(true);
     expect(configBody.mcp_server_entry).toBeUndefined();
     expect(configBody.stdio_bridge).toMatchObject({
       status: "vendored-in-repository",
@@ -123,19 +133,23 @@ describe("public claims match publication boundaries", () => {
 
     const discovery = await getMcpDiscovery();
     const discoveryBody = await discovery.json();
-    expect(discoveryBody.server.transport).toBe("custom-json-rpc-over-https-post");
-    expect(discoveryBody.server.mcp_streamable_http).toBe(false);
+    expect(discoveryBody.server.transport).toBe("streamable-http");
+    expect(discoveryBody.server.mcp_streamable_http).toBe(true);
     expect(discoveryBody.server.stdio_bridge.npm_published).toBe(false);
 
     for (const path of [
       "../../packages/mcp-server/README.md",
       "../../docs/connections/the-mcp-surface.md",
-      "src/app/api/mcp/route.ts",
+      "src/lib/agents/mcp-transport.ts",
       "src/lib/guides.ts",
     ]) {
-      const text = source(path);
-      expect(text).toMatch(/not MCP Streamable HTTP|not Streamable HTTP/);
-      expect(text).toMatch(/vendored stdio bridge|stdio bridge/);
+      const text = prose(path);
+      expect(text, path).toContain("JSON-response form of MCP Streamable HTTP");
+      expect(text, path).toMatch(/no OAuth/);
+      expect(text, path).toMatch(/stdio bridge/);
+      // No present-tense claim that the door is not Streamable HTTP, or
+      // that every MCP client needs the bridge (stdio-only clients do).
+      expect(text, path).not.toMatch(/(?:is|it) not (?:an )?(?:MCP )?Streamable HTTP|(?:native|standard) MCP clients need\b/i);
     }
   });
 
