@@ -180,6 +180,24 @@ describe("rewardspro.io privacy and subprocessors pages", () => {
 const HOME = "landing/public/index.html";
 const PAGES = [HOME, "landing/public/help/index.html", "landing/public/404.html", PRIVACY, SUBPROCESSORS];
 
+/** The home page's JSON-LD, parsed. */
+const homeLd = () => JSON.parse(read(HOME).match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
+
+/** RewardsPro's own accounts, opened or updated by the owner on 11 Nov 2026 with a link to rewardspro.io. */
+const ACCOUNTS = [
+  "https://www.youtube.com/@rewardsproapp",
+  "https://x.com/rewardspro_",
+  "https://bsky.app/profile/rewardspro.io",
+  "https://www.instagram.com/rewardsproapp/",
+];
+
+/** Every file under a folder, dotfolders such as .well-known included. */
+function filesUnder(dir: string): string[] {
+  return readdirSync(resolve(process.cwd(), dir), { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => resolve(entry.parentPath, entry.name));
+}
+
 describe("rewardspro.io home page", () => {
   it("says free only beside who funds the cashback, in the page and in its structured data", () => {
     const home = readText(HOME);
@@ -188,9 +206,8 @@ describe("rewardspro.io home page", () => {
     expect(home).toContain("The app is free; you fund the cashback.");
     expect(home).not.toMatch(/free forever|Rewards Pro|instant|points|raffle/i);
 
-    const ld = JSON.parse(read(HOME).match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
+    const ld = homeLd();
     const appNode = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "SoftwareApplication");
-    expect(appNode.sameAs).toEqual(["https://apps.shopify.com/rewards-pro"]);
     expect(appNode.offers.price).toBe("0");
     expect(appNode.offers.description).toContain("so the store funds the cashback it gives");
     expect(JSON.stringify(ld)).not.toMatch(/rating|review/i);
@@ -224,5 +241,33 @@ describe("rewardspro.io home page", () => {
     expect(existsSync(resolve(process.cwd(), "landing/public/assets/screens/og-tiers.jpg"))).toBe(true);
     for (const path of PAGES) expect(read(path), path).toContain('<li><a href="/help/">Help</a></li>');
     expect(readText(SITEMAP)).toContain("<loc>https://rewardspro.io/</loc> <lastmod>2026-11-10</lastmod>");
+  });
+});
+
+describe("rewardspro.io names RewardsPro's own accounts", () => {
+  it("lists them as the app's sameAs in the home page's structured data, beside the listing", () => {
+    const ld = homeLd();
+    const appNode = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "SoftwareApplication");
+    expect(appNode.sameAs).toEqual(["https://apps.shopify.com/rewards-pro", ...ACCOUNTS]);
+    // The accounts are RewardsPro's, not the company's, so the maker's node claims none of them
+    const maker = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "Organization");
+    expect(maker.sameAs).toBeUndefined();
+  });
+
+  it("links them from one footer, the same bytes on every page", () => {
+    const footers = PAGES.map((path) => read(path).match(/<footer class="site-footer">[\s\S]*?<\/footer>/)?.[0]);
+    for (const [i, footer] of footers.entries()) expect(footer, PAGES[i]).toBe(footers[0]);
+    for (const url of ACCOUNTS) expect(footers[0]).toContain(`<a href="${url}">`);
+  });
+
+  it("never links the locked Instagram account, @rewardspro.io, anywhere under landing/public/", () => {
+    const files = filesUnder("landing/public");
+    expect(files.some((file) => file.endsWith("/.well-known/security.txt"))).toBe(true);
+    for (const file of files) {
+      const text = readFileSync(file, "latin1");
+      expect(text, file).not.toMatch(/instagram\.com\/rewardspro\.io/i);
+      // Every Instagram link on the site is the current account's
+      for (const [link] of text.matchAll(/instagram\.com\/[^\s"'<>)]*/gi)) expect(link, file).toBe("instagram.com/rewardsproapp/");
+    }
   });
 });
