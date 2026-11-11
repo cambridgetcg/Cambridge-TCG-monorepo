@@ -304,7 +304,7 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
       ["tool 409", () => { mocks.agentSelf.mockRejectedValueOnce(new ToolError("out of order", 409)); }, call(8, "agent.self"), 409],
       ["tool 422", () => { mocks.agentSelf.mockRejectedValueOnce(new ToolError("bad params", 422)); }, call(8, "agent.self"), 422],
       ["agent_suspended", () => { mocks.resolveAgentBearer.mockResolvedValueOnce({ ok: false, status: 403, reason_code: "agent_suspended", error: "agent is suspended", suspended_at: null }); }, call(8, "agent.self"), 403],
-      ["auth_unavailable", () => { mocks.resolveAgentBearer.mockRejectedValueOnce(Object.assign(new Error("x"), { code: "ECONNREFUSED" })); }, call(8, "agent.self"), 503],
+      // A closed door is a refusal: its 503 is sent with 200 too.
       ["signed_acts_closed", () => {}, call(9, "agent.act", { act: null, preview: "signer.check" }), 503],
       ["missing name", () => {}, { jsonrpc: "2.0", id: 10, method: "tools/call", params: {} }, 400],
     ];
@@ -323,7 +323,7 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
     consoleError.mockRestore();
   });
 
-  it("keeps 401 with its challenge, and a fault's 500", async () => {
+  it("keeps 401 with its challenge, a fault's 500 and an outage's 503", async () => {
     const keyless = await answer(await sdk(call(2, "agent.self"), { key: false }));
     expect(keyless.status).toBe(401);
     expect(keyless.headers.get("www-authenticate")).toBe('Bearer realm="cambridgetcg-mcp"');
@@ -332,6 +332,20 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.agentSelf.mockRejectedValueOnce(new Error("boom"));
     expect((await sdk(call(2, "agent.self"))).status).toBe(500);
+
+    // An outage is not a refusal: it keeps its 503, the status that
+    // status-based monitoring reads, with the same body a plain caller gets.
+    mocks.resolveAgentBearer.mockRejectedValue(Object.assign(new Error("x"), { code: "ECONNREFUSED" }));
+    const plainDown = await answer(await post("plain", call(8, "agent.self")));
+    const standardDown = await answer(await sdk(call(8, "agent.self")));
+    expect(plainDown.status).toBe(503);
+    expect(standardDown).toMatchObject({ status: 503, text: plainDown.text });
+    expect(JSON.parse(standardDown.text).error.data.reason_code).toBe("auth_unavailable");
+
+    mocks.revokePresentedKey.mockResolvedValue({ performed: "unknown", key_state: "unknown", retryable: true, message: "Revocation state is unknown.", docs: "https://cambridgetcg.example/docs" });
+    const revokeDown = await answer(await sdk(call(9, "agent.revoke_key", { confirm: true })));
+    expect(revokeDown.status).toBe(503);
+    expect(JSON.parse(revokeDown.text).result.isError).toBe(true);
     consoleError.mockRestore();
   });
 

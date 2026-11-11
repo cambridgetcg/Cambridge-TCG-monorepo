@@ -217,12 +217,19 @@ export function isForeignWebOrigin(
  * The HTTP status a standard MCP client's tools/call answer is sent with.
  * Both SDKs throw on any status outside 2xx and drop the body, so a refusal
  * (an isError result with its refusal in _meta, or a JSON-RPC error with one
- * in error.data) is sent with 200 and the same body: any 4xx but 401, and
- * 503. 401 stays 401 with its WWW-Authenticate header, the HTTP layer's own
- * signal to authenticate; 500 is a fault, not a refusal, and stays 500. The
- * daily count records the status the gate decided, before this.
+ * in error.data) is sent with 200 and the same body: any 4xx but 401, and a
+ * 503 the gate marked as a closed door (signed_acts_closed: the deployment
+ * keeps agent.act shut). 401 stays 401 with its WWW-Authenticate header, the
+ * HTTP layer's own signal to authenticate. A 500 fault and any other 503 stay
+ * as they are: those are outages (auth_unavailable, agent.revoke_key's
+ * unknown state), not refusals, and status-based monitoring
+ * (traffic_hourly's status_class) is how an outage is seen. A 503 that is
+ * not marked stays 503, so an unmarked new refusal is still sent truthfully,
+ * only less readably. The daily count records the status the gate decided,
+ * before this.
  */
-export function standardClientToolStatus(status: number): number {
-  if (status === 503 || (status >= 400 && status < 500 && status !== 401)) return 200;
+export function standardClientToolStatus(status: number, decided: { closedDoor?: boolean } = {}): number {
+  if (status === 503) return decided.closedDoor ? 200 : 503;
+  if (status >= 400 && status < 500 && status !== 401) return 200;
   return status;
 }

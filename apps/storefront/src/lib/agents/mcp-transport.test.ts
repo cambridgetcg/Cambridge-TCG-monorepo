@@ -143,8 +143,14 @@ describe("cross-site origins", () => {
 });
 
 describe("the status a standard client's tools/call is sent with", () => {
-  it("sends every refusal with 200 except 401, and leaves results and faults alone", () => {
-    expect([200, 400, 401, 403, 404, 409, 422, 429, 500, 503].map(standardClientToolStatus))
-      .toEqual([200, 200, 401, 200, 200, 200, 200, 200, 500, 200]);
+  it("sends every refusal with 200 except 401, and leaves results, faults and outages alone", () => {
+    expect([200, 400, 401, 403, 404, 409, 422, 429, 500, 503].map((status) => standardClientToolStatus(status)))
+      .toEqual([200, 200, 401, 200, 200, 200, 200, 200, 500, 503]);
+  });
+
+  it("sends a 503 with 200 only when the gate marked it a closed door", () => {
+    expect(standardClientToolStatus(503, { closedDoor: true })).toBe(200);
+    expect(standardClientToolStatus(500, { closedDoor: true })).toBe(500);
+    expect(standardClientToolStatus(401, { closedDoor: true })).toBe(401);
   });
 });

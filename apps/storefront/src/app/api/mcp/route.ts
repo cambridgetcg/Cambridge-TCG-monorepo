@@ -164,10 +164,12 @@ const MCP_PROTOCOL_VERSION = MCP_EARLIER_REVISION;
 export const MCP_MAX_REQUEST_BYTES = 1024 * 1024;
 
 /** What POST knows of a request beyond the daily count's words: whether it
- *  came from a standard MCP client, and whether it was a tools/call. */
+ *  came from a standard MCP client, whether it was a tools/call, and whether
+ *  its 503 is a closed door (a refusal) rather than an outage. */
 interface McpExchange {
   standard: boolean;
   toolsCall: boolean;
+  closedDoor: boolean;
 }
 
 /** A web page on another site: refused before the body is read. JSON-RPC
@@ -785,7 +787,10 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
       clientAddress: actClientAddress(request.headers),
     });
     seen.authenticated = answer.verified;
-    if (!answer.ok && answer.refusal.reason_code === "signed_acts_closed") seen.outcome = "forbidden";
+    if (!answer.ok && answer.refusal.reason_code === "signed_acts_closed") {
+      seen.outcome = "forbidden";
+      exchange.closedDoor = true;
+    }
     return signedActResponse(body.id, isMcpCall, answer);
   }
 
@@ -925,7 +930,7 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
 
 export async function POST(request: Request) {
   const seen = unseenMcpRequest();
-  const exchange: McpExchange = { standard: isStandardMcpClient(request.headers), toolsCall: false };
+  const exchange: McpExchange = { standard: isStandardMcpClient(request.headers), toolsCall: false, closedDoor: false };
   const response = await handlePost(request, seen, exchange);
   response.headers.set("Cache-Control", "private, no-store");
   // Counted after the response, only while OPS_MCP_DAILY is on
@@ -936,8 +941,8 @@ export async function POST(request: Request) {
   if (!exchange.standard || !exchange.toolsCall) return response;
   // Both SDKs throw on any status outside 2xx and drop the body, isError and
   // the refusal in _meta with it: the same body, sent with 200, unless it is
-  // a 401 or a fault (standardClientToolStatus).
-  const status = standardClientToolStatus(response.status);
+  // a 401, a fault or an outage (standardClientToolStatus).
+  const status = standardClientToolStatus(response.status, exchange);
   if (status === response.status) return response;
   return new NextResponse(response.body, { status, headers: response.headers });
 }
