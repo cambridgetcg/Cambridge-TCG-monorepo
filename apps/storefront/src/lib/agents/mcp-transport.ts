@@ -42,13 +42,13 @@ export const MCP_TRANSPORT_CHECKED = {
     "@modelcontextprotocol/sdk 1.32.2",
     "@modelcontextprotocol/client 2.4.0 (default and auto version negotiation)",
   ],
-  how: "connected with a static bearer key and with none, listed tools, called one, read a refusal, pinged; the route served on 127.0.0.1 with its database and key lookup mocked (apps/storefront/scripts/mcp-sdk-harness), not against cambridgetcg.com",
+  how: "connected with a static bearer key and with none, listed tools, called one, read a refusal, pinged; the route served on 127.0.0.1 with its database, key lookup, rate limiter and tool handlers mocked (apps/storefront/scripts/mcp-sdk-harness), not against cambridgetcg.com",
 } as const;
 
 /** What a public text says about the transport, in one place. */
 export const MCP_TRANSPORT_NOTE =
   "/api/mcp speaks the JSON-response form of MCP Streamable HTTP, revisions 2025-06-18 and 2025-11-25, with no event stream and no sessions. " +
-  "On 2026-11-11 @modelcontextprotocol/sdk 1.32.2 and @modelcontextprotocol/client 2.4.0 connected to it with a static bearer key, listed and called its tools and read a refusal (the route run locally with its database mocked, not cambridgetcg.com). " +
+  "On 2026-11-11 @modelcontextprotocol/sdk 1.32.2 and @modelcontextprotocol/client 2.4.0 connected to it with a static bearer key, listed and called its tools and read a refusal (the route run locally with its database, key lookup, rate limiter and tool handlers mocked, not cambridgetcg.com). " +
   "It has no OAuth, so hosted chat apps that connect only through OAuth cannot call its keyed tools. " +
   "The stdio bridge (packages/mcp-server, not on npm) remains for clients that only speak stdio.";
 

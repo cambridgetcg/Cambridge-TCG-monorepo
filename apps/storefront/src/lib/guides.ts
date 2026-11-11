@@ -819,7 +819,7 @@ export const GUIDES: Guide[] = [
       "2025-06-18 and 2025-11-25, with no event stream and no sessions. On " +
       "2026-11-11 @modelcontextprotocol/sdk 1.32.2 and @modelcontextprotocol/client " +
       "2.4.0 connected to it with a static bearer key, listed and called its tools " +
-      "and read a refusal, with the route run locally and its database mocked. " +
+      "and read a refusal, with the route run locally and its database, key lookup, rate limiter and tool handlers mocked. " +
       "It has no OAuth, so a hosted chat app that connects only through OAuth " +
       "cannot call its keyed tools. The stdio bridge in packages/mcp-server " +
       "remains for clients that only speak stdio; @cambridge-tcg/mcp-server is " +

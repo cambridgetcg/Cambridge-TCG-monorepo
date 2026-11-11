@@ -17,8 +17,8 @@ the door was not a standard remote MCP server and that a vault's MCP
 credential might not reach it at all. That undersold it. On 2026-11-10 a
 checker connected `@modelcontextprotocol/sdk` 1.32.2 and
 `@modelcontextprotocol/client` 2.4.0 to the real route (served locally, its
-database mocked) with a static bearer key, and both listed and called its
-tools. On 2026-11-11 the door's edges were made to conform: it speaks the
+database, key lookup, rate limiter and tool handlers mocked) with a static
+bearer key, and both listed and called its tools. On 2026-11-11 the door's edges were made to conform: it speaks the
 JSON-response form of MCP Streamable HTTP for revisions 2025-06-18 and
 2025-11-25, with no event stream and no sessions, and was checked against the
 same two SDKs the same way. It still has no OAuth, and no platform vault was
