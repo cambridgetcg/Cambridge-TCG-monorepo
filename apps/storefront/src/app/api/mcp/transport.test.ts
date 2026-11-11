@@ -273,7 +273,15 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
       const response = await answer(await sdk({ jsonrpc: "2.0", id: 1, method: "tools/list" }, { version }));
       expect(response.status, version).toBe(400);
       expect(JSON.parse(response.text).error).toMatchObject({ code: -32022, data: { supported: ["2025-11-25", "2025-06-18"], requested: version } });
+      // A tools/call keeps the 400 too: only a refused call is sent with 200,
+      // and an unsupported revision is the transport's refusal, not the tool's.
+      for (const key of [true, false]) {
+        const toolCall = await answer(await sdk(call(2, "agent.self"), { version, key }));
+        expect(toolCall.status, `tools/call ${version}`).toBe(400);
+        expect(JSON.parse(toolCall.text).error, `tools/call ${version}`).toMatchObject({ code: -32022, data: { requested: version } });
+      }
     }
+    expect(mocks.resolveAgentBearer).not.toHaveBeenCalled();
     for (const version of ["2025-11-25", "2025-06-18", "2024-11-05"]) {
       expect((await sdk({ jsonrpc: "2.0", id: 1, method: "tools/list" }, { version })).status, version).toBe(200);
     }

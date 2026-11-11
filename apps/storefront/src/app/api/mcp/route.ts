@@ -651,7 +651,6 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
   const method = body.method;
   const params = body.params ?? {};
   Object.assign(seen, mcpMethodAndTool(method, params.name, (name) => Object.hasOwn(TOOLS, name)));
-  exchange.toolsCall = method === "tools/call";
 
   // ── Streamable HTTP, for standard MCP clients only (no auth) ──────────
   // Each answer below is one the transport spec asks for and the stdio
@@ -684,6 +683,10 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
       return NextResponse.json(rpcResult(body.id, {}));
     }
   }
+  // Set only here, after the transport's own answers above, so POST sends
+  // with 200 a refusal from the tool's path and never the 400 for an
+  // unsupported revision, which the transport spec requires as 400.
+  exchange.toolsCall = method === "tools/call";
 
   // ── tools/call (MCP-spec) — unwrap to dotted-name dispatch ────────────
   // `tools/call` carries `{name: "<dotted-name>", arguments: {...}}`. The
