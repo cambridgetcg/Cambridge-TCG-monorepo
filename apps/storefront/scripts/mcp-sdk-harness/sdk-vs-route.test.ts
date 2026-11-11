@@ -276,6 +276,23 @@ describe("@modelcontextprotocol/client 2.x", () => {
     expect(seen[1]).toMatchObject({ rpc: "initialize", status: 200 });
   });
 
+  it("offering only 2025-03-26 and 2024-11-05, as SDK releases from before 2025-06-18 do, connects on 2024-11-05", async () => {
+    // Such a client asks for 2025-03-26 (not offered: it allows batches) and
+    // refuses any answer outside its own list, so the gate must answer an
+    // older revision it does answer rather than its newest.
+    const { Client, Transport, version: sdkVersion } = await sdk2();
+    const { client, errors } = await connected(
+      "sdk2-0326", Client, Transport, { supportedProtocolVersions: ["2025-03-26", "2024-11-05"] }, true,
+    );
+    const tools = await client.listTools();
+    await client.close();
+    const seen = log.filter((entry) => entry.who === "sdk2-0326");
+    report({ label: "sdk2-0326", sdk: sdkVersion, tools: tools.tools.length, errors, requests: lines("sdk2-0326") });
+    expect(tools.tools.length).toBeGreaterThan(0);
+    expect(seen.find((entry) => entry.rpc === "tools/list")?.version).toBe("2024-11-05");
+    expect(errors).toEqual([]);
+  });
+
   it("in auto mode with no key, falls back and connects (the probe no longer needs a key)", async () => {
     const { Client, Transport, version: sdkVersion } = await sdk2();
     const seen = await keyless("sdk2-auto-nokey", Client, Transport, { versionNegotiation: { mode: "auto" } }, sdkVersion);

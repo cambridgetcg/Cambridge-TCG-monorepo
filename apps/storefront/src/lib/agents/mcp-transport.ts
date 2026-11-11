@@ -27,7 +27,11 @@ export const MCP_OFFERED_REVISIONS = ["2025-11-25", "2025-06-18"] as const;
  * MCP-Protocol-Version. Refusing it would break their connections. */
 export const MCP_EARLIER_REVISION = "2024-11-05";
 
+/** Newest first, as initializeRevision reads it. */
 const ANSWERED: readonly string[] = [...MCP_OFFERED_REVISIONS, MCP_EARLIER_REVISION];
+
+/** An MCP revision is named by its date. */
+const REVISION_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** When, how and against which clients the transport was checked
  * (apps/storefront/scripts/mcp-sdk-harness). The discovery documents and
@@ -107,13 +111,29 @@ export function isStandardMcpClient(headers: Headers): boolean {
   return headers.has("mcp-protocol-version") || acceptsEventStream(headers.get("accept"));
 }
 
-/** The revision initialize answers a standard MCP client with: the one it
- * asked for when the gate answers it, 2024-11-05 when it named none (what
- * the gate answered everyone before), else the newest offered. */
+/**
+ * The revision initialize answers a standard MCP client with: the one it
+ * asked for when the gate answers it, and 2024-11-05 when it named none (what
+ * the gate answered everyone before). For any other revision date, the newest
+ * the gate answers that is not newer than the one asked for (dates compare as
+ * strings), or 2024-11-05 when the request is older than all of them: so
+ * 2025-03-26 gets 2024-11-05 and 2026-07-28 gets 2025-11-25. Anything that is
+ * not a revision date gets the newest offered.
+ *
+ * The spec lets the counter-offer be any revision the server supports; it
+ * only SHOULD be the latest. The newest is wrong for a client whose newest
+ * revision is 2025-03-26: it refuses an answer outside its own list (SDK
+ * 2.4.0 offering 2025-03-26 and 2024-11-05 failed with "Server's protocol
+ * version is not supported: 2025-11-25" in the harness on 2026-11-11), and
+ * before this rule it was answered 2024-11-05 and connected. The brief this
+ * was built from said "else the newest offered"; this departs from it for
+ * that reason. 2025-03-26 is still not offered.
+ */
 export function initializeRevision(requested: unknown): string {
   if (requested === undefined || requested === null) return MCP_EARLIER_REVISION;
-  if (typeof requested === "string" && ANSWERED.includes(requested)) return requested;
-  return MCP_OFFERED_REVISIONS[0];
+  if (typeof requested !== "string" || !REVISION_DATE.test(requested)) return MCP_OFFERED_REVISIONS[0];
+  if (ANSWERED.includes(requested)) return requested;
+  return ANSWERED.find((revision) => revision <= requested) ?? MCP_EARLIER_REVISION;
 }
 
 /**

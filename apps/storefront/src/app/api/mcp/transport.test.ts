@@ -199,13 +199,13 @@ describe.each(["plain", "bridge"] as const)("a %s caller gets main's answers", (
 });
 
 describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => {
-  it("initialize echoes an answered revision, keeps 2024-11-05 for none, else answers the newest", async () => {
+  it("initialize echoes an answered revision, keeps 2024-11-05 for none, else answers the newest not newer than asked", async () => {
     for (const [asked, answered] of [
       ["2025-11-25", "2025-11-25"],
       ["2025-06-18", "2025-06-18"],
       ["2024-11-05", "2024-11-05"],
       [undefined, "2024-11-05"],
-      ["2025-03-26", "2025-11-25"],
+      ["2025-03-26", "2024-11-05"],
       ["2026-07-28", "2025-11-25"],
     ] as const) {
       const body = JSON.parse((await answer(await post("sdk", initialize(asked)))).text);

@@ -49,13 +49,21 @@ describe("protocol revisions", () => {
     expect([...MCP_OFFERED_REVISIONS]).toEqual(["2025-11-25", "2025-06-18"]);
   });
 
-  it("echoes an answered revision, keeps 2024-11-05 for none, and otherwise answers the newest offered", () => {
+  it("echoes an answered revision, keeps 2024-11-05 for none, and otherwise answers the newest one not newer than the request", () => {
     expect(initializeRevision("2025-11-25")).toBe("2025-11-25");
     expect(initializeRevision("2025-06-18")).toBe("2025-06-18");
     expect(initializeRevision("2024-11-05")).toBe("2024-11-05");
     expect(initializeRevision(undefined)).toBe("2024-11-05");
-    expect(initializeRevision("2025-03-26")).toBe("2025-11-25");
+    expect(initializeRevision(null)).toBe("2024-11-05");
+    // A client whose newest revision is 2025-03-26 refuses any answer
+    // outside its own list (SDK 2.4.0 _legacyHandshake; SDK 1.x releases
+    // before 2025-06-18 knew only 2025-03-26, 2024-11-05 and 2024-10-07).
+    expect(initializeRevision("2025-03-26")).toBe("2024-11-05");
+    expect(initializeRevision("2024-10-07")).toBe("2024-11-05");
+    expect(initializeRevision("2025-09-01")).toBe("2025-06-18");
     expect(initializeRevision("2026-07-28")).toBe("2025-11-25");
+    // Not a revision date: the newest offered, as the spec's SHOULD says.
+    expect(initializeRevision("bogus")).toBe("2025-11-25");
     expect(initializeRevision(20251125)).toBe("2025-11-25");
   });
 
