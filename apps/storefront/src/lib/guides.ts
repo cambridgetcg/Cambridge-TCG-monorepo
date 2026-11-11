@@ -902,9 +902,11 @@ export const GUIDES: Guide[] = [
         title: "A remote MCP URL works only where the client can send the key",
         description:
           "The gate speaks Streamable HTTP but has no OAuth. A client whose " +
-          "remote-server setting can carry a static Authorization header can " +
-          "call keyed tools; one that connects only through OAuth (hosted chat " +
-          "apps) can list tools but not call keyed ones. It offers no event " +
+          "remote-server setting can carry a static Authorization header should " +
+          "be able to call keyed tools (two MCP SDK clients did); one that " +
+          "connects only through OAuth (hosted chat apps) may be able to list " +
+          "the tools (no hosted app was run against it), but cannot call keyed " +
+          "ones. It offers no event " +
           "stream (a GET asking for one gets 405) and no HTTP+SSE.",
       },
       {
