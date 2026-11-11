@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import prisma from "~/db.server";
 import { guideDue, guideSwitchedOnAt } from "~/lib/guide.server";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
+import { reviewRequestDue } from "~/lib/stats.server";
 import { TIER_ERRORS, TIER_NAME_MAX, requestTierPass } from "~/lib/tiers.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import { pollImport } from "~/shopify/bulk-import.server";
@@ -430,17 +431,37 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       expect(widgetValues(admin)).toEqual([]);
     });
 
-    it("switches on, records setup done, tells the widget, and stays on step 3 with the try-it", async () => {
+    it("switches on with the widget seen on, records setup done, tells the widget, and stays on step 3 with the try-it", async () => {
       await saveLadder();
       expect(requestTierPass).toHaveBeenCalledTimes(1);
       const admin = fakeAdmin();
-      expect(await act({ intent: "running", running: "on" }, admin)).toEqual({ ok: true });
+      expect(await act({ intent: "running", running: "on", widget: "on" }, admin)).toEqual({ ok: true });
       // Switching on moves no one: still the save's one pass
       expect(requestTierPass).toHaveBeenCalledTimes(1);
       const merchant = await merchantOf();
       expect(merchant.running).toBe(true);
       expect(merchant.setupCompletedAt).toBeInstanceOf(Date);
       expect(widgetValues(admin)).toEqual([{ running: true, basePercent: 3 }]);
+
+      const buyer = await seedBuyer(conn, "7001");
+      const order = await seedOrder(conn, buyer.id, { orderedAt: new Date() });
+      const data = await load("/app/welcome?step=3");
+      expect(data).toMatchObject({ step: 3, running: true });
+      expect(data.goLive?.switchedOnAt).not.toBeNull();
+      expect(data.goLive?.tryIt).toMatchObject([{ orderId: order.id, name: order.name, externalCustomerId: "7001" }]);
+    });
+
+    // Since #229 the review request falls due 30 days after setupCompletedAt: Home stamps it only once the
+    // browser has seen the widget on, so the guide's switch doesn't either
+    it("switches on with the widget not seen on, leaving setup open and the try-it working", async () => {
+      await saveLadder();
+      const admin = fakeAdmin();
+      expect(await act({ intent: "running", running: "on" }, admin)).toEqual({ ok: true });
+      const merchant = await merchantOf();
+      expect(merchant.running).toBe(true);
+      expect(merchant.setupCompletedAt).toBeNull();
+      expect(widgetValues(admin)).toEqual([{ running: true, basePercent: 3 }]);
+      expect(await reviewRequestDue(conn.merchantId, new Date(Date.now() + 31 * DAY))).toBe(false);
 
       const buyer = await seedBuyer(conn, "7001");
       const order = await seedOrder(conn, buyer.id, { orderedAt: new Date() });
@@ -469,9 +490,9 @@ describe.skipIf(!hasTestDatabase)("the setup guide's page", () => {
       expect(data.goLive!.tryIt.map((o) => o.orderId)).toEqual([fresh.id]);
     });
 
-    it("refuses switching on with no tiers", async () => {
+    it("refuses switching on with no tiers, whatever the browser says of the widget", async () => {
       const admin = fakeAdmin();
-      expect(await act({ intent: "running", running: "on" }, admin)).toEqual({ ok: false, error: "Save your tiers first." });
+      expect(await act({ intent: "running", running: "on", widget: "on" }, admin)).toEqual({ ok: false, error: "Save your tiers first." });
       const merchant = await merchantOf();
       expect(merchant.running).toBe(false);
       expect(merchant.setupCompletedAt).toBeNull();

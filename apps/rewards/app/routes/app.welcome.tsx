@@ -268,8 +268,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (form.get("running") !== "on") return data(UNKNOWN, { status: 400 });
       const result = await setRunning(conn.merchantId, true);
       if (!result.ok) return { ok: false, error: GUIDE.saveTiersFirst } satisfies ActionResult;
-      // Done: the guide never sends this store to itself again (spec 4.3)
-      await markSetupCompleted(conn.merchantId);
+      // Setup is done only once the widget is on too, as on Home (setup-done): the browser saw it on, and the tier
+      // and the switch are checked here. Otherwise Home records it the first time it sees the widget on. The
+      // stamp starts the review request's 30 days (#229); it doesn't keep the guide away (guideDue reads only
+      // the tiers and Finish later)
+      if (form.get("widget") === "on") await markSetupCompleted(conn.merchantId);
       await afterChange(admin, conn, false);
       return { ok: true } satisfies ActionResult;
     }
@@ -860,7 +863,8 @@ export default function Welcome() {
   const isLive = d.running || (switchFetcher.formData?.get("intent") === "running" && !switchRefused);
   const switchError = switchAnswer && !switchAnswer.ok && "error" in switchAnswer ? switchAnswer.error : null;
   const switchOn = () => {
-    if (!switchBusy) switchFetcher.submit({ intent: "running", running: "on" }, { method: "post" });
+    // The widget's word goes with the switch only when App Bridge says it's on, so setup is recorded as done (as on Home)
+    if (!switchBusy) switchFetcher.submit({ intent: "running", running: "on", ...(widget.on === true ? { widget: "on" } : {}) }, { method: "post" });
   };
   // The order followed, by its id: a lone order is taken as picked, so a newer one coming in doesn't drop it (9-F5)
   const [picked, setPicked] = useState<string | null>(null);

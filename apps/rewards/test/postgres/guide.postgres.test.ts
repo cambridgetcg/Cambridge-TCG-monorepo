@@ -226,10 +226,23 @@ describe.skipIf(!hasTestDatabase)("the guide's switch-on time", () => {
     expect(await guideSwitchedOnAt(conn.merchantId)).toEqual(SWITCHED_ON);
   });
 
-  it("is nothing while cashback is off or setup isn't completed", async () => {
+  it("is nothing while cashback is off", async () => {
     await tierAt("Everyone", "0", 0, MONTH_AGO);
     await setMerchant({ running: false, setupCompletedAt: SWITCHED_ON });
     expect(await guideSwitchedOnAt(conn.merchantId)).toBeNull();
+    await setMerchant({ running: false, setupCompletedAt: null });
+    expect(await guideSwitchedOnAt(conn.merchantId)).toBeNull();
+  });
+
+  // The guide's switch leaves setup open until the widget is seen on, so the try-it list still follows it
+  it("is the newest tier's creation while cashback is on and setup isn't completed", async () => {
+    await tierAt("Everyone", "0", 0, MONTH_AGO);
+    await tierAt("Gold", "500", 1, SWITCHED_ON);
+    await setMerchant({ running: true, setupCompletedAt: null });
+    expect(await guideSwitchedOnAt(conn.merchantId)).toEqual(SWITCHED_ON);
+  });
+
+  it("is nothing while cashback is on with no tiers and setup not completed", async () => {
     await setMerchant({ running: true, setupCompletedAt: null });
     expect(await guideSwitchedOnAt(conn.merchantId)).toBeNull();
   });

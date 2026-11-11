@@ -763,6 +763,23 @@ describe("Step 3: Go live", () => {
     expect(posted).toEqual([{ intent: "running", running: "on" }]);
   });
 
+  // Setup is recorded as done only on the browser's word that the widget is on, as Home's setup-done is (#229)
+  it("says the widget is on in the switch's post only when App Bridge says the embed is active", async () => {
+    const cases: Array<["active" | "available", Record<string, string>]> = [
+      ["active", { intent: "running", running: "on", widget: "on" }],
+      ["available", { intent: "running", running: "on" }],
+    ];
+    for (const [status, expected] of cases) {
+      const posted: Array<Record<string, string>> = [];
+      stubAppBridge(status);
+      await renderWelcome(step3(), { posted, answer: () => new Promise(() => {}) });
+      await screen.findByText(status === "active" ? GUIDE.widgetYes : GUIDE.widgetNo);
+      await click(button(GUIDE.switchOn));
+      expect(posted, status).toEqual([expected]);
+      cleanup();
+    }
+  });
+
   it("asks App Bridge again on Check again", async () => {
     stubAppBridge("available");
     await renderWelcome(step3());
