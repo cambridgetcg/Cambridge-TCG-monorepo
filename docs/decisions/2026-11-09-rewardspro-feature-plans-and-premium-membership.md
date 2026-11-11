@@ -33,7 +33,8 @@ Only what his sentences say. Where a line needs a reading, the reading is marked
 - **The free part stays free** (sentence 4: "the free part is always free"). What "the free part"
   contains is not decided (item 6 below).
 - **A premium membership is created as a product and sold through Shopify** (sentence 2).
-  RewardsPro takes a percentage of its continuing fees, with no upfront cost (sentence 1).
+- **RewardsPro takes "a percentage from the sales of continuous fees of the purchased tier, no
+  upfront cost"** (sentence 1). Which product "the purchased tier" is, is not decided (item 7).
 - **Event modules attach to the membership** (sentence 2) and are sold to merchants as paid services
   through the App Store (sentence 3). Raffles and weekly missions are his examples. "Rewards Max Tier"
   is his example of a plan name ("E.g."), not a chosen name.
@@ -43,8 +44,7 @@ Only what his sentences say. Where a line needs a reading, the reading is marked
 
 ## What it replaces, and what still stands
 
-The older records are not edited. As elsewhere in this folder, the later record names the earlier
-ones (`docs/README.md:65`: "check later decisions for supersession").
+The older records are not edited; the later record names the earlier ones (`docs/README.md:65`).
 
 **[2026-10-20, free-only relaunch](2026-10-20-rewardspro-free-only-relaunch.md).** Its status
 (`:3-4`) says it is an agent's call that the owner overturns by saying so. He has, as a direction:
@@ -62,13 +62,11 @@ are departed from:
 - Its capacity table (`:58-75`) separates plans by "Reward-eligible orders / month" and other counts.
   Sentence 4 replaces that table as the plan for the rebuilt app.
 - Its paid plans have no "usage-priced line item, overage rate, GMV percentage" (`:41-44`, reasons
-  at `:46-49`). Sentence 1's percentage of membership fees departs from that for this one product.
-  Whether the rule still holds for the feature plans is not decided (item 3).
+  at `:46-49`). Sentence 1's percentage ("from the sales of continuous fees of the purchased tier")
+  departs from that rule. Which product it applies to (item 7), and whether the rule still holds for
+  anything else (item 3), is not decided.
 
-This record cannot show that anything else of July still stands for the rebuilt app. Its catalogue
-lives in the old app (`apps/rewardspro/app/constants/pricing-contract.ts`, named at `:22-23`). The
-owner's July sentence (`:6-8`, a generous free tier) is not contradicted by the new words; whether it
-still guides the plans is his to say.
+This record cannot show what else of July still stands; that is his to say.
 
 **`AGENTS.md` principle 5** (`AGENTS.md:37-41`): new paid sales are off (23 September 2026), with one
 exception for data-API plans. This record does not lift that. RewardsPro's paid plans need their own
@@ -80,44 +78,51 @@ go from the owner, and their own line there, when the time comes.
    "are required to pay in order to participate", and prizes are allocated by chance. A paid,
    members-only prize draw has that shape and needs legal advice before any work. The agent offered
    other shapes on 9 November (a free entry route, skill instead of chance, perks with no chance); he
-   has not chosen. The 20 October pause on chance mechanics and "nothing spent on a solicitor"
-   (`2026-10-20-…:26-27`) were an agent's call and need his view.
+   has not chosen. The 20 October pause on chance mechanics and "nothing is spent on a solicitor for
+   now" (`2026-10-20-rewardspro-free-only-relaunch.md:26-27`) were an agent's call and need his view.
 2. **Plan names.** "Rewards Max Tier" was an example. `max` is the old app's internal key for Scale,
-   billed as `RewardsPro Max` (`2026-07-23-…:114`); "Tier" inside a plan name collides with VIP tiers,
-   the product's own word; the one spelling is RewardsPro (`kernel.toml:7`).
-3. **How the percentage is billed, and at what rate.** Whether Shopify lets an app bill a share of a
-   merchant's membership sales, and in what form, is not checked. Whether feature plans are fixed
-   charges, as July had them, is open.
+   billed as `RewardsPro Max` (`2026-07-23-rewardspro-free-first-pricing.md:114`); "Tier" inside a
+   plan name collides with VIP tiers, the product's own word; the one spelling is RewardsPro
+   (`kernel.toml:7`).
+3. **How the percentage is billed, and at what rate.** Whether Shopify lets an app bill a percentage
+   of sales, and in what form, is not checked. Whether feature plans are fixed charges, as July had
+   them, is open.
 4. **Shopify subscription access.** The app holds none today: six scopes, none for products or
-   subscriptions (`apps/rewards/shopify.app.toml:49`). "Continuous fees" points to recurring
-   membership, which needs it. A one-time membership product would not; the old app sold tiers that
-   way (`apps/rewardspro/test/unit/contracts/tier-product-copy.test.tsx:12-16`). Which comes first is open.
+   subscriptions (`apps/rewards/shopify.app.toml:49`). A recurring membership sold to buyers would
+   need it. A one-time membership product would not; the old app sold tiers that way
+   (`apps/rewardspro/test/unit/contracts/tier-product-copy.test.tsx:12-16`). Which comes first is
+   open.
 5. **The public wording about the free part.** Today's rules ban "free forever" and "always free"
-   (`apps/rewardspro/marketing/social/STRATEGY.md:186`; `claims.toml:234`). Whether his words are an
-   internal commitment or a public promise, and in what sentence, is his to say.
+   (both: `apps/rewardspro/marketing/social/STRATEGY.md:186`; "free forever" also
+   `claims.toml:234`). Whether his words are an internal commitment or a public promise, and in what
+   sentence, is his to say.
 6. **What "the free part" contains.** His words don't list it. The agent's reading: the app as it is
    today, cashback as store credit, VIP tiers and the widget (`SKILL.md:8`).
-7. **Who pays whom for the membership.** The agent's reading, not confirmed by him: the buyer pays the
-   merchant a recurring fee, and RewardsPro takes a share. Subscription rules for buyers (terms,
-   reminders, cancelling) are not checked.
-8. **Whether selling a membership needs a paid plan,** or is open to every store with only the
-   percentage. Sentences 1 and 3 can be read either way.
-9. **Which modules are paid.** "Specialised event modules" is open-ended; raffles and weekly missions
-   are examples. What a mission rewards is not said.
+7. **Who pays whom for "the purchased tier".** Two readings, both the agent's, neither confirmed by
+   him (his only "yes", sentence 5, is to writing this up): (a) a buyer pays the merchant a recurring
+   membership fee and RewardsPro takes a share; (b) a merchant takes a paid RewardsPro tier with no
+   upfront charge and RewardsPro takes a percentage of sales instead. Subscription rules for buyers
+   (terms, reminders, cancelling) are not checked.
+8. **Whether selling a membership needs a paid plan,** or is open to every store. This turns on
+   item 7.
+9. **Which modules are paid.** His "specialised event modules" is open-ended; raffles and weekly
+   missions are examples. What a mission rewards is not said.
 10. **Leaving a paid plan:** what happens to a running membership, raffle or mission when a merchant
     moves back to free. Raised by the agent on 9 November; not answered.
 11. **The privacy position** if the app ever asks for subscription or payment-method access. The
     privacy page says the app's records hold no names, emails, phones or addresses
     (`apps/rewardspro/landing/public/privacy-policy/index.html:99`).
-12. **Order and dates.** None given. The two old paid charges still frozen on two shops: cancel first,
-    or accept in writing (`apps/rewardspro/marketing/ROADMAP.md:289`). Still open.
+12. **Order and dates.** None given. The two old paid charges still frozen on two shops: cancel them
+    first, or accept `rp-free` in writing while they run (`apps/rewardspro/marketing/ROADMAP.md:289`;
+    two shops: `apps/rewardspro/test/unit/contracts/pricing-contract.test.ts:212`). Still open.
 
 ## What has to change on the day each part ships
 
 Not now. Each lead gets a pointer to its rows. Product owns `apps/rewards/**`; Growth owns the
 listing, rewardspro.io and `apps/rewardspro/marketing/**` (`SKILL.md:12-16`). Tests under
 `apps/rewardspro/test/` that read rewardspro.io are put with Growth here; that is the agent's reading,
-as the charter names no owner for them. Paths without a folder are under `apps/rewardspro/marketing/`.
+as the charter names no owner for them. Paths without a folder are under `apps/rewardspro/marketing/`;
+every other path is given in full.
 
 ### Any paid plan at all
 
@@ -138,17 +143,17 @@ as the charter names no owner for them. Paths without a folder are under `apps/r
 | Product | `apps/rewards/test/unit/admin/nav.dom.test.tsx:30-41` | Pins five menu items; a plan or module page changes it. |
 | Owner | `AGENTS.md:37-41` | Needs a RewardsPro line, on his go. |
 
-### Buyer-paid premium membership
+### Premium membership as a product
 
 | Lead | File | What changes |
 |---|---|---|
 | Growth | `claims.toml:187-200`, row `rp-no-tier-products` | Its claim is the opposite of this feature. |
 | Growth | `claims.toml:309-318`, row `sh-sc-subscriptions` | Scope says "never as a RewardsPro feature"; cashback can't pay renewals. |
 | Growth | `claims.toml:36`, row `rp-store-credit` | Source lists "the app's only mutations". |
-| Product | `apps/rewards/shopify.app.toml:49`; `production-toml.test.ts:81-94` | Pins six scopes "and no others". |
+| Product | `apps/rewards/shopify.app.toml:49`; `apps/rewards/test/unit/config/production-toml.test.ts:81-94` | Pins six scopes "and no others". |
 | Product | `apps/rewards/test/unit/shopify/graphql-schema.test.ts` | New product or subscription calls are checked against the committed schema. |
 | Product | `apps/rewards/test/unit/lib/buyer-data.test.ts:282` | Every new table must be named as buyer data or not. |
-| Growth | `privacy-policy/index.html:99`; `public-texts.contract.test.ts:63-66` | "No names, emails, phones or addresses", pinned. |
+| Growth | `apps/rewardspro/landing/public/privacy-policy/index.html:99`; `apps/rewardspro/test/unit/contracts/public-texts.contract.test.ts:63-66` | "No names, emails, phones or addresses", pinned. |
 | Growth | `apps/rewardspro/landing/public/index.html:364` | "Shopify doesn't let store credit pay subscription renewals." |
 | Growth | `listing/S1-text.md:80, 206-209`; `social/listing-delta.md:141-145` | "Memberships" and "Membership perks" were unticked; they come back. |
 | Growth | `social/STRATEGY.md:183, 193`; `DESIGN.md:220` | "Membership(s)", tier products and subscriptions are banned words. |
@@ -157,20 +162,19 @@ as the charter names no owner for them. Paths without a folder are under `apps/r
 
 | Lead | File | What changes |
 |---|---|---|
-| Growth | `public-texts.contract.test.ts:189` | The home page fails on "raffle". |
+| Growth | `apps/rewardspro/test/unit/contracts/public-texts.contract.test.ts:189` | The home page fails on "raffle". |
 | Product | `apps/rewards/test/postgres/app-proxy.postgres.test.ts:518` | The storefront path `raffles` must answer 404. |
 | Product | `apps/rewards/test/unit/lib/buyer-data.test.ts:318` | Uses `RaffleEntry` as a stale example; real entry tables need classifying. |
 | Growth | `social/claims-map.md:59-60, 120` | `rp-no-chance`, `rp-no-points`; need a guard test and the owner's word. |
 | Growth | `social/STRATEGY.md:193, 574`; `DESIGN.md:220` | Never-say 8 (raffles, missions); open decision D9. |
-| Growth | `privacy-policy/index.html` | Entries, winners and prize delivery would be new data about buyers. |
-| Owner | `2026-10-20-…:26-27` | The pause on chance mechanics and the solicitor line (item 1). |
+| Growth | `apps/rewardspro/landing/public/privacy-policy/index.html` | Entries, winners and prize delivery would be new data about buyers. |
+| Owner | `docs/decisions/2026-10-20-rewardspro-free-only-relaunch.md:26-27` | The pause on chance mechanics and the solicitor line (item 1). |
 
-## One thing that changes now
+## Advice for now
 
-For writers of new public copy: "no paid plans" should stay out of lasting places (posts, videos,
-ads), because it will stop being true. This answers open decision D4 in
-`apps/rewardspro/marketing/social/STRATEGY.md:569`: it does not hold for the life of a post. Existing
-pages stay as they are; they are true today.
+The agent's advice, until the owner answers D4 (`apps/rewardspro/marketing/social/STRATEGY.md:569`):
+keep "no paid plans" out of lasting places (posts, videos, ads), since his words point to paid plans
+with no date. Existing pages stay as they are; they are true today.
 
 ## Undo
 
@@ -180,8 +184,6 @@ The owner saying otherwise, recorded on #236 or its successor, and a later recor
 
 - The Gambling Commission's guidance on free draws and prize competitions; only the Act's s.14 was
   read. Free-entry rules outside the UK and Shopify's own policy on prize draws were not researched.
-- Whether Shopify allows an app to bill a percentage of a merchant's membership sales as a usage
-  charge.
-- Whether Shopify would grant the app subscription access, and why such access was withdrawn earlier
-  (seen in the Partner Dashboard; nothing in the repo records it).
+- Whether Shopify allows an app to bill a percentage of sales as a usage charge.
+- Whether Shopify would grant the app subscription access.
 - The plan names on the two frozen old charges.
