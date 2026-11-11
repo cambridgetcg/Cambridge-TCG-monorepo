@@ -43,10 +43,10 @@ afterAll(async () => {
 
 describe("the stdio bridge", () => {
   it("treats a 202 like a 204: nothing on stdout and no diagnostic", async () => {
-    const child = spawn(process.execPath, [TSX_CLI, BRIDGE], {
-      env: { PATH: process.env.PATH ?? "", CTCG_MCP_ENDPOINT: endpoint },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    // A minimal environment: no key or endpoint from the caller's shell can
+    // reach the bridge, which talks only to the stub.
+    const env = { PATH: process.env.PATH ?? "", CTCG_MCP_ENDPOINT: endpoint } as unknown as NodeJS.ProcessEnv;
+    const child = spawn(process.execPath, [TSX_CLI, BRIDGE], { env, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk; });
