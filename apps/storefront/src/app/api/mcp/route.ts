@@ -684,6 +684,13 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
     if (method === "ping" && body.id !== undefined) {
       return NextResponse.json(rpcResult(body.id, {}));
     }
+    // initialize advertises the resources capability, which includes
+    // resources/templates/list; none exist, as with resources/list below.
+    // Before any key, since both SDKs throw on the 401 or 404 it got before.
+    // Counted as other, ok.
+    if (method === "resources/templates/list") {
+      return NextResponse.json(rpcResult(body.id, { resourceTemplates: [] }));
+    }
   }
   // Set only here, after the transport's own answers above, so POST sends
   // with 200 a refusal from the tool's path and never the 400 for an

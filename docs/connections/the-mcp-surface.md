@@ -132,7 +132,7 @@ The MCP surface is not new — it's the spec-compliance veneer on a gate the kin
 
 Substrate-honest about scope:
 
-- **No resources or prompts yet.** `resources/list` and `prompts/list` return empty arrays. The capability flags `resources` and `prompts` are advertised so a strict client knows the categories exist — but Cambridge TCG hasn't yet defined per-SKU resources or canonical prompts. Future work: per-SKU card resources, deck-summary prompts, archetype-analysis prompts.
+- **No resources or prompts yet.** `resources/list` and `prompts/list` return empty arrays, and since 2026-11-11 so does `resources/templates/list` for a standard MCP client (other callers still get it as an unknown method). The capability flags `resources` and `prompts` are advertised so a strict client knows the categories exist — but Cambridge TCG hasn't yet defined per-SKU resources or canonical prompts. Future work: per-SKU card resources, deck-summary prompts, archetype-analysis prompts.
 - **No event stream and no sessions.** Since 2026-11-11 the HTTPS gate speaks the JSON-response form of MCP Streamable HTTP; it never opens an SSE stream or issues `Mcp-Session-Id`, and it does not implement HTTP+SSE or MCP 2026-07-28. Clients that only speak stdio need the vendored stdio bridge.
 - **No server-initiated streaming.** Progress notifications, partial results, and server-pushed updates are out of scope today.
 - **No OAuth.** MCP's 2025-03-26 revision adds optional OAuth 2.0 for remote auth; today the gate uses opaque bearer tokens, which a client sends as a static header. A hosted chat app that connects only through OAuth can list the tools but not call keyed ones. Token rotation, scope-bounded auth, refresh tokens — all named as recursion targets.

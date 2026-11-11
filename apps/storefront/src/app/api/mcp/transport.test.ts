@@ -157,10 +157,11 @@ describe.each(["plain", "bridge"] as const)("a %s caller gets main's answers", (
     expect(keyless.status).toBe(401);
   });
 
-  it("ping, server/discover and an unknown tool are unknown methods, after the key", async () => {
+  it("ping, server/discover, resources/templates/list and an unknown tool are unknown methods, after the key", async () => {
     for (const [message, name] of [
       [{ jsonrpc: "2.0", id: 4, method: "ping" }, "ping"],
       [PROBE, "server/discover"],
+      [{ jsonrpc: "2.0", id: 6, method: "resources/templates/list" }, "resources/templates/list"],
       [call(5, "no.such.tool"), "no.such.tool"],
     ] as const) {
       const keyed = await answer(await post(caller, message));
@@ -249,6 +250,15 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
       const response = await answer(await sdk({ jsonrpc: "2.0", id: 4, method: "ping" }, { key }));
       expect(response.status).toBe(200);
       expect(response.text).toBe(JSON.stringify({ jsonrpc: "2.0", id: 4, result: {} }));
+    }
+    expect(mocks.resolveAgentBearer).not.toHaveBeenCalled();
+  });
+
+  it("lists no resource templates, before any key, since initialize advertises resources", async () => {
+    for (const key of [true, false]) {
+      const response = await answer(await sdk({ jsonrpc: "2.0", id: 6, method: "resources/templates/list" }, { key }));
+      expect(response.status).toBe(200);
+      expect(response.text).toBe(JSON.stringify({ jsonrpc: "2.0", id: 6, result: { resourceTemplates: [] } }));
     }
     expect(mocks.resolveAgentBearer).not.toHaveBeenCalled();
   });
