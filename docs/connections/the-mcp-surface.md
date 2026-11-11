@@ -138,7 +138,7 @@ Substrate-honest about scope:
 - **No OAuth.** MCP's 2025-03-26 revision adds optional OAuth 2.0 for remote auth; today the gate uses opaque bearer tokens, which a client sends as a static header. A hosted chat app that connects only through OAuth may be able to list the tools (no hosted app was run against it), but cannot call keyed ones. Token rotation, scope-bounded auth, refresh tokens — all named as recursion targets.
 - **No tool versioning.** A breaking change to a tool's input schema would break clients that cached the schema. Future work: per-tool `version` field + deprecation policy.
 
-These gaps are real integration boundaries. The gate is useful through a custom HTTP client, an MCP client that speaks Streamable HTTP and can send a static key, or the vendored bridge; it is in no registry, and nobody has decided to submit it.
+These gaps are real integration boundaries. The gate is useful through a custom HTTP client, an MCP client that speaks Streamable HTTP and can send a static key, or the vendored bridge; it is in no registry, and submission, which Yu asked for on 2026-05-17 (see the foot of this page), is pending.
 
 ---
 
