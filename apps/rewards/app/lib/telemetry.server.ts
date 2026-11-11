@@ -130,14 +130,21 @@ function isKeptRequestHeader(name: string): boolean {
   return KEPT_REQUEST_HEADERS.has(lower) || lower.startsWith(KEPT_REQUEST_HEADER_PREFIX);
 }
 
-// A transaction's spans carry the request headers again, one attribute each.
+// A transaction's spans carry the request headers again, one attribute each,
+// and the response's headers too.
 const REQUEST_HEADER_ATTRIBUTE_PREFIX = "http.request.header.";
+const RESPONSE_HEADER_ATTRIBUTE_PREFIX = "http.response.header.";
 
-/** Span data without the request-header attributes the allow-list doesn't keep. */
+/**
+ * Span data without the request-header attributes the allow-list doesn't
+ * keep, and without any response header: none helps debug an error, and a
+ * redirect's location or a frame-ancestors policy names the store.
+ */
 function withKeptHeaderAttributes<D extends Record<string, unknown>>(data: D): D {
   return Object.fromEntries(
     Object.entries(data).filter(([key]) => {
       const lower = key.toLowerCase();
+      if (lower.startsWith(RESPONSE_HEADER_ATTRIBUTE_PREFIX)) return false;
       return !lower.startsWith(REQUEST_HEADER_ATTRIBUTE_PREFIX) || isKeptRequestHeader(lower.slice(REQUEST_HEADER_ATTRIBUTE_PREFIX.length));
     }),
   ) as D;
@@ -153,8 +160,9 @@ type Scrubbable = {
 /**
  * Sentry's beforeSend (and beforeSendTransaction): the event without its
  * request's query string, cookies and body, with only the request headers
- * the allow-list keeps (on the request and on a transaction's spans), its
- * URLs without their query strings, and everything left redacted.
+ * the allow-list keeps (on the request and on a transaction's spans), no
+ * response headers, its URLs without their query strings, and everything
+ * left redacted.
  */
 export function scrubEvent<E extends Scrubbable>(event: E): E | null {
   const copy = { ...event };

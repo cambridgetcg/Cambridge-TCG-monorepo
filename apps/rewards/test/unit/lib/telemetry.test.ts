@@ -181,4 +181,31 @@ describe("sentryOptions (how entry.server.tsx starts Sentry)", () => {
     });
     expect(JSON.stringify(scrubbed)).not.toMatch(ADDRESS_VALUES);
   });
+
+  // The app needs no response header to debug an error; a redirect's
+  // location or a frame-ancestors policy names the store
+  it("drops every response-header attribute, and filters an error event's own trace data", () => {
+    // A fresh object each time: the redaction pass reads a shared reference as a cycle
+    const data = () => ({
+      "http.request.method": "GET",
+      "http.request.header.user-agent": ["Mozilla/5.0 (test)"],
+      "http.request.header.x-vercel-ip-city": ["Cambridge"],
+      "http.response.header.location": ["https://rewards.example/auth?shop=example.myshopify.com"],
+      "http.response.header.content-security-policy": ["frame-ancestors https://example.myshopify.com"],
+      "http.response.status_code": 302,
+    });
+    const kept = { "http.request.method": "GET", "http.request.header.user-agent": ["Mozilla/5.0 (test)"], "http.response.status_code": 302 };
+
+    const error = { type: undefined, contexts: { trace: { trace_id: "t", span_id: "s", data: data() } } } as unknown as ErrorEvent;
+    expect(options.beforeSend(error)?.contexts?.trace?.data).toEqual(kept);
+
+    const transaction = {
+      type: "transaction",
+      contexts: { trace: { trace_id: "t", span_id: "s", data: data() } },
+      spans: [{ span_id: "c", trace_id: "t", start_timestamp: 0, data: data() }],
+    } as unknown as Parameters<typeof options.beforeSendTransaction>[0];
+    const scrubbed = options.beforeSendTransaction(transaction)!;
+    expect(scrubbed.contexts?.trace?.data).toEqual(kept);
+    expect(scrubbed.spans?.[0].data).toEqual(kept);
+  });
 });
