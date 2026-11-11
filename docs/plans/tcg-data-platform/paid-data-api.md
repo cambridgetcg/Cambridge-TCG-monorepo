@@ -725,6 +725,40 @@ record. A read serves a row only while every source in it still has
 effect on the next read. Nothing in the job publishes: the reads are behind
 `DATA_API_READS` (§5).
 
+### Run notes
+
+**2026-11-10, run 11, ran late.** Vercel did not invoke the 07:00 UTC cron
+that day; the cause is not known. An AI agent triggered it by hand at 21:42
+UTC (`vercel crons run`). The method sets no time-of-day cut-off, so the run
+is valid under `ctcg.market-derived/v1`, but it is not the run a 07:00 job
+would have written:
+
+- It read batches committed up to 20:50 UTC, about 14 hours more TCGplayer
+  and CardRush collection, and used the ECB quote published that afternoon.
+- TCGplayer levels differ from a 07:00 cut by up to about 2 percentage
+  points on a single set, and by 0.07 on the per-game index. Changes over 7,
+  30 or 90 days that take 2026-11-10 as their base inherit that.
+- `one-piece:op06:cardrush` has its base row on this date only because the
+  run was late, and one TCGplayer-against-CardRush premium row (OP01, at the
+  10-SKU minimum) would not have existed.
+
+The run row shows the hour (`created_at`) and the ceiling
+(`input_batch_ceiling` 4520). Nothing else marks a run as late or manual, and
+nothing alerts when a scheduled run is missed: the monitor shows such a day
+as "unknown", the same as a day whose run is not yet due.
+
+**Limits of the series found on 2026-11-10, not yet fixed.** Each needs a
+decision before `DATA_API_READS` is turned on.
+
+- CardRush index levels have so far moved only with the JPY to GBP rate. The
+  collector is still on its first pass through each sitemap and has read no
+  listing twice, so each matched pair carries the same yen price forward.
+- A day on which Cardmarket's price file did not change is written as a flat
+  day, with nothing in the run marking its input as unchanged (2026-11-08).
+- Reference prices are still zero in every run, and the
+  TCGplayer-against-CardRush premium medians rest on about ten pairs a set
+  and have swung roughly tenfold between runs.
+
 <a id="plans"></a>
 
 ## 4. Plans, keys and metering (migration 0142)

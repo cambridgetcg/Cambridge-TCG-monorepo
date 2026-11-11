@@ -113,6 +113,20 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   },
   // ── 2026-11-10 ─────────────────────────────────────────────────────────
   {
+    id: "card-everything-price-sources-withheld",
+    date: "2026-11-10",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/cards/{sku}/everything + /api/v1/search/everything",
+    summary:
+      "A value change, no new field: where source prices are withheld, composition.falcon_calls.price_sources now reads blocked (it read absent) and prices_today.note says the rows are withheld (it said none existed).",
+    detail:
+      "Since 2026-07-12 the wholesale service has answered its price-sources route with a deliberate 503, status publication_withheld_pending_field_level_rights. The storefront read that as a failed call, so the composed card answer said price_sources absent with the note 'No source rows yet…', which was untrue: stored rows may exist and are withheld. That one answer is now its own state. falcon_calls.price_sources is blocked; prices_today keeps rows [], snapshot_date null and agreement null; and prices_today.note is the wholesale service's own withheld note, or 'Source prices are withheld: no stored source row is currently cleared for publication.' when it sends none. " +
+      "absent still covers everything else that yields no source view: the card or snapshot was not found, the call answered any other non-OK status, or it failed in transport or parsing. error still means the answer named a different card. /api/v1/search/everything embeds the same composed answer, so its everything.prices_today and everything.composition.falcon_calls change the same way. " +
+      "No price value is published by this change, and nothing about which sources are cleared has changed. The storefront also no longer logs the withheld answer as an error.",
+    related_urls: ["/api/openapi.json", "/api/v1/sources"],
+  },
+  {
     id: "agent-held-signing-keys-closed",
     date: "2026-11-10",
     kind: "endpoint-added",
