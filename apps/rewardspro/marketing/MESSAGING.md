@@ -54,8 +54,8 @@ prompt without a rate (`:240`). The help page's section (`/help/#zero-base-rate`
 cancellation moves a customer back down, the cashback their other orders earned in the higher tier is not taken
 back; cashback can be switched on before a tier above 0% exists, and until one does, no order earns any; and the
 help page's own test order earns nothing at 0%. Its widget limit also says what signed-in customers see. Its ledger
-row, `rp-zero-base-rate` (proposed; its uncertainties say why), carries all seven with their code lines. Never as
-advice that it works ("so only returning customers earn").
+row, `rp-zero-base-rate` (verified after two reads; its uncertainties say what they found), carries all seven with
+their code lines. Never as advice that it works ("so only returning customers earn").
 
 **Rules that travel with it:** "free" only beside "you fund the cashback you give", and with Shopify's fee sentence
 in a field of 300 characters or more; never "every paid order earns" (link `/help/#earn-nothing`); never "who have
