@@ -25,13 +25,14 @@ without "Past orders earn no cashback." beside it.
 **Where it stands.** rewardspro.io's home page carries the headline as its h1, the proof as the last sentence of its
 lead, and the tier line below in How it works, step 1, once that change is merged on the owner's word and deployed.
 The site, the listing and the profiles don't name advertising as a contrast. The 0% base rate setting goes on the
-help page first, with its limits (the owner's yes, 12 Nov, item 4), and no post says it before the help page does;
-that change is not made yet.
+help page first, with its limits (the owner's yes, 12 Nov, item 4), and no post says it before the help page does.
+The help page says it under "What does a base rate of 0% do?" (`/help/#zero-base-rate`), once that change too is
+merged on the owner's word and deployed.
 
 | Sentence | Ledger row | Source (under `apps/rewards/` at 8daf7f09) | Limit |
 |---|---|---|---|
 | RewardsPro is for giving back to customers who buy from you. (The h1: "Give back to customers who buy from you.") | `rp-give-back` | A purpose: the owner's words above, and of 7 Nov ("give back to customers who are loyal", `approvals.jsonl`). The next row makes it hold | Never a result: not that customers stay, return or spend more. The shop gives and funds; RewardsPro adds the credit. Never "the customers you already have" or "existing customers" |
-| No one earns cashback without a paid order. | `rp-no-cashback-without-paid-order` | The only credit payout is created in `app/lib/record-order.server.ts:225-238`; the only other `payout.create` is the refund debit, `app/lib/refunds.server.ts:247`. `recordOrder` records nothing without a customer (`:92`) and gives imported orders no cashback (`:61`). It is reached from `orders/paid` (`app/routes/webhooks.orders.paid.tsx:55`), the hourly sweep of paid, partly refunded or refunded orders (`app/lib/payout-check.server.ts:536`, `app/shopify/order-source.server.ts:755`), and the import (`app/lib/import.server.ts:41`) | One way only. Never "every paid order earns": the help page's list at `/help/#earn-nothing` (`:313-322`) has seven kinds that earn nothing |
+| No one earns cashback without a paid order. | `rp-no-cashback-without-paid-order` | The only credit payout is created in `app/lib/record-order.server.ts:225-238`; the only other `payout.create` is the refund debit, `app/lib/refunds.server.ts:247`. `recordOrder` records nothing without a customer (`:92`) and gives imported orders no cashback (`:61`). It is reached from `orders/paid` (`app/routes/webhooks.orders.paid.tsx:55`), the hourly sweep of paid, partly refunded or refunded orders (`app/lib/payout-check.server.ts:536`, `app/shopify/order-source.server.ts:755`), and the import (`app/lib/import.server.ts:41`) | One way only. Never "every paid order earns": the help page's list at `/help/#earn-nothing` names kinds of order that earn nothing |
 | So a customer who has spent more with you can be in a tier with a higher rate, if you set one. | `rp-tier-higher-rate` | A tier is a name, a minimum spend and a rate (`prisma/schema.prisma:261-266`); `saveTier` and `saveLadder` take any whole percent from 0 to 100 and tie no rate to a minimum (`app/lib/tiers.server.ts:526-556, 608-636`); an order's rate is the locked tier's, or else the customer's (`app/lib/record-order.server.ts:149`) | After "Add tiers by spend, each with its own cashback rate.", never alone. "Can" and "if you set one" stay: the rates are the shop's. The order that takes a customer into a higher tier earns the old rate (help page `:263-264`) |
 | A customer new to your store, or not yet placed in a tier, earns your lowest tier's rate. | None (a live sentence on the help page, `:265`) | `app/lib/record-order.server.ts:116-149` | The shop sets that rate from 0% to 100% (home page, How it works, step 1); at 0% the order earns nothing (`record-order.server.ts:156-161`). So never "first-time buyers earn" as RewardsPro's rule, and never "first-time buyers don't earn" |
 
@@ -49,7 +50,12 @@ has set above 0% (`app/lib/tiers.server.ts:37-41`, `app/lib/record-order.server.
 with it: the order that takes a customer into that tier still earns 0% (help page `:263-264`); past orders brought
 in at install can place a customer in it from the start (`:196`); customers move down when their counted spend falls
 below the minimum, with no grace period, unless locked (`:381`); and at 0% the widget shows guests the sign-in
-prompt without a rate (`:240`). Never as advice that it works ("so only returning customers earn").
+prompt without a rate (`:240`). The help page's section (`/help/#zero-base-rate`) adds three more: if a refund or a
+cancellation moves a customer back down, the cashback their other orders earned in the higher tier is not taken
+back; cashback can be switched on before a tier above 0% exists, and until one does, no order earns any; and the
+help page's own test order earns nothing at 0%. Its widget limit also says what signed-in customers see. Its ledger
+row, `rp-zero-base-rate` (verified after two reads; its uncertainties say what they found), carries all seven with
+their code lines. Never as advice that it works ("so only returning customers earn").
 
 **Rules that travel with it:** "free" only beside "you fund the cashback you give", and with Shopify's fee sentence
 in a field of 300 characters or more; never "every paid order earns" (link `/help/#earn-nothing`); never "who have
@@ -73,7 +79,7 @@ avoid.
 | "No paid order, no cashback." as a headline, card or post | Read both ways ("no pain, no gain"), it says every paid order earns | "No one earns cashback without a paid order." |
 | "Customers who never return", "one-off buyers" | Describes other shops' customers, and nothing shows it | Nothing |
 | "Only customers who buy earn"; "only paying customers" | "Only" is never-say 3 | The proof line |
-| "Every paid order earns"; "every customer who buys gets cashback" | Seven kinds of order earn nothing (help page `:313-322`) | "When an order is paid, RewardsPro adds cashback …" with the earn-nothing link |
+| "Every paid order earns"; "every customer who buys gets cashback" | Some orders earn nothing (the list at `/help/#earn-nothing`) | "When an order is paid, RewardsPro adds cashback …" with the earn-nothing link |
 | "First-time buyers earn" or "first-time buyers don't earn" as RewardsPro's rule | The shop sets the lowest tier's rate and can make it 0% | The lowest-tier sentence above, with its limit |
 | "The more they spend, the more they earn"; "your best customers"; "VIPs get more" | The rates are the shop's; the crossing order earns the old rate; "best" is never-say 3 | The tier line |
 | "Customers move up tiers as they spend" | They move down too, and not at all while locked | `rp-vip-tiers` |
@@ -87,7 +93,7 @@ avoid.
 | "Our view: … deserve something back" | Judges customers; reads as a lecture | The opener and the line |
 | "We advertise RewardsPro too" | The ad may not be running on the day | Leave it out |
 | "Acquiring customers is expensive. Keeping them shouldn't be." (a 2025 post on RewardsPro's X account) | An unsourced cost claim, then a promise about keeping customers and about cost | Don't repeat it |
-| A 0% base rate "so only returning customers earn" | Advice that implies a result; "only" | The setting with its four limits, above, on the help page first |
+| A 0% base rate "so only returning customers earn" | Advice that implies a result; "only" | The setting with its limits, above, on the help page first (`/help/#zero-base-rate`) |
 
 **Register:** "give back" is the owner's verb (7 and 12 Nov) and leads. "Reward" stays in the listing subtitle. With
 his yes to the wording, the headline is the umbrella line, in place of U1, U1-Y (O1) and UA ("Made for rewarding
