@@ -240,7 +240,58 @@ describe("rewardspro.io home page", () => {
     }
     expect(existsSync(resolve(process.cwd(), "landing/public/assets/screens/og-tiers.jpg"))).toBe(true);
     for (const path of PAGES) expect(read(path), path).toContain('<li><a href="/help/">Help</a></li>');
-    expect(readText(SITEMAP)).toContain("<loc>https://rewardspro.io/</loc> <lastmod>2026-11-10</lastmod>");
+    expect(readText(SITEMAP)).toContain("<loc>https://rewardspro.io/</loc> <lastmod>2026-11-12</lastmod>");
+  });
+
+  it("gives back to customers who buy, and says no one earns cashback without a paid order, as the app does it", () => {
+    const home = readText(HOME);
+    // The owner's core concept of 12 Nov 2026, in the wording he said yes to (marketing/MESSAGING.md, top section)
+    expect(home).toContain("<h1>Give back to customers who buy from you.</h1>");
+    expect(home).toContain("with VIP tiers by spend and a widget on your storefront. No one earns cashback without a paid order.</p>");
+    // One way only: some paid orders earn nothing, and the page points to the list
+    expect(home).not.toMatch(/every paid order|every order earns|only (paying )?customers/i);
+    expect(home).toContain('<a href="/help/#earn-nothing">Every order that earns nothing</a>');
+    // The site names no advertising (the opener about paying to find customers is for posts and video only)
+    expect(home).not.toMatch(/\bads?\b|advert/i);
+
+    // Payouts are created in two places: a recorded order's credit and a refund's debit
+    const creators = filesUnder("../rewards/app")
+      .filter((file) => /payout\.(create|createMany|createManyAndReturn|upsert)\(/.test(readFileSync(file, "utf8")))
+      .map((file) => file.slice(file.lastIndexOf("/app/") + 1))
+      .sort();
+    expect(creators).toEqual(["app/lib/record-order.server.ts", "app/lib/refunds.server.ts"]);
+    const record = app("app/lib/record-order.server.ts");
+    expect(record).toMatch(/tx\.payout\.create\(\{\s+data: \{[^}]*direction: "credit"/);
+    expect(app("app/lib/refunds.server.ts")).toMatch(/tx\.payout\.create\(\{\s+data: \{[^}]*direction: "debit"/);
+    // An order with no customer is not recorded, and an imported order earns nothing
+    expect(record).toContain('if (facts.externalCustomerId === null) return { status: "no_customer" };');
+    expect(record).toContain('if (source === "import") return "import";');
+    // recordOrder runs for orders/paid, the hourly sweep of paid or refunded orders, and the import
+    const callers = filesUnder("../rewards/app")
+      .filter((file) => /(?<!function )\brecordOrder\(/.test(readFileSync(file, "utf8")))
+      .map((file) => file.slice(file.lastIndexOf("/app/") + 1))
+      .sort();
+    expect(callers).toEqual(["app/lib/import.server.ts", "app/lib/payout-check.server.ts", "app/routes/webhooks.orders.paid.tsx"]);
+    expect(app("shopify.app.toml")).toMatch(/topics = \[ "orders\/paid" \]\s+uri = "\/webhooks\/orders\/paid"/);
+    expect(app("app/shopify/order-source.server.ts")).toContain(
+      "(financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded)",
+    );
+  });
+
+  it("says a customer who has spent more can be in a tier with a higher rate, if the shop sets one", () => {
+    expect(readText(HOME)).toContain(
+      "Add tiers by spend, each with its own cashback rate. So a customer who has spent more with you can be in a tier with a higher rate, if you set one.",
+    );
+    // A tier is a minimum spend and a rate the shop sets, a whole percent from 0 to 100
+    expect(modelFields("Tier")).toEqual(expect.arrayContaining(["minSpend", "cashbackPercent"]));
+    const tiers = app("app/lib/tiers.server.ts");
+    expect(tiers).toContain("const percent = parseBaseRate(input.percent);");
+    // By spend: the tier with the highest minimum the customer's spend has reached
+    expect(tiers).toContain("if (tier.minSpend.lte(spend) && tier.minSpend.gt(chosen.minSpend)) chosen = tier;");
+    // An order earns the locked tier's rate, or else the rate of the tier the customer holds
+    expect(app("app/lib/record-order.server.ts")).toContain(
+      "const rateTier = tiers.find((t) => t.id === (customer.lockedTierId ?? customer.tierId)) ?? null;",
+    );
   });
 });
 

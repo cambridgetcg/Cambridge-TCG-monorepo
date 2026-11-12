@@ -316,3 +316,61 @@ sources = [
 ]
 uncertainties = []
 review_after = "2026-12-07"
+
+# Added 12 Nov 2026 by RewardsPro's Growth lead, with the home page change that puts the owner's core concept of
+# that day on rewardspro.io (MESSAGING.md, top section; approvals.jsonl, 2026-11-12). The header says this file
+# isn't extended after 10 Nov. These three rows are added anyway: DESIGN.md's Claims section still asks for a
+# verified row behind each factual sentence on a page, and the limits these sentences carry have to be somewhere an
+# agent on another machine finds them. Checked against apps/rewards at origin/main 8daf7f09, by the writer on
+# 12 Nov, and for the first two by the concept's one read the same day; these rows' lines are at 8daf7f09. The ids
+# are new: `rp-purpose` is cited in MESSAGING.md's 7 Nov blocks for other words, and an id that reads "no paid
+# order, no cashback" reads both ways.
+[[claim]]
+id = "rp-no-cashback-without-paid-order"
+claim = "No one earns cashback without a paid order."
+scope = "One way only: never turned round into 'every paid order earns'. Some paid orders earn nothing, such as those with no customer attached, Shopify's test orders and orders placed before install; the help page lists them at /help/#earn-nothing, so link it where there is room. Never 'only paying customers' (STRATEGY.md never-say 3)."
+status = "verified"
+channels = ["landing"]
+sources = [
+  "app/lib/record-order.server.ts:225-238: the only credit payout is created here, for a recorded order's cashback entry",
+  "app/lib/refunds.server.ts:247-253: the only other payout.create, a refund's debit",
+  "app/lib/record-order.server.ts:92 and 61: an order with no customer is not recorded; an imported order earns nothing (reason import)",
+  "recordOrder's three callers: app/routes/webhooks.orders.paid.tsx:55 (orders/paid, shopify.app.toml:25-27); app/lib/payout-check.server.ts:536, the hourly sweep, whose list (app/shopify/order-source.server.ts:755) holds only paid, partly refunded or refunded orders; app/lib/import.server.ts:41, the past-orders import",
+  "app/lib/payouts.server.ts:139-152 and 529-543: adjustment entries create no payout; :240-241: the one credit call to Shopify is for a credit payout",
+  "git grep over app/ for payout.create, createMany and upsert, nested payout writes and INSERT INTO: no other path (12 Nov 2026)",
+  "apps/rewardspro/test/unit/contracts/public-texts.contract.test.ts: pins the home page's sentence beside these facts",
+]
+uncertainties = [
+  "That Shopify sends orders/paid only once an order is paid is Shopify's behaviour, and wasn't checked here; the handler checks the topic, not the order's payment status (app/routes/webhooks.orders.paid.tsx:36).",
+]
+review_after = "2027-02-12"
+
+[[claim]]
+id = "rp-tier-higher-rate"
+claim = "So a customer who has spent more with you can be in a tier with a higher rate, if you set one."
+scope = "Follows 'Add tiers by spend, each with its own cashback rate.' (rp-vip-tiers), never alone. 'Can' and 'if you set one' stay: the rates are the shop's, and nothing makes a higher tier's rate higher. 'Spent more' is the spend RewardsPro counts (rp-tier-window). The order that takes a customer into a higher tier earns at the old rate (help page :263-264); customers move down too, and a locked customer stays in the locked tier (rp-vip-tiers, rp-tier-lock). Never 'the more they spend, the more they earn'."
+status = "verified"
+channels = ["landing"]
+sources = [
+  "prisma/schema.prisma:261-266: a tier is a name, a minimum spend and a cashback rate",
+  "app/lib/tiers.server.ts:124-132: qualify places a customer in the tier with the highest minimum their spend has reached",
+  "app/lib/tiers.server.ts:526-556 and 608-636: saveTier and saveLadder take any whole percent from 0 to 100 as a tier's rate, and tie no rate to a minimum (saveLadder asks only that each minimum rises)",
+  "app/lib/record-order.server.ts:149: an order's rate is the locked tier's, or else that of the tier the customer holds before the order",
+  "apps/rewardspro/test/unit/contracts/public-texts.contract.test.ts: pins the home page's sentence beside these facts",
+]
+uncertainties = []
+review_after = "2027-02-12"
+
+[[claim]]
+id = "rp-give-back"
+claim = "RewardsPro is for giving back to customers who buy from you."
+scope = "A purpose, the owner's: his words of 12 Nov 2026, and of 7 Nov ('give back to customers who are loyal'), both in approvals.jsonl. It holds because the credit goes only to customers with a paid order (rp-no-cashback-without-paid-order), as store credit the shop funds (rp-store-credit, rp-merchant-funds). Also covers the home page's h1, 'Give back to customers who buy from you.' Never a result: not that customers stay, return or spend more. The shop gives and funds; RewardsPro adds the credit. Present tense: never 'who have bought' without 'Past orders earn no cashback.' beside it, and never 'the customers you already have' or 'existing customers' (a first paid order can earn too, help page :265). In posts and video it may follow 'Shops pay to find new customers.' as '... to the ones who buy from you.'; that opener is framing, not a claim, and stays off the site, the listing and the profiles."
+status = "verified"
+channels = ["landing"]
+sources = [
+  "approvals.jsonl, 2026-11-12: the owner's core concept and his yes to this wording, verbatim",
+  "approvals.jsonl, 2026-11-07 (ledger rp-umbrella-idea): 'A credit system to give back to customers who are loyal'",
+  "rp-no-cashback-without-paid-order, rp-store-credit and rp-merchant-funds: the mechanism that makes the purpose hold",
+]
+uncertainties = []
+review_after = "2027-02-12"

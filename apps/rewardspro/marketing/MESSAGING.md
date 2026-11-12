@@ -1,5 +1,104 @@
 # RewardsPro messaging
 
+## Core concept (the owner, 12 Nov 2026)
+
+> "我想加個核心concept, instead of paying ads to acquire more customers, give back to those that have shopped and
+> will stay. Retention and build a relationship instead of expanding and getting those that never return."
+
+("我想加個核心concept" is "I want to add a core concept"; the gloss is ours.) The idea is the owner's; the wording
+below is the agents'. In the same session he said yes to it, chose the opener for posts and video (option b), and
+asked for the home page to carry it: "1. yes 2. b 3. yes need an update 4.yes please" (`approvals.jsonl`,
+2026-11-12). **This section is current. The rest of this file, from "Proposal for the owner, 2026-11-07" down, is
+history.**
+
+- **Headline:** Give back to customers who buy from you.
+- **Line:** RewardsPro is for giving back to customers who buy from you.
+- **Proof, under either:** No one earns cashback without a paid order.
+- **Posts and video only:** Shops pay to find new customers. RewardsPro is for giving back to the ones who buy
+  from you.
+
+**Why it is true.** The only code path that creates store credit starts from a recorded paid order with a customer
+on it. A first paid order can earn too, at the lowest tier's rate, which the shop sets from 0% to 100%. Past and
+imported orders earn nothing, so the line is in the present tense: "who buy from you", never "who have bought"
+without "Past orders earn no cashback." beside it.
+
+**Where it stands.** rewardspro.io's home page carries the headline as its h1, the proof as the last sentence of its
+lead, and the tier line below in How it works, step 1, once that change is merged on the owner's word and deployed.
+The site, the listing and the profiles name no advertising. The 0% base rate setting goes on the help page first,
+with its limits (the owner's yes, 12 Nov, item 4), and no post says it before the help page does; that change is
+not made yet.
+
+| Sentence | Ledger row | Source (under `apps/rewards/` at 8daf7f09) | Limit |
+|---|---|---|---|
+| RewardsPro is for giving back to customers who buy from you. (The h1: "Give back to customers who buy from you.") | `rp-give-back` | A purpose: the owner's words above, and of 7 Nov ("give back to customers who are loyal", `approvals.jsonl`). The next row makes it hold | Never a result: not that customers stay, return or spend more. The shop gives and funds; RewardsPro adds the credit. Never "the customers you already have" or "existing customers" |
+| No one earns cashback without a paid order. | `rp-no-cashback-without-paid-order` | The only credit payout is created in `app/lib/record-order.server.ts:225-238`; the only other `payout.create` is the refund debit, `app/lib/refunds.server.ts:247`. `recordOrder` records nothing without a customer (`:92`) and gives imported orders no cashback (`:61`). It is reached from `orders/paid` (`app/routes/webhooks.orders.paid.tsx:55`), the hourly sweep of paid, partly refunded or refunded orders (`app/lib/payout-check.server.ts:536`, `app/shopify/order-source.server.ts:755`), and the import (`app/lib/import.server.ts:41`) | One way only. Never "every paid order earns": the help page's list at `/help/#earn-nothing` (`:313-322`) has seven kinds that earn nothing |
+| So a customer who has spent more with you can be in a tier with a higher rate, if you set one. | `rp-tier-higher-rate` | A tier is a name, a minimum spend and a rate (`prisma/schema.prisma:261-266`); `saveTier` and `saveLadder` take any whole percent from 0 to 100 and tie no rate to a minimum (`app/lib/tiers.server.ts:526-556, 608-636`); an order's rate is the locked tier's, or else the customer's (`app/lib/record-order.server.ts:149`) | After "Add tiers by spend, each with its own cashback rate.", never alone. "Can" and "if you set one" stay: the rates are the shop's. The order that takes a customer into a higher tier earns the old rate (help page `:263-264`) |
+| A customer new to your store, or not yet placed in a tier, earns your lowest tier's rate. | None (a live sentence on the help page, `:265`) | `app/lib/record-order.server.ts:116-149` | The shop sets that rate from 0% to 100% (home page, How it works, step 1); at 0% the order earns nothing (`record-order.server.ts:156-161`). So never "first-time buyers earn" as RewardsPro's rule, and never "first-time buyers don't earn" |
+
+"Help page" is `apps/rewardspro/landing/public/help/index.html` at 8daf7f09.
+
+| His words | Said as | Why |
+|---|---|---|
+| "give back to those that have shopped" | "giving back to customers who buy from you"; "No one earns cashback without a paid order." | The mechanism, as fact, in the present tense. Never "the customers you already have": first-time buyers can earn too |
+| "instead of paying ads to acquire more customers" | "Shops pay to find new customers." before the line, in posts and video only (his choice, option b) | His turn, said fairly: both cost money, and the post then says the shop funds the cashback. Advertising isn't named on the listing, the site or the profiles: RewardsPro's App Store ad is built from the listing, and STRATEGY.md never-say 3 bars comparisons |
+| "will stay", "retention", "build a relationship", "those that never return" | Not said. Tiers by spend, "a customer who has spent more with you can be in a tier with a higher rate, if you set one", and "You can lock a customer to a tier." | Results nobody can show; the mechanism is stated instead |
+
+**The 0% base rate setting, when the help page says it.** The closest true form of "those that will stay" is a
+setting, not a result: with a base rate of 0%, a customer's orders earn cashback once they are in a tier the shop
+has set above 0% (`app/lib/tiers.server.ts:37-41`, `app/lib/record-order.server.ts:149-161`). Its four limits go
+with it: the order that takes a customer into that tier still earns 0% (help page `:263-264`); past orders brought
+in at install can place a customer in it from the start (`:196`); customers move down when their counted spend falls
+below the minimum, with no grace period, unless locked (`:381`); and at 0% the widget shows guests the sign-in
+prompt without a rate (`:240`). Never as advice that it works ("so only returning customers earn").
+
+**Rules that travel with it:** "free" only beside "you fund the cashback you give", and with Shopify's fee sentence
+in a field of 300 characters or more; never "every paid order earns" (link `/help/#earn-nothing`); never "who have
+bought" without "Past orders earn no cashback."; any line about spending carries Shopify's sign-in rule, labelled
+and dated; no outcome, no cost comparison with advertising, no "only"; advertising is never cast as the thing to
+avoid.
+
+**Don't say**
+
+| Don't say | Why | Say instead |
+|---|---|---|
+| "Instead of paying for ads, give back to your customers"; "Stop paying for ads"; "Ads don't work" | Tells shops to drop advertising, which RewardsPro's own plan uses (ROADMAP.md §6), and shops need new customers | In posts and video: "Shops pay to find new customers. RewardsPro is for giving back to the ones who buy from you." |
+| "Not chase customers with ads"; "instead of chasing new customers" | Casts advertising as the thing to avoid. It was the agents' paraphrase, not the owner's words | The opener and the line |
+| "An advert is for people who might buy. Cashback is for people who have."; "Before they buy, an advert. After, cashback."; "Two places a shop's money can go." | Adverts reach past buyers too; the pair implies a saving nobody can show (CAP Code 3.1, 3.7, 3.37); issuing credit moves no money | Nothing about adverts. "No one earns cashback without a paid order." |
+| "A shop pays for ads to reach people. In RewardsPro, no one earns cashback without a paid order." | Read together: an advert is paid for whether anyone buys or not, while RewardsPro costs nothing until a sale. That is "you only pay when they buy", an implied saving, with Shopify's fee left out | The opener, then "you fund the cashback you give": both cost money |
+| "Cheaper than ads", "costs less than finding a new customer", any ROI or cost-per-customer figure | No data (STRATEGY.md never-say 9) | "You fund the cashback you give." with Shopify's fee sentence |
+| "Customers will stay / come back / return / spend more / become loyal"; "keeps your customers"; "retention"; "so they have a reason to come back and buy again" | Results nobody can show | The line, or the listing subtitle "Give loyal customers cashback to spend in your store" |
+| "Builds relationships", "builds loyalty", "reward their loyalty", "loyalty program", "community" as fact | Results, or category words the kit avoids (DESIGN.md Voice) | Tiers by spend, the tier line, the tier lock |
+| "The customers you already have" (beside "new customers"); "existing customers, not new ones"; "repeat customers" | A first paid order can earn too (help page `:265`) | "the ones who buy from you" (after the opener); "customers who buy from you" |
+| "Cashback for customers who have already bought / already paid"; "Give back to customers who have bought" on a card, h1, bio, listing or video without "Past orders earn no cashback." | Reads as the shop's past customers and their old orders, which earn nothing (help page `:318`) | "Give back to customers who buy from you." |
+| "No paid order, no cashback." as a headline, card or post | Read both ways ("no pain, no gain"), it says every paid order earns | "No one earns cashback without a paid order." |
+| "Customers who never return", "one-off buyers" | Describes other shops' customers, and nothing shows it | Nothing |
+| "Only customers who buy earn"; "only paying customers" | "Only" is never-say 3 | The proof line |
+| "Every paid order earns"; "every customer who buys gets cashback" | Seven kinds of order earn nothing (help page `:313-322`) | "When an order is paid, RewardsPro adds cashback …" with the earn-nothing link |
+| "First-time buyers earn" or "first-time buyers don't earn" as RewardsPro's rule | The shop sets the lowest tier's rate and can make it 0% | The lowest-tier sentence above, with its limit |
+| "The more they spend, the more they earn"; "your best customers"; "VIPs get more" | The rates are the shop's; the crossing order earns the old rate; "best" is never-say 3 | The tier line |
+| "Customers move up tiers as they spend" | They move down too, and not at all while locked | `rp-vip-tiers` |
+| "The money stays in your shop"; "every penny goes to your customers"; "credit never expires" | Promises about time; refunds take credit back; Shopify's fee is the shop's money too | `rp-merchant-funds`; "RewardsPro sets no expiry date on the credit it gives." (help page `:356`) |
+| "You only pay when they buy"; "costs nothing until it's spent" | Blocked words (never-say 1 and 3), an accounting reading, and Shopify's fee | The proof line, `rp-merchant-funds`, `sh-sc-fee` |
+| "They'll spend it on their next order"; spending without the sign-in rule | Implies a return, and drops Shopify's rule | `sh-sc-signin-legacy` in full, labelled and dated |
+| "Free" alone | Never-say 2 | `rp-free` beside `rp-merchant-funds` |
+| "Instantly", "real-time" | No timing has been observed (`rp-paid-trigger` scope) | "When an order is paid" |
+| "RewardsPro gives your customers cashback" (as if RewardsPro pays) | The shop gives and funds it | "RewardsPro adds cashback … you fund the cashback you give" |
+| "We made / built RewardsPro for …" | The old app had points and tier products; the past tense invites that | "RewardsPro is for …" |
+| "Our view: … deserve something back" | Judges customers; reads as a lecture | The opener and the line |
+| "We advertise RewardsPro too" | The ad may not be running on the day | Leave it out |
+| "Acquiring customers is expensive. Keeping them shouldn't be." (a 2025 post on RewardsPro's X account) | An unsourced cost claim, then a promise about keeping customers and about cost | Don't repeat it |
+| A 0% base rate "so only returning customers earn" | Advice that implies a result; "only" | The setting with its four limits, above, on the help page first |
+
+**Register:** "give back" is the owner's verb (7 and 12 Nov) and leads. "Reward" stays in the listing subtitle. With
+his yes to the wording, the headline is the umbrella line, in place of U1, U1-Y (O1) and UA ("Made for rewarding
+loyal customers.", the h1 until this change) in §1 below. "Loyal customers" stays his term (approved 7 Nov) in the
+tier sentences.
+
+Placements for posts, video, profiles and the listing are in the team's private notes of 12 Nov 2026; any public
+text made from them carries the limits above.
+
+---
+
 **Proposal for the owner, 2026-11-07. Only the owner's own words in §0 are his; every other line here is an agents' proposal
 awaiting his yes.** Nothing here is sent, published or decided. Every claim id cited is `proposed` in
 [claims.toml](claims.toml) (36 rows, none verified), and G0 hasn't passed, so no text below can go public or into
