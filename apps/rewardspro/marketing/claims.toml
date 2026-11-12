@@ -379,3 +379,33 @@ sources = [
 ]
 uncertainties = []
 review_after = "2027-02-12"
+
+# Added 12 Nov 2026 by RewardsPro's Product lead, with the help page's section "What does a base rate of 0% do?"
+# (/help/#zero-base-rate), on the owner's yes of that day (approvals.jsonl, 2026-11-12, item 4). It is extended after
+# 10 Nov for the reason given above rp-no-cashback-without-paid-order. Proposed, not verified: only the writer has
+# checked it so far (see uncertainties). Lines are at 8daf7f09; apps/rewards is the same at 94b32de1.
+[[claim]]
+id = "rp-zero-base-rate"
+claim = "With a base rate of 0%, orders from customers in your lowest tier earn no cashback. A customer's orders earn cashback once they are in a tier you have set above 0%, by their spend or because you lock them to it, at that tier's rate."
+scope = "A setting, said as a setting, never as advice or a result: not 'so only returning customers earn', not 'reward loyalty', nothing about customers staying, returning or spending more. Some orders still earn nothing (/help/#earn-nothing). Its limits go with it: (1) the order that takes a customer from the lowest tier into a higher one earns nothing, however large, and a new customer starts in the lowest tier; (2) past orders brought in at install count towards tiers, so a customer can be in a tier above 0% before they order again; (3) when a customer's counted spend falls below their tier's minimum (a refund, a cancellation, or, under Last 12 months, older orders leaving the window), they move down at the next update, with no grace period, unless locked; (4) cashback can be switched on before a tier above 0% exists, and until one does, no order earns any; (5) the widget shows guests no rate, and shows signed-in customers in the lowest tier '0% back as store credit', with the next tier named but not its rate; (6) the help page's test order earns nothing at 0%, and locking yourself to a tier above 0% after it is recorded makes the next order earn that rate. Said on the help page first (the owner, 12 Nov 2026); a post may follow only with these limits beside it."
+status = "proposed"
+channels = ["landing"]
+sources = [
+  "app/lib/tiers.server.ts:36-41: a base rate or tier rate is any whole percent from 0 to 100, so 0 is accepted",
+  "app/routes/app._index.tsx:176-184 and 358-383: Home's setup card saves it until the first tier exists; app/lib/tiers.server.ts:337-359: with no tiers it creates the lowest tier, Everyone, at a spend of 0, otherwise it sets the lowest tier's rate; app/routes/app.tiers.tsx:396-406 with tiers.server.ts:526-575: after that, the lowest tier's Cashback on Tiers takes 0 too",
+  "app/lib/record-order.server.ts:149-162: an order's rate is the locked tier's, or else the held tier's; at 0% the amount is 0, so the reason is nothing_to_pay_on, with no ledger entry and no payout (:207-240); the order is still written (:166-196) and counts as spend (tiers.server.ts:97-105)",
+  "app/lib/order-status.ts:48 and 78-80: Orders shows such an order as No cashback, 'The rate gave nothing on this order'",
+  "(1) app/lib/record-order.server.ts:116-131: a new customer is created in the lowest tier; app/routes/webhooks.orders.paid.tsx:55-64 and app/lib/payout-check.server.ts:536-540: the tier is resolved only after the order is recorded",
+  "(2) app/lib/tiers.server.ts:1-9 and 97-105: tier spend counts imported orders (no source filter); app/lib/import.server.ts:4-6; app/shopify/bulk-import.server.ts:417-418: the import's end runs a tier pass; app/routes/app._index.tsx:181 and app/routes/app.tiers.tsx:88: so do the first base rate and a tier change that can move buyers",
+  "(3) app/lib/tiers.server.ts:63-77 and 97-105: the rolling window and the orders spend counts (refunds subtracted, cancelled orders left out); :222-261: resolveTier takes the locked tier, else the tier the spend qualifies for, with no grace; resolves after orders/refunded (webhooks.orders.refunded.tsx:102) and orders/cancelled (webhooks.orders.cancelled.tsx:82), and nightly (app/routes/api.cron.tiers.tsx, vercel.json:9)",
+  "(4) app/lib/merchant.server.ts:163-176: switching cashback on needs one tier, at any rate",
+  "(5) extensions/rewards-widget/assets/rewards-widget.js:163-171: a guest sees a rate only above 0; :131-139 and locales/en.default.json:5: a signed-in customer sees their tier's rate, 0 included; :111-129 and en.default.json:8: the next-tier line has the amount and the tier's name, and the widget never reads nextTierCashbackPercent; app/shopify/widget-config.server.ts:66-78: the guest's rate is the lowest tier's",
+  "(6) app/lib/record-order.server.ts:120-131: a customer's row, which a lock needs, exists only once an order of theirs is recorded; app/lib/tiers.server.ts:276-286 and app/routes/app.customers.$id.tsx:88-100: Lock to a tier; record-order.server.ts:149: the locked tier's rate wins",
+  "apps/rewardspro/test/unit/contracts/public-texts.contract.test.ts: pins the help page's sentences beside these facts",
+]
+uncertainties = [
+  "Checked by the writer only, on 12 Nov 2026 at 94b32de1. The one read hasn't run (the brief for this change said to spawn no agent); a fresh reader's check, hardest on the money sentences, sets this row to verified.",
+  "RP-24's setup guide (#185, #192, not merged) will send new stores to a three-step tier guide instead of Home's base rate field (#238); the help page's sentence on where 0% is saved changes then. RP-25 (#189) plans a widget line with the next tier's rate, and #243 may name the setting; either changes limit (5) or the section.",
+  "That a draft order marked as paid reaches orders/paid is the help page's existing try-it, and wasn't re-checked here.",
+]
+review_after = "2027-02-12"

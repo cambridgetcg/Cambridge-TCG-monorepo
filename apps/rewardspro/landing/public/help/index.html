@@ -318,6 +318,7 @@
             <li>Orders placed before you installed RewardsPro, even if they are paid later, and the past orders it brings in.</li>
             <li>Orders RewardsPro records while cashback is off. They still count towards tiers.</li>
             <li>Orders with nothing to pay on, such as one paid in full with store credit.</li>
+            <li>Orders from customers in a tier at 0%, such as your lowest tier at a <a href="#zero-base-rate">base rate of 0%</a>.</li>
             <li>Orders too large for RewardsPro to read: more than 2,500 lines, 200 or more transactions, or 20 or more refunds.</li>
           </ul>
         </section>
@@ -388,6 +389,27 @@
             A locked customer keeps that tier and its rate whatever they spend, until you choose <strong>Return to automatic</strong>.
             Deleting a tier returns customers locked to it to automatic.
           </p>
+
+          <h3 id="zero-base-rate">What does a base rate of 0% do?</h3>
+          <p>
+            With a base rate of 0%, orders from customers in your lowest tier earn no cashback.
+            A customer's orders earn cashback once they are in a tier you have set above 0%, by their spend or because you lock them to it, at that tier's rate.
+            Some orders still earn nothing: see <a href="#earn-nothing">Which orders earn nothing?</a>
+          </p>
+          <p>
+            Orders at 0% are still recorded and count towards tiers.
+            The <strong>Orders</strong> page shows such an order as "No cashback", with "The rate gave nothing on this order".
+            You can save 0% as the base rate on Home's setup card, and change it later as your lowest tier's rate on the <strong>Tiers</strong> page.
+          </p>
+          <p>Limits:</p>
+          <ul>
+            <li>The order that takes a customer from your lowest tier into a higher one earns nothing, however large: an order earns the rate of the tier the customer was in before it, and a new customer starts in your lowest tier.</li>
+            <li>Past orders brought in at install count towards tiers, so a customer can be in a tier above 0% before they order again.</li>
+            <li>When a customer's counted spend falls below their tier's minimum, after a refund or a cancellation, or under <strong>Last 12 months</strong> as older orders stop counting, they move down at the next update, with no grace period, unless they are locked.</li>
+            <li>Cashback can be switched on before you add a tier above 0%, and until you do, no order earns any.</li>
+            <li>The widget shows guests the sign-in prompt without a rate. Signed-in customers in your lowest tier see "0% back as store credit"; the widget names the next tier and the amount left to reach it, but not its rate.</li>
+            <li>At 0%, the test order under <a href="#try-it">How can you try it on your own store?</a> earns nothing. Once that order is recorded, you can lock yourself to a tier above 0%, and your next order earns its rate.</li>
+          </ul>
         </section>
 
         <section class="section" id="refunds" aria-labelledby="refunds-title">

@@ -295,6 +295,69 @@ describe("rewardspro.io home page", () => {
   });
 });
 
+const HELP = "landing/public/help/index.html";
+
+describe("rewardspro.io help page", () => {
+  it("says what a base rate of 0% does, with its limits, as the app does it", () => {
+    const help = readText(HELP);
+    const section = help.match(/<h3 id="zero-base-rate">[\s\S]*?<\/ul>/)?.[0] ?? "";
+    // The owner's yes of 12 Nov 2026, item 4: the setting, said as a setting (marketing/claims.toml rp-zero-base-rate)
+    expect(section).toContain("What does a base rate of 0% do?</h3>");
+    expect(section).toContain("With a base rate of 0%, orders from customers in your lowest tier earn no cashback.");
+    expect(section).toContain("A customer's orders earn cashback once they are in a tier you have set above 0%, by their spend or because you lock them to it, at that tier's rate.");
+    expect(section).toContain('<a href="#earn-nothing">Which orders earn nothing?</a>');
+    expect(help).toContain('<li>Orders from customers in a tier at 0%, such as your lowest tier at a <a href="#zero-base-rate">base rate of 0%</a>.</li>');
+    // Not advice, and no promised result
+    expect(section).not.toMatch(/\bonly\b|loyal|\brewards?\b|returning|come back|\bstays?\b|retention|relationship/i);
+
+    // 0 is a rate the base rate field and Tiers both take
+    const tiers = app("app/lib/tiers.server.ts");
+    expect(tiers).toContain('if (typeof value !== "string" || !/^\\d{1,3}$/.test(value.trim())) return null;');
+    expect(tiers).toContain("return percent <= 100 ? percent : null;");
+    expect(tiers).toContain("const percent = parseBaseRate(input.percent);");
+    // An order's rate is the locked tier's, else the held one's; at 0% it earns nothing but is still written
+    const record = app("app/lib/record-order.server.ts");
+    expect(record).toContain("const rateTier = tiers.find((t) => t.id === (customer.lockedTierId ?? customer.tierId)) ?? null;");
+    expect(record).toMatch(/if \(amount\.gt\(0\)\) \{[\s\S]*?\} else \{\s+noCashback = "nothing_to_pay_on";/);
+    expect(section).toContain('"No cashback", with "The rate gave nothing on this order"');
+    expect(app("app/lib/order-status.ts")).toContain('const RATE_GAVE_NOTHING = "The rate gave nothing on this order";');
+
+    // (1) A new customer starts in the lowest tier, and the tier moves only after the order is recorded
+    expect(section).toContain("The order that takes a customer from your lowest tier into a higher one earns nothing, however large");
+    expect(record).toContain("tierId: lowest?.id ?? null,");
+    expect(app("app/routes/webhooks.orders.paid.tsx")).toMatch(/if \(payoutId\) await sendPayout\(payoutId, rail\);\s+await resolveTier\(result\.customerId\);/);
+    // (2) Imported orders count as spend: the orders spend counts are filtered by test, cancellation and window, not source
+    expect(section).toContain("Past orders brought in at install count towards tiers, so a customer can be in a tier above 0% before they order again.");
+    const counted = tiers.match(/export function spendCounted[\s\S]*?\n\}/)?.[0] ?? "";
+    expect(counted).toContain("test: false,");
+    expect(counted).not.toContain("source");
+    expect(app("app/shopify/bulk-import.server.ts")).toContain("const pass = await runTierPass(connectionId, { deadline, resolvedBefore });");
+    // (3) Down with no grace, unless locked
+    expect(section).toContain("they move down at the next update, with no grace period, unless they are locked.");
+    expect(tiers).toContain("let target: TierRow | null = locked ?? null;");
+    // (4) Cashback switches on with one tier at any rate
+    expect(section).toContain("Cashback can be switched on before you add a tier above 0%, and until you do, no order earns any.");
+    expect(app("app/lib/merchant.server.ts")).toContain("where: running ? { id: merchantId, tiers: { some: {} } } : { id: merchantId },");
+    // (5) The widget: a guest's rate only above 0; a signed-in customer's rate, 0 included; the next tier without its rate
+    expect(section).toContain('Signed-in customers in your lowest tier see "0% back as store credit"');
+    const widget = app("extensions/rewards-widget/assets/rewards-widget.js");
+    expect(widget).toContain('if (root.getAttribute("data-running") === "true" && isFinite(base) && base > 0) {');
+    expect(widget).toContain("if (data.running !== false && isNumber(tier.cashbackPercent)) {");
+    expect(widget).not.toContain("nextTierCashbackPercent");
+    const words = JSON.parse(app("extensions/rewards-widget/locales/en.default.json")).rewards_widget;
+    expect(words.earn).toBe("{percent}% back as store credit");
+    expect(words.to_next).toBe("{amount} more to reach {tier}");
+    // (6) A lock needs a recorded order: only recordOrder creates a customer
+    expect(section).toContain("Once that order is recorded, you can lock yourself to a tier above 0%, and your next order earns its rate.");
+    const creators = filesUnder("../rewards/app")
+      .filter((file) => /\bcustomer\.(create|createMany|createManyAndReturn|upsert)\(/.test(readFileSync(file, "utf8")))
+      .map((file) => file.slice(file.lastIndexOf("/app/") + 1));
+    expect(creators).toEqual(["app/lib/record-order.server.ts"]);
+
+    expect(readText(SITEMAP)).toContain("<loc>https://rewardspro.io/help/</loc> <lastmod>2026-11-12</lastmod>");
+  });
+});
+
 describe("rewardspro.io names RewardsPro's own accounts", () => {
   it("lists them as the app's sameAs in the home page's structured data, beside the listing", () => {
     const ld = homeLd();
