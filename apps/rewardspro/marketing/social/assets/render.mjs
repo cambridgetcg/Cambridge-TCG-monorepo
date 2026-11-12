@@ -23,8 +23,8 @@
 //
 // A card that carries a product line is built as a DRAFT (bands: "DRAFT · NOT FOR POSTING") until
 // every claim id it names is "verified", inside its review_after date and cleared for the
-// "social-post" channel in claims.toml, no <placeholder> is left, and (A6) a real screenshot is
-// embedded in its slot.
+// "social-post" channel in claims.toml, no <placeholder> is left, nothing is left in its holds (A7), and
+// (A6) a real screenshot is embedded in its slot.
 // Env: VECTORCRAFT_CLI (path to vectorcraft-cli), SHARP (path to the sharp package),
 //      RP_ALLOW_TOOL_DRIFT=1 (build with sharp/librsvg/vectorcraft versions other than the pinned ones).
 
@@ -491,12 +491,16 @@ const CARDS = [
   {
     asset: 'rule-card', briefId: 'STRATEGY.md §7 A7 (C1, §6.2)', W: 1080, H: 1350,
     claims: ['rp-cashback-base', 'rp-store-credit'], phWords: { '<D Month YYYY>': 'a check date', '<body to rewrite>': 'the body rewritten from rp-cashback-base' },
+    // The body, the worked example (ex-label, ex) and the alt text (this card's alt, below) are 7 Nov's:
+    // rewrite all three from rp-cashback-base and the help page (README, Doubt 5). <body to rewrite> keeps
+    // the body a draft; holds keeps the example and the alt, which a <placeholder> can't: one is drawn in
+    // accent-text teal, 4.22:1 on the example's grey panel (the build stops under 4.5:1), and the alt isn't drawn.
+    holds: ['the example and alt rewritten'],
     platforms: ['LinkedIn image post (4:5)'],
     items: [{ rect: [88, 120, 80, 10], fill: C.tealUi }, { rect: [88, 712, 904, 240], rx: 16, fill: C.surface }],
     texts: [
       { id: 'kicker', lines: ['Cashback, paid as Shopify store credit'], x: 88, y: 192, size: 32, weight: 'SemiBold', fill: C.tealText, on: C.white, box: [88, 160, 992, 204] },
       HL('head', ['How cashback', 'is worked out'], 290),
-      // <body to rewrite> holds the card as a draft: these words and the example are 7 Nov's (README, Doubt 5)
       { id: 'body', lines: ['Cashback is paid on the product price', 'after discounts. Shipping, and anything', 'paid with store credit or gift cards,', 'earns nothing. <body to rewrite>'], x: 88, y: 470, size: 42, lh: 60, weight: 'Regular', fill: C.text, on: C.white, box: [88, 430, 992, 670] },
       { id: 'ex-label', lines: ['Test store, prices including VAT:'], x: 128, y: 780, size: 32, weight: 'Regular', fill: C.n700, on: C.surface, box: [128, 738, 952, 798] },
       { id: 'ex', lines: ['£600 of products, £60 off, £10 shipping.', 'Cashback on £540. At 5%: **£27.00**.'], x: 128, y: 846, size: 38, lh: 58, weight: 'Regular', fill: C.text, on: C.surface, box: [128, 802, 952, 942] },
@@ -569,6 +573,7 @@ function cardAsset(c) {
   }
   const phs = [...new Set(c.texts.flatMap(t => t.lines.flatMap(l => l.match(/<[^>]+>/g) || [])))];
   for (const w of [...new Set(phs.map(p => (c.phWords || {})[p] || PH_WORDS[p] || `text for ${p}`))]) blockers.push(w);
+  for (const w of c.holds || []) blockers.push(w);
   if (c.template) {
     const row = c.corrects && LEDGER[c.corrects];
     if (!c.corrects) blockers.push('a claim that proved wrong');
@@ -607,7 +612,7 @@ function cardAsset(c) {
   const drawn = [...texts.map(t => ({ y: t.y, s: joined(t) })), { y: logoY, s: 'RewardsPro (kit lockup, bottom left)' }].sort((p, q) => p.y - q.y).map(p => p.s);
   const base = c.alt({ T, shot });
   const alt = draft ? `${isTemplate ? 'Template' : 'Draft'}, not for posting. ${base}` : base;
-  const useTail = `render.mjs drops the bands only when every claim is verified, inside its review_after date and cleared for social-post, and no placeholder is left${c.slot ? ', with a real screenshot embedded in the slot' : ''}${c.template ? ', and corrects names the wrong claim, whose row has a correction_url' : ''}.`;
+  const useTail = `render.mjs drops the bands only when every claim is verified, inside its review_after date and cleared for social-post, and no placeholder${c.holds ? ' or hold' : ''} is left${c.slot ? ', with a real screenshot embedded in the slot' : ''}${c.template ? ', and corrects names the wrong claim, whose row has a correction_url' : ''}.`;
   return {
     kind: 'svg', asset: c.asset, variant, W: c.W, H: c.H, ground: C.white, briefId: c.briefId,
     platforms: c.platforms, maxBytes: 2_000_000, claims: ids, gates, safe_before_g0: false, draft, ai: 'assistive', view: { ...PHONE, srcW: c.W },

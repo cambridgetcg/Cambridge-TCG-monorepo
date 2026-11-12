@@ -3,6 +3,8 @@
 # Last update: 10 Nov 2026, by RewardsPro's Growth lead (RP-06, #166, PR #207). From now on, the source of a new
 # public sentence goes in the body of the PR that adds it, and this file isn't extended. Every earlier row, with its
 # history, is in git: this file on main before PR #207, and PR #207's earlier commits (up to e8c90600).
+# 12 Nov 2026 (PR #242): social-post added to 13 rows and to the channel list; rp-tier-lock's scope widened to tier
+# deletion and to the customer's erasure, checked against the code at 8daf7f09 by the writer and a fresh reader.
 #
 # Kept: the rows behind a sentence on the live App Store listing or rewardspro.io, or in the listing text of PR #208
 # (App Store ads are built from the listing), plus the four rows PR #187 re-checked. The other 24 rows backed only
@@ -75,12 +77,14 @@ review_after = "2027-02-10"
 [[claim]]
 id = "rp-tier-lock"
 claim = "You can lock a customer to a tier."
-scope = "From the customer's page in the app, for a customer RewardsPro has recorded an order for and whose data hasn't been erased, on a store with at least one tier. A locked customer keeps that tier and its rate whatever their spend, until 'Return to automatic', or until that tier is deleted, which returns them to automatic. The lowest tier can't be deleted."
+scope = "From the customer's page in the app, for a customer RewardsPro has recorded an order for and whose data hasn't been erased, on a store with at least one tier. A locked customer keeps that tier and its rate whatever their spend, until 'Return to automatic', until that tier is deleted, which returns them to automatic, or until the customer's data is erased. The lowest tier can't be deleted."
 status = "verified"
 channels = ["listing", "landing", "social-post"]
 sources = [
   "app/routes/app.customers.$id.tsx:158-184: 'Lock to a tier' (shown only when the store has tiers, :168), and 'Locked to <tier>.' with 'Return to automatic'",
-  "app/lib/tiers.server.ts:682-683, 690-692 (deleteTier, :670-695, unchanged at 8daf7f09): deleting a tier refuses the lowest one, clears the locks to it and places its customers again before the row goes; app/routes/app.tiers.tsx:332: the lowest tier has no Delete button. Added 12 Nov 2026",
+  "app/lib/tiers.server.ts:682-683, 690-692 (deleteTier, :670-695; tiers.server.ts is unchanged at 8daf7f09): deleting a tier refuses the lowest one, clears the locks to it and places its customers again before the row goes. Added 12 Nov 2026",
+  "app/routes/app.tiers.tsx:332 (:341 at 8daf7f09): the lowest tier has no Delete button. Added 12 Nov 2026",
+  "app/lib/erasure.server.ts:215 (redactCustomer, customers/redact; erasure.server.ts is unchanged at 8daf7f09): erasing a customer's data sets lockedTierId to null. Added 12 Nov 2026",
   "app/routes/app.customers.$id.tsx:87-101 and app/lib/tiers.server.ts:276-286: lockTier sets the lock, or with null clears it, then resolves the tier",
   "app/lib/tiers.server.ts:234-235 and app/lib/record-order.server.ts:149: a locked tier wins, for the tier and for an order's rate",
   "app/lib/record-order.server.ts:120-131: customer rows are made only when an order is recorded; app/lib/stats.server.ts:478-485: an erased customer has no page",
