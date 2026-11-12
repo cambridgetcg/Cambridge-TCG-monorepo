@@ -490,13 +490,14 @@ const CARDS = [
   },
   {
     asset: 'rule-card', briefId: 'STRATEGY.md §7 A7 (C1, §6.2)', W: 1080, H: 1350,
-    claims: ['rp-cashback-base', 'rp-store-credit'], phWords: { '<D Month YYYY>': 'a check date' },
+    claims: ['rp-cashback-base', 'rp-store-credit'], phWords: { '<D Month YYYY>': 'a check date', '<body to rewrite>': 'the body rewritten from rp-cashback-base' },
     platforms: ['LinkedIn image post (4:5)'],
     items: [{ rect: [88, 120, 80, 10], fill: C.tealUi }, { rect: [88, 712, 904, 240], rx: 16, fill: C.surface }],
     texts: [
       { id: 'kicker', lines: ['Cashback, paid as Shopify store credit'], x: 88, y: 192, size: 32, weight: 'SemiBold', fill: C.tealText, on: C.white, box: [88, 160, 992, 204] },
       HL('head', ['How cashback', 'is worked out'], 290),
-      { id: 'body', lines: ['Cashback is paid on the product price', 'after discounts. Shipping, and anything', 'paid with store credit or gift cards,', 'earns nothing.'], x: 88, y: 470, size: 42, lh: 60, weight: 'Regular', fill: C.text, on: C.white, box: [88, 430, 992, 670] },
+      // <body to rewrite> holds the card as a draft: these words and the example are 7 Nov's (README, Doubt 5)
+      { id: 'body', lines: ['Cashback is paid on the product price', 'after discounts. Shipping, and anything', 'paid with store credit or gift cards,', 'earns nothing. <body to rewrite>'], x: 88, y: 470, size: 42, lh: 60, weight: 'Regular', fill: C.text, on: C.white, box: [88, 430, 992, 670] },
       { id: 'ex-label', lines: ['Test store, prices including VAT:'], x: 128, y: 780, size: 32, weight: 'Regular', fill: C.n700, on: C.surface, box: [128, 738, 952, 798] },
       { id: 'ex', lines: ['£600 of products, £60 off, £10 shipping.', 'Cashback on £540. At 5%: **£27.00**.'], x: 128, y: 846, size: 38, lh: 58, weight: 'Regular', fill: C.text, on: C.surface, box: [128, 802, 952, 942] },
       { id: 'note', lines: ['Checked with a test build on our development store,', '<D Month YYYY>.'], x: 88, y: 1024, size: 28, lh: 38, weight: 'Regular', fill: C.muted, on: C.white, box: [88, 990, 992, 1078] },

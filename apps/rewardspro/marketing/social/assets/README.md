@@ -230,6 +230,10 @@ its alt text fits the form's 64 characters. The PNG is a listing upload, so it g
      example is staging check B (`apps/rewards/docs/staging-run.md:7-9, 23`: the "RewardsPro
      Staging" app with a throwaway database), not the released app. If production check B is run,
      the line can say so instead.
+   - 12 Nov 2026: A7's body ends in the placeholder `<body to rewrite>`, so the card stays a draft
+     now that both its claim ids carry `social-post` (PR #242). Its body and worked example are 7
+     Nov's and match neither `rp-cashback-base` nor any live page: rewrite both from that row and the
+     help page before the placeholder goes. The committed A7 files are still the 7 Nov build.
    - A8 is now titled "Some of Shopify’s rules for spending store credit", so it doesn't claim to be
      the whole list (`sh-sc-channels` also records other sales channels, B2B stores and
      subscriptions, which the card leaves out; POS stays out per STRATEGY §6.4). The partial-balance
