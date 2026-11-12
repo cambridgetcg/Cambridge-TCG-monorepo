@@ -394,6 +394,205 @@ describe("rewardspro.io help page", () => {
 
     expect(readText(SITEMAP)).toContain("<loc>https://rewardspro.io/help/</loc> <lastmod>2026-11-12</lastmod>");
   });
+
+  it("names, in the list of orders that earn nothing, those whose cashback rounds to nothing and those whose payment status is never Paid, Partially refunded or Refunded", () => {
+    // The home page says every order that earns nothing is listed there, so a kind the code adds must reach the list
+    const list = readText(HELP).match(/<h3 id="earn-nothing">[\s\S]*?<\/ul>/)?.[0] ?? "";
+    expect(list.match(/<li>/g)).toHaveLength(12);
+    const record = app("app/lib/record-order.server.ts");
+    expect(record).toContain('export type NoCashbackReason = "import" | "before_install" | "test" | "cancelled" | "off" | "no_tier" | "nothing_to_pay_on";');
+    // no_tier is left off the list: cashback switches on only with a tier, and the lowest (so the last) tier can't be deleted
+    expect(app("app/lib/merchant.server.ts")).toContain("where: running ? { id: merchantId, tiers: { some: {} } } : { id: merchantId },");
+    expect(app("app/lib/tiers.server.ts")).toContain('if (lowest.id === tierId) return { ok: false as const, reason: "lowest" as const };');
+
+    // Cashback that rounds to nothing at a rate above 0% earns nothing, recorded as nothing to pay on
+    expect(list).toContain("<li>Orders with nothing to pay on, such as one paid in full with store credit, and orders whose cashback rounds to nothing, such as 5% of 9p.</li>");
+    expect(readText(HELP)).toContain("<p>Cashback is rounded once, half up, to the currency's smallest unit, such as the penny.</p>");
+    const money = app("app/lib/money.ts");
+    expect(money).toContain("return roundMoney(new Money(base).times(percent).div(100), currency);");
+    expect(money).toContain("return new Money(v).toDecimalPlaces(currencyDecimals(currency), Money.ROUND_HALF_UP);");
+    expect(record).toContain("const amount = cashbackFor(issueBase, percent, currency);");
+    expect(record).toMatch(/if \(amount\.gt\(0\)\) \{[\s\S]*?\} else \{\s+noCashback = "nothing_to_pay_on";/);
+    // 5% of 9p is 0.45p, under the half penny that rounds up
+    expect((9 * 5) / 100).toBeLessThan(0.5);
+
+    // An order is recorded live only by orders/paid or by the hourly sweep, which lists paid, partly refunded and
+    // refunded orders, so an order Shopify never shows as one of those is never recorded
+    expect(list).toContain('<li>Orders whose payment status in Shopify is never "Paid", "Partially refunded" or "Refunded", such as one left "Partially paid".</li>');
+    const callers = filesUnder("../rewards/app")
+      .filter((file) => /(?<!function )\brecordOrder\(/.test(readFileSync(file, "utf8")))
+      .map((file) => file.slice(file.lastIndexOf("/app/") + 1))
+      .sort();
+    expect(callers).toEqual(["app/lib/import.server.ts", "app/lib/payout-check.server.ts", "app/routes/webhooks.orders.paid.tsx"]);
+    expect(app("app/routes/webhooks.orders.paid.tsx")).toContain('if (topic !== "ORDERS_PAID") return new Response(null, { status: 400 });');
+    expect(app("app/shopify/order-source.server.ts")).toContain(
+      "AND (financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded)`;",
+    );
+    expect(app("app/lib/payout-check.server.ts")).toContain("const listed = await store.orders.recentlyUpdatedOrders(since, { deadline: ctx.deadline });");
+    // The import's orders earn nothing whatever their status
+    expect(record).toContain('if (source === "import") return "import";');
+  });
+
+  it("names, in the list of orders that earn nothing, those a reinstall leaves out, those placed before a currency change and those too large to read when RewardsPro comes to record them", () => {
+    const help = readText(HELP);
+    const list = help.match(/<h3 id="earn-nothing">[\s\S]*?<\/ul>/)?.[0] ?? "";
+    const record = app("app/lib/record-order.server.ts");
+    const merchant = app("app/lib/merchant.server.ts");
+    const sweep = app("app/lib/payout-check.server.ts");
+    const source = app("app/shopify/order-source.server.ts");
+    const queries = app("app/shopify/graphql.ts");
+    const between = (from: string, to: string) => {
+      const [a, b] = [queries.indexOf(from), queries.indexOf(to)];
+      expect(a, from).toBeGreaterThan(-1);
+      expect(b, to).toBeGreaterThan(a);
+      return queries.slice(a, b);
+    };
+    const orderFacts = between("query RewardsOrderFacts(", "query RewardsOrderTransactions(");
+    const orderTransactions = between("query RewardsOrderTransactions(", "query RewardsRefundFacts(");
+    const refundFacts = between("query RewardsRefundFacts(", "query RewardsUpdatedOrders(");
+
+    // Before the first install: installedAt is set once, when the connection is created, and kept on reactivation.
+    // shop/redact (Shopify sends it 48 hours after an uninstall) or the nightly pass 30 days after one erases every
+    // row with a merchantId, the connection's too, unless the store is active again; the next install then creates
+    // a new connection, so it is a first install
+    expect(list).toContain(
+      "<li>Orders placed before you first installed RewardsPro, even if they are paid later, and the past orders it brings in. An install after RewardsPro has erased your store's data, which can happen from 48 hours after you uninstall, counts as a first install.</li>",
+    );
+    expect(record).toContain('if (facts.orderedAt < conn.installedAt) return "before_install";');
+    expect(merchant).toMatch(/if \(!existing\) \{[\s\S]*?status: "active",\s+installedAt: now,\s+activatedAt: now,/);
+    const erasure = app("app/lib/erasure.server.ts");
+    expect(erasure).toContain('const holdsMerchantRows = (model: DataModel) => model.fields.some((field) => field.kind === "scalar" && field.name === "merchantId");');
+    expect(erasure).toContain("for (const model of merchantErasureOrder()) {");
+    expect(erasure).toContain('if (connection?.status === "active") return { status: "skipped_active" };');
+    expect(modelFields("Connection")).toContain("merchantId");
+    expect(app("app/routes/webhooks.compliance.tsx")).toMatch(/if \(topic === "SHOP_REDACT"\) \{\s+const erasure = await eraseMerchant\(shop\);/);
+    const housekeeping = app("app/routes/api.cron.housekeeping.tsx");
+    expect(housekeeping).toContain("const ERASE_AFTER_MS = 30 * DAY_MS;");
+    expect(housekeeping).toContain('where: { status: "uninstalled", uninstalledAt: { lt: new Date(now.getTime() - ERASE_AFTER_MS) } },');
+
+    // A reinstall: an order placed in [uninstalledAt, activatedAt) earns nothing, and each uninstall and reinstall
+    // overwrites them, so it is the absence before the order is recorded: one first recorded after a later uninstall
+    // and reinstall is outside it. Nothing is recorded while the store is uninstalled; once it is back, an order
+    // paid while it was away is recorded only if the sweep lists it (three days back), and then it earns: it was
+    // placed before that uninstall
+    expect(list).toContain(
+      "<li>If you uninstall RewardsPro and install it again: orders placed while it was uninstalled, and orders paid while it was uninstalled that it doesn't find once it is back. An order placed while it was uninstalled can still earn if RewardsPro first records it after a later uninstall and reinstall.</li>",
+    );
+    expect(record).toContain("if (conn.uninstalledAt !== null && facts.orderedAt >= conn.uninstalledAt && facts.orderedAt < conn.activatedAt) {");
+    expect(merchant).toContain('data: { status: "uninstalled", uninstalledAt: now },');
+    expect(merchant).toContain('data: { status: "active", activatedAt: now, importLaunchedAt: null },');
+    expect(merchant).toContain('...(o.evenUninstalled ? {} : { status: "active" as const })');
+    expect(app("app/routes/webhooks.orders.paid.tsx")).toContain("const conn = await findConnection(shop);");
+    expect(sweep).toMatch(/const connections = await prisma\.connection\.findMany\(\{\s+where: \{ status: "active" \},/);
+    expect(sweep).toContain("const since = new Date(Math.max(ctx.now.getTime() - SWEEP_DAYS * DAY_MS, connection.installedAt.getTime()));");
+    expect(sweep).toContain("export const SWEEP_DAYS = 3;");
+
+    // A currency change: the order's shop money is Shopify's shop currency when the order was placed, and a read
+    // fails when that isn't the shop's currency at the time of the read, read in the same query, for the order and
+    // for each of its refunds. So after a change back, a read succeeds again: an order paid then, or one the sweep
+    // lists then, is recorded, and a refund read then takes back its share. orders/paid answers 500 and the sweep
+    // logs a problem, and with no change back the order is never recorded
+    expect(list).toContain(
+      "<li>Orders placed before you change your store's currency in Shopify and paid after the change. If you change it back, some of these can still earn.</li>",
+    );
+    expect(help).toContain(
+      "<li>After you change your store's currency in Shopify, refunds of orders placed before the change take nothing back. If you change it back, some of these refunds can still take back their share.</li>",
+    );
+    expect(orderFacts).toMatch(/query RewardsOrderFacts\(\$id: ID!, \$after: String\) \{\s+shop \{\s+currencyCode\s+\}/);
+    expect(source).toContain('const shopCurrency = text(rec(data.shop, "the shop").currencyCode, "the shop\'s currency");');
+    expect(source).toContain('const orderShopCurrency = currencyOf(node.currencyCode, "the order\'s shop currency");');
+    expect(source).toContain("if (orderShopCurrency !== shopCurrency) {");
+    expect(source).toContain("throw new OrderReadError(`The order's shop money is in ${orderShopCurrency}, but the shop's currency is ${shopCurrency}`);");
+    expect(source).toContain("return factsFromOrderNode({ ...read.node, transactions }, read.shopCurrency, { refunds: refundNodesRead });");
+    expect(source).toContain("const order = parseOrderNode({ ...read.node, transactions }, read.shopCurrency);");
+    // A recorded order's refunds reach its cashback only through readRefund: refunds/create and the sweep record
+    // what it read, and recordOrder records only the refunds readOrder read with the order
+    const appFiles = filesUnder("../rewards/app");
+    const using = (pattern: RegExp) =>
+      appFiles
+        .filter((file) => pattern.test(readFileSync(file, "utf8")))
+        .map((file) => file.slice(file.lastIndexOf("/app/") + 1))
+        .sort();
+    expect(using(/(?<!function )\brecordRefund\(/)).toEqual(["app/lib/payout-check.server.ts", "app/routes/webhooks.orders.refunded.tsx"]);
+    expect(using(/(?<!function )\brecordRefundInTransaction\(/)).toEqual(["app/lib/record-order.server.ts", "app/lib/refunds.server.ts"]);
+    expect(using(/\.readRefund\(/)).toEqual(["app/lib/payout-check.server.ts", "app/routes/webhooks.orders.refunded.tsx"]);
+    expect(app("app/routes/webhooks.orders.refunded.tsx")).toContain("result = await recordRefund(conn, read.orderGid, read.refund);");
+    expect(sweep).toMatch(/const read = await store\.orders\.readRefund\(refundGid, \{ deadline: ctx\.deadline \}\);\s+if \(!read \|\| read\.orderGid !== order\.orderGid\) continue;\s+const recorded = await recordRefund\(conn, order\.orderGid, read\.refund\);/);
+
+    // Too large to read: 25 pages of 100 lines, 200 transactions, 20 refunds, and in each refund read with the order,
+    // more than 100 lines, or 20 transactions or shipping lines. Cashback is worked out once, when the order is
+    // recorded, from that read; a later read changes what it earned only through a refund's take-back. Lines,
+    // transactions and refunds only grow, so an order too large once stays too large
+    expect(list).toContain(
+      "<li>Orders too large for RewardsPro to read when it comes to record them: more than 2,500 lines, 200 or more transactions, 20 or more refunds, or a refund of more than 100 lines or with 20 or more transactions or shipping lines.</li>",
+    );
+    expect(source).toContain("export const MAX_LINE_PAGES = 25;");
+    expect(source).toContain("const MAX_TRANSACTIONS = 200;");
+    expect(source).toContain("const LIST_LIMIT = 20;");
+    expect(source).toContain("if (items.length >= limit) throw new OrderReadError(");
+    expect(source).toContain("if (refunds.length >= LIST_LIMIT) {");
+    expect(source).toContain("if (first.length < LIST_LIMIT) return first;");
+    expect(source).toContain('ensureWhole(all, MAX_TRANSACTIONS, "transactions");');
+    expect(source).toContain('throw new OrderReadError("A refund returned more than 100 lines, the most one read takes");');
+    expect(source).toContain('ensureWhole(transactions, LIST_LIMIT, "refund transactions");');
+    expect(source).toContain('ensureWhole(shippingLines, LIST_LIMIT, "refund shipping lines");');
+    expect(source).toContain("const refunds = refundsOf(order, productValue, nodes);");
+    expect(record).toContain("const amount = cashbackFor(issueBase, percent, currency);");
+    // The page sizes those limits are counted in: a larger page would read part of a list as the whole
+    expect(orderFacts).toContain("lineItems(first: 100, after: $after) {");
+    expect(orderFacts).toContain("transactions(first: 20) {");
+    expect(orderFacts).toContain("refunds(first: 20) {");
+    expect(orderTransactions).toContain("transactions(first: 200) {");
+    expect(refundFacts).toContain("refundLineItems(first: 100) {");
+    expect(refundFacts).toContain("transactions(first: 20) {");
+    expect(refundFacts).toContain("refundShippingLines(first: 20) {");
+  });
+
+  it("ends the list of orders that earn nothing with any other order RewardsPro never records, so the list is complete: only an order recordOrder records with no reason earns, and each reason has its line", () => {
+    const help = readText(HELP);
+    const list = help.match(/<h3 id="earn-nothing">[\s\S]*?<\/ul>/)?.[0] ?? "";
+    const lines = [...list.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(([, line]) => line);
+    // The closing line comes last, so "other" means every line above it; the address is the one the page gives
+    expect(lines.at(-1)).toBe(
+      'Any other order RewardsPro never records, such as one it can\'t read from Shopify. If you think that has happened to one of your orders, write to <a href="mailto:contact@rewardspro.io">contact@rewardspro.io</a>.',
+    );
+    expect(help).toContain('Write to us at <a href="mailto:contact@rewardspro.io">contact@rewardspro.io</a>.');
+
+    // An order earns only through recordOrder. The home page's test above pins that payouts are created in two files
+    // only, a credit in record-order.server.ts and a debit in refunds.server.ts; each creates one, and record-order's
+    // is in recordOrder, after this order's row is inserted in the same transaction (a repeat throws before it)
+    const record = app("app/lib/record-order.server.ts");
+    expect(record.match(/payout\.create\(/g)).toHaveLength(1);
+    expect(app("app/lib/refunds.server.ts").match(/payout\.create\(/g)).toHaveLength(1);
+    const body = record.match(/export async function recordOrder\([\s\S]*?\n\}/)?.[0] ?? "";
+    expect(body).toMatch(
+      /const inserted = await tx\.order\.createManyAndReturn\([\s\S]*?if \(inserted\.length === 0\) \{[\s\S]*?throw new AlreadyRecorded\([\s\S]*?if \(cashback && rateTier\) \{[\s\S]*?tx\.payout\.create\(/,
+    );
+    // ... and only when no reason applies: cashback is set in one place, when no reason was given and the amount is above 0
+    expect(body).toContain("let noCashback = reasonBeforeAmounts(conn, facts, source, running, rateTier !== null);");
+    expect(body.match(/\bcashback = \{/g)).toHaveLength(1);
+    expect(body).toMatch(/if \(noCashback === null && rateTier\) \{[\s\S]*?if \(amount\.gt\(0\)\) \{\s+cashback = \{/);
+    expect(body).toContain("noCashbackReason: noCashback,");
+    // recordOrder's outcomes: no customer (the first line), already recorded (decided when it was first recorded), recorded
+    const outcomes = record.match(/export type RecordOrderResult =([\s\S]*?);\n/)?.[1] ?? "";
+    expect([...outcomes.matchAll(/status: "(\w+)"/g)].map(([, s]) => s).sort()).toEqual(["already_recorded", "no_customer", "recorded"]);
+    expect(lines[0]).toBe("Orders with no customer attached.");
+
+    // Each reason recordOrder can give has its line. no_tier can't be given while cashback is on (pinned in the test
+    // that counts the lines), so it has none. Any order never recorded is the closing line's, or a line above it
+    const lineFor: Record<string, string[]> = {
+      import: ["and the past orders it brings in."],
+      before_install: ["Orders placed before you first installed RewardsPro", "orders placed while it was uninstalled"],
+      test: ["Shopify's test orders."],
+      cancelled: ["Orders already cancelled when RewardsPro records them."],
+      off: ["Orders RewardsPro records while cashback is off."],
+      no_tier: [],
+      nothing_to_pay_on: ["Orders with nothing to pay on", "orders whose cashback rounds to nothing", "Orders from customers in a tier at 0%"],
+    };
+    const reasons = (record.match(/export type NoCashbackReason = ([^;]+);/)?.[1] ?? "").split("|").map((r) => r.trim().replace(/"/g, ""));
+    expect(reasons.sort()).toEqual(Object.keys(lineFor).sort());
+    for (const [reason, phrases] of Object.entries(lineFor)) for (const phrase of phrases) expect(list, reason).toContain(phrase);
+  });
 });
 
 describe("rewardspro.io names RewardsPro's own accounts", () => {
