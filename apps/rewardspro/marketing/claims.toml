@@ -321,14 +321,14 @@ review_after = "2026-12-07"
 # that day on rewardspro.io (MESSAGING.md, top section; approvals.jsonl, 2026-11-12). The header says this file
 # isn't extended after 10 Nov. These three rows are added anyway: DESIGN.md's Claims section still asks for a
 # verified row behind each factual sentence on a page, and the limits these sentences carry have to be somewhere an
-# agent on another machine finds them. Checked against apps/rewards at origin/main 8daf7f09, by the writer on
-# 12 Nov, and for the first two by the concept's one read the same day; these rows' lines are at 8daf7f09. The ids
-# are new: `rp-purpose` is cited in MESSAGING.md's 7 Nov blocks for other words, and an id that reads "no paid
-# order, no cashback" reads both ways.
+# agent on another machine finds them. All three checked on 12 Nov 2026 by the writer and by PR #244's one read,
+# at 8daf7f09; these rows' lines are at 8daf7f09. For rp-give-back, a purpose, verified means its approvals.jsonl
+# quotes are exact and the mechanism rows it rests on hold. The ids are new: `rp-purpose` is cited in MESSAGING.md's
+# 7 Nov blocks for other words, and an id that reads "no paid order, no cashback" reads both ways.
 [[claim]]
 id = "rp-no-cashback-without-paid-order"
 claim = "No one earns cashback without a paid order."
-scope = "One way only: never turned round into 'every paid order earns'. Some paid orders earn nothing, such as those with no customer attached, Shopify's test orders and orders placed before install; the help page lists them at /help/#earn-nothing, so link it where there is room. Never 'only paying customers' (STRATEGY.md never-say 3)."
+scope = "One way only: never turned round into 'every paid order earns'. Some paid orders earn nothing, such as those with no customer attached, Shopify's test orders and orders placed before install; the help page lists them at /help/#earn-nothing, so link it where there is room. Never 'only paying customers' (social/STRATEGY.md never-say 3)."
 status = "verified"
 channels = ["landing"]
 sources = [

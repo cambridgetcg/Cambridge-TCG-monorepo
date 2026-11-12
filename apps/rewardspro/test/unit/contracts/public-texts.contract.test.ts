@@ -251,7 +251,7 @@ describe("rewardspro.io home page", () => {
     // One way only: some paid orders earn nothing, and the page points to the list
     expect(home).not.toMatch(/every paid order|every order earns|only (paying )?customers/i);
     expect(home).toContain('<a href="/help/#earn-nothing">Every order that earns nothing</a>');
-    // The site names no advertising (the opener about paying to find customers is for posts and video only)
+    // The home page names no advertising (the opener about paying to find customers is for posts and video only)
     expect(home).not.toMatch(/\bads?\b|advert/i);
 
     // Payouts are created in two places: a recorded order's credit and a refund's debit

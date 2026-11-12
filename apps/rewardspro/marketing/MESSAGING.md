@@ -24,9 +24,9 @@ without "Past orders earn no cashback." beside it.
 
 **Where it stands.** rewardspro.io's home page carries the headline as its h1, the proof as the last sentence of its
 lead, and the tier line below in How it works, step 1, once that change is merged on the owner's word and deployed.
-The site, the listing and the profiles name no advertising. The 0% base rate setting goes on the help page first,
-with its limits (the owner's yes, 12 Nov, item 4), and no post says it before the help page does; that change is
-not made yet.
+The site, the listing and the profiles don't name advertising as a contrast. The 0% base rate setting goes on the
+help page first, with its limits (the owner's yes, 12 Nov, item 4), and no post says it before the help page does;
+that change is not made yet.
 
 | Sentence | Ledger row | Source (under `apps/rewards/` at 8daf7f09) | Limit |
 |---|---|---|---|
@@ -40,7 +40,7 @@ not made yet.
 | His words | Said as | Why |
 |---|---|---|
 | "give back to those that have shopped" | "giving back to customers who buy from you"; "No one earns cashback without a paid order." | The mechanism, as fact, in the present tense. Never "the customers you already have": first-time buyers can earn too |
-| "instead of paying ads to acquire more customers" | "Shops pay to find new customers." before the line, in posts and video only (his choice, option b) | His turn, said fairly: both cost money, and the post then says the shop funds the cashback. Advertising isn't named on the listing, the site or the profiles: RewardsPro's App Store ad is built from the listing, and STRATEGY.md never-say 3 bars comparisons |
+| "instead of paying ads to acquire more customers" | "Shops pay to find new customers." before the line, in posts and video only (his choice, option b) | His turn, said fairly: both cost money, and the post then says the shop funds the cashback. Advertising isn't named as a contrast on the listing, the site or the profiles: RewardsPro's App Store ad is built from the listing, and `social/STRATEGY.md` never-say 3 bars comparisons |
 | "will stay", "retention", "build a relationship", "those that never return" | Not said. Tiers by spend, "a customer who has spent more with you can be in a tier with a higher rate, if you set one", and "You can lock a customer to a tier." | Results nobody can show; the mechanism is stated instead |
 
 **The 0% base rate setting, when the help page says it.** The closest true form of "those that will stay" is a
@@ -65,7 +65,7 @@ avoid.
 | "Not chase customers with ads"; "instead of chasing new customers" | Casts advertising as the thing to avoid. It was the agents' paraphrase, not the owner's words | The opener and the line |
 | "An advert is for people who might buy. Cashback is for people who have."; "Before they buy, an advert. After, cashback."; "Two places a shop's money can go." | Adverts reach past buyers too; the pair implies a saving nobody can show (CAP Code 3.1, 3.7, 3.37); issuing credit moves no money | Nothing about adverts. "No one earns cashback without a paid order." |
 | "A shop pays for ads to reach people. In RewardsPro, no one earns cashback without a paid order." | Read together: an advert is paid for whether anyone buys or not, while RewardsPro costs nothing until a sale. That is "you only pay when they buy", an implied saving, with Shopify's fee left out | The opener, then "you fund the cashback you give": both cost money |
-| "Cheaper than ads", "costs less than finding a new customer", any ROI or cost-per-customer figure | No data (STRATEGY.md never-say 9) | "You fund the cashback you give." with Shopify's fee sentence |
+| "Cheaper than ads", "costs less than finding a new customer", any ROI or cost-per-customer figure | No data (`social/STRATEGY.md` never-say 9) | "You fund the cashback you give." with Shopify's fee sentence |
 | "Customers will stay / come back / return / spend more / become loyal"; "keeps your customers"; "retention"; "so they have a reason to come back and buy again" | Results nobody can show | The line, or the listing subtitle "Give loyal customers cashback to spend in your store" |
 | "Builds relationships", "builds loyalty", "reward their loyalty", "loyalty program", "community" as fact | Results, or category words the kit avoids (DESIGN.md Voice) | Tiers by spend, the tier line, the tier lock |
 | "The customers you already have" (beside "new customers"); "existing customers, not new ones"; "repeat customers" | A first paid order can earn too (help page `:265`) | "the ones who buy from you" (after the opener); "customers who buy from you" |

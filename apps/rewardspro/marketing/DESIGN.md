@@ -169,8 +169,6 @@ tiers. Commerce pages carry no KINGDOM, love or citizen language (`kernel.toml` 
 stay open until about five merchant interviews exist (`kernel.toml`), apart from the owner's umbrella idea of
 2026-11-07 (`MESSAGING.md` §0), so pages describe the product and don't argue for it.
 
-**`MESSAGING.md`'s top section, the core concept of 12 Nov 2026, is current:** its wording, sources and don't-say list.
-
 **The register is business** (the owner, 2026-11-07: "用loyal customers, take a more business approach on wordings.";
 `approvals.jsonl`). The wording itself is in `MESSAGING.md` §1 and §4.
 
