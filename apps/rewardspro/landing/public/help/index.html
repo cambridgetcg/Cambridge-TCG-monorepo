@@ -317,9 +317,10 @@
             <li>Orders already cancelled when RewardsPro records them. An order cancelled later keeps its cashback until it is refunded.</li>
             <li>Orders placed before you installed RewardsPro, even if they are paid later, and the past orders it brings in.</li>
             <li>Orders RewardsPro records while cashback is off. They still count towards tiers.</li>
-            <li>Orders with nothing to pay on, such as one paid in full with store credit.</li>
+            <li>Orders with nothing to pay on, such as one paid in full with store credit, and orders whose cashback rounds to nothing, such as 5% of 9p.</li>
             <li>Orders from customers in a tier at 0%, such as your lowest tier at a <a href="#zero-base-rate">base rate of 0%</a>.</li>
             <li>Orders too large for RewardsPro to read: more than 2,500 lines, 200 or more transactions, or 20 or more refunds.</li>
+            <li>Orders whose payment status in Shopify is never "Paid", "Partially refunded" or "Refunded", such as one left "Partially paid".</li>
           </ul>
         </section>
 

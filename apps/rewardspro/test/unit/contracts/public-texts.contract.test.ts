@@ -394,6 +394,44 @@ describe("rewardspro.io help page", () => {
 
     expect(readText(SITEMAP)).toContain("<loc>https://rewardspro.io/help/</loc> <lastmod>2026-11-12</lastmod>");
   });
+
+  it("names, in the list of orders that earn nothing, those whose cashback rounds to nothing and those never paid", () => {
+    // The home page says every order that earns nothing is listed there, so a kind the code adds must reach the list
+    const list = readText(HELP).match(/<h3 id="earn-nothing">[\s\S]*?<\/ul>/)?.[0] ?? "";
+    expect(list.match(/<li>/g)).toHaveLength(9);
+    const record = app("app/lib/record-order.server.ts");
+    expect(record).toContain('export type NoCashbackReason = "import" | "before_install" | "test" | "cancelled" | "off" | "no_tier" | "nothing_to_pay_on";');
+    // no_tier is left off the list: cashback switches on only with a tier, and the lowest (so the last) tier can't be deleted
+    expect(app("app/lib/merchant.server.ts")).toContain("where: running ? { id: merchantId, tiers: { some: {} } } : { id: merchantId },");
+    expect(app("app/lib/tiers.server.ts")).toContain('if (lowest.id === tierId) return { ok: false as const, reason: "lowest" as const };');
+
+    // Cashback that rounds to nothing at a rate above 0% earns nothing, recorded as nothing to pay on
+    expect(list).toContain("<li>Orders with nothing to pay on, such as one paid in full with store credit, and orders whose cashback rounds to nothing, such as 5% of 9p.</li>");
+    expect(readText(HELP)).toContain("<p>Cashback is rounded once, half up, to the currency's smallest unit, such as the penny.</p>");
+    const money = app("app/lib/money.ts");
+    expect(money).toContain("return roundMoney(new Money(base).times(percent).div(100), currency);");
+    expect(money).toContain("return new Money(v).toDecimalPlaces(currencyDecimals(currency), Money.ROUND_HALF_UP);");
+    expect(record).toContain("const amount = cashbackFor(issueBase, percent, currency);");
+    expect(record).toMatch(/if \(amount\.gt\(0\)\) \{[\s\S]*?\} else \{\s+noCashback = "nothing_to_pay_on";/);
+    // 5% of 9p is 0.45p, under the half penny that rounds up
+    expect((9 * 5) / 100).toBeLessThan(0.5);
+
+    // An order is recorded live only by orders/paid or by the hourly sweep, which lists paid, partly refunded and
+    // refunded orders, so an order Shopify never shows as one of those is never recorded
+    expect(list).toContain('<li>Orders whose payment status in Shopify is never "Paid", "Partially refunded" or "Refunded", such as one left "Partially paid".</li>');
+    const callers = filesUnder("../rewards/app")
+      .filter((file) => /(?<!function )\brecordOrder\(/.test(readFileSync(file, "utf8")))
+      .map((file) => file.slice(file.lastIndexOf("/app/") + 1))
+      .sort();
+    expect(callers).toEqual(["app/lib/import.server.ts", "app/lib/payout-check.server.ts", "app/routes/webhooks.orders.paid.tsx"]);
+    expect(app("app/routes/webhooks.orders.paid.tsx")).toContain('if (topic !== "ORDERS_PAID") return new Response(null, { status: 400 });');
+    expect(app("app/shopify/order-source.server.ts")).toContain(
+      "AND (financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded)`;",
+    );
+    expect(app("app/lib/payout-check.server.ts")).toContain("const listed = await store.orders.recentlyUpdatedOrders(since, { deadline: ctx.deadline });");
+    // The import's orders earn nothing whatever their status
+    expect(record).toContain('if (source === "import") return "import";');
+  });
 });
 
 describe("rewardspro.io names RewardsPro's own accounts", () => {

@@ -347,6 +347,8 @@ sources = [
 ]
 uncertainties = [
   "That Shopify sends orders/paid only once an order is paid is Shopify's behaviour, and wasn't checked here; the handler checks the topic, not the order's payment status (app/routes/webhooks.orders.paid.tsx:36).",
+  "Added 12 Nov 2026 by the Growth lead: the help page's list now names orders whose cashback rounds to nothing and orders whose payment status is never Paid, Partially refunded or Refunded. It still names neither orders placed while the app was uninstalled, for a store that installs it again (app/lib/record-order.server.ts:63-65, the last uninstall only), nor orders paid in that time that the sweep doesn't reach after the reinstall (app/lib/payout-check.server.ts:473, three days back). For such a store, 'the help page lists them' is not complete.",
+  "Shopify's help defines Partially refunded and Refunded by what the customer paid, not by the order's value. So a part-paid order with a refund may be listed by the sweep and recorded, and it would earn on its full product value (app/shopify/order-source.server.ts:551). Not checked on a store.",
 ]
 review_after = "2027-02-12"
 
