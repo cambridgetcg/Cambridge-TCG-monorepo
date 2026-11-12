@@ -341,7 +341,11 @@ describe("rewardspro.io help page", () => {
     expect(tiers).toContain("let target: TierRow | null = locked ?? null;");
     // (4) Moving back down takes back no cashback: a refund reads the refunded order's own entry, one with none takes
     // back nothing, and a tier move touches no ledger entry or payout
-    expect(section).toContain("If a refund or a cancellation later moves a customer back down, the cashback their other orders earned in the higher tier is not taken back: a refund takes back the refunded order's own share and no more, and the order that took them up from your lowest tier earned nothing to take back.");
+    expect(section).toContain("If a refund or a cancellation later moves a customer back down, the cashback their other orders earned in the higher tier is not taken back: a refund takes back at most the refunded order's own cashback, and the order that took them up from your lowest tier earned nothing to take back.");
+    // A take-back is capped at what is left of that order's own cashback
+    const facts = app("app/lib/order-facts.ts");
+    expect(facts).toContain("if (i.completesOrder) return left;");
+    expect(facts).toContain("return Money.max(0, Money.min(share, left));");
     const refunds = app("app/lib/refunds.server.ts");
     expect(refunds).toContain("where: { merchantId_idempotencyKey: { merchantId, idempotencyKey: `cashback:${orderId}` } },");
     expect(refunds).toContain('if (!cashback || !credit || effect === "none") return nothing;');
@@ -353,16 +357,24 @@ describe("rewardspro.io help page", () => {
     expect(section).toContain("Cashback can be switched on before you add a tier above 0%, and until you do, no order earns any.");
     expect(app("app/lib/merchant.server.ts")).toContain("where: running ? { id: merchantId, tiers: { some: {} } } : { id: merchantId },");
     // (6) The widget, while cashback is on: a guest's rate only above 0; a signed-in customer's rate, 0 included; the next
-    // tier without its rate, and none for a locked customer or one already qualifying above the held tier; the top
-    // tier's line with a single tier; and a failed settings write left to the nightly rewrite
+    // tier above the held one without its rate, and none for a locked customer or one already qualifying above the held
+    // tier; the top tier's line with a single tier; and a failed settings write left to the next write, of which the
+    // nightly rewrite is one
     expect(section).toContain('While cashback is on, the widget shows guests the sign-in prompt without a rate, and signed-in customers in your lowest tier see "0% back as store credit".');
-    expect(section).toContain("When there is a higher tier they can reach, the widget names it and the amount left to reach it, but not its rate; with a single tier, it says \"You are on the top tier\".");
-    expect(section).toContain("If RewardsPro can't update the widget's settings in Shopify when you save 0%, guests see the old rate until the nightly update writes them again.");
+    expect(section).toContain("When there is a higher tier they can reach, the widget names the next one and the amount left to reach it, but not its rate; with a single tier, it says \"You are on the top tier\".");
+    expect(section).toContain("If RewardsPro can't update the widget's settings in Shopify when you save 0%, guests can see the old rate until RewardsPro next writes them, such as in the nightly update.");
+    // The next tier is the first above the held one's minimum, and the widget's line names it
+    expect(tiers).toContain("const next = sorted.slice(index + 1).find((t) => t.minSpend.gt(current.minSpend));");
+    // The settings are written on Home's switch and base rate, on every tier change, after each token exchange, and nightly
+    expect(app("app/routes/app._index.tsx").match(/await tellWidget\(admin, conn\);/g)?.length).toBe(2);
+    expect(app("app/shopify.server.ts")).toContain("afterAuth: onAppOpened,");
+    expect(app("app/shopify/install.server.ts")).toContain("waitUntil(tellWidget(admin, connection, session.shop));");
     const widget = app("extensions/rewards-widget/assets/rewards-widget.js");
     expect(widget).toContain('if (root.getAttribute("data-running") === "true" && isFinite(base) && base > 0) {');
     expect(widget).toContain("if (data.running !== false && isNumber(tier.cashbackPercent)) {");
     expect(widget).toContain('if (p.isMaxTier) return [el("p", "rw-line", copy(root, "top"))];');
     expect(widget).not.toContain("nextTierCashbackPercent");
+    expect(widget).toContain('copy(root, "to-next", { amount: money(root, p.amountRemaining, currency), tier: p.nextTierName })');
     const words = JSON.parse(app("extensions/rewards-widget/locales/en.default.json")).rewards_widget;
     expect(words.earn).toBe("{percent}% back as store credit");
     expect(words.to_next).toBe("{amount} more to reach {tier}");
