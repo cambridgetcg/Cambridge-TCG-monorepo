@@ -398,7 +398,7 @@ describe("rewardspro.io help page", () => {
   it("names, in the list of orders that earn nothing, those whose cashback rounds to nothing and those whose payment status is never Paid, Partially refunded or Refunded", () => {
     // The home page says every order that earns nothing is listed there, so a kind the code adds must reach the list
     const list = readText(HELP).match(/<h3 id="earn-nothing">[\s\S]*?<\/ul>/)?.[0] ?? "";
-    expect(list.match(/<li>/g)).toHaveLength(11);
+    expect(list.match(/<li>/g)).toHaveLength(12);
     const record = app("app/lib/record-order.server.ts");
     expect(record).toContain('export type NoCashbackReason = "import" | "before_install" | "test" | "cancelled" | "off" | "no_tier" | "nothing_to_pay_on";');
     // no_tier is left off the list: cashback switches on only with a tier, and the lowest (so the last) tier can't be deleted
@@ -546,6 +546,52 @@ describe("rewardspro.io help page", () => {
     expect(refundFacts).toContain("refundLineItems(first: 100) {");
     expect(refundFacts).toContain("transactions(first: 20) {");
     expect(refundFacts).toContain("refundShippingLines(first: 20) {");
+  });
+
+  it("ends the list of orders that earn nothing with any other order RewardsPro never records, so the list is complete: only an order recordOrder records with no reason earns, and each reason has its line", () => {
+    const help = readText(HELP);
+    const list = help.match(/<h3 id="earn-nothing">[\s\S]*?<\/ul>/)?.[0] ?? "";
+    const lines = [...list.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(([, line]) => line);
+    // The closing line comes last, so "other" means every line above it; the address is the one the page gives
+    expect(lines.at(-1)).toBe(
+      'Any other order RewardsPro never records, such as one it can\'t read from Shopify. If you think that has happened to one of your orders, write to <a href="mailto:contact@rewardspro.io">contact@rewardspro.io</a>.',
+    );
+    expect(help).toContain('Write to us at <a href="mailto:contact@rewardspro.io">contact@rewardspro.io</a>.');
+
+    // An order earns only through recordOrder. The home page's test above pins that payouts are created in two files
+    // only, a credit in record-order.server.ts and a debit in refunds.server.ts; each creates one, and record-order's
+    // is in recordOrder, after this order's row is inserted in the same transaction (a repeat throws before it)
+    const record = app("app/lib/record-order.server.ts");
+    expect(record.match(/payout\.create\(/g)).toHaveLength(1);
+    expect(app("app/lib/refunds.server.ts").match(/payout\.create\(/g)).toHaveLength(1);
+    const body = record.match(/export async function recordOrder\([\s\S]*?\n\}/)?.[0] ?? "";
+    expect(body).toMatch(
+      /const inserted = await tx\.order\.createManyAndReturn\([\s\S]*?if \(inserted\.length === 0\) \{[\s\S]*?throw new AlreadyRecorded\([\s\S]*?if \(cashback && rateTier\) \{[\s\S]*?tx\.payout\.create\(/,
+    );
+    // ... and only when no reason applies: cashback is set in one place, when no reason was given and the amount is above 0
+    expect(body).toContain("let noCashback = reasonBeforeAmounts(conn, facts, source, running, rateTier !== null);");
+    expect(body.match(/\bcashback = \{/g)).toHaveLength(1);
+    expect(body).toMatch(/if \(noCashback === null && rateTier\) \{[\s\S]*?if \(amount\.gt\(0\)\) \{\s+cashback = \{/);
+    expect(body).toContain("noCashbackReason: noCashback,");
+    // recordOrder's outcomes: no customer (the first line), already recorded (decided when it was first recorded), recorded
+    const outcomes = record.match(/export type RecordOrderResult =([\s\S]*?);\n/)?.[1] ?? "";
+    expect([...outcomes.matchAll(/status: "(\w+)"/g)].map(([, s]) => s).sort()).toEqual(["already_recorded", "no_customer", "recorded"]);
+    expect(lines[0]).toBe("Orders with no customer attached.");
+
+    // Each reason recordOrder can give has its line. no_tier can't be given while cashback is on (pinned in the test
+    // that counts the lines), so it has none. Any order never recorded is the closing line's, or a line above it
+    const lineFor: Record<string, string[]> = {
+      import: ["and the past orders it brings in."],
+      before_install: ["Orders placed before you first installed RewardsPro", "orders placed while it was uninstalled"],
+      test: ["Shopify's test orders."],
+      cancelled: ["Orders already cancelled when RewardsPro records them."],
+      off: ["Orders RewardsPro records while cashback is off."],
+      no_tier: [],
+      nothing_to_pay_on: ["Orders with nothing to pay on", "orders whose cashback rounds to nothing", "Orders from customers in a tier at 0%"],
+    };
+    const reasons = (record.match(/export type NoCashbackReason = ([^;]+);/)?.[1] ?? "").split("|").map((r) => r.trim().replace(/"/g, ""));
+    expect(reasons.sort()).toEqual(Object.keys(lineFor).sort());
+    for (const [reason, phrases] of Object.entries(lineFor)) for (const phrase of phrases) expect(list, reason).toContain(phrase);
   });
 });
 
