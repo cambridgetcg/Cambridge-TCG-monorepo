@@ -315,13 +315,13 @@
             <li>Orders with no customer attached.</li>
             <li>Shopify's test orders.</li>
             <li>Orders already cancelled when RewardsPro records them. An order cancelled later keeps its cashback until it is refunded.</li>
-            <li>Orders placed before you installed RewardsPro, even if they are paid later, and the past orders it brings in.</li>
-            <li>If you uninstall RewardsPro and install it again: orders placed while it was uninstalled that it records before you uninstall it again, and orders paid while it was uninstalled that it doesn't find once it is back.</li>
+            <li>Orders placed before you first installed RewardsPro, even if they are paid later, and the past orders it brings in. An install after RewardsPro has erased your store's data, which can happen from 48 hours after you uninstall, counts as a first install.</li>
+            <li>If you uninstall RewardsPro and install it again: orders placed while it was uninstalled, and orders paid while it was uninstalled that it doesn't find once it is back. An order placed while it was uninstalled can still earn if RewardsPro first records it after a later uninstall and reinstall.</li>
             <li>Orders RewardsPro records while cashback is off. They still count towards tiers.</li>
             <li>Orders with nothing to pay on, such as one paid in full with store credit, and orders whose cashback rounds to nothing, such as 5% of 9p.</li>
             <li>Orders from customers in a tier at 0%, such as your lowest tier at a <a href="#zero-base-rate">base rate of 0%</a>.</li>
-            <li>Orders too large for RewardsPro to read: more than 2,500 lines, 200 or more transactions, 20 or more refunds, or, before RewardsPro records the order, a refund of more than 100 lines or with 20 or more transactions or shipping lines.</li>
-            <li>Orders placed before you change your store's currency in Shopify and paid after the change.</li>
+            <li>Orders too large for RewardsPro to read when it comes to record them: more than 2,500 lines, 200 or more transactions, 20 or more refunds, or a refund of more than 100 lines or with 20 or more transactions or shipping lines.</li>
+            <li>Orders placed before you change your store's currency in Shopify and paid after the change. If you change it back, some of these can still earn.</li>
             <li>Orders whose payment status in Shopify is never "Paid", "Partially refunded" or "Refunded", such as one left "Partially paid".</li>
           </ul>
         </section>
@@ -434,7 +434,7 @@
             <li>On a store whose prices exclude tax, a refund of money alone, with no items, takes back more than its share, by the tax rate: at 20% VAT, a fifth more.</li>
             <li>A refund too large for RewardsPro to read takes nothing back, and neither does any later refund of that order. Too large means more than 100 lines, 20 or more transactions or shipping lines, or the order's 20th refund or later.</li>
             <li>After a customer's data is erased at their request, refunds of their orders take nothing back.</li>
-            <li>If you change your store's currency in Shopify, refunds made after the change, of orders placed before it, take nothing back.</li>
+            <li>After you change your store's currency in Shopify, refunds of orders placed before the change take nothing back. If you change it back, some of these refunds can still take back their share.</li>
             <li>These rules are for orders as they were paid. They don't cover orders that an edit or an exchange added items to after payment.</li>
           </ul>
         </section>

@@ -433,20 +433,50 @@ describe("rewardspro.io help page", () => {
     expect(record).toContain('if (source === "import") return "import";');
   });
 
-  it("names, in the list of orders that earn nothing, those a reinstall leaves out, those placed before a currency change and those with a refund too large to read", () => {
+  it("names, in the list of orders that earn nothing, those a reinstall leaves out, those placed before a currency change and those too large to read when RewardsPro comes to record them", () => {
     const help = readText(HELP);
     const list = help.match(/<h3 id="earn-nothing">[\s\S]*?<\/ul>/)?.[0] ?? "";
     const record = app("app/lib/record-order.server.ts");
     const merchant = app("app/lib/merchant.server.ts");
     const sweep = app("app/lib/payout-check.server.ts");
     const source = app("app/shopify/order-source.server.ts");
+    const queries = app("app/shopify/graphql.ts");
+    const between = (from: string, to: string) => {
+      const [a, b] = [queries.indexOf(from), queries.indexOf(to)];
+      expect(a, from).toBeGreaterThan(-1);
+      expect(b, to).toBeGreaterThan(a);
+      return queries.slice(a, b);
+    };
+    const orderFacts = between("query RewardsOrderFacts(", "query RewardsOrderTransactions(");
+    const orderTransactions = between("query RewardsOrderTransactions(", "query RewardsRefundFacts(");
+    const refundFacts = between("query RewardsRefundFacts(", "query RewardsUpdatedOrders(");
+
+    // Before the first install: installedAt is set once, when the connection is created, and kept on reactivation.
+    // shop/redact (Shopify sends it 48 hours after an uninstall) or the nightly pass 30 days after one erases every
+    // row with a merchantId, the connection's too, unless the store is active again; the next install then creates
+    // a new connection, so it is a first install
+    expect(list).toContain(
+      "<li>Orders placed before you first installed RewardsPro, even if they are paid later, and the past orders it brings in. An install after RewardsPro has erased your store's data, which can happen from 48 hours after you uninstall, counts as a first install.</li>",
+    );
+    expect(record).toContain('if (facts.orderedAt < conn.installedAt) return "before_install";');
+    expect(merchant).toMatch(/if \(!existing\) \{[\s\S]*?status: "active",\s+installedAt: now,\s+activatedAt: now,/);
+    const erasure = app("app/lib/erasure.server.ts");
+    expect(erasure).toContain('const holdsMerchantRows = (model: DataModel) => model.fields.some((field) => field.kind === "scalar" && field.name === "merchantId");');
+    expect(erasure).toContain("for (const model of merchantErasureOrder()) {");
+    expect(erasure).toContain('if (connection?.status === "active") return { status: "skipped_active" };');
+    expect(modelFields("Connection")).toContain("merchantId");
+    expect(app("app/routes/webhooks.compliance.tsx")).toMatch(/if \(topic === "SHOP_REDACT"\) \{\s+const erasure = await eraseMerchant\(shop\);/);
+    const housekeeping = app("app/routes/api.cron.housekeeping.tsx");
+    expect(housekeeping).toContain("const ERASE_AFTER_MS = 30 * DAY_MS;");
+    expect(housekeeping).toContain('where: { status: "uninstalled", uninstalledAt: { lt: new Date(now.getTime() - ERASE_AFTER_MS) } },');
 
     // A reinstall: an order placed in [uninstalledAt, activatedAt) earns nothing, and each uninstall and reinstall
-    // overwrites them, so it is the absence before the order is recorded. Nothing is recorded while the store is
-    // uninstalled; once it is back, an order paid while it was away is recorded only if the sweep lists it (three
-    // days back), and then it earns: it was placed before that uninstall. The import doesn't run again
+    // overwrites them, so it is the absence before the order is recorded: one first recorded after a later uninstall
+    // and reinstall is outside it. Nothing is recorded while the store is uninstalled; once it is back, an order
+    // paid while it was away is recorded only if the sweep lists it (three days back), and then it earns: it was
+    // placed before that uninstall
     expect(list).toContain(
-      "<li>If you uninstall RewardsPro and install it again: orders placed while it was uninstalled that it records before you uninstall it again, and orders paid while it was uninstalled that it doesn't find once it is back.</li>",
+      "<li>If you uninstall RewardsPro and install it again: orders placed while it was uninstalled, and orders paid while it was uninstalled that it doesn't find once it is back. An order placed while it was uninstalled can still earn if RewardsPro first records it after a later uninstall and reinstall.</li>",
     );
     expect(record).toContain("if (conn.uninstalledAt !== null && facts.orderedAt >= conn.uninstalledAt && facts.orderedAt < conn.activatedAt) {");
     expect(merchant).toContain('data: { status: "uninstalled", uninstalledAt: now },');
@@ -458,36 +488,64 @@ describe("rewardspro.io help page", () => {
     expect(sweep).toContain("export const SWEEP_DAYS = 3;");
 
     // A currency change: the order's shop money is Shopify's shop currency when the order was placed, and a read
-    // fails when that isn't the shop's currency now, for the order and for each of its refunds. It is no read limit,
-    // so orders/paid answers 500 and the sweep logs a problem, and the order is never recorded
-    expect(list).toContain("<li>Orders placed before you change your store's currency in Shopify and paid after the change.</li>");
-    expect(help).toContain("<li>If you change your store's currency in Shopify, refunds made after the change, of orders placed before it, take nothing back.</li>");
+    // fails when that isn't the shop's currency at the time of the read, read in the same query, for the order and
+    // for each of its refunds. So after a change back, a read succeeds again: an order paid then, or one the sweep
+    // lists then, is recorded, and a refund read then takes back its share. orders/paid answers 500 and the sweep
+    // logs a problem, and with no change back the order is never recorded
+    expect(list).toContain(
+      "<li>Orders placed before you change your store's currency in Shopify and paid after the change. If you change it back, some of these can still earn.</li>",
+    );
+    expect(help).toContain(
+      "<li>After you change your store's currency in Shopify, refunds of orders placed before the change take nothing back. If you change it back, some of these refunds can still take back their share.</li>",
+    );
+    expect(orderFacts).toMatch(/query RewardsOrderFacts\(\$id: ID!, \$after: String\) \{\s+shop \{\s+currencyCode\s+\}/);
     expect(source).toContain('const shopCurrency = text(rec(data.shop, "the shop").currencyCode, "the shop\'s currency");');
     expect(source).toContain('const orderShopCurrency = currencyOf(node.currencyCode, "the order\'s shop currency");');
     expect(source).toContain("if (orderShopCurrency !== shopCurrency) {");
     expect(source).toContain("throw new OrderReadError(`The order's shop money is in ${orderShopCurrency}, but the shop's currency is ${shopCurrency}`);");
     expect(source).toContain("return factsFromOrderNode({ ...read.node, transactions }, read.shopCurrency, { refunds: refundNodesRead });");
     expect(source).toContain("const order = parseOrderNode({ ...read.node, transactions }, read.shopCurrency);");
+    // A recorded order's refunds reach its cashback only through readRefund: refunds/create and the sweep record
+    // what it read, and recordOrder records only the refunds readOrder read with the order
+    const appFiles = filesUnder("../rewards/app");
+    const using = (pattern: RegExp) =>
+      appFiles
+        .filter((file) => pattern.test(readFileSync(file, "utf8")))
+        .map((file) => file.slice(file.lastIndexOf("/app/") + 1))
+        .sort();
+    expect(using(/(?<!function )\brecordRefund\(/)).toEqual(["app/lib/payout-check.server.ts", "app/routes/webhooks.orders.refunded.tsx"]);
+    expect(using(/(?<!function )\brecordRefundInTransaction\(/)).toEqual(["app/lib/record-order.server.ts", "app/lib/refunds.server.ts"]);
+    expect(using(/\.readRefund\(/)).toEqual(["app/lib/payout-check.server.ts", "app/routes/webhooks.orders.refunded.tsx"]);
+    expect(app("app/routes/webhooks.orders.refunded.tsx")).toContain("result = await recordRefund(conn, read.orderGid, read.refund);");
+    expect(sweep).toMatch(/const read = await store\.orders\.readRefund\(refundGid, \{ deadline: ctx\.deadline \}\);\s+if \(!read \|\| read\.orderGid !== order\.orderGid\) continue;\s+const recorded = await recordRefund\(conn, order\.orderGid, read\.refund\);/);
 
     // Too large to read: 25 pages of 100 lines, 200 transactions, 20 refunds, and in each refund read with the order,
-    // more than 100 lines, or 20 transactions or shipping lines. Once the order is recorded, a refund changes what it
-    // earned only through its take-back
+    // more than 100 lines, or 20 transactions or shipping lines. Cashback is worked out once, when the order is
+    // recorded, from that read; a later read changes what it earned only through a refund's take-back. Lines,
+    // transactions and refunds only grow, so an order too large once stays too large
     expect(list).toContain(
-      "<li>Orders too large for RewardsPro to read: more than 2,500 lines, 200 or more transactions, 20 or more refunds, or, before RewardsPro records the order, a refund of more than 100 lines or with 20 or more transactions or shipping lines.</li>",
+      "<li>Orders too large for RewardsPro to read when it comes to record them: more than 2,500 lines, 200 or more transactions, 20 or more refunds, or a refund of more than 100 lines or with 20 or more transactions or shipping lines.</li>",
     );
     expect(source).toContain("export const MAX_LINE_PAGES = 25;");
     expect(source).toContain("const MAX_TRANSACTIONS = 200;");
     expect(source).toContain("const LIST_LIMIT = 20;");
     expect(source).toContain("if (items.length >= limit) throw new OrderReadError(");
     expect(source).toContain("if (refunds.length >= LIST_LIMIT) {");
+    expect(source).toContain("if (first.length < LIST_LIMIT) return first;");
+    expect(source).toContain('ensureWhole(all, MAX_TRANSACTIONS, "transactions");');
     expect(source).toContain('throw new OrderReadError("A refund returned more than 100 lines, the most one read takes");');
     expect(source).toContain('ensureWhole(transactions, LIST_LIMIT, "refund transactions");');
     expect(source).toContain('ensureWhole(shippingLines, LIST_LIMIT, "refund shipping lines");');
     expect(source).toContain("const refunds = refundsOf(order, productValue, nodes);");
-    const queries = app("app/shopify/graphql.ts");
-    expect(queries).toContain("refundLineItems(first: 100) {");
-    expect(queries).toContain("refundShippingLines(first: 20) {");
-    expect(queries).toContain("lineItems(first: 100, after: $after) {");
+    expect(record).toContain("const amount = cashbackFor(issueBase, percent, currency);");
+    // The page sizes those limits are counted in: a larger page would read part of a list as the whole
+    expect(orderFacts).toContain("lineItems(first: 100, after: $after) {");
+    expect(orderFacts).toContain("transactions(first: 20) {");
+    expect(orderFacts).toContain("refunds(first: 20) {");
+    expect(orderTransactions).toContain("transactions(first: 200) {");
+    expect(refundFacts).toContain("refundLineItems(first: 100) {");
+    expect(refundFacts).toContain("transactions(first: 20) {");
+    expect(refundFacts).toContain("refundShippingLines(first: 20) {");
   });
 });
 
