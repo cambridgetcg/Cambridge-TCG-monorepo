@@ -49,9 +49,20 @@ describe("agents methodology: refusals", () => {
     const text = pageText();
     expect(REFUSALS_DOCS_URL.endsWith("#refusals")).toBe(true);
     expect(markup).toContain('id="refusals"');
-    const start = text.indexOf("Every refusal at the MCP gate");
+    const start = text.indexOf("Every typed refusal");
     const section = text.slice(start, text.indexOf("Internal agent ratings", start));
     expect(start).toBeGreaterThan(0);
+    // Not every answer is typed: the page says which carry no refusal, and
+    // claims no shape for them (route.test.ts pins that they carry none).
+    expect(text).not.toContain("Every refusal at the MCP gate");
+    expect(section).toContain("Some answers carry no typed refusal: a request from a web page on another site (403)");
+    for (const bare of ["(413)", "an unknown method (404)", "without a tool name (400)", "-32022", "agent.revoke_key's 503"]) {
+      expect(section, bare).toContain(bare);
+    }
+    // A replay is refused inside the transaction but records no event.
+    expect(section).toContain("A validly signed act that the store refuses after recording its jti is recorded as an event too");
+    expect(section).toContain("act_replayed, refused because its jti was already used, records nothing.");
+    expect(section).not.toContain("refused inside the store's transaction is recorded");
     // not_ready_for_human and agent_not_active cannot reach the gate's
     // callers (the human review page; a status the gate refuses first).
     for (const code of TOOL_REFUSAL_CODES.filter((code) => !["not_ready_for_human", "agent_not_active", "internal_error"].includes(code))) {

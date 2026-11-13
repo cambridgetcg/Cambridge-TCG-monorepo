@@ -247,6 +247,20 @@ describe("OpenAPI describes the agent key", () => {
     const exits = built.filter((refusal) => refusal.exit_paths).map((r) => r.reason_code);
     expect(exits).toEqual(["agent_suspended", "agent_archived"]);
   });
+
+  it("claims a refusal and act_recorded only where the gate gives them", async () => {
+    const document = await spec();
+    const schema = document.components.schemas.AgentRefusal as JsonSchema & { description: string };
+    const sideEffects = schema.properties.side_effects as JsonSchema & { description: string };
+    // A replay is refused inside the transaction but records no event.
+    expect(sideEffects.description).toContain("a validly signed act refused after the store recorded its jti is recorded as an event");
+    expect(sideEffects.description).toContain("act_replayed, whose jti was already used, records nothing");
+    expect(sideEffects.description).not.toContain("refused inside the store's transaction is recorded");
+    // The transport's own answers carry no AgentRefusal, and it says so.
+    const post = document.paths["/api/mcp"].post as { description: string };
+    expect(post.description).toContain("the transport's own answers carry none (a cross-site 403, unreadable or invalid JSON, a body without a method, 413, an unknown method, tools/call without a name, -32022)");
+    expect(post.description).not.toContain("A refusal, the gate's or a tool's, carries an AgentRefusal");
+  });
 });
 
 describe("the gate answers with the statuses and carriers OpenAPI lists", () => {

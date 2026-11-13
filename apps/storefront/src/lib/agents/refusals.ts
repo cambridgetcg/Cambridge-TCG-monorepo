@@ -588,10 +588,11 @@ export function signedActLimitedRefusal(retryAfterSeconds: number): AgentRefusal
   };
 }
 
-/** What a validly signed act that was refused inside the store's
- *  transaction changed anyway (signed-acts.ts, steps 10 to 12): the store
- *  recorded it as an event and spent its jti, and, when the signing key was
- *  pending and the refusal came after the confirmation step, confirmed it. */
+/** What a validly signed act refused after the store recorded its jti
+ *  changed anyway (signed-acts.ts, steps 10 to 12): the store recorded it as
+ *  an event and spent its jti, and, when the signing key was pending and the
+ *  refusal came after the confirmation step, confirmed it. act_replayed,
+ *  refused at step 10 because the jti was already used, records nothing. */
 export function signedActSideEffects(confirmedSigningKey: boolean): RefusalSideEffect[] {
   return [
     {

@@ -198,6 +198,29 @@ describe("MCP authority and error boundary", () => {
     expect(JSON.stringify(callBody)).not.toContain("committing");
   });
 
+  it("sends the transport's own answers without a typed refusal, as the methodology page and OpenAPI say", async () => {
+    const plain = (body: string, headers: Record<string, string> = {}) =>
+      POST(new Request("https://cambridgetcg.example/api/mcp", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: "Bearer token", ...headers },
+        body,
+      }));
+    const answers = [
+      [await plain(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "x" }), { origin: "https://elsewhere.example" }), 403],
+      [await plain("{not json"), 400],
+      [await plain(JSON.stringify({ jsonrpc: "2.0", id: 1 })), 400],
+      [await plain("x".repeat(MCP_MAX_REQUEST_BYTES + 1)), 413],
+      [await POST(request("no.such.method")), 404],
+      [await POST(request("tools/call", {})), 400],
+    ] as const;
+    for (const [response, status] of answers) {
+      expect(response.status).toBe(status);
+      const body = await response.json();
+      expect(body.error, String(status)).toBeDefined();
+      expect(body.error, String(status)).not.toHaveProperty("data");
+    }
+  });
+
   it("says nothing was attempted when the rate limiter fails before the tool runs", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.checkAndConsume.mockRejectedValue(new Error("limiter down"));

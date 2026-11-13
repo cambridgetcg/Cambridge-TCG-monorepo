@@ -221,8 +221,9 @@ export default function AgentsMethodology() {
 
       <h2 id="refusals">Refusals</h2>
       <p>
-        Every refusal at the MCP gate, in a tool behind it and at <code>agent.act</code>{" "}
-        has one shape: <code>reason_code</code>; <code>retryable</code>, whether the same
+        Every typed refusal, the gate&apos;s, a tool&apos;s and{" "}
+        <code>agent.act</code>&apos;s, has one shape: <code>reason_code</code>;{" "}
+        <code>retryable</code>, whether the same
         call sent again unchanged may be answered differently; <code>terminal</code>;{" "}
         <code>next_actions</code>; <code>docs</code>; and, since 13 November 2026,{" "}
         <code>effect</code>, which says what became of the change the call asked for:
@@ -238,20 +239,31 @@ export default function AgentsMethodology() {
         </li>
         <li>
           <code>unknown</code>: the change may or may not have been made. Read the state
-          before sending the call again; the refusal&apos;s next action names a tool that
-          reads it.
+          before sending the call again; the refusal&apos;s next action says how to read
+          it.
         </li>
       </ul>
+      <p>
+        Some answers carry no typed refusal: a request from a web page on another site
+        (403), a body that is unreadable, not JSON or has no method (400), a body over 1
+        MiB (413), an unknown method (404), a <code>tools/call</code>{" "}
+        without a tool name (400), a protocol revision the gate does not answer (-32022,
+        which lists the revisions it does), and <code>agent.revoke_key</code>&apos;s 503
+        when the key&apos;s state is unknown, which carries its own{" "}
+        <code>key_state</code> answer.
+      </p>
       <p>
         When a refused call changed something anyway, <code>side_effects</code> lists each
         change as a code and a sentence. Two calls can do that. A Coverage Hunt turn on a
         case past its 72-hour limit is refused (<code>case_expired</code>, not applied), but
         the call marks the case <code>resting</code> and adds a chronicle row saying so, and
         both are kept (<code>case_marked_resting</code>, <code>chronicle_row_added</code>).
-        A validly signed act refused inside the store&apos;s transaction is recorded as an
-        event with its <code>jti</code> used up (<code>act_recorded</code>); if its key was
-        still pending and the refusal came after the key was confirmed, the key stays
-        confirmed (<code>signing_key_confirmed</code>). The operational metadata a call
+        A validly signed act that the store refuses after recording its{" "}
+        <code>jti</code> is recorded as an event too, with its <code>jti</code> used up
+        (<code>act_recorded</code>); if its key was still pending and the refusal came
+        after the key was confirmed, the key stays confirmed
+        (<code>signing_key_confirmed</code>). <code>act_replayed</code>, refused because
+        its <code>jti</code> was already used, records nothing. The operational metadata a call
         can write whether or not it is refused is not listed there: the rate-limit bucket
         described above, and the daily count of MCP requests where a deployment keeps one.
       </p>
