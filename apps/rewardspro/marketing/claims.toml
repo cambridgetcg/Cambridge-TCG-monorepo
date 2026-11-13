@@ -5,6 +5,8 @@
 # history, is in git: this file on main before PR #207, and PR #207's earlier commits (up to e8c90600).
 # 12 Nov 2026 (PR #242): social-post added to 13 rows and to the channel list; rp-tier-lock's scope widened to tier
 # deletion and to the customer's erasure, checked against the code at 8daf7f09 by the writer and a fresh reader.
+# 13 Nov 2026: listing added to rp-give-back and rp-no-cashback-without-paid-order, whose scopes now say
+# how the App Store listing's App introduction is to carry them, on the owner's answer of that day (approvals.jsonl).
 #
 # Kept: the rows behind a sentence on the live App Store listing or rewardspro.io, or in the listing text of PR #208
 # (App Store ads are built from the listing), plus the four rows PR #187 re-checked. The other 24 rows backed only
@@ -333,9 +335,9 @@ review_after = "2026-12-07"
 [[claim]]
 id = "rp-no-cashback-without-paid-order"
 claim = "No one earns cashback without a paid order."
-scope = "One way only: never turned round into 'every paid order earns'. Some paid orders earn nothing, such as those with no customer attached, Shopify's test orders and orders placed before install; the help page lists them at /help/#earn-nothing, so link it where there is room. Never 'only paying customers' (social/STRATEGY.md never-say 3)."
+scope = "One way only: never turned round into 'every paid order earns'. Some paid orders earn nothing, such as those with no customer attached, Shopify's test orders and orders placed before install; the help page lists them at /help/#earn-nothing, so link it where there is room. Never 'only paying customers' (social/STRATEGY.md never-say 3). On the App Store listing it stands as the second sentence of the App introduction, after rp-give-back's h1 sentence (the owner's choice, 13 Nov 2026, approvals.jsonl). That field takes no link, so from the listing the list is reached only through a help link to https://rewardspro.io/help/ under the listing's Resources, which the owner plans to add in the same Save. Until that Save passes Shopify's review, the listing has no such link (on 13 Nov 2026 its only link to rewardspro.io was the privacy policy)."
 status = "verified"
-channels = ["landing"]
+channels = ["listing", "landing"]
 sources = [
   "app/lib/record-order.server.ts:225-238: the only credit payout is created here, for a recorded order's cashback entry",
   "app/lib/refunds.server.ts:247-253: the only other payout.create, a refund's debit",
@@ -371,9 +373,9 @@ review_after = "2027-02-12"
 [[claim]]
 id = "rp-give-back"
 claim = "RewardsPro is for giving back to customers who buy from you."
-scope = "A purpose, the owner's: his words of 12 Nov 2026, and of 7 Nov ('give back to customers who are loyal'), both in approvals.jsonl. It holds because the credit goes only to customers with a paid order (rp-no-cashback-without-paid-order), as store credit the shop funds (rp-store-credit, rp-merchant-funds). Also covers the home page's h1, 'Give back to customers who buy from you.' Never a result: not that customers stay, return or spend more. The shop gives and funds; RewardsPro adds the credit. Present tense: never 'who have bought' without 'Past orders earn no cashback.' beside it, and never 'the customers you already have' or 'existing customers' (a first paid order can earn too, help page :265). In posts and video it may follow 'Shops pay to find new customers.' as '... to the ones who buy from you.'; that opener is framing, not a claim, and stays off the site, the listing and the profiles."
+scope = "A purpose, the owner's: his words of 12 Nov 2026, and of 7 Nov ('give back to customers who are loyal'), both in approvals.jsonl. It holds because the credit goes only to customers with a paid order (rp-no-cashback-without-paid-order), as store credit the shop funds (rp-store-credit, rp-merchant-funds). Also covers the h1 sentence, 'Give back to customers who buy from you.': the home page's h1 and, by the owner's choice of 13 Nov 2026 (approvals.jsonl), the first sentence of the App Store listing's App introduction, with rp-no-cashback-without-paid-order's sentence as the second. Never a result: not that customers stay, return or spend more. The shop gives and funds; RewardsPro adds the credit. Present tense: never 'who have bought' without 'Past orders earn no cashback.' beside it, and never 'the customers you already have' or 'existing customers' (a first paid order can earn too, help page :265). In posts and video it may follow 'Shops pay to find new customers.' as '... to the ones who buy from you.'; that opener is framing, not a claim, and stays off the site, the listing and the profiles."
 status = "verified"
-channels = ["landing"]
+channels = ["listing", "landing"]
 sources = [
   "approvals.jsonl, 2026-11-12: the owner's core concept and his yes to this wording, verbatim",
   "approvals.jsonl, 2026-11-07 (ledger rp-umbrella-idea): 'A credit system to give back to customers who are loyal'",
