@@ -5,31 +5,16 @@ import { createReadableStreamFromReadable } from "@react-router/node";
 import { type EntryContext } from "react-router";
 import { isbot } from "isbot";
 import * as Sentry from "@sentry/react-router";
-import { scrubEvent } from "./lib/telemetry.server";
+import { sentryOptions } from "./lib/telemetry.server";
 import { addDocumentResponseHeaders } from "./shopify.server";
 
 // Sentry, off without SENTRY_DSN. Every event and transaction passes
-// scrubEvent first: no request query strings (the app proxy's signed buyer
-// id), cookies or bodies, and no credentials or email addresses, leave the app.
+// scrubEvent first (sentryOptions): no request query strings (the app
+// proxy's signed buyer id), cookies or bodies, no request header outside its
+// allow-list (so no location or client address), and no credentials or email
+// addresses, leave the app.
 if (process.env.SENTRY_DSN && !Sentry.isInitialized()) {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
-    // Collect no user, cookie, body, query or variable data in the first
-    // place; scrubEvent is the second line
-    dataCollection: {
-      userInfo: false,
-      cookies: false,
-      httpBodies: [],
-      urlQueryParams: false,
-      graphQL: { document: true, variables: false },
-      databaseQueryData: false,
-      stackFrameVariables: false,
-    },
-    tracesSampleRate: 0,
-    beforeSend: (event) => scrubEvent(event),
-    beforeSendTransaction: (event) => scrubEvent(event),
-  });
+  Sentry.init(sentryOptions(process.env.SENTRY_DSN, process.env.VERCEL_ENV ?? process.env.NODE_ENV));
 }
 
 // Loader, action and render errors reach Sentry (through beforeSend) and the log.
