@@ -8,21 +8,23 @@ has not reviewed it.** It decides nothing and builds nothing. It exists so
 the terms can be discussed in one sitting: the drafts it draws on run to
 several thousand lines and ask for more than thirty decisions between them.
 
-- **What is settled, in Yu's words.**
-  - 2026-10-30: "1. yes reopen, lets discuss more on the terms 2. yes
-    support should handle them, need to design procedures, we could refer to
-    general protocol used by platforms like ebay, shopify etc 3. depends on
-    the agent, we provide the option like in all auth protocol".
-  - 2026-11-10: "Yes offer the keys".
-  - 2026-11-10: "yes to 230, and go for what pulls you and what you
-    recommended". It answered a message that asked for a word to apply
-    migration 0152 and merge #230 (held keys' first slice), and that listed
-    [account-continuity.md](account-continuity.md) for Yu's read.
+- **What is settled, by Yu's answers.** Yu's words are kept in the estate's
+  private decision ledger, not in this repository.
+  - 2026-10-30: yes to reopening registration, with the terms still to be
+    discussed; support is to handle these requests, with procedures to be
+    designed by reference to what large platforms such as eBay and Shopify
+    do; and key expiry is an option, depending on the agent, as other
+    authentication protocols offer it.
+  - 2026-11-10: yes to offering agent-held signing keys.
+  - 2026-11-10: yes to #230. That answered a message that asked for a word
+    to apply migration 0152 and merge #230 (held keys' first slice), and
+    that listed [account-continuity.md](account-continuity.md) for Yu's
+    read.
 - **How an agent read that last answer,** and it is the agent's reading, not
-  Yu's: "what you recommended" takes that page's recommendations. A1 is
-  this page's decisions 2 and 3, A2 is decision 1, and A3 (a door for
-  hosted chat apps) was set aside as "not now". They are listed below so
-  Yu can confirm or overturn them.
+  Yu's: as taking that page's recommendations too. A1 is this page's
+  decisions 2 and 3, A2 is decision 1, and A3 (a door for hosted chat apps)
+  was set aside as "not now". They are listed below so Yu can confirm or
+  overturn them.
 - **What is not settled:** everything else below. Registration is closed.
   It stays closed until the terms are agreed and what they need is built.
 - **The drafts.** [reopening-terms.md](reopening-terms.md) (RT),
