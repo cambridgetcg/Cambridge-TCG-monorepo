@@ -210,7 +210,8 @@ describe("rewardspro.io home page", () => {
     const appNode = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "SoftwareApplication");
     expect(appNode.offers.price).toBe("0");
     expect(appNode.offers.description).toContain("so the store funds the cashback it gives");
-    expect(JSON.stringify(ld)).not.toMatch(/rating|review/i);
+    // "operatingSystem" spells "rating" inside it, so that one key name is taken out before the check
+    expect(JSON.stringify(ld).replaceAll('"operatingSystem"', "")).not.toMatch(/rating|review/i);
   });
 
   it("describes setup, earning and the widget as the app does them", () => {
@@ -240,7 +241,7 @@ describe("rewardspro.io home page", () => {
     }
     expect(existsSync(resolve(process.cwd(), "landing/public/assets/screens/og-tiers.jpg"))).toBe(true);
     for (const path of PAGES) expect(read(path), path).toContain('<li><a href="/help/">Help</a></li>');
-    expect(readText(SITEMAP)).toContain("<loc>https://rewardspro.io/</loc> <lastmod>2026-11-12</lastmod>");
+    expect(readText(SITEMAP)).toContain("<loc>https://rewardspro.io/</loc> <lastmod>2026-11-13</lastmod>");
   });
 
   it("gives back to customers who buy, and says no one earns cashback without a paid order, as the app does it", () => {
@@ -620,5 +621,82 @@ describe("rewardspro.io names RewardsPro's own accounts", () => {
       // Every Instagram link on the site is the current account's
       for (const [link] of text.matchAll(/instagram\.com\/[^\s"'<>)]*/gi)) expect(link, file).toBe("instagram.com/rewardsproapp/");
     }
+  });
+});
+
+/** The landing folder's IndexNow key files: a .txt at the site root other than robots.txt. */
+const keyFiles = () =>
+  readdirSync(resolve(process.cwd(), "landing/public")).filter((name) => name.endsWith(".txt") && name !== "robots.txt");
+
+describe("rewardspro.io's structured data names the maker's site, logo and contact", () => {
+  it("gives the maker's node the url the owner picked on 13 Nov 2026, the logo, the email the page shows and the legal name, and nothing personal", () => {
+    const ld = homeLd();
+    expect(ld["@graph"].map((n: { "@id": string }) => n["@id"])).toEqual([
+      "https://rewardspro.io/#website",
+      "https://rewardspro.io/#maker",
+      "https://rewardspro.io/#app",
+    ]);
+    const maker = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "Organization");
+    // The owner's answer 3 of 13 Nov 2026: "3.用 rewardspro.io"
+    expect(maker.url).toBe("https://rewardspro.io/");
+    expect(maker.logo).toBe("https://rewardspro.io/icon-512.png");
+    expect(maker.email).toBe("contact@rewardspro.io");
+    expect(maker.legalName).toBe("Cambridge TCG Limited");
+    expect(maker.name).toBe("Cambridge TCG Limited");
+    expect(maker.address).toEqual({ "@type": "PostalAddress", addressLocality: "London", addressCountry: "GB" });
+    // No phone, founder, person, company-register link or sameAs: only these keys
+    expect(Object.keys(maker).sort()).toEqual(["@id", "@type", "address", "email", "legalName", "logo", "name", "url"]);
+
+    // The email is the one the page's Contact section gives, and the maker line names the same company
+    const home = read(HOME);
+    expect(home).toContain(`Write to us at <a href="mailto:${maker.email}">${maker.email}</a>.`);
+    expect(home).toContain(`<p class="maker">Made by ${maker.legalName}, a UK company in London.</p>`);
+
+    // Google's logo guideline: "The image must be 112x112px, at minimum." Width and height are in the PNG's IHDR chunk
+    const png = readFileSync(resolve(process.cwd(), "landing/public/icon-512.png"));
+    expect(png.subarray(1, 4).toString("latin1")).toBe("PNG");
+    expect(png.subarray(12, 16).toString("latin1")).toBe("IHDR");
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([512, 512]);
+  });
+
+  it("says the app runs in Shopify, as the App Store listing's own markup does, and still carries no rating or review", () => {
+    const ld = homeLd();
+    const appNode = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "SoftwareApplication");
+    expect(appNode.operatingSystem).toBe("Shopify");
+    expect(appNode.applicationCategory).toBe("BusinessApplication");
+    expect(JSON.stringify(ld).replaceAll('"operatingSystem"', "")).not.toMatch(
+      /rating|review|founder|employee|telephone|find-and-update\.company-information/i,
+    );
+  });
+
+  it("serves one IndexNow key file at the site root whose only content is its own name, and DEPLOY.md's notice uses that key and the sitemap's pages", () => {
+    const files = keyFiles();
+    expect(files).toHaveLength(1);
+    const [file] = files;
+    const key = file.slice(0, -".txt".length);
+    // IndexNow: 8 to 128 characters of a-z, A-Z, 0-9 and "-"; the file is UTF-8 and holds only the key
+    expect(key).toMatch(/^[A-Za-z0-9-]{8,128}$/);
+    const bytes = readFileSync(resolve(process.cwd(), `landing/public/${file}`));
+    expect(bytes.toString("utf8")).toBe(key);
+    expect(bytes.length).toBe(key.length);
+
+    // Nothing rewrites the root path, and an unknown path gets the 404 page rather than the home page
+    const redirects = read("landing/public/_redirects").split("\n").filter((line) => line.trim() && !line.startsWith("#"));
+    for (const line of redirects) expect(line.split(/\s+/)[0], line).not.toMatch(/[*:]|\.txt$/);
+    expect(read("landing/public/_headers")).not.toContain(key);
+    expect(existsSync(resolve(process.cwd(), "landing/public/404.html"))).toBe(true);
+
+    // The one POST in DEPLOY.md: this key, its file, and the sitemap's four pages
+    const deploy = read("DEPLOY.md");
+    const body = deploy.match(/curl -sS -i -X POST https:\/\/api\.indexnow\.org\/indexnow \\\n[^\n]*\n\s+--data '([\s\S]*?)'\n/)?.[1];
+    expect(body).toBeDefined();
+    const notice = JSON.parse(body!);
+    expect(notice.host).toBe("rewardspro.io");
+    expect(notice.key).toBe(key);
+    expect(notice.keyLocation).toBe(`https://rewardspro.io/${file}`);
+    const pages = [...read(SITEMAP).matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, loc]) => loc);
+    expect(notice.urlList).toEqual(pages);
+    expect(deploy).toContain("Content-Type: application/json; charset=utf-8");
+    expect(deploy).toContain("never before the owner's word to merge");
   });
 });

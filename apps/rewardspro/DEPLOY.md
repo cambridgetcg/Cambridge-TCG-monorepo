@@ -30,6 +30,60 @@ verify `https://rewardspro.io`, `/privacy-policy`, `robots.txt`, `sitemap.xml`,
 external links, responsive layout, and the visible integration status labels.
 Cloudflare Pages retains earlier deployments for rollback.
 
+### After a deploy that changes a page
+
+The site has an IndexNow key. The file
+`landing/public/24ab8c1a3858c2261d26321fedb5d88a.txt` holds only the key, with
+no newline, and is served at
+`https://rewardspro.io/24ab8c1a3858c2261d26321fedb5d88a.txt`. IndexNow passes
+a notice to the search engines that take part in it. Google is not one of the
+engines its FAQ lists.
+
+The chief of staff's session sends the notice after the deploy, once, and
+never before the owner's word to merge. First check that the key file answers
+200 and prints only the key:
+
+```bash
+curl -sS https://rewardspro.io/24ab8c1a3858c2261d26321fedb5d88a.txt
+```
+
+Then send one POST. `urlList` holds the sitemap's pages that the deploy
+changed; drop any page it didn't change. With all four:
+
+```bash
+curl -sS -i -X POST https://api.indexnow.org/indexnow \
+  -H 'Content-Type: application/json; charset=utf-8' \
+  --data '{
+    "host": "rewardspro.io",
+    "key": "24ab8c1a3858c2261d26321fedb5d88a",
+    "keyLocation": "https://rewardspro.io/24ab8c1a3858c2261d26321fedb5d88a.txt",
+    "urlList": [
+      "https://rewardspro.io/",
+      "https://rewardspro.io/help/",
+      "https://rewardspro.io/privacy-policy/",
+      "https://rewardspro.io/subprocessors/"
+    ]
+  }'
+```
+
+The status codes IndexNow lists:
+
+| Code | Meaning |
+|---|---|
+| 200 | OK: "URL submitted successfully" |
+| 202 | Accepted: "URL received. IndexNow key validation pending." |
+| 400 | Bad request: "Invalid format" |
+| 403 | Forbidden: the key is not valid, for example the file is missing or doesn't hold the key |
+| 422 | Unprocessable Entity: a URL doesn't belong to the host, or the key doesn't match the protocol's form |
+| 429 | Too Many Requests: "Too Many Requests (potential Spam)" |
+
+A 200 means only that the notice arrived, not that a page was crawled. Don't
+send the same URL again without a real change to its page: IndexNow's FAQ
+says "Avoid submitting the same URL many times a day unless there are
+meaningful content changes." A deploy that changes no page, such as one that
+touches only `_headers`, sends nothing. Sources: https://www.indexnow.org/documentation
+and https://www.indexnow.org/faq, read on 13 November 2026.
+
 ## Embedded Shopify application
 
 The app calls the Admin API at the version `app/shopify.server.ts` pins
