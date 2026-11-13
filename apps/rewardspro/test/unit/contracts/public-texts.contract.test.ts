@@ -637,7 +637,7 @@ describe("rewardspro.io's structured data names the maker's site, logo and conta
       "https://rewardspro.io/#app",
     ]);
     const maker = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "Organization");
-    // The owner's answer 3 of 13 Nov 2026: "3.用 rewardspro.io"
+    // The owner's answer 3 of 13 Nov 2026 (the chief of staff's session; recorded by #251): "3.用 rewardspro.io"
     expect(maker.url).toBe("https://rewardspro.io/");
     expect(maker.logo).toBe("https://rewardspro.io/icon-512.png");
     expect(maker.email).toBe("contact@rewardspro.io");
@@ -684,6 +684,16 @@ describe("rewardspro.io's structured data names the maker's site, logo and conta
     const redirects = read("landing/public/_redirects").split("\n").filter((line) => line.trim() && !line.startsWith("#"));
     for (const line of redirects) expect(line.split(/\s+/)[0], line).not.toMatch(/[*:]|\.txt$/);
     expect(read("landing/public/_headers")).not.toContain(key);
+    // No _headers rule that matches the key file sets its Content-Type, so Pages serves it as text/plain
+    const headerBlocks = read("landing/public/_headers")
+      .split(/\n\s*\n/)
+      .map((block) => block.split("\n").filter((line) => line.trim() && !line.startsWith("#")))
+      .filter((lines) => lines.length > 0);
+    for (const [path, ...headers] of headerBlocks) {
+      if (["/*", "/*.txt", `/${file}`].includes(path.trim())) {
+        for (const header of headers) expect(header, path).not.toMatch(/^\s*Content-Type\s*:/i);
+      }
+    }
     expect(existsSync(resolve(process.cwd(), "landing/public/404.html"))).toBe(true);
 
     // The one POST in DEPLOY.md: this key, its file, and the sitemap's four pages
