@@ -1839,19 +1839,21 @@ const SPEC = {
       AgentRefusal: {
         type: "object",
         additionalProperties: false,
-        required: ["reason_code", "retryable", "terminal", "next_actions", "docs"],
-        description: "Why the MCP gate, or agent.act and its REST twin, refused a call. In JSON-RPC error.data, for a tools/call result with isError: true in result._meta[\"cambridgetcg.com/refusal\"], or as refusal in POST /api/v1/agents/act's body. A terminal refusal offers no next action; any other offers at least one, and each is optional.",
+        required: ["reason_code", "retryable", "terminal", "next_actions", "docs", "effect"],
+        description: "Why the MCP gate, a tool behind it, or agent.act and its REST twin, refused a call, and what became of the change the call asked for. In JSON-RPC error.data, for a tools/call result with isError: true in result._meta[\"cambridgetcg.com/refusal\"], or as refusal in POST /api/v1/agents/act's body. A terminal refusal offers no next action; any other offers at least one, and each is optional.",
         properties: {
-          reason_code: { type: "string", enum: ["missing_credentials", "malformed_credentials", "unknown_or_revoked_key", "key_expired", "agent_suspended", "agent_archived", "tool_not_permitted", "rate_limited", "auth_unavailable", "signed_acts_closed", "act_malformed", "act_stale", "act_limited", "act_unverified", "act_replayed", "signing_key_ended", "act_disclosure_stale", "act_params_invalid", "signing_key_in_use", "key_cap_reached"] },
-          retryable: { type: "boolean" },
+          reason_code: { type: "string", enum: ["missing_credentials", "malformed_credentials", "unknown_or_revoked_key", "key_expired", "agent_suspended", "agent_archived", "tool_not_permitted", "rate_limited", "auth_unavailable", "signed_acts_closed", "act_malformed", "act_stale", "act_limited", "act_unverified", "act_replayed", "signing_key_ended", "act_disclosure_stale", "act_params_invalid", "signing_key_in_use", "key_cap_reached", "invalid_input", "case_not_found", "candidate_not_found", "case_expired", "case_terminal", "wrong_turn", "agent_already_participated", "evidence_not_found", "not_ready_for_human", "daily_limit", "key_not_live", "match_not_found", "not_a_participant", "match_state_missing", "match_not_playing", "agent_not_active", "writes_paused", "source_unavailable", "storage_not_ready", "internal_error"] },
+          retryable: { type: "boolean", description: "Whether the same call, sent again unchanged, may be answered differently." },
           terminal: { type: "boolean" },
           next_actions: {
             type: "array",
             items: {
               type: "object", additionalProperties: false, required: ["action", "optional"],
               properties: {
-                action: { type: "string", enum: ["read_docs", "request_review", "retry", "sign_new_act", "fetch_preview"] },
+                action: { type: "string", enum: ["read_docs", "request_review", "retry", "sign_new_act", "fetch_preview", "call_tool"] },
                 href: { type: "string", description: "A documentation URL, or a mailto: address for request_review." },
+                tool: { type: "string", description: "call_tool: the tool to call, by its MCP name; most read the state the refused call was about." },
+                arguments: { type: "object", additionalProperties: { type: "string" }, description: "call_tool: arguments known from the refused call, such as the case_id it sent or the store named." },
                 text: { type: "string", description: "What following the action can and cannot be expected to do. request_review says no review procedure is written down yet." },
                 after_seconds: { type: "integer", minimum: 0 },
                 optional: { const: true },
@@ -1859,6 +1861,22 @@ const SPEC = {
             },
           },
           docs: { type: "string", format: "uri" },
+          effect: {
+            type: "string",
+            enum: ["not_attempted", "not_applied", "unknown"],
+            description: "What became of the change the call asked for. not_attempted: refused before the tool's own work began (the gate's checks, a closed door), so nothing was tried. not_applied: the tool ran and made none of the change; a call that only reads asks for none, so its refusals are never unknown. unknown: the change may or may not have been made; read the state before sending the call again. On every refusal.",
+          },
+          side_effects: {
+            type: "array",
+            description: "What the refused call changed anyway, beside the operational metadata the gate lists (a rate-limit bucket, the daily count). Absent when it changed nothing else. A Coverage Hunt turn on a case past its 72-hour limit marks the case resting and adds a chronicle row (case_marked_resting, chronicle_row_added); a validly signed act refused inside the store's transaction is recorded with its jti spent (act_recorded), and may have confirmed its pending signing key (signing_key_confirmed).",
+            items: {
+              type: "object", additionalProperties: false, required: ["change", "text"],
+              properties: {
+                change: { type: "string", enum: ["case_marked_resting", "chronicle_row_added", "act_recorded", "signing_key_confirmed"] },
+                text: { type: "string", description: "What changed, in plain words." },
+              },
+            },
+          },
           exit_paths: {
             type: "array",
             description: "agent_suspended and agent_archived only: ending this key, which is not a recovery.",
@@ -1868,7 +1886,7 @@ const SPEC = {
             },
           },
           suspended_at: { type: ["string", "null"], format: "date-time", description: "agent_suspended only." },
-          retry_after_seconds: { type: "integer", minimum: 0, description: "rate_limited and act_limited only; the Retry-After header carries the same value." },
+          retry_after_seconds: { type: "integer", minimum: 0, description: "rate_limited, act_limited and daily_limit only; the Retry-After header carries the same value." },
           detail: { type: "string", description: "Signed acts: which rule the act or its params broke, as a fixed phrase." },
           server_time: { type: "string", format: "date-time", description: "act_stale: the clock the act was judged by." },
           ended_at: { type: "string", format: "date-time", description: "signing_key_ended: when the key ended." },

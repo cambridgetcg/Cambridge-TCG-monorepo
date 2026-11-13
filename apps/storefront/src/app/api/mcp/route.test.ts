@@ -301,6 +301,7 @@ describe("MCP typed refusals", () => {
             },
           ],
           docs: "https://cambridgetcg.com/methodology/agents",
+          effect: "not_attempted",
         },
       });
       expectRefusalInvariant(body.error.data);
@@ -343,6 +344,7 @@ describe("MCP typed refusals", () => {
             },
           ],
           docs: "https://cambridgetcg.com/methodology/agents",
+          effect: "not_attempted",
         },
       });
       expectRefusalInvariant(body.error.data);
@@ -405,6 +407,7 @@ describe("MCP typed refusals", () => {
         },
       ],
       docs: "https://cambridgetcg.com/methodology/agents",
+      effect: "not_attempted",
       exit_paths: [{ tool: "agent.revoke_key", note: "ends this key; not a recovery" }],
     });
     expectRefusalInvariant(body.error.data);
@@ -442,6 +445,7 @@ describe("MCP typed refusals", () => {
       terminal: true,
       next_actions: [],
       docs: "https://cambridgetcg.com/methodology/agents",
+      effect: "not_attempted",
     });
     expect(dottedBody.error.data).not.toHaveProperty("exit_paths");
 
@@ -482,6 +486,7 @@ describe("MCP typed refusals", () => {
       retry_after_seconds: 17,
       next_actions: [{ action: "retry", after_seconds: 17, optional: true }],
       docs: "https://cambridgetcg.com/methodology/agents",
+      effect: "not_attempted",
     });
     expect(mocks.agentSelf).not.toHaveBeenCalled();
   });
@@ -509,6 +514,7 @@ describe("MCP typed refusals", () => {
           terminal: false,
           next_actions: [{ action: "retry", optional: true }],
           docs: "https://cambridgetcg.com/methodology/agents",
+          effect: "not_attempted",
         });
         expect(JSON.stringify(body)).not.toContain("password");
       }
@@ -671,6 +677,7 @@ describe("agent.revoke_key carve-out", () => {
           },
         ],
         docs: "https://cambridgetcg.com/methodology/agents",
+        effect: "not_attempted",
       });
       expectRefusalInvariant(body.error.data);
     }
