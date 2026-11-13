@@ -39,6 +39,8 @@ const mocks = vi.hoisted(() => ({
   checkAndConsume: vi.fn(),
   canInvokeAgentTool: vi.fn(),
   agentSelf: vi.fn(),
+  coverageHuntView: vi.fn(),
+  coverageHuntContribute: vi.fn(),
 }));
 vi.mock("@/lib/agents/auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/agents/auth")>()),
@@ -51,26 +53,23 @@ vi.mock("@/lib/agents/tool-access", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/agents/tool-access")>()),
   canInvokeAgentTool: mocks.canInvokeAgentTool,
 }));
-vi.mock("@/lib/agents/play-tools", () => {
-  class ToolError extends Error {
-    constructor(message: string, public status = 400) {
-      super(message);
-    }
-  }
-  return {
-    ToolError, agentSelf: mocks.agentSelf, playObserve: vi.fn(), playLegalActions: vi.fn(),
-    playTakeAction: vi.fn(), playQueueMatch: vi.fn(), playCancelQueue: vi.fn(),
-    playMatchHistory: vi.fn(), playListOpenRooms: vi.fn(),
-  };
-});
+vi.mock("@/lib/agents/play-tools", () => ({
+  agentSelf: mocks.agentSelf, playObserve: vi.fn(), playLegalActions: vi.fn(),
+  playTakeAction: vi.fn(), playQueueMatch: vi.fn(), playCancelQueue: vi.fn(),
+  playMatchHistory: vi.fn(), playListOpenRooms: vi.fn(),
+}));
 vi.mock("@/lib/agents/platform-tools", () => ({ catalogSearch: vi.fn(), leaderboardsRead: vi.fn(), pricesRecent: vi.fn() }));
 vi.mock("@/lib/agents/write-tools", () => ({ deckSave: vi.fn(), deckListMine: vi.fn() }));
 vi.mock("@/lib/agents/card-batch-tools", () => ({ catalogLookupMany: vi.fn() }));
 vi.mock("@/lib/agents/coverage-hunt-tools", () => ({
-  coverageHuntContribute: vi.fn(), coverageHuntList: vi.fn(), coverageHuntMyCases: vi.fn(), coverageHuntView: vi.fn(),
+  coverageHuntContribute: mocks.coverageHuntContribute, coverageHuntList: vi.fn(), coverageHuntMyCases: vi.fn(),
+  coverageHuntView: mocks.coverageHuntView,
 }));
 
 import { GET, POST } from "@/app/api/mcp/route";
+// The real class (tool-error.ts is not mocked), so a mocked handler refuses
+// as a real one does.
+import { ToolError } from "@/lib/agents/tool-error";
 
 const SDK_DIR = process.env.MCP_SDK_DIR?.trim() ?? "";
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -207,6 +206,13 @@ async function keyed(label: string, Client: ClientClass, Transport: TransportCla
   const unknown = await caught(() => client.callTool({ name: "no.such.tool", arguments: {} }));
   mocks.checkAndConsume.mockResolvedValueOnce({ allowed: false, remaining: 0, resetSeconds: 17 });
   const limited = await caught(() => client.callTool({ name: "agent.self", arguments: {} }));
+  // A tool's own refusal (a 404 for other callers), then an unexpected
+  // exception in a tool that could write (a 500 for other callers).
+  mocks.coverageHuntView.mockRejectedValueOnce(new ToolError("coverage hunt case not found", 404, "case_not_found"));
+  const toolRefused = await client.callTool({ name: "coverage.hunt.view", arguments: { case_id: "case-1" } });
+  mocks.coverageHuntContribute.mockRejectedValueOnce(new Error("harness fault: not for the wire"));
+  const fault = await caught(() =>
+    client.callTool({ name: "coverage.hunt.contribute", arguments: { case_id: "case-1", client_request_id: "request-1" } }));
   const ping = await client.ping();
   await sleep(2_500);
   await client.close();
@@ -217,6 +223,8 @@ async function keyed(label: string, Client: ClientClass, Transport: TransportCla
     label, sdk: sdkVersion, tools: tools.tools.length, selfIsError: self.isError,
     refused: { isError: refused.isError, reason_code: (refused._meta?.[REFUSAL] as Json | undefined)?.reason_code },
     unknownTool: unknown.code, rateLimited: { code: limited.code, reason_code: (limited.data as Json | undefined)?.reason_code },
+    toolRefused: { isError: toolRefused.isError, refusal: toolRefused._meta?.[REFUSAL] },
+    fault: { code: fault.code, data: fault.data },
     ping, gets: gets.map((entry) => entry.status), errors, requests: lines(label),
   };
   report(result);
@@ -229,6 +237,18 @@ async function keyed(label: string, Client: ClientClass, Transport: TransportCla
   expect(unknown.code).toBe(-32602);
   expect(limited.code).toBe(-32002);
   expect(limited.data).toMatchObject({ reason_code: "rate_limited", retry_after_seconds: 17 });
+  // A tool's refusal reaches the client the same way as the gate's, and says
+  // what became of the call.
+  expect(toolRefused.isError).toBe(true);
+  expect(toolRefused._meta?.[REFUSAL]).toMatchObject({ reason_code: "case_not_found", effect: "not_applied", terminal: false });
+  // The exception's typed answer reaches the client (sent with 200), with no
+  // part of the exception in it.
+  expect(fault.code).toBe(-32603);
+  expect(fault.data).toMatchObject({ reason_code: "internal_error", effect: "unknown", retryable: false });
+  expect(JSON.stringify(fault)).not.toContain("harness fault");
+  // Every tools/call above was answered 200, whatever other callers get
+  // (403, 404, 429 and 500 among them).
+  expect(mine.filter((entry) => entry.rpc === "tools/call").map((entry) => entry.status)).toEqual([200, 200, 200, 200, 200, 200]);
   expect(ping).toEqual({});
   // The revision the client asked for, then 202 and one GET answered 405: no loop.
   expect(mine.find((entry) => entry.rpc === "tools/list")?.version).toBe("2025-11-25");

@@ -237,17 +237,38 @@ export function isForeignWebOrigin(
  * (an isError result with its refusal in _meta, or a JSON-RPC error with one
  * in error.data) is sent with 200 and the same body: any 4xx but 401, and a
  * 503 the gate marked as a closed door (signed_acts_closed: the deployment
- * keeps agent.act shut). 401 stays 401 with its WWW-Authenticate header, the
- * HTTP layer's own signal to authenticate. A 500 fault and any other 503 stay
- * as they are: those are outages (auth_unavailable, agent.revoke_key's
- * unknown state), not refusals, and status-based monitoring
+ * keeps agent.act shut; writes_paused, since 2026-11-13: a tool's paused
+ * write; refusals.ts isClosedDoorRefusal). A tool's own refusals follow the
+ * same rule as the gate's. 401 stays 401 with its WWW-Authenticate header,
+ * the HTTP layer's own signal to authenticate.
+ *
+ * A 500 the gate marked as a typed fault (an unexpected exception answered
+ * with internal_error, since 2026-11-13) is sent with 200 too. Its refusal
+ * says whether the call's write may have happened (effect unknown) and which
+ * tool reads the state, and a client that throws on the 500 never sees that,
+ * which is the case the refusal exists for. The cost: traffic_hourly's
+ * status_class, read at the edge, counts such a fault from a standard client
+ * as 2xx. The daily count still records it as an error (it counts the status
+ * the gate decided, before this), and the server's log keeps the exception.
+ * An unmarked 500 stays 500.
+ *
+ * Any other 503 stays 503: those are outages (auth_unavailable,
+ * agent.revoke_key's unknown state, a tool's source_unavailable or
+ * storage_not_ready), not refusals, and status-based monitoring
  * (traffic_hourly's status_class) is how an outage is seen. A 503 that is
  * not marked stays 503, so an unmarked new refusal is still sent truthfully,
- * only less readably. The daily count records the status the gate decided,
- * before this.
+ * only less readably.
+ *
+ * The 500 rule was chosen by an AI agent on 2026-11-13 as a default for
+ * review (an earlier build that day kept the 500); the owner has not
+ * decided it.
  */
-export function standardClientToolStatus(status: number, decided: { closedDoor?: boolean } = {}): number {
+export function standardClientToolStatus(
+  status: number,
+  decided: { closedDoor?: boolean; typedFault?: boolean } = {},
+): number {
   if (status === 503) return decided.closedDoor ? 200 : 503;
+  if (status === 500) return decided.typedFault ? 200 : 500;
   if (status >= 400 && status < 500 && status !== 401) return 200;
   return status;
 }

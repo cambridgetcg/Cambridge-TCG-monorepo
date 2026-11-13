@@ -181,12 +181,19 @@ d4727ec); Cambridge TCG has not adopted the Covenant; no adoption record;
 unassessed. XENIA names and duty ids stay in docs and code comments, never in
 wire responses.
 
+The pin stays at d4727ec. XENIA's main has moved since: commit 415980f
+(2026-11-12) added an informative principle and patterns, and no duties. An
+AI agent's review on 2026-11-13 (its reports are not in this repository)
+found `covenant/0.1/covenant.json` identical at both commits and all 27 duty
+ids this repository cites still present. The rows below have not been
+re-read against the new patterns.
+
 | Candidate duty | What the code does | Evidence | Gap |
 | --- | --- | --- | --- |
 | `exit.revocation-is-immediate` | `agent.revoke_key`: one `UPDATE` linearizes; repeats are safe; `stampKeyUse` skips revoked keys; a Coverage Hunt write takes a share lock on its key row. | Tested with mocks and on Postgres | Requests authenticated before the commit may still finish. `revoked_at` records when the revoking statement started, so a contribution that took its key lock first may commit after that time, though none commits after the revocation does. The answer says both. |
 | `exit.states-are-separate` | The answer reports this key's authority (a preview says whether the agent is active, suspended or archived), other keys (a count), profile, deletion, export, shared records, settlement, backups and holds separately. | Tested with mocks | Backups are "unknown": the provider's snapshot window is not in the repo. |
 | `exit.retention-is-itemized` | Retained categories by field name, with why kept, who can see, expiry and "legal basis not separately stated", plus unknown layers and third-party copies. After the fix round it also lists Coverage Hunt chronicle rows, agent-tagged `user_decks` rows under the operator, the handle copies in rooms and match logs, and the legacy registration buckets. | Asserted from the schema and code | Written by an agent and unreviewed. The answer's `completeness` field says it may be incomplete. |
-| `legibility.refusals-are-typed` | Gate refusals carry `reason_code`, `retryable`, `terminal`, `next_actions`, `docs`; terminal means no next action, otherwise at least one, all optional. OpenAPI documents the object. | Tested with mocks | Covers gate refusals only. Parse 400s, 413, unknown-method 404 and tools' own errors stay bare. |
+| `legibility.refusals-are-typed` | Gate refusals carry `reason_code`, `retryable`, `terminal`, `next_actions`, `docs`; terminal means no next action, otherwise at least one, all optional. Since 2026-11-13 a tool's own refusals and an unexpected exception carry the same object, and every refusal says in `effect` what became of the change the call asked for (`not_attempted`, `not_applied`, `unknown`) and in `side_effects` what a refused call changed anyway. OpenAPI documents the object. | Tested with mocks, and on Postgres for Coverage Hunt through the gate and for a refused signed act | A cross-site 403, parse 400s, 413, an unknown method's 404, `tools/call` without a name, -32022 and `agent.revoke_key`'s unknown-state 503 carry no `AgentRefusal`. A typed 500 is sent to a standard MCP client with 200, so it can read the refusal; edge status monitoring then counts it as a success, while the daily count records an error. |
 | `rest.silence-is-not-consent` | `confirm` must be exactly `true`; anything else previews. Under `tools/call` it is read only from the arguments. Its schema is a plain boolean, so a strict-schema client can still send `false`. | Tested with mocks | — |
 | `exchange.rights-are-not-hostage` | Revocation has no rate limit, no status check and no review step. | Tested with mocks and on Postgres (a suspended or archived agent's holder can still revoke) | — |
 | `consent.terms-before-binding` | The preview and the tool description state irreversibility and the replacement path by registration kind and agent status. | Tested with mocks | The sentences for suspended, archived and self-serve agents are true only once A lands. |

@@ -541,7 +541,12 @@ so step 5's lookup runs before it and nothing inside calls the root pool.
     recording that. The nonce stays either way: a validly signed act is
     single-use whether it succeeds or not.
 12. Write the event, purge a few expired nonces, commit. A database failure
-    rolls back, consumes nothing and answers `auth_unavailable`.
+    rolls back, consumes nothing and answers `auth_unavailable`. Since
+    2026-11-13 that answer's `effect` is `unknown`, not a promise that
+    nothing was applied: a connection lost while the commit was in flight
+    looks the same to the server, and the act would then have applied.
+    Sending the same act again is safe either way, since an act applies at
+    most once.
 
 **At binding**, the JWK is exactly `{kty:"OKP", crv:"Ed25519", x}`. A `d`
 member is refused, never stored or logged, and the operator is told to make
@@ -581,6 +586,18 @@ action words: `sign_new_act`, `fetch_preview`.
 | `key_cap_reached` | Five live usage keys | no | no | `read_docs` (revoke one) |
 | `agent_suspended`, `agent_archived` | Existing codes, for acts the status forbids | as today | as today | as today |
 | `auth_unavailable` | Existing 503 | yes | no | `retry` |
+
+Since 2026-11-13 each of these also says what became of the act, in `effect`
+([`refusals.ts`](../../../apps/storefront/src/lib/agents/refusals.ts),
+`signedActRefusal`): `not_attempted` for `signed_acts_closed`, `unknown` for
+`act_replayed` and for an `auth_unavailable` whose transaction failed, and
+`not_applied` for the rest. `act_replayed` is `unknown` because that send
+changed nothing but cannot say what the `jti`'s first send did; its next
+action now points to a `signer.check` act, which reads the agent's keys. A
+refusal recorded at step 11 or 12 lists what it changed anyway in
+`side_effects`: `act_recorded`, and `signing_key_confirmed` when it confirmed
+a pending key first. An AI agent chose these on 2026-11-13 as defaults for
+review; the owner has not reviewed them.
 
 ## Transport
 

@@ -27,14 +27,10 @@ vi.mock("@/lib/agents/tool-access", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/agents/tool-access")>()),
   canInvokeAgentTool: mocks.canInvokeAgentTool,
 }));
+// ToolError is the real one (lib/agents/tool-error.ts), with its refusal.
 vi.mock("@/lib/agents/play-tools", () => {
-  class ToolError extends Error {
-    constructor(message: string, public status = 400) {
-      super(message);
-    }
-  }
   return {
-    ToolError, agentSelf: mocks.agentSelf, playObserve: vi.fn(), playLegalActions: vi.fn(),
+    agentSelf: mocks.agentSelf, playObserve: vi.fn(), playLegalActions: vi.fn(),
     playTakeAction: vi.fn(), playQueueMatch: vi.fn(), playCancelQueue: vi.fn(),
     playMatchHistory: vi.fn(), playListOpenRooms: vi.fn(),
   };
@@ -47,7 +43,9 @@ vi.mock("@/lib/agents/coverage-hunt-tools", () => ({
 }));
 
 import { query } from "@/lib/db";
-import { ToolError } from "@/lib/agents/play-tools";
+import { ToolError } from "@/lib/agents/tool-error";
+import { coverageHuntContribute } from "@/lib/agents/coverage-hunt-tools";
+import { caseRestedSideEffects } from "@/lib/agents/refusals";
 import { GET, POST } from "./route";
 
 // Built at runtime so no literal key-shaped string sits in the repository.
@@ -183,8 +181,15 @@ describe.each(["plain", "bridge"] as const)("a %s caller gets main's answers", (
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toBe("17");
 
-    mocks.agentSelf.mockRejectedValueOnce(new ToolError("match not found", 404));
+    mocks.agentSelf.mockRejectedValueOnce(new ToolError("match not found", 404, "match_not_found"));
     expect((await post(caller, call(8, "agent.self"))).status).toBe(404);
+
+    // A tool's daily limit keeps its 429 and Retry-After, as the gate's own does.
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("daily_limit: x", 429, "daily_limit", { retryAfterSeconds: 99 }));
+    const daily = await answer(await post(caller, call(10, "coverage.hunt.contribute")));
+    expect(daily.status).toBe(429);
+    expect(daily.headers.get("retry-after")).toBe("99");
+    expect(JSON.parse(daily.text).result._meta["cambridgetcg.com/refusal"]).toMatchObject({ reason_code: "daily_limit", effect: "not_applied" });
 
     const closed = await answer(await post(caller, call(9, "agent.act", { act: null, preview: "signer.check" }), { key: false }));
     expect(closed.status).toBe(503);
@@ -317,9 +322,18 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
     const cases: Array<[string, () => void, Record<string, unknown>, number]> = [
       ["tool_not_permitted", () => {}, call(6, "deck.save", { name: "x", entries: [] }), 403],
       ["rate_limited", () => { mocks.checkAndConsume.mockResolvedValueOnce({ allowed: false, remaining: 0, resetSeconds: 17 }); }, call(7, "agent.self"), 429],
-      ["tool 404", () => { mocks.agentSelf.mockRejectedValueOnce(new ToolError("match not found", 404)); }, call(8, "agent.self"), 404],
-      ["tool 409", () => { mocks.agentSelf.mockRejectedValueOnce(new ToolError("out of order", 409)); }, call(8, "agent.self"), 409],
-      ["tool 422", () => { mocks.agentSelf.mockRejectedValueOnce(new ToolError("bad params", 422)); }, call(8, "agent.self"), 422],
+      ["tool 404", () => { mocks.agentSelf.mockRejectedValueOnce(new ToolError("match not found", 404, "match_not_found")); }, call(8, "agent.self"), 404],
+      ["tool 409", () => { mocks.agentSelf.mockRejectedValueOnce(new ToolError("out of order", 409, "wrong_turn")); }, call(8, "agent.self"), 409],
+      ["tool 422", () => { mocks.agentSelf.mockRejectedValueOnce(new ToolError("bad params", 422, "invalid_input")); }, call(8, "agent.self"), 422],
+      // Coverage Hunt's own refusals: a key no longer live, an expired case
+      // that the call still marked resting, the daily limit with its wait.
+      ["key_not_live", () => { vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("This key is no longer live.", 403, "key_not_live")); }, call(11, "coverage.hunt.contribute"), 403],
+      ["case_expired", () => {
+        vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("case reached its 72-hour boundary and is resting", 409, "case_expired", { caseId: "c-1", sideEffects: caseRestedSideEffects("c-1") }));
+      }, call(12, "coverage.hunt.contribute", { case_id: "c-1" }), 409],
+      ["daily_limit", () => { vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("daily_limit: x", 429, "daily_limit", { retryAfterSeconds: 99 })); }, call(13, "coverage.hunt.contribute"), 429],
+      // A tool's closed door is a refusal, like signed_acts_closed: 503 sent with 200.
+      ["writes_paused", () => { mocks.agentSelf.mockRejectedValueOnce(new ToolError("Agent deck writes are paused for every key.", 503, "writes_paused")); }, call(14, "agent.self"), 503],
       ["agent_suspended", () => { mocks.resolveAgentBearer.mockResolvedValueOnce({ ok: false, status: 403, reason_code: "agent_suspended", error: "agent is suspended", suspended_at: null }); }, call(8, "agent.self"), 403],
       // A closed door is a refusal: its 503 is sent with 200 too.
       ["signed_acts_closed", () => {}, call(9, "agent.act", { act: null, preview: "signer.check" }), 503],
@@ -340,15 +354,42 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
     consoleError.mockRestore();
   });
 
-  it("keeps 401 with its challenge, a fault's 500 and an outage's 503", async () => {
+  it("keeps 401 with its challenge and an outage's 503, and sends a typed fault's 500 with 200", async () => {
     const keyless = await answer(await sdk(call(2, "agent.self"), { key: false }));
     expect(keyless.status).toBe(401);
     expect(keyless.headers.get("www-authenticate")).toBe('Bearer realm="cambridgetcg-mcp"');
     expect(JSON.parse(keyless.text).error.data.reason_code).toBe("missing_credentials");
 
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    // An exception in a write: whether it applied is unknown, which is when
+    // the caller most needs the refusal. An SDK throws on a 500 and keeps no
+    // body, so a standard client gets the same body with 200; a plain caller
+    // keeps the 500.
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new Error("boom"));
+    const fault = await answer(await sdk(call(2, "coverage.hunt.contribute", { case_id: "c-1" })));
+    expect(fault.status).toBe(200);
+    expect(JSON.parse(fault.text).error).toMatchObject({ code: -32603, message: "internal error" });
+    expect(JSON.parse(fault.text).error.data).toMatchObject({
+      reason_code: "internal_error",
+      effect: "unknown",
+      retryable: false,
+      next_actions: [{ action: "call_tool", tool: "coverage.hunt.view", arguments: { case_id: "c-1" } }],
+    });
+    expect(fault.text).not.toContain("boom");
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new Error("boom"));
+    const plainFault = await answer(await post("plain", call(2, "coverage.hunt.contribute", { case_id: "c-1" })));
+    expect(plainFault).toMatchObject({ status: 500, text: fault.text });
+    // A read's fault the same way.
     mocks.agentSelf.mockRejectedValueOnce(new Error("boom"));
-    expect((await sdk(call(2, "agent.self"))).status).toBe(500);
+    const readFault = await answer(await sdk(call(2, "agent.self")));
+    expect(readFault.status).toBe(200);
+    expect(JSON.parse(readFault.text).error.data).toMatchObject({ reason_code: "internal_error", effect: "not_applied", retryable: true });
+
+    // A tool's outage (a source it reads did not answer) keeps its 503.
+    mocks.agentSelf.mockRejectedValueOnce(new ToolError("coverage source unavailable; no candidate was invented", 503, "source_unavailable"));
+    const sourceDown = await answer(await sdk(call(2, "agent.self")));
+    expect(sourceDown.status).toBe(503);
+    expect(JSON.parse(sourceDown.text).result._meta["cambridgetcg.com/refusal"]).toMatchObject({ reason_code: "source_unavailable", retryable: true });
 
     // An outage is not a refusal: it keeps its 503, the status that
     // status-based monitoring reads, with the same body a plain caller gets.
@@ -461,6 +502,18 @@ describe("the daily count records what the gate decided", () => {
     await sdk(call(4, "no.such.tool"));
     await sdk(call(5, "agent.self"));
     await post("plain", call(6, "agent.self"), { headers: { origin: "https://elsewhere.example" } });
+    // Tool refusals sent with 200 count as what they were, never ok; a fault
+    // stays an error. Every word here is already in mcp_daily's CHECK lists.
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("daily_limit: x", 429, "daily_limit", { retryAfterSeconds: 9 }));
+    await sdk(call(7, "coverage.hunt.contribute"));
+    mocks.agentSelf.mockRejectedValueOnce(new ToolError("paused", 503, "writes_paused"));
+    await sdk(call(8, "agent.self"));
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("This key is no longer live.", 403, "key_not_live"));
+    await sdk(call(9, "coverage.hunt.contribute"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new Error("boom"));
+    await sdk(call(10, "coverage.hunt.contribute"));
+    consoleError.mockRestore();
     expect(await counted()).toEqual([
       ["notifications/initialized", "none", false, "notification"],
       ["other", "none", false, "notification"],
@@ -471,6 +524,10 @@ describe("the daily count records what the gate decided", () => {
       ["tools/call", "unknown", true, "not-found"],
       ["tools/call", "agent.self", true, "ok"],
       ["invalid", "none", false, "forbidden"],
+      ["tools/call", "coverage.hunt.contribute", true, "tool-error"],
+      ["tools/call", "agent.self", true, "tool-error"],
+      ["tools/call", "coverage.hunt.contribute", true, "forbidden"],
+      ["tools/call", "coverage.hunt.contribute", true, "error"],
     ]);
   });
 });

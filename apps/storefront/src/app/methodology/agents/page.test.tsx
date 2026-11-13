@@ -17,7 +17,17 @@ import {
   keyExitNextActions,
 } from "@/lib/agents/key-exit-inventory";
 import { KEY_EXPIRY_DATE_MAX_DAYS, KEY_EXPIRY_PRESETS } from "@/lib/agents/key-expiry";
-import { AGENT_DOCS_URL, authRefusal, SIGNED_ACTS_DOCS_URL, signedActRefusal } from "@/lib/agents/refusals";
+import { canInvokeAgentTool } from "@/lib/agents/tool-access";
+import {
+  AGENT_DOCS_URL,
+  authRefusal,
+  caseRestedSideEffects,
+  REFUSALS_DOCS_URL,
+  SIGNED_ACTS_DOCS_URL,
+  signedActRefusal,
+  signedActSideEffects,
+  TOOL_REFUSAL_CODES,
+} from "@/lib/agents/refusals";
 import AgentsMethodology from "./page";
 
 const REPO_ROOT = resolve(process.cwd(), "../..");
@@ -33,6 +43,50 @@ function pageText(): string {
     .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ");
 }
+
+describe("agents methodology: refusals", () => {
+  it("names every tool reason code a tool can answer at the gate, every effect and every side effect", () => {
+    const markup = renderToStaticMarkup(<AgentsMethodology />);
+    const text = pageText();
+    expect(REFUSALS_DOCS_URL.endsWith("#refusals")).toBe(true);
+    expect(markup).toContain('id="refusals"');
+    const start = text.indexOf("Every typed refusal");
+    const section = text.slice(start, text.indexOf("Internal agent ratings", start));
+    expect(start).toBeGreaterThan(0);
+    // Not every answer is typed: the page says which carry no refusal, and
+    // claims no shape for them (route.test.ts pins that they carry none).
+    expect(text).not.toContain("Every refusal at the MCP gate");
+    expect(section).toContain("Some answers carry no typed refusal: a request from a web page on another site (403)");
+    for (const bare of ["(413)", "an unknown method (404)", "without a tool name (400)", "-32022", "agent.revoke_key's 503"]) {
+      expect(section, bare).toContain(bare);
+    }
+    // A replay is refused inside the transaction but records no event.
+    expect(section).toContain("A validly signed act that the store refuses after recording its jti is recorded as an event too");
+    expect(section).toContain("act_replayed, refused because its jti was already used, records nothing.");
+    expect(section).not.toContain("refused inside the store's transaction is recorded");
+    expect(section).toContain("retryable, whether the same call, sent again unchanged, may succeed once time passes with nothing else changing first");
+    expect(section).not.toContain("answered differently");
+    // writes_paused is listed, but no caller can receive it: the gate refuses
+    // every paused write as tool_not_permitted before its handler runs.
+    for (const tool of ["deck.save", "play.take_action", "play.queue_match", "play.cancel_queue"]) {
+      for (const kind of ["operator", "self-serve"] as const) expect(canInvokeAgentTool(kind, tool), `${kind} ${tool}`).toBe(false);
+    }
+    expect(section).toContain(
+      "writes_paused for the paused match and deck writes (terminal; the gate refuses those tools as tool_not_permitted first, so it is not sent today)",
+    );
+    expect(section).not.toMatch(/a tool's refusal or writes_paused included/);
+    // not_ready_for_human and agent_not_active cannot reach the gate's
+    // callers (the human review page; a status the gate refuses first).
+    for (const code of TOOL_REFUSAL_CODES.filter((code) => !["not_ready_for_human", "agent_not_active", "internal_error"].includes(code))) {
+      expect(section, code).toContain(code);
+    }
+    expect(section).toContain("internal_error");
+    for (const effect of ["not_attempted", "not_applied", "unknown"]) expect(section).toContain(effect);
+    const changes = [...caseRestedSideEffects("c"), ...signedActSideEffects(true)].map((entry) => entry.change);
+    for (const change of changes) expect(section, change).toContain(change);
+    expect(section).toContain("Yu has not reviewed them.");
+  });
+});
 
 describe("agents methodology: ending a key", () => {
   it("renders the retained inventory from the constants agent.revoke_key returns", () => {
