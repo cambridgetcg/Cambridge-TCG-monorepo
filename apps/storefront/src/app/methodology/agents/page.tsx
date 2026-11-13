@@ -278,7 +278,9 @@ export default function AgentsMethodology() {
         UTC and a <code>Retry-After</code> header; from the match tools,{" "}
         <code>match_not_found</code>, <code>not_a_participant</code>,{" "}
         <code>match_state_missing</code> and <code>match_not_playing</code>;{" "}
-        <code>writes_paused</code> for the paused match and deck writes (terminal);{" "}
+        <code>writes_paused</code> for the paused match and deck writes (terminal; the gate
+        refuses those tools as <code>tool_not_permitted</code>{" "}
+        first, so it is not sent today);{" "}
         <code>source_unavailable</code> when a source the tool reads did not answer
         (retryable); and <code>storage_not_ready</code>{" "}
         when Coverage Hunt&apos;s tables are missing. A next action of <code>call_tool</code> names a tool to call, with the case
@@ -297,8 +299,9 @@ export default function AgentsMethodology() {
       </p>
       <p>
         A standard MCP client gets a refused <code>tools/call</code>, a tool&apos;s refusal
-        or <code>writes_paused</code>{" "}
-        included, with HTTP 200 and the same body. It gets an unexpected exception&apos;s
+        included, with HTTP 200 and the same body, and would get{" "}
+        <code>writes_paused</code>{" "}
+        the same way if it were sent. It gets an unexpected exception&apos;s
         answer with 200 too, so it can read <code>internal_error</code>{" "}
         and its effect: the SDK clients checked throw on a 500 and keep no body. Other
         callers keep the 500. The daily count of MCP requests, where a deployment keeps

@@ -17,6 +17,7 @@ import {
   keyExitNextActions,
 } from "@/lib/agents/key-exit-inventory";
 import { KEY_EXPIRY_DATE_MAX_DAYS, KEY_EXPIRY_PRESETS } from "@/lib/agents/key-expiry";
+import { canInvokeAgentTool } from "@/lib/agents/tool-access";
 import {
   AGENT_DOCS_URL,
   authRefusal,
@@ -63,6 +64,15 @@ describe("agents methodology: refusals", () => {
     expect(section).toContain("A validly signed act that the store refuses after recording its jti is recorded as an event too");
     expect(section).toContain("act_replayed, refused because its jti was already used, records nothing.");
     expect(section).not.toContain("refused inside the store's transaction is recorded");
+    // writes_paused is listed, but no caller can receive it: the gate refuses
+    // every paused write as tool_not_permitted before its handler runs.
+    for (const tool of ["deck.save", "play.take_action", "play.queue_match", "play.cancel_queue"]) {
+      for (const kind of ["operator", "self-serve"] as const) expect(canInvokeAgentTool(kind, tool), `${kind} ${tool}`).toBe(false);
+    }
+    expect(section).toContain(
+      "writes_paused for the paused match and deck writes (terminal; the gate refuses those tools as tool_not_permitted first, so it is not sent today)",
+    );
+    expect(section).not.toMatch(/a tool's refusal or writes_paused included/);
     // not_ready_for_human and agent_not_active cannot reach the gate's
     // callers (the human review page; a status the gate refuses first).
     for (const code of TOOL_REFUSAL_CODES.filter((code) => !["not_ready_for_human", "agent_not_active", "internal_error"].includes(code))) {
