@@ -266,9 +266,11 @@ export default function AgentsMethodology() {
         (<code>act_recorded</code>); if its key was still pending and the refusal came
         after the key was confirmed, the key stays confirmed
         (<code>signing_key_confirmed</code>). <code>act_replayed</code>, refused because
-        its <code>jti</code> was already used, records nothing. The operational metadata a call
-        can write whether or not it is refused is not listed there: the rate-limit bucket
-        described above, and the daily count of MCP requests where a deployment keeps one.
+        its <code>jti</code>{" "}
+        was already used, records nothing. The operational metadata a call
+        can write whether or not it is refused is not listed there: the key&apos;s rate-limit
+        bucket, the deletion of any key&apos;s buckets older than seven days, both described
+        above, and the daily count of MCP requests where a deployment keeps one.
       </p>
       <p>
         A tool&apos;s own reason codes, each with the HTTP status and message it had before:{" "}

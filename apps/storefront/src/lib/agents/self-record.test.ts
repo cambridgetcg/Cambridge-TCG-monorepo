@@ -10,7 +10,7 @@ import { MCP_DAILY_NOTE } from "@/lib/observability/mcp-daily";
 import { agentSelf } from "./play-tools";
 import { operationalMetadataWrites } from "./operational-metadata";
 import { recordedAboutThisKey } from "./self-record";
-import { AGENT_OPERATIONAL_METADATA_WRITES, LISTED_BUCKETS, LISTED_LAST_USED } from "./tool-access";
+import { AGENT_OPERATIONAL_METADATA_WRITES, LISTED_BUCKET_PRUNE, LISTED_BUCKETS, LISTED_LAST_USED } from "./tool-access";
 
 const actor: AgentActor = {
   kind: "agent", agentId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", agentPublicHandle: "public-agent-a",
@@ -57,13 +57,14 @@ describe("agent.self: what the gate records about the calling key", () => {
     const on = { OPS_MCP_DAILY: "on" };
     expect(recordedAboutThisKey({}, "free", on).daily_mcp_count).toEqual({ on: true, listed_as: MCP_DAILY_NOTE, about_this_key: expect.stringContaining("no key, agent or account id") });
     // The gate's one list has a third line, the holder's own revocation
-    // (agent.revoke_key), which the gate really writes; the two quoted lines
-    // lead it.
+    // (agent.revoke_key), which the gate really writes, and a fourth, the
+    // seven-day deletion every counted call runs; the two quoted lines lead it.
     expect(AGENT_OPERATIONAL_METADATA_WRITES.slice(0, 2)).toEqual([LISTED_BUCKETS, LISTED_LAST_USED]);
     expect(AGENT_OPERATIONAL_METADATA_WRITES[2]).toContain("agent.revoke_key");
+    expect(AGENT_OPERATIONAL_METADATA_WRITES[3]).toBe(LISTED_BUCKET_PRUNE);
     expect(operationalMetadataWrites(on)).toEqual([...AGENT_OPERATIONAL_METADATA_WRITES, MCP_DAILY_NOTE]);
     expect(operationalMetadataWrites({})).toEqual([...AGENT_OPERATIONAL_METADATA_WRITES]);
-    expect(operationalMetadataWrites({})).toHaveLength(3);
+    expect(operationalMetadataWrites({})).toHaveLength(4);
   });
 
   it("lists the same items /.well-known/mcp.json publishes", async () => {

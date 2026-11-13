@@ -98,7 +98,7 @@ describe("agent tool authority boundary", () => {
     describeAgentToolGrant("self-serve").review_submissions.push("coverage.hunt.contribute");
     describeAgentToolGrant("self-serve").operational_metadata_writes.length = 0;
     expect(describeAgentToolGrant("self-serve").review_submissions).toEqual([]);
-    expect(describeAgentToolGrant("self-serve").operational_metadata_writes).toHaveLength(3);
+    expect(describeAgentToolGrant("self-serve").operational_metadata_writes).toHaveLength(4);
   });
 
   it("excludes legacy self-serve queue rows from the matchmaker", () => {

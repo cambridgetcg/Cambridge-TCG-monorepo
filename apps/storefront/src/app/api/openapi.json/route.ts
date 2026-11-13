@@ -1868,7 +1868,7 @@ const SPEC = {
           },
           side_effects: {
             type: "array",
-            description: "What the refused call changed anyway, beside the operational metadata the gate lists (a rate-limit bucket, the daily count). Absent when it changed nothing else. A Coverage Hunt turn on a case past its 72-hour limit marks the case resting and adds a chronicle row (case_marked_resting, chronicle_row_added); a validly signed act refused after the store recorded its jti is recorded as an event with its jti spent (act_recorded), and may have confirmed its pending signing key (signing_key_confirmed); act_replayed, whose jti was already used, records nothing.",
+            description: "What the refused call changed anyway, beside the operational metadata the gate lists (a rate-limit bucket, the deletion of any key's buckets older than seven days, the daily count). Absent when it changed nothing else. A Coverage Hunt turn on a case past its 72-hour limit marks the case resting and adds a chronicle row (case_marked_resting, chronicle_row_added); a validly signed act refused after the store recorded its jti is recorded as an event with its jti spent (act_recorded), and may have confirmed its pending signing key (signing_key_confirmed); act_replayed, whose jti was already used, records nothing.",
             items: {
               type: "object", additionalProperties: false, required: ["change", "text"],
               properties: {

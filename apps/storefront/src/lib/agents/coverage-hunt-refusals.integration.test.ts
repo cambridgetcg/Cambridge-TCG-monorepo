@@ -27,6 +27,8 @@ vi.mock("@/lib/db", () => ({
 
 import { POST } from "@/app/api/mcp/route";
 import { createAgentWithKey } from "./creation";
+import { operationalMetadataWrites } from "./operational-metadata";
+import { LISTED_BUCKET_PRUNE } from "./tool-access";
 import { createCoverageCandidate } from "@/lib/coverage-hunt/candidates";
 import { MAX_NEW_SCOUT_CASES_PER_AGENT_PER_UTC_DAY, persistCoverageHuntScoutTurn } from "@/lib/coverage-hunt/db";
 import type { CheckerSubmission, ScoutSubmission } from "@/lib/coverage-hunt/types";
@@ -237,6 +239,30 @@ describe.skipIf(!target)("Coverage Hunt refusals through the gate, on isolated P
     expect((await caseRow(caseId)).status).toBe("open");
     expect(await chronicle(caseId)).toEqual([]);
     expect(await turns(caseId)).toEqual([]);
+  });
+
+  it("deletes any key's week-old rate buckets on a refused call, as the published list says", async () => {
+    const quiet = await seedAgent();
+    const caller = await seedAgent();
+    await pool.query(
+      "INSERT INTO agent_rate_buckets (key_id, bucket_minute, request_count) VALUES ($1, date_trunc('minute', NOW()) - interval '8 days', 3)",
+      [quiet.keyId],
+    );
+    const buckets = async (keyId: string) =>
+      (await pool.query("SELECT request_count FROM agent_rate_buckets WHERE key_id = $1", [keyId])).rows;
+    expect(await buckets(quiet.keyId)).toEqual([{ request_count: 3 }]);
+
+    // Refused by the tool (no such case), after the limiter counted it.
+    const response = await contribute(caller, { case_id: randomUUID(), client_request_id: "nowhere", submission: checker });
+    expect(response.status).toBe(404);
+    expect((await response.json()).result._meta["cambridgetcg.com/refusal"]).toMatchObject({ reason_code: "case_not_found" });
+    // Another key's week-old bucket is gone; this key's minute is counted.
+    expect(await buckets(quiet.keyId)).toEqual([]);
+    expect(await buckets(caller.keyId)).toEqual([{ request_count: 1 }]);
+    // Operational metadata, not a side effect of this call's own request,
+    // and published where the gate lists what a key's calls write.
+    expect(operationalMetadataWrites({})).toContain(LISTED_BUCKET_PRUNE);
+    expect(LISTED_BUCKET_PRUNE).toMatch(/older than seven days, any key's, by each allowed authenticated call, even one then refused/);
   });
 
   it("types a turn the state refuses, wrong_turn or a second role, with nothing written", async () => {

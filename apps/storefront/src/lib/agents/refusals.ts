@@ -136,7 +136,7 @@ export interface AgentRefusal {
   effect: RefusalEffect;
   /** What the refused call changed anyway. Absent when it changed nothing
    *  beyond the operational metadata the gate publishes (a rate-limit
-   *  bucket, the daily count). */
+   *  bucket, the deletion of week-old buckets, the daily count). */
   side_effects?: RefusalSideEffect[];
   exit_paths?: RefusalExitPath[];
   suspended_at?: string | null;

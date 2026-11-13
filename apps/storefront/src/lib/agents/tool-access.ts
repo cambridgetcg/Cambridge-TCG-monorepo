@@ -67,6 +67,9 @@ export const SIGNED_ACT_TOOLS: ReadonlySet<string> = new Set(["agent.act"]);
  *  (self-record.ts), so each item it reads says where it is listed. */
 export const LISTED_BUCKETS = "per-key rate-limit bucket for allowed authenticated calls";
 export const LISTED_LAST_USED = "agent key last-used timestamp after successful authenticated calls";
+/** The seven-day deletion every counted call runs, whoever's buckets they are. */
+export const LISTED_BUCKET_PRUNE =
+  "deletion of rate-limit buckets older than seven days, any key's, by each allowed authenticated call, even one then refused";
 
 /** Operational metadata a key can cause the gate to write. None of it is
  *  domain state; the same list holds for every registration kind. This is
@@ -77,6 +80,10 @@ export const AGENT_OPERATIONAL_METADATA_WRITES: readonly string[] = [
   LISTED_BUCKETS,
   LISTED_LAST_USED,
   "agent_keys.revoked_at and revoked_reason for this key when its holder calls agent.revoke_key with confirm: true",
+  // rate-limit.ts checkAndConsume prunes in the statement that counts the
+  // call, before the call can be refused (rate_limited, by its tool, or by
+  // an exception). Listed since 2026-11-13.
+  LISTED_BUCKET_PRUNE,
 ];
 
 export interface AgentToolGrant {
