@@ -107,6 +107,14 @@ export function canInvokeAgentTool(
   return false;
 }
 
+/** Whether a tool only reads, so a failed call to it cannot have changed
+ *  anything it was asked to change (the refusal's effect is never unknown).
+ *  Any other name, an unknown one included, is treated as one that could
+ *  write. */
+export function isReadOnlyAgentTool(tool: string): boolean {
+  return AVAILABLE_READ_TOOLS.has(tool) || OPERATOR_MANAGED_READ_TOOLS.has(tool);
+}
+
 /** What a key of this registration kind may do, derived from the sets above
  *  and, for signed_acts, from whether this deployment has them open. */
 export function describeAgentToolGrant(

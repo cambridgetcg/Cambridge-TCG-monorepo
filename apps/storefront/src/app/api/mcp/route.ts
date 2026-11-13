@@ -13,7 +13,10 @@
  * (`lib/agents/signed-acts.ts`, closed unless AGENT_SIGNED_ACTS is on).
  *
  * Refusals carry a typed object (`lib/agents/refusals.ts`) in JSON-RPC
- * `error.data`, or in `_meta` on a `tools/call` isError result.
+ * `error.data`, or in `_meta` on a `tools/call` isError result: the gate's
+ * own, a tool's (ToolError, `lib/agents/tool-error.ts`) and, in `error.data`,
+ * an unexpected exception's (internal_error). Each says what became of the
+ * change the call asked for (`effect`).
  *
  * Transport. JSON-RPC 2.0 over HTTP POST. Speaks both the Cambridge-
  * native dotted method names (`catalog.search`, `play.observe`, ...)
@@ -65,8 +68,8 @@ import {
   playCancelQueue,
   playMatchHistory,
   playListOpenRooms,
-  ToolError,
 } from "@/lib/agents/play-tools";
+import { ToolError } from "@/lib/agents/tool-error";
 import {
   catalogSearch,
   leaderboardsRead,
@@ -84,6 +87,7 @@ import {
   AGENT_SIGNED_ACTS,
   AGENT_REVOKE_KEY_INPUT_SCHEMA,
   canInvokeAgentTool,
+  isReadOnlyAgentTool,
   SELF_LIFECYCLE_TOOLS,
   SIGNED_ACT_TOOLS,
 } from "@/lib/agents/tool-access";
@@ -105,6 +109,8 @@ import {
 import {
   authRefusal,
   authUnavailableRefusal,
+  internalErrorRefusal,
+  isClosedDoorRefusal,
   MCP_REFUSAL_META_KEY,
   rateLimitedRefusal,
   toolNotPermittedRefusal,
@@ -576,7 +582,9 @@ function authFailureResponse(
  *  `{isError: true, content: [...]}` in the result rather than a JSON-RPC
  *  error; we follow that for `tools/call` (a refusal rides in `_meta`).
  *  Native dotted dispatch keeps JSON-RPC error semantics so old clients
- *  don't break (a refusal rides in `error.data`). */
+ *  don't break (a refusal rides in `error.data`). A refusal that names
+ *  retry_after_seconds also sends it as Retry-After, as the gate's own rate
+ *  limit does; a standard MCP client gets the header with the 200. */
 function toolErrorResponse(
   id: JsonRpcRequest["id"],
   isMcpCall: boolean,
@@ -584,6 +592,8 @@ function toolErrorResponse(
   status: number,
   refusal?: AgentRefusal,
 ) {
+  const headers =
+    refusal?.retry_after_seconds === undefined ? undefined : { "Retry-After": String(refusal.retry_after_seconds) };
   if (isMcpCall) {
     return NextResponse.json(
       rpcResult(id, {
@@ -591,10 +601,10 @@ function toolErrorResponse(
         isError: true,
         ...(refusal ? { _meta: { [MCP_REFUSAL_META_KEY]: refusal } } : {}),
       }),
-      { status },
+      { status, headers },
     );
   }
-  return NextResponse.json(rpcError(id, ERR_TOOL_ERROR, message, refusal), { status });
+  return NextResponse.json(rpcError(id, ERR_TOOL_ERROR, message, refusal), { status, headers });
 }
 
 /** `seen` collects the words the daily count records (method, tool, whether
@@ -894,6 +904,9 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
     );
   }
 
+  // Whether the tool's handler was called: an exception before it (the rate
+  // limiter) left everything the call asked for untried.
+  let handlerStarted = false;
   try {
     // Successful authenticated reads consume a per-key bucket and stamp
     // last_used_at.
@@ -909,6 +922,7 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
         { status: 429, headers: { "Retry-After": String(rl.resetSeconds) } },
       );
     }
+    handlerStarted = true;
     const result = await handler(actor, dispatchParams);
     // Fire-and-forget last-used stamp.
     void stampKeyUse(actor.keyId);
@@ -926,12 +940,21 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
   } catch (err) {
     if (err instanceof ToolError) {
       seen.outcome = err.status === 403 ? "forbidden" : "tool-error";
-      return toolErrorResponse(body.id, isMcpCall, err.message, err.status);
+      // A tool's closed door (writes_paused, 503) is a refusal, like
+      // agent.act's signed_acts_closed: a standard MCP client gets it with
+      // 200. Any other 503 from a tool is an outage and keeps its status.
+      if (err.status === 503 && isClosedDoorRefusal(err.refusal)) exchange.closedDoor = true;
+      return toolErrorResponse(body.id, isMcpCall, err.message, err.status, err.refusal);
     }
+    // The log keeps the exception; the answer names no part of it, only
+    // what became of the call: untried if the handler never ran, unchanged
+    // for a tool that only reads, unknown for one that could write.
     console.error("[mcp]", dispatchName, err);
-    return NextResponse.json(rpcError(body.id, ERR_INTERNAL, "internal error"), {
-      status: 500,
-    });
+    const effect = !handlerStarted ? "not_attempted" : isReadOnlyAgentTool(dispatchName) ? "not_applied" : "unknown";
+    return NextResponse.json(
+      rpcError(body.id, ERR_INTERNAL, "internal error", internalErrorRefusal(dispatchName, dispatchParams, effect)),
+      { status: 500 },
+    );
   }
 }
 

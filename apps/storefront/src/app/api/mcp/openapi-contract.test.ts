@@ -13,13 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ query: mocks.query, transaction: vi.fn() }));
 vi.mock("@/lib/agents/rate-limit", () => ({ checkAndConsume: mocks.checkAndConsume }));
 vi.mock("@/lib/agents/play-tools", () => {
-  class ToolError extends Error {
-    constructor(message: string, public status = 400) {
-      super(message);
-    }
-  }
   return {
-    ToolError,
     agentSelf: mocks.agentSelf,
     playObserve: vi.fn(),
     playLegalActions: vi.fn(),

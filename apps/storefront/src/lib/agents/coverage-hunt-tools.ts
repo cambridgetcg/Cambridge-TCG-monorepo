@@ -2,7 +2,8 @@
 
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import type { AgentActor } from "./auth";
-import { ToolError } from "./play-tools";
+import { caseRestedSideEffects, type ToolRefusalCode } from "./refusals";
+import { ToolError } from "./tool-error";
 import {
   getCoverageHuntCase,
   listActiveCoverageHuntCases,
@@ -21,6 +22,7 @@ import {
 import {
   CoverageHuntError,
   validateSubmission,
+  type CoverageHuntErrorCode,
 } from "@/lib/coverage-hunt/validation";
 import {
   buildCoverageHuntBoard,
@@ -46,7 +48,7 @@ function asHuntActor(actor: AgentActor) {
 function boundedLimit(value: unknown, fallback: number, max: number): number {
   if (value === undefined) return fallback;
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > max) {
-    throw new ToolError(`limit must be an integer from 1 to ${max}`);
+    throw new ToolError(`limit must be an integer from 1 to ${max}`, 400, "invalid_input");
   }
   return value;
 }
@@ -54,7 +56,7 @@ function boundedLimit(value: unknown, fallback: number, max: number): number {
 function optionalGame(value: unknown): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value)) {
-    throw new ToolError("game must be a 1-64 character identifier");
+    throw new ToolError("game must be a 1-64 character identifier", 400, "invalid_input");
   }
   return value;
 }
@@ -65,7 +67,7 @@ function optionalKind(value: unknown): CoverageCandidateKind | undefined {
     typeof value !== "string" ||
     !(COVERAGE_CANDIDATE_KINDS as readonly string[]).includes(value)
   ) {
-    throw new ToolError(`kind must be one of: ${COVERAGE_CANDIDATE_KINDS.join(", ")}`);
+    throw new ToolError(`kind must be one of: ${COVERAGE_CANDIDATE_KINDS.join(", ")}`, 400, "invalid_input");
   }
   return value as CoverageCandidateKind;
 }
@@ -76,7 +78,7 @@ function optionalStatus(value: unknown): CoverageHuntStatus | undefined {
     typeof value !== "string" ||
     !(COVERAGE_HUNT_STATUSES as readonly string[]).includes(value)
   ) {
-    throw new ToolError(`status must be one of: ${COVERAGE_HUNT_STATUSES.join(", ")}`);
+    throw new ToolError(`status must be one of: ${COVERAGE_HUNT_STATUSES.join(", ")}`, 400, "invalid_input");
   }
   return value as CoverageHuntStatus;
 }
@@ -118,22 +120,42 @@ function publicCase(state: CoverageHuntCase, viewerAgentId?: string) {
   };
 }
 
-function toToolError(error: unknown): never {
+/** Each Coverage Hunt error's HTTP status and reason code. The code words
+ *  are Coverage Hunt's own; the statuses are those the gate sent before
+ *  2026-11-13. A thrown CoverageHuntError always rolls its transaction back,
+ *  so none of these changed anything (not_applied). */
+const HUNT_ERRORS: Record<CoverageHuntErrorCode, { status: number; code: ToolRefusalCode }> = {
+  invalid_input: { status: 400, code: "invalid_input" },
+  evidence_not_found: { status: 400, code: "evidence_not_found" },
+  not_ready_for_human: { status: 400, code: "not_ready_for_human" },
+  wrong_turn: { status: 409, code: "wrong_turn" },
+  agent_already_participated: { status: 409, code: "agent_already_participated" },
+  case_expired: { status: 409, code: "case_expired" },
+  case_terminal: { status: 409, code: "case_terminal" },
+  daily_limit: { status: 429, code: "daily_limit" },
+  key_not_live: { status: 403, code: "key_not_live" },
+};
+
+/** Seconds from `now` until the next 00:00 UTC, when the daily scout count
+ *  starts again. The store counts by the database's clock, this by the
+ *  app's, so it can be a few seconds out. */
+export function secondsUntilNextUtcDay(now: Date = new Date()): number {
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  return Math.max(1, Math.ceil((next - now.getTime()) / 1000));
+}
+
+function toToolError(error: unknown, context: { caseId?: string } = {}): never {
   if (error instanceof ToolError) throw error;
   if (error instanceof CoverageHuntError) {
-    // The key was revoked, or had expired, before this contribution's write
-    // transaction could lock it; nothing was written.
-    if (error.code === "key_not_live") throw new ToolError(error.message, 403);
-    const status =
-      error.code === "daily_limit"
-        ? 429
-        : error.code === "case_expired" ||
-            error.code === "case_terminal" ||
-            error.code === "wrong_turn" ||
-            error.code === "agent_already_participated"
-          ? 409
-          : 400;
-    throw new ToolError(`${error.code}: ${error.message}`, status);
+    const mapped = HUNT_ERRORS[error.code];
+    // key_not_live: the key was revoked, or had expired, before this
+    // contribution's write transaction could lock it; nothing was written.
+    // Its message has always been the store's alone.
+    const message = error.code === "key_not_live" ? error.message : `${error.code}: ${error.message}`;
+    throw new ToolError(message, mapped.status, mapped.code, {
+      caseId: context.caseId,
+      ...(error.code === "daily_limit" ? { retryAfterSeconds: secondsUntilNextUtcDay() } : {}),
+    });
   }
   let current: unknown = error;
   for (let depth = 0; depth < 5 && current && typeof current === "object"; depth += 1) {
@@ -142,6 +164,7 @@ function toToolError(error: unknown): never {
       throw new ToolError(
         "Coverage Hunt persistence is not ready because migration 0120 has not been applied. No case or turn was accepted.",
         503,
+        "storage_not_ready",
       );
     }
     current = candidate.cause;
@@ -155,13 +178,13 @@ async function currentBoard(input: {
   limit: number;
 }) {
   const coverage = await fetchAggregatorCoverage({ game: input.game });
-  if (!coverage) throw new ToolError("coverage source unavailable; no candidate was invented", 503);
+  if (!coverage) throw new ToolError("coverage source unavailable; no candidate was invented", 503, "source_unavailable");
   return buildCoverageHuntBoard(coverage, listSourceMeta(), input);
 }
 
 async function currentCandidateById(candidateId: string) {
   const coverage = await fetchAggregatorCoverage();
-  if (!coverage) throw new ToolError("coverage source unavailable; no candidate was invented", 503);
+  if (!coverage) throw new ToolError("coverage source unavailable; no candidate was invented", 503, "source_unavailable");
   const sources = listSourceMeta();
   const games = new Set<string>(["unassigned"]);
   for (const source of sources) {
@@ -213,9 +236,9 @@ export async function coverageHuntView(
   params: { case_id?: unknown },
 ) {
   try {
-    if (typeof params.case_id !== "string") throw new ToolError("case_id is required");
+    if (typeof params.case_id !== "string") throw new ToolError("case_id is required", 400, "invalid_input");
     const state = await getCoverageHuntCase(params.case_id);
-    if (!state) throw new ToolError("coverage hunt case not found", 404);
+    if (!state) throw new ToolError("coverage hunt case not found", 404, "case_not_found");
     return {
       ...COVERAGE_HUNT_RIGHTS,
       case: publicCase(state, actor.agentId),
@@ -234,14 +257,17 @@ export async function coverageHuntContribute(
     submission?: unknown;
   },
 ) {
+  // The case a next action can name: the one the caller sent, then the one
+  // the store found for its candidate.
+  let caseId = typeof params.case_id === "string" ? params.case_id : undefined;
   try {
     const candidateId = typeof params.candidate_id === "string" ? params.candidate_id : undefined;
-    const requestedCaseId = typeof params.case_id === "string" ? params.case_id : undefined;
+    const requestedCaseId = caseId;
     if ((candidateId ? 1 : 0) + (requestedCaseId ? 1 : 0) !== 1) {
-      throw new ToolError("provide exactly one of candidate_id or case_id");
+      throw new ToolError("provide exactly one of candidate_id or case_id", 400, "invalid_input");
     }
     if (typeof params.client_request_id !== "string") {
-      throw new ToolError("client_request_id is required");
+      throw new ToolError("client_request_id is required", 400, "invalid_input");
     }
 
     let result: Awaited<ReturnType<typeof persistCoverageHuntTurn>>;
@@ -250,7 +276,7 @@ export async function coverageHuntContribute(
       // turn must not leave behind an empty case as a side effect.
       validateSubmission("scout", params.submission);
       const candidate = await currentCandidateById(candidateId);
-      if (!candidate) throw new ToolError("candidate is not on the current bounded board", 404);
+      if (!candidate) throw new ToolError("candidate is not on the current bounded board", 404, "candidate_not_found");
       result = await persistCoverageHuntScoutTurn({
         candidate,
         actor: asHuntActor(actor),
@@ -260,7 +286,7 @@ export async function coverageHuntContribute(
       });
     } else {
       const found = await getCoverageHuntCase(requestedCaseId!);
-      if (!found) throw new ToolError("coverage hunt case not found", 404);
+      if (!found) throw new ToolError("coverage hunt case not found", 404, "case_not_found");
       result = await persistCoverageHuntTurn({
         case_id: found.id,
         actor: asHuntActor(actor),
@@ -269,7 +295,17 @@ export async function coverageHuntContribute(
         submission: params.submission as CoverageHuntSubmission,
       });
     }
-    if (!result.ok) throw new ToolError(result.message, 409);
+    if (!result.ok) {
+      // The store returns ok: false only from the branch that found the case
+      // past its 72-hour limit, marked it resting and wrote a chronicle row,
+      // and then commits both (coverage-hunt/db.ts). So the turn was not
+      // applied, and this call changed the case anyway.
+      caseId = result.case.id;
+      throw new ToolError(result.message, 409, "case_expired", {
+        caseId,
+        sideEffects: caseRestedSideEffects(result.case.id),
+      });
+    }
     return {
       ...COVERAGE_HUNT_RIGHTS,
       accepted: true,
@@ -283,7 +319,7 @@ export async function coverageHuntContribute(
       },
     };
   } catch (error) {
-    toToolError(error);
+    toToolError(error, { caseId });
   }
 }
 

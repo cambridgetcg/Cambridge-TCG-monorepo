@@ -12,7 +12,7 @@
  */
 
 import { query } from "@/lib/db";
-import { ToolError } from "./play-tools";
+import { ToolError } from "./tool-error";
 import type { AgentActor } from "./auth";
 
 export const AGENT_DECK_WRITES_ENABLED = false as const;
@@ -33,13 +33,14 @@ export async function deckSave(
     throw new ToolError(
       "Agent deck writes are paused for every key until exact entry validation and complete agent attribution ship together.",
       503,
+      "writes_paused",
     );
   }
   const name = (params.name ?? "").trim();
-  if (!name) throw new ToolError("name required");
-  if (name.length > 80) throw new ToolError("name too long (max 80)");
-  if (!Array.isArray(params.entries)) throw new ToolError("entries required");
-  if (params.entries.length === 0) throw new ToolError("deck must have at least one card");
+  if (!name) throw new ToolError("name required", 400, "invalid_input");
+  if (name.length > 80) throw new ToolError("name too long (max 80)", 400, "invalid_input");
+  if (!Array.isArray(params.entries)) throw new ToolError("entries required", 400, "invalid_input");
+  if (params.entries.length === 0) throw new ToolError("deck must have at least one card", 400, "invalid_input");
 
   // Substrate-honest naming: the deck list belongs to the operator-user.
   // Prefix the name with the agent handle so the operator can see who
@@ -91,7 +92,10 @@ export async function deckSave(
     };
   } catch (err) {
     console.error("[agents] deck.save failed:", err);
-    throw new ToolError("failed to save deck");
+    // The INSERT threw: most likely it did not commit, but a connection lost
+    // after the database committed would look the same. Kept at 400, as
+    // before; dormant while deck writes are paused.
+    throw new ToolError("failed to save deck", 400, "internal_error", { effect: "unknown" });
   }
 }
 

@@ -32,14 +32,9 @@ vi.mock("@/lib/agents/tool-access", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/agents/tool-access")>()),
   canInvokeAgentTool: mocks.canInvokeAgentTool,
 }));
+// ToolError is the real one (lib/agents/tool-error.ts), with its refusal.
 vi.mock("@/lib/agents/play-tools", () => {
-  class ToolError extends Error {
-    constructor(message: string, public status = 400) {
-      super(message);
-    }
-  }
   return {
-    ToolError,
     agentSelf: mocks.agentSelf,
     playObserve: vi.fn(),
     playLegalActions: vi.fn(),
@@ -71,7 +66,9 @@ vi.mock("@/lib/agents/coverage-hunt-tools", () => ({
 
 import { query } from "@/lib/db";
 import { coverageHuntContribute } from "@/lib/agents/coverage-hunt-tools";
-import { playObserve, ToolError } from "@/lib/agents/play-tools";
+import { playObserve } from "@/lib/agents/play-tools";
+import { ToolError } from "@/lib/agents/tool-error";
+import { caseRestedSideEffects } from "@/lib/agents/refusals";
 import { GET, MCP_MAX_REQUEST_BYTES, POST } from "./route";
 import { toolByName } from "@/lib/agent-tools-catalog";
 import { AGENT_SIGNED_ACTS } from "@/lib/agents/tool-access";
@@ -110,6 +107,7 @@ type Refusal = {
   terminal: boolean;
   next_actions: Array<{ optional: boolean }>;
   docs: string;
+  effect: string;
   exit_paths?: Array<{ tool: string }>;
 };
 
@@ -124,6 +122,7 @@ function expectRefusalInvariant(refusal: Refusal) {
     expect(refusal.next_actions.length).toBeGreaterThan(0);
   }
   for (const action of refusal.next_actions) expect(action.optional).toBe(true);
+  expect(["not_attempted", "not_applied", "unknown"]).toContain(refusal.effect);
   expect(JSON.stringify(refusal)).not.toMatch(/xenia|covenant/i);
 }
 
@@ -152,7 +151,8 @@ describe("MCP authority and error boundary", () => {
     expect(mocks.stampKeyUse).not.toHaveBeenCalled();
   });
 
-  it("does not return unexpected exception text", async () => {
+  it("does not return unexpected exception text, only a typed internal_error", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.agentSelf.mockRejectedValue(
       new Error("database host and credential fragment must stay private"),
     );
@@ -161,8 +161,50 @@ describe("MCP authority and error boundary", () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body.error).toEqual({ code: -32603, message: "internal error" });
+    expect(body.error).toMatchObject({ code: -32603, message: "internal error" });
+    // agent.self only reads, so nothing it was asked to change can have
+    // changed: sending it again is harmless.
+    expect(body.error.data).toMatchObject({ reason_code: "internal_error", effect: "not_applied", retryable: true });
+    expectRefusalInvariant(body.error.data);
     expect(JSON.stringify(body)).not.toContain("credential fragment");
+    // The log keeps it.
+    expect(JSON.stringify(logged.mock.calls.map((call) => String(call[2])))).toContain("credential fragment");
+    logged.mockRestore();
+  });
+
+  it("says an unexpected exception in a tool that could write leaves the write unknown, and names a read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(coverageHuntContribute).mockRejectedValue(new Error("connection terminated while committing"));
+    const args = { case_id: "11111111-1111-4111-8111-111111111111", client_request_id: "r-1", submission: {} };
+
+    const dotted = await POST(request("coverage.hunt.contribute", args));
+    const dottedBody = await dotted.json();
+    expect(dotted.status).toBe(500);
+    expect(dottedBody.error.code).toBe(-32603);
+    expect(dottedBody.error.data).toMatchObject({
+      reason_code: "internal_error",
+      effect: "unknown",
+      retryable: false,
+      terminal: false,
+      next_actions: [{ action: "call_tool", tool: "coverage.hunt.view", arguments: { case_id: args.case_id }, optional: true }],
+    });
+    expectRefusalInvariant(dottedBody.error.data);
+
+    // tools/call keeps the JSON-RPC error it had, now with the same data.
+    const call = await POST(request("tools/call", { name: "coverage.hunt.contribute", arguments: args }));
+    const callBody = await call.json();
+    expect(call.status).toBe(500);
+    expect(callBody.error.data).toEqual(dottedBody.error.data);
+    expect(JSON.stringify(callBody)).not.toContain("committing");
+  });
+
+  it("says nothing was attempted when the rate limiter fails before the tool runs", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.checkAndConsume.mockRejectedValue(new Error("limiter down"));
+
+    const body = await (await POST(request("coverage.hunt.contribute", { case_id: "c", client_request_id: "r", submission: {} }))).json();
+    expect(body.error.data).toMatchObject({ reason_code: "internal_error", effect: "not_attempted", retryable: true });
+    expect(coverageHuntContribute).not.toHaveBeenCalled();
   });
 });
 
@@ -195,8 +237,7 @@ describe("X-Agent-Key-Expires", () => {
     answers.push(await POST(request("deck.save")));
     mocks.checkAndConsume.mockResolvedValueOnce({ allowed: false, remaining: 0, resetSeconds: 17 });
     answers.push(await POST(request("agent.self")));
-    const { ToolError } = await import("@/lib/agents/play-tools");
-    mocks.agentSelf.mockRejectedValueOnce(new ToolError("match not found", 404));
+    mocks.agentSelf.mockRejectedValueOnce(new ToolError("match not found", 404, "match_not_found"));
     answers.push(await POST(request("agent.self")));
     for (const failure of [
       { ok: false, status: 401, reason_code: "unknown_or_revoked_key", error: "unknown or revoked key" },
@@ -458,16 +499,61 @@ describe("MCP typed refusals", () => {
     expectRefusalInvariant(callBody.result._meta["cambridgetcg.com/refusal"]);
   });
 
-  it("leaves ordinary tool errors without a refusal", async () => {
-    const { ToolError } = await import("@/lib/agents/play-tools");
-    mocks.agentSelf.mockRejectedValue(new ToolError("match not found", 404));
+  it("types a tool's own refusal as the gate types its own, in the same carriers", async () => {
+    mocks.agentSelf.mockRejectedValue(new ToolError("match not found", 404, "match_not_found"));
 
-    const body = await (
-      await POST(request("tools/call", { name: "agent.self", arguments: {} }))
-    ).json();
+    const call = await POST(request("tools/call", { name: "agent.self", arguments: {} }));
+    const callBody = await call.json();
+    expect(call.status).toBe(404);
+    expect(callBody.result).toMatchObject({ isError: true, content: [{ type: "text", text: "match not found" }] });
+    const refusal = callBody.result._meta["cambridgetcg.com/refusal"];
+    expect(refusal).toEqual({
+      reason_code: "match_not_found",
+      retryable: false,
+      terminal: false,
+      next_actions: [{ action: "call_tool", tool: "play.match_history", text: "Lists this agent's matches and their ids.", optional: true }],
+      docs: "https://cambridgetcg.com/methodology/agents",
+      effect: "not_applied",
+    });
+    expectRefusalInvariant(refusal);
 
-    expect(body.result.isError).toBe(true);
-    expect(body.result).not.toHaveProperty("_meta");
+    const dotted = await POST(request("agent.self"));
+    const dottedBody = await dotted.json();
+    expect(dotted.status).toBe(404);
+    expect(dottedBody.error).toEqual({ code: -32003, message: "match not found", data: refusal });
+  });
+
+  it("says a refused Coverage Hunt turn on an expired case was not applied, and what the call changed anyway", async () => {
+    const caseId = "11111111-1111-4111-8111-111111111111";
+    vi.mocked(coverageHuntContribute).mockRejectedValue(
+      new ToolError("case reached its 72-hour boundary and is resting", 409, "case_expired", {
+        caseId,
+        sideEffects: caseRestedSideEffects(caseId),
+      }),
+    );
+    const body = await (await POST(request("tools/call", { name: "coverage.hunt.contribute", arguments: { case_id: caseId } }))).json();
+    const refusal = body.result._meta["cambridgetcg.com/refusal"];
+    expect(refusal).toMatchObject({ reason_code: "case_expired", effect: "not_applied", retryable: false });
+    expect(refusal.side_effects.map((entry: { change: string }) => entry.change)).toEqual(["case_marked_resting", "chronicle_row_added"]);
+    expectRefusalInvariant(refusal);
+  });
+
+  it("sends a tool's daily limit with retry_after_seconds and Retry-After, as the gate's rate limit is sent", async () => {
+    vi.mocked(coverageHuntContribute).mockRejectedValue(
+      new ToolError("daily_limit: an agent may scout at most 5 new cases per UTC day", 429, "daily_limit", { retryAfterSeconds: 4321 }),
+    );
+    for (const method of ["coverage.hunt.contribute", "tools/call"]) {
+      const response = await POST(request(method, { name: "coverage.hunt.contribute", arguments: {} }));
+      const body = await response.json();
+      expect(response.status).toBe(429);
+      expect(response.headers.get("retry-after")).toBe("4321");
+      const refusal = method === "tools/call" ? body.result._meta["cambridgetcg.com/refusal"] : body.error.data;
+      expect(refusal).toMatchObject({ reason_code: "daily_limit", retryable: true, retry_after_seconds: 4321, effect: "not_applied" });
+      expect(refusal.next_actions[0]).toMatchObject({ action: "retry", after_seconds: 4321 });
+    }
+    // Only a refusal that names a wait sends the header.
+    vi.mocked(coverageHuntContribute).mockRejectedValue(new ToolError("case_terminal: case is resting", 409, "case_terminal"));
+    expect((await POST(request("coverage.hunt.contribute"))).headers.get("retry-after")).toBeNull();
   });
 
   it("types a rate-limited call as retryable after the reset", async () => {
@@ -877,10 +963,13 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
     await POST(request("agent.self"));
     // A tool's own 403 (Coverage Hunt's key_not_live) is a refusal; any other
     // ToolError is a tool error, even one answered 404.
-    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("This key is no longer live.", 403));
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("This key is no longer live.", 403, "key_not_live"));
     await POST(request("tools/call", { name: "coverage.hunt.contribute", arguments: {} }));
-    vi.mocked(playObserve).mockRejectedValueOnce(new ToolError("match not found", 404));
+    vi.mocked(playObserve).mockRejectedValueOnce(new ToolError("match not found", 404, "match_not_found"));
     await POST(request("play.observe", { match_id: "m-1" }));
+    // A tool's daily limit is a tool error, as before.
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new ToolError("daily_limit: x", 429, "daily_limit", { retryAfterSeconds: 60 }));
+    await POST(request("tools/call", { name: "coverage.hunt.contribute", arguments: {} }));
     expect(await counted()).toEqual([
       ["tools/call", "agent.self", false, "unauthenticated"],
       ["tools/call", "deck.save", true, "forbidden"],
@@ -888,6 +977,7 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
       ["native", "agent.self", true, "error"],
       ["tools/call", "coverage.hunt.contribute", true, "forbidden"],
       ["native", "play.observe", true, "tool-error"],
+      ["tools/call", "coverage.hunt.contribute", true, "tool-error"],
     ]);
   });
 
