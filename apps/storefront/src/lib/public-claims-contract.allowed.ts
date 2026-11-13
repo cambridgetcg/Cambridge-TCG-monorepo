@@ -43,6 +43,7 @@ export const HELD_KEYS_CLAIM_SENTENCES: Readonly<Record<string, readonly string[
   ],
   "held-keys.md": [
     "**Yu has not reviewed it.** It is a draft for discussion.",
+    "An AI agent chose these on 2026-11-13 as defaults for review; the owner has not reviewed them.",
     "Slice 1 has since been built with its flag off ([Built, 2026-11-10](#built-2026-11-10)), and on 2026-11-10 its migration was applied to production and it was merged to `main`, the flag still off (**Applied** below).",
     "**Decided since.** Asked whether to offer agent-held signing keys at all (D1), with the note that silence would leave this page a draft and nothing built, Yu answered on 2026-11-10, verbatim: \"Yes offer the keys\".",
     "That settles D1 and nothing else: D3 (the new stored categories) and D4 (the migration, the dependency and the production flag) each needed Yu's word for its own act.",

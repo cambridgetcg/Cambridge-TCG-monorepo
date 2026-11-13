@@ -182,9 +182,11 @@ unassessed. XENIA names and duty ids stay in docs and code comments, never in
 wire responses.
 
 The pin stays at d4727ec. XENIA's main has moved since: commit 415980f
-(2026-11-12) added informative patterns, which these rows have not been read
-against. That commit is as reported in the brief for the 2026-11-13 change to
-refusals; it was not fetched or checked here.
+(2026-11-12) added an informative principle and patterns, and no duties. An
+AI agent's review on 2026-11-13 (its reports are not in this repository)
+found `covenant/0.1/covenant.json` identical at both commits and all 27 duty
+ids this repository cites still present. The rows below have not been
+re-read against the new patterns.
 
 | Candidate duty | What the code does | Evidence | Gap |
 | --- | --- | --- | --- |
