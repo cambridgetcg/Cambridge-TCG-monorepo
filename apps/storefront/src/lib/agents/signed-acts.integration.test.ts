@@ -472,7 +472,14 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     expect(await submit(ahead)).toMatchObject({ ok: false, refusal: { reason_code: "act_stale", receipt: { act_sha256: expect.any(String) } } });
     expect(codeOf(await submit(ahead))).toBe("act_replayed");
     await pool.query(`UPDATE agents SET status = 'suspended', suspended_at = NOW() WHERE id = $1`, [agentId]);
-    expect(await submit(sign(h, agentId, "key.mint", usageKey().params))).toMatchObject({ ok: false, status: 403, refusal: { reason_code: "agent_suspended" } });
+    // Refused for the agent's status inside the transaction, after its jti
+    // was recorded: the refusal says the act was recorded, and it was.
+    const suspended = await submit(sign(h, agentId, "key.mint", usageKey().params));
+    expect(suspended).toMatchObject({ ok: false, status: 403, refusal: { reason_code: "agent_suspended", effect: "not_applied" } });
+    if (suspended.ok) throw new Error("expected a refusal");
+    expect(suspended.refusal.side_effects?.map((entry) => entry.change)).toEqual(["act_recorded"]);
+    const recorded = await pool.query(`SELECT outcome, refusal FROM agent_act_events WHERE id = $1`, [suspended.refusal.receipt!.event_id]);
+    expect(recorded.rows[0]).toEqual({ outcome: "refused", refusal: "agent_suspended" });
     expect(codeOf(await submit(sign(h, agentId, "signer.check")))).toBe("applied");
     expect(await liveUsageKeys(agentId)).toBe(0);
   });

@@ -66,6 +66,7 @@ vi.mock("@/lib/agents/coverage-hunt-tools", () => ({
 
 import { query } from "@/lib/db";
 import { coverageHuntContribute } from "@/lib/agents/coverage-hunt-tools";
+import { deckListMine } from "@/lib/agents/write-tools";
 import { playObserve } from "@/lib/agents/play-tools";
 import { ToolError } from "@/lib/agents/tool-error";
 import { caseRestedSideEffects } from "@/lib/agents/refusals";
@@ -219,6 +220,15 @@ describe("MCP authority and error boundary", () => {
       expect(body.error, String(status)).toBeDefined();
       expect(body.error, String(status)).not.toHaveProperty("data");
     }
+  });
+
+  it("treats an exception in an operator-managed read as a read: not applied, and safe to send again", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(deckListMine).mockRejectedValue(new Error("statement timeout"));
+    const body = await (await POST(request("deck.list_mine"))).json();
+    expect(body.error.data).toMatchObject({ reason_code: "internal_error", effect: "not_applied", retryable: true });
+    expect(body.error.data.next_actions).toEqual([expect.objectContaining({ action: "retry" })]);
+    expectRefusalInvariant(body.error.data);
   });
 
   it("says nothing was attempted when the rate limiter fails before the tool runs", async () => {
