@@ -95,7 +95,7 @@ export async function deckSave(
     // The INSERT threw: most likely it did not commit, but a connection lost
     // after the database committed would look the same. Kept at 400, as
     // before; dormant while deck writes are paused.
-    throw new ToolError("failed to save deck", 400, "internal_error", { effect: "unknown" });
+    throw new ToolError("failed to save deck", 400, "internal_error", { effect: "unknown", tool: "deck.save" });
   }
 }
 

@@ -291,6 +291,9 @@ export interface ToolRefusalContext {
   caseId?: string;
   /** A match the call named. */
   matchId?: string;
+  /** internal_error: the tool whose write may have happened, so the next
+   *  action reads what it could have changed (stateReadAfterFault). */
+  tool?: string;
 }
 
 interface ToolRefusalRule {
@@ -414,7 +417,7 @@ const TOOL_REFUSAL_RULES: Record<ToolRefusalCode, ToolRefusalRule> = {
   },
   internal_error: {
     retryable: false,
-    next: () => [callTool("agent.self", "Shows whether this key and its agent still work.")],
+    next: (context) => [stateReadAfterFault(context.tool ?? "", context.matchId ? { match_id: context.matchId } : {})],
   },
 };
 
@@ -479,25 +482,51 @@ export function internalErrorRefusal(
       effect,
     };
   }
-  let read: RefusalNextAction;
-  if (tool === "coverage.hunt.contribute") {
-    const caseId = typeof args.case_id === "string" && args.case_id.length <= 64 ? args.case_id : undefined;
-    const text =
-      "Shows whether this turn was recorded. Sending the same client_request_id again is safe: a recorded turn comes back as its receipt (idempotent: true) and is never recorded twice.";
-    read = caseId
-      ? callTool("coverage.hunt.view", text, { case_id: caseId })
-      : callTool("coverage.hunt.my_cases", text);
-  } else {
-    read = callTool("agent.self", "Shows whether this key and its agent still work. This tool's writes are paused, so it is unlikely anything changed.");
-  }
   return {
     reason_code: "internal_error",
     retryable: false,
     terminal: false,
-    next_actions: [read],
+    next_actions: [stateReadAfterFault(tool, args)],
     docs: AGENT_DOCS_URL,
     effect,
   };
+}
+
+/** An id from the refused call's arguments, short enough to echo back. */
+function argumentId(args: Record<string, unknown>, key: string): string | undefined {
+  const value = args[key];
+  return typeof value === "string" && value.length > 0 && value.length <= 64 ? value : undefined;
+}
+
+/**
+ * After a fault in a tool that could write, the read that shows whether its
+ * write happened: the state that tool changes. Every write but
+ * coverage.hunt.contribute is paused (tool-access.ts), so only that one can
+ * reach this today; the others are named now so the answer is right the day
+ * one is unpaused, and should be checked again then.
+ */
+function stateReadAfterFault(tool: string, args: Record<string, unknown>): RefusalNextAction {
+  if (tool === "coverage.hunt.contribute") {
+    const caseId = argumentId(args, "case_id");
+    const text =
+      "Shows whether this turn was recorded. Sending the same client_request_id again is safe: a recorded turn comes back as its receipt (idempotent: true) and is never recorded twice.";
+    return caseId
+      ? callTool("coverage.hunt.view", text, { case_id: caseId })
+      : callTool("coverage.hunt.my_cases", text);
+  }
+  if (tool === "deck.save") {
+    return callTool("deck.list_mine", "Lists the decks saved for the operator; shows whether this one was.");
+  }
+  if (tool === "play.take_action") {
+    const matchId = argumentId(args, "match_id");
+    return matchId
+      ? callTool("play.observe", "Shows the match as it stands, so whether this action was applied.", { match_id: matchId })
+      : MATCH_HISTORY;
+  }
+  if (tool === "play.queue_match" || tool === "play.cancel_queue") {
+    return callTool("play.match_history", "Lists this agent's matches, which would show a match the queue made. No tool reads the queue itself.");
+  }
+  return callTool("agent.self", "Shows whether this key and its agent still work. It does not read what this tool could have changed.");
 }
 
 // ── Signed acts ──────────────────────────────────────────────────────────

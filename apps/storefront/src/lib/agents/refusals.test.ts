@@ -181,8 +181,27 @@ describe("an unexpected exception", () => {
     expect(fromCandidate.next_actions).toEqual([expect.objectContaining({ tool: "coverage.hunt.my_cases" })]);
     expect(fromCandidate.next_actions[0]).not.toHaveProperty("arguments");
 
-    const paused = internalErrorRefusal("deck.save", {}, "unknown");
-    expect(paused.next_actions).toEqual([expect.objectContaining({ tool: "agent.self" })]);
+    // Every other write is paused, but the read each names is the state that
+    // write changes, never only agent.self.
+    expect(internalErrorRefusal("deck.save", {}, "unknown").next_actions).toEqual([
+      expect.objectContaining({ action: "call_tool", tool: "deck.list_mine" }),
+    ]);
+    expect(internalErrorRefusal("play.take_action", { match_id: "m-1" }, "unknown").next_actions).toEqual([
+      expect.objectContaining({ tool: "play.observe", arguments: { match_id: "m-1" } }),
+    ]);
+    expect(internalErrorRefusal("play.take_action", {}, "unknown").next_actions[0].tool).toBe("play.match_history");
+    expect(internalErrorRefusal("play.queue_match", {}, "unknown").next_actions[0].tool).toBe("play.match_history");
+    // A tool this table does not know: agent.self, saying what it does not read.
+    const unknownTool = internalErrorRefusal("some.future_write", {}, "unknown");
+    expect(unknownTool.next_actions[0]).toMatchObject({ tool: "agent.self" });
+    expect(unknownTool.next_actions[0].text).toContain("does not read what this tool could have changed");
+  });
+
+  it("points deck.save's own internal_error at the decks it could have saved", () => {
+    const refusal = toolRefusal("internal_error", { effect: "unknown", tool: "deck.save" });
+    expectShape(refusal);
+    expect(refusal).toMatchObject({ effect: "unknown", retryable: false });
+    expect(refusal.next_actions).toEqual([expect.objectContaining({ action: "call_tool", tool: "deck.list_mine" })]);
   });
 
   it("may be sent again when nothing can have changed", () => {
