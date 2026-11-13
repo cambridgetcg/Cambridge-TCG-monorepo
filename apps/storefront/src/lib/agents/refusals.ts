@@ -337,9 +337,11 @@ const TOOL_REFUSAL_RULES: Record<ToolRefusalCode, ToolRefusalRule> = {
   },
   case_expired: {
     retryable: false,
+    // coverage.hunt.view returns the case's status and turns, not its
+    // chronicle; side_effects is what names the chronicle row.
     next: (context) =>
       context.sideEffects?.length
-        ? [viewCase(context, "Shows the case as it stands now, resting, with the chronicle row this call added."), LIST_CASES]
+        ? [viewCase(context, "Shows the case as it stands now: resting, with its turns."), LIST_CASES]
         : [LIST_CASES],
   },
   case_terminal: { retryable: false, next: () => [LIST_CASES] },

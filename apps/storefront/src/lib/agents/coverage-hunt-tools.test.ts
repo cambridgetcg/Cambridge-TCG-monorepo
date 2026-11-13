@@ -346,6 +346,17 @@ describe("Coverage Hunt refusals", () => {
     expect(error.refusal.side_effects?.map((entry) => entry.change)).toEqual(["case_marked_resting", "chronicle_row_added"]);
     expect(error.refusal.side_effects?.[0].text).toContain(CASE);
     expect(error.refusal.next_actions[0]).toMatchObject({ action: "call_tool", tool: "coverage.hunt.view", arguments: { case_id: CASE } });
+
+    // The next action says only what coverage.hunt.view returns: the case's
+    // status and turns. It has no chronicle, so the sentence names none.
+    vi.mocked(getCoverageHuntCase).mockResolvedValueOnce(huntCase({ status: "resting" }));
+    const viewed = await coverageHuntView(actor, { case_id: CASE });
+    const fields = Object.keys(viewed.case);
+    expect(fields).toEqual(expect.arrayContaining(["status", "turns"]));
+    expect(fields).not.toContain("chronicle");
+    expect(viewed.case.status).toBe("resting");
+    expect(error.refusal.next_actions[0].text).toBe("Shows the case as it stands now: resting, with its turns.");
+    expect(error.refusal.next_actions[0].text).not.toMatch(/chronicle/);
   });
 
   it("names the case the store found for a candidate when a scout finds it past its limit", async () => {
