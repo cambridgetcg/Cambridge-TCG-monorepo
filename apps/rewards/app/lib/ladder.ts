@@ -46,8 +46,8 @@ export function binOf(spend: Decimal, binWidth: number): number {
   return Math.max(0, Math.min(bin, MAX_BINS - 1));
 }
 
-/** The tier (0, 1 or 2) a bin belongs to, by the spend it starts at. */
-function tierOfBin(bin: number, binWidth: number, starts: Starts): 0 | 1 | 2 {
+/** The tier (0, 1 or 2) a bin belongs to, by the spend it starts at: the rule countsFor, costFor and the picture share. */
+export function tierOfBin(bin: number, binWidth: number, starts: Starts): 0 | 1 | 2 {
   const binStart = bin * binWidth;
   if (binStart >= starts[2]) return 2;
   if (binStart >= starts[1]) return 1;
@@ -141,8 +141,51 @@ export function snap(value: number, binWidth: number): number {
   return Math.max(binWidth, Math.round(value / binWidth) * binWidth);
 }
 
-/** A round order for the worked example: near the store's median when known, else 100 near the pound. */
+/**
+ * Where counts and cost take a typed start from (R9): the start of the bin
+ * it falls in, so the figures match the picture's bars, and at least one
+ * bin, since bin 0 holds the buyers who spent nothing and they are always in
+ * tier 1. Only for the figures: the field keeps what was typed.
+ */
+export function onGrid(start: number, binWidth: number): number {
+  return Math.max(binWidth, Math.floor(start / binWidth) * binWidth);
+}
+
+/** The 1, 2 or 5 × 10^k nearest `n`, up on a tie, and at least 1. */
+function nearestStep(n: Decimal): Decimal {
+  const up = new Money(niceStep(n.toNumber()));
+  if (up.lte(1)) return up;
+  // The step below the one above: 5 below 10 and 1 below 2 are halves, 2 below 5 is two fifths
+  const down = up.toFixed().startsWith("5") ? up.times(2).div(5) : up.div(2);
+  return up.minus(n).lte(n.minus(down)) ? up : down;
+}
+
+/** A round order for the worked example: the step nearest the store's median when known, else 100 near the pound. */
 export function exampleOrder(medianOrder: Decimal | null, currency: string): Decimal | null {
-  if (medianOrder !== null) return new Money(niceStep(new Money(medianOrder).toNumber()));
+  if (medianOrder !== null) return nearestStep(new Money(medianOrder));
   return POUND_LIKE.has(currency) ? new Money(100) : null;
+}
+
+/** The fewest bins the picture shows, so a store whose buyers all spent little still has a scale. */
+const PICTURE_MIN_BINS = 20;
+
+/**
+ * The bins the picture shows (R21): the range that holds 99% of buyers and a
+ * quarter more, at least PICTURE_MIN_BINS, with every bin above it folded
+ * into its last bar. Every buyer is still in it. Only for the picture:
+ * counts and cost keep the full grid. With no buyers, the bins as they are.
+ */
+export function pictureBins(buyers: number[]): number[] {
+  const total = buyers.reduce((sum, count) => sum + count, 0);
+  if (total === 0) return [...buyers];
+  // The fewest leading bins that hold at least 99% of buyers, in whole numbers
+  let n99 = 0;
+  let held = 0;
+  while (held * 100 < total * 99) {
+    held += buyers[n99];
+    n99 += 1;
+  }
+  const shown = Math.min(buyers.length, Math.max(PICTURE_MIN_BINS, Math.ceil(n99 * 1.25)));
+  const above = buyers.slice(shown - 1).reduce((sum, count) => sum + count, 0);
+  return [...buyers.slice(0, shown - 1), above];
 }

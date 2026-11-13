@@ -30,6 +30,29 @@ export async function dismissGuide(merchantId: string, now: Date = new Date()): 
   await prisma.merchant.updateMany({ where: { id: merchantId, guideDismissedAt: null }, data: { guideDismissedAt: now } });
 }
 
+/**
+ * When the guide's switch turned cashback on, for the try-it list: while
+ * cashback is on, the later of the setup's completion, when there is one, and
+ * the newest tier's creation; else null. The ladder the guide saved stands in
+ * for its switch-on twice: setup is recorded as done only once the widget is
+ * seen on, so a store that switched on with the widget off has no completion
+ * yet; and a store that completed setup on Home long ago keeps its first
+ * setupCompletedAt (markSetupCompleted).
+ * For a paused store with old tiers that switches on at step 3 this is an older time (R18); the try-it list is still the newest five live orders, from which the merchant picks theirs.
+ */
+export async function guideSwitchedOnAt(merchantId: string): Promise<Date | null> {
+  if (!UUID.test(merchantId)) return null;
+  const merchant = await prisma.merchant.findUnique({
+    where: { id: merchantId },
+    select: { running: true, setupCompletedAt: true, tiers: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } } },
+  });
+  if (!merchant?.running) return null;
+  const newestTier = merchant.tiers[0]?.createdAt ?? null;
+  const completed = merchant.setupCompletedAt;
+  if (completed === null || newestTier === null) return completed ?? newestTier;
+  return newestTier > completed ? newestTier : completed;
+}
+
 export interface TryItOrder {
   orderId: string;
   name: string;
