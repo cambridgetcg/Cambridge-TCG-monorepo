@@ -5,7 +5,7 @@
 # history, is in git: this file on main before PR #207, and PR #207's earlier commits (up to e8c90600).
 # 12 Nov 2026 (PR #242): social-post added to 13 rows and to the channel list; rp-tier-lock's scope widened to tier
 # deletion and to the customer's erasure, checked against the code at 8daf7f09 by the writer and a fresh reader.
-# 13 Nov 2026: listing added to rp-give-back and rp-no-cashback-without-paid-order, whose scopes now say
+# 13 Nov 2026 (PR #251): listing added to rp-give-back and rp-no-cashback-without-paid-order, whose scopes now say
 # how the App Store listing's App introduction is to carry them, on the owner's answer of that day (approvals.jsonl).
 #
 # Kept: the rows behind a sentence on the live App Store listing or rewardspro.io, or in the listing text of PR #208
