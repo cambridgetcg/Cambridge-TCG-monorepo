@@ -641,7 +641,10 @@ export default function AgentsMethodology() {
         {SIGNED_ACT_SKEW_SECONDS} seconds ahead and the act must not have reached{" "}
         <code>exp</code> (<code>act_stale</code>, with <code>server_time</code>); and the
         key and <code>jti</code> are recorded, so an act applies at most once and is used
-        up whether it is applied or refused (<code>act_replayed</code>). Refusals take the
+        up whether it is applied or refused (<code>act_replayed</code>, whose effect is{" "}
+        <code>unknown</code>: sending it again changed nothing, and that answer cannot say
+        whether the first send applied the act; a <code>signer.check</code>{" "}
+        act reads the agent&apos;s keys). Refusals take the
         shape described under <a href="#refusals">Refusals</a>, with a{" "}
         <code>detail</code>, <code>server_time</code>, <code>receipt</code> or{" "}
         <code>side_effects</code> where they apply.

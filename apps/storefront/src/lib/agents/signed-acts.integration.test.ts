@@ -272,7 +272,13 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
       const answers = await Promise.all([submit(act), submit(act), submit(act)]);
       expect(answers.map(codeOf).sort()).toEqual(["act_replayed", "act_replayed", "applied"]);
       expect((await events(agentId)).length).toBe(before + 1);
-      expect(codeOf(await submit(act))).toBe("act_replayed");
+      // The act was applied, so a replay must not say it was not: its effect
+      // is unknown (this send changed nothing; the first one is not visible).
+      const replay = await submit(act);
+      expect(replay).toMatchObject({ ok: false, status: 409, refusal: { reason_code: "act_replayed", effect: "unknown" } });
+      if (replay.ok) throw new Error("expected a refusal");
+      expect(replay.refusal).not.toHaveProperty("side_effects");
+      expect(replay.refusal.next_actions[0].text).toContain("signer.check");
     }
     expect(await liveUsageKeys(agentId)).toBe(5);
     expect((await pool.query(`SELECT count(*)::int AS n FROM agent_act_nonces WHERE thumbprint = $1`, [h.kid])).rows[0].n).toBe(6);

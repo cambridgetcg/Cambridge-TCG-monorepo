@@ -314,7 +314,10 @@ describe("the transaction (scripted)", () => {
     lookupFinds(publicKey);
     const calls = scripted({ nonce: false });
     const answer = await submit({ act: signAct(secretKey, kid) });
-    expect(answer).toMatchObject({ ok: false, status: 409, verified: true, refusal: { reason_code: "act_replayed", effect: "not_applied" } });
+    // unknown: this send changed nothing, but the jti's first send, which this
+    // answer cannot see, may have applied the act.
+    expect(answer).toMatchObject({ ok: false, status: 409, verified: true, refusal: { reason_code: "act_replayed", effect: "unknown" } });
+    expect(refusalOf(answer).message).not.toMatch(/Nothing was changed/);
     // No event, so nothing to name: the expired nonces it purges are not the caller's.
     expect(refusalOf(answer).refusal).not.toHaveProperty("side_effects");
     expect(calls.some(([sql]) => sql.includes("INSERT INTO agent_act_events"))).toBe(false);

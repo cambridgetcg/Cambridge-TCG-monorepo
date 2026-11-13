@@ -153,7 +153,9 @@ const MESSAGES: Readonly<Record<RefusalCode, string>> = {
   act_stale: "The act is outside its time window. Nothing was applied.",
   act_limited: "Too many acts from here just now. Nothing was applied.",
   act_unverified: "The act could not be verified. Nothing was changed.",
-  act_replayed: "This act was already used. Nothing was changed.",
+  // This send changed nothing; whether the jti's first send applied the act
+  // is not known here (effect unknown, refusals.ts).
+  act_replayed: "This act was already used. This send changed nothing; whether the act was applied when first sent is not shown here.",
   signing_key_ended: "This signing key has ended. Nothing was applied.",
   act_disclosure_stale: "preview_sha256 is not a current disclosure. Nothing was applied.",
   act_params_invalid: "The act's params were refused. Nothing was applied.",

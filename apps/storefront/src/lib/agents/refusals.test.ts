@@ -51,9 +51,17 @@ describe("every refusal says what became of the call's change", () => {
     }
   });
 
-  it("marks agent.act's closed door not_attempted and every other act refusal not_applied", () => {
+  it("marks agent.act's closed door not_attempted, a replay unknown and every other act refusal not_applied", () => {
     expect(signedActRefusal("signed_acts_closed").effect).toBe("not_attempted");
-    for (const code of ["act_malformed", "act_stale", "act_unverified", "act_replayed", "signing_key_ended", "act_params_invalid"] as const) {
+    // A replay changed nothing itself, but cannot see what the jti's first
+    // send did: after auth_unavailable's unknown that send may have applied.
+    const replayed = signedActRefusal("act_replayed");
+    expectShape(replayed);
+    expect(replayed).toMatchObject({ effect: "unknown", retryable: false, terminal: false });
+    expect(replayed.next_actions).toEqual([expect.objectContaining({ action: "sign_new_act" })]);
+    expect(replayed.next_actions[0].text).toContain("signer.check");
+    expect(replayed.next_actions[0].text).toContain("cannot say whether this act was applied");
+    for (const code of ["act_malformed", "act_stale", "act_unverified", "signing_key_ended", "act_params_invalid"] as const) {
       expectShape(signedActRefusal(code));
       expect(signedActRefusal(code).effect, code).toBe("not_applied");
     }

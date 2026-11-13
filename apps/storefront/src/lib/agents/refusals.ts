@@ -516,7 +516,7 @@ const SIGNED_ACT_NEXT: Record<Exclude<SignedActRefusalCode, "act_limited">, Refu
   act_unverified: { action: "read_docs", href: SIGNED_ACTS_DOCS_URL, optional: true },
   act_replayed: {
     action: "sign_new_act",
-    text: "Each act is used once, applied or refused. Sign a new act with a new jti.",
+    text: "This send changed nothing, and it cannot say whether this act was applied when it was first sent. A signer.check act, signed with a new jti, reads the agent's keys. Each act is used once, applied or refused: to act again, sign a new act with a new jti.",
     optional: true,
   },
   signing_key_ended: {
@@ -552,9 +552,13 @@ export type SignedActRefusalExtra = Pick<
 
 /** A signed-act refusal in the typed shape. None is retryable but
  *  act_limited (signedActLimitedRefusal) and auth_unavailable. A closed door
- *  read nothing (not_attempted); every other refusal came from the act's own
- *  checks and applied none of it (not_applied), though a refusal recorded
- *  after a valid signature lists what it changed (signedActSideEffects). */
+ *  read nothing (not_attempted). act_replayed is unknown: this send changed
+ *  nothing, but the act's jti was used by an earlier send, which this answer
+ *  cannot see, and that send may have applied it (a caller resending after
+ *  auth_unavailable's unknown lands here). Every other refusal came from the
+ *  act's own checks and applied none of it (not_applied), though a refusal
+ *  recorded after a valid signature lists what it changed
+ *  (signedActSideEffects). */
 export function signedActRefusal(
   code: Exclude<SignedActRefusalCode, "act_limited">,
   extra: SignedActRefusalExtra = {},
@@ -565,7 +569,7 @@ export function signedActRefusal(
     terminal: false,
     next_actions: [{ ...SIGNED_ACT_NEXT[code] }],
     docs: AGENT_DOCS_URL,
-    effect: code === "signed_acts_closed" ? "not_attempted" : "not_applied",
+    effect: code === "signed_acts_closed" ? "not_attempted" : code === "act_replayed" ? "unknown" : "not_applied",
     ...extra,
   };
 }
