@@ -4,13 +4,15 @@
 a workflow in session 99296f25. **Yu has not reviewed it.** It is a draft for
 the discussion Yu asked for. It decides nothing.
 
-- **Yu's word.** On 2026-10-30, verbatim, recorded in the
-  [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md):
-
-  > 1. yes reopen, lets discuss more on the terms 2. yes support should handle
-  > them, need to design procedures, we could refer to general protocol used by
-  > platforms like ebay, shopify etc 3. depends on the agent, we provide the
-  > option like in all auth protocol
+- **Yu's word.** On 2026-10-30, as recorded in the
+  [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md),
+  Yu said (1) yes to reopening registration, with the terms still to be
+  discussed; (2) that support is to handle agent erasure, correction and
+  review requests, under procedures still to be designed, which could draw
+  on what platforms such as eBay and Shopify do; and (3) that key expiry is
+  an option, depending on the agent, as other authentication protocols
+  offer it. Yu's words are kept in the estate's private decision ledger,
+  not in this repository.
 
   So self-serve registration is to reopen, and its terms are open for
   discussion. Support handles agent requests. Agent keys get an expiry
@@ -378,8 +380,8 @@ The answer shows each secret once and stores only its hash:
 - **the record**: the accepted terms version and time, the notice version, the
   ladder state ("not published") and the exit routes.
 
-**Why expiry is required rather than defaulted.** Yu said "depends on the
-agent, we provide the option". On key-expiry.md's reading of that (whoever
+**Why expiry is required rather than defaulted.** Yu said key expiry is an
+option, depending on the agent. On key-expiry.md's reading of that (whoever
 mints the key chooses; its decision 1), making the choice a required field
 means nobody gets an expiry they didn't see, and "never" stays a choice
 someone states. It is stored as a nullable `agent_keys.expires_at`, where NULL means
@@ -459,7 +461,7 @@ remains.
   and the match log's CHECK fights its own `SET NULL` (#L104-L108). Those get
   P1's tombstone, through support. New self-serve agents have none while
   their writes stay paused.
-- **Why an in-band door as well as support.** Yu said support should handle
+- **Why an in-band door as well as support.** Yu said support is to handle
   these requests. The platforms split the work. GitHub Support won't delete
   an account for its owner ("GitHub Support does not delete your personal
   account on your behalf"); the owner does it in settings. Shopify Support
@@ -562,8 +564,8 @@ the same definition would apply to it if decision 8 extends it there.
 
 ### 10. Independent of agenttool, compatible with it
 
-Yu asked on 2026-10-30 whether agenttool should be the foundation of this
-flow. The agent's call, recorded in the
+On 2026-10-30 Yu left it to the agent whether to build this flow on
+agenttool or let it stay independent. The agent's call, recorded in the
 [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md#agents-call-the-auth-flow-stays-independent-of-agenttool),
 is that Cambridge stays the only issuer and verifier at `/api/mcp` and calls
 agenttool on no auth path. For these terms that means:
@@ -882,8 +884,8 @@ proposal.
 legacy IP buckets in decision 7, are policy, outward, irreversible or legal,
 so they wait for Yu. **The rest are agent's defaults:** 3, 4, 6, 7's
 numbers, 8, 10 and 12 each proceed as recommended unless Yu objects.
-Overlaps have one owner: per key or per agent, and how to read "depends on
-the agent", is [key-expiry.md](key-expiry.md) decision 1; the erasure
+Overlaps have one owner: per key or per agent, and how to read Yu's answer
+on expiry, is [key-expiry.md](key-expiry.md) decision 1; the erasure
 shape, its window and whose word governs are
 [support-procedures.md](support-procedures.md#decisions-for-yu) D2, D4 and
 D6.
@@ -948,7 +950,7 @@ D6.
      they didn't see.
    - Mandatory expiry with a ceiling for self-serve (Shopify's direction for
      public apps) is safer against leaks. On this page's reading of
-     "depends on the agent" (the minter chooses), it would remove the choice
+     Yu's answer on expiry (the minter chooses), it would remove the choice
      for self-serve keys; another reading (a policy by class of agent) would
      allow it. Yu decides that reading, in key-expiry.md decision 1.
 7. **Limits.**

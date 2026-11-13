@@ -6,10 +6,10 @@
  * app/api/mcp/route.ts) and POST /api/v1/agents/act. Neither reads
  * Authorization: a bearer key sent beside an act neither helps nor hurts it.
  *
- * The owner decided on 2026-11-10 to offer agent-held keys ("Yes offer the
- * keys"). Everything else here, the acts, numbers and wording included, is
- * an agent's proposal in that page or an agent's default where the page
- * left a number open (signed-act-config.ts).
+ * The owner decided on 2026-11-10 to offer agent-held keys. Everything else
+ * here, the acts, numbers and wording included, is an agent's proposal in
+ * that page or an agent's default where the page left a number open
+ * (signed-act-config.ts).
  *
  * Order, as the page numbers it:
  *   1. The flag and the configured audience, else signed_acts_closed; with

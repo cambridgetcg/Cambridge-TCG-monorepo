@@ -25,7 +25,7 @@
 --     a stolen key).
 --   - mcp_daily's tool CHECK, widened with agent.act (see below).
 --
--- Why. The owner answered on 2026-11-10, verbatim, "Yes offer the keys"
+-- Why. The owner decided on 2026-11-10 to offer agent-held keys
 -- (held-keys.md, D1). Every name, number and retention below is an agent's
 -- proposal in that page, not the owner's decision. The owner's word for this
 -- migration, for the new dependency and for turning the path on in

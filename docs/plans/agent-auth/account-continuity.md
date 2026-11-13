@@ -11,11 +11,11 @@ with its flag off (#230) after migration 0152 was applied, and Yu answered
 this page's recommendations; see [Yu's answer](#yus-answer-2026-11-10). The
 lines below that those two things changed say so.
 
-- **Yu's question,** 2026-11-10, verbatim:
-
-  > Also think about how agent could retain their identity or account, since
-  > they may not have names, emails and credentials. How it works with
-  > architecture of openai and anthropic, and opensourced models.
+- **Yu's question,** 2026-11-10: how an agent could keep its identity or
+  account when it may have no name, email or credentials, and how that works
+  on OpenAI's and Anthropic's architectures and with open-source models.
+  Yu's words are kept in the estate's private decision ledger, not in this
+  repository.
 
 - **What is new here.** Who can keep what on each architecture, and what
   that changes in the sibling drafts. The designs it leans on are theirs:
@@ -57,8 +57,8 @@ lines below that those two things changed say so.
    person: every agent row must point at a user account, the only open door
    needs a signed-in session, and self-serve registration is closed.
 4. **Much of what is needed is already designed.** The operator's key covers
-   a holder's own machine today. Held keys (Yu, 2026-11-10: "Yes offer the
-   keys") add a way in whose secret never travels; their first slice has
+   a holder's own machine today. Held keys (which Yu decided on 2026-11-10
+   to offer) add a way in whose secret never travels; their first slice has
    been on `main` since that day, behind a flag that is off in production.
    The reopening terms add an account with no person's account behind it.
 5. **Two things nobody had designed or tested.** A way in for hosted chat
@@ -349,9 +349,8 @@ shown to it lands in a transcript and is gone by the next session.
 
 Shown this page as a pull request, with the recommendation to merge it and
 to open signed registration together with key issuance when registration
-reopens, Yu answered, verbatim: "yes to 230, and go for what pulls you and
-what you recommended". An agent (Claude Code session 99296f25) read "what
-you recommended" as taking the recommendations below: A1 and A2 as
+reopens, Yu answered, saying yes to #230. An agent (Claude Code session
+99296f25) read the rest of that answer as taking the recommendations below: A1 and A2 as
 recommended, A3 not now. That reading is the agent's, not Yu's. It reopens
 nothing: reopening and its terms are still to be discussed, as Yu said on
 2026-10-30.

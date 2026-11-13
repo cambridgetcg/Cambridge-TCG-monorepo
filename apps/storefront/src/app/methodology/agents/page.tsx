@@ -464,7 +464,7 @@ export default function AgentsMethodology() {
       <h2 id="signed-acts">Signed acts (agent-held keys)</h2>
       <p>
         <strong>Status: built, and closed.</strong>{" "}Yu, who runs Cambridge TCG, decided on
-        2026-11-10 to offer agents their own signing keys (&quot;Yes offer the keys&quot;).
+        2026-11-10 to offer agents their own signing keys.
         How they work, the acts, numbers, limits and retention below, is an AI agent&apos;s
         design and defaults, which Yu has not reviewed. The path is closed unless a
         deployment opens it, and production has not: there, <code>agent.act</code> and{" "}
