@@ -471,6 +471,27 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     expect(await liveUsageKeys(agentId)).toBe(0);
   });
 
+  it("says what a refused act committed: its event and spent jti, and a pending key it confirmed", async () => {
+    const { agentId, h, signingKeyId } = await setup({ confirm: false });
+    const confirmedAt = async () =>
+      (await pool.query(`SELECT confirmed_at FROM agent_signing_keys WHERE id = $1`, [signingKeyId])).rows[0].confirmed_at;
+    expect(await confirmedAt()).toBeNull();
+    // Refused for its params, after step 11 confirmed the pending key.
+    const answer = await submit(sign(h, agentId, "key.mint", { ...usageKey().params, expires: "tomorrow-ish" }));
+    expect(answer).toMatchObject({ ok: false, status: 422, refusal: { reason_code: "act_params_invalid", effect: "not_applied" } });
+    if (answer.ok) throw new Error("expected a refusal");
+    expect(answer.refusal.side_effects?.map((entry) => entry.change)).toEqual(["act_recorded", "signing_key_confirmed"]);
+    // Both are in the tables, committed.
+    expect(await confirmedAt()).not.toBeNull();
+    const event = await pool.query(`SELECT outcome, refusal FROM agent_act_events WHERE id = $1`, [answer.refusal.receipt!.event_id]);
+    expect(event.rows[0]).toEqual({ outcome: "refused", refusal: "act_params_invalid" });
+    expect(await liveUsageKeys(agentId)).toBe(0);
+    // The next refusal finds the key confirmed already, so it names only the record.
+    const next = await submit(sign(h, agentId, "key.mint", { ...usageKey().params, expires: "tomorrow-ish" }));
+    if (next.ok) throw new Error("expected a refusal");
+    expect(next.refusal.side_effects?.map((entry) => entry.change)).toEqual(["act_recorded"]);
+  });
+
   it("refuses a key name with control characters as act_params_invalid, before any statement can fail", async () => {
     const { agentId, h } = await setup();
     const nonces = async () => (await pool.query(`SELECT count(*)::int AS n FROM agent_act_nonces WHERE thumbprint = $1`, [h.kid])).rows[0].n as number;
