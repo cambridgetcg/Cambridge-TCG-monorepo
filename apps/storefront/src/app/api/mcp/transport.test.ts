@@ -354,22 +354,36 @@ describe("standard MCP clients (SDK 1.32.2; SDK 2.4.0 default and auto)", () => 
     consoleError.mockRestore();
   });
 
-  it("keeps 401 with its challenge, a fault's 500 and an outage's 503", async () => {
+  it("keeps 401 with its challenge and an outage's 503, and sends a typed fault's 500 with 200", async () => {
     const keyless = await answer(await sdk(call(2, "agent.self"), { key: false }));
     expect(keyless.status).toBe(401);
     expect(keyless.headers.get("www-authenticate")).toBe('Bearer realm="cambridgetcg-mcp"');
     expect(JSON.parse(keyless.text).error.data.reason_code).toBe("missing_credentials");
 
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.agentSelf.mockRejectedValueOnce(new Error("boom"));
-    const fault = await answer(await sdk(call(2, "agent.self")));
-    expect(fault.status).toBe(500);
-    // Typed, but a fault keeps its 500 for status-based monitoring, so an SDK
-    // that throws on it does not read this; a plain caller does.
-    expect(JSON.parse(fault.text).error.data).toMatchObject({ reason_code: "internal_error", effect: "not_applied" });
-    mocks.agentSelf.mockRejectedValueOnce(new Error("boom"));
-    const plainFault = await answer(await post("plain", call(2, "agent.self")));
+    // An exception in a write: whether it applied is unknown, which is when
+    // the caller most needs the refusal. An SDK throws on a 500 and keeps no
+    // body, so a standard client gets the same body with 200; a plain caller
+    // keeps the 500.
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new Error("boom"));
+    const fault = await answer(await sdk(call(2, "coverage.hunt.contribute", { case_id: "c-1" })));
+    expect(fault.status).toBe(200);
+    expect(JSON.parse(fault.text).error).toMatchObject({ code: -32603, message: "internal error" });
+    expect(JSON.parse(fault.text).error.data).toMatchObject({
+      reason_code: "internal_error",
+      effect: "unknown",
+      retryable: false,
+      next_actions: [{ action: "call_tool", tool: "coverage.hunt.view", arguments: { case_id: "c-1" } }],
+    });
+    expect(fault.text).not.toContain("boom");
+    vi.mocked(coverageHuntContribute).mockRejectedValueOnce(new Error("boom"));
+    const plainFault = await answer(await post("plain", call(2, "coverage.hunt.contribute", { case_id: "c-1" })));
     expect(plainFault).toMatchObject({ status: 500, text: fault.text });
+    // A read's fault the same way.
+    mocks.agentSelf.mockRejectedValueOnce(new Error("boom"));
+    const readFault = await answer(await sdk(call(2, "agent.self")));
+    expect(readFault.status).toBe(200);
+    expect(JSON.parse(readFault.text).error.data).toMatchObject({ reason_code: "internal_error", effect: "not_applied", retryable: true });
 
     // A tool's outage (a source it reads did not answer) keeps its 503.
     mocks.agentSelf.mockRejectedValueOnce(new ToolError("coverage source unavailable; no candidate was invented", 503, "source_unavailable"));

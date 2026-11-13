@@ -170,12 +170,14 @@ const MCP_PROTOCOL_VERSION = MCP_EARLIER_REVISION;
 export const MCP_MAX_REQUEST_BYTES = 1024 * 1024;
 
 /** What POST knows of a request beyond the daily count's words: whether it
- *  came from a standard MCP client, whether it was a tools/call, and whether
- *  its 503 is a closed door (a refusal) rather than an outage. */
+ *  came from a standard MCP client, whether it was a tools/call, whether
+ *  its 503 is a closed door (a refusal) rather than an outage, and whether
+ *  its 500 carries a typed internal_error (standardClientToolStatus). */
 interface McpExchange {
   standard: boolean;
   toolsCall: boolean;
   closedDoor: boolean;
+  typedFault: boolean;
 }
 
 /** A web page on another site: refused before the body is read. JSON-RPC
@@ -951,6 +953,9 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
     // for a tool that only reads, unknown for one that could write.
     console.error("[mcp]", dispatchName, err);
     const effect = !handlerStarted ? "not_attempted" : isReadOnlyAgentTool(dispatchName) ? "not_applied" : "unknown";
+    // A standard MCP client gets this 500 with 200, so it can read the
+    // refusal; the daily count still records the 500 (POST).
+    exchange.typedFault = true;
     return NextResponse.json(
       rpcError(body.id, ERR_INTERNAL, "internal error", internalErrorRefusal(dispatchName, dispatchParams, effect)),
       { status: 500 },
@@ -960,7 +965,12 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
 
 export async function POST(request: Request) {
   const seen = unseenMcpRequest();
-  const exchange: McpExchange = { standard: isStandardMcpClient(request.headers), toolsCall: false, closedDoor: false };
+  const exchange: McpExchange = {
+    standard: isStandardMcpClient(request.headers),
+    toolsCall: false,
+    closedDoor: false,
+    typedFault: false,
+  };
   const response = await handlePost(request, seen, exchange);
   response.headers.set("Cache-Control", "private, no-store");
   // Counted after the response, only while OPS_MCP_DAILY is on
@@ -971,7 +981,7 @@ export async function POST(request: Request) {
   if (!exchange.standard || !exchange.toolsCall) return response;
   // Both SDKs throw on any status outside 2xx and drop the body, isError and
   // the refusal in _meta with it: the same body, sent with 200, unless it is
-  // a 401, a fault or an outage (standardClientToolStatus).
+  // a 401, an untyped fault or an outage (standardClientToolStatus).
   const status = standardClientToolStatus(response.status, exchange);
   if (status === response.status) return response;
   return new NextResponse(response.body, { status, headers: response.headers });

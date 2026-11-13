@@ -286,8 +286,13 @@ export default function AgentsMethodology() {
       <p>
         A standard MCP client gets a refused <code>tools/call</code>, a tool&apos;s refusal
         or <code>writes_paused</code>{" "}
-        included, with HTTP 200 and the same body. A 401, a 500
-        and an outage&apos;s 503 (<code>auth_unavailable</code>,{" "}
+        included, with HTTP 200 and the same body. It gets an unexpected exception&apos;s
+        answer with 200 too, so it can read <code>internal_error</code>{" "}
+        and its effect: the SDK clients checked throw on a 500 and keep no body. Other
+        callers keep the 500. The daily count of MCP requests, where a deployment keeps
+        one, records such an exception as an error either way; status-based monitoring
+        at the edge counts a standard client&apos;s as a success. A 401 and an
+        outage&apos;s 503 (<code>auth_unavailable</code>,{" "}
         <code>source_unavailable</code>, <code>storage_not_ready</code>) keep their status
         for every caller, so status-based monitoring still sees them.
       </p>

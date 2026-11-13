@@ -155,4 +155,10 @@ describe("the status a standard client's tools/call is sent with", () => {
     expect(standardClientToolStatus(500, { closedDoor: true })).toBe(500);
     expect(standardClientToolStatus(401, { closedDoor: true })).toBe(401);
   });
+
+  it("sends a 500 with 200 only when the gate marked it a typed fault", () => {
+    expect(standardClientToolStatus(500, { typedFault: true })).toBe(200);
+    expect(standardClientToolStatus(503, { typedFault: true })).toBe(503);
+    expect(standardClientToolStatus(401, { typedFault: true })).toBe(401);
+  });
 });
