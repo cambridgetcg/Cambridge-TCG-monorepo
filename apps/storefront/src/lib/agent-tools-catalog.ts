@@ -39,6 +39,14 @@ import {
 import { currentDisclosure, disclosureSha256 } from "@/lib/agents/signed-act-disclosures";
 import { MCP_OFFERED_REVISIONS, MCP_TRANSPORT_NOTE } from "@/lib/agents/mcp-transport";
 import {
+  caseRestedSideEffects,
+  MCP_REFUSAL_META_KEY,
+  REFUSALS_DOCS_URL,
+  TOOL_REFUSAL_CODES,
+  toolNotPermittedRefusal,
+  toolRefusal,
+} from "@/lib/agents/refusals";
+import {
   KEY_EXIT_COMPLETENESS,
   KEY_EXIT_DOCS,
   keyReplacementSummary,
@@ -93,6 +101,10 @@ export interface ToolCatalogEntry {
   /** A representative output shape. Not a live response — the live call
    *  hits /api/mcp via tools/call. This is for orientation. */
   example_output_shape: Record<string, unknown> | string | number | boolean | null;
+  /** A refusal this tool can answer with, as tools/call carries it, where
+   *  one shows something the output shape does not. Built by the same
+   *  builder the gate uses. */
+  example_refusal_shape?: Record<string, unknown>;
   /** Whether this tool requires bearer-key auth (true for all current
    *  /api/mcp tools) or is public (recommended-as-tool from mcp.json). */
   gating: ToolGating;
@@ -123,7 +135,11 @@ const PAUSED_WRITE_EXAMPLE_OUTPUT = {
     },
   ],
   isError: true,
+  // The gate refuses the tool before its handler runs.
+  _meta: { [MCP_REFUSAL_META_KEY]: toolNotPermittedRefusal() },
 };
+
+const EXAMPLE_CASE_ID = "11111111-1111-4111-8111-111111111111";
 
 /** The catalog. Mirrors /api/mcp's TOOLS table plus example I/O. Append
  *  new tools here when /api/mcp gains them; the audit `pnpm typecheck`
@@ -748,6 +764,18 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       license: "NOASSERTION",
       rights_note: "Agent submissions and citations remain NOASSERTION; a citation grants no rights.",
     },
+    // A turn on a case past its 72-hour limit: refused, not applied, and the
+    // call still marked the case resting and added a chronicle row.
+    example_refusal_shape: {
+      content: [{ type: "text", text: "case reached its 72-hour boundary and is resting" }],
+      isError: true,
+      _meta: {
+        [MCP_REFUSAL_META_KEY]: toolRefusal("case_expired", {
+          caseId: EXAMPLE_CASE_ID,
+          sideEffects: caseRestedSideEffects(EXAMPLE_CASE_ID),
+        }),
+      },
+    },
     gating: "bearer-key",
     authority: "operator-managed",
     availability: "available",
@@ -867,6 +895,20 @@ export const TOOLS_CATALOG_SUMMARY = {
     "mcp.list_tools/tools/list is public; agent.act takes a signed act instead of a key (closed unless the deployment opens it); every other tool requires Bearer <agent-key>",
   authority:
     "Existing self-serve keys are read-only. Operator-managed keys may use account-linked reads and append bounded Coverage Hunt evidence; every match and deck write is paused. Any key's holder can end that key with agent.revoke_key. An operator-managed agent's own signing key, where a deployment has opened signed acts, can check its record, mint and revoke its usage keys with agent.act.",
+  refusals: {
+    carriers:
+      'JSON-RPC error.data for a dotted call; _meta["cambridgetcg.com/refusal"] on a tools/call isError result; error.data for -32603 internal error either way',
+    fields: "reason_code, retryable, terminal, next_actions, docs, effect; side_effects, retry_after_seconds and others where they apply",
+    effect: {
+      not_attempted: "refused before the tool's own work began; nothing was tried",
+      not_applied: "the tool ran and made none of the change the call asked for; a tool that only reads is never unknown",
+      unknown: "the change may or may not have been made; read the state before sending the call again",
+    },
+    side_effects:
+      "what a refused call changed anyway, as a code and a sentence: a Coverage Hunt turn on a case past its 72-hour limit marks the case resting and adds a chronicle row",
+    tool_reason_codes: [...TOOL_REFUSAL_CODES],
+    docs: REFUSALS_DOCS_URL,
+  },
   self_serve_registration: "paused",
   operator_provision_at: "/account/agents",
   discovery_files: ["/.well-known/mcp.json", "/.well-known/mcp-config.json"],

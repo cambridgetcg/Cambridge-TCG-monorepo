@@ -39,6 +39,7 @@ export const HELD_KEYS_CLAIM_SENTENCES: Readonly<Record<string, readonly string[
     "Yu asked on 2026-10-30 that agent keys get an expiry option.",
     "The choices offered, the 90-day pre-selection, choosing per key, the separate key_expired answer, leaving older keys without an expiry, sending no reminder and adding no replace action were chosen by an AI agent under Yu's standing delegation, not by Yu, and Yu has not reviewed them.",
     "Model tags are unverified claims stored for the owner and agent itself, not globally published.",
+    "The effect and side_effects fields, the tool reason codes and when each applies were chosen by an AI agent on 13 November 2026 as defaults for review; Yu has not reviewed them.",
   ],
   "held-keys.md": [
     "**Yu has not reviewed it.** It is a draft for discussion.",

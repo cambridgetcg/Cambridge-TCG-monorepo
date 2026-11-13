@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 import { AGENT_TOOLS, toolCategories } from "@/lib/agent-tools-catalog";
+import { TOOL_REFUSAL_CODES } from "@/lib/agents/refusals";
 import { GET } from "./route";
 
 function catalog(query = "") {
@@ -41,6 +42,27 @@ describe("/api/mcp/catalog", () => {
     expect(body.data.summary.authority).toContain(
       "Any key's holder can end that key with agent.revoke_key.",
     );
+  });
+
+  it("describes refusals, with every tool reason code and effect, and shows what an expired case's refusal says", async () => {
+    const body = await (await catalog()).json();
+    const refusals = body.data.summary.refusals;
+    expect(refusals.tool_reason_codes).toEqual([...TOOL_REFUSAL_CODES]);
+    expect(Object.keys(refusals.effect)).toEqual(["not_attempted", "not_applied", "unknown"]);
+    expect(refusals.docs).toBe("https://cambridgetcg.com/methodology/agents#refusals");
+
+    const contribute = body.data.tools.find((tool: { dotted_name: string }) => tool.dotted_name === "coverage.hunt.contribute");
+    const refusal = contribute.example_refusal_shape._meta["cambridgetcg.com/refusal"];
+    expect(refusal).toMatchObject({ reason_code: "case_expired", effect: "not_applied" });
+    expect(refusal.side_effects.map((entry: { change: string }) => entry.change)).toEqual(["case_marked_resting", "chronicle_row_added"]);
+
+    // The paused writes' example is what the gate sends: tool_not_permitted.
+    const deckSave = body.data.tools.find((tool: { dotted_name: string }) => tool.dotted_name === "deck.save");
+    expect(deckSave.example_output_shape._meta["cambridgetcg.com/refusal"]).toMatchObject({
+      reason_code: "tool_not_permitted",
+      terminal: true,
+      effect: "not_attempted",
+    });
   });
 
   it("still answers an unknown category with filter help", async () => {

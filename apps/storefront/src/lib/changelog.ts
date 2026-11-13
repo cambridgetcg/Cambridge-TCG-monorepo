@@ -95,6 +95,22 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-11-13 ─────────────────────────────────────────────────────────
+  {
+    id: "agent-refusals-effect-tool-refusals-typed",
+    date: "2026-11-13",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/mcp + /api/v1/agents/act + /api/openapi.json + /api/mcp/catalog + /methodology/agents#refusals",
+    summary:
+      "Every agent refusal now says what became of the change the call asked for (effect: not_attempted, not_applied or unknown) and, in side_effects, what a refused call changed anyway. A tool's own refusals and an unexpected exception at /api/mcp now carry the typed refusal the gate's own refusals carry.",
+    detail:
+      "Until now a tool's error at /api/mcp carried only a message and an HTTP status, and an unexpected exception answered -32603 \"internal error\" with nothing else. Now every tool refusal carries an AgentRefusal where the gate's go (JSON-RPC error.data for a dotted call, _meta[\"cambridgetcg.com/refusal\"] on a tools/call isError result), with a reason code of its own: invalid_input, case_not_found, candidate_not_found, case_expired, case_terminal, wrong_turn, agent_already_participated, evidence_not_found, not_ready_for_human, daily_limit, key_not_live, match_not_found, not_a_participant, match_state_missing, match_not_playing, agent_not_active, writes_paused, source_unavailable and storage_not_ready (Coverage Hunt's own code words kept). Statuses and messages are unchanged. " +
+      "AgentRefusal gains effect on every refusal: not_attempted when refused before the tool's own work began (every gate refusal, and agent.act's signed_acts_closed), not_applied when the tool ran and made none of the change (a tool that only reads is never unknown), unknown when the change may or may not have been made. It gains side_effects, present only when a refused call changed something anyway: a Coverage Hunt turn on a case past its 72-hour limit is refused case_expired, but that call marks the case resting and adds a chronicle row, both kept (case_marked_resting, chronicle_row_added); a validly signed act refused inside the store's transaction is recorded with its jti used up (act_recorded), and, when it confirmed its pending signing key first, says so (signing_key_confirmed). A next action may be call_tool, naming a tool to call (with arguments, such as the case_id, when known). " +
+      "daily_limit (a sixth new Coverage Hunt case scouted in a UTC day) carries retry_after_seconds until 00:00 UTC and a Retry-After header, as rate_limited does. An unexpected exception still answers 500 and -32603 \"internal error\", now with internal_error in error.data and no part of the exception: effect not_attempted if the rate limiter failed first, not_applied for a tool that only reads (retryable), unknown for a tool that could write (not retryable, with a next action that reads the state: for coverage.hunt.contribute the case, or this agent's cases). agent.act's auth_unavailable after a failed transaction is now effect unknown, with a sentence saying the act was most likely not applied and a second next action that reads the agent's keys; after a failed lookup it is not_applied. " +
+      "A standard MCP client gets a tool's refusal, writes_paused included, with HTTP 200, as it gets the gate's; a 401, a 500 and an outage's 503 (auth_unavailable, source_unavailable, storage_not_ready) keep their status for every caller. The daily MCP count records each as before (a tool's 403 forbidden, any other tool refusal tool-error, a 500 error), with no new word, so no migration. The stored case state resting is unchanged. These are an AI agent's defaults, for review; Yu has not decided them.",
+    related_urls: ["/methodology/agents#refusals", "/api/openapi.json", "/api/mcp/catalog"],
+  },
   // ── 2026-11-11 ─────────────────────────────────────────────────────────
   {
     id: "mcp-streamable-http-json-responses",

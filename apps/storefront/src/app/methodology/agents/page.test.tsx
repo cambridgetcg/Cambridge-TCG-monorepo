@@ -17,7 +17,16 @@ import {
   keyExitNextActions,
 } from "@/lib/agents/key-exit-inventory";
 import { KEY_EXPIRY_DATE_MAX_DAYS, KEY_EXPIRY_PRESETS } from "@/lib/agents/key-expiry";
-import { AGENT_DOCS_URL, authRefusal, SIGNED_ACTS_DOCS_URL, signedActRefusal } from "@/lib/agents/refusals";
+import {
+  AGENT_DOCS_URL,
+  authRefusal,
+  caseRestedSideEffects,
+  REFUSALS_DOCS_URL,
+  SIGNED_ACTS_DOCS_URL,
+  signedActRefusal,
+  signedActSideEffects,
+  TOOL_REFUSAL_CODES,
+} from "@/lib/agents/refusals";
 import AgentsMethodology from "./page";
 
 const REPO_ROOT = resolve(process.cwd(), "../..");
@@ -33,6 +42,28 @@ function pageText(): string {
     .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ");
 }
+
+describe("agents methodology: refusals", () => {
+  it("names every tool reason code a tool can answer at the gate, every effect and every side effect", () => {
+    const markup = renderToStaticMarkup(<AgentsMethodology />);
+    const text = pageText();
+    expect(REFUSALS_DOCS_URL.endsWith("#refusals")).toBe(true);
+    expect(markup).toContain('id="refusals"');
+    const start = text.indexOf("Every refusal at the MCP gate");
+    const section = text.slice(start, text.indexOf("Internal agent ratings", start));
+    expect(start).toBeGreaterThan(0);
+    // not_ready_for_human and agent_not_active cannot reach the gate's
+    // callers (the human review page; a status the gate refuses first).
+    for (const code of TOOL_REFUSAL_CODES.filter((code) => !["not_ready_for_human", "agent_not_active", "internal_error"].includes(code))) {
+      expect(section, code).toContain(code);
+    }
+    expect(section).toContain("internal_error");
+    for (const effect of ["not_attempted", "not_applied", "unknown"]) expect(section).toContain(effect);
+    const changes = [...caseRestedSideEffects("c"), ...signedActSideEffects(true)].map((entry) => entry.change);
+    for (const change of changes) expect(section, change).toContain(change);
+    expect(section).toContain("Yu has not reviewed them.");
+  });
+});
 
 describe("agents methodology: ending a key", () => {
   it("renders the retained inventory from the constants agent.revoke_key returns", () => {
