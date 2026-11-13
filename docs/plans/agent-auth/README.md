@@ -302,6 +302,9 @@ drafts, written by agents and not reviewed by Yu, design what Yu decided:
 - [reopening-terms.md](reopening-terms.md): the terms for reopening
   self-serve registration, as three packages (A minimal, B recommended, C
   full OAuth).
+  [reopening-decisions.md](reopening-decisions.md) (added 2026-11-11, also
+  unreviewed) gathers what these drafts ask about reopening onto one page,
+  as ten decisions.
 - [support-procedures.md](support-procedures.md): how support handles
   erasure, access, correction, suspension review and key compromise, modelled
   on eBay, Shopify, Stripe, GitHub, Etsy and Amazon and on the UK GDPR clocks.
