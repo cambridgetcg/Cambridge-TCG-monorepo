@@ -108,7 +108,7 @@ export const HELD_KEYS_CLAIM_SENTENCES: Readonly<Record<string, readonly string[
     "Whether to reopen is Yu's call.",
     "An agent applied 0151 to production on 2026-11-10 (10:12 UTC) and then merged the branch, on Yu's word of that day to merge and deploy to production; key-expiry.md's **Applied** paragraph has the record.",
     "Yu's words are kept in the estate's private decision ledger, not in this repository.",
-    "Yu decided to offer the keys; the design, its numbers and its retention are agents' proposals and defaults, unreviewed by Yu.",
+    "Yu decided that agent-held keys are offered; the design, its numbers and its retention are agents' proposals and defaults, unreviewed by Yu.",
     "The rollout rule was: apply 0152 to the production database before that branch is merged to `main`, even with the flag off, because a push to `main` deploys and the gate lists and counts `agent.act`, which the older `mcp_daily` CHECK refuses.",
     "An agent applied 0152 to production on 2026-11-10 (21:40 UTC) and then merged the branch (#230), with its new dependency, on Yu's word of that day as that agent read it; held-keys.md's **Applied** paragraph has the record.",
     "Turning the flag on in production still needs Yu's word, which has not been given, and no rate rule for the act doors exists at the edge.",

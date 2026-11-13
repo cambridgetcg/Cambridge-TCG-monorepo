@@ -252,9 +252,9 @@ remains.
 - **Held keys.** Slice 1 of agent-held signing keys
   ([held-keys.md](held-keys.md)) was built on 2026-11-10 on branch
   `claude/agent-held-keys-slice1`, with migration 0152, behind
-  `AGENT_SIGNED_ACTS`, which is off. Yu decided to offer the keys; the
-  design, its numbers and its retention are agents' proposals and defaults,
-  unreviewed by Yu. The rollout rule was: apply 0152 to the production database
+  `AGENT_SIGNED_ACTS`, which is off. Yu decided that agent-held keys are
+  offered; the design, its numbers and its retention are agents' proposals
+  and defaults, unreviewed by Yu. The rollout rule was: apply 0152 to the production database
   before that branch is merged to `main`, even with the flag off, because a
   push to `main` deploys and the gate lists and counts `agent.act`, which
   the older `mcp_daily` CHECK refuses. An agent applied 0152 to production

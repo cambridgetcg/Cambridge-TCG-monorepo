@@ -10,7 +10,8 @@
  * verifier or node:crypto into the client bundle.
  *
  * The state words, the expiry hints and the warnings are an agent's
- * wording, not the owner's; the owner decided only to offer the keys.
+ * wording, not the owner's; the owner decided only that agent-held keys are
+ * offered.
  */
 
 import type { SigningKeyRow, SigningKeyState } from "@/lib/agents/signing-key-actions";

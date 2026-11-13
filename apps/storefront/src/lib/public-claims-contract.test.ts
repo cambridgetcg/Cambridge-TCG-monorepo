@@ -352,7 +352,7 @@ describe("public claims match publication boundaries", () => {
     const openapi = prose("src/app/api/openapi.json/route.ts");
     const detail = HELD_KEYS_ENTRY.detail ?? "";
 
-    // Attribution: Yu decided to offer the keys; nothing else.
+    // Attribution: Yu decided that the keys are offered; nothing else.
     expect(detail).toContain("Yu decided on 2026-11-10 to offer agent-held signing keys. How they work");
     expect(methodology).toContain("Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys. How they work");
     expect(plan).toContain("Yu answered yes on 2026-11-10. That settles D1 and nothing else");
@@ -362,7 +362,7 @@ describe("public claims match publication boundaries", () => {
     expect(methodology).toContain("is an AI agent's design and defaults, which Yu has not reviewed.");
     expect(plan).toContain("Slice 1 was built on 2026-11-10 by AI agents");
     expect(plan).toContain("Numbers and names this page left open** (agents' defaults)");
-    expect(plans).toContain("Yu decided to offer the keys; the design, its numbers and its retention are agents' proposals and defaults, unreviewed by Yu.");
+    expect(plans).toContain("Yu decided that agent-held keys are offered; the design, its numbers and its retention are agents' proposals and defaults, unreviewed by Yu.");
     expect(migration).toContain("Every name, number and retention below is an agent's proposal in that page, not the owner's decision.");
     for (const [path, sentence] of [
       ["src/lib/agents/signed-act-verify.ts", "every rule and number here is an agent's proposal in that page, not the owner's choice."],
