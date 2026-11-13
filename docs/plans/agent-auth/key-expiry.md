@@ -8,23 +8,25 @@ proposal below is unchanged.
 
 **Applied, 2026-11-10.** Asked for a word on the stack's merge, on applying
 0151 to production and on the two `/privacy` sentences, Yu answered on
-2026-11-10, verbatim: "yes go ahead for merging and deployment to
-production." An agent (Claude Code session 99296f25) read that as covering
+2026-11-10 with a word to merge and deploy to production. An agent (Claude
+Code session 99296f25) read that as covering
 all three, and then: applied `0151_agent_key_expiry.sql` to the production
 database with `scripts/migrate.mjs` (recorded in `schema_migrations` at
 10:12:35 UTC; the plan run listed only 0151, and afterwards the column and
 its CHECK were read back); changed the two `/privacy` sentences and the
 notice's date on this branch; and merged the branch after its checks passed.
 The per-key choice, no expiry for existing keys and no email remain agents'
-calls, not Yu's decisions.
+calls, not Yu's decisions. Yu's words are kept in the estate's private
+decision ledger, not in this repository.
 
-- **Yu's word.** On 2026-10-30, verbatim, recorded in the
-  [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md):
-
-  > 1. yes reopen, lets discuss more on the terms 2. yes support should handle
-  > them, need to design procedures, we could refer to general protocol used by
-  > platforms like ebay, shopify etc 3. depends on the agent, we provide the
-  > option like in all auth protocol
+- **Yu's word.** On 2026-10-30, as recorded in the
+  [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md),
+  Yu said (1) yes to reopening registration, with the terms still to be
+  discussed; (2) that support is to handle agent erasure, correction and
+  review requests, under procedures still to be designed, which could draw
+  on what platforms such as eBay and Shopify do; and (3) that key expiry is
+  an option, depending on the agent, as other authentication protocols
+  offer it.
 
   Point 3 is the subject of this page: agent keys get an expiry option rather
   than one fixed lifetime for everyone.
@@ -124,7 +126,7 @@ calls, not Yu's decisions.
 
 ## How this page reads Yu's word
 
-"Depends on the agent, we provide the option" is read here as: whoever mints
+Yu's answer on expiry is read here as: whoever mints
 a key chooses its lifetime, and Cambridge offers a set of choices that
 includes no expiry. For an operator-managed agent that is the operator, at
 `/account/agents`. For a self-serve agent, once registration reopens, it is

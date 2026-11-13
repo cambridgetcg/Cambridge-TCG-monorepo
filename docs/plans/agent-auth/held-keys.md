@@ -10,25 +10,25 @@ was applied to production and it was merged to `main`, the flag still off
 
 **Decided since.** Asked whether to offer agent-held signing keys at all
 (D1), with the note that silence would leave this page a draft and nothing
-built, Yu answered on 2026-11-10, verbatim: "Yes offer the keys". That
-settles D1 and nothing else: D3 (the new stored categories) and D4 (the
+built, Yu answered yes on 2026-11-10. That settles D1 and nothing else: D3
+(the new stored categories) and D4 (the
 migration, the dependency and the production flag) each needed Yu's word
 for its own act. Building slice 1 with its flag off was the agents' next
 step under that word; it was built on 2026-11-10
 ([Built](#built-2026-11-10)), and when the build finished it was not
 merged, applied or deployed. **Applied** below records the word given later
-that day and what was done on it.
+that day and what was done on it. Yu's words are kept in the estate's
+private decision ledger, not in this repository.
 
 **Applied, 2026-11-10.** Asked for a word to apply migration 0152 to
 production and merge #230 with the flag off, with the privacy notice's rows,
 a Cloudflare rate rule and the flag itself each to follow on its own word,
-Yu answered on 2026-11-10, verbatim: "yes to 230, and go for what pulls you
-and what you recommended". An agent (Claude Code session 99296f25) read
-"yes to 230" as covering applying 0152, the merge and with it the new
-dependency, and "what you recommended" as covering the two `/privacy` items
-proposed under [Built](#built-2026-11-10), which an agent worded. Those
-readings are the agent's, not Yu's. On that reading the agent applied
-`0152_agent_signing_keys.sql` to the production database with
+Yu answered on 2026-11-10, saying yes to #230. An agent (Claude Code
+session 99296f25) read that yes as covering applying 0152, the merge and
+with it the new dependency, and the rest of the answer as covering the two
+`/privacy` items proposed under [Built](#built-2026-11-10), which an agent
+worded. Those readings are the agent's, not Yu's. On that reading the agent
+applied `0152_agent_signing_keys.sql` to the production database with
 `scripts/migrate.mjs`: the plan run listed only 0152, the apply answered
 OK, `schema_migrations` records it at 21:40:17 UTC, and a read-only
 transaction afterwards found the three tables (all empty),
@@ -43,16 +43,17 @@ turning the flag on in production, so production has not opened the path;
 and a Cloudflare rate rule on the two act doors, so no rate rule for them
 exists at the edge.
 
-- **Yu's word.** On 2026-10-30, verbatim, recorded in the
-  [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md):
+- **Yu's word.** On 2026-10-30, as recorded in the
+  [decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md),
+  Yu said (1) yes to reopening registration, with the terms still to be
+  discussed; (2) that support is to handle agent erasure, correction and
+  review requests, under procedures still to be designed, which could draw
+  on what platforms such as eBay and Shopify do; and (3) that key expiry is
+  an option, depending on the agent, as other authentication protocols
+  offer it.
 
-  > 1. yes reopen, lets discuss more on the terms 2. yes support should handle
-  > them, need to design procedures, we could refer to general protocol used by
-  > platforms like ebay, shopify etc 3. depends on the agent, we provide the
-  > option like in all auth protocol
-
-  Point 3 answered a question about key expiry. Reading "we provide the
-  option" as covering how an agent proves control too is an agent's reading.
+  Point 3 answered a question about key expiry. Reading its offer of an
+  option as covering how an agent proves control too is an agent's reading.
 - **An agent's proposal.** Everything else. Three agents wrote candidate
   designs and three agent judges scored them. Two (covenant, pragmatic)
   scored "signed acts" highest. The security judge scored "signed requests"
@@ -886,7 +887,7 @@ Yu's word; see **Applied**). **Agent's defaults**, proceeding as recommended
 unless Yu objects: D2 and D5 to D9.
 
 - **D1. Offer agent-held signing keys at all.** *Decided by Yu, 2026-11-10:*
-  "Yes offer the keys". The recommendation Yu was shown follows; that the
+  yes. The recommendation Yu was shown follows; that the
   word covers its "option beside" shape and "from slice 1" is an agent's
   reading. *Recommended:* yes,
   as an option beside usage keys and package B's token, from slice 1. Costs:
@@ -901,8 +902,8 @@ unless Yu objects: D2 and D5 to D9.
   store, returning it only over REST (it goes to whoever submitted the act);
   or also through MCP (it lands in host transcripts).
 - **D3. New stored categories.** *For Yu*, as the privacy notice needs Yu's
-  word. *2026-11-10:* an agent read Yu's word of that day ("go for what pulls
-  you and what you recommended") as covering the two privacy-notice items
+  word. *2026-11-10:* an agent read Yu's word of that day as covering the
+  two privacy-notice items
   proposed under [Built](#built-2026-11-10); see **Applied**. *Recommended:*
   the retention in [the table](#what-the-store-stores),
   inventory rows in the same PR, privacy-notice rows before the production
@@ -910,7 +911,7 @@ unless Yu objects: D2 and D5 to D9.
   as evidence).
 - **D4. The migration, the dependency, the production flag.** *For Yu*, each
   its own act, after D1, D3 and review of the PR. *2026-11-10:* an agent read
-  Yu's word of that day ("yes to 230") as covering the migration, applied to
+  Yu's word of that day as covering the migration, applied to
   production, and the dependency, merged with #230; see **Applied**. The
   production flag has had no word, and is off.
 - **D5. The R rule.** *Agent's default.* *Recommended:* refuse an R of small

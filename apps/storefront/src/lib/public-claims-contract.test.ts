@@ -273,9 +273,9 @@ describe("public claims match publication boundaries", () => {
     expect(plan).toContain("agents took them as their own calls under Yu's delegation of 2026-10-20");
     expect(plan).toContain("and they are not Yu's decisions.");
     expect(plan).toContain("When the build finished, nothing was merged, no migration was applied and nothing was deployed");
-    // The word for the migration, the deploy and the notice is quoted, and the
-    // reading of it is recorded as an agent's.
-    expect(plan).toContain('Yu answered on 2026-11-10, verbatim: "yes go ahead for merging and deployment to production."');
+    // The word for the migration, the deploy and the notice is recorded, not
+    // quoted, and the reading of it is recorded as an agent's.
+    expect(plan).toContain("Yu answered on 2026-11-10 with a word to merge and deploy to production.");
     expect(plan).toContain("An agent (Claude Code session 99296f25) read that as covering all three");
     expect(plan).toContain("remain agents' calls, not Yu's decisions.");
     const plans = prose("../../docs/plans/agent-auth/README.md");
@@ -352,11 +352,11 @@ describe("public claims match publication boundaries", () => {
     const openapi = prose("src/app/api/openapi.json/route.ts");
     const detail = HELD_KEYS_ENTRY.detail ?? "";
 
-    // Attribution: Yu decided to offer the keys, in Yu's words; nothing else.
-    expect(detail).toContain('Yu decided on 2026-11-10 to offer agent-held signing keys ("Yes offer the keys").');
-    expect(methodology).toContain('Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys ("Yes offer the keys").');
-    expect(plan).toContain('Yu answered on 2026-11-10, verbatim: "Yes offer the keys". That settles D1 and nothing else');
-    expect(plans).toContain('Whether to offer it at all was Yu\'s call (its D1), and Yu answered on 2026-11-10: "Yes offer the keys".');
+    // Attribution: Yu decided to offer the keys; nothing else.
+    expect(detail).toContain("Yu decided on 2026-11-10 to offer agent-held signing keys. How they work");
+    expect(methodology).toContain("Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys. How they work");
+    expect(plan).toContain("Yu answered yes on 2026-11-10. That settles D1 and nothing else");
+    expect(plans).toContain("Whether to offer it at all was Yu's call (its D1), and Yu answered yes on 2026-11-10.");
     // Every other choice is an agent's proposal or default.
     expect(detail).toContain("How they work, the acts, numbers, limits and retention, is an AI agent's design and defaults, which Yu has not reviewed.");
     expect(methodology).toContain("is an AI agent's design and defaults, which Yu has not reviewed.");
@@ -397,7 +397,7 @@ describe("public claims match publication boundaries", () => {
     expect(plan).toContain("applying `0152` (to production before this code is merged to `main`, even with the flag off");
 
     // What still waits for Yu, and the notice this build did not change.
-    expect(detail).toContain('Yu answered, verbatim: "yes to 230, and go for what pulls you and what you recommended". An AI agent read that as covering 0152, the merge with its new dependency (@noble/curves 2.2.0, Node 20.19 or later) and the privacy notice\'s rows');
+    expect(detail).toContain("Yu answered, saying yes to pull request #230. An AI agent read that answer as covering 0152, the merge with its new dependency (@noble/curves 2.2.0, Node 20.19 or later) and the privacy notice's rows");
     expect(detail).toContain("turning the path on in production was not asked, and has had no word.");
     expect(plan).toContain("When the build finished it had no rows for signing keys, act events or act nonces, and the build did not change it.");
     expect(methodology).toContain("Since 10 November 2026 the privacy notice describes the records it keeps, in words an AI agent wrote.");

@@ -235,8 +235,9 @@ remains.
   `main` deploys, and the code has no fallback for the missing column, so
   every authenticated agent call would answer 503. An agent applied 0151 to
   production on 2026-11-10 (10:12 UTC) and then merged the branch, on Yu's
-  word of that day ("yes go ahead for merging and deployment to
-  production"); key-expiry.md's **Applied** paragraph has the record. The
+  word of that day to merge and deploy to production; key-expiry.md's
+  **Applied** paragraph has the record. Yu's words are kept in the estate's
+  private decision ledger, not in this repository. The
   rule still holds for any other database this code runs against. What remains of
   it: no reminder before a key expires (the plan's §8 email was not built, so
   nothing is sent), no replace action, no end for keys nobody uses, and no
@@ -258,8 +259,7 @@ remains.
   push to `main` deploys and the gate lists and counts `agent.act`, which
   the older `mcp_daily` CHECK refuses. An agent applied 0152 to production
   on 2026-11-10 (21:40 UTC) and then merged the branch (#230), with its new
-  dependency, on Yu's word of that day ("yes to 230, and go for what pulls
-  you and what you recommended") as that agent read it; held-keys.md's
+  dependency, on Yu's word of that day as that agent read it; held-keys.md's
   **Applied** paragraph has the record. The rule still holds for any other
   database this code runs against. Turning the flag on in production still
   needs Yu's word, which has not been given, and no rate rule for the act
@@ -311,8 +311,7 @@ drafts, written by agents and not reviewed by Yu, design what Yu decided:
 A fourth draft, [held-keys.md](held-keys.md) (added 2026-11-10, also
 unreviewed), designs an agent's reading of Yu's point 3: an optional
 agent-held signing key that signs each binding act. Whether to offer it at
-all was Yu's call (its D1), and Yu answered on 2026-11-10: "Yes offer the
-keys". Its stored categories (D3) and its migration, dependency and
+all was Yu's call (its D1), and Yu answered yes on 2026-11-10. Its stored categories (D3) and its migration, dependency and
 production flag (D4) then waited for Yu. Slice 1 was built on 2026-11-10 by
 AI agents on branch `claude/agent-held-keys-slice1`, with its flag off
 (held-keys.md's [Built](held-keys.md#built-2026-11-10) section); when the
@@ -371,7 +370,7 @@ still Yu's to overturn.
 | Support | Whose word governs an operator-managed agent (D4) | The operator's |
 | Support | How long support records are kept (D9) | Six years from closure; counsel confirms |
 | Support | When the procedures are published (D10) | Once erasure, access and correction have tooling |
-| Held keys | Offer agent-held signing keys at all ([held-keys D1](held-keys.md#decisions-for-yu)). **Answered by Yu, 2026-11-10: "Yes offer the keys".** | Yes, as an option beside usage keys and package B's token |
+| Held keys | Offer agent-held signing keys at all ([held-keys D1](held-keys.md#decisions-for-yu)). **Answered by Yu, 2026-11-10: yes.** | Yes, as an option beside usage keys and package B's token |
 | Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag. Built so on 2026-11-10, as agents' defaults; `/privacy`'s two items added the same day, in the wording an agent proposed in held-keys.md |
 | Held keys | Its migration, dependency and production flag (D4) | Each its own act, after D1, D3 and review of the PR. Given on 2026-11-10 for the migration and the dependency, as an agent read Yu's word: 0152 applied to production, `@noble/curves` 2.2.0 merged with #230. Not given: the production flag, which is off |
 | Continuity | Which self-serve door opens first ([account-continuity A2](account-continuity.md#decisions)) | Signed registration (held-keys S2) and package B together. Taken as recommended on 2026-11-10, as an agent read Yu's word of that day; reopening itself and its terms are still open |
@@ -385,8 +384,8 @@ still Yu's to overturn.
    paused until their rights, identity, and approval boundaries are real and
    verified") names no instruction from Yu, and no decision file or Yu quote
    records the closure. Was it your call?
-   **Answered in part, 2026-10-30:** Yu: "yes reopen, lets discuss more on
-   the terms" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)). The terms are drafted for discussion in
+   **Answered in part, 2026-10-30:** Yu said yes to reopening, with the terms
+   still to be discussed ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)). The terms are drafted for discussion in
    [reopening-terms.md](reopening-terms.md). Who made the July closure is
    still unrecorded.
 2. Is possession of the key enough for the holder's door out, or should
@@ -404,9 +403,9 @@ still Yu's to overturn.
    review procedure is written down yet. How should staff check that a
    requester holds a key without receiving it? The receipt reference is only
    a lookup aid.
-   **Answered 2026-10-30:** Yu: "yes support should handle them, need to
-   design procedures, we could refer to general protocol used by platforms
-   like ebay, shopify etc" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)). Drafted in
+   **Answered 2026-10-30:** Yu said support is to handle these requests,
+   under procedures still to be designed, which could draw on what platforms
+   such as eBay and Shopify do ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)). Drafted in
    [support-procedures.md](support-procedures.md).
 5. Should the privacy notice gain entries for agent profiles, keys and rate
    buckets? Today the revocation answer's inventory, written by an agent, is
@@ -414,8 +413,8 @@ still Yu's to overturn.
    *2026-10-30:* drafted as [reopening-terms.md](reopening-terms.md) term 5.
 6. Should agent keys expire or rotate, as member keys do after 90 days, or is
    non-expiry deliberate?
-   **Answered 2026-10-30:** Yu: "depends on the agent, we provide the option
-   like in all auth protocol" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)). Drafted in [key-expiry.md](key-expiry.md).
+   **Answered 2026-10-30:** Yu said key expiry is an option, depending on
+   the agent, as other authentication protocols offer it ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)). Drafted in [key-expiry.md](key-expiry.md).
 7. For erasure: should the handle be released, tombstoned or kept? Is the
    `game_rooms` foreign key with no delete rule deliberate, given it also
    blocks human account erasure?
