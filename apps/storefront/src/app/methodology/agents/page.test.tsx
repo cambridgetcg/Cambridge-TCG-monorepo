@@ -64,6 +64,8 @@ describe("agents methodology: refusals", () => {
     expect(section).toContain("A validly signed act that the store refuses after recording its jti is recorded as an event too");
     expect(section).toContain("act_replayed, refused because its jti was already used, records nothing.");
     expect(section).not.toContain("refused inside the store's transaction is recorded");
+    expect(section).toContain("retryable, whether the same call, sent again unchanged, may succeed once time passes with nothing else changing first");
+    expect(section).not.toContain("answered differently");
     // writes_paused is listed, but no caller can receive it: the gate refuses
     // every paused write as tool_not_permitted before its handler runs.
     for (const tool of ["deck.save", "play.take_action", "play.queue_match", "play.cancel_queue"]) {

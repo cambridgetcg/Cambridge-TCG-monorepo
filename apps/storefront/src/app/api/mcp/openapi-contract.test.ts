@@ -261,6 +261,17 @@ describe("OpenAPI describes the agent key", () => {
     expect(post.description).toContain("the transport's own answers carry none (a cross-site 403, unreadable or invalid JSON, a body without a method, 413, an unknown method, tools/call without a name, -32022)");
     expect(post.description).not.toContain("A refusal, the gate's or a tool's, carries an AgentRefusal");
   });
+
+  it("defines retryable by the values the gate sends", async () => {
+    const document = await spec();
+    const retryable = (document.components.schemas.AgentRefusal as JsonSchema).properties.retryable as JsonSchema & { description: string };
+    expect(retryable.description).toMatch(/^Whether the same call, sent again unchanged, may succeed once time passes, with nothing else changing first/);
+    expect(retryable.description).not.toContain("answered differently");
+    // case_expired is answered differently when sent again (case_terminal),
+    // and storage_not_ready once a migration runs; neither is retryable.
+    expect(toolRefusal("case_expired").retryable).toBe(false);
+    expect(toolRefusal("storage_not_ready").retryable).toBe(false);
+  });
 });
 
 describe("the gate answers with the statuses and carriers OpenAPI lists", () => {

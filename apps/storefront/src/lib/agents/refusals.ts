@@ -327,7 +327,11 @@ const CHECK_ARGUMENTS: RefusalNextAction = {
 };
 
 /** Each tool refusal's retryable and next actions. retryable says whether
- *  the same call, sent again unchanged, may be answered differently. */
+ *  the same call, sent again unchanged, may succeed once time passes with
+ *  nothing else changing first (a limit resets, an outage ends); false when
+ *  the call, the agent, the store's data or the deployment must change
+ *  first, or when the state should be read before sending again. The gate's
+ *  own values follow the same rule. */
 const TOOL_REFUSAL_RULES: Record<ToolRefusalCode, ToolRefusalRule> = {
   invalid_input: { retryable: false, next: () => [CHECK_ARGUMENTS] },
   case_not_found: { retryable: false, next: () => [LIST_CASES] },

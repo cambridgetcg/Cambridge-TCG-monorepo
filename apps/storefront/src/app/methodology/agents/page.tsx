@@ -223,8 +223,11 @@ export default function AgentsMethodology() {
       <p>
         Every typed refusal, the gate&apos;s, a tool&apos;s and{" "}
         <code>agent.act</code>&apos;s, has one shape: <code>reason_code</code>;{" "}
-        <code>retryable</code>, whether the same
-        call sent again unchanged may be answered differently; <code>terminal</code>;{" "}
+        <code>retryable</code>, whether the same call, sent again unchanged, may succeed
+        once time passes with nothing else changing first (true for a limit that resets,
+        an outage, or a fault that changed nothing; false when the call, the agent, the
+        store&apos;s data or the deployment must change first, or when the state should be
+        read before sending again); <code>terminal</code>;{" "}
         <code>next_actions</code>; <code>docs</code>; and, since 13 November 2026,{" "}
         <code>effect</code>, which says what became of the change the call asked for:
       </p>

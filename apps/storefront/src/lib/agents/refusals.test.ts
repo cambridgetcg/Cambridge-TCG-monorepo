@@ -102,9 +102,15 @@ describe("tool refusals", () => {
     expect(toolRefusal("internal_error", { effect: "unknown" }).effect).toBe("unknown");
   });
 
-  it("is retryable only where sending the same call again may be answered differently", () => {
+  it("is retryable only where the same call may succeed once time passes, with nothing else changing first", () => {
+    // A limit that resets and an outage. Not case_expired, though a resend is
+    // answered differently (case_terminal): no wait makes it succeed.
     const retryable = TOOL_REFUSAL_CODES.filter((code) => toolRefusal(code).retryable);
     expect(retryable).toEqual(["daily_limit", "source_unavailable"]);
+    expect([rateLimitedRefusal(1), signedActLimitedRefusal(1), authUnavailableRefusal()].every((refusal) => refusal.retryable)).toBe(true);
+    // A fault: only when nothing can have changed; otherwise read the state first.
+    expect(internalErrorRefusal("agent.self", {}, "not_applied").retryable).toBe(true);
+    expect(internalErrorRefusal("coverage.hunt.contribute", {}, "unknown").retryable).toBe(false);
     const terminal = TOOL_REFUSAL_CODES.filter((code) => toolRefusal(code).terminal);
     expect(terminal).toEqual(["not_ready_for_human", "agent_not_active", "writes_paused"]);
   });
