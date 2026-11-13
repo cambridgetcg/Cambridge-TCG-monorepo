@@ -28,10 +28,14 @@ without catalog rows or prices; do not advertise them as a price feed. Existing
 account-linked reads retain their ownership checks.
 
 The [dispatcher](../../../apps/storefront/src/app/api/mcp/route.ts) implements
-custom JSON-RPC over HTTP with MCP-compatible methods. A
-[stdio bridge](../../../packages/mcp-server/README.md) exists in source. Public
-npm distribution and clean-client interoperability remain release gates, so an
-`npx` installation promise is premature.
+JSON-RPC over HTTP with MCP methods; since 2026-11-11 it speaks the
+JSON-response form of MCP Streamable HTTP (revisions 2025-06-18 and
+2025-11-25, no event stream, no sessions, no OAuth) to standard MCP clients. A
+[stdio bridge](../../../packages/mcp-server/README.md) exists in source for
+clients that only speak stdio. Public npm distribution remains a release gate,
+and clean-client interoperability was checked only against two SDKs with the
+route run locally (2026-11-11), so an `npx` installation promise is
+premature.
 
 ## Planned capabilities and gates
 

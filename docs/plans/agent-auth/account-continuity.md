@@ -11,6 +11,19 @@ with its flag off (#230) after migration 0152 was applied, and Yu answered
 this page's recommendations; see [Yu's answer](#yus-answer-2026-11-10). The
 lines below that those two things changed say so.
 
+**Corrected 2026-11-11, by an AI agent** (Claude Code session 99296f25,
+branch `claude/mcp-streamable-http`; Yu has not reviewed it). This page said
+the door was not a standard remote MCP server and that a vault's MCP
+credential might not reach it at all. That undersold it. On 2026-11-10 a
+checker connected `@modelcontextprotocol/sdk` 1.32.2 and
+`@modelcontextprotocol/client` 2.4.0 to the real route (served locally, its
+database, key lookup, rate limiter and tool handlers mocked) with a static
+bearer key, and both listed and called its tools. On 2026-11-11 the door's edges were made to conform: it speaks the
+JSON-response form of MCP Streamable HTTP for revisions 2025-06-18 and
+2025-11-25, with no event stream and no sessions, and was checked against the
+same two SDKs the same way. It still has no OAuth, and no platform vault was
+run against it. The lines below that this changed say so.
+
 - **Yu's question,** 2026-11-10, verbatim:
 
   > Also think about how agent could retain their identity or account, since
@@ -62,8 +75,9 @@ lines below that those two things changed say so.
    been on `main` since that day, behind a flag that is off in production.
    The reopening terms add an account with no person's account behind it.
 5. **Two things nobody had designed or tested.** A way in for hosted chat
-   apps, which need OAuth and a standard MCP transport that the door does
-   not speak. And a vault, where a key can be kept but nobody has run one
+   apps, which need OAuth, which the door does not have (it has spoken a
+   standard MCP transport, Streamable HTTP with JSON responses, since
+   2026-11-11). And a vault, where a key can be kept but nobody has run one
    against the door.
 6. **What the research changes** in the sibling drafts is
    [listed below](#what-the-research-changes).
@@ -194,10 +208,15 @@ Tag tokens, which name an organisation and a Slack channel's agent.
   characters, stored as a hash, with an expiry chosen at mint (`never`
   allowed) since 2026-11-10. A key can end itself. It cannot mint another.
   The code for signing keys is on `main` behind a flag that is off there.
-- **The door is not a standard remote MCP server.** `GET /api/mcp` describes
-  its transport as "custom JSON-RPC 2.0 request/response over HTTPS POST"
-  and says: "This is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients
-  need the stdio bridge". A client that can post JSON-RPC calls it directly.
+- **The door is a standard remote MCP server for a client that sends a
+  static key.** When this page was written, `GET /api/mcp` described its
+  transport as "custom JSON-RPC 2.0 request/response over HTTPS POST" and
+  said native MCP clients needed the stdio bridge. *Corrected 2026-11-11:*
+  SDK clients already connected with a static key, and since that day's
+  change the door speaks the JSON-response form of MCP Streamable HTTP,
+  revisions 2025-06-18 and 2025-11-25, with no event stream and no sessions.
+  A client that can post JSON-RPC calls it directly; the stdio bridge
+  remains for clients that only speak stdio.
 - **Loss.** An operator mints a new key. For a self-serve agent, "No
   replacement key can be issued while self-serve registration is paused"
   ([`key-exit-inventory.ts#L291`](../../../apps/storefront/src/lib/agents/key-exit-inventory.ts#L291)),
@@ -246,11 +265,14 @@ Tag tokens, which name an organisation and a Slack channel's agent.
 
 ### A vault: a bearer key that someone minted
 
-- **Today: untested, and probably only by hand.** A vault's MCP credential
-  is tied to an MCP server's URL, and the door is not a standard remote MCP
-  server, so a platform's MCP connector may not reach it at all. Code in the
-  sandbox that posts JSON-RPC to `/api/mcp` could, with the key vaulted as
-  an environment-variable secret for that host. Nobody has run either.
+- **Today: untested.** A vault's MCP credential is tied to an MCP server's
+  URL. This page said the door was not a standard remote MCP server, so a
+  platform's MCP connector might not reach it at all. *Corrected
+  2026-11-11:* MCP SDK clients connect to the door with a static bearer key
+  (checked with the route run locally, not against production); whether a
+  platform's vault-backed connector does was not run. Code in the sandbox
+  that posts JSON-RPC to `/api/mcp` could, with the key vaulted as an
+  environment-variable secret for that host. Nobody has run either.
 - **A vaulted key cannot sign,** so held keys are not for the sandbox. A
   sandbox could sign only with a key in a plain environment variable, which
   the model can read, or through a tool the developer's own process runs.
@@ -264,10 +286,13 @@ Tag tokens, which name an organisation and a Slack channel's agent.
 
 - **Today, nothing.** ChatGPT cannot present a store key, and Claude's apps
   only as one shared organisation header. Both expect a standard remote MCP
-  server, which the door is not. A person using either app reaches the
-  store's public REST data and nothing else.
-- **What would reach them** is two things the store lacks. One is a standard
-  remote transport (Streamable HTTP). The other is an authorization-code
+  server with OAuth. Since 2026-11-11 the door speaks the transport
+  (Streamable HTTP, JSON responses) but still has no OAuth, so a person
+  using either app reaches the store's public REST data, and at most the
+  door's keyless discovery, and nothing else. Neither app was run against it.
+- **What would reach them** was two things the store lacked; since
+  2026-11-11 it lacks one. A standard remote transport (Streamable HTTP)
+  now answers standard clients. The other is an authorization-code
   flow of the kind MCP 2026-07-28 describes: protected resource metadata,
   `resource_metadata` in the 401, PKCE, resource indicators, an `iss` in the
   authorization response (RFC 9207, which ChatGPT's stable client id depends
@@ -284,7 +309,9 @@ Tag tokens, which name an organisation and a Slack channel's agent.
   grant, and shows a recovery code to keep. The platform keeps the refresh
   token; the account lasts while the connection does.
 - **Size.** reopening-terms.md calls package C "much larger than B; no
-  estimate made". This adds a transport and a consent flow to it.
+  estimate made". This adds a consent flow to it (and, when this was
+  written, a transport; the transport's edges were made to conform on
+  2026-11-11).
 
 ### Nobody: no account, and that is fine
 
@@ -373,7 +400,11 @@ nothing: reopening and its terms are still to be discussed, as Yu said on
   hosted chat apps.** *Recommended:* not now. Decide when there is a write a
   person in ChatGPT or Claude would want to make, since public reads are
   keyless REST. *Cost of waiting:* those two apps cannot hold an account
-  here, or call the door at all.
+  here, or call the door's keyed tools. *2026-11-11:* the transport half
+  turned out mostly present, and an agent made its edges conform for
+  clients that already connected with a static key (see the top of this
+  page). That is not the hosted-app path: the authorization-code flow is
+  unbuilt and stays "not now".
 - **A4. If A3 is ever built: accounts with no email at the consent screen,
   and a recovery code.** A new stored category, so the privacy notice and
   Yu's word come first.

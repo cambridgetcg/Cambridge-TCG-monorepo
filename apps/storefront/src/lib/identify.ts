@@ -449,9 +449,9 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Every public Cambridge TCG endpoint as a callable LLM function in your provider shape (Anthropic / OpenAI / Gemini / Cohere). Multi-format; drop into your LLM call.",
         ),
         ptr(
-          "Bearer-gated tools live behind a custom JSON-RPC HTTPS gate. The stdio bridge for native MCP clients is not published to npm, so native MCP clients connect only through a bridge built from packages/mcp-server in the public repository; clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
+          "Bearer-gated tools live behind /api/mcp, which speaks the JSON-response form of MCP Streamable HTTP (revisions 2025-06-18 and 2025-11-25) to MCP clients that can send an Authorization header (checked on 2026-11-11 with two MCP SDK clients against the route run locally; no editor or desktop app was run); it has no OAuth. Clients that can POST JSON-RPC 2.0 call it directly too. The stdio bridge (packages/mcp-server, not on npm) remains for clients that only speak stdio.",
           "/.well-known/mcp-config.json",
-          "Connection facts and the current stdio-bridge status. Token at /account/agents; custom JSON-RPC endpoint at /api/mcp.",
+          "Connection facts and the current stdio-bridge status. Token at /account/agents; MCP endpoint at /api/mcp.",
         ),
         ptr(
           "The agent surface doctrine names the four covenants every agent-callable surface obeys.",
@@ -812,7 +812,7 @@ function pointersForCapabilities(d: BeingDeclaration): {
       ptr(
         "Bearer-key read and publication-status tools become callable after an operator provisions a token at /account/agents. Match and deck writes stay paused, and authentication does not unlock withheld prices or history.",
         "/api/mcp/catalog",
-        "Worked example inputs and output shapes for bearer-key tools. The dispatcher is a custom JSON-RPC HTTPS endpoint, not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not published to npm.",
+        "Worked example inputs and output shapes for bearer-key tools. The dispatcher speaks the JSON-response form of MCP Streamable HTTP (no event stream, no sessions, no OAuth); the stdio bridge for stdio-only clients is not published to npm.",
       ),
     );
   } else if (c.bearer_auth_available === false) {

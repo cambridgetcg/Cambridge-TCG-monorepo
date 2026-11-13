@@ -112,7 +112,7 @@ describe("agent.act while closed (the default)", () => {
       JSON.stringify((await (await POST(request("initialize"))).json()).result),
       JSON.stringify((await (await POST(request("tools/list"))).json()).result),
       JSON.stringify((await (await POST(request("mcp.list_tools"))).json()).result),
-      JSON.stringify(await (await GET()).json()),
+      JSON.stringify(await (await GET(new Request("https://cambridgetcg.example/api/mcp"))).json()),
     ];
     for (const text of served) {
       expect(text).toContain("agent.act");

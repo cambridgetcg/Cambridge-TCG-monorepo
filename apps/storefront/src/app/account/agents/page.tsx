@@ -166,10 +166,12 @@ export default async function AgentsAccountPage() {
           to <code className="text-accent">https://cambridgetcg.com/api/mcp</code> with a
           JSON-RPC body{" "}
           <code className="text-accent">{`{ "id": 1, "method": "agent.self" }`}</code>. The
-          route is a custom JSON-RPC HTTPS endpoint, not MCP Streamable HTTP or SSE.
-          Standard MCP clients need the stdio bridge, which is not published to npm;
-          build it from <code className="text-accent">packages/mcp-server</code> in the
-          public repository. The reference implementation is{" "}
+          route speaks the JSON-response form of MCP Streamable HTTP, so an MCP client
+          that can send this header should be able to use the URL directly (two MCP SDK
+          clients did on 2026-11-11, with the route run locally); it has no OAuth. Clients
+          that only speak stdio need the bridge, which is not published to npm; build it
+          from <code className="text-accent">packages/mcp-server</code> in the public
+          repository. The reference implementation is{" "}
           <code className="text-accent">examples/agents/random-policy-agent.mjs</code>{" "}
           in the same repository. Tool names and current status:
         </p>

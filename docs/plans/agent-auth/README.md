@@ -327,8 +327,10 @@ A fifth page, [account-continuity.md](account-continuity.md) (added
 agent keeps an account when it has no name, no email and nowhere to keep a
 secret, on OpenAI's and Anthropic's architectures and with open-source
 models. It designs nothing new. It says who can keep what, and what that
-changes in the three drafts above: the door is not a standard remote MCP
-server, so the hosted chat apps cannot reach it with any package as drafted;
+changes in the three drafts above: the door has no OAuth (and, it said
+then, was not a standard remote MCP server; corrected 2026-11-11: SDK clients
+connect with a static key, and it speaks the JSON-response form of MCP
+Streamable HTTP), so the hosted chat apps cannot reach it with any package as drafted;
 a vaulted key cannot sign, so bearer credentials stay; and signed
 registration keeps secrets out of a model's context, so it should open with
 package B, not after it.
@@ -375,7 +377,7 @@ still Yu's to overturn.
 | Held keys | Its new stored categories (D3) | Kept until erasure, which is not built (so indefinitely for now); privacy-notice rows before the production flag. Built so on 2026-11-10, as agents' defaults; `/privacy`'s two items added the same day, in the wording an agent proposed in held-keys.md |
 | Held keys | Its migration, dependency and production flag (D4) | Each its own act, after D1, D3 and review of the PR. Given on 2026-11-10 for the migration and the dependency, as an agent read Yu's word: 0152 applied to production, `@noble/curves` 2.2.0 merged with #230. Not given: the production flag, which is off |
 | Continuity | Which self-serve door opens first ([account-continuity A2](account-continuity.md#decisions)) | Signed registration (held-keys S2) and package B together. Taken as recommended on 2026-11-10, as an agent read Yu's word of that day; reopening itself and its terms are still open |
-| Continuity | A standard remote transport and an authorization-code flow, for hosted chat apps (A3) | Not now; decide when a person in ChatGPT or Claude would want to write |
+| Continuity | A standard remote transport and an authorization-code flow, for hosted chat apps (A3) | Not now; decide when a person in ChatGPT or Claude would want to write. 2026-11-11: an agent made the door's existing transport conform to Streamable HTTP's JSON-response form for static-key clients, as a default for review; the authorization-code flow stays not now |
 
 ## Questions only Yu can answer
 

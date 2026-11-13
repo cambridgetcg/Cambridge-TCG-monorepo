@@ -257,9 +257,13 @@ describe("well-known agent discovery boundaries", () => {
     const server = body.remote_json_rpc_endpoint["cambridge-tcg"];
     const encoded = JSON.stringify(body);
 
-    expect(server.transport).toBe("custom-json-rpc-over-https-post");
-    expect(server.mcp_streamable_http).toBe(false);
-    expect(server.standard_mcp_client_compatible_without_bridge).toBe(false);
+    // The JSON-response form of Streamable HTTP, checked against two SDKs
+    // on 2026-11-11 (scripts/mcp-sdk-harness); no event stream, no OAuth.
+    expect(server.transport).toBe("streamable-http");
+    expect(server.mcp_streamable_http).toBe(true);
+    expect(server.mcp_http_sse).toBe(false);
+    expect(server.streamable_http).toMatchObject({ event_stream: false, sessions: false, oauth: false });
+    expect(server.standard_mcp_client_compatible_without_bridge).toBe(true);
     expect(body.stdio_bridge).toMatchObject({
       status: "vendored-in-repository",
       npm_published: false,

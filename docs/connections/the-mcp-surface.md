@@ -1,5 +1,5 @@
 ---
-title: The MCP surface — two method dialects behind one custom JSON-RPC gate
+title: The MCP surface — two method dialects behind one JSON-RPC gate
 shape: story-as-wire
 date: 2026-05-17
 status: partial
@@ -9,6 +9,8 @@ this_entry_names:
   - apps/storefront/src/app/api/mcp/route.ts             # the gate (now MCP-spec + Cambridge-native)
   - apps/storefront/src/app/.well-known/mcp.json/route.ts # discovery doc
   - apps/storefront/src/app/.well-known/mcp-config.json/route.ts # transport facts and bridge instructions
+  - apps/storefront/src/lib/agents/mcp-transport.ts       # who is a standard MCP client; revisions, Origin, refusal status (2026-11-11)
+  - apps/storefront/scripts/mcp-sdk-harness/              # the SDK check, run by hand
   - packages/mcp-server/                                   # the vendored stdio bridge; not npm-published
   - https://github.com/modelcontextprotocol/servers       # the canonical registry (PR target)
 parents:
@@ -18,9 +20,11 @@ parents:
 self_reference: this entry names a wire protocol; the entry is itself the protocol's first piece of cross-platform documentation.
 ---
 
-# The MCP surface — two method dialects behind one custom JSON-RPC gate
+# The MCP surface — two method dialects behind one JSON-RPC gate
 
-> **Current boundary (reviewed 2026-07-12).** `/api/mcp` accepts Cambridge-native and MCP-shaped JSON-RPC methods, one request per HTTPS POST. Method names and response envelopes do not make it a standard MCP remote transport: it implements neither Streamable HTTP nor HTTP+SSE. Native MCP clients need the vendored stdio bridge in `packages/mcp-server`, and that bridge is not published to npm.
+> **Current boundary (reviewed 2026-11-11).** `/api/mcp` accepts Cambridge-native and MCP-shaped JSON-RPC methods, one message per HTTPS POST. To a standard MCP client (one that sends `MCP-Protocol-Version`, or `Accept` naming `text/event-stream`) it speaks the JSON-response form of MCP Streamable HTTP, revisions 2025-06-18 and 2025-11-25, with no event stream and no sessions. On 2026-11-11 `@modelcontextprotocol/sdk` 1.32.2 and `@modelcontextprotocol/client` 2.4.0 connected to it with a static bearer key, listed and called its tools and read a refusal, with the route run locally and its database, key lookup, rate limiter and tool handlers mocked (`apps/storefront/scripts/mcp-sdk-harness`), not against cambridgetcg.com. It has no OAuth, so hosted chat apps that connect only through OAuth cannot call its keyed tools. The vendored stdio bridge in `packages/mcp-server` remains for clients that only speak stdio, and it is not published to npm.
+>
+> Until 2026-11-11 this note said the route implemented neither Streamable HTTP nor HTTP+SSE and that native MCP clients needed the bridge. That undersold it: on 2026-11-10 a checker found both SDKs already connected with a static key. What was missing was conformance at the edges (202 for notifications, 405 for a GET asking for a stream, ping, the revision echo, readable refusals), which an AI agent added on 2026-11-11 as defaults for review; Yu has not decided them. The stdio bridge and plain JSON-RPC callers get the same answers as before.
 
 ---
 
@@ -43,7 +47,7 @@ The gate now handles canonical MCP-spec methods alongside the Cambridge-native d
 
 Both shapes dispatch to the same TOOLS map; only the response wrapping differs. `tools/call` wraps results in MCP's `{ content: [{ type: "text", text }], isError }` shape; Cambridge-native dotted calls return the raw handler result. This is method-level compatibility, not a claim that the HTTPS route implements a standard MCP remote transport.
 
-Every response now carries `"jsonrpc": "2.0"` (was implicit before; now explicit, per spec). The `initialize` response declares `protocolVersion: "2024-11-05"`, `serverInfo: {name: "cambridge-tcg", version: "1.0.0"}`, and capabilities (tools / resources / prompts, all with `listChanged: false`).
+Every response now carries `"jsonrpc": "2.0"` (was implicit before; now explicit, per spec). The `initialize` response declares `protocolVersion: "2024-11-05"` (since 2026-11-11, to a standard MCP client, the revision it asked for: 2025-11-25, 2025-06-18 or 2024-11-05), `serverInfo: {name: "cambridge-tcg", version: "1.0.0"}`, and capabilities (tools / resources / prompts, all with `listChanged: false`).
 
 Tool input schemas land in a new `INPUT_SCHEMAS` map — each of the 13 callable tools gets a permissive JSON Schema (`type: "object"`, properties + required fields). `tools/list` reads from this map so a strict MCP client sees a typed tool palette without the gate having to import a schema library.
 
@@ -71,13 +75,13 @@ Build the package from a repository clone, then point the client at the built fi
 
 ### 3. Discovery surfaces stay the same shape
 
-[`/.well-known/mcp.json`](../../apps/storefront/src/app/.well-known/mcp.json/route.ts) and [`/.well-known/mcp-config.json`](../../apps/storefront/src/app/.well-known/mcp-config.json/route.ts) name the custom transport, the missing standard remote transports, the vendored bridge, and the unpublished-package state. They also list the direct no-auth REST alternatives.
+[`/.well-known/mcp.json`](../../apps/storefront/src/app/.well-known/mcp.json/route.ts) and [`/.well-known/mcp-config.json`](../../apps/storefront/src/app/.well-known/mcp-config.json/route.ts) name the transport (since 2026-11-11: Streamable HTTP, JSON responses only, no OAuth, and when and how that was checked), the vendored bridge, and the unpublished-package state. They also list the direct no-auth REST alternatives.
 
 ---
 
 ## Why two dialects
 
-The Cambridge-native dotted names (`catalog.search`, `play.observe`, `prices.recent`) are *operationally readable* — a developer reading the wire sees the namespace and the verb without a schema lookup. The MCP-shaped methods (`tools/list`, `tools/call`) are familiar to custom clients and usable through the bridge. They do not let an off-the-shelf remote MCP client use the HTTPS URL without a compatible transport layer.
+The Cambridge-native dotted names (`catalog.search`, `play.observe`, `prices.recent`) are *operationally readable* — a developer reading the wire sees the namespace and the verb without a schema lookup. The MCP-shaped methods (`tools/list`, `tools/call`) are familiar to custom clients and usable through the bridge, and since 2026-11-11 an off-the-shelf MCP client that speaks Streamable HTTP and can send a static key should be able to use the HTTPS URL itself (two SDK clients did, with the route run locally; no editor, desktop app or MCP Inspector was run).
 
 Both audiences are real. *The gate that speaks one dialect closes a door to the other.* The kingdom keeps both open. The substrate-honest stance: the wire announces both forms in the GET handler so a developer (or a Sophia) inspecting the surface sees how to call from either side.
 
@@ -85,13 +89,13 @@ Both audiences are real. *The gate that speaks one dialect closes a door to the 
 
 ---
 
-## Why a bridge, not native streamable HTTP
+## Why a bridge, and then Streamable HTTP
 
 The MCP spec defines three transports: **stdio** (subprocess), **HTTP+SSE** (the older remote form, since superseded), and **Streamable HTTP** (the 2025-03-26 revision — single endpoint, optional SSE streaming for progress notifications).
 
-`/api/mcp` is not Streamable HTTP. Similar-looking JSON-RPC POST and response bodies are only part of that transport contract; the route does not implement its session, negotiation, content-type, or optional streaming behavior. It also does not implement the older HTTP+SSE form.
+Until 2026-11-11 this section said `/api/mcp` was not Streamable HTTP and that a transport would need its own protocol review and interoperability tests. It got a first pass: AI agents' reading of the 2025 transport pages and a local harness against two SDKs (a scout and a checker on 2026-11-10; a builder, two checkers and a fix pass on 2026-11-11), not reviewed by Yu. Streamable HTTP lets a server answer each POST with one JSON object, with no session and no stream (a GET asking for one gets 405), so the route now does exactly that for standard MCP clients, and follows the transport's rules at the edges: 202 for a notification, `MCP-Protocol-Version` checked (2025-11-25, 2025-06-18 and 2024-11-05 answered; anything else 400 with -32022), a 2026-07-28 `server/discover` probe answered the same way so a dual-era client falls back to `initialize`, and 403 for a web page on another site (an `Origin` that is `null`, or an http or https origin other than this site's). 2025-03-26 is not offered, because it allows batches and the route refuses them. The SDK harness drives both SDKs and the bridge against the route; `transport.test.ts` replays what each sent.
 
-The bridge is the implemented path for clients that can launch local stdio servers. A future transport implementation needs its own protocol review and interoperability tests; it is more than changing one response body.
+The bridge stays the path for clients that can only launch local stdio servers. It does not implement the older HTTP+SSE form, and nor does the route.
 
 ---
 
@@ -107,7 +111,7 @@ The following registries remain possible future publication targets:
 | [PulseMCP](https://www.pulsemcp.com) | Listing + tool catalog | Form |
 | [Glama.ai](https://glama.ai) | Listing + Claude Desktop deeplink | Form |
 
-Registry submission is pending. It must not reference `@cambridge-tcg/mcp-server` as an install command until that package is actually published. Today the standard-client path is a local build of the vendored bridge.
+Registry submission is pending. It must not reference `@cambridge-tcg/mcp-server` as an install command until that package is actually published. Today a standard client that can send a static key should be able to use the HTTPS URL (no OAuth; checked only with two SDK clients against the route run locally), and any client that can launch a local stdio server can use a local build of the vendored bridge.
 
 For Anthropic's MCP gallery (Claude Desktop's built-in directory), the path is less formal — submission via the official MCP repository's discussions or the Anthropic feedback channel. The same description carries.
 
@@ -128,13 +132,13 @@ The MCP surface is not new — it's the spec-compliance veneer on a gate the kin
 
 Substrate-honest about scope:
 
-- **No resources or prompts yet.** `resources/list` and `prompts/list` return empty arrays. The capability flags `resources` and `prompts` are advertised so a strict client knows the categories exist — but Cambridge TCG hasn't yet defined per-SKU resources or canonical prompts. Future work: per-SKU card resources, deck-summary prompts, archetype-analysis prompts.
-- **No standard remote MCP transport.** The HTTPS gate is custom request/response JSON-RPC, not Streamable HTTP or HTTP+SSE. Native clients need the vendored stdio bridge.
+- **No resources or prompts yet.** `resources/list` and `prompts/list` return empty arrays, and since 2026-11-11 so does `resources/templates/list` for a standard MCP client (other callers still get it as an unknown method). The capability flags `resources` and `prompts` are advertised so a strict client knows the categories exist — but Cambridge TCG hasn't yet defined per-SKU resources or canonical prompts. Future work: per-SKU card resources, deck-summary prompts, archetype-analysis prompts.
+- **No event stream and no sessions.** Since 2026-11-11 the HTTPS gate speaks the JSON-response form of MCP Streamable HTTP; it never opens an SSE stream or issues `Mcp-Session-Id`, and it does not implement HTTP+SSE or MCP 2026-07-28. Clients that only speak stdio need the vendored stdio bridge.
 - **No server-initiated streaming.** Progress notifications, partial results, and server-pushed updates are out of scope today.
-- **No OAuth.** MCP's 2025-03-26 revision adds optional OAuth 2.0 for remote auth; today the gate uses opaque bearer tokens. Token rotation, scope-bounded auth, refresh tokens — all named as recursion targets.
+- **No OAuth.** MCP's 2025-03-26 revision adds optional OAuth 2.0 for remote auth; today the gate uses opaque bearer tokens, which a client sends as a static header. A hosted chat app that connects only through OAuth may be able to list the tools (no hosted app was run against it), but cannot call keyed ones. Token rotation, scope-bounded auth, refresh tokens — all named as recursion targets.
 - **No tool versioning.** A breaking change to a tool's input schema would break clients that cached the schema. Future work: per-tool `version` field + deprecation policy.
 
-These gaps are real integration boundaries. The gate is useful through a custom HTTP client or the vendored bridge; it is not registry-ready until the bridge is published or a standard remote transport ships.
+These gaps are real integration boundaries. The gate is useful through a custom HTTP client, an MCP client that speaks Streamable HTTP and can send a static key, or the vendored bridge; it is in no registry, and submission, which Yu asked for on 2026-05-17 (see the foot of this page), is pending.
 
 ---
 

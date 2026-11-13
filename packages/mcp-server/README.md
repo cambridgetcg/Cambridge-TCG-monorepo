@@ -18,7 +18,7 @@ npm run build
 node dist/index.js   # the stdio bridge
 ```
 
-Custom HTTP clients can skip the bridge only when they can send ordinary JSON-RPC 2.0 POST requests. The HTTPS gate is not MCP Streamable HTTP or HTTP+SSE, so a client's generic "remote MCP" URL setting is not enough. See [Direct HTTPS](#direct-https-no-bridge) below.
+You may not need the bridge. The HTTPS gate speaks the JSON-response form of MCP Streamable HTTP, revisions 2025-06-18 and 2025-11-25, with no event stream and no sessions. On 2026-11-11 `@modelcontextprotocol/sdk` 1.32.2 and `@modelcontextprotocol/client` 2.4.0 connected to it with a static bearer key, listed and called its tools and read a refusal, with the route run locally and its database, key lookup, rate limiter and tool handlers mocked (`apps/storefront/scripts/mcp-sdk-harness`). It has no OAuth: a client whose remote-server setting can send an `Authorization: Bearer` header should be able to use the URL directly (only the two SDKs above were run; no editor, desktop app or hosted app was), and one that connects only through OAuth cannot call keyed tools. The bridge is for clients that only speak stdio. See [Direct HTTPS](#direct-https-no-bridge) below.
 
 If the package is published later, `npx -y @cambridge-tcg/mcp-server` would run it on demand; no publication date is set.
 
@@ -115,7 +115,7 @@ node dist/index.js ctcg_agt_...
 
 ## Direct HTTPS (no bridge)
 
-If you are writing a custom client that can send one JSON-RPC 2.0 request per ordinary HTTPS POST, call `https://cambridgetcg.com/api/mcp`. The route supports Cambridge-native dotted method names (`catalog.search`, ...) and MCP-shaped methods (`tools/list`, `tools/call`, `initialize`). It is not an MCP Streamable HTTP or HTTP+SSE transport. Standard MCP clients need the stdio bridge above.
+If you are writing a custom client that can send one JSON-RPC 2.0 request per ordinary HTTPS POST, call `https://cambridgetcg.com/api/mcp`. The route supports Cambridge-native dotted method names (`catalog.search`, ...) and MCP-shaped methods (`tools/list`, `tools/call`, `initialize`). An MCP client that speaks Streamable HTTP should be able to use the same URL, with the key as an `Authorization: Bearer` header (checked only with the two SDKs named above): the gate answers it with JSON only (no event stream, no sessions, no HTTP+SSE) and has no OAuth. Clients that only speak stdio need the bridge above.
 
 For public read-only data with no auth required, hit the underlying API directly — `https://cambridgetcg.com/api/v1/universal/card/<sku>` is open. See [`/.well-known/mcp-config.json`](https://cambridgetcg.com/.well-known/mcp-config.json) for the no-auth alternative tools list.
 

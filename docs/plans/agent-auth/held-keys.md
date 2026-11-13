@@ -598,8 +598,8 @@ action words: `sign_new_act`, `fetch_preview`.
   every request
   ([`index.ts#L86-L88`](../../../packages/mcp-server/src/index.ts#L86-L88));
   it must neither help nor hurt an act.
-- **It survives every route.** Native MCP clients reach the gate through the
-  bridge
+- **It survives every route.** MCP clients that only speak stdio reach the
+  gate through the bridge
   ([`route.ts#L785-L791`](../../../apps/storefront/src/app/api/mcp/route.ts#L785-L791)),
   which parses each line and re-serializes it
   ([`index.ts#L161-L167`](../../../packages/mcp-server/src/index.ts#L161-L167),

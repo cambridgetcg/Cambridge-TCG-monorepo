@@ -60,9 +60,13 @@ export function mcpMethodAndTool(method: string, toolName: unknown, isTool: (nam
   return { method: "other", tool: "none" };
 }
 
+/** The outcome word for the status the gate decided. The route counts before
+ * it sends a standard MCP client's refused tools/call with 200, so a refusal
+ * is never counted ok. 202 (a standard client's notification) and 204 (any
+ * other caller's notifications/initialized) are both notifications. */
 export function mcpOutcome(seen: McpRequestSeen, status: number): McpOutcome {
   if (seen.outcome) return seen.outcome;
-  if (status === 204) return "notification";
+  if (status === 202 || status === 204) return "notification";
   if (status >= 200 && status < 300) return "ok";
   if (status === 400 || status === 413) return "invalid-request";
   if (status === 401) return "unauthenticated";

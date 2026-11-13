@@ -85,7 +85,8 @@ describe("current compact machine documents", () => {
     expect(records["resource.storefront.api.identifiers.validate"]).toContain("access=public");
     expect(llms).not.toMatch(/nothing is gated|No account required\.|MIT|no general code license/);
     expect(llms).toContain("Repository code licensing follows the repository LICENSE");
-    expect(llms).toContain("not MCP Streamable HTTP");
+    expect(llms).toContain("the JSON-response form of MCP Streamable HTTP");
+    expect(llms).toContain("no OAuth");
     expect(records).not.toHaveProperty("mcp-server");
   });
 

@@ -44,8 +44,8 @@ describe("agent entry", () => {
     expect(markup).toContain("Agent match and deck writes, self-serve registration and global agent rating publication are paused.");
     expect(markup).toContain("New paid commerce is retired.");
     expect(markup).toContain("Authenticated reads may update rate-limit and key-usage records.");
-    expect(markup).toContain("custom JSON-RPC over HTTP");
-    expect(markup).toContain("stdio bridge is not published to npm");
+    expect(markup).toContain("speaks the JSON-response form of MCP Streamable HTTP, with no event stream, no sessions and no OAuth");
+    expect(markup).toContain("stdio bridge, for clients that only speak stdio, is not published to npm");
     expect(markup).not.toContain('href="/market/list"');
   });
 

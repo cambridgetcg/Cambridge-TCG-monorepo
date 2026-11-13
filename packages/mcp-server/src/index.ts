@@ -107,9 +107,11 @@ async function forward(req: JsonRpcMessage): Promise<JsonRpcMessage | null> {
     };
   }
 
-  // 204 = notification acknowledgement (no body). MCP notifications expect
-  // no response from the bridge.
-  if (response.status === 204) {
+  // 204 or 202 = notification acknowledgement (no body). The gate answers
+  // the bridge's notifications/initialized with 204; 202 is what MCP
+  // Streamable HTTP servers send. MCP notifications expect no response from
+  // the bridge.
+  if (response.status === 204 || response.status === 202) {
     return null;
   }
 
