@@ -802,7 +802,7 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       await expect(connectionRow()).resolves.toMatchObject({ importState: "failed", importError: expect.stringContaining("ACCESS_DENIED") });
     });
 
-    it(`stops trying ${IMPORT_RETRY_DAYS} days after install, and never tries an uninstalled store's`, async () => {
+    it(`stops trying ${IMPORT_RETRY_DAYS} days after install, and tries an uninstalled store's only once it is reinstalled`, async () => {
       const { conn, shopify } = await failedWhileRefused();
       shopify.access.refused = false;
       await nextNight();
@@ -813,13 +813,22 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       await new Promise((resolve) => setTimeout(resolve, 5));
       await expect(markUninstalled(SHOP, new Date())).resolves.toBe("uninstalled");
       await expect(retryFailedImport(shopify.admin, conn.connectionId)).resolves.toBe("not_due");
-
       expect(shopify.started).toHaveLength(0);
       expect(shopify.access.refusals).toBe(1 + MAX_IMPORT_RESTARTS);
-      await expect(connectionRow()).resolves.toMatchObject({ status: "uninstalled", importState: "failed" });
+
+      // Reinstalled: the open leaves a failed import alone, and the next try starts it
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await onAppOpened({ session, admin: shopify.admin as unknown as AdminApiContext });
+      await flushWaitUntil();
+      await expect(connectionRow()).resolves.toMatchObject({ status: "active", importState: "failed", importLaunchedAt: null });
+      expect(shopify.started).toHaveLength(0);
+      await expect(retryFailedImport(shopify.admin, conn.connectionId)).resolves.toBe("started");
+      expect(shopify.started).toHaveLength(1);
     });
 
-    it("writes no order twice and credits nothing again when an import that wrote some orders is tried again", async () => {
+    // Order rows are unique by their natural key, so this shows a try completes over the orders an earlier attempt
+    // wrote, and that nothing in it reaches the ledger, the payouts or the buyer's spend twice
+    it("completes over the orders an earlier attempt wrote, leaving the money and each order's spend as they were", async () => {
       const { conn, shopify } = await firstOpen();
       await prisma.merchant.update({ where: { id: conn.merchantId }, data: { tierWindow: "lifetime" } });
       await addTiers(conn.merchantId);

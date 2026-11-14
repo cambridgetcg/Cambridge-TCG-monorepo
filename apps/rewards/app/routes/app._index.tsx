@@ -404,7 +404,7 @@ export default function Home() {
                   )}
                   {d.setup.importState === "running" ? (
                     <s-text color="subdued">
-                      Bringing in your last {months} of orders so buyers start in the right tier. These orders earn no cashback.
+                      Bringing in your last {months} of orders so buyers are placed in the right tier. These orders earn no cashback.
                     </s-text>
                   ) : null}
                   {showImportOutcome ? (

@@ -48,10 +48,14 @@ export async function ingestImportedOrders(conn: ConnectionContext, facts: Order
 /**
  * The connections whose past-orders import can still write orders (Ruling
  * 53): the store is installed, and its import has not started yet or is
- * running. A done or failed import writes nothing more, and an uninstalled
- * store's import waits for a reinstall that may never come, so nothing waits
- * for either. The one test every wait on the import uses (refunds/create,
- * customers/redact), and the connections the hourly job polls.
+ * running. A done import writes nothing more, and an uninstalled store's
+ * import waits for a reinstall that may never come, so nothing waits for
+ * either. A failed import writes nothing more unless the nightly job tries it
+ * again (retryFailedImport, up to 30 days after install); nothing waits for
+ * that either, since a try may never come. A try runs a new bulk query, so it
+ * brings back a buyer erased meanwhile only if Shopify still lists them on
+ * their orders then. The one test every wait on the import uses
+ * (refunds/create, customers/redact), and the connections the hourly job polls.
  */
 export const importStillWriting: Prisma.ConnectionWhereInput = { status: "active", importState: { in: ["not_started", "running"] } };
 
