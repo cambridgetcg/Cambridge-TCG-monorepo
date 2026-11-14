@@ -23,8 +23,9 @@ import { customerNames } from "~/shopify/names.server";
  * "Shows at checkout" when Shopify can't say in time, Ruling 66), cashback
  * history with the tier and rate each entry earned at, and orders with their
  * status. "Lock to a tier" and "Return to automatic" set the manual tier
- * lock. Store credit is adjusted in Shopify's own customer page, which the
- * panel links to.
+ * lock: actions that apply at once, like a switch, not a form to save (so
+ * no save bar, Built for Shopify 4.1.5). Store credit is adjusted in
+ * Shopify's own customer page, which the panel links to.
  */
 
 const notFound = () => new Response("Not found", { status: 404 });
