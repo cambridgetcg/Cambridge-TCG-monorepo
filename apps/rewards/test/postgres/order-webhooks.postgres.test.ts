@@ -768,6 +768,35 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
       expect(capture.mock.calls[0][1]).toEqual({ tags: { "webhook.topic": "orders/paid" } });
     });
 
+    // shopify-app-react-router 4.0.3: a refresh token Shopify no longer accepts (401) gives the route no session
+    it("orders/paid of an uninstalled store whose refresh token is no longer active answers 200 and reports nothing", async () => {
+      await seedShop({ session: false });
+      const asked = await seedExpiredSessionWhoseRefreshIsRefused(SHOP, { status: 401 });
+      await prisma.connection.updateMany({ data: { status: "uninstalled", uninstalledAt: new Date() } });
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
+
+      await expect(deliverPaid()).resolves.toMatchObject({ status: 200 });
+
+      expect(asked.refreshes).toBe(1);
+      expect(console.log).toHaveBeenCalledWith(`[orders/paid] No store connection for ${SHOP}; nothing to do`);
+      expect(capture).not.toHaveBeenCalled();
+    });
+
+    it("orders/paid of an active store whose refresh token is no longer active still answers 500, reported once", async () => {
+      await seedShop({ session: false });
+      await seedExpiredSessionWhoseRefreshIsRefused(SHOP, { status: 401 });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
+
+      await expect(deliverPaid()).resolves.toMatchObject({ status: 500 });
+
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture.mock.calls[0][1]).toEqual({ tags: { "webhook.topic": "orders/paid" } });
+      await expect(prisma.order.count()).resolves.toBe(0);
+    });
+
     it("refunds/create reports a refused refresh too, and answers its 500", async () => {
       await seedShop({ session: false });
       await seedExpiredSessionWhoseRefreshIsRefused(SHOP);
