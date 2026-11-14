@@ -27,7 +27,12 @@ lead, and the tier line below in How it works, step 1, once that change is merge
 The site, the listing and the profiles don't name advertising as a contrast. The 0% base rate setting goes on the
 help page first, with its limits (the owner's yes, 12 Nov, item 4), and no post says it before the help page does.
 The help page says it under "What does a base rate of 0% do?" (`/help/#zero-base-rate`), once that change too is
-merged on the owner's word and deployed.
+merged on the owner's word and deployed. On the App Store listing, the App introduction takes the headline and the
+proof, and App details takes `rp-vip-tiers`'s "Loyal customers move between tiers as their spend changes, unless you
+lock them to a tier." in place of "Customers move up tiers as they spend.", by the owner's choice of 13 Nov 2026
+(`approvals.jsonl`). Neither is live until the owner saves the listing and Shopify's review passes. App details'
+spending sentences still carry Shopify's sign-in rule without its label and date: with the tier sentence in, the label
+doesn't fit in the field's 500 characters, so it waits for a later Save.
 
 | Sentence | Ledger row | Source (under `apps/rewards/` at 8daf7f09) | Limit |
 |---|---|---|---|
