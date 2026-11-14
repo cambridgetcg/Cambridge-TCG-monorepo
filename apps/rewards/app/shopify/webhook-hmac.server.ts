@@ -6,7 +6,8 @@
  * authenticate.webhook loads the store's offline session and refreshes an
  * expired token before the route runs, and a refresh Shopify refuses (as it
  * may after an uninstall, or when the refresh token has died) makes the route
- * answer 500. These topics need no session: this checks only Shopify's
+ * answer 500, or, from 4.0.3, gives it no session, which a route that needs
+ * one answers with its own 500. These topics need no session: this checks only Shopify's
  * signature, as the library does underneath (shopify-api's
  * validateHmacFromRequest), and never reads or refreshes a session, so it
  * starts no refresh either.
