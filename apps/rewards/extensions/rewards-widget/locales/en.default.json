@@ -11,6 +11,7 @@
     "spend": "Sign in and choose Apply store credit at checkout",
     "guest_message": "Sign in to see your rewards",
     "guest_earn": "Earn {percent}% back as store credit",
-    "guest_cta": "Sign in"
+    "guest_cta": "Sign in",
+    "preview": "Theme editor only: guests see no widget while cashback is off"
   }
 }
