@@ -7,6 +7,11 @@
   the buyer is printed here. A guest's widget reads the app's widget
   metafield (rewards.config: running, basePercent) and asks no server.
   The script builds the widget from these attributes, with textContent only.
+
+  In the theme editor only (request.design_mode), data-design-mode lets a
+  guest's widget draw with cashback off, so the merchant can set it up,
+  with a note that guests don't see it: Shopify's docs ask that the editor
+  match the live store, and this preview is the one place it doesn't.
 {%- endcomment -%}
 {%- assign rewards_accent = block.settings.accent | default: '#17BEBB' -%}
 <div
@@ -41,6 +46,10 @@
   data-t-guest-message="{{ 'rewards_widget.guest_message' | t }}"
   data-t-guest-earn="{{ 'rewards_widget.guest_earn' | t }}"
   data-t-guest-cta="{{ 'rewards_widget.guest_cta' | t }}"
+  {% if request.design_mode %}
+    data-design-mode
+    data-t-preview="{{ 'rewards_widget.preview' | t }}"
+  {% endif %}
 ></div>
 <script src="{{ 'rewards-widget.js' | asset_url }}" defer></script>
 
@@ -79,7 +88,7 @@
     {
       "type": "select",
       "id": "look",
-      "label": "Colours",
+      "label": "Color scheme",
       "options": [
         { "value": "light", "label": "Light" },
         { "value": "dark", "label": "Dark" }
@@ -90,7 +99,7 @@
       "type": "color",
       "id": "accent",
       "label": "Accent",
-      "info": "Fills the progress bar. Text never uses it.",
+      "info": "Fills the dot on the widget's button and the progress bar. Text never uses it.",
       "default": "#17BEBB"
     }
   ]

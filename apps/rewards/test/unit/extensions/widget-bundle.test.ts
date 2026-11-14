@@ -31,7 +31,7 @@ const css = read("assets/rewards-widget.css");
 const js = read("assets/rewards-widget.js");
 const locale = JSON.parse(read("locales/en.default.json")) as { rewards_widget: Record<string, string> };
 
-type Setting = { type: string; id?: string; default?: string; options?: { value: string }[] };
+type Setting = { type: string; id?: string; label?: string; info?: string; default?: string; options?: { value: string }[] };
 const schemaText = /\{%-?\s*schema\s*-?%\}([\s\S]*?)\{%-?\s*endschema\s*-?%\}/.exec(liquid)?.[1];
 const schema = JSON.parse(schemaText ?? "null") as { target: string; stylesheet?: string; settings: Setting[] };
 const setting = (id: string) => schema.settings.find((s) => s.id === id);
@@ -108,6 +108,17 @@ describe("the widget's identity", () => {
     expect(setting("look")?.options?.map((o) => o.value)).toEqual(["light", "dark"]);
     expect(setting("accent")).toMatchObject({ type: "color", default: "#17BEBB" });
   });
+
+  // Built for Shopify 4.2.1: the theme editor is US English, and a label says what the setting does
+  it("labels its settings in US English, saying what each one changes", () => {
+    expect(schemaText).not.toMatch(/colour/i);
+    // A choice between Light and Dark
+    expect(setting("look")?.label).toBe("Color scheme");
+    // The accent also fills the launcher's dot (rewards-widget.css, .rw-dot)
+    expect(declared(".rw-dot", "background")).toEqual(["var(--rw-accent, #17BEBB)"]);
+    expect(declared(".rw-fill", "background")).toEqual(["var(--rw-accent, #17BEBB)"]);
+    expect(setting("accent")?.info).toBe("Fills the dot on the widget's button and the progress bar. Text never uses it.");
+  });
 });
 
 describe("the block's Liquid", () => {
@@ -144,6 +155,19 @@ describe("the block's Liquid", () => {
   it("loads the script with defer and the stylesheet once", () => {
     expect(liquid).toMatch(/<script src="\{\{ 'rewards-widget\.js' \| asset_url \}\}" defer><\/script>/);
     expect(schema.stylesheet).toBe("rewards-widget.css");
+  });
+
+  // Built for Shopify 4.2.6: the editor previews the widget even with cashback off; a shopper never gets the flag
+  it("marks the root as the theme editor's only inside request.design_mode", () => {
+    // The markup, without the Liquid comment (which never reaches a page)
+    const markup = liquid.replace(/\{%-?\s*comment\s*-?%\}[\s\S]*?\{%-?\s*endcomment\s*-?%\}/g, "");
+    const editorOnly = /\{%-?\s*if request\.design_mode\s*-?%\}([\s\S]*?)\{%-?\s*endif\s*-?%\}/.exec(markup);
+    expect(editorOnly?.[1]).toMatch(/^\s*data-design-mode\s*$/m);
+    expect(editorOnly?.[1]).toContain(`data-t-preview="{{ 'rewards_widget.preview' | t }}"`);
+    // Nowhere else, so a storefront page carries neither
+    expect(markup.split("data-design-mode")).toHaveLength(2);
+    expect(markup.split("data-t-preview")).toHaveLength(2);
+    expect(js).toMatch(/hasAttribute\("data-design-mode"\)/);
   });
 
   it("passes every locale string to the script", () => {
