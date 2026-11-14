@@ -220,6 +220,9 @@ export interface BannerFacts {
   timezone: string;
 }
 
+/** Where buyers' store credit is made spendable: the store-credit banner's link and the store-credit check's. */
+export const CUSTOMER_ACCOUNT_SETTINGS = { label: "Open customer account settings", href: "shopify://admin/settings/customer_accounts" } as const;
+
 /** Each code storeCreditSpendProblems gives, in words: the compiler checks every code has its own (A19-F4). */
 const SPEND_PROBLEMS: Record<StoreCreditSpendProblem, string> = {
   "legacy-accounts": "your store uses legacy customer accounts",
@@ -233,7 +236,8 @@ const SPEND_PROBLEMS: Record<StoreCreditSpendProblem, string> = {
  * orders that need a look (straight to the order when there is one,
  * DESIGN-12). The widget embed has no banner: the browser learns of it only
  * after the page has painted, and the setup card's step and the cashback
- * status card already say it, with the theme editor's link.
+ * status card already say it, with the theme editor's link. The store-credit
+ * banner stays: it names the cause, which the status card's check doesn't.
  */
 export function homeBanners(facts: BannerFacts): HomeBanner[] {
   const banners: HomeBanner[] = [];
@@ -251,7 +255,7 @@ export function homeBanners(facts: BannerFacts): HomeBanner[] {
       kind: "store-credit",
       tone: "warning",
       text: `Buyers can't spend their store credit yet: ${facts.spendProblems.map((problem) => SPEND_PROBLEMS[problem]).join("; ")}.`,
-      link: { label: "Open customer account settings", href: "shopify://admin/settings/customer_accounts" },
+      link: { ...CUSTOMER_ACCOUNT_SETTINGS },
     });
   }
   if (facts.needsLook > 0) {
@@ -276,4 +280,16 @@ export function homeBanners(facts: BannerFacts): HomeBanner[] {
  */
 export function homeBanner(facts: BannerFacts): HomeBanner | null {
   return homeBanners(facts)[0] ?? null;
+}
+
+/**
+ * Whether the phone's one-line cashback status has the store-credit check
+ * under it, with its link: when buyers can't spend their store credit and the
+ * one banner is another (a customer data request comes first). On a phone the
+ * Cashback status card, where the check always is, is hidden, so a problem the
+ * banner doesn't name would otherwise go unsaid there; when the banner names
+ * it, the line doesn't repeat it.
+ */
+export function storeCreditUnderStatusLine(storeCredit: boolean | null, banner: HomeBanner | null): boolean {
+  return storeCredit === false && banner?.kind !== "store-credit";
 }

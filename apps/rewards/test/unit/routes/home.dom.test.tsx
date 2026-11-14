@@ -221,6 +221,7 @@ describe("Home", () => {
       ["setup not completed, no step done", homeData({ running: false, hasTiers: false, importDismissed: true })],
       ["setup completed", homeData({ running: true, setupCompleted: true, importDismissed: true })],
       ["setup completed, paused, with a store credit banner", { ...homeData({ running: false, setupCompleted: true, importDismissed: true, storeCreditReady: false }), bannerFacts: { ...(homeData().bannerFacts as object), spendProblems: ["store-credit-off"] } }],
+      ["a data request's banner, store credit not spendable", { ...homeData({ setupCompleted: true, importDismissed: true, storeCreditReady: false }), bannerFacts: { ...(homeData().bannerFacts as object), privacyDueAt: "2026-12-05T10:00:00Z", spendProblems: ["store-credit-off"] } }],
     ] as const) {
       for (const embed of ["active", "available", "refused"] as const) {
         const appBridge = stubAppBridgeLater();
@@ -235,6 +236,28 @@ describe("Home", () => {
         cleanup();
       }
     }
+  });
+
+  // The same rule after the reload: App Bridge says the widget is on, Home records setup as completed by itself, and
+  // the page reloads saying so. The card stays where it is, every step ticked, until the next visit; taking it away
+  // would move the page with no click from the merchant
+  it("keeps the card, every step ticked, when setup is recorded during the visit and the page reloads", async () => {
+    const appBridge = stubAppBridgeLater();
+    const posted: Posted[] = [];
+    const reloaded = homeData({ running: true, importDismissed: true, setupCompleted: true });
+    // A figure that changed meanwhile shows the reload has landed
+    reloaded.stats = { ...(reloaded.stats as Record<string, unknown>), cashbackGiven: "30.00" };
+    await renderHome(homeData({ running: true, importDismissed: true }), posted, { answer: async () => ({ ok: true }), next: () => reloaded });
+    const first = layout();
+
+    await appBridge.answer("active");
+    await screen.findByText("£30.00");
+    await act(async () => {});
+
+    expect(posted.map((post) => post.fields)).toEqual([{ intent: "setup-done" }]);
+    expect(layout()).toEqual(first);
+    expect(card()?.getAttribute("heading")).toBe("Set up cashback");
+    expect([...(card()?.querySelectorAll("s-icon") ?? [])].map((icon) => icon.getAttribute("type"))).toEqual(Array(3).fill("check-circle"));
   });
 
   // Ruling 60
@@ -271,12 +294,16 @@ describe("Home", () => {
   // Built for Shopify 4.2.2 reason 6: a merchant who won't use the widget can be rid of the steps
   describe("the setup card's Dismiss", () => {
     const dismiss = () => card()?.querySelector(':scope > s-button[slot="secondary-actions"]');
+    /** The card's buttons whose visible words are "Dismiss". */
+    const dismissWords = () => [...(card()?.querySelectorAll("s-button") ?? [])].filter((button) => button.textContent === "Dismiss");
 
     it("dismisses the steps once the base rate is set and cashback is on, and records setup as completed", async () => {
       stubAppBridge("available");
       const posted: Posted[] = [];
       await renderHome(homeData({ running: true, importDismissed: true }), posted);
-      expect([dismiss()?.textContent, dismiss()?.getAttribute("variant"), dismiss()?.getAttribute("accessibilityLabel")]).toEqual(["Dismiss", "tertiary", "Dismiss setup"]);
+      // The setup guide composition's icon-only "x", named for assistive technology
+      expect(["variant", "tone", "icon", "accessibilityLabel"].map((name) => dismiss()?.getAttribute(name))).toEqual(["tertiary", "neutral", "x", "Dismiss setup"]);
+      expect(dismiss()?.textContent).toBe("");
 
       await act(async () => {
         fireEvent.click(dismiss()!);
@@ -288,9 +315,33 @@ describe("Home", () => {
       expect(boxShown(BELOW).textContent).toContain("Widget is off");
     });
 
+    // Without the post's answer kept, the card, with its steps, would come back the moment the reload lands
+    it("stays dismissed once the post is answered and the page reloads", async () => {
+      stubAppBridge("available");
+      const posted: Posted[] = [];
+      const reloaded = homeData({ running: true, importDismissed: true, setupCompleted: true });
+      reloaded.stats = { ...(reloaded.stats as Record<string, unknown>), cashbackGiven: "30.00" };
+      await renderHome(homeData({ running: true, importDismissed: true }), posted, { answer: async () => ({ ok: true }), next: () => reloaded });
+
+      await act(async () => {
+        fireEvent.click(dismiss()!);
+      });
+      await screen.findByText("£30.00");
+      await act(async () => {});
+
+      expect(posted.map((post) => post.fields)).toEqual([{ intent: "setup-dismissed" }]);
+      expect(card()).toBeNull();
+    });
+
+    // Built for Shopify 4.2.1 reason 2: two buttons with the same words in one card wouldn't say which hides what
     it("leaves the import's outcome, with its own Dismiss, when it is still shown", async () => {
       stubAppBridge("available");
       await renderHome(homeData({ running: true, importState: "failed", importedOrders: 0 }));
+      // Both on the card: one button reads Dismiss, the import's; the setup's is the "x"
+      expect(dismissWords()).toHaveLength(1);
+      expect(dismissWords()[0].closest("[data-import-outcome]")).not.toBeNull();
+      expect(dismiss()?.textContent).toBe("");
+
       await act(async () => {
         fireEvent.click(dismiss()!);
       });
@@ -416,7 +467,7 @@ describe("Home", () => {
     });
   });
 
-  describe("Running", () => {
+  describe("Cashback status", () => {
     // Ruling 70 (DESIGN-1, DESIGN-5): one switch on every width
     it("puts the switch in one line above the numbers when the side column is below, and in the side column when it is beside", async () => {
       stubAppBridge("active");
@@ -522,10 +573,12 @@ describe("Home", () => {
       await renderHome(homeData({ setupCompleted: true, importDismissed: true }));
       for (const row of [widgetRow(), boxShown(BELOW)]) {
         const link = row?.querySelector("s-link");
-        expect([link?.textContent, link?.getAttribute("href"), link?.getAttribute("target")]).toEqual([
+        // Named in full for a screen reader's list of links, where "Turn it on" alone says nothing
+        expect([link?.textContent, link?.getAttribute("href"), link?.getAttribute("target"), link?.getAttribute("accessibilityLabel")]).toEqual([
           "Turn it on",
           "https://home-dom.myshopify.com/admin/themes/current/editor",
           "_top",
+          "Turn on the widget in your theme",
         ]);
       }
       cleanup();
@@ -534,6 +587,47 @@ describe("Home", () => {
       await renderHome(homeData({ setupCompleted: true, importDismissed: true }));
       expect(widgetRow()?.textContent).toBe("Widget is on");
       expect(widgetRow()?.querySelector("s-link")).toBeNull();
+    });
+
+    // One banner at a time (4.3.4) must not hide a problem on a phone, where the card beside is hidden
+    it("names store credit that can't be spent under the phone's status line when the one banner is another, with where to fix it", async () => {
+      const storeCreditRow = (scope: ParentNode) =>
+        [...scope.querySelectorAll('s-stack[direction="inline"]')].find((row) => row.querySelector(":scope > s-text")?.textContent?.startsWith("Store credit"));
+      const aside = () => document.querySelector('s-section[heading="Cashback status"]')!;
+      const fix = (row: Element | undefined) => {
+        const link = row?.querySelector("s-link");
+        return [link?.textContent, link?.getAttribute("href"), link?.getAttribute("target")];
+      };
+      const settings = ["Open customer account settings", "shopify://admin/settings/customer_accounts", "_top"];
+      stubAppBridge("active");
+      const data = homeData({ setupCompleted: true, importDismissed: true, storeCreditReady: false });
+      data.bannerFacts = { ...(data.bannerFacts as Record<string, unknown>), privacyDueAt: "2026-12-05T10:00:00Z", spendProblems: ["store-credit-off"] };
+      await renderHome(data);
+      // The data request has the one banner
+      expect([...document.querySelectorAll("s-banner")].map((banner) => banner.textContent)).toEqual([
+        "A customer asked for their data. Download it by December 5, 2026. Open customer data requests",
+      ]);
+      expect(boxShown(BELOW).textContent).toContain("Cashback is on. 1 check needs you.");
+      expect(storeCreditRow(boxShown(BELOW))?.textContent).toBe("Store credit can't be spent yetOpen customer account settings");
+      expect(fix(storeCreditRow(boxShown(BELOW)))).toEqual(settings);
+      expect(fix(storeCreditRow(aside()))).toEqual(settings);
+      cleanup();
+
+      // The banner names it, with its cause: the phone's line doesn't repeat it; the card beside keeps its row and link
+      data.bannerFacts = { ...(data.bannerFacts as Record<string, unknown>), privacyDueAt: null };
+      await renderHome(data);
+      expect(document.querySelector("s-banner")?.textContent).toContain("Buyers can't spend their store credit yet");
+      expect(storeCreditRow(boxShown(BELOW))).toBeUndefined();
+      expect(fix(storeCreditRow(aside()))).toEqual(settings);
+      cleanup();
+
+      // Store credit that can be spent, or that Shopify didn't answer for, has no row under the line and no link
+      for (const ready of [true, null]) {
+        await renderHome(homeData({ setupCompleted: true, importDismissed: true, storeCreditReady: ready }));
+        expect(storeCreditRow(boxShown(BELOW))).toBeUndefined();
+        expect(storeCreditRow(aside())?.querySelector("s-link")).toBeNull();
+        cleanup();
+      }
     });
   });
 
@@ -558,10 +652,14 @@ describe("Home", () => {
         "Tiers",
       ]);
       expect(
-        [...document.querySelectorAll('s-section > s-button[slot="secondary-actions"]')].map((link) => [link.closest("s-section")?.getAttribute("heading"), link.textContent, link.getAttribute("href")]),
+        [...document.querySelectorAll('s-section > s-button[slot="secondary-actions"]')].map((link) => [
+          link.closest("s-section")?.getAttribute("heading"),
+          link.textContent || link.getAttribute("accessibilityLabel"),
+          link.getAttribute("href"),
+        ]),
       ).toEqual([
-        // The setup card's own Dismiss, a button with no link
-        ["Set up cashback", "Dismiss", null],
+        // The setup card's own Dismiss, an icon-only button with no link, named for assistive technology
+        ["Set up cashback", "Dismiss setup", null],
         ["Recent rewards", "All orders", "/app/orders"],
         ["Tiers", "Edit", "/app/tiers"],
       ]);

@@ -6,6 +6,7 @@ import { Chart } from "~/admin/Chart";
 import { formatMoney } from "~/admin/format";
 import { privatePageHeaders } from "~/admin/headers";
 import {
+  CUSTOMER_ACCOUNT_SETTINGS,
   type RunningChecks,
   homeBanner,
   importOutcomeFailed,
@@ -18,6 +19,7 @@ import {
   setupCardShown,
   setupDismissible,
   setupJustCompleted,
+  storeCreditUnderStatusLine,
   themeEditorUrl,
   WIDGET_CHECK_MS,
   widgetEmbedOn,
@@ -53,9 +55,9 @@ import { syncWidgetConfig } from "~/shopify/widget-config.server";
  * page in both admin appearances (the milestone 3 review's Chromium harness):
  * - Whether the side column sits beside the main one: Polaris puts it there
  *   once the page is 784 px wide. The page sits in its own query container
- *   ("home"), so the main column's one-line Running (with the switch) and
- *   the side column's Running card each show on one side of that width, and
- *   the switch is on the page exactly once at every width.
+ *   ("home"), so the main column's one-line cashback status (with the switch)
+ *   and the side column's Cashback status card each show on one side of that
+ *   width, and the switch is on the page exactly once at every width.
  * - How much the main column holds: wider than 415 px it shows three numbers
  *   to a row, the chart and every recent reward with its tier and status; at
  *   or below, two numbers to a row, no chart and the newest two rewards,
@@ -117,7 +119,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     storeCreditSpendProblems(admin, conn.shop),
     homeState(conn, now),
   ]);
-  // The import is moved on only once every read has answered, as before
+  // The import is moved on only after every read has answered, the names included
   let state = opened;
   if (state.importState === "running") {
     await followImport(admin, conn);
@@ -280,14 +282,30 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
   );
 }
 
-/** One status check: its icon and words, and where to fix it when it fails. */
-function Check({ ok, yes, no, unknown, fix }: { ok: boolean | null; yes: string; no: string; unknown?: string; fix?: { label: string; href: string } }) {
+/**
+ * One status check: its icon and words, and where to fix it when it fails.
+ * The fix link's `accessibilityLabel` names what it does where its words alone
+ * don't, as in a screen reader's list of links.
+ */
+function Check({
+  ok,
+  yes,
+  no,
+  unknown,
+  fix,
+}: {
+  ok: boolean | null;
+  yes: string;
+  no: string;
+  unknown?: string;
+  fix?: { label: string; href: string; accessibilityLabel?: string };
+}) {
   return (
     <s-stack direction="inline" gap="small-200" alignItems="center">
       <s-icon type={ok ? "check-circle" : ok === null ? "circle-dashed" : "alert-circle"} tone={ok ? "success" : ok === null ? "neutral" : "warning"} />
       <s-text>{ok ? yes : ok === null ? (unknown ?? no) : no}</s-text>
       {ok === false && fix ? (
-        <s-link href={fix.href} target={targetOf(fix.href)}>
+        <s-link href={fix.href} target={targetOf(fix.href)} accessibilityLabel={fix.accessibilityLabel}>
           {fix.label}
         </s-link>
       ) : null}
@@ -397,7 +415,17 @@ export default function Home() {
       yes="Widget is on"
       no="Widget is off"
       unknown={widget.checking ? "Widget: checking" : "Widget: can't check here"}
-      fix={{ label: "Turn it on", href: d.themeEditorUrl }}
+      fix={{ label: "Turn it on", href: d.themeEditorUrl, accessibilityLabel: "Turn on the widget in your theme" }}
+    />
+  );
+  // The store credit row, from the loader's facts, with where to fix it
+  const storeCreditCheck = (
+    <Check
+      ok={checks.storeCredit}
+      yes="Store credit can be spent"
+      no="Store credit can't be spent yet"
+      unknown="Store credit: Shopify didn't say"
+      fix={CUSTOMER_ACCOUNT_SETTINGS}
     />
   );
 
@@ -420,16 +448,18 @@ export default function Home() {
           <s-stack gap="base">
             {showSetup ? (
               <s-section heading={stepsShown ? "Set up cashback" : "Your past orders"} data-setup-card="">
-                {/* Shopify's setup guide is dismissed from its header (Built for Shopify 4.2.2 reason 6) */}
+                {/* Shopify's setup guide is dismissed from its header (Built for Shopify 4.2.2 reason 6), with the
+                    setup guide composition's icon-only "x": the import's outcome below has its own Dismiss, and two
+                    buttons with the same words in one card wouldn't say which hides what */}
                 {stepsShown && setupDismissible({ hasTiers, running: d.running }) ? (
                   <s-button
                     slot="secondary-actions"
                     variant="tertiary"
+                    tone="neutral"
+                    icon="x"
                     accessibilityLabel="Dismiss setup"
                     onClick={() => setupDismissFetcher.submit({ intent: "setup-dismissed" }, { method: "post" })}
-                  >
-                    Dismiss
-                  </s-button>
+                  />
                 ) : null}
                 <s-stack gap="base">
                   {!stepsShown ? null : (
@@ -508,8 +538,9 @@ export default function Home() {
               </s-section>
             ) : null}
 
-            {/* The cashback status in one line, with the switch, while the side column is below (Ruling 70), and
-                the widget's row under it once the setup steps no longer say it: no banner says it (4.2.3) */}
+            {/* The cashback status in one line, with the switch, while the side column is below (Ruling 70). Under it,
+                the card's checks that nothing else on a phone says: store credit that can't be spent when the one
+                banner is another (4.3.4), and the widget's row once the setup steps no longer say it (4.2.3) */}
             <s-box display={`${BESIDE} none, auto`}>
               <s-section accessibilityLabel="Cashback status">
                 <s-stack gap="small-200">
@@ -517,6 +548,7 @@ export default function Home() {
                     <s-text>{runningSummary(running, checks)}</s-text>
                     {cashbackSwitch({ labelHidden: true })}
                   </s-stack>
+                  {storeCreditUnderStatusLine(checks.storeCredit, banner) ? storeCreditCheck : null}
                   {stepsShown ? null : widgetCheck}
                   {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
                 </s-stack>
@@ -615,7 +647,7 @@ export default function Home() {
               <s-paragraph>{runningSentence(running)}</s-paragraph>
               {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
               <s-stack gap="small-200">
-                <Check ok={checks.storeCredit} yes="Store credit can be spent" no="Store credit can't be spent yet" unknown="Store credit: Shopify didn't say" />
+                {storeCreditCheck}
                 {widgetCheck}
                 <Check ok={checks.tiers} yes="Tiers are set" no="No tiers yet" />
               </s-stack>

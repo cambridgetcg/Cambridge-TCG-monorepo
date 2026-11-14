@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CUSTOMER_ACCOUNT_SETTINGS,
   type SetupCardFacts,
   type SetupFacts,
   homeBanner,
@@ -12,6 +13,7 @@ import {
   setupCardShown,
   setupDismissible,
   setupJustCompleted,
+  storeCreditUnderStatusLine,
   themeEditorUrl,
   widgetEmbedOn,
 } from "~/admin/home-rules";
@@ -38,7 +40,7 @@ describe("Home's rules", () => {
     expect(widgetEmbedOn([{ type: "theme_app_extension", activations: [{ handle: "other_block", status: "active" }] }])).toBeNull();
   });
 
-  it("sums the Running card up in one line, claiming nothing the browser hasn't checked", () => {
+  it("sums the Cashback status card up in one line, claiming nothing the browser hasn't checked", () => {
     expect(runningSummary(true, { storeCredit: true, widget: true, tiers: true })).toBe("Cashback is on. All checks pass.");
     expect(runningSummary(true, { storeCredit: true, widget: null, tiers: true })).toBe("Cashback is on.");
     expect(runningSummary(false, { storeCredit: false, widget: false, tiers: true })).toBe("Cashback is off. 2 checks need you.");
@@ -78,6 +80,20 @@ describe("Home's rules", () => {
       expect(homeBanner({ ...all, privacyDueAt: null })?.kind).toBe("store-credit");
       expect(homeBanner({ ...all, privacyDueAt: null, spendProblems: [] })?.kind).toBe("needs-look");
       expect(homeBanner({ ...all, privacyDueAt: null, spendProblems: [], needsLook: 0 })).toBeNull();
+    });
+
+    // On a phone the Cashback status card is hidden: store credit that can't be spent is named under the status line
+    // when the one banner doesn't name it, and only then
+    it("puts store credit that can't be spent under the phone's status line when the banner is another", () => {
+      const all = { ...facts, privacyDueAt: "2026-12-05T10:00:00Z", spendProblems: ["store-credit-off" as const], needsLook: 2 };
+      expect(storeCreditUnderStatusLine(false, homeBanner(all))).toBe(true);
+      expect(storeCreditUnderStatusLine(false, homeBanner({ ...all, privacyDueAt: null }))).toBe(false);
+      expect(storeCreditUnderStatusLine(true, homeBanner({ ...all, spendProblems: [] }))).toBe(false);
+      expect(storeCreditUnderStatusLine(null, homeBanner({ ...all, spendProblems: [] }))).toBe(false);
+      expect(storeCreditUnderStatusLine(true, null)).toBe(false);
+      // Its link is the banner's
+      expect(homeBanner({ ...all, privacyDueAt: null })?.link).toEqual(CUSTOMER_ACCOUNT_SETTINGS);
+      expect(CUSTOMER_ACCOUNT_SETTINGS).toEqual({ label: "Open customer account settings", href: "shopify://admin/settings/customer_accounts" });
     });
   });
 
