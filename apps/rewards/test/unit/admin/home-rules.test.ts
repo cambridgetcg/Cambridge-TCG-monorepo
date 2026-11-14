@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  type SetupCardFacts,
   type SetupFacts,
+  homeBanner,
   homeBanners,
+  importOutcomeFailed,
   importOutcomeLines,
   importPlacing,
   importOutcomeShown,
   runningSummary,
   setupCardShown,
+  setupDismissible,
   setupJustCompleted,
   themeEditorUrl,
   widgetEmbedOn,
@@ -45,51 +49,68 @@ describe("Home's rules", () => {
   });
 
   describe("the banners", () => {
-    const facts = { privacyDueAt: null, spendProblems: [], needsLookOrderId: null, timezone: "Europe/London", themeEditorUrl: "" };
+    const facts = { privacyDueAt: null, spendProblems: [], needsLookOrderId: null, timezone: "Europe/London" };
 
     // Ruling 56: Home counts what Orders counts, orders that need a look
     it("counts the orders that need a look, as the Orders page does", () => {
-      expect(homeBanners({ ...facts, needsLook: 1 }, true).map((b) => b.text)).toEqual(["1 order needs a look."]);
-      expect(homeBanners({ ...facts, needsLook: 3 }, true).map((b) => b.text)).toEqual(["3 orders need a look."]);
+      expect(homeBanners({ ...facts, needsLook: 1 }).map((b) => b.text)).toEqual(["1 order needs a look."]);
+      expect(homeBanners({ ...facts, needsLook: 3 }).map((b) => b.text)).toEqual(["3 orders need a look."]);
     });
 
     // DESIGN-12: one click from Home to what needs a look
     it("links straight to the one order that needs a look, or to Orders showing only those", () => {
-      expect(homeBanners({ ...facts, needsLook: 1, needsLookOrderId: "o-1" }, true)[0].link).toEqual({ label: "Open the order", href: "/app/orders/o-1" });
-      expect(homeBanners({ ...facts, needsLook: 3 }, true)[0].link).toEqual({ label: "Open orders", href: "/app/orders?look=1" });
+      expect(homeBanners({ ...facts, needsLook: 1, needsLookOrderId: "o-1" })[0].link).toEqual({ label: "Open the order", href: "/app/orders/o-1" });
+      expect(homeBanners({ ...facts, needsLook: 3 })[0].link).toEqual({ label: "Open orders", href: "/app/orders?look=1" });
     });
 
     it("says every store credit problem in the order the merchant fixes them", () => {
-      const [banner] = homeBanners({ ...facts, needsLook: 0, spendProblems: ["legacy-accounts", "sign-in-links-hidden", "store-credit-off"] }, true);
+      const [banner] = homeBanners({ ...facts, needsLook: 0, spendProblems: ["legacy-accounts", "sign-in-links-hidden", "store-credit-off"] });
       expect(banner.text).toBe(
         "Buyers can't spend their store credit yet: your store uses legacy customer accounts; sign-in links are hidden on your store and at checkout; store credit is turned off in Settings > Customer accounts.",
       );
     });
+
+    // Built for Shopify 4.3.4 reason 2: never two banners together
+    it("gives Home one banner, the most urgent, and the next once that one is dealt with", () => {
+      const all = { ...facts, privacyDueAt: "2026-12-05T10:00:00Z", spendProblems: ["store-credit-off" as const], needsLook: 2 };
+      expect(homeBanners(all).map((b) => b.kind)).toEqual(["privacy", "store-credit", "needs-look"]);
+      expect(homeBanner(all)?.kind).toBe("privacy");
+      expect(homeBanner({ ...all, privacyDueAt: null })?.kind).toBe("store-credit");
+      expect(homeBanner({ ...all, privacyDueAt: null, spendProblems: [] })?.kind).toBe("needs-look");
+      expect(homeBanner({ ...all, privacyDueAt: null, spendProblems: [], needsLook: 0 })).toBeNull();
+    });
   });
 
-  // Ruling 60: setup is done once it has been completed; later state belongs to the Running checks and the banners
+  // Ruling 60: setup is done once it has been completed; later state belongs to the cashback status checks and the banners
   describe("the setup card", () => {
-    const fresh: SetupFacts = { completed: false, hasTiers: false, running: false, widgetOn: null, importState: "not_started", importDismissed: false };
+    const fresh: SetupFacts = { completed: false, hasTiers: false, running: false, widgetOn: null };
     const stepsDone: SetupFacts = { ...fresh, hasTiers: true, running: true, widgetOn: true };
-    const completed: SetupFacts = { ...fresh, completed: true };
+    const open: SetupCardFacts = { completed: false, importState: "not_started", importDismissed: false };
+    const completed: SetupCardFacts = { ...open, completed: true };
 
+    // Decided from the server's facts alone, so the card is on the page, or not, from the first paint (2.1.2, 4.1.1)
     it.each([
       // [why, facts, card shown]
-      ["no step done", fresh, true],
-      ["a base rate only", { ...fresh, hasTiers: true }, true],
-      ["the widget off", { ...fresh, hasTiers: true, running: true, widgetOn: false }, true],
-      ["every step done", stepsDone, false],
-      ["every step but a widget the browser can't see", { ...stepsDone, widgetOn: null }, false],
-      ["the import still running", { ...stepsDone, importState: "running" }, true],
-      ["the import's outcome not yet dismissed", { ...stepsDone, importState: "done" }, true],
-      ["the import's outcome dismissed", { ...stepsDone, importState: "failed", importDismissed: true }, false],
+      ["setup not completed, whatever the steps and the widget", open, true],
+      ["the import still running", { ...open, importState: "running" }, true],
+      ["the import's outcome not yet dismissed", { ...open, importState: "done" }, true],
       // Completed once: a pause or the embed turned off later doesn't bring it back
-      ["completed, then paused with the embed off", completed, false],
-      ["completed, then paused", { ...completed, hasTiers: true, running: false, widgetOn: false }, false],
+      ["completed", completed, false],
+      ["completed, with the import still running", { ...completed, importState: "running" }, true],
       ["completed, with the import's outcome not yet dismissed", { ...completed, importState: "done" }, true],
       ["completed, with the import's outcome dismissed", { ...completed, importState: "done", importDismissed: true }, false],
+      ["completed, with the import's failure dismissed", { ...completed, importState: "failed", importDismissed: true }, false],
     ] as const)("%s", (_why, facts, shown) => {
       expect(setupCardShown(facts)).toBe(shown);
+    });
+
+    // 4.2.2 reason 6: once the base rate and the switch are done, the widget is the merchant's choice
+    it("can be dismissed once the base rate is set and cashback is on", () => {
+      expect(setupDismissible(stepsDone)).toBe(true);
+      const widgetOff: SetupFacts = { ...stepsDone, widgetOn: false };
+      expect(setupDismissible(widgetOff)).toBe(true);
+      expect(setupDismissible({ ...stepsDone, running: false })).toBe(false);
+      expect(setupDismissible({ ...stepsDone, hasTiers: false })).toBe(false);
     });
 
     it("is completed the first time every step is seen done, the widget seen on", () => {
@@ -157,6 +178,24 @@ describe("Home's rules", () => {
         "Your past orders couldn't be brought in, so buyers start in the lowest tier.",
       ]);
       expect(importOutcomeLines({ ...failed, importedOrders: 120 })).toEqual(["Brought in 120 of your past orders; the rest couldn't be read."]);
+    });
+
+    // Built for Shopify 4.2.4 reason 2: an error is red, and only the line that says what failed
+    it("marks its first line an error exactly when that line says orders couldn't be brought in", () => {
+      const failed = { ...done, state: "failed" as const };
+      for (const outcome of [
+        { ...failed, importedOrders: 0, importedBuyers: 0 },
+        failed,
+        { ...done, unreadable: true },
+        { ...done, unreadable: true, importedOrders: 0, importedBuyers: 0 },
+      ]) {
+        expect(importOutcomeFailed(outcome)).toBe(true);
+        expect(importOutcomeLines(outcome)[0]).toMatch(/couldn't be (brought in|read)/);
+      }
+      for (const outcome of [done, { ...done, placing: true }, { ...done, hasTiers: false }, { ...done, importedOrders: 0, importedBuyers: 0 }]) {
+        expect(importOutcomeFailed(outcome)).toBe(false);
+        expect(importOutcomeLines(outcome).join(" ")).not.toMatch(/couldn't/);
+      }
     });
   });
 });
