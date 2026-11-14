@@ -283,10 +283,12 @@ of pasting a second one." So the home page carries **one** `@graph`, built like 
   and a second Organization would tell machines two different things about who stands behind
   it. Its logo moves to the SoftwareApplication as `image` (#95 serves `icon-512.png` at the root
   [V, `origin/claude/rewardspro-landing-icons`, `apps/rewardspro/landing/public/icon-512.png`]).
-  Side effect [I]: Google's organisation-logo feature then has no RewardsPro logo to read. The owner's
-  call, through the brand lane.
-- **Organization `#maker`:** Cambridge TCG Limited, name and address only (its `url` waits on
-  D-maker, §8).
+  Since 14 Nov 2026 (#252) the `#maker` node also gives that icon as its `logo`, so Google's
+  organisation-logo feature has a logo to read [I].
+- **Organization `#maker`:** Cambridge TCG Limited, with its name and address. Since 14 Nov 2026
+  (#252) it also has `legalName`, `url` `https://rewardspro.io/` (the owner's choice of 13 Nov 2026,
+  `approvals.jsonl`), `logo` `https://rewardspro.io/icon-512.png` (RewardsPro's icon) and `email`
+  `contact@rewardspro.io`.
 - **SoftwareApplication `#app`.**
 - **Every node has an `@id`.** Other pages refer to them by `@id` instead of repeating them.
 
@@ -344,10 +346,11 @@ tier claim before G0). Claims: `rp-on-app-store`, `rp-maker`.
 ```
 
 **Notes:**
-- **The Organization node has no `url` for now.** Whether to link Cambridge TCG's own site, and
-  whether to say what else the maker sells, is one named decision for the owner (D-maker, §8). The
-  design's honest-by-design list asks for the disclosure; STRATEGY H4 holds card-shop framing
-  back. This card doesn't settle that by leaving things out.
+- **The Organization node's `url` is `https://rewardspro.io/`,** not cambridgetcg.com: the owner's choice
+  of 13 Nov 2026 (`approvals.jsonl`), live since 14 Nov 2026 (#252). Whether to say what else the maker
+  sells is still the owner's named decision (D-maker, §8). The design's honest-by-design list asks for
+  the disclosure; STRATEGY H4 holds card-shop framing back. This card doesn't settle that by leaving
+  things out.
 - **Company number and registered office** are printed on #130's privacy page (3 times) and terms
   page (2 times), not in its landing footer, which reads "© 2026 Cambridge TCG Limited. Love is the
   design." [V, `grep -c 15680297` over the #130 files: index 0, privacy 3, terms 2].
@@ -480,8 +483,9 @@ tiers. Free app; you fund the cashback." (82 characters; `rp-store-credit`, `rp-
 - **The owner's choice (a) or (b)** in the status note.
 - **D-maker, one named decision:** say what else Cambridge TCG Limited sells (E500-A-maker, a new
   claim row `rp-maker-also-sells` for the claims maker, and a line on the site and the privacy
-  page), or don't, as STRATEGY H4 holds until the interviews. The same decision covers the
-  Organization `url`. The honest-by-design rule and H4 disagree; the card doesn't pick.
+  page), or don't, as STRATEGY H4 holds until the interviews. Its other part, the Organization
+  `url`, was settled on 13 Nov 2026: `https://rewardspro.io/`, not cambridgetcg.com (`approvals.jsonl`),
+  live since 14 Nov (#252). The honest-by-design rule and H4 disagree; the card doesn't pick.
 - **Price on the rewardspro.io meta description:** E160-B (no price, recommended) or E160-B-site.
   This is its own choice, separate from D4.
 - **D4, the free wording.** Both free forms (§1) follow it.
