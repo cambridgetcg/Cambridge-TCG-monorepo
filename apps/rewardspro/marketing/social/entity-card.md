@@ -285,9 +285,10 @@ of pasting a second one." So the home page carries **one** `@graph`, built like 
   [V, `origin/claude/rewardspro-landing-icons`, `apps/rewardspro/landing/public/icon-512.png`]).
   Since 14 Nov 2026 (#252) the `#maker` node also gives that icon as its `logo`, so Google's
   organisation-logo feature has a logo to read [I].
-- **Organization `#maker`:** Cambridge TCG Limited. Live since 14 Nov 2026 (#252): name, `legalName`,
-  address, `url` `https://rewardspro.io/` (the owner's choice of 13 Nov 2026, `approvals.jsonl`), `logo`
-  `https://rewardspro.io/icon-512.png` (RewardsPro's icon) and `email` `contact@rewardspro.io`.
+- **Organization `#maker`:** Cambridge TCG Limited, with its name and address. Since 14 Nov 2026
+  (#252) it also has `legalName`, `url` `https://rewardspro.io/` (the owner's choice of 13 Nov 2026,
+  `approvals.jsonl`), `logo` `https://rewardspro.io/icon-512.png` (RewardsPro's icon) and `email`
+  `contact@rewardspro.io`.
 - **SoftwareApplication `#app`.**
 - **Every node has an `@id`.** Other pages refer to them by `@id` instead of repeating them.
 

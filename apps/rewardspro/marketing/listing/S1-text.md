@@ -5,7 +5,7 @@ field by field, and never presses Save, Delete or Submit. The owner reads each f
 His part takes about 20–30 minutes [I], plus about 5 if he runs the optional "before" check (§6). The agent's
 preparation (§1) takes about 20 minutes and none of his, after one yes. Written by agents for issue #162 (RP-02) and
 revised on 10 Nov 2026 after the second read on #162. The sitting ran on 10 Nov: the owner saved the filled form,
-and it is with Shopify for review (#162). The lines below mark what it settled on screenshots, Pricing, alt text,
+and the public listing showed it on 11 Nov (#162). The lines below mark what it settled on screenshots, Pricing, alt text,
 the data reasons and Submit; the rest of what the form showed is in the sitting's notes on #162.
 
 **Why it comes first.** An App Store ad "is based on information in the associated app listing, and can't be
@@ -133,8 +133,8 @@ has shown: when Shopify gives no amount, for example for credit held only in ano
 store credit shows at checkout" instead (`app/shopify/live-balance.server.ts:91-97`,
 `extensions/rewards-widget/locales/en.default.json:7`). What stays is true in general terms, not in every case: test
 and cancelled orders earn nothing (`record-order.server.ts:66-67`), and customers also move down tiers, or not at all
-while locked. S2's text replaces the field. Step 9 found feature lines in Pricing, not a text field, and the
-funding line went there (the sitting, 10 Nov, #162).
+while locked. S2's text replaces the field. Step 9 found feature lines in Pricing, not a text field. The public
+page doesn't show them, so the funding line went at the end of App details (358 → 427; #162, 11 Nov).
 
 ### 7 · Features
 
