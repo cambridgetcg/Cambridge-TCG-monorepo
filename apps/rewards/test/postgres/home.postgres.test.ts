@@ -597,19 +597,6 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       expect((await load()).reviewDue).toBe(false);
     });
 
-    // Built for Shopify 4.3.2: the card's own link retires it, as Don't ask again does
-    it("is not due after the merchant opened the review form from the card, which is recorded as shown", async () => {
-      const conn = await seedShop();
-      await setUp(conn);
-
-      await expect(act({ intent: "review-opened" })).resolves.toEqual({ ok: true });
-
-      const merchant = await merchantOf(conn);
-      expect(merchant.reviewPromptShownAt).toBeInstanceOf(Date);
-      expect(merchant.reviewPromptDismissedAt).toBeNull();
-      expect((await load()).reviewDue).toBe(false);
-    });
-
     it("is recorded as shown only when Shopify showed it or the merchant had reviewed, and is then not due", async () => {
       const conn = await seedShop();
       await setUp(conn);

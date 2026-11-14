@@ -925,25 +925,6 @@ describe("the review request", () => {
     expect(reviewCard()).toBeNull();
   });
 
-  // Built for Shopify 4.3.2: going to the review form ends the asking, as Don't ask again does
-  it("retires the card when the merchant opens the review form from it, and doesn't ask after a save", async () => {
-    const request = vi.fn(async () => ({ code: "success" }));
-    stubAppBridge("active", request);
-    const posted: Posted[] = [];
-    await renderSaving({ running: false }, posted);
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("Leave a review", { selector: "[data-review-card] s-link" }));
-    });
-
-    expect(posted.map((post) => post.fields)).toEqual([{ intent: "review-opened" }]);
-    expect(reviewCard()).toBeNull();
-
-    await flip(true);
-    expect(posted.map((post) => post.fields)).toEqual([{ intent: "review-opened" }, { intent: "running", running: "on" }]);
-    expect(request).not.toHaveBeenCalled();
-  });
-
   it("doesn't ask after a save made while Don't ask again is still being recorded", async () => {
     const request = vi.fn(async () => ({ code: "success" }));
     stubAppBridge("active", request);

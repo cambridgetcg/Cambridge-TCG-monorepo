@@ -211,10 +211,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     case "review-dismissed":
       await recordReviewPrompt(conn.merchantId, "dismissed");
       return { ok: true } satisfies ActionResult;
-    case "review-opened":
-      // The merchant went to the review form: the card and Shopify's request are done with
-      await recordReviewPrompt(conn.merchantId, "shown");
-      return { ok: true } satisfies ActionResult;
     case "review-shown": {
       // Any other answer (a cooldown, say) leaves it for a later visit
       const code = form.get("code");
@@ -328,7 +324,6 @@ export default function Home() {
   const rateFetcher = useFetcher<typeof action>();
   // Its own, so "Don't ask again" never aborts the review-shown post in flight (A19-F7)
   const reviewDismissFetcher = useFetcher<typeof action>();
-  const reviewOpenFetcher = useFetcher<typeof action>();
   const importFetcher = useFetcher<typeof action>();
   const setupFetcher = useFetcher<typeof action>();
   // Its own, so a Dismiss never aborts the setup-done post in flight
@@ -362,11 +357,9 @@ export default function Home() {
   const showImportOutcome = importOutcomeShown(d.setup.importState, importDismissed);
   const showSetup = setupCardShown({ completed: !stepsShown, importState: d.setup.importState, importDismissed });
   const reviewDismissed = reviewDismissFetcher.state !== "idle" || reviewDismissFetcher.data?.ok === true;
-  // "Leave a review" retires the card as "Don't ask again" does (Built for Shopify 4.3.2)
-  const reviewOpened = reviewOpenFetcher.state !== "idle" || reviewOpenFetcher.data?.ok === true;
   // The review request follows a save that worked: here, cashback switched on (#173). "Don't ask again" counts at
   // once, so a save answered before its post is done never asks
-  useReviewAfterSave(d.reviewDue && !reviewDismissed && !reviewOpened, switchFetcher, switchFetcher.data?.ok === true && d.running);
+  useReviewAfterSave(d.reviewDue && !reviewDismissed, switchFetcher, switchFetcher.data?.ok === true && d.running);
   const money = (amount: string) => formatMoney(amount, d.currency);
   const switchError = switchFetcher.data && !switchFetcher.data.ok ? switchFetcher.data.error : null;
   const rateError = rateFetcher.data && !rateFetcher.data.ok ? rateFetcher.data.error : null;
@@ -620,13 +613,12 @@ export default function Home() {
             </s-section>
 
             {/* One neutral sentence for everyone; nothing offered or withheld (#173) */}
-            {d.reviewDue && !reviewDismissed && !reviewOpened ? (
+            {d.reviewDue && !reviewDismissed ? (
               <s-section data-review-card="">
                 <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="small-200">
                   <s-text>{REVIEW_ASK}</s-text>
                   <s-stack direction="inline" gap="small-200" alignItems="center">
-                    {/* The click is posted first, then the listing opens in a new tab (Polaris's link: "The click event fires first, then navigation occurs") */}
-                    <s-link href={REVIEW_URL} target="_blank" onClick={() => reviewOpenFetcher.submit({ intent: "review-opened" }, { method: "post" })}>
+                    <s-link href={REVIEW_URL} target="_blank">
                       Leave a review
                     </s-link>
                     <s-button variant="tertiary" onClick={() => reviewDismissFetcher.submit({ intent: "review-dismissed" }, { method: "post" })}>

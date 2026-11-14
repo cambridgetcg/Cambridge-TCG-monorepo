@@ -187,8 +187,8 @@ export async function setNotifyBuyers(merchantId: string, notify: boolean): Prom
 
 /**
  * Home's review request (spec 4.3): `dismissed` when the merchant closed it,
- * `shown` when Shopify showed it, the merchant had already reviewed, or the
- * merchant opened the review form from Home's card. The first time is kept.
+ * `shown` when Shopify showed it or the merchant had already reviewed. The
+ * first time is kept.
  */
 export async function recordReviewPrompt(merchantId: string, what: "dismissed" | "shown", now: Date = new Date()): Promise<void> {
   if (what === "dismissed") {
