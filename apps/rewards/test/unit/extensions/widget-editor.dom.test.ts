@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { runWidgetScript, unloadWidgetScript, widgetListenerTypes, widgetObserverCount } from "../helpers/widget-script";
 
 /**
  * The storefront widget in Shopify's theme editor, which is the widget's
@@ -15,32 +16,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const EXTENSION = resolve(__dirname, "../../../extensions/rewards-widget");
-const script = readFileSync(resolve(EXTENSION, "assets/rewards-widget.js"), "utf8");
 const copy = (JSON.parse(readFileSync(resolve(EXTENSION, "locales/en.default.json"), "utf8")) as { rewards_widget: Record<string, string> })
   .rewards_widget;
 
 type Printed = { editor: boolean; running?: "true" | "false" | ""; message?: string };
-
-/** What each run of the script added to the document, so every test starts on a clean page. */
-const added: { type: string; listener: EventListenerOrEventListenerObject }[] = [];
-const observers: MutationObserver[] = [];
-
-/** Runs the script as its tag in the block does, noting the document listeners it adds. */
-function runScript() {
-  const add = EventTarget.prototype.addEventListener;
-  Object.defineProperty(document, "addEventListener", {
-    configurable: true,
-    value(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
-      added.push({ type, listener });
-      add.call(document, type, listener, options);
-    },
-  });
-  try {
-    new Function(script)();
-  } finally {
-    Reflect.deleteProperty(document, "addEventListener");
-  }
-}
 
 /** The embed as the editor prints it: Shopify's wrapper around the root membership_widget.liquid prints. */
 function printed({ editor, running = "true", message = "" }: Printed): HTMLElement {
@@ -76,7 +55,7 @@ function printed({ editor, running = "true", message = "" }: Printed): HTMLEleme
 function page(options: Printed): HTMLElement {
   const wrapper = printed(options);
   document.body.append(wrapper);
-  runScript();
+  runWidgetScript();
   return wrapper;
 }
 
@@ -104,21 +83,8 @@ function text(root: Element): string {
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
-beforeEach(() => {
-  const Real = window.MutationObserver;
-  class Noted extends Real {
-    constructor(callback: MutationCallback) {
-      super(callback);
-      observers.push(this);
-    }
-  }
-  vi.stubGlobal("MutationObserver", Noted);
-});
-
 afterEach(() => {
-  for (const { type, listener } of added.splice(0)) document.removeEventListener(type, listener);
-  for (const observer of observers.splice(0)) observer.disconnect();
-  Reflect.deleteProperty(window, "rewardsProWidget");
+  unloadWidgetScript();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   document.body.replaceChildren();
@@ -152,7 +118,7 @@ describe("the widget in the theme editor", () => {
 
     expect(rootOf(wrapper).hidden).toBe(true);
     expect(text(wrapper)).toBe("");
-    expect(observers).toHaveLength(0);
+    expect(widgetObserverCount()).toBe(0);
   });
 
   it("starts the re-printed widget on shopify:section:load, once", () => {
@@ -172,7 +138,7 @@ describe("the widget in the theme editor", () => {
 
   it("starts the re-printed widget even if the editor sends no event", async () => {
     const first = page({ editor: true });
-    expect(observers).toHaveLength(1);
+    expect(widgetObserverCount()).toBe(1);
 
     const fresh = rerender(first, { editor: true, message: "Join the rewards club" }, { events: false });
     await vi.waitFor(() => expect(rootOf(fresh).hidden).toBe(false));
@@ -221,10 +187,10 @@ describe("the widget in the theme editor", () => {
 
   it("adds its listeners and watch once, however often the editor runs the script again", async () => {
     const first = page({ editor: true });
-    runScript();
-    runScript();
+    runWidgetScript();
+    runWidgetScript();
 
-    const types = added.map((a) => a.type).filter((type) => type.startsWith("shopify:"));
+    const types = widgetListenerTypes().filter((type) => type.startsWith("shopify:"));
     expect(types.sort()).toEqual([
       "shopify:block:deselect",
       "shopify:block:select",
@@ -232,13 +198,13 @@ describe("the widget in the theme editor", () => {
       "shopify:section:load",
       "shopify:section:select",
     ]);
-    expect(observers).toHaveLength(1);
+    expect(widgetObserverCount()).toBe(1);
     expect(document.querySelectorAll(".rw-button")).toHaveLength(1);
 
     // A run that comes with re-printed HTML starts the new root at once, and only once
     const fresh = printed({ editor: true, message: "Join the rewards club" });
     first.replaceWith(fresh);
-    runScript();
+    runWidgetScript();
     expect(rootOf(fresh).hidden).toBe(false);
     await new Promise((r) => setTimeout(r, 0));
     expect(document.querySelectorAll(".rw-button")).toHaveLength(1);
