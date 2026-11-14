@@ -4,8 +4,8 @@ import { Form, redirect, useActionData, useLoaderData } from "react-router";
 import type { LoginError } from "@shopify/shopify-app-react-router/server";
 import { LoginErrorType } from "@shopify/shopify-app-react-router/server";
 
+import type { RouteHandle } from "../root";
 import { login } from "../shopify.server";
-import { POLARIS_URL } from "../shopify/polaris";
 
 /**
  * login() sends any request that names a shop on to Shopify. Anyone else
@@ -14,6 +14,10 @@ import { POLARIS_URL } from "../shopify/polaris";
  * shop domain (requirement 2.3.1). The form stays for local development.
  */
 const APP_STORE_LISTING = "https://apps.shopify.com/rewards-pro";
+
+// The form renders only in local development, outside the admin: the
+// document loads Polaris but no App Bridge, which belongs to pages inside it.
+export const handle: RouteHandle = { outsideAdmin: true };
 
 function loginErrorMessage(loginErrors: LoginError): { shop?: string } {
   if (loginErrors?.shop === LoginErrorType.MissingShop) {
@@ -49,29 +53,24 @@ export default function Auth() {
   const [shop, setShop] = useState("");
   const { errors } = actionData || loaderData;
 
-  // This page only renders in local development, outside the admin, so it
-  // loads the Polaris script itself and no App Bridge (AppProvider would add
-  // App Bridge, which belongs to pages inside the admin). Polaris fields are
-  // form-associated, so the shop reaches the action as an ordinary form field.
+  // Polaris fields are form-associated, so the shop reaches the action as an
+  // ordinary form field.
   return (
-    <>
-      <script src={POLARIS_URL} />
-      <s-page>
-        <Form method="post">
-          <s-section heading="Log in">
-            <s-text-field
-              name="shop"
-              label="Shop domain"
-              details="example.myshopify.com"
-              value={shop}
-              onChange={(e) => setShop(e.currentTarget.value)}
-              autocomplete="on"
-              error={errors.shop}
-            ></s-text-field>
-            <s-button type="submit">Log in</s-button>
-          </s-section>
-        </Form>
-      </s-page>
-    </>
+    <s-page>
+      <Form method="post">
+        <s-section heading="Log in">
+          <s-text-field
+            name="shop"
+            label="Shop domain"
+            details="example.myshopify.com"
+            value={shop}
+            onChange={(e) => setShop(e.currentTarget.value)}
+            autocomplete="on"
+            error={errors.shop}
+          ></s-text-field>
+          <s-button type="submit">Log in</s-button>
+        </s-section>
+      </Form>
+    </s-page>
   );
 }

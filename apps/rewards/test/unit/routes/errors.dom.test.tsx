@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("~/db.server", () => ({ default: {}, databaseSchema: "rewards" }));
 vi.mock("~/shopify.server", () => ({ authenticate: {}, unauthenticated: {} }));
 
-const { POLARIS_URL } = await import("~/shopify/polaris");
 const app = await import("~/routes/app");
 const root = await import("~/root");
 const buyer = await import("~/routes/app.customers.$id");
@@ -47,39 +46,50 @@ function renderInShell(child: Child, url: string, error?: unknown, errorAt = chi
   render(
     <Stub
       initialEntries={[url]}
-      hydrationData={{ loaderData: { "routes/app": { apiKey: "test-api-key" } }, ...(error ? { errors: { [errorAt]: error } } : {}) }}
+      hydrationData={{ loaderData: { "routes/app": null }, ...(error ? { errors: { [errorAt]: error } } : {}) }}
     />,
   );
 }
 
 const notFound = () => new ErrorResponse(404, "Not Found", "Not found");
+const CRASH = "Something went wrong. Reload the page.";
+
+/** Built for Shopify 4.2.4 (reason 2): the crash sentence, in a critical (red) Polaris banner. */
+function expectCrashBanner() {
+  const banner = document.querySelector('s-page > s-banner[tone="critical"]');
+  expect(banner?.textContent).toBe(CRASH);
+  // The sentence is the banner's text, not an attribute: without Polaris it still reads as plain text
+  expect(banner?.hasAttribute("heading")).toBe(false);
+  expect(customElements.get("s-banner")).toBeUndefined();
+  expect(document.body.textContent).toContain(CRASH);
+}
 
 // BOUNDARY-3
 describe("an error the app didn't answer", () => {
-  it("shows one plain sentence in the admin, never the stack", async () => {
+  it("shows one plain sentence in a red banner in the admin, never the stack", async () => {
     renderInShell({ id: "routes/app._index", path: "", Component: failing }, "/app");
 
-    expect(await screen.findByText("Something went wrong. Reload the page.")).toBeTruthy();
+    expect(await screen.findByText(CRASH)).toBeTruthy();
     expect(document.body.textContent).not.toContain("secretFunction");
     expect(document.body.textContent).not.toContain("Cannot read properties");
     expect(document.querySelector("pre")).toBeNull();
     // M3c-F1: inside the admin, in Polaris
-    expect(document.querySelector("s-page s-section s-paragraph")?.textContent).toBe("Something went wrong. Reload the page.");
+    expectCrashBanner();
     expect(document.querySelector("p")).toBeNull();
-    // M3f-F1: this boundary replaces AppProvider, so it loads Polaris itself
-    expect(document.querySelectorAll(`script[src="${POLARIS_URL}"]`)).toHaveLength(1);
+    // App Bridge and Polaris load once, in the document's head (root.tsx), not again here
+    expect(document.querySelectorAll("script")).toHaveLength(0);
   });
 
-  it("shows one plain sentence at the root, never the stack", async () => {
+  it("shows one plain sentence in a red banner at the root, never the stack", async () => {
     const Stub = createRoutesStub([{ id: "root", path: "/", Component: failing, ErrorBoundary: root.ErrorBoundary }]);
     render(<Stub initialEntries={["/"]} />);
 
-    expect(await screen.findByText("Something went wrong. Reload the page.")).toBeTruthy();
+    expect(await screen.findByText(CRASH)).toBeTruthy();
     expect(document.body.textContent).not.toContain("secretFunction");
     expect(document.querySelector("pre")).toBeNull();
-    // Polaris may not be loaded at the root: plain HTML
-    expect(document.querySelector("p")?.textContent).toBe("Something went wrong. Reload the page.");
-    expect(document.querySelector("s-page")).toBeNull();
+    // Every document loads Polaris in its head now, the root's too
+    expectCrashBanner();
+    expect(document.querySelector("p")).toBeNull();
   });
 
   it("says a page isn't here at the root when no route matches", async () => {
@@ -89,6 +99,7 @@ describe("an error the app didn't answer", () => {
     render(<Stub initialEntries={["/"]} hydrationData={{ errors: { root: noMatch } }} />);
 
     expect(await screen.findByText("This page isn't here.")).toBeTruthy();
+    expect(document.querySelector("s-page s-section s-paragraph")?.textContent).toBe("This page isn't here.");
     expect(document.body.textContent).not.toContain("No route matches");
   });
 
@@ -119,11 +130,11 @@ describe("a page that isn't there", () => {
     const throwing = { id: "routes/app.orders.$id", path: "orders/:id", Component: failing, ErrorBoundary: order.ErrorBoundary };
     renderInShell(throwing, "/app/orders/x");
 
-    expect(await screen.findByText("Something went wrong. Reload the page.")).toBeTruthy();
+    expect(await screen.findByText(CRASH)).toBeTruthy();
     expect(document.querySelector("s-app-nav")).not.toBeNull();
     expect(document.body.textContent).not.toContain("secretFunction");
     // M3c-F1: in Polaris, as the page's own 404
-    expect(document.querySelector("s-page s-section s-paragraph")?.textContent).toBe("Something went wrong. Reload the page.");
+    expectCrashBanner();
     expect(document.querySelector("p")).toBeNull();
   });
 
