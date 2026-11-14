@@ -6,7 +6,7 @@ import { graphql, http, HttpResponse } from "msw";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma, { createPrismaClient } from "~/db.server";
 import { awaitsImport } from "~/lib/import.server";
-import { type ConnectionContext, findConnection, markUninstalled, setRunning } from "~/lib/merchant.server";
+import { type ConnectionContext, dismissImportOutcome, findConnection, markUninstalled, setRunning } from "~/lib/merchant.server";
 import { Money } from "~/lib/money";
 import { runPayoutCheck } from "~/lib/payout-check.server";
 import type { OrderSource, PayoutRail } from "~/lib/ports";
@@ -15,7 +15,7 @@ import { recordRefund } from "~/lib/refunds.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import { tierSpend } from "~/lib/tiers.server";
 import { parseBulkLines } from "~/shopify/bulk-file";
-import { pollImport, pollRunningImports } from "~/shopify/bulk-import.server";
+import { IMPORT_RETRY_DAYS, MAX_IMPORT_RESTARTS, pollImport, pollRunningImports, retryFailedImport } from "~/shopify/bulk-import.server";
 import { EncryptedPrismaSessionStorage } from "~/shopify/session-storage.server";
 import type { GraphqlClient } from "~/shopify/graphql";
 import { onAppOpened } from "~/shopify/install.server";
@@ -55,6 +55,13 @@ function fakeShopify(o: { scopes?: string[] } = {}) {
   const scopes = o.scopes ?? ["read_customers", "read_orders", "read_all_orders", "write_store_credit_account_transactions"];
   const started: string[] = [];
   const bulk: Bulk = { status: "RUNNING", errorCode: null, url: null, objectCount: "0", rootObjectCount: "0" };
+  /**
+   * While `refused`, Shopify refuses every bulk query, as it does a public
+   * app with no IP allowlist since 12 Nov 2026; `refusals` counts them. The
+   * exact answer is Shopify's to word: any GraphQL error fails a launch the
+   * same way.
+   */
+  const access = { refused: false, refusals: 0 };
   const answer = (query: string, variables: Record<string, unknown> = {}): unknown => {
     const name = /(?:query|mutation)\s+(\w+)/.exec(query)?.[1];
     switch (name) {
@@ -63,6 +70,10 @@ function fakeShopify(o: { scopes?: string[] } = {}) {
       case "RewardsAccessScopes":
         return { data: { currentAppInstallation: { accessScopes: scopes.map((handle) => ({ handle })) } } };
       case "RewardsBulkOrders":
+        if (access.refused) {
+          access.refusals++;
+          return { errors: [{ message: "Bulk queries are not available to this app", extensions: { code: "ACCESS_DENIED" } }] };
+        }
         started.push(String(variables.query));
         return {
           data: {
@@ -88,7 +99,7 @@ function fakeShopify(o: { scopes?: string[] } = {}) {
     return { json: async () => body };
   });
   const admin: GraphqlClient = { graphql: graphqlCall };
-  return { admin, started, bulk, graphqlCall };
+  return { admin, started, bulk, access, graphqlCall };
 }
 
 /** The bulk file at FILE_URL (or, with `status`, that answer instead); returns how often it was fetched. */
@@ -677,6 +688,191 @@ describe.skipIf(!hasTestDatabase)("the past-orders import", () => {
       expect(await refundOf9002()).toBe("20.00");
       await expect(recordRefund(conn, "gid://shopify/Order/9002", itemRefund(UNLISTED, "10.00"))).resolves.toMatchObject({ status: "recorded" });
       expect(await refundOf9002()).toBe("30.00");
+    });
+  });
+
+  describe("a failed import, tried again by the nightly job", () => {
+    /**
+     * The first open while Shopify refuses bulk queries, then the polls that
+     * use up the import's restarts, each after the last launch's grace: it
+     * ends failed, as a store that installs while bulk access is refused.
+     */
+    async function failedWhileRefused() {
+      const shopify = fakeShopify();
+      shopify.access.refused = true;
+      await onAppOpened({ session, admin: shopify.admin as unknown as AdminApiContext });
+      await flushWaitUntil();
+      const conn = await findConnection(SHOP);
+      if (!conn) throw new Error("no connection");
+      for (let attempt = 1; attempt <= 1 + MAX_IMPORT_RESTARTS; attempt++) {
+        await prisma.connection.updateMany({ data: { importLaunchedAt: new Date(Date.now() - 6 * 60_000) } });
+        await pollImport(shopify.admin, conn.connectionId, FAR()).catch(() => undefined);
+      }
+      await expect(connectionRow()).resolves.toMatchObject({ importState: "failed", importAttempts: 1 + MAX_IMPORT_RESTARTS });
+      expect(shopify.access.refusals).toBe(1 + MAX_IMPORT_RESTARTS);
+      expect(shopify.started).toHaveLength(0);
+      return { conn, shopify };
+    }
+
+    /** The next night: the last launch was claimed a day ago. */
+    const nextNight = () => prisma.connection.updateMany({ data: { importLaunchedAt: new Date(Date.now() - DAY) } });
+
+    it("brings the past orders in once Shopify runs bulk queries again, and shows the new outcome", async () => {
+      const { conn, shopify } = await failedWhileRefused();
+      await prisma.merchant.update({ where: { id: conn.merchantId }, data: { tierWindow: "lifetime" } });
+      const { everyone, silver } = await addTiers(conn.merchantId);
+      // The merchant dismissed "couldn't be brought in"
+      await dismissImportOutcome(conn.connectionId);
+      shopify.access.refused = false;
+      await nextNight();
+
+      await expect(retryFailedImport(shopify.admin, conn.connectionId)).resolves.toBe("started");
+
+      // The same window as at install: the 12 months before it
+      expect(shopify.started).toHaveLength(1);
+      const from = new Date(conn.installedAt.getTime() - 365 * DAY).toISOString();
+      expect(shopify.started[0]).toContain(`created_at:>='${from}' AND created_at:<'${conn.installedAt.toISOString()}'`);
+      await expect(connectionRow()).resolves.toMatchObject({
+        importState: "running",
+        importOperationId: "gid://shopify/BulkOperation/1",
+        importAttempts: 1 + MAX_IMPORT_RESTARTS,
+        importCursor: 0,
+        importError: null,
+      });
+
+      complete(shopify);
+      serveFile();
+      await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("done");
+
+      const orders = await prisma.order.findMany({ orderBy: { externalOrderId: "asc" } });
+      expect(orders.map((o) => o.externalOrderId)).toEqual(KEPT);
+      for (const order of orders) expect(order).toMatchObject({ source: "import", noCashbackReason: "import" });
+      await expect(prisma.ledgerEntry.count()).resolves.toBe(0);
+      const buyers = await prisma.customer.findMany({ orderBy: { externalCustomerId: "asc" } });
+      expect(buyers.map((b) => [b.externalCustomerId, b.tierId])).toEqual([
+        ["7001", silver.id],
+        ["7002", everyone.id],
+      ]);
+      // Home shows how this try ended, though the earlier failure was dismissed
+      await expect(connectionRow()).resolves.toMatchObject({ importState: "done", importedCount: 3, importDismissedAt: null });
+
+      // A done import is never tried again
+      await nextNight();
+      await expect(retryFailedImport(shopify.admin, conn.connectionId)).resolves.toBe("not_due");
+      expect(shopify.started).toHaveLength(1);
+    });
+
+    it("leaves an import Shopify still refuses failed, as Home showed it, and tries it at most once a night", async () => {
+      const { conn, shopify } = await failedWhileRefused();
+      await dismissImportOutcome(conn.connectionId);
+      const before = await connectionRow();
+      await nextNight();
+
+      await expect(retryFailedImport(shopify.admin, conn.connectionId)).resolves.toBe("still_failed");
+
+      // One bulk query asked for, and refused
+      expect(shopify.access.refusals).toBe(2 + MAX_IMPORT_RESTARTS);
+      expect(shopify.started).toHaveLength(0);
+      const after = await connectionRow();
+      expect(after).toMatchObject({
+        importState: "failed",
+        importOperationId: null,
+        importError: expect.stringContaining("Bulk queries are not available to this app"),
+        importDismissedAt: before.importDismissedAt,
+      });
+      expect(after.importLaunchedAt!.getTime()).toBeGreaterThan(Date.now() - 60_000);
+
+      // A second run the same night tries nothing, and nothing else polls a failed import
+      await expect(retryFailedImport(shopify.admin, conn.connectionId)).resolves.toBe("not_due");
+      await expect(pollRunningImports(FAR())).resolves.toEqual({ polled: 0, failed: 0 });
+      await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("failed");
+      expect(shopify.access.refusals).toBe(2 + MAX_IMPORT_RESTARTS);
+    });
+
+    it("ends a try whose bulk query Shopify then fails at the next poll, with no restart", async () => {
+      const { conn, shopify } = await failedWhileRefused();
+      shopify.access.refused = false;
+      await nextNight();
+      await expect(retryFailedImport(shopify.admin, conn.connectionId)).resolves.toBe("started");
+      Object.assign(shopify.bulk, { status: "FAILED", errorCode: "ACCESS_DENIED" });
+
+      await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("failed");
+
+      expect(shopify.started).toHaveLength(1);
+      await expect(connectionRow()).resolves.toMatchObject({ importState: "failed", importError: expect.stringContaining("ACCESS_DENIED") });
+    });
+
+    it(`stops trying ${IMPORT_RETRY_DAYS} days after install, and never tries an uninstalled store's`, async () => {
+      const { conn, shopify } = await failedWhileRefused();
+      shopify.access.refused = false;
+      await nextNight();
+      await prisma.connection.updateMany({ data: { installedAt: new Date(Date.now() - IMPORT_RETRY_DAYS * DAY - 60_000) } });
+      await expect(retryFailedImport(shopify.admin, conn.connectionId)).resolves.toBe("not_due");
+
+      await prisma.connection.updateMany({ data: { installedAt: new Date(Date.now() - (IMPORT_RETRY_DAYS - 1) * DAY) } });
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await expect(markUninstalled(SHOP, new Date())).resolves.toBe("uninstalled");
+      await expect(retryFailedImport(shopify.admin, conn.connectionId)).resolves.toBe("not_due");
+
+      expect(shopify.started).toHaveLength(0);
+      expect(shopify.access.refusals).toBe(1 + MAX_IMPORT_RESTARTS);
+      await expect(connectionRow()).resolves.toMatchObject({ status: "uninstalled", importState: "failed" });
+    });
+
+    it("writes no order twice and credits nothing again when an import that wrote some orders is tried again", async () => {
+      const { conn, shopify } = await firstOpen();
+      await prisma.merchant.update({ where: { id: conn.merchantId }, data: { tierWindow: "lifetime" } });
+      await addTiers(conn.merchantId);
+      expect(await setRunning(conn.merchantId, true)).toEqual({ ok: true });
+      const running: ConnectionContext = { ...conn, running: true };
+      // An order the same buyer placed after install, which earns cashback
+      const afterInstall = new Date(conn.installedAt.getTime() + 60_000);
+      const live = { ...liveFacts("gid://shopify/Order/9001"), externalOrderId: "gid://shopify/Order/9100", name: "#9100", orderedAt: afterInstall, paidAt: afterInstall };
+      await expect(recordOrder(running, live, "live")).resolves.toMatchObject({ status: "recorded" });
+      const ledgerBefore = await prisma.ledgerEntry.findMany({ orderBy: { id: "asc" } });
+      const payoutsBefore = await prisma.payout.findMany({ orderBy: { id: "asc" } });
+      expect(ledgerBefore.length).toBeGreaterThan(0);
+
+      // The first attempt writes its first chunk (9001 and 9002), then the deadline cuts it short
+      complete(shopify);
+      serveFile();
+      const realNow = Date.now.bind(Date);
+      let late = false;
+      const now = vi.spyOn(Date, "now").mockImplementation(() => (late ? realNow() + 60 * 60_000 : realNow()));
+      const undo = afterCursorSave(() => {
+        late = true;
+      });
+      try {
+        await expect(pollImport(shopify.admin, conn.connectionId, FAR(), { chunkSize: 2 })).resolves.toBe("running");
+      } finally {
+        undo();
+        now.mockRestore();
+      }
+      await expect(connectionRow()).resolves.toMatchObject({ importState: "running", importCursor: 2 });
+      // Its restarts were used up earlier, and Shopify's file expires before the next poll
+      await prisma.connection.updateMany({ data: { importAttempts: 1 + MAX_IMPORT_RESTARTS } });
+      Object.assign(shopify.bulk, { status: "EXPIRED", url: null });
+      await expect(pollImport(shopify.admin, conn.connectionId, FAR())).resolves.toBe("failed");
+      await expect(prisma.order.count({ where: { source: "import" } })).resolves.toBe(2);
+
+      // Tried again the next night, from the file's first order
+      await nextNight();
+      await expect(retryFailedImport(shopify.admin, conn.connectionId)).resolves.toBe("started");
+      complete(shopify);
+      await expect(pollImport(shopify.admin, conn.connectionId, FAR(), { chunkSize: 2 })).resolves.toBe("done");
+
+      const orders = await prisma.order.findMany({ select: { externalOrderId: true, source: true }, orderBy: { externalOrderId: "asc" } });
+      expect(orders).toEqual([
+        ...KEPT.map((externalOrderId) => ({ externalOrderId, source: "import" })),
+        { externalOrderId: "gid://shopify/Order/9100", source: "live" },
+      ]);
+      // The money is as it was: the live order's entry and payout, and nothing for the past orders
+      await expect(prisma.ledgerEntry.findMany({ orderBy: { id: "asc" } })).resolves.toEqual(ledgerBefore);
+      await expect(prisma.payout.findMany({ orderBy: { id: "asc" } })).resolves.toEqual(payoutsBefore);
+      // The buyer's spend counts each order once: £55 + (£30 − £20) imported, and £55 live
+      const buyer = await prisma.customer.findFirstOrThrow({ where: { externalCustomerId: "7001" } });
+      expect((await tierSpend(buyer.id, "lifetime", new Date())).toFixed(2)).toBe("120.00");
+      await expect(connectionRow()).resolves.toMatchObject({ importState: "done", importedCount: 3 });
     });
   });
 

@@ -18,7 +18,14 @@
  *    the connection and skips a store that is active again (Ruling 41). One
  *    that fails is a problem; the same budget applies, and the stores left
  *    are counted;
- * 6. every active store's widget settings (cashback on or off, the base
+ * 6. every store whose past-orders import failed, installed within the last
+ *    30 days, is tried again through retryFailedImport, once a night: an
+ *    import that failed while Shopify refused bulk queries runs once it lets
+ *    them through. A try Shopify still refuses is logged and is no problem
+ *    (the failure was reported when the import failed; one alert a night
+ *    would add nothing). A store that can't be reached is a problem; the
+ *    same budget applies, and the stores left are counted;
+ * 7. every active store's widget settings (cashback on or off, the base
  *    rate) are written again to its app-data metafield (syncWidgetConfig,
  *    plan Decision 8), so a change whose write failed is put right within a
  *    day. The stores tried longest ago come first (never-tried ones first
@@ -38,6 +45,7 @@ import prisma from "~/db.server";
 import { cleanupExpiredLocks, cronProblems, monitoredCron, verifyCronAuth, withCronLock } from "~/lib/cron.server";
 import { eraseMerchant } from "~/lib/erasure.server";
 import { findConnection } from "~/lib/merchant.server";
+import { importRetryDue, retryFailedImport } from "~/shopify/bulk-import.server";
 import { RewardsTokenPing } from "~/shopify/graphql";
 import { RenewalBusyError } from "~/shopify/renewal-busy";
 import { syncWidgetConfig, widgetConfigCurrent } from "~/shopify/widget-config.server";
@@ -132,6 +140,34 @@ async function housekeeping(now: Date, deadline: number) {
     }
   }
 
+  // Failed past-orders imports, tried again once a night (retryFailedImport)
+  const failedImports = await prisma.connection.findMany({
+    where: importRetryDue(now),
+    select: { id: true, externalAccountId: true },
+    orderBy: { externalAccountId: "asc" },
+  });
+  let importsTried = 0;
+  let importsStarted = 0;
+  for (const { id, externalAccountId: shop } of failedImports) {
+    if (Date.now() >= deadline) break;
+    importsTried++;
+    try {
+      const { admin } = await unauthenticated.admin(shop);
+      const outcome = await retryFailedImport(admin, id, now);
+      if (outcome === "started") {
+        importsStarted++;
+        console.log(`[housekeeping] Started the failed past-orders import of ${shop} again`);
+      } else if (outcome === "still_failed") {
+        console.warn(`[housekeeping] Shopify still did not start the past-orders import of ${shop}; it is tried again tomorrow`);
+      }
+    } catch (error) {
+      if (busy(error, shop, "its past-orders import waits")) continue;
+      console.error(`[housekeeping] Could not try the past-orders import of ${shop} again: ${messageOf(error)}`);
+      if (problems === 0) firstProblem = error instanceof Response ? new Error(`Past-orders import for ${shop}: ${messageOf(error)}`) : error;
+      problems++;
+    }
+  }
+
   // Tried longest ago first, never-tried ones first of all (OPERATIONS-4, M3e-F2)
   const active = await prisma.connection.findMany({
     where: { status: "active" },
@@ -169,6 +205,9 @@ async function housekeeping(now: Date, deadline: number) {
     storesLeft: expiring.length - tokensChecked,
     storesErased,
     erasuresLeft: owed.length - erasuresTried,
+    importsTried,
+    importsStarted,
+    importsLeft: failedImports.length - importsTried,
     widgetsChecked,
     widgetsUnchanged,
     widgetsLeft: active.length - widgetsChecked,
@@ -190,9 +229,10 @@ export const loader = monitoredCron("housekeeping", async ({ request }: LoaderFu
   const kindsLeft = [
     summary.storesLeft > 0 ? `${summary.storesLeft} stores' tokens were not checked` : null,
     summary.erasuresLeft > 0 ? `${summary.erasuresLeft} uninstalled stores were not erased` : null,
+    summary.importsLeft > 0 ? `${summary.importsLeft} stores' failed past-orders imports were not tried again` : null,
     summary.widgetsLeft > 0 ? `${summary.widgetsLeft} stores' widget settings were not written` : null,
   ].filter((kind) => kind !== null);
   const left = kindsLeft.length > 0 ? new Error(`${kindsLeft.join(" and ")} before the deadline`) : undefined;
-  cronProblems(request, summary.problems + summary.storesLeft + summary.erasuresLeft + summary.widgetsLeft, firstProblem ?? left);
+  cronProblems(request, summary.problems + summary.storesLeft + summary.erasuresLeft + summary.importsLeft + summary.widgetsLeft, firstProblem ?? left);
   return Response.json({ success: true, ...summary, durationMs: Date.now() - now.getTime() });
 });
