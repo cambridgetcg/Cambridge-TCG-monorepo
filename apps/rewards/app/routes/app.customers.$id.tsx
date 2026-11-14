@@ -22,9 +22,9 @@ import { customerNames } from "~/shopify/names.server";
  * live store credit balance read fresh, one line per currency (none kept;
  * "Shows at checkout" when Shopify can't say in time, Ruling 66), cashback
  * history with the tier and rate each entry earned at, and orders with their
- * status. "Lock to a tier" and "Return to automatic tier" set the manual
- * tier lock: actions that apply at once, like a switch, not a form to save
- * (so no save bar, Built for Shopify 4.1.5). Store credit is adjusted in
+ * status. "Lock to a tier" and "Return to automatic" set the manual tier
+ * lock: actions that apply at once, like a switch, not a form to save (so
+ * no save bar, Built for Shopify 4.1.5). Store credit is adjusted in
  * Shopify's own customer page, which the panel links to.
  */
 
@@ -163,7 +163,7 @@ export default function Buyer() {
                 loading={lockFetcher.state !== "idle"}
                 onClick={() => lockFetcher.submit({ intent: "automatic" }, { method: "post" })}
               >
-                Return to automatic tier
+                Return to automatic
               </s-button>
             </s-stack>
           ) : d.tiers.length > 0 ? (

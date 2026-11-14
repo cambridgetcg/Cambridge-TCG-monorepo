@@ -346,7 +346,7 @@ describe("Buyer panel", () => {
   });
 
   // A21-F2: spend doesn't move a locked buyer, so no progress shows
-  it("offers Return to automatic tier for a locked buyer, with no progress, and shows a known balance in each currency", async () => {
+  it("offers Return to automatic for a locked buyer, with no progress, and shows a known balance in each currency", async () => {
     await renderPanel({
       ...PANEL,
       lockedTierId: "t1",
@@ -360,7 +360,7 @@ describe("Buyer panel", () => {
     expect(text).toContain("Spend doesn't move this buyer while they're locked to Gold.");
     expect(document.querySelector("s-progress")).toBeNull();
     expect(text).not.toContain("more to reach");
-    expect(screen.getByText("Return to automatic tier", { selector: "s-button" })).toBeTruthy();
+    expect(screen.getByText("Return to automatic", { selector: "s-button" })).toBeTruthy();
     // DESIGN-10: figures, not headings
     expect([...document.querySelectorAll('s-section[heading="Store credit"] s-number')].map((n) => n.textContent)).toEqual(["£12.50", "€5.00"]);
     expect(document.querySelector('s-section[heading="Store credit"] s-heading')).toBeNull();
@@ -391,7 +391,7 @@ describe("Buyer panel", () => {
     letFetchersPost();
     const posted: Array<Record<string, string>> = [];
     await renderPanel({ ...PANEL, lockedTierId: "t1" }, { posted });
-    const button = screen.getByText("Return to automatic tier", { selector: "s-button" });
+    const button = screen.getByText("Return to automatic", { selector: "s-button" });
 
     await act(async () => {
       fireEvent.click(button);
