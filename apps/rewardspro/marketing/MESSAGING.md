@@ -22,12 +22,12 @@ on it. A first paid order can earn too, at the lowest tier's rate, which the sho
 imported orders earn nothing, so the line is in the present tense: "who buy from you", never "who have bought"
 without "Past orders earn no cashback." beside it.
 
-**Where it stands.** rewardspro.io's home page carries the headline as its h1, the proof as the last sentence of its
-lead, and the tier line below in How it works, step 1, once that change is merged on the owner's word and deployed.
-The site, the listing and the profiles don't name advertising as a contrast. The 0% base rate setting goes on the
-help page first, with its limits (the owner's yes, 12 Nov, item 4), and no post says it before the help page does.
-The help page says it under "What does a base rate of 0% do?" (`/help/#zero-base-rate`), once that change too is
-merged on the owner's word and deployed. On the App Store listing, the App introduction takes the headline and the
+**Where it stands (14 Nov 2026).** rewardspro.io's home page carries the headline as its h1, the proof as the last
+sentence of its lead, and the tier line below in How it works, step 1. The site, the listing and the profiles don't
+name advertising as a contrast. The 0% base rate setting was to go on the help page first, with its limits (the
+owner's yes, 12 Nov, item 4), before any post says it. The help page says it under "What does a base rate of 0% do?"
+(`/help/#zero-base-rate`). Both pages are live: on 13 Nov and again on 14 Nov 2026, rewardspro.io's home page and
+help page were byte for byte main's files. On the App Store listing, the App introduction takes the headline and the
 proof, and App details takes `rp-vip-tiers`'s "Loyal customers move between tiers as their spend changes, unless you
 lock them to a tier." in place of "Customers move up tiers as they spend.", by the owner's choice of 13 Nov 2026
 (`approvals.jsonl`). Neither is live until the owner saves the listing and Shopify's review passes. App details'

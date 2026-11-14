@@ -170,7 +170,9 @@ Keep "Free": the app has no billing code [V, `git grep` for `appSubscription`, `
 `appUsageRecord`, `appPurchaseOneTime` and `billing.` calls over `apps/rewards`, 10 Nov: 0]. Beside it: the pricing
 section has no text field, only feature lines of up to 40 characters each (the sitting, 10 Nov, #162). The funding
 sentence went in as two of them, "You fund the cashback you give" (`rp-merchant-funds`) and "Shopify's store-credit
-fees may apply" (`sh-sc-fee`). The texts below were drafted for a text field and weren't used:
+fees may apply" (`sh-sc-fee`), but the public page doesn't show them: with a single free plan it shows only
+"Pricing: Free" [V, the live listing, 14 Nov 2026 11:10 UTC; #162, 11 Nov]. The texts below were drafted for a text
+field and weren't used:
 Pricing · Paste · 205 characters
 ```text
 You fund the cashback you give: it is store credit in your own shop. For stores created on or after 12 May 2025, Shopify charges third-party transaction fees on the part of an order paid with store credit.
@@ -180,9 +182,10 @@ Pricing, short · Paste · 70 characters
 ```text
 You fund the cashback you give. Shopify's store-credit fees may apply.
 ```
-This fallback, the line below at the end of App details (step 6, 358 → 427), wasn't needed: Pricing's feature lines
-carry it. Requirement 4.2.3 keeps pricing information "in Pricing details". The line says who funds the
-cashback, not what RewardsPro costs, but a reviewer may read it as pricing [I]; if one does, it moves.
+This fallback, the line below at the end of App details (step 6, 358 → 427), is the one the public page shows: the
+live App details is 427 characters and ends with it [V, 14 Nov 2026 11:10 UTC]. Requirement 4.2.3 keeps pricing
+information "in Pricing details". The line says who funds the cashback, not what RewardsPro costs, but a reviewer
+may read it as pricing [I]; if one does, it moves.
 Funding line · 68 characters
 ```text
 You fund the cashback you give: it is store credit in your own shop.
@@ -192,7 +195,8 @@ store's own Admin API, to the store's own customer (`app/shopify/graphql.ts:63`;
 Shopify's store credit page, read 10 Nov 2026 at 11:28 UTC: "For Shopify stores created on or after May 12, 2025,
 orders that include store credit as a payment method are charged third-party transaction fees on the order amount
 paid for using store credit." (`sh-sc-fee`). The app card and search results show Shopify's own price label, where
-no text of ours can sit [I]; the listing page carries the pair.
+no text of ours can sit [I]. The listing page carries the first sentence, at the end of App details, and not the
+second: no fee wording appears on it [V, 14 Nov 2026 11:10 UTC].
 
 ### 10 · Translations
 
