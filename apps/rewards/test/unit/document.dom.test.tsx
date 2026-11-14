@@ -219,14 +219,18 @@ describe("Web Vitals in the console", () => {
 // Layout's browser side: React 19 hoists <meta>, so a tag the browser renders
 // differently from the server's is added as a second one, not repaired
 describe("hydration in the browser", () => {
+  type ActEnvironment = { IS_REACT_ACT_ENVIRONMENT?: boolean };
   let hydrated: Root | undefined;
+  let actEnvironment: boolean | undefined;
   beforeEach(() => {
-    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    actEnvironment = (globalThis as ActEnvironment).IS_REACT_ACT_ENVIRONMENT;
+    (globalThis as ActEnvironment).IS_REACT_ACT_ENVIRONMENT = true;
   });
   afterEach(() => {
     act(() => hydrated?.unmount());
     hydrated = undefined;
-    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    vi.unstubAllGlobals();
+    (globalThis as ActEnvironment).IS_REACT_ACT_ENVIRONMENT = actEnvironment;
   });
 
   it.each([
@@ -235,11 +239,15 @@ describe("hydration in the browser", () => {
   ])("of %s keeps the server's one key and one App Bridge, with nothing to repair", async (_what, path) => {
     process.env.VERCEL_ENV = "preview";
     const { html, context } = await documentFor(path);
-    // The page as the browser receives it; jsdom runs none of its scripts
+    // The page as the browser receives it, in a document of its own: every
+    // test file shares one jsdom (singleThread), and testing-library's
+    // `screen` keeps the shared document's body. jsdom runs none of its scripts.
     const served = new DOMParser().parseFromString(html, "text/html");
-    document.replaceChild(document.importNode(served.documentElement, true), document.documentElement);
-    const key = document.querySelector('meta[name="shopify-api-key"]');
-    const bridge = document.querySelector(`script[src="${APP_BRIDGE_URL}"]`);
+    const page = document.implementation.createHTMLDocument("");
+    page.replaceChild(page.importNode(served.documentElement, true), page.documentElement);
+    vi.stubGlobal("document", page);
+    const key = page.querySelector('meta[name="shopify-api-key"]');
+    const bridge = page.querySelector(`script[src="${APP_BRIDGE_URL}"]`);
     vi.mocked(console.error).mockClear();
 
     // A browser has no process.env: the key and the switch can come only from the page
@@ -252,18 +260,18 @@ describe("hydration in the browser", () => {
     });
     const repaired: unknown[] = [];
     await act(async () => {
-      hydrated = hydrateRoot(document, <RouterProvider router={router} />, { onRecoverableError: (error) => repaired.push(error) });
+      hydrated = hydrateRoot(page, <RouterProvider router={router} />, { onRecoverableError: (error) => repaired.push(error) });
     });
 
     expect(repaired).toEqual([]);
     expect(console.error).not.toHaveBeenCalled();
     // React adopted the server's tags, the ones App Bridge has already read, rather than making new ones
-    expect(document.querySelector('meta[name="shopify-api-key"]')).toBe(key);
-    expect(document.querySelector(`script[src="${APP_BRIDGE_URL}"]`)).toBe(bridge);
-    expect(document.querySelectorAll('meta[name="shopify-api-key"]')).toHaveLength(1);
-    expect(document.querySelectorAll('meta[name="shopify-debug"]')).toHaveLength(1);
-    expect(document.querySelectorAll(`script[src="${APP_BRIDGE_URL}"]`)).toHaveLength(1);
-    expect(document.querySelectorAll(`script[src="${POLARIS_URL}"]`)).toHaveLength(1);
-    expectAppBridgeFirstInHead(document);
+    expect(page.querySelector('meta[name="shopify-api-key"]')).toBe(key);
+    expect(page.querySelector(`script[src="${APP_BRIDGE_URL}"]`)).toBe(bridge);
+    expect(page.querySelectorAll('meta[name="shopify-api-key"]')).toHaveLength(1);
+    expect(page.querySelectorAll('meta[name="shopify-debug"]')).toHaveLength(1);
+    expect(page.querySelectorAll(`script[src="${APP_BRIDGE_URL}"]`)).toHaveLength(1);
+    expect(page.querySelectorAll(`script[src="${POLARIS_URL}"]`)).toHaveLength(1);
+    expectAppBridgeFirstInHead(page);
   });
 });
