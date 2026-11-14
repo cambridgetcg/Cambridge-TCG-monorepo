@@ -51,7 +51,7 @@ describe("the admin shell", () => {
     expect(links.map((link) => link.getAttribute("rel"))).toEqual(["home", null, null, null, null]);
   });
 
-  // Built for Shopify 3.1.1: App Bridge and Polaris load in the document's head (root.tsx, test/unit/document.test.tsx)
+  // Built for Shopify 3.1.1: App Bridge and Polaris load in the document's head (root.tsx, test/unit/document.dom.test.tsx)
   it("adds no second App Bridge or Polaris script to the page", async () => {
     renderShell();
     await screen.findByText("Home page");

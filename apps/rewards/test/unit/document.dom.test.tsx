@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 // The server renders each document as React Router does on Vercel
 // (import.meta.env.SSR is stubbed on for that), and jsdom only parses the
-// HTML it sends: DOMParser runs no script.
-import { createElement, type ReactNode } from "react";
+// HTML it sends: DOMParser runs no script. The last tests then hydrate that
+// HTML as the browser does (SSR off).
+import { act, createElement, type ReactNode } from "react";
+import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
-import { StaticRouterProvider, createStaticHandler, createStaticRouter } from "react-router";
+import { RouterProvider, StaticRouterProvider, createMemoryRouter, createStaticHandler, createStaticRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Links, Meta, Scripts and ScrollRestoration need the framework's manifest,
@@ -206,7 +208,62 @@ describe("Web Vitals in the console", () => {
     // Off Vercel: a production build is production, `shopify app dev` (staging) is not
     [{ NODE_ENV: "production" }, false],
     [{ NODE_ENV: "development" }, true],
+    // Only a named place outside production turns it on: unknown counts as production
+    [{}, false],
+    [{ NODE_ENV: "test" }, false],
   ])("with %o, logging is %s", (env, on) => {
     expect(appBridgeHead({ SHOPIFY_API_KEY: KEY, ...env })).toEqual({ apiKey: KEY, webVitalsDebug: on });
+  });
+});
+
+// Layout's browser side: React 19 hoists <meta>, so a tag the browser renders
+// differently from the server's is added as a second one, not repaired
+describe("hydration in the browser", () => {
+  let hydrated: Root | undefined;
+  beforeEach(() => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+  afterEach(() => {
+    act(() => hydrated?.unmount());
+    hydrated = undefined;
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  });
+
+  it.each([
+    ["an admin page", "/app"],
+    ["React Router's own 404", "/app/analytics"],
+  ])("of %s keeps the server's one key and one App Bridge, with nothing to repair", async (_what, path) => {
+    process.env.VERCEL_ENV = "preview";
+    const { html, context } = await documentFor(path);
+    // The page as the browser receives it; jsdom runs none of its scripts
+    const served = new DOMParser().parseFromString(html, "text/html");
+    document.replaceChild(document.importNode(served.documentElement, true), document.documentElement);
+    const key = document.querySelector('meta[name="shopify-api-key"]');
+    const bridge = document.querySelector(`script[src="${APP_BRIDGE_URL}"]`);
+    vi.mocked(console.error).mockClear();
+
+    // A browser has no process.env: the key and the switch can come only from the page
+    vi.stubEnv("SSR", false);
+    delete process.env.SHOPIFY_API_KEY;
+    delete process.env.VERCEL_ENV;
+    const router = createMemoryRouter(routes({}), {
+      initialEntries: [path],
+      hydrationData: { loaderData: context.loaderData, actionData: context.actionData, errors: context.errors },
+    });
+    const repaired: unknown[] = [];
+    await act(async () => {
+      hydrated = hydrateRoot(document, <RouterProvider router={router} />, { onRecoverableError: (error) => repaired.push(error) });
+    });
+
+    expect(repaired).toEqual([]);
+    expect(console.error).not.toHaveBeenCalled();
+    // React adopted the server's tags, the ones App Bridge has already read, rather than making new ones
+    expect(document.querySelector('meta[name="shopify-api-key"]')).toBe(key);
+    expect(document.querySelector(`script[src="${APP_BRIDGE_URL}"]`)).toBe(bridge);
+    expect(document.querySelectorAll('meta[name="shopify-api-key"]')).toHaveLength(1);
+    expect(document.querySelectorAll('meta[name="shopify-debug"]')).toHaveLength(1);
+    expect(document.querySelectorAll(`script[src="${APP_BRIDGE_URL}"]`)).toHaveLength(1);
+    expect(document.querySelectorAll(`script[src="${POLARIS_URL}"]`)).toHaveLength(1);
+    expectAppBridgeFirstInHead(document);
   });
 });

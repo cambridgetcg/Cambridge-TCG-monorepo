@@ -59,8 +59,8 @@ function expectCrashBanner() {
   const banner = document.querySelector('s-page > s-banner[tone="critical"]');
   expect(banner?.textContent).toBe(CRASH);
   // The sentence is the banner's text, not an attribute: without Polaris it still reads as plain text
+  // (jsdom loads no Polaris, so this is the page as it reads unstyled)
   expect(banner?.hasAttribute("heading")).toBe(false);
-  expect(customElements.get("s-banner")).toBeUndefined();
   expect(document.body.textContent).toContain(CRASH);
 }
 

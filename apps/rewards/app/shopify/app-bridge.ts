@@ -23,13 +23,17 @@ export type AppBridgeHead = {
 /**
  * On the server, from the environment, in every document: a 404 that React
  * Router answers itself runs no loader, so a loader can't hand the key over
- * there. Production is Vercel's production deployment (VERCEL_ENV) or, off
- * Vercel, a production build (NODE_ENV). Vercel previews and local
- * `shopify app dev` (how staging runs) log Web Vitals.
+ * there. Web Vitals are logged only where the environment names a place
+ * that isn't production: a Vercel preview or `vercel dev` (VERCEL_ENV), or,
+ * off Vercel, a development server (NODE_ENV "development", which the Vite
+ * server under `shopify app dev`, how staging runs, sets when it's unset).
+ * Anything else, an unknown environment too, counts as production.
  */
 export function appBridgeHead(env: Record<string, string | undefined>): AppBridgeHead {
-  const production = env.VERCEL_ENV ? env.VERCEL_ENV === "production" : env.NODE_ENV === "production";
-  return { apiKey: env.SHOPIFY_API_KEY || "", webVitalsDebug: !production };
+  const webVitalsDebug = env.VERCEL_ENV
+    ? env.VERCEL_ENV === "preview" || env.VERCEL_ENV === "development"
+    : env.NODE_ENV === "development";
+  return { apiKey: env.SHOPIFY_API_KEY || "", webVitalsDebug };
 }
 
 /** In the browser, what the server rendered, so hydration renders the same tags. */
