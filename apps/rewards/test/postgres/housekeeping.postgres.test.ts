@@ -5,6 +5,7 @@ import prisma, { createPrismaClient } from "~/db.server";
 import { ensureMerchant, findConnection } from "~/lib/merchant.server";
 import { monitoring } from "~/lib/telemetry.server";
 import { EncryptedPrismaSessionStorage } from "~/shopify/session-storage.server";
+import { widgetConfig, widgetConfigJson } from "~/shopify/widget-config.server";
 import { server } from "../setup";
 import { hasTestDatabase, resetDatabase } from "./helpers/database";
 import { adminGraphqlUrl } from "./helpers/shopify";
@@ -558,5 +559,139 @@ describe.skipIf(!hasTestDatabase)("nightly housekeeping", () => {
     ]);
     const locks = await prisma.cronLock.findMany({ select: { jobName: true } });
     expect(locks).toEqual([{ jobName: "tiers" }]);
+  });
+
+  describe("failed past-orders imports", () => {
+    /**
+     * Shopify's answers to a bulk query's launch for `shop`: the app's scopes,
+     * then the query, refused while `access.refused` (as Shopify refuses a
+     * public app with no IP allowlist since 12 Nov 2026). Counts each launch asked for.
+     */
+    function mockBulkLaunch(shop: string, o: { onLaunch?: () => unknown } = {}) {
+      const access = { refused: true, asked: 0 };
+      const link = graphql.link(adminGraphqlUrl(shop));
+      server.use(
+        link.query("RewardsAccessScopes", () =>
+          HttpResponse.json({ data: { currentAppInstallation: { accessScopes: [{ handle: "read_orders" }, { handle: "read_all_orders" }] } } }),
+        ),
+        link.mutation("RewardsBulkOrders", async () => {
+          access.asked++;
+          await o.onLaunch?.();
+          if (access.refused) return HttpResponse.json({ errors: [{ message: "Bulk queries are not available to this app" }] });
+          return HttpResponse.json({
+            data: { bulkOperationRunQuery: { bulkOperation: { id: "gid://shopify/BulkOperation/77", status: "CREATED" }, userErrors: [] } },
+          });
+        }),
+      );
+      return access;
+    }
+
+    /** A store whose import failed, its last launch claimed `launchedAgo` ms ago, installed `installedAgo` ms ago. */
+    async function seedFailedImport(shop: string, o: { launchedAgo: number; installedAgo: number }) {
+      await seedStore(shop);
+      await prisma.connection.updateMany({
+        where: { externalAccountId: shop },
+        data: {
+          installedAt: new Date(Date.now() - o.installedAgo),
+          importState: "failed",
+          importAttempts: 4,
+          importError: "Shopify answered with errors: Bulk queries are not available to this app",
+          importLaunchedAt: new Date(Date.now() - o.launchedAgo),
+        },
+      });
+    }
+
+    /** Every store's widget settings as written tonight, so the widget step skips them all. */
+    async function widgetsCurrent() {
+      for (const connection of await prisma.connection.findMany({ select: { id: true, merchantId: true } })) {
+        const value = widgetConfigJson(await widgetConfig(connection.merchantId));
+        await prisma.connection.update({ where: { id: connection.id }, data: { widgetConfigSyncedAt: new Date(), widgetConfigValue: value } });
+      }
+    }
+
+    const importRow = (shop: string) => prisma.connection.findFirstOrThrow({ where: { externalAccountId: shop } });
+
+    it("tries one again once a night, counts a try Shopify refuses as no problem, and starts it once Shopify allows it", async () => {
+      await seedFailedImport(SHOP, { launchedAgo: DAY, installedAgo: 2 * DAY });
+      // Installed 31 days ago: past the time a failed import is tried again
+      await seedFailedImport(QUIET_SHOP, { launchedAgo: DAY, installedAgo: 31 * DAY });
+      mockWidgetConfig(SHOP);
+      mockWidgetConfig(QUIET_SHOP);
+      const access = mockBulkLaunch(SHOP);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      await expect(run()).resolves.toMatchObject({ status: 200, body: { importsTried: 1, importsStarted: 0, importsLeft: 0, problems: 0 } });
+
+      expect(access.asked).toBe(1);
+      expect(warn.mock.calls.map((args) => args.join(" "))).toEqual([
+        `[housekeeping] Shopify did not start the past-orders import of ${SHOP}; it is tried again tomorrow`,
+      ]);
+      await expect(importRow(SHOP)).resolves.toMatchObject({ importState: "failed", importOperationId: null });
+      await expect(importRow(QUIET_SHOP)).resolves.toMatchObject({ importState: "failed" });
+      await expect(prisma.cronRun.count({ where: { job: "housekeeping", outcome: "succeeded" } })).resolves.toBe(1);
+
+      // A second run the same night tries nothing
+      await expect(run()).resolves.toMatchObject({ status: 200, body: { importsTried: 0 } });
+      expect(access.asked).toBe(1);
+
+      // The next night Shopify runs bulk queries again
+      access.refused = false;
+      await prisma.connection.updateMany({ where: { externalAccountId: SHOP }, data: { importLaunchedAt: new Date(Date.now() - DAY) } });
+      await expect(run()).resolves.toMatchObject({ status: 200, body: { importsTried: 1, importsStarted: 1, problems: 0 } });
+      await expect(importRow(SHOP)).resolves.toMatchObject({ importState: "running", importOperationId: "gid://shopify/BulkOperation/77" });
+      warn.mockRestore();
+    });
+
+    it("tries the store tried longest ago first, so a run the budget cuts short leaves the other for the next night", async () => {
+      // By name QUIET_SHOP ("housekeeping-quiet") sorts first; SHOP was tried longer ago, so it comes first
+      await seedFailedImport(SHOP, { launchedAgo: 3 * DAY, installedAgo: 5 * DAY });
+      await seedFailedImport(QUIET_SHOP, { launchedAgo: 2 * DAY, installedAgo: 5 * DAY });
+      await widgetsCurrent();
+      mockWidgetConfig(SHOP);
+      mockWidgetConfig(QUIET_SHOP);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const result = await withDeadline((cut) => {
+        const longestAgo = mockBulkLaunch(SHOP, { onLaunch: cut });
+        const lately = mockBulkLaunch(QUIET_SHOP);
+        return run().then((r) => ({ ...r, asked: [longestAgo.asked, lately.asked] }));
+      });
+
+      expect(result).toMatchObject({ status: 200, body: { importsTried: 1, importsLeft: 1 }, asked: [1, 0] });
+      warn.mockRestore();
+    });
+
+    it("counts a store whose session can't be loaded as a problem, and tries the next", async () => {
+      await seedFailedImport(SHOP, { launchedAgo: DAY, installedAgo: 2 * DAY });
+      await seedFailedImport(QUIET_SHOP, { launchedAgo: DAY, installedAgo: 2 * DAY });
+      await widgetsCurrent();
+      // SHOP has no session left to load
+      await prisma.session.delete({ where: { id: `offline_${SHOP}` } });
+      const access = mockBulkLaunch(QUIET_SHOP);
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      await expect(run()).resolves.toMatchObject({ status: 200, body: { importsTried: 2, importsLeft: 0, problems: 1 } });
+
+      expect(access.asked).toBe(1);
+      expect(errors.mock.calls.map((args) => args.join(" "))).toEqual([expect.stringContaining(`Could not try the past-orders import of ${SHOP} again`)]);
+      errors.mockRestore();
+      warn.mockRestore();
+    });
+
+    it("leaves a failed import for the next night once its 240 s budget has passed, and counts it", async () => {
+      await seedFailedImport(SHOP, { launchedAgo: DAY, installedAgo: 2 * DAY });
+      const access = mockBulkLaunch(SHOP);
+
+      const result = await withDeadline((cut) => {
+        cut();
+        return run();
+      });
+
+      expect(result).toMatchObject({ status: 200, body: { importsTried: 0, importsLeft: 1 } });
+      expect(access.asked).toBe(0);
+      const partial = await prisma.cronRun.findUniqueOrThrow({ where: { job_outcome: { job: "housekeeping", outcome: "partial" } } });
+      expect(partial.errorMessage).toMatch(/1 stores' failed past-orders imports were not tried again/);
+    });
   });
 });
