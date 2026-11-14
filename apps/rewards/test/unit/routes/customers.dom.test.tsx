@@ -138,6 +138,8 @@ describe("Customers list", () => {
 
     await renderList(listData({ rows: [], hasNext: false, query: "smith", searchFailed: true }));
     expect(document.querySelector("s-banner")?.textContent).toBe("Shopify didn't answer the search. Try again.");
+    // Built for Shopify 4.2.4: an error is red
+    expect(document.querySelector("s-banner")?.getAttribute("tone")).toBe("critical");
     // M3d-F6: the page's banners stand in one stack, as on Home
     expect(document.querySelector('s-stack[slot="supplemental-start"][gap="base"] s-banner')).not.toBeNull();
     expect(document.querySelectorAll("s-banner[slot]")).toHaveLength(0);
@@ -194,6 +196,30 @@ describe("Customers list", () => {
     const banner = (await screen.findByText("The file couldn't be made. Try again.")).closest("s-banner");
     expect(banner?.getAttribute("tone")).toBe("critical");
     expect(before(banner, document.querySelector("s-table"))).toBe(true);
+  });
+
+  // Built for Shopify 4.3.4: never two banners; the failed search, which the export shares, is said
+  it("shows one banner when the search and an export both failed: the search's", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 500 })));
+    await renderList(listData({ rows: [], hasNext: false, query: "smith", searchFailed: true }));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Export CSV"));
+    });
+    await act(async () => {});
+
+    expect([...document.querySelectorAll("s-banner")].map((b) => [b.getAttribute("tone"), b.textContent])).toEqual([
+      ["critical", "Shopify didn't answer the search. Try again."],
+    ]);
+  });
+
+  // Built for Shopify 4.1.2: on a phone the search box and the tier select stack
+  it("stacks the search box and the tier select when the table is narrow", async () => {
+    await renderList(listData());
+    const container = document.querySelector("s-table > s-query-container")!;
+    expect([container.getAttribute("slot"), container.getAttribute("containerName")]).toEqual(["filters", "filters"]);
+    const grid = container.querySelector(":scope > s-grid")!;
+    expect(grid.getAttribute("gridTemplateColumns")).toBe("@container filters (inline-size > 500px) 1fr auto, 1fr");
+    expect([...grid.children].map((child) => child.tagName.toLowerCase())).toEqual(["s-search-field", "s-select"]);
   });
 
   // BOUNDARY-5
@@ -275,7 +301,7 @@ describe("Buyer panel", () => {
   });
 
   // A21-F2: spend doesn't move a locked buyer, so no progress shows
-  it("offers Return to automatic for a locked buyer, with no progress, and shows a known balance in each currency", async () => {
+  it("offers Return to automatic tier for a locked buyer, with no progress, and shows a known balance in each currency", async () => {
     await renderPanel({
       ...PANEL,
       lockedTierId: "t1",
@@ -289,7 +315,7 @@ describe("Buyer panel", () => {
     expect(text).toContain("Spend doesn't move this buyer while they're locked to Gold.");
     expect(document.querySelector("s-progress")).toBeNull();
     expect(text).not.toContain("more to reach");
-    expect(screen.getByText("Return to automatic", { selector: "s-button" })).toBeTruthy();
+    expect(screen.getByText("Return to automatic tier", { selector: "s-button" })).toBeTruthy();
     // DESIGN-10: figures, not headings
     expect([...document.querySelectorAll('s-section[heading="Store credit"] s-number')].map((n) => n.textContent)).toEqual(["£12.50", "€5.00"]);
     expect(document.querySelector('s-section[heading="Store credit"] s-heading')).toBeNull();
@@ -320,7 +346,7 @@ describe("Buyer panel", () => {
     letFetchersPost();
     const posted: Array<Record<string, string>> = [];
     await renderPanel({ ...PANEL, lockedTierId: "t1" }, { posted });
-    const button = screen.getByText("Return to automatic", { selector: "s-button" });
+    const button = screen.getByText("Return to automatic tier", { selector: "s-button" });
 
     await act(async () => {
       fireEvent.click(button);

@@ -17,6 +17,11 @@ import { EXPORT_SEARCH_UNREAD, NO_TIER, SEARCH_TOO_BROAD, SEARCH_UNREAD } from "
  * and never stored. Export CSV downloads the same buyers, every page. What
  * went wrong (the export, the search) is said above the table (DESIGN-9),
  * and the table shows it is loading while the next page loads (DESIGN-16).
+ * Both are errors, so red, and only one banner shows at a time (Built for
+ * Shopify 4.2.4 and 4.3.4): a search Shopify didn't answer comes first,
+ * because the list itself can't show what was asked for and an export reads
+ * the same search; a failed export shows once the search is answered. The
+ * filter row stacks below 500 px of width (4.1.2).
  */
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -60,6 +65,9 @@ function hrefWith(current: { query: string; tierId: string; page: number }, chan
 }
 
 const DOWNLOAD_FAILED = "The file couldn't be made. Try again.";
+const SEARCH_FAILED = "Shopify didn't answer the search. Try again.";
+/** The search box and tier select side by side, or stacked when narrow. */
+const FILTER_COLUMNS = "@container filters (inline-size > 500px) 1fr auto, 1fr";
 
 export default function Customers() {
   const d = useLoaderData<typeof loader>();
@@ -97,6 +105,7 @@ export default function Customers() {
   };
 
   const filtered = d.query !== "" || d.tierId !== "";
+  const banner = d.searchFailed ? SEARCH_FAILED : exportError;
   // The same filters from page 1, as a link (A21-F4)
   const pageOne = `/app/customers${hrefWith(current, { page: 1 }).replace(/^\?$/, "")}`;
 
@@ -105,11 +114,10 @@ export default function Customers() {
       <s-button slot="secondary-actions" loading={exporting} onClick={() => void download()}>
         Export CSV
       </s-button>
-      {/* One stack, so two banners at once stand apart, as on Home (M3d-F6) */}
-      {exportError || d.searchFailed ? (
+      {/* The page's banner in the same stack as Home's (M3d-F6) */}
+      {banner ? (
         <s-stack slot="supplemental-start" gap="base">
-          {exportError ? <s-banner tone="critical">{exportError}</s-banner> : null}
-          {d.searchFailed ? <s-banner tone="warning">{"Shopify didn't answer the search. Try again."}</s-banner> : null}
+          <s-banner tone="critical">{banner}</s-banner>
         </s-stack>
       ) : null}
       {d.searchUnread || d.searchCut ? (
@@ -129,28 +137,30 @@ export default function Customers() {
           onPreviousPage={() => navigate(hrefWith(current, { page: d.page - 1 }))}
           onNextPage={() => navigate(hrefWith(current, { page: d.page + 1 }))}
         >
-          <s-grid slot="filters" gap="small-200" gridTemplateColumns="1fr auto">
-            <s-search-field
-              label="Search buyers"
-              labelAccessibilityVisibility="exclusive"
-              placeholder="Search by name or email"
-              value={d.query}
-              onChange={(event) => navigate(hrefWith(current, { query: event.currentTarget.value.trim() }))}
-            />
-            <s-select
-              label="Tier"
-              labelAccessibilityVisibility="exclusive"
-              value={d.tierId}
-              onChange={(event) => navigate(hrefWith(current, { tierId: event.currentTarget.value }))}
-            >
-              <s-option value="">All tiers</s-option>
-              {d.tiers.map((tier) => (
-                <s-option key={tier.id} value={tier.id}>
-                  {tier.name}
-                </s-option>
-              ))}
-            </s-select>
-          </s-grid>
+          <s-query-container slot="filters" containerName="filters">
+            <s-grid gap="small-200" gridTemplateColumns={FILTER_COLUMNS}>
+              <s-search-field
+                label="Search buyers"
+                labelAccessibilityVisibility="exclusive"
+                placeholder="Search by name or email"
+                value={d.query}
+                onChange={(event) => navigate(hrefWith(current, { query: event.currentTarget.value.trim() }))}
+              />
+              <s-select
+                label="Tier"
+                labelAccessibilityVisibility="exclusive"
+                value={d.tierId}
+                onChange={(event) => navigate(hrefWith(current, { tierId: event.currentTarget.value }))}
+              >
+                <s-option value="">All tiers</s-option>
+                {d.tiers.map((tier) => (
+                  <s-option key={tier.id} value={tier.id}>
+                    {tier.name}
+                  </s-option>
+                ))}
+              </s-select>
+            </s-grid>
+          </s-query-container>
           <s-table-header-row>
             <s-table-header listSlot="primary">Buyer</s-table-header>
             <s-table-header listSlot="secondary">Tier</s-table-header>

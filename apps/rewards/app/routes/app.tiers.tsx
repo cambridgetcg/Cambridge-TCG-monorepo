@@ -39,11 +39,27 @@ import { syncWidgetConfig } from "~/shopify/widget-config.server";
  * banner without reloading until the next load (Ruling 82). Each control
  * posts one change at a time, and an edit says which version of the tier it
  * was made on (CONCURRENCY-3).
- * Edit brings the form into view with Name focused, and after a delete focus
- * goes to the form's Name, since the row it came from is gone (DESIGN-14).
+ *
+ * Built for Shopify 4.1.5 and 4.1.6: a tier is added or edited in a modal
+ * whose Save and Cancel sit in its primary-action and secondary-actions
+ * slots, as the Delete modal's do; it stays open, with the action's errors
+ * beside their fields, until the save is taken. The "Spend counted over"
+ * choice is the page's one setting: a new choice is held until the merchant
+ * saves it from App Bridge's save bar (`ui-save-bar`, shown and hidden with
+ * `shopify.saveBar`), which the admin keeps up, and won't let them leave
+ * past, until it is saved or discarded. The bar is driven from the page's own
+ * state rather than a `data-save-bar` form, because App Bridge hides a form's
+ * bar on submit, before the action answers, and a refused save would then
+ * leave unsaved changes with no bar.
+ * The modal opens with Name focused, and after a delete focus goes to Add
+ * tier, since the row it came from is gone (DESIGN-14).
  */
 
 const DELETE_MODAL = "delete-tier";
+const TIER_MODAL = "tier-form";
+const SAVE_BAR = "tier-window-save-bar";
+/** What "Spend counted over" decides (Built for Shopify 4.2.1). */
+const WINDOW_DETAILS = "Which of a buyer's orders count toward their tier.";
 /** How often the page reloads its data while buyers are moving to their new tiers. */
 const MOVING_POLL_MS = 10_000;
 
@@ -165,6 +181,8 @@ const errorsOf = (result: ActionResult | undefined): TierErrors => (result && !r
 
 const EMPTY = { name: "", minSpend: "", percent: "" };
 
+const isTierWindow = (value: string | undefined): value is TierWindow => value !== undefined && Object.hasOwn(TIER_WINDOW_LABEL, value);
+
 /** What a delete does to the tier's buyers. */
 function deleteSentence(tier: TierView): string {
   const locks = `Buyers locked to ${tier.name} go back to automatic.`;
@@ -178,11 +196,12 @@ export default function Tiers() {
   const deleteFetcher = useFetcher<typeof action>();
   const windowFetcher = useFetcher<typeof action>();
   const modal = useRef<HTMLElementTagNameMap["s-modal"]>(null);
-  const form = useRef<HTMLElementTagNameMap["s-section"]>(null);
+  const tierModal = useRef<HTMLElementTagNameMap["s-modal"]>(null);
+  const addButton = useRef<HTMLElementTagNameMap["s-button"]>(null);
   const nameField = useRef<HTMLElementTagNameMap["s-text-field"]>(null);
   // The tier this tab deleted, which the edit form then lets go of quietly
   const deletedHere = useRef<string | null>(null);
-  // A delete is done: once the modal has closed, focus goes to the form
+  // A delete is done: once the modal has closed, focus goes to Add tier
   const focusAfterDelete = useRef(false);
   // Each change made here, which asks for a new pass to follow
   const [changes, setChanges] = useState(0);
@@ -200,18 +219,28 @@ export default function Tiers() {
   const [errors, setErrors] = useState<TierErrors>({});
   const [deleting, setDeleting] = useState<TierView | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // The window chosen here and not saved yet; null while the saved one shows,
+  // so a reload that brings another tab's choice is shown, not held against it
+  const [chosenWindow, setChosenWindow] = useState<TierWindow | null>(null);
 
   const editing = d.tiers.find((t) => t.id === editingId) ?? null;
   // The first tier, and the lowest when edited, start at 0
   const minFixed = d.tiers.length === 0 || Boolean(editing?.lowest);
   const money = (amount: string) => formatMoney(amount, d.currency);
+  const saving = saveFetcher.state !== "idle";
+
+  const tierWindow = chosenWindow ?? d.tierWindow;
+  const windowUnsaved = chosenWindow !== null && chosenWindow !== d.tierWindow;
+  const windowError = windowUnsaved ? errorsOf(windowFetcher.data).form : undefined;
+  // One window change at a time, so the last one chosen is the one kept (CONCURRENCY-2)
+  const windowBusy = windowFetcher.state !== "idle";
 
   useEffect(() => {
     if (saveFetcher.state !== "idle" || !saveFetcher.data) return;
+    // Taken: the modal closes. Its fields are set afresh each time it opens,
+    // so they don't change under it while it fades
     if (saveFetcher.data.ok) {
-      setEditingId(null);
-      setEditingVersion(null);
-      setValues(EMPTY);
+      tierModal.current?.hideOverlay?.();
       setChanges((n) => n + 1);
     }
     setErrors(errorsOf(saveFetcher.data));
@@ -227,9 +256,21 @@ export default function Tiers() {
     setDeleteError(errorsOf(deleteFetcher.data).form ?? null);
   }, [deleteFetcher.state, deleteFetcher.data]);
 
+  // Saved and reloaded: the page shows the saved window again, and the bar goes
   useEffect(() => {
-    if (windowFetcher.state === "idle" && windowFetcher.data?.ok) setChanges((n) => n + 1);
+    if (windowFetcher.state !== "idle" || !windowFetcher.data?.ok) return;
+    setChosenWindow(null);
+    setChanges((n) => n + 1);
   }, [windowFetcher.state, windowFetcher.data]);
+
+  // The save bar is up exactly while a window is chosen and not saved. While
+  // it is up, the admin stops the merchant leaving (its menu, the app's own
+  // links, a reload) until they save or discard. Without App Bridge (a test)
+  // there is no bar.
+  useEffect(() => {
+    if (typeof shopify === "undefined" || typeof shopify.saveBar?.show !== "function") return;
+    (windowUnsaved ? shopify.saveBar.show(SAVE_BAR) : shopify.saveBar.hide(SAVE_BAR)).catch(() => {});
+  }, [windowUnsaved]);
 
   // Listened for directly: React 19 would listen for "AfterHide", not the element's "afterhide"
   useEffect(() => {
@@ -238,10 +279,19 @@ export default function Tiers() {
     const afterHide = () => {
       if (!focusAfterDelete.current) return;
       focusAfterDelete.current = false;
-      nameField.current?.focus();
+      addButton.current?.focus();
     };
     element.addEventListener("afterhide", afterHide);
     return () => element.removeEventListener("afterhide", afterHide);
+  }, []);
+
+  // The form opens ready to type in
+  useEffect(() => {
+    const element = tierModal.current;
+    if (!element) return;
+    const afterShow = () => nameField.current?.focus();
+    element.addEventListener("aftershow", afterShow);
+    return () => element.removeEventListener("aftershow", afterShow);
   }, []);
 
   // The tier being edited is gone (deleted in another tab): say so and start
@@ -254,24 +304,21 @@ export default function Tiers() {
     setErrors(deletedHere.current === editingId ? {} : { form: d.goneError });
   }, [editingId, editing, d.goneError]);
 
-  const startEdit = (tier: TierView) => {
-    setEditingId(tier.id);
-    setEditingVersion(tier.version);
-    setValues({ name: tier.name, minSpend: tier.minSpend, percent: tier.percent });
-    setErrors({});
-    // The form is below the table: bring it into view, ready to type in. A
-    // focus that scrolled would cancel a smooth scroll, so the scroll is
-    // instant and the focus doesn't scroll (M3d-F9)
-    form.current?.scrollIntoView({ block: "start" });
-    nameField.current?.focus({ preventScroll: true });
-  };
-  const cancelEdit = () => {
+  // Each opening of the modal starts from the tier chosen, or from nothing
+  const startAdd = () => {
     setEditingId(null);
     setEditingVersion(null);
     setValues(EMPTY);
     setErrors({});
   };
-  const save = () =>
+  const startEdit = (tier: TierView) => {
+    setEditingId(tier.id);
+    setEditingVersion(tier.version);
+    setValues({ name: tier.name, minSpend: tier.minSpend, percent: tier.percent });
+    setErrors({});
+  };
+  const save = () => {
+    if (saving) return;
     saveFetcher.submit(
       {
         intent: "save",
@@ -284,15 +331,28 @@ export default function Tiers() {
       },
       { method: "post" },
     );
+  };
 
-  const pendingWindow = windowFetcher.formData?.get("tierWindow");
-  const tierWindow = typeof pendingWindow === "string" ? pendingWindow : d.tierWindow;
-  const windowError = errorsOf(windowFetcher.data).form;
-  // One window change at a time, so the last one chosen is the one kept (CONCURRENCY-2)
-  const windowBusy = windowFetcher.state !== "idle";
+  const saveWindow = () => {
+    if (chosenWindow === null || chosenWindow === d.tierWindow || windowBusy) return;
+    windowFetcher.submit({ intent: "window", tierWindow: chosenWindow }, { method: "post" });
+  };
+  const discardWindow = () => {
+    if (!windowBusy) setChosenWindow(null);
+  };
 
   return (
     <s-page heading="Tiers" inlineSize="base">
+      {/* App Bridge's contextual save bar: the admin shows its own Save and
+          Discard, which click these (Built for Shopify 4.1.5) */}
+      <ui-save-bar id={SAVE_BAR}>
+        <button variant="primary" disabled={windowBusy} loading={windowBusy ? "" : undefined} onClick={saveWindow}>
+          Save
+        </button>
+        <button disabled={windowBusy} onClick={discardWindow}>
+          Discard
+        </button>
+      </ui-save-bar>
       {/* The page's banners in one stack, as on Home (M3d-F6) */}
       {d.moving ? (
         <s-stack slot="supplemental-start" gap="base">
@@ -302,7 +362,7 @@ export default function Tiers() {
       <s-section>
         <s-stack gap="base">
           {d.tiers.length === 0 ? (
-            <s-text color="subdued">No tiers yet. Add your first one below; everyone starts there.</s-text>
+            <s-text color="subdued">No tiers yet. Add your first one; everyone starts there.</s-text>
           ) : (
             <s-table>
               <s-table-header-row>
@@ -335,7 +395,13 @@ export default function Tiers() {
                     <s-table-cell>{count(tier.members, "member", "members")}</s-table-cell>
                     <s-table-cell>
                       <s-stack direction="inline" gap="small-200" justifyContent="end">
-                        <s-button variant="tertiary" accessibilityLabel={`Edit ${tier.name}`} onClick={() => startEdit(tier)}>
+                        <s-button
+                          variant="tertiary"
+                          accessibilityLabel={`Edit ${tier.name}`}
+                          commandFor={TIER_MODAL}
+                          command="--show"
+                          onClick={() => startEdit(tier)}
+                        >
                           Edit
                         </s-button>
                         {tier.lowest ? null : (
@@ -361,10 +427,41 @@ export default function Tiers() {
             </s-table>
           )}
           <s-paragraph color="subdued">{CASHBACK_BASE}</s-paragraph>
+          <s-stack direction="inline">
+            <s-button ref={addButton} commandFor={TIER_MODAL} command="--show" onClick={startAdd}>
+              Add tier
+            </s-button>
+          </s-stack>
         </s-stack>
       </s-section>
 
-      <s-section ref={form} heading={editing ? `Edit ${editing.name}` : "Add a tier"}>
+      <s-section heading="Spend counted over">
+        <s-stack gap="base">
+          <s-choice-list
+            label="Spend counted over"
+            labelAccessibilityVisibility="exclusive"
+            name="tierWindow"
+            details={WINDOW_DETAILS}
+            error={windowError}
+            disabled={windowBusy}
+            onChange={(event) => {
+              // Held until the save bar's Save (Built for Shopify 4.1.5)
+              const [chosen] = event.currentTarget.values;
+              if (windowBusy || !isTierWindow(chosen)) return;
+              setChosenWindow(chosen === d.tierWindow ? null : chosen);
+            }}
+          >
+            {(Object.keys(TIER_WINDOW_LABEL) as TierWindow[]).map((key) => (
+              <s-choice key={key} value={key} selected={key === tierWindow}>
+                {TIER_WINDOW_LABEL[key]}
+              </s-choice>
+            ))}
+          </s-choice-list>
+          <s-text color="subdued">After you save a change, buyers move to their new tiers. In a large store some move overnight.</s-text>
+        </s-stack>
+      </s-section>
+
+      <s-modal id={TIER_MODAL} ref={tierModal} heading={editing ? `Edit ${editing.name}` : "Add a tier"}>
         <s-stack gap="base">
           <s-text-field
             ref={nameField}
@@ -393,6 +490,7 @@ export default function Tiers() {
               onInput={(event) => setValues({ ...values, minSpend: event.currentTarget.value })}
             />
           )}
+          {/* What the percent is of, in Home's words (Built for Shopify 4.2.1) */}
           <s-number-field
             label="Cashback"
             name="percent"
@@ -402,40 +500,18 @@ export default function Tiers() {
             step={1}
             value={values.percent}
             error={errors.percent}
+            details={CASHBACK_BASE}
             onInput={(event) => setValues({ ...values, percent: event.currentTarget.value })}
           />
           {errors.form ? <s-text tone="critical">{errors.form}</s-text> : null}
-          <s-stack direction="inline" gap="small-200">
-            <s-button variant="primary" loading={saveFetcher.state !== "idle"} onClick={save}>
-              {editing ? "Save" : "Add tier"}
-            </s-button>
-            {editing ? <s-button onClick={cancelEdit}>Cancel</s-button> : null}
-          </s-stack>
         </s-stack>
-      </s-section>
-
-      <s-section heading="Spend counted over">
-        <s-stack gap="base">
-          <s-choice-list
-            label="Spend counted over"
-            labelAccessibilityVisibility="exclusive"
-            name="tierWindow"
-            error={windowError}
-            disabled={windowBusy}
-            onChange={(event) => {
-              const [chosen] = event.currentTarget.values;
-              if (!windowBusy && chosen && chosen !== tierWindow) windowFetcher.submit({ intent: "window", tierWindow: chosen }, { method: "post" });
-            }}
-          >
-            {(Object.keys(TIER_WINDOW_LABEL) as TierWindow[]).map((key) => (
-              <s-choice key={key} value={key} selected={key === tierWindow}>
-                {TIER_WINDOW_LABEL[key]}
-              </s-choice>
-            ))}
-          </s-choice-list>
-          <s-text color="subdued">After a change, buyers move to their new tiers. In a large store some move overnight.</s-text>
-        </s-stack>
-      </s-section>
+        <s-button slot="primary-action" variant="primary" loading={saving} onClick={save}>
+          {editing ? "Save" : "Add tier"}
+        </s-button>
+        <s-button slot="secondary-actions" commandFor={TIER_MODAL} command="--hide">
+          Cancel
+        </s-button>
+      </s-modal>
 
       <s-modal id={DELETE_MODAL} ref={modal} heading={deleting ? `Delete ${deleting.name}?` : "Delete tier?"}>
         <s-stack gap="base">
