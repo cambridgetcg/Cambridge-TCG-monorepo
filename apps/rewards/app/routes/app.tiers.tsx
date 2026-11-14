@@ -42,15 +42,20 @@ import { syncWidgetConfig } from "~/shopify/widget-config.server";
  *
  * Built for Shopify 4.1.5 and 4.1.6: a tier is added or edited in a modal
  * whose Save and Cancel sit in its primary-action and secondary-actions
- * slots, as the Delete modal's do; it stays open, with the action's errors
- * beside their fields, until the save is taken. The "Spend counted over"
- * choice is the page's one setting: a new choice is held until the merchant
- * saves it from App Bridge's save bar (`ui-save-bar`, shown and hidden with
- * `shopify.saveBar`), which the admin keeps up, and won't let them leave
- * past, until it is saved or discarded. The bar is driven from the page's own
- * state rather than a `data-save-bar` form, because App Bridge hides a form's
- * bar on submit, before the action answers, and a refused save would then
- * leave unsaved changes with no bar.
+ * slots, as the Delete modal's do. A refused save keeps it open, with the
+ * action's errors beside their fields; a taken save closes it. Cancel, the
+ * modal's X and Escape close it too, and so may a click outside it, dropping
+ * what was typed with no warning. A save's answer acts only on the opening
+ * of the modal it was posted from: if the merchant closed it and opened it
+ * again meanwhile, the answer neither closes the new one nor puts its errors
+ * there (4.2.4).
+ * The "Spend counted over" choice is the page's one setting: a new choice is
+ * held until the merchant saves it from App Bridge's save bar (`ui-save-bar`,
+ * shown and hidden with `shopify.saveBar`), which the admin keeps up, and
+ * won't let them leave past, until it is saved or discarded. The bar is
+ * driven from the page's own state rather than a `data-save-bar` form,
+ * because App Bridge hides a form's bar on submit, before the action
+ * answers, and a refused save would then leave unsaved changes with no bar.
  * The modal opens with Name focused, and after a delete focus goes to Add
  * tier, since the row it came from is gone (DESIGN-14).
  */
@@ -203,6 +208,9 @@ export default function Tiers() {
   const deletedHere = useRef<string | null>(null);
   // A delete is done: once the modal has closed, focus goes to Add tier
   const focusAfterDelete = useRef(false);
+  // Each opening of the tier form, counted, and the one the last save was posted from
+  const opening = useRef(0);
+  const savedFrom = useRef(0);
   // Each change made here, which asks for a new pass to follow
   const [changes, setChanges] = useState(0);
   // While buyers are moving to their new tiers (Ruling 76), for two minutes from the load or the last change (Ruling 82)
@@ -237,12 +245,14 @@ export default function Tiers() {
 
   useEffect(() => {
     if (saveFetcher.state !== "idle" || !saveFetcher.data) return;
+    // A taken save is a change made here, whichever form is open now
+    if (saveFetcher.data.ok) setChanges((n) => n + 1);
+    // The form was closed and opened again while the save was posted: the
+    // answer is about an earlier opening, so this one keeps its own state
+    if (savedFrom.current !== opening.current) return;
     // Taken: the modal closes. Its fields are set afresh each time it opens,
     // so they don't change under it while it fades
-    if (saveFetcher.data.ok) {
-      tierModal.current?.hideOverlay?.();
-      setChanges((n) => n + 1);
-    }
+    if (saveFetcher.data.ok) tierModal.current?.hideOverlay?.();
     setErrors(errorsOf(saveFetcher.data));
   }, [saveFetcher.state, saveFetcher.data]);
 
@@ -306,12 +316,14 @@ export default function Tiers() {
 
   // Each opening of the modal starts from the tier chosen, or from nothing
   const startAdd = () => {
+    opening.current += 1;
     setEditingId(null);
     setEditingVersion(null);
     setValues(EMPTY);
     setErrors({});
   };
   const startEdit = (tier: TierView) => {
+    opening.current += 1;
     setEditingId(tier.id);
     setEditingVersion(tier.version);
     setValues({ name: tier.name, minSpend: tier.minSpend, percent: tier.percent });
@@ -319,6 +331,7 @@ export default function Tiers() {
   };
   const save = () => {
     if (saving) return;
+    savedFrom.current = opening.current;
     saveFetcher.submit(
       {
         intent: "save",

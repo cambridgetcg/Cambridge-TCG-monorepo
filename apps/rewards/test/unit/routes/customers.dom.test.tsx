@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fieldsOf, letFetchersPost } from "../helpers/fetcher-posts";
@@ -39,8 +39,17 @@ const listData = (o: Partial<Record<string, unknown>> = {}) => ({
   ...o,
 });
 
-async function renderList(data: ReturnType<typeof listData>) {
-  const Stub = createRoutesStub([{ id: "routes/app.customers._index", path: "/app/customers", Component: Customers }]);
+/** The list with `data`; with `next`, a navigation (a new search or tier) loads `next(url)`. */
+async function renderList(data: ReturnType<typeof listData>, o: { next?: (url: URL) => ReturnType<typeof listData> } = {}) {
+  const next = o.next;
+  const Stub = createRoutesStub([
+    {
+      id: "routes/app.customers._index",
+      path: "/app/customers",
+      Component: Customers,
+      ...(next ? { loader: ({ request }: { request: Request }) => next(new URL(request.url)) } : {}),
+    },
+  ]);
   render(<Stub initialEntries={["/app/customers"]} hydrationData={{ loaderData: { "routes/app.customers._index": data } }} />);
   await screen.findByText("Export CSV");
 }
@@ -198,8 +207,8 @@ describe("Customers list", () => {
     expect(before(banner, document.querySelector("s-table"))).toBe(true);
   });
 
-  // Built for Shopify 4.3.4: never two banners; the failed search, which the export shares, is said
-  it("shows one banner when the search and an export both failed: the search's", async () => {
+  // Built for Shopify 4.3.4: never two banners, and no export goes unanswered
+  it("shows one banner when the search and an export both failed, saying both", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 500 })));
     await renderList(listData({ rows: [], hasNext: false, query: "smith", searchFailed: true }));
     await act(async () => {
@@ -207,9 +216,45 @@ describe("Customers list", () => {
     });
     await act(async () => {});
 
-    expect([...document.querySelectorAll("s-banner")].map((b) => [b.getAttribute("tone"), b.textContent])).toEqual([
-      ["critical", "Shopify didn't answer the search. Try again."],
+    const banners = [...document.querySelectorAll("s-banner")];
+    expect(banners.map((b) => b.getAttribute("tone"))).toEqual(["critical"]);
+    expect([...banners[0].querySelectorAll("s-text")].map((t) => t.textContent)).toEqual([
+      "Shopify didn't answer the search. Try again.",
+      "The file couldn't be made. Try again.",
     ]);
+  });
+
+  // A failed export is about the search it was made under; a later search doesn't say it again
+  it("clears a failed export's banner once the search or tier changes", async () => {
+    // A navigation's Request carries jsdom's signal too, which Node's Request refuses
+    letFetchersPost();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 500 })));
+    const loaded: string[] = [];
+    await renderList(listData(), {
+      next: (url) => {
+        loaded.push(url.search);
+        return listData({ query: url.searchParams.get("q") ?? "", tierId: url.searchParams.get("tier") ?? "" });
+      },
+    });
+
+    for (const [selector, value, search] of [
+      ["s-search-field", "ann", "?q=ann"],
+      ["s-select", "t1", "?q=ann&tier=t1"],
+    ] as const) {
+      await act(async () => {
+        fireEvent.click(screen.getByText("Export CSV"));
+      });
+      expect(await screen.findByText("The file couldn't be made. Try again.")).toBeTruthy();
+
+      await act(async () => {
+        const field = document.querySelector(selector)!;
+        Object.defineProperty(field, "value", { value, configurable: true, writable: true });
+        fireEvent.change(field);
+      });
+      await waitFor(() => expect(loaded.at(-1)).toBe(search));
+      await act(async () => {});
+      expect(document.querySelector("s-banner"), search).toBeNull();
+    }
   });
 
   // Built for Shopify 4.1.2: on a phone the search box and the tier select stack

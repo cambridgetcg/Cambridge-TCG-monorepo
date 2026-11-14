@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useNavigate, useNavigation } from "react-router";
 
@@ -17,11 +17,11 @@ import { EXPORT_SEARCH_UNREAD, NO_TIER, SEARCH_TOO_BROAD, SEARCH_UNREAD } from "
  * and never stored. Export CSV downloads the same buyers, every page. What
  * went wrong (the export, the search) is said above the table (DESIGN-9),
  * and the table shows it is loading while the next page loads (DESIGN-16).
- * Both are errors, so red, and only one banner shows at a time (Built for
- * Shopify 4.2.4 and 4.3.4): a search Shopify didn't answer comes first,
- * because the list itself can't show what was asked for and an export reads
- * the same search; a failed export shows once the search is answered. The
- * filter row stacks below 500 px of width (4.1.2).
+ * Both are errors, so red, and they share one banner (Built for Shopify
+ * 4.2.4 and 4.3.4): a search Shopify didn't answer first, then a failed
+ * export. A failed export is about the search it was made under, so a new
+ * search or tier clears it. The filter row stacks below 500 px of width
+ * (4.1.2).
  */
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -76,6 +76,8 @@ export default function Customers() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const current = { query: d.query, tierId: d.tierId, page: d.page };
+  // A failed export is said only under the search it was made with
+  useEffect(() => setExportError(null), [d.query, d.tierId]);
 
   // fetch carries App Bridge's session token; a plain link would not
   const download = async () => {
@@ -105,7 +107,8 @@ export default function Customers() {
   };
 
   const filtered = d.query !== "" || d.tierId !== "";
-  const banner = d.searchFailed ? SEARCH_FAILED : exportError;
+  // What went wrong, for the page's one banner
+  const problems = [d.searchFailed ? SEARCH_FAILED : null, exportError].filter((said) => said !== null);
   // The same filters from page 1, as a link (A21-F4)
   const pageOne = `/app/customers${hrefWith(current, { page: 1 }).replace(/^\?$/, "")}`;
 
@@ -115,9 +118,19 @@ export default function Customers() {
         Export CSV
       </s-button>
       {/* The page's banner in the same stack as Home's (M3d-F6) */}
-      {banner ? (
+      {problems.length > 0 ? (
         <s-stack slot="supplemental-start" gap="base">
-          <s-banner tone="critical">{banner}</s-banner>
+          <s-banner tone="critical">
+            {problems.length === 1 ? (
+              problems[0]
+            ) : (
+              <s-stack gap="small-200">
+                {problems.map((said) => (
+                  <s-text key={said}>{said}</s-text>
+                ))}
+              </s-stack>
+            )}
+          </s-banner>
         </s-stack>
       ) : null}
       {d.searchUnread || d.searchCut ? (

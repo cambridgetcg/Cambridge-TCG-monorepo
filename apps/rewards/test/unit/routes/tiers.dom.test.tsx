@@ -25,6 +25,8 @@ vi.mock("~/admin/polling", async (original) => {
 });
 
 const { default: Tiers } = await import("~/routes/app.tiers");
+// The action's own words, so the page is fed only refusals saveTier can give
+const { TIER_ERRORS } = await import("~/lib/tiers.server");
 
 const TIERS = [
   { id: "t0", name: "Bronze", minSpend: "0", percent: "5", members: 14, lowest: true, version: "2026-11-01T10:00:00.000Z" },
@@ -204,31 +206,106 @@ describe("Tiers page", () => {
     letFetchersPost();
     let answers = 0;
     await renderTiers(page(), {
+      // What saveTier answers for a tier with no name at Gold's minimum spend
       answer: async () =>
-        answers++ === 0 ? { ok: false, errors: { name: "Another tier has this name.", form: "Something else." } } : { ok: true },
+        answers++ === 0 ? { ok: false, errors: { name: TIER_ERRORS.nameMissing, minSpend: TIER_ERRORS.minSpendTaken } } : { ok: true },
     });
     const hideOverlay = vi.fn();
     tierModal().hideOverlay = hideOverlay;
+    const name = () => tierModal().querySelector('s-text-field[name="name"]')!;
+    const minSpend = () => tierModal().querySelector('s-money-field[name="minSpend"]')!;
 
     fireEvent.click(addTierButton());
-    await type(document.querySelector('s-text-field[name="name"]')!, "Gold");
-    await type(document.querySelector('s-money-field[name="minSpend"]')!, "250");
+    await type(minSpend(), "500");
     await type(document.querySelector('s-number-field[name="percent"]')!, "7");
     await act(async () => {
       fireEvent.click(modalSave());
     });
     await waitFor(() => expect(modalSave().hasAttribute("loading")).toBe(false));
-    expect(document.querySelector('s-text-field[name="name"]')?.getAttribute("error")).toBe("Another tier has this name.");
-    expect(screen.getByText("Something else.").closest("s-modal")).toBe(tierModal());
-    expect(screen.getByText("Something else.").getAttribute("tone")).toBe("critical");
+    expect([name().getAttribute("error"), minSpend().getAttribute("error")]).toEqual(["Enter a name.", "Another tier has this minimum spend."]);
     expect(hideOverlay).not.toHaveBeenCalled();
 
-    await type(document.querySelector('s-text-field[name="name"]')!, "Silver");
+    await type(name(), "Silver");
+    await type(minSpend(), "250");
     await act(async () => {
       fireEvent.click(modalSave());
     });
     await waitFor(() => expect(hideOverlay).toHaveBeenCalledTimes(1));
-    expect(document.querySelector('s-text-field[name="name"]')?.hasAttribute("error")).toBe(false);
+    expect([name().hasAttribute("error"), minSpend().hasAttribute("error")]).toEqual([false, false]);
+  });
+
+  // CONCURRENCY-3's refusal is about the whole form: said in red inside the modal, which stays open
+  it("says in the modal, in red, that the tier changed since it was opened", async () => {
+    letFetchersPost();
+    await renderTiers(page(), { answer: async () => ({ ok: false, errors: { form: TIER_ERRORS.changed } }) });
+    const hideOverlay = vi.fn();
+    tierModal().hideOverlay = hideOverlay;
+
+    fireEvent.click(screen.getAllByText("Edit")[1]);
+    await act(async () => {});
+    await act(async () => {
+      fireEvent.click(modalSave());
+    });
+
+    const said = await screen.findByText("This tier changed since you opened it. Reload the page.");
+    expect([said.closest("s-modal"), said.getAttribute("tone")]).toEqual([tierModal(), "critical"]);
+    expect(hideOverlay).not.toHaveBeenCalled();
+  });
+
+  // Built for Shopify 4.2.4: a save answered after the merchant closed the
+  // modal and opened it again is not shown against the new opening
+  it("keeps a save's answer to the opening it was posted from", async () => {
+    letFetchersPost();
+    pollingCalls.length = 0;
+    const answers: Array<(answer: unknown) => void> = [];
+    await renderTiers(page(), { answer: () => new Promise((resolve) => answers.push(resolve)) });
+    const hideOverlay = vi.fn();
+    tierModal().hideOverlay = hideOverlay;
+    // The action answers the save it was posted
+    const answer = async (value: unknown) => {
+      await waitFor(() => expect(answers).toHaveLength(1));
+      await act(async () => {
+        answers.shift()!(value);
+      });
+    };
+
+    // Gold's edit is saved at Bronze's minimum; before the answer the merchant
+    // closes it and opens Add tier
+    fireEvent.click(screen.getAllByText("Edit")[1]);
+    await act(async () => {});
+    await type(document.querySelector('s-money-field[name="minSpend"]')!, "0");
+    await act(async () => {
+      fireEvent.click(modalSave());
+    });
+    fireEvent.click(addTierButton());
+    await act(async () => {});
+    await answer({ ok: false, errors: { minSpend: TIER_ERRORS.minSpendTaken } });
+    await waitFor(() => expect(modalSave().hasAttribute("loading")).toBe(false));
+    expect(tierModal().getAttribute("heading")).toBe("Add a tier");
+    expect(document.querySelector('s-money-field[name="minSpend"]')?.hasAttribute("error")).toBe(false);
+    expect(hideOverlay).not.toHaveBeenCalled();
+
+    // The new tier's save is taken after the merchant opened Bronze: Bronze's
+    // form stays open, and the change still counts (Ruling 82)
+    await type(document.querySelector('s-text-field[name="name"]')!, "Silver");
+    await type(document.querySelector('s-money-field[name="minSpend"]')!, "250");
+    await type(document.querySelector('s-number-field[name="percent"]')!, "7");
+    await act(async () => {
+      fireEvent.click(modalSave());
+    });
+    fireEvent.click(screen.getAllByText("Edit")[0]);
+    await act(async () => {});
+    await answer({ ok: true });
+    await waitFor(() => expect(pollingCalls.at(-1)?.[2]).toEqual({ forMs: 120_000, restartKey: 1 }));
+    expect(hideOverlay).not.toHaveBeenCalled();
+    expect(tierModal().getAttribute("heading")).toBe("Edit Bronze");
+
+    // The open form's own save closes it
+    await act(async () => {
+      fireEvent.click(modalSave());
+    });
+    await answer({ ok: true });
+    await waitFor(() => expect(hideOverlay).toHaveBeenCalledTimes(1));
   });
 
   // DESIGN-18: Polaris's money field, in the shop's currency, whole amounts from 0
