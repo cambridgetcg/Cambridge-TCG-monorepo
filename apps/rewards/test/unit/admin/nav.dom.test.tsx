@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { letFetchersPost } from "../helpers/fetcher-posts";
 
 // The layout's loader is replaced by the stub's; nothing here reaches Shopify
 // or the database.
@@ -9,7 +11,10 @@ vi.mock("~/shopify.server", () => ({ authenticate: {} }));
 
 const { default: App } = await import("~/routes/app");
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 function renderShell() {
   const Stub = createRoutesStub([
@@ -17,13 +22,16 @@ function renderShell() {
       id: "routes/app",
       path: "/app",
       Component: App,
-      loader: () => ({ apiKey: "test-api-key" }),
-      children: [{ index: true, Component: () => <p>Home page</p> }],
+      loader: () => null,
+      children: [
+        { index: true, Component: () => <p>Home page</p> },
+        { path: "customers", Component: () => <p>Customers page</p> },
+      ],
     },
   ]);
   // The loader's answer as server rendering hands it over, so the router
   // runs no loader in jsdom (whose AbortSignal Node's Request refuses).
-  render(<Stub initialEntries={["/app"]} hydrationData={{ loaderData: { "routes/app": { apiKey: "test-api-key" } } }} />);
+  render(<Stub initialEntries={["/app"]} hydrationData={{ loaderData: { "routes/app": null } }} />);
 }
 
 describe("the admin shell", () => {
@@ -43,14 +51,26 @@ describe("the admin shell", () => {
     expect(links.map((link) => link.getAttribute("rel"))).toEqual(["home", null, null, null, null]);
   });
 
-  it("loads App Bridge with the app's key and Polaris 2", async () => {
+  // Built for Shopify 3.1.1: App Bridge and Polaris load in the document's head (root.tsx, test/unit/document.dom.test.tsx)
+  it("adds no second App Bridge or Polaris script to the page", async () => {
     renderShell();
     await screen.findByText("Home page");
 
-    const sources = [...document.querySelectorAll("script")].map((script) => script.getAttribute("src"));
-    expect(sources).toContain("https://cdn.shopify.com/shopifycloud/polaris-2.js");
-    expect(document.querySelector('script[src="https://cdn.shopify.com/shopifycloud/app-bridge.js"]')?.getAttribute("data-api-key")).toBe(
-      "test-api-key",
-    );
+    expect(document.querySelectorAll("script")).toHaveLength(0);
+  });
+
+  it("follows a shopify:navigate from a menu link without reloading", async () => {
+    // A navigation builds a Node Request from jsdom's AbortSignal, which Node refuses
+    letFetchersPost();
+    renderShell();
+    await screen.findByText("Home page");
+
+    const customers = document.querySelector('s-app-nav > s-link[href="/app/customers"]')!;
+    act(() => {
+      customers.dispatchEvent(new Event("shopify:navigate", { bubbles: true }));
+    });
+
+    expect(await screen.findByText("Customers page")).toBeTruthy();
+    expect(screen.queryByText("Home page")).toBeNull();
   });
 });
