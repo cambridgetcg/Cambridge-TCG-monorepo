@@ -60,13 +60,13 @@ export function cardRushHostFor(runAt: Date): string {
   return hosts[Math.floor(runAt.getTime() / CARDRUSH_RUN_INTERVAL_MS) % hosts.length]!;
 }
 
-/** Never-read pages first, in sitemap order, then the page whose latest
- * reading is oldest. A quarantined reading counts as read: otherwise pages
- * that never yield a price (sealed product, supplies, gone pages) would come
- * first in every run and starve the singles.
+/** Each of a host's pages' latest reading, in epoch ms by source product id:
+ * an observation's retrieved_at, or the inserted_at of a batch whose
+ * quarantine names the page. A quarantined reading counts as read: otherwise
+ * pages that never yield a price (sealed product, supplies, gone pages) would
+ * come first in every run and starve the singles.
  */
-export async function chooseStalestCardRushPages(host: string, productUrls: readonly string[], capacity: number, runQuery: typeof query = query): Promise<string[]> {
-  if (capacity <= 0 || !productUrls.length) return [];
+export async function readCardRushReadings(host: string, runQuery: typeof query = query): Promise<Map<string, number>> {
   const prefix = `${host}/product/`;
   const read = await runQuery(`SELECT id, max(at) AS at FROM (
       SELECT source_product_id AS id, max(retrieved_at) AS at FROM member_price_observations
@@ -75,11 +75,24 @@ export async function chooseStalestCardRushPages(host: string, productUrls: read
       SELECT q->>'sourceProductId', max(b.inserted_at) FROM member_price_batches b CROSS JOIN LATERAL jsonb_array_elements(b.quarantine) q
        WHERE b.source = 'cardrush' AND starts_with(q->>'sourceProductId', $1) GROUP BY 1
     ) readings GROUP BY id`, [prefix]);
-  const last = new Map(read.rows.map(row => [String(row.id), new Date(row.at).getTime()]));
+  return new Map(read.rows.map(row => [String(row.id), new Date(row.at).getTime()]));
+}
+
+/** Never-read pages first, in sitemap order, then the page whose latest
+ * reading (`last`, from readCardRushReadings) is oldest, up to `capacity`.
+ */
+export function orderStalestCardRushPages(productUrls: readonly string[], last: ReadonlyMap<string, number>, capacity: number): string[] {
   return productUrls.map((url, order) => ({ url, order, at: last.get(cardRushSourceProductId(url) ?? '') ?? -Infinity }))
     .sort((a, b) => a.at - b.at || a.order - b.order)
-    .slice(0, capacity)
+    .slice(0, Math.max(0, capacity))
     .map(entry => entry.url);
+}
+
+/** The stalest pages of a host, never-read first (orderStalestCardRushPages
+ * over readCardRushReadings). No query when there is nothing to choose. */
+export async function chooseStalestCardRushPages(host: string, productUrls: readonly string[], capacity: number, runQuery: typeof query = query): Promise<string[]> {
+  if (capacity <= 0 || !productUrls.length) return [];
+  return orderStalestCardRushPages(productUrls, await readCardRushReadings(host, runQuery), capacity);
 }
 
 export async function collectCardRush(options: {
