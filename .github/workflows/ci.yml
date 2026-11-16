@@ -162,6 +162,7 @@ jobs:
           src/lib/datafeed/cardmarket-collector.integration.test.ts
           src/lib/datafeed/collector-hosts.integration.test.ts
           src/lib/datafeed/collector-lease.integration.test.ts
+          src/lib/datafeed/collectors/cardrush-basket.integration.test.ts
           src/lib/datafeed/collectors/cardrush.integration.test.ts
           src/lib/datafeed/collectors/tcgplayer.integration.test.ts
           src/lib/datafeed/listing-images.integration.test.ts

@@ -422,7 +422,7 @@ function JobOutcomes({ jobs, filter }: { jobs: Awaited<ReturnType<typeof loadMon
     <>
       <DataTable<JobOutcomeRow>
         rows={latest}
-        rowKey={(row) => row.job}
+        rowKey={(row) => `${row.job}:${typeof row.counts.host === "string" ? row.counts.host : ""}`}
         empty="No outcome recorded yet (a disabled job records none)."
         minWidth={760}
         columns={[

@@ -129,6 +129,7 @@ export function cardRushJobOutcome(summary: CardRushRunSummary | null): JobOutco
       crosswalks: summary.crosswalks ? { ...summary.crosswalks } : undefined,
       listingImagesWritten: summary.listingImages?.written,
       hostStateRecorded: summary.hostState?.recorded,
+      reread: summary.reread ? { ...summary.reread } : undefined,
     }),
   };
 }

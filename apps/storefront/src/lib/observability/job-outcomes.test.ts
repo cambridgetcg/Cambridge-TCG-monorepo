@@ -39,6 +39,12 @@ describe("job outcome counts", () => {
     expect(cardRushJobOutcome({ ran: true, host: "www.cardrush-pokemon.jp", runAt: "x", requested: 0, observed: 0, quarantined: 0, unavailable: { code: "SOURCE_UNAVAILABLE", reason: "challenge-challenge" } }).outcome)
       .toBe("unavailable:challenge-challenge");
     expect(cardRushJobOutcome(null)).toEqual({ outcome: "unavailable:collector-failed", counts: {} });
+    // A One Piece run says what its chooser found of the re-read basket, as whole numbers one level down.
+    const reread = { basket: 40, listed: 39, due: 25, chosen: 20, urgent: 3, lapsed: 2, oldestHours: 200 };
+    const withBasket = cardRushJobOutcome({ ran: true, host: "www.cardrush-op.jp", runAt: "2026-11-18T00:15:00.000Z", requested: 25, observed: 24, quarantined: 1, reread });
+    expect(withBasket.counts.reread).toEqual(reread);
+    expect(Object.values(withBasket.counts.reread as Record<string, unknown>).every(value => Number.isSafeInteger(value))).toBe(true);
+    expect(withBasket.counts.reread).not.toBe(reread);
     expect(tcgplayerJobOutcome({ ran: false, reason: "host-backing-off", host: "mpapi.tcgplayer.com", notBefore: "2026-11-05T13:00:00.000Z", suspendedAt: null, suspendedReason: null, runAt: "x", requests: 0 }))
       .toEqual({ outcome: "refused:host-backing-off", counts: { host: "mpapi.tcgplayer.com", notBefore: "2026-11-05T13:00:00.000Z", suspendedAt: null, suspendedReason: null } });
     expect(derivationJobOutcome({ ok: true, ran: false, reason: "already-derived", runId: "4", asOf: "2026-11-05", methodVersion: "ctcg.market-derived/v1" }))

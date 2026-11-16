@@ -97,6 +97,18 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-11-16 ─────────────────────────────────────────────────────────
   {
+    id: "cardrush-one-piece-reread-basket",
+    date: "2026-11-16",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (CardRush One Piece rows), /api/v1/heartbeat",
+    summary:
+      "The CardRush collector gives up to 80% of each One Piece run to re-reading a fixed basket of listings, each about every four days; the rest of the run reads pages not yet read, as before.",
+    detail:
+      "The basket is, per set, the 30 listings whose first reading was an ungraded price a set crosswalk places (548 listings in 22 sets on 2026-11-16). A re-read row shows its new price and retrievedAt on /prices. The request rate and budget are unchanged, so One Piece's first pass through its sitemap is expected to end around mid-2027 rather than early 2027. The other CardRush hosts are read as before. The CardRush cron's description at /api/v1/heartbeat now says this. No field or endpoint changes. The basket's size, four-day cycle and 80% share are agents' sizing; reading most of the budget as re-reads at the same load was the owner's decision of 2026-11-16.",
+    related_urls: ["/api/v1/heartbeat", "/prices"],
+  },
+  {
     id: "verify-digest-1-test-record-removed",
     // The removal and the page and API changes are of the same day.
     date: "2026-11-16",

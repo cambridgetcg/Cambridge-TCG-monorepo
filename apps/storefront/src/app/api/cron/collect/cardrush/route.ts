@@ -4,9 +4,10 @@
  *
  * Off unless DATA_COLLECT_CARDRUSH is exactly "on": until then an
  * authenticated call answers ran:false before touching the network or the
- * database. When on, each run reads one CardRush host's sitemap and its
- * stalest product pages at 0.5 rps under Cambridge's own User-Agent, within
- * a 270 s budget, and writes one batch (lib/datafeed/collectors/cardrush.ts).
+ * database. When on, each run reads one CardRush host's sitemap and the
+ * product pages its chooser picks (lib/datafeed/collectors/cardrush.ts) at
+ * 0.5 rps under Cambridge's own User-Agent, within a 270 s budget, and writes
+ * one batch.
  * A host that refuses the identified collector is reported
  * SOURCE_UNAVAILABLE (503, with a batch that names the refusal), not retried
  * another way. One run reads a host at a
