@@ -65,7 +65,8 @@ const HOUR = 3_600_000, DAY = 24 * HOUR;
  * (docs/plans/tcg-data-platform/paid-data-api.md#cardrush-basket), not the
  * owner's. */
 export const CARDRUSH_REREAD: Readonly<{ share: number; perSet: number; frozenAt: string; dueAfterMs: number }> = Object.freeze({
-  /** Most of a run's capacity due members may take. 0 restores the earlier order exactly. */
+  /** Most of a run's capacity due members may take. 0 restores the earlier
+   * order exactly; the tests that pin 0.8 and simulate the basket change with it. */
   share: 0.8,
   /** Listings per set. */
   perSet: 30,

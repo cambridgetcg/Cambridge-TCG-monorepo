@@ -270,18 +270,21 @@ budget less the 60 s write reserve) at one request every 2 s, and robots.txt
 and the sitemap come out of the same bucket, so it reads about 103 product
 pages. Twelve runs a day over six hosts give each host two, so about 206
 pages per host a day. A full pass of a host takes about 24 days on Dragon
-Ball (4,889 products in the 2026-05 probe), about two months on One Piece
-(12,549 in that probe and 14,887 product URLs in its 2026-10-28 sitemap: 61
-to 72 days) and Digimon (13,520), about six months on Battle Spirits and
-Vanguard (35,485 and 40,642) and nearly a year on Pokémon (70,507). A
-derivation takes inputs at most 7 days old, so on a given day at most about
-1,450 products per host can be CardRush inputs: roughly one One Piece product
-in ten. Reading singles first, or giving the One Piece host more of the
+Ball (4,889 products in the 2026-05 probe), about two months on Digimon
+(13,520) and, before its re-read basket, on One Piece (12,549 in that probe
+and 14,887 product URLs in its 2026-10-28 sitemap: 61 to 72 days), about six
+months on Battle Spirits and Vanguard (35,485 and 40,642) and nearly a year
+on Pokémon (70,507). From the basket's deployment One Piece gives about 65
+pages a day to first reads, so its first pass is expected to end around
+mid-2027 ([basket](#cardrush-basket)). A derivation takes inputs at most 7
+days old, so on a given day at most about 1,450 products per host can be
+CardRush inputs: roughly one One Piece product in ten. Reading singles
+first, or giving the One Piece host more of the
 twelve slots, would raise that at the same 0.5 rps per host; either is Yu's
 call.
 
-<a id="cardrush-basket"></a>**Re-reading a fixed basket (from its deployment
-in the week of 2026-11-16).** The owner decided on 2026-11-16 that most of the
+<a id="cardrush-basket"></a>**Re-reading a fixed basket (from its
+deployment).** The owner decided on 2026-11-16 that most of the
 CardRush page budget goes to re-reading a fixed set of listings and the rest
 to pages never read, at the same load. The chooser (`chooseCardRushPages` in
 `apps/storefront/src/lib/datafeed/collectors/cardrush.ts`) does this on each
@@ -313,7 +316,9 @@ about 548, `listed` close to it and `chosen` about 80; a `listed` well below
 `basket`, or no `reread` at all, calls for a look before the next run. The
 numbers (30, four days, 80%) are agents' sizing against the 2026-11-16
 measurements, not the owner's. `CARDRUSH_REREAD.share = 0` restores the
-earlier order exactly.
+earlier order exactly; the tests that pin the 80% share and simulate the
+basket (`cardrush.test.ts`, `cardrush-basket.integration.test.ts`) change in
+the same commit.
 
 **One run at a time (migration 0143).** Two overlapping runs, from a duplicate
 cron delivery or a manual authenticated call during a scheduled run, would
@@ -787,7 +792,7 @@ as "unknown", the same as a day whose run is not yet due.
 decision before `DATA_API_READS` is turned on.
 
 - *Expected to be addressed by the re-read basket ([§2](#cardrush-basket)),
-  from its deployment in the week of 2026-11-16; not yet observed.* CardRush
+  from its deployment; not yet observed.* CardRush
   index levels have so far moved only with the JPY to GBP rate: the collector
   had read no listing twice, so each matched pair carried the same yen price
   forward, and on 2026-11-16 every CardRush step since 2026-11-10 still equalled
@@ -830,7 +835,18 @@ decision before `DATA_API_READS` is turned on.
     6.5 days; at 1,194 some members were never re-read, because members within
     two days of lapsing always go first, so a lapsed one can wait for good.
     Before the basket nears 1,000, lower the per-set count, or give One Piece
-    more slots (the owner's call: it raises that host's load).
+    more slots (the owner's call: it raises that host's load). Urgency is
+    judged by a reading's age (6 to 8 days), not by the derivation's
+    deadline: a reading made on day d counts in the 07:00 UTC runs up to
+    d + 7, so its re-read must land before 07:00 on d + 8. By age, a member
+    read in a 12:15 run is still "urgent" at the 12:15 run eight days on,
+    after that morning's derivation went without it, and one read in the
+    first seconds of a 00:15 run can be "lapsed" at the 00:15 run eight days
+    on, though still in time. While every urgent member fits in the share
+    this changes nothing (on 2026-11-16, 48 to 72 urgent members
+    were expected at the first runs against a share of 80 or 81, and the
+    simulation has none once caught up); once they compete, rank by the
+    deadline.
   - The other four hosts read as before; nothing derived reads them.
   - A day on which Cardmarket's price file did not change is written as a
     flat day, with nothing in the run marking its input as unchanged
