@@ -209,7 +209,7 @@ describe("agents methodology: signed acts", () => {
 
   it("says who decided what, that it is closed in production, and what the privacy notice lacks", () => {
     const text = pageText();
-    expect(text).toContain('Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys ("Yes offer the keys").');
+    expect(text).toContain("Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys. How they work");
     expect(text).toContain("is an AI agent's design and defaults, which Yu has not reviewed.");
     expect(text).toContain("The path is closed unless a deployment opens it, and production has not");
     expect(text).toContain("Since 10 November 2026 the privacy notice describes the records it keeps, in words an AI agent wrote.");

@@ -7,8 +7,8 @@
  *
  * The design is docs/plans/agent-auth/held-keys.md ("The statement", "How
  * the store verifies" steps 2, 3 and 6, "At binding"). The owner decided on
- * 2026-11-10 to offer agent-held keys ("Yes offer the keys"); every rule and
- * number here is an agent's proposal in that page, not the owner's choice.
+ * 2026-11-10 to offer agent-held keys; every rule and number here is an
+ * agent's proposal in that page, not the owner's choice.
  *
  * What a valid signature proves: control of the key over these exact bytes.
  * Not identity, not consent, and no authority to act for anyone else.

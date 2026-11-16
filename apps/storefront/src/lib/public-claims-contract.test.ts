@@ -273,9 +273,9 @@ describe("public claims match publication boundaries", () => {
     expect(plan).toContain("agents took them as their own calls under Yu's delegation of 2026-10-20");
     expect(plan).toContain("and they are not Yu's decisions.");
     expect(plan).toContain("When the build finished, nothing was merged, no migration was applied and nothing was deployed");
-    // The word for the migration, the deploy and the notice is quoted, and the
-    // reading of it is recorded as an agent's.
-    expect(plan).toContain('Yu answered on 2026-11-10, verbatim: "yes go ahead for merging and deployment to production."');
+    // The word for the migration, the deploy and the notice is recorded, not
+    // quoted, and the reading of it is recorded as an agent's.
+    expect(plan).toContain("Yu answered on 2026-11-10 with a word to merge and deploy to production.");
     expect(plan).toContain("An agent (Claude Code session 99296f25) read that as covering all three");
     expect(plan).toContain("remain agents' calls, not Yu's decisions.");
     const plans = prose("../../docs/plans/agent-auth/README.md");
@@ -352,17 +352,17 @@ describe("public claims match publication boundaries", () => {
     const openapi = prose("src/app/api/openapi.json/route.ts");
     const detail = HELD_KEYS_ENTRY.detail ?? "";
 
-    // Attribution: Yu decided to offer the keys, in Yu's words; nothing else.
-    expect(detail).toContain('Yu decided on 2026-11-10 to offer agent-held signing keys ("Yes offer the keys").');
-    expect(methodology).toContain('Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys ("Yes offer the keys").');
-    expect(plan).toContain('Yu answered on 2026-11-10, verbatim: "Yes offer the keys". That settles D1 and nothing else');
-    expect(plans).toContain('Whether to offer it at all was Yu\'s call (its D1), and Yu answered on 2026-11-10: "Yes offer the keys".');
+    // Attribution: Yu decided that the keys are offered; nothing else.
+    expect(detail).toContain("Yu decided on 2026-11-10 to offer agent-held signing keys. How they work");
+    expect(methodology).toContain("Yu, who runs Cambridge TCG, decided on 2026-11-10 to offer agents their own signing keys. How they work");
+    expect(plan).toContain("Yu answered yes on 2026-11-10. That settles D1 and nothing else");
+    expect(plans).toContain("Whether to offer it at all was Yu's call (its D1), and Yu answered yes on 2026-11-10.");
     // Every other choice is an agent's proposal or default.
     expect(detail).toContain("How they work, the acts, numbers, limits and retention, is an AI agent's design and defaults, which Yu has not reviewed.");
     expect(methodology).toContain("is an AI agent's design and defaults, which Yu has not reviewed.");
     expect(plan).toContain("Slice 1 was built on 2026-11-10 by AI agents");
     expect(plan).toContain("Numbers and names this page left open** (agents' defaults)");
-    expect(plans).toContain("Yu decided to offer the keys; the design, its numbers and its retention are agents' proposals and defaults, unreviewed by Yu.");
+    expect(plans).toContain("Yu decided that agent-held keys are offered; the design, its numbers and its retention are agents' proposals and defaults, unreviewed by Yu.");
     expect(migration).toContain("Every name, number and retention below is an agent's proposal in that page, not the owner's decision.");
     for (const [path, sentence] of [
       ["src/lib/agents/signed-act-verify.ts", "every rule and number here is an agent's proposal in that page, not the owner's choice."],
@@ -397,7 +397,7 @@ describe("public claims match publication boundaries", () => {
     expect(plan).toContain("applying `0152` (to production before this code is merged to `main`, even with the flag off");
 
     // What still waits for Yu, and the notice this build did not change.
-    expect(detail).toContain('Yu answered, verbatim: "yes to 230, and go for what pulls you and what you recommended". An AI agent read that as covering 0152, the merge with its new dependency (@noble/curves 2.2.0, Node 20.19 or later) and the privacy notice\'s rows');
+    expect(detail).toContain("Yu answered, saying yes to pull request #230. An AI agent read that answer as covering 0152, the merge with its new dependency (@noble/curves 2.2.0, Node 20.19 or later) and the privacy notice's rows");
     expect(detail).toContain("turning the path on in production was not asked, and has had no word.");
     expect(plan).toContain("When the build finished it had no rows for signing keys, act events or act nonces, and the build did not change it.");
     expect(methodology).toContain("Since 10 November 2026 the privacy notice describes the records it keeps, in words an AI agent wrote.");
@@ -608,6 +608,61 @@ describe("public claims match publication boundaries", () => {
           const unlisted = claimSentences(changed, status).filter((found) => !(HELD_KEYS_CLAIM_SENTENCES[name] ?? []).includes(found));
           expect(unlisted, `${name}: ${sentence}`).toEqual([sentence]);
         }
+      }
+    });
+
+    // Yu's words are kept in the estate's private decision ledger, not in this
+    // repository: these texts say what Yu decided, not how Yu put it. The
+    // spans below sit in a sentence that names Yu or "the owner" but are not
+    // Yu's words.
+    const NOT_YU_QUOTATIONS = [
+      // Merge 2d3c69c6's Will line (README question 1).
+      "keep publication and write paths paused until their rights, identity, and approval boundaries are real and verified",
+      // An agent's own recommendation (held-keys.md D1).
+      "from slice 1",
+      // Help pages about an account's owner (reopening-terms.md, support-procedures.md).
+      "GitHub Support does not delete your personal account on your behalf",
+      "For security reasons, Shopify Support can't deactivate your store for you",
+      // A section title of the 2026-10-30 decision file.
+      "What this does not decide",
+    ];
+
+    /** Spans of three or more words, not listed above, double-quoted or block-quoted
+     *  ("> " to the sentence's end), in the sentences that name Yu or the owner. */
+    function quotedBesideYu(text: string, listed: readonly string[] = NOT_YU_QUOTATIONS): string[] {
+      return sentences(text)
+        .filter((sentence) => NAMES_YU.test(sentence))
+        .flatMap((sentence) => [...sentence.matchAll(/"([^"]+)"|“([^”]+)”|(?:^|\s)>\s(.+)/g)].map((match) => (match[1] ?? match[2] ?? match[3]).trim().replace(/[.,;:]$/, "")))
+        .filter((span) => span.split(/\s+/).length >= 3 && !listed.includes(span));
+    }
+
+    it("quotes no words of Yu's: no sentence naming Yu or the owner carries a quoted span of three or more words", () => {
+      const plan = (name: string) => prose(`../../docs/plans/agent-auth/${name}`);
+      const texts: Record<string, string> = {
+        ...Object.fromEntries(Object.entries(pinnedTexts()).map(([name, { text }]) => [name, text])),
+        "changelog: agent-key-expiry-per-key": `${KEY_EXPIRY_ENTRY.summary} ${KEY_EXPIRY_ENTRY.detail ?? ""}`,
+        ...Object.fromEntries(["key-expiry.md", "reopening-terms.md", "support-procedures.md", "account-continuity.md"].map((name) => [name, plan(name)])),
+        "2026-10-30 decision": prose("../../docs/decisions/2026-10-30-agent-registration-support-key-expiry.md"),
+        "the-four-auth-realms.md": prose("../../docs/connections/the-four-auth-realms.md"),
+      };
+      // A quotation of Yu: say what was decided instead. Someone else's words: list them above.
+      const found = Object.entries(texts).flatMap(([name, text]) => quotedBesideYu(text).map((span) => `${name}: ${span}`));
+      expect(found).toEqual([]);
+      // A listed span that is gone: take it off the list.
+      const all = Object.values(texts).flatMap((text) => quotedBesideYu(text, []));
+      expect(NOT_YU_QUOTATIONS.filter((span) => !all.includes(span))).toEqual([]);
+      // The guard is live: a quotation put back fails it, quoted or block-quoted,
+      // in a doc and on the served page. (A stand-in, not Yu's words.)
+      const quotation = "words put back from the ledger";
+      const restored = [
+        ["held-keys.md", "Yu answered yes on 2026-11-10.", `Yu answered on 2026-11-10: "${quotation}".`],
+        ["methodology: signed acts", "their own signing keys.", `their own signing keys ("${quotation}").`],
+        ["2026-10-30 decision", "protocols offer it.", `protocols offer it, in these words: > ${quotation}.`],
+      ] as const;
+      for (const [name, from, to] of restored) {
+        const changed = texts[name].replace(from, to);
+        expect(changed, name).not.toBe(texts[name]);
+        expect(quotedBesideYu(changed), name).toEqual([quotation]);
       }
     });
 

@@ -140,8 +140,8 @@ export const AGENT_KEY_REVOCATION = {
  * Agent-held signing keys (docs/plans/agent-auth/held-keys.md), as GET
  * /api/mcp and the discovery documents publish them. The words hold whether
  * or not a deployment has opened the path; GET /api/mcp, which is never
- * cached, adds whether this one has. The owner decided to offer the keys
- * (2026-11-10); the wording is an agent's.
+ * cached, adds whether this one has. The owner decided that agent-held keys
+ * are offered (2026-11-10); the wording is an agent's.
  */
 export const AGENT_SIGNED_ACTS = {
   tool: "agent.act",
