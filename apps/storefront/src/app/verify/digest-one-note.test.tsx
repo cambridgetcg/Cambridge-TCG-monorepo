@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 // digest.ts imports the database helper; nothing here reaches it.
 vi.mock("@/lib/db", () => ({ query: vi.fn() }));
 
+import { CHANGELOG_ENTRIES } from "@/lib/changelog";
 import { leafHash, merkleRoot } from "@/lib/provable-draw/digest";
 import { computeLeaf, merkleRoot as browserMerkleRoot } from "@/lib/bounty/verify-client";
 import { DIGEST_ONE_LEAF as NOTE, DIGEST_ONE_NOTE_ID, DigestOneNote } from "./digest-one-note";
@@ -68,6 +69,22 @@ describe("the digest #1 note recomputes what the chain publishes", () => {
     expect(chain).toBe(NOTE.chainHash);
     expect(sha256(Buffer.concat([Buffer.alloc(32), Buffer.from(NOTE.leaf, "hex")]))).toBe(NOTE.chainHash);
   });
+
+  it("matches the copies in the changelog entry", () => {
+    const entry = CHANGELOG_ENTRIES.find((e) => e.id === "verify-digest-1-test-record-removed");
+    expect(entry?.detail).toBeDefined();
+    for (const value of [NOTE.leaf, NOTE.chainHash, NOTE.pullId, NOTE.revealedAtIso]) {
+      expect(entry!.detail, value).toContain(value);
+    }
+    // Every 64-digit hash and every id the entry names is one of the note's.
+    for (const hash of entry!.detail!.match(/\b[0-9a-f]{64}\b/g) ?? []) {
+      expect([NOTE.leaf, NOTE.chainHash], hash).toContain(hash);
+    }
+    const ids = entry!.detail!.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi) ?? [];
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) expect(id).toBe(NOTE.pullId);
+    expect(entry!.detail).toContain(`/api/verify/pull/${NOTE.pullId} now answers 404`);
+  });
 });
 
 describe("the digest #1 note as rendered", () => {
@@ -95,11 +112,21 @@ describe("the digest #1 note as rendered", () => {
   it("writes the spaces after inline code explicitly, which Next's compiler keeps", () => {
     // Next's compiler (unlike this test's) drops the leading space of a text
     // run that holds an entity, so "</code> now answer &ldquo;" rendered as
-    // "</code>now". Only an explicit {" "} survives both.
+    // "</code>now". Any JSX compiler drops a line break after an element.
+    // Only an explicit {" "} survives both, so the source may follow </code>
+    // with neither a space nor a line break before a word or an entity.
     const source = readFileSync(resolve(process.cwd(), "src/app/verify/digest-one-note.tsx"), "utf8");
-    expect(source).not.toMatch(/<\/code> [A-Za-z]/);
-    expect(words).toContain(`${NOTE.pullId} now answer`);
-    expect(words).toContain("server_seed text is the commitment");
+    expect(source).not.toMatch(/<\/code>\s*[A-Za-z&]/);
+  });
+
+  it("renders a space on each side of inline code", () => {
+    // Checked on the markup, not on `words`, whose tag-to-space step would
+    // hide a missing space.
+    expect(html).not.toMatch(/<\/code>[A-Za-z0-9]/);
+    expect(html).not.toMatch(/[A-Za-z0-9]<code/);
+    expect(html).toContain("</code> into our");
+    expect(html).toContain("</code> now answer");
+    expect(html).toContain("</code> text is the commitment");
   });
 
   it("keeps the recomputation in a disclosure, open on request", () => {
