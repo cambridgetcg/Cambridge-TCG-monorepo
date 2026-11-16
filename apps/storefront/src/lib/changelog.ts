@@ -98,10 +98,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-11-16 ─────────────────────────────────────────────────────────
   {
     id: "verify-digest-1-test-record-removed",
-    // Dated the day of the removal. The page and API changes reach
-    // production when this is merged: on merge, set date to the deploy day
-    // (an agent reads it as the day the answer changed); the detail keeps
-    // the removal's own date.
+    // The removal and the page and API changes are of the same day.
     date: "2026-11-16",
     kind: "endpoint-modified",
     impact: "additive",
