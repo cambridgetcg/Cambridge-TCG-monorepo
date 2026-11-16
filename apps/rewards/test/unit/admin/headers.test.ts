@@ -35,6 +35,7 @@ describe("privatePageHeaders", () => {
     ["Orders", () => import("~/routes/app.orders._index")],
     ["the order panel", () => import("~/routes/app.orders.$id")],
     ["Customer data requests", () => import("~/routes/app.settings.privacy")],
+    ["the setup guide", () => import("~/routes/app.welcome")],
   ])("is what %s sends", async (_page, load) => {
     expect((await load()).headers).toBe(privatePageHeaders);
   });
