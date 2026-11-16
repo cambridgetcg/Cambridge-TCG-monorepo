@@ -11,6 +11,12 @@ import { query } from "@/lib/db";
 //
 // Everything returned is aggregate or operational metadata. Internal draw ids
 // and alert summaries stay private because they can contain reward-row keys.
+//
+// Every self-audit figure, the failures list included, covers the last
+// AUDIT_LOOKBACK_DAYS days. With no revealed draw to sample, the self-audit
+// writes no row and the digest job publishes nothing, so an empty window and
+// an old tip are expected; has_auditable_draws and has_undigested_draws let a
+// reader tell that from a job that has stopped.
 
 const AUDIT_LOOKBACK_DAYS = 7;
 
@@ -29,8 +35,30 @@ export async function GET() {
         COALESCE(SUM(leaf_count) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days'), 0)::int AS leaves_7d
        FROM fairness_digests`,
   );
+  // Whether anything waits for the digest job or the self-audit. Booleans,
+  // not counts: low-volume activity counts stay unpublished, as on
+  // /api/verify/fairness. The predicates mirror runFairnessDigest
+  // (lib/provable-draw/digest.ts) and runFairnessSelfAudit
+  // (lib/provable-draw/self-audit.ts), without the self-audit's one-minute
+  // age floor.
+  const drawPools = await query(
+    `SELECT
+        (EXISTS (SELECT 1 FROM bounty_pulls
+                  WHERE revealed_at IS NOT NULL AND merkle_digest_id IS NULL)
+         OR EXISTS (SELECT 1 FROM verifiable_draws
+                  WHERE revealed_at IS NOT NULL AND merkle_digest_id IS NULL)) AS has_undigested_draws,
+        (EXISTS (SELECT 1 FROM bounty_pulls
+                  WHERE revealed_at IS NOT NULL AND rng_server_seed IS NOT NULL
+                    AND rolled_rarity IS NOT NULL)
+         OR EXISTS (SELECT 1 FROM verifiable_draws
+                  WHERE revealed_at IS NOT NULL AND server_seed IS NOT NULL
+                    AND outcome IS NOT NULL AND outcome ? 'weight_order')) AS has_auditable_draws`,
+  );
+  const pools = drawPools.rows[0] as { has_undigested_draws?: unknown; has_auditable_draws?: unknown } | undefined;
+  // null means unknown, and a reader takes it as neither answer.
+  const flag = (value: unknown): boolean | null => (typeof value === "boolean" ? value : null);
 
-  // Self-audit pass rate + recent failures
+  // Self-audit pass rate + recent failures, over the same window
   const auditStats = await query(
     `SELECT
         COUNT(*)::int AS total,
@@ -44,8 +72,10 @@ export async function GET() {
     `SELECT source, reason, run_at
        FROM fairness_audits
       WHERE NOT all_ok
+        AND run_at >= NOW() - make_interval(days => $1)
       ORDER BY run_at DESC
       LIMIT 10`,
+    [AUDIT_LOOKBACK_DAYS],
   );
 
   // Open drift alerts
@@ -81,12 +111,14 @@ export async function GET() {
         last_7d: digestStats.rows[0]?.last_7d ?? 0,
         last_24h: digestStats.rows[0]?.last_24h ?? 0,
         leaves_7d: digestStats.rows[0]?.leaves_7d ?? 0,
+        has_undigested_draws: flag(pools?.has_undigested_draws),
       },
       self_audit: {
         lookback_days: AUDIT_LOOKBACK_DAYS,
         total: auditStats.rows[0]?.total ?? 0,
         passed: auditStats.rows[0]?.passed ?? 0,
         failed: auditStats.rows[0]?.failed ?? 0,
+        has_auditable_draws: flag(pools?.has_auditable_draws),
         recent_failures: recentFailures.rows,
         daily_series: auditSeries.rows,
       },

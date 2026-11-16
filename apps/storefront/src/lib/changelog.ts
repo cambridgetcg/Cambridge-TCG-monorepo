@@ -95,6 +95,23 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-11-16 ─────────────────────────────────────────────────────────
+  {
+    id: "verify-digest-1-test-record-removed",
+    // Dated the day of the removal; the page and API changes reach
+    // production when this is merged.
+    date: "2026-11-16",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/verify/health + /verify/health + /verify/chain",
+    summary:
+      "The only bounty pull ever digested was a test record and has been removed; digest #1 and every self-audit row are kept, and /verify/health and /verify/chain carry a dated note. /api/verify/health's recent_failures now covers only its 7-day window, and two new fields let an empty window read as nothing to audit.",
+    detail:
+      "Digest #1 (one leaf, root f8af7e09cca7485a12348e16f129218e31868a1e5a4948d76de5814a64c6afef, chain_hash 5b774ff83199b171205e0d528ff1764de4bb19bbd25b13a6ddd74992a60afdec) is the chain's only digest. Its leaf was bounty pull 742a274e-0035-4bc3-89e4-e4093ec01efc, which a test script wrote into the production database on 2026-04-23, with a rarity the script set instead of a rolled one, and did not remove (the script left the repository on 2026-11-06, commit 6c1041c1). The self-audit failed it every time, on the outcome check alone: its commitment and ordering checks passed, and so did its digest check once it was in a digest. That made 183,133 self-audit rows between 2026-04-25 and 2026-11-16, every one failing and every one about this record, so /verify/health showed 0 passed. On 2026-11-16 at 19:47 UTC the pull row and its test account were removed, with the owner's agreement given that day; nothing else was changed, and /api/verify/pull/742a274e-0035-4bc3-89e4-e4093ec01efc now answers 404. The chain still verifies, as it should: it shows that a digest has not changed, not that the records behind its leaves are still stored. The note on both pages gives the four values that recompute the leaf (id, commitment, server_seed, and revealed_at cut to whole milliseconds, 2026-04-23T20:57:59.268Z), says that with one leaf the root is the leaf, and that chain_hash is SHA-256 of 32 zero bytes followed by the root; a test recomputes all three from the note's own values. The pull's client seed stays unpublished, as its receipt withheld it, and the leaf does not use it. " +
+      "On /api/verify/health, a value change and two new fields: self_audit.recent_failures listed the last 10 failures however old and now lists the last 10 within lookback_days, like total, passed and failed. self_audit.has_auditable_draws says whether a revealed draw exists for the self-audit to sample, and digest.has_undigested_draws whether a revealed draw is waiting for a digest; each is null if unknown, and neither is a count. With no draws, the self-audit writes no row and the digest job publishes nothing, so an empty window and an old chain tip are expected: /verify/health now says there is nothing to audit instead of showing 0 / 0, and does not mark an old tip or a day without digests as stale when no draw is waiting. Until 2026-11-23 19:47 UTC the window still holds the old failing rows, and the page says that no new rows are being written. " +
+      "Smaller corrections on the same pages: the drift panel no longer says every group is within its threshold, since a group with fewer than 200 samples in 7 days is not tested; /verify/chain says a matching chain_hash shows that no digest up to the cached one was altered (it said no prior commitment was), and writes 1 leaf rather than 1 leaves; the self-audit sparkline is drawn in a neutral colour rather than green; and /verify/health says when its feed cannot be read instead of loading for ever. The wording here and on the pages is an AI agent's, for review.",
+    related_urls: ["/verify/chain#digest-1-note", "/verify/health", "/api/verify/health"],
+  },
   // ── 2026-11-13 ─────────────────────────────────────────────────────────
   {
     id: "agent-refusals-effect-tool-refusals-typed",

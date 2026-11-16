@@ -30,6 +30,7 @@ import Link from "next/link";
 import { query } from "@/lib/db";
 
 import { Audience } from "@/lib/ui";
+import { DigestOneNote } from "../digest-one-note";
 export const metadata = {
   title: "Draw digest chain | Cambridge TCG",
   description:
@@ -113,7 +114,7 @@ export default async function ChainPage() {
                 {tip.chain_hash ?? "(unlinked — predates migration 0066)"}
               </code>
               <p className="text-xs text-ink-faint mt-3">
-                Digest #{tip.id} · root {shortHash(tip.root)} · {tip.leaf_count} leaves ·
+                Digest #{tip.id} · root {shortHash(tip.root)} · {tip.leaf_count} leaf{tip.leaf_count === 1 ? "" : "s"} ·
                 published {fmtDate(tip.created_at)}
               </p>
             </>
@@ -124,6 +125,9 @@ export default async function ChainPage() {
             </p>
           )}
         </section>
+
+        {/* ── Dated note: digest #1's only leaf was a test record ─── */}
+        <DigestOneNote open />
 
         {/* ── The chain ───────────────────────────────────────────── */}
         <section className="mb-6">
@@ -196,7 +200,7 @@ export default async function ChainPage() {
             <li>Return any time in the future and re-fetch the chain.</li>
             <li>Walk forward from any prior digest by recomputing
               <code className="font-mono text-accent mx-1">chain_hash = SHA-256(prev_hash || root)</code>.</li>
-            <li>If your computed chain_hash for the digest you cached matches what we currently publish, no prior commitment has been altered. If it doesn&apos;t match — and you trust the SHA-256 standard — we have rewritten history.</li>
+            <li>If your computed chain_hash for the digest you cached matches what we currently publish, no digest up to that one has been altered. The chain does not show whether the records behind its leaves are still stored. If it doesn&apos;t match — and you trust the SHA-256 standard — we have rewritten history.</li>
           </ol>
           <p className="text-xs text-ink-faint mt-4">
             This is a hash-linked log, not blockchain consensus or an external
