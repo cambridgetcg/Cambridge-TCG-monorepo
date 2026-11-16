@@ -7,7 +7,9 @@
  * scrubEvent is Sentry's beforeSend: on top of the redaction, an event keeps
  * no query string, cookies or request body (plan Global Constraints: no
  * query strings and no request bodies are logged), so the signed buyer id the
- * app proxy puts in every query string never reaches Sentry.
+ * app proxy puts in every query string never reaches Sentry. It keeps only
+ * the request headers an allow-list names (KEPT_REQUEST_HEADERS), so no
+ * location or client address header (x-vercel-ip-*, x-forwarded-for) does.
  *
  * `monitoring` is how the rest of the app reports to Sentry (cron.server.ts
  * reports cron runs through it); it does nothing until Sentry is set up
@@ -94,15 +96,73 @@ function withoutQuery(url: string): string {
   }
 }
 
+/**
+ * The request headers an event may keep (#237): ones that help debugging and
+ * identify no one. A header not named here is dropped, so a header a host or
+ * proxy adds later (Vercel's x-vercel-ip-* location headers, client address
+ * headers such as x-forwarded-for) never reaches Sentry by default. Matched
+ * in lower case. `referer` is left out on purpose: its path and query can
+ * carry the store, the admin's host parameter or a customer's order-status
+ * token, and the request URL already says where the error happened.
+ */
+const KEPT_REQUEST_HEADERS = new Set([
+  "user-agent",
+  "accept",
+  "accept-language",
+  "accept-encoding",
+  "content-type",
+  "content-length",
+  "host",
+  "x-vercel-id",
+  "x-vercel-deployment-url",
+  // Shopify's request id and topic headers (webhook-hmac.server.ts reads
+  // the webhook id and topic).
+  "x-shopify-topic",
+  "x-shopify-webhook-id",
+  "x-shopify-api-version",
+  "x-request-id",
+]);
+// The browser's fetch metadata (sec-fetch-site, -mode, -dest, -user).
+const KEPT_REQUEST_HEADER_PREFIX = "sec-fetch-";
+
+function isKeptRequestHeader(name: string): boolean {
+  const lower = name.toLowerCase();
+  return KEPT_REQUEST_HEADERS.has(lower) || lower.startsWith(KEPT_REQUEST_HEADER_PREFIX);
+}
+
+// A transaction's spans carry the request headers again, one attribute each,
+// and the response's headers too.
+const REQUEST_HEADER_ATTRIBUTE_PREFIX = "http.request.header.";
+const RESPONSE_HEADER_ATTRIBUTE_PREFIX = "http.response.header.";
+
+/**
+ * Span data without the request-header attributes the allow-list doesn't
+ * keep, and without any response header: none helps debug an error, and a
+ * redirect's location or a frame-ancestors policy names the store.
+ */
+function withKeptHeaderAttributes<D extends Record<string, unknown>>(data: D): D {
+  return Object.fromEntries(
+    Object.entries(data).filter(([key]) => {
+      const lower = key.toLowerCase();
+      if (lower.startsWith(RESPONSE_HEADER_ATTRIBUTE_PREFIX)) return false;
+      return !lower.startsWith(REQUEST_HEADER_ATTRIBUTE_PREFIX) || isKeptRequestHeader(lower.slice(REQUEST_HEADER_ATTRIBUTE_PREFIX.length));
+    }),
+  ) as D;
+}
+
 type Scrubbable = {
   request?: { url?: string; query_string?: unknown; cookies?: unknown; data?: unknown; headers?: Record<string, string> };
   breadcrumbs?: Array<{ data?: Record<string, unknown> }>;
+  contexts?: { trace?: { data?: Record<string, unknown> } };
+  spans?: Array<{ data?: Record<string, unknown> }>;
 };
 
 /**
  * Sentry's beforeSend (and beforeSendTransaction): the event without its
- * request's query string, cookies and body, its URLs without their query
- * strings, and everything left redacted.
+ * request's query string, cookies and body, with only the request headers
+ * the allow-list keeps (on the request and on a transaction's spans), no
+ * response headers, its URLs without their query strings, and everything
+ * left redacted.
  */
 export function scrubEvent<E extends Scrubbable>(event: E): E | null {
   const copy = { ...event };
@@ -113,7 +173,7 @@ export function scrubEvent<E extends Scrubbable>(event: E): E | null {
     delete request.data;
     if (typeof request.url === "string") request.url = withoutQuery(request.url);
     if (request.headers) {
-      request.headers = Object.fromEntries(Object.entries(request.headers).filter(([name]) => name.toLowerCase() !== "cookie"));
+      request.headers = Object.fromEntries(Object.entries(request.headers).filter(([name]) => isKeptRequestHeader(name)));
     }
     copy.request = request;
   }
@@ -122,7 +182,41 @@ export function scrubEvent<E extends Scrubbable>(event: E): E | null {
       typeof crumb.data?.url === "string" ? { ...crumb, data: { ...crumb.data, url: withoutQuery(crumb.data.url) } } : crumb,
     );
   }
+  if (event.contexts?.trace?.data) {
+    copy.contexts = { ...event.contexts, trace: { ...event.contexts.trace, data: withKeptHeaderAttributes(event.contexts.trace.data) } };
+  }
+  if (event.spans) {
+    copy.spans = event.spans.map((span) => (span.data ? { ...span, data: withKeptHeaderAttributes(span.data) } : span));
+  }
   return redactSensitiveTelemetryValue(copy) as E;
+}
+
+/** How entry.server.tsx starts Sentry. */
+export function sentryOptions(dsn: string, environment: string | undefined) {
+  return {
+    dsn,
+    environment,
+    // Collect no user, cookie, body, query or variable data in the first
+    // place; scrubEvent is the second line
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpBodies: [],
+      urlQueryParams: false,
+      graphQL: { document: true, variables: false },
+      databaseQueryData: false,
+      stackFrameVariables: false,
+    },
+    tracesSampleRate: 0,
+    // tracesSampleRate 0 still traces a request whose incoming sentry-trace
+    // header says it was sampled. With the SDK's default lifecycle ("stream")
+    // those spans are sent span by span, skipping beforeSendTransaction and
+    // so the scrub, with every request header as an attribute (#237).
+    // "static" sends them as one transaction, through scrubEvent.
+    traceLifecycle: "static",
+    beforeSend: (event) => scrubEvent(event),
+    beforeSendTransaction: (event) => scrubEvent(event),
+  } satisfies Parameters<typeof Sentry.init>[0];
 }
 
 /**
