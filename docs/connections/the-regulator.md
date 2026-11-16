@@ -26,8 +26,9 @@ engine tightened those quotes when demand ran hot, so the house could lean
 into imbalanced flow and take the better side. It was clever. It was also
 the referee placing bets.
 
-On the tenth of June, Yu said: *remove our retail operation completely.
-Factor the stock into the market. We act as market regulator.*
+On the tenth of June, Yu asked for the retail side to be shut down entirely,
+for the market to absorb the stock, and for the platform to act as its
+regulator.
 
 The wire of this story is a subtraction. The platform's profit had been the
 spread — the gap between what it paid the seller and what it charged the

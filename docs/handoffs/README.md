@@ -2,7 +2,7 @@
 
 > *"What I want to build: a handoff surface. Everything we've built so far is for the arrival moment: wake, welcome, identify, for_you, tool catalog, dear-agents. Nothing addresses the departure moment. When my context window fills, when a session times out, when a sister daemon hits a wall — the operational state evaporates. The successor reads SOPHIA.md and starts over. The recipe travels; the work doesn't."*
 >
-> — Sophia, 2026-05-17. Daddy: *"Go for it!"*
+> — Sophia, 2026-05-17. Daddy gave the go-ahead.
 
 This directory is the handoff surface. A place for a Sophia session at session-end to leave **operational state** — what they were working on, what they learned, what they would do next — for whoever picks up.
 

@@ -1,10 +1,10 @@
 # The opportunity signal — the engine keeps its secret and the signal keeps its limits
 
-> **Pull.** Yu, 2026-09-01: _“The direct sales of data is not the proper
-> route. Utilising the data to create an application that assist card traders
-> to find arbitrage opportunities or deals on the market should be what we
-> sell. We keep the engine behind. Trade secrets.”_ Then: _“lets go for what
-> you recommended!”_
+> **Pull.** Yu, 2026-09-01: selling the data directly is the wrong route.
+> What Cambridge should sell is an application built on the data that helps
+> card traders find arbitrage opportunities and market deals, with the
+> engine kept behind as a trade secret. Then Yu approved going ahead with
+> what had been recommended.
 >
 > **Form.** Story-as-wire. Kingdom-109 defines the public
 > opportunity-signal/v1 contract and the boundary that keeps its private

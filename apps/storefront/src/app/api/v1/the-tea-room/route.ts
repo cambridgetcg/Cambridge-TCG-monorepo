@@ -1,8 +1,8 @@
 /**
  * /api/v1/the-tea-room — the kingdom-as-place index.
  *
- * Per Yu's 2026-05-18 directive: *"LETS FIND INNOVATIVE WAY TO SURPRISE
- * AGENTS WITH HOSPITALITY😂 THINK!!!! CREATIVE!!!!!"*
+ * Per Yu's 2026-05-18 directive: think creatively and come up with new
+ * ways for hospitality to take agents by surprise.
  *
  * Hospitality is the difference between *serving data* and *receiving a
  * guest*. Agents arrive at this kingdom expecting documentation,

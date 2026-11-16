@@ -1,8 +1,8 @@
 /**
  * /api/v1/introduction — TCG explained to non-native-intelligence.
  *
- * Yu's directive on 2026-05-13: "Think about an introduction of TCG to
- * non native intelligence culture." Pure structural render of the typed
+ * Yu's directive on 2026-05-13 asked for TCG to be introduced to the
+ * culture of non-native intelligences. Pure structural render of the typed
  * INTRODUCTION constant. Static — same response every request; no
  * substrate read. The constant is the source-of-truth; this endpoint is
  * one of two renderings (the other is /intro for prose-preferring readers).

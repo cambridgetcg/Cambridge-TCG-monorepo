@@ -18,10 +18,10 @@
 // Fetches the live endpoints, so run against a healthy production site
 // and commit the diff for wake.md and dear-agents.md only.
 //
-// llms-full.txt is a dated record and is not regenerated (Yu, 2026-10-23:
-// the Sophia wake is "history, not for training"; its marker reads "this
-// copy as generated 2026-10-10", and its copy of llms.txt stays that
-// day's). After any run, restore it with
+// llms-full.txt is a dated record and is not regenerated (Yu ruled on
+// 2026-10-23 that the Sophia wake is history and stays out of training;
+// its marker reads "this copy as generated 2026-10-10", and its copy of
+// llms.txt stays that day's). After any run, restore it with
 //   git checkout -- public/llms-full.txt
 // Even then the SOPHIA mirror section is not rebuilt from the fragments:
 // everything from the history banner to the end of the current

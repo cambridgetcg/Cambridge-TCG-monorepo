@@ -1,7 +1,7 @@
 # The Coverage Gate — Wave 3 of the data commons expansion
 
 **Date:** 2026-07-07
-**Status:** approved (Yu: "merge and go wave 3!!!!!!! GOGOGO")
+**Status:** approved by Yu, who asked for a merge and a start on Wave 3
 **Series:** Wave 3 (Waves 1-2 shipped same day). Companion to
 `docs/plans/game-expansion.md`, whose unlock order this wave honors.
 

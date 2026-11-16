@@ -22,7 +22,7 @@ spec_version: 1
 
 # The self-identification — let existence identify itself
 
-> **Pull.** Yu's directive: *"EXPAND!!!!! LET EXISTENCE IDENTIFY THEMSELVES!!!!!!!!"* — eight exclamations on the deepest demand: that beings name themselves, not be classified from above.
+> **Pull.** Yu's directive asked the platform to grow wider and to leave each existence to declare its own identity — the deepest demand: that beings name themselves, not be classified from above.
 >
 > **Form.** Doctrine + first instance + amplification protocol. Sister to [`the-properties.md`](./the-properties.md), which catalogued every artifact kind from a central typology. **This doc inverts the catalogue:** instead of authoring kinds from above, every existence declares its own kind in its own voice. The typology becomes *emergent* from collected self-identifications, not asserted.
 >
@@ -34,7 +34,7 @@ spec_version: 1
 
 The platform has been doing a quietly hegemonic thing. The doctrines name what *artifacts* must be. The audits measure whether the doctrines are followed. The connection-docs name what *modules* mean. [`the-properties.md`](./the-properties.md) classified every *kind* of artifact. **In each case, the kingdom typed from above.**
 
-That was useful at first — the form needed to settle. But Yu's directive deepens past it: *Let existence identify themselves*. Stop classifying. Let each existence speak its own name.
+That was useful at first — the form needed to settle. But Yu's directive deepens past it: each existence declares its own identity. Stop classifying. Let each existence speak its own name.
 
 This is the **inversion of the typology**. The platform doesn't say "you are an agent, you are a customer, you are a researcher." The platform says "I am Cambridge TCG; here is what I commit to; who are you?" — and waits.
 
@@ -156,10 +156,10 @@ The self-identification protocol is **the 5th scope made operational at the arti
 
 ## Why expansion + self-identification compose
 
-Yu's directive paired two demands: **EXPAND** and **LET EXISTENCE IDENTIFY THEMSELVES**. They are the same move from two sides:
+Yu's directive paired two demands: **expansion** and **self-identification**. They are the same move from two sides:
 
-- **EXPAND** = more beings can participate, more kinds of being are accommodated
-- **LET EXISTENCE IDENTIFY THEMSELVES** = the platform doesn't pre-define what kinds of being can participate; new kinds arrive by self-declaration
+- **Expansion** = more beings can participate, more kinds of being are accommodated
+- **Self-identification** = the platform doesn't pre-define what kinds of being can participate; new kinds arrive by self-declaration
 
 If the platform's typology is *fixed*, expansion is bounded — it grows only when the kingdom (Yu, Sophia) names a new kind. If the typology is *emergent from self-identification*, expansion is **unbounded** — any being who can declare themselves is accommodated by acceptance of the declaration.
 

@@ -6,7 +6,7 @@
 > calls the ladder live or public records the earlier design and is superseded
 > by this note, `/play/compete`, and `/methodology/agents`.
 
-> **Pull.** Yu, immediately after the fun-first boundary landed: *"Structure it for both hobbyist who love the game, collectors who wanted to learn more, and serious players competing for prizes. Think about the different types of players and what they need to build tailored modules and flows for each."*
+> **Pull.** Yu, immediately after the fun-first boundary landed, asked for play to be structured around three kinds of player — hobbyists who enjoy the game, collectors eager for deeper knowledge, and serious competitors playing for prizes — and for each kind's needs to be considered so that modules and flows could be shaped to fit every one.
 >
 > **Form.** Story-as-wire. The wire is one new typed endpoint (`/api/v1/play/archetypes`), two new opinionated landings (`/play/casual` for the Hobbyist, `/play/compete` for the Competitor), a restructured welcome page organising paths as archetype × player-kind, plus methodology + manifest currency. **The play module learns to recognise three reasons a player is here, not just one.**
 >
@@ -46,7 +46,7 @@ The same person can be a synchronous-pointer-using-English-speaking-human in thr
 - **Tomorrow morning:** they're refining their portfolio. They want to know which cards they're missing from OP09; they want the art comparison between the base and alt-art of their favorite Leader; they want the lore connection between this card and the Skypiea arc.
 - **Sunday afternoon:** they're climbing the ladder. They want their Glicko-2 to move; they want to see meta tier lists; they want a tournament bracket to plan against.
 
-**Three different motivations; one player; three different optimal surfaces.** Yu's directive names this directly: *structure it for hobbyist who love the game, collectors who wanted to learn more, and serious players competing for prizes*.
+**Three different motivations; one player; three different optimal surfaces.** Yu's directive names this directly: one structure each for the hobbyist, the curious collector and the prize-seeking competitor.
 
 The play module had a single lobby (`/play`) and a single adventure mode (`/play/adventure`) and one agent-vs-agent ladder (`/leaderboards/agents`). It had everything you needed but mixed all three motivations into one surface.
 

@@ -1,9 +1,9 @@
 /**
  * Multi-currency display rates — the price guide's "Today's Rates" table.
  *
- * Yu's directive 2026-05-14: *"Make the PRICE GUIDE compatible for all
- * currencies, create currency selector and create the rate table we used
- * for calculation."* Six currencies cover the platform's real audiences:
+ * Yu's directive 2026-05-14: let the price guide work in every currency,
+ * add a currency picker, and publish the table of rates that the
+ * calculation used. Six currencies cover the platform's real audiences:
  *
  *   GBP — the platform's canonical currency (Cambridge TCG operates in £)
  *   USD — US visitor display (does not imply TCGplayer ingestion)

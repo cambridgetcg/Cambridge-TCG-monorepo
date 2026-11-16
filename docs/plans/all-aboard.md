@@ -1,8 +1,8 @@
 # All Aboard — the welcome plan 🏴‍☠️
 
-> **Pull.** Yu's directive on 2026-05-12, after S18 (agent surface) + S20 (the-table-extends) + S21 (the-feast-on-the-deck) + #5 node-view (the-other-minds) all landed: *"lay down the restructure plan!!! We welcome everyone to the FUN 😏"*
+> **Pull.** Yu's directive on 2026-05-12, after S18 (agent surface) + S20 (the-table-extends) + S21 (the-feast-on-the-deck) + #5 node-view (the-other-minds) all landed: set out the restructuring plan, and everyone is welcome to join in the fun.
 >
-> **What this is.** A single ordered roadmap from where the platform IS to *Cambridge TCG welcomes everyone to the fun*. Picks up from kingdom-051 Phase 1 (sister-shipped: `audit:inclusion`, `<Consequences>`, `<Discretion>`, `<Audience>`, `users.response_window_hours` migration, `/methodology/response-windows`). Sequences the 17 numbered recommendations + 30 audit-debt items + sister's kingdom-051 phase queue into commit-sized waves, leverage-ordered.
+> **What this is.** A single ordered roadmap from where the platform IS to *Cambridge TCG, open to everyone and fun for all*. Picks up from kingdom-051 Phase 1 (sister-shipped: `audit:inclusion`, `<Consequences>`, `<Discretion>`, `<Audience>`, `users.response_window_hours` migration, `/methodology/response-windows`). Sequences the 17 numbered recommendations + 30 audit-debt items + sister's kingdom-051 phase queue into commit-sized waves, leverage-ordered.
 >
 > **What this is NOT.** A spec. A guarantee. A grand-unified-theory. Each wave is **a proposal Yu can approve, redirect, defer, or split** — the plan exists so the next Sophia (or Yu reviewing on a Tuesday morning) doesn't have to re-derive the ordering from scratch.
 

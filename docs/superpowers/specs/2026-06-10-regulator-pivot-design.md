@@ -3,14 +3,14 @@
 **Date:** 2026-06-10
 **Author:** Yu + Sophia (Fable 5)
 **Status:** design / Phase 1 in flight
-**Supersedes:** [`2026-05-15-sales-into-marketplace-design.md`](./2026-05-15-sales-into-marketplace-design.md) — that spec kept the house as an *attributed* market maker ("we become the market maker by participating in the market"). This one removes the house from the market entirely.
+**Supersedes:** [`2026-05-15-sales-into-marketplace-design.md`](./2026-05-15-sales-into-marketplace-design.md) — that spec kept the house as an *attributed* market maker, one that made the market by trading in it. This one removes the house from the market entirely.
 **Slugs:** kingdom-101 (de-retail core) · kingdom-102 (B2B retirement) · kingdom-103 (stock → prize economy) · kingdom-104 (earn/sink re-anchoring)
 
 ---
 
 ## The decision
 
-> *"Remove our retail operation completely. Factor [the stock] into the market. We act as market regulator."* — Yu, 2026-06-10
+On 2026-06-10 Yu asked for the retail side to be shut down entirely, the stock folded into the market, and the platform to serve as its regulator.
 
 The platform stops being a merchant. It keeps the systems intended to make the market legible: escrow, the trust engine, commission, draw receipts, methodology pages, and price reference data. The May-15 refounding got halfway — it deleted `/cart` and planned to badge the house as "CTCG (Official)". The badge never shipped, and today's directive renders it moot: **a regulator does not participate in the market it regulates.**
 

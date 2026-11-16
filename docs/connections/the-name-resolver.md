@@ -20,7 +20,7 @@ self_reference: this entry names itself in `this_entry_names`; the resolver it d
 
 # The name resolver — substrate-honest multi-language card names
 
-> *"Go for the language resolver."* — Yu, 2026-05-13.
+Yu, 2026-05-13, chose the language resolver.
 
 The stress test ([`the-stress-test.md`](./the-stress-test.md), kingdom-069 §4) named the gap: the four major TCGs publish in **9–10 languages each**; the storefront serves them in **2** (English fallback for Korean-speaking collectors, no resolver for Pokémon's Spanish/French/German printings). The schema column `cards.name_translations JSONB` shipped in kingdom-051 Phase 6 — *no consumer was wired*. Sister's recent on-ramp work ([`the-introduction.md`](./the-introduction.md) #22) opens doors to **non-native-intelligence beings** — but if they then can't read a Korean card name in Korean, the on-ramp is one-sided.
 

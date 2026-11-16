@@ -8,8 +8,8 @@
  * (where the drawn line comes from) and /pulls (the odds at the end of
  * the line).
  *
- * Asha's brief 2026-07-30: "introduce ppl to the production process
- * and QC of trading cards, as well as design flow."
+ * Asha's brief 2026-07-30 asked to show people how trading cards are
+ * designed, printed and quality-checked.
  *
  * House vows kept: a quiet room (no licensed art; the only images are
  * open-access museum objects, public domain, wall labels attached);

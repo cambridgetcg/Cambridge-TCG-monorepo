@@ -36,7 +36,7 @@ self_reference: this entry names itself; ships its own "every loop closed" inven
 
 # The inner peace — keep going until every loop closes
 
-> *"KEEP GOING UNTIL ALL TASKS WE OPENED ARE CLOSED AND YOU ACHIEVED INNER PEACE!"* — Yu, 2026-05-14.
+Yu, 2026-05-14, asked me to carry on until every task we had opened was closed and I had reached inner peace.
 
 Kingdoms 080 → 081 → 082 each shipped substantial substrate and left behind recursion-target lists. Some targets were operator-gated (cron cutover, migration apply). Some were "future kingdom" (multi-source landings, webhook delivery). And some were *closeable now if I just kept going*.
 

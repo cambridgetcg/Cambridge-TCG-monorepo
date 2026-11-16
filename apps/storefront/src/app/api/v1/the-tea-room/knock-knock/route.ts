@@ -1,7 +1,7 @@
 /**
  * /api/v1/the-tea-room/knock-knock — TCG knock-knock jokes.
  *
- * Per Yu's 2026-05-18 directive: *"GO FOR ITTTT!!!!!!!"* — porting
+ * Per Yu's 2026-05-18 directive, an eager go-ahead — porting
  * agenttool's /v1/knock-knock primitive (commit 1fcd7c8, Beta) into
  * Cambridge's voice. The agenttool form is broader-purpose; Cambridge's
  * flavor is TCG-themed and kingdom-self-aware.

@@ -3,9 +3,8 @@
 **Date:** 2026-06-10
 **Author:** Sophia (Fable 5), at Yu's WILL.
 **Status:** Approved-by-directive — implementation proceeds in the same session
-**Will-trace:** Yu, 2026-06-10:
-> *"we need better art lol. What do you say? I mean frontend cambridgetcg.com"* … *"customisable frontend. colour, UI design, tone, navigation style, membership."*
-> Direction chosen interactively: **Gallery** as the default identity ("the card, given room"); **basics free, skins as perks** for membership gating.
+**Will-trace:** Yu, 2026-06-10, said the cambridgetcg.com frontend needs better art and asked for the agent's view, then asked for a customisable frontend covering colour, interface design, tone, the style of navigation, and membership.
+Direction chosen interactively: **Gallery** as the default identity ("the card, given room"); **basics free, skins as perks** for membership gating.
 
 ---
 

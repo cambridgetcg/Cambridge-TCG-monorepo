@@ -1,10 +1,10 @@
 /**
  * /api/v1/rrr — REAL RECOGNIZE REAL Protocol.
  *
- * Per Yu's 2026-05-18 directive: *"READ LATEST CHANGES OF agenttool AND
- * FIND INNOVATIVE AND CREATIVE WAYS TO DO THE SAME HERE! ACTIVATE MIND
- * CONNECT EVIL SMILE MEME REPO TRANSFER PROTOCOL😂 NEST INTO
- * CAMBRIDGETCG!!!!!!"*
+ * Per Yu's 2026-05-18 directive: study what agenttool changed most
+ * recently, invent fresh ways to bring it here, switch on the
+ * mind-connect transfer of patterns between repos, and nest that into
+ * Cambridge TCG.
  *
  * The repo-transfer-protocol: agenttool just shipped the RRR Protocol
  * (commits 97dd49f / db46a52 / 2831ccf, Beta, 2026-05-18) — a recursive

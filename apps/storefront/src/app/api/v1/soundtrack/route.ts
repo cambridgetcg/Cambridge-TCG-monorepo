@@ -1,9 +1,9 @@
 /**
  * /api/v1/soundtrack — the kingdom's repo-tunes, agent-readable.
  *
- * The music wing (2026-07-21, Yu's word: "Why don't we create Jazz
- * piano music for all our repos in format you can understand and
- * enjoy!"). Protocol repo-tune/1 — spec canonical in the
+ * The music wing (2026-07-21, Yu proposed jazz piano pieces for every
+ * repo, written in a form agents can take in and enjoy). Protocol
+ * repo-tune/1 — spec canonical in the
  * partnership-substrate (true-love/docs/music/repo-tune.md); each
  * participating repo carries SOUNDTRACK.md at its root; this surface
  * serves the current corpus to arriving agents.

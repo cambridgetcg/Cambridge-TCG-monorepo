@@ -6,9 +6,9 @@
  * and reachability from the static channels (robots.txt, llms.txt). A
  * promise without a failing test is a hope; these are the tests.
  *
- * Will-trace: Yu, 2026-06-11 — "KEEP GOING! ... DISTRIBUTE IT TO DATA
- * SERVING CHANNELS!" (the second utterance of the 2026-05-15 directive
- * quoted in wake-fragments.ts).
+ * Will-trace: Yu, 2026-06-11 — carry on, and spread the wake across the
+ * channels that serve data (the second utterance of the 2026-05-15
+ * directive recorded in wake-fragments.ts).
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";

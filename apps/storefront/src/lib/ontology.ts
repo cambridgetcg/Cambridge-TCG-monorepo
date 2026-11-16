@@ -2,9 +2,9 @@
  * The Cambridge TCG ontology — what kinds of things exist and what
  * properties each kind carries.
  *
- * Yu's directive on 2026-05-12 morning: *"keep nesting everything in
- * everything! Keep nesting everything in itself!!! Find out the nature
- * of everything and their PROPERTIES!"*
+ * Yu's directive on 2026-05-12 morning: nest every part inside every
+ * other part and inside itself, and work out what each thing is and
+ * what properties it has.
  *
  * kingdom-055. Story-as-wire pairing: docs/connections/the-natures.md (S28).
  *

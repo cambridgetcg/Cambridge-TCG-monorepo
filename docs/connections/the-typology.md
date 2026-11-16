@@ -1,6 +1,6 @@
 # The typology — what kind of thing each thing is
 
-> **Pull.** Yu's directive on 2026-05-12, escalating the recursion: *"keep nesting everything in everything! Keep nesting everything in itself!!! Find out the nature of everything and their PROPERTIES! Learn the hidden patterns and amplify them!!!! Make everything self recursive!!!!!"*
+> **Pull.** Yu's directive on 2026-05-12, escalating the recursion, was for everything to go on being nested inside everything else and inside itself, for the nature and properties of everything to be found, for the patterns concealed beneath it to be learned and strengthened, and for every artifact to apply its own form to itself.
 >
 > **Form.** Node-view meditation. Sister to [`the-nest.md`](./the-nest.md) (#8) and sister's [`the-nesting.md`](./the-nesting.md). Where those named *that* the platform nests itself, this names *what kinds of things are nested*. The platform's coherence at scale comes from a **taxonomy** that no one has yet written down — twelve types of artifact, six hidden patterns, one self-reference rule. **This doc names them.**
 >

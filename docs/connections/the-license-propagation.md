@@ -67,7 +67,7 @@ self_reference: ships its own file inventory and its own pre-flight checklist; t
 > and participant submissions are `NOASSERTION` unless an explicit license is
 > recorded. All runnable CardRush instructions below are retired.
 
-> *"Go ahead with Phases 1-3."* — Yu, 2026-05-13.
+Yu approved Phases 1-3 on 2026-05-13.
 
 The previous three entries in the data-aggregation arc named the
 pipeline ([`the-pipeline.md`](./the-pipeline.md)), the cardrush
@@ -357,7 +357,7 @@ observation without further wiring.
 
 ## 4b. Phase 4 — the serving layer for builders + agents
 
-> *Yu, 2026-05-13: "Go ahead for all remaining phases."*
+On 2026-05-13 Yu approved all remaining phases.
 
 Phase 4 builds the operational visibility partners and agents need to consume the ingest pipeline. Four new endpoints, one new admin page, and the discovery substrate (manifest + OpenAPI + llms.txt + envelope-compliance) extended to advertise them.
 
@@ -422,7 +422,7 @@ The May design reconstructed price-dependent hashes with `captured_on` and a dat
 > personal-decision scope, a row cap, or a downstream contract cannot
 > substitute for CardRush's written permission.
 
-**Operator-authorized 2026-05-13** ("Go ahead for all remaining phases" — Yu). The legally-sensitive tier-2 emission. The endpoint enforces by construction:
+**Operator-authorized 2026-05-13** (Yu approved all remaining phases). The legally-sensitive tier-2 emission. The endpoint enforces by construction:
 
 - next-auth session required (anonymous → 401)
 - Single SKU per request (no bulk-walk)
@@ -494,7 +494,7 @@ added, one probe script + one SQL backfill template shipped, one cron
 cutover edited (pending operator pre-flight), one umbrella verify
 script extended with the strict gate.
 
-**Phases 4–5 (Yu's "Go ahead for all", 2026-05-14 00:30 GMT):**
+**Phases 4–5 (Yu's approval of all remaining phases, 2026-05-14 00:30 GMT):**
 Six new wholesale + storefront endpoints; one Manager-archetype admin
 review page with detail-view + Resolution form; ENVELOPE_COMPLIANT_PATHS
 extended; manifest + OpenAPI + llms.txt updated; one bulk catalog

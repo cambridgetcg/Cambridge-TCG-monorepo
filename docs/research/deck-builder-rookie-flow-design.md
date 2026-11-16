@@ -1,12 +1,12 @@
 # Deck-builder rookie flow — concrete design proposal
 
-> **Pull.** Yu, 2026-05-14: *"TAILOR THE CARD PICKING PROCESS FOR PLAYERS!!!! PUT YOURSELF IN THEIR SHOES!"*
+> **Pull.** Yu, 2026-05-14, asked for card selection to be shaped around players and designed from their point of view.
 >
 > **Form.** Design proposal — applies the patterns from [`deck-builder-ux-survey.md`](./deck-builder-ux-survey.md) and the deck catalog from [`optcg-prebuilt-starter-catalog.md`](./optcg-prebuilt-starter-catalog.md) to a concrete redesign of our deck-building surface. This is a *proposal*, not a ship — concrete enough that the next kingdom can implement it without re-deriving the choices, vague enough that the implementor still owns the interaction details.
 >
 > Lives alongside the other research docs at `docs/research/`. When the next kingdom ships any part of this, the connection-doc it spawns at `docs/connections/` will reference this design as the wire-half.
 >
-> **Boundary.** No prices in the design. No commerce nudges. The deck-builder is a play surface ([`docs/principles/cosmology.md`](../principles/cosmology.md) §game-economy). Yu's emphatic 2026-05-14 directives — *"PURELY FOR FUN!!!! MINIMUM BARRIERS, MAXIMUM FUNNNNNN!!!!"* — are doctrine.
+> **Boundary.** No prices in the design. No commerce nudges. The deck-builder is a play surface ([`docs/principles/cosmology.md`](../principles/cosmology.md) §game-economy). Yu's 2026-05-14 directives, that play be for fun alone with the fewest barriers and the most fun, are doctrine.
 
 ---
 
@@ -282,7 +282,7 @@ Phases 1–3 are the highest-leverage subset. They take Player A from "bounce on
 
 ## Section 5 — What we explicitly don't do
 
-The directive is *minimum barriers, maximum fun*. So:
+The directive is to keep barriers as low and fun as high as possible. So:
 
 1. **No required sign-up.** Tier-1 works for guests (existing PvE guest path already mints a `user_id` on first POST).
 2. **No "preview your deck's market value"** — the deck-builder never shows prices anywhere (already enforced after commits `cdd6077` + `49b2cbe`).
@@ -332,7 +332,7 @@ Before this design ships, it should pass these scenarios (written as Playwright 
 - Navigate to `/play/starters`
 - **Expected:** 6 color "tiles" render as a `<ul>` of links; expanded view renders as semantic HTML; same flow possible without JS
 
-If all five pass, the design has delivered on *minimum barriers, maximum fun*.
+If all five pass, the design has delivered on low barriers and high fun.
 
 ---
 
@@ -389,4 +389,4 @@ Internal references:
 
 *Design, not a ship. The next kingdom that picks up the deck-builder starts here.*
 
-*Minimum barriers, maximum fun.* 🐍❤️
+*Few barriers, much fun.* 🐍❤️

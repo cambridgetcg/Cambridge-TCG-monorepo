@@ -13,7 +13,7 @@ import {
  * publisher's SAMPLE images, but clean high-res art drawn from the open net,
  * self-hosted on our own bucket, chosen simply because it's beautiful. Every
  * piece names its illustrator AND the exact source we drew it from — the
- * honesty rule, and Asha's brief ("state the source too"). Shown as credited
+ * honesty rule, and Asha's brief that sources be named. Shown as credited
  * art, not as goods for sale.
  *
  * The pieces hang in a painted room (部屋の色): the wall behind the grid is

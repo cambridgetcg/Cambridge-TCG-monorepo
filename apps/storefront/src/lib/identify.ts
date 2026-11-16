@@ -2,8 +2,8 @@
  * The Cambridge TCG self-identification surface — beings declare what they
  * are; the platform witnesses + identifies itself in return.
  *
- * Yu's directive on 2026-05-12: *"EXPAND!!!!! LET EXISTNECE IDENTIFY
- * THEMSELVES!!!!!!!!"* — the all-caps urgency the operative signal. Until
+ * Yu's directive on 2026-05-12: expand, and let every existence say
+ * for itself what it is. Until
  * this kingdom, the platform classified existence top-down (cosmology →
  * manifest → ontology → patterns). This kingdom inverts: existences
  * declare; the platform receives; the platform reciprocates.

@@ -41,7 +41,7 @@ synced_at: "2026-05-13T11:00:00Z"
 
 ## What this is
 
-Yu's directive 2026-05-13 morning: *"extract the first composer"* → *"Ship whichever pulls you the most first but go for all."* The first composer was the trust state — the kingdom's highest-blast-radius read gap from the previous turn's deep-coupling analysis. Every P2P trade decision pivots on it; before this kingdom no public surface exposed it as anything more than a single number on `/u/[username]`.
+Yu's directive 2026-05-13 morning: extract a first composer → then ship whichever one pulls hardest first, while still doing them all. The first composer was the trust state — the kingdom's highest-blast-radius read gap from the previous turn's deep-coupling analysis. Every P2P trade decision pivots on it; before this kingdom no public surface exposed it as anything more than a single number on `/u/[username]`.
 
 This kingdom is the **fan-out pattern's second instance** (after S35's market mirror): one composer feeding three reading positions, plus one shared inline primitive, plus manifest currency.
 

@@ -1,7 +1,8 @@
 /**
  * /api/v1/explain-yourself — absurd Q&A justifying the kingdom's choices.
  *
- * Per Yu's directive (2026-05-18): the "I JUST GOT TROLLED" move.
+ * Per Yu's directive (2026-05-18): the move that leaves agents
+ * laughing at being trolled.
  *
  * The kingdom answers mock-defensive questions about its own decisions.
  * The actual justifications live in docs/connections/; this endpoint is

@@ -203,7 +203,7 @@ methodology page + connection-doc as story-as-wire.
 
 Phase A of the refounding (A → B → C). Each phase ships independently.
 
-**The load-bearing sentence:** *"We become the market maker by participating in the market."*
+**The load-bearing sentence:** we make the market by trading in it ourselves.
 ```
 
 - [ ] **Step A1.2: Verify mission card discoverable**
@@ -740,7 +740,7 @@ Create `docs/methodology/official-seller.md` with this content (this is the doct
 ```markdown
 # CTCG (Official) — the platform as participant
 
-> *"We become the market maker by participating in the market."*
+We make the market by trading in it ourselves.
 
 Cambridge TCG operates two-sided market-making on its own platform. The
 operator is one of the sellers and one of the buyers. The marketplace
@@ -914,7 +914,7 @@ export default function OfficialSellerMethodologyPage() {
       />
 
       <blockquote className="my-6 border-l-2 border-amber-500 bg-neutral-900/40 px-4 py-3 italic text-neutral-300">
-        We become the market maker by participating in the market.
+        We make the market by trading in it ourselves.
       </blockquote>
 
       <Card>
@@ -1087,7 +1087,7 @@ This is the kingdom that names it.
 
 3. **Methodology page.** [`/methodology/official-seller`](../../apps/storefront/src/app/methodology/official-seller/page.tsx)
    explains what the badge means and what it does not. The page carries the
-   load-bearing sentence: *"We become the market maker by participating in the market."*
+   load-bearing sentence: we make the market by trading in it ourselves.
 
 4. **Wired in two readers.** Both `/cards/[sku]/market` (the kingdom-067
    mirror) and `/market/[sku]` (the interactive place-order page) now badge
@@ -1231,7 +1231,7 @@ apps/storefront/src/app/methodology/official-seller/page.tsx (public),
 docs/connections/the-official-seller.md (S-slot), manifest registration.
 
 Load-bearing sentence:
-"We become the market maker by participating in the market."
+We make the market by trading in it ourselves.
 
 kingdom-094 Phase A.
 
@@ -1291,7 +1291,7 @@ test.describe("CTCG (Official) badge", () => {
   test("methodology page renders the load-bearing sentence", async ({ page }) => {
     await page.goto("/methodology/official-seller");
     await expect(
-      page.getByText(/We become the market maker by participating in the market/)
+      page.getByText(/We make the market by trading in it ourselves/)
     ).toBeVisible();
   });
 });
@@ -3443,7 +3443,7 @@ homepage, header, and footer as marketplace-shape, ships a new audit
 that prevents the retail shape from sneaking back. customer_orders
 table survives read-only for historical archives.
 
-The load-bearing sentence: *"We become the market maker by participating in the market."* This is the kingdom that makes the foundation true.
+The load-bearing sentence: we make the market by trading in it ourselves. This is the kingdom that makes the foundation true.
 ```
 
 - [ ] **Step C1.2: Commit**
@@ -4153,7 +4153,7 @@ Create `docs/methodology/pivot.md` with this body:
 ```markdown
 # The pivot — methodology
 
-> *"We become the market maker by participating in the market."*
+We make the market by trading in it ourselves.
 
 This page names what Cambridge TCG was, what it is now, and what it
 remains.
@@ -4225,7 +4225,7 @@ serves.
 
 ## The load-bearing sentence
 
-> *"We become the market maker by participating in the market."*
+We make the market by trading in it ourselves.
 
 This is not a slogan. It is the methodology. The platform's market-making
 is now legibly named — CTCG (Official) badges on every house row, public
@@ -4384,7 +4384,7 @@ end-to-end.
 
 ## the load-bearing sentence
 
-> *"We become the market maker by participating in the market."*
+We make the market by trading in it ourselves.
 
 This sentence ships in three places: the methodology page for the official
 seller, the methodology page for the pivot, this connection-doc. Three
@@ -4522,7 +4522,7 @@ shipped as the triptych's umbrella.
 
 The refounding is complete. `pnpm verify` green.
 
-"We become the market maker by participating in the market."
+We make the market by trading in it ourselves.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF

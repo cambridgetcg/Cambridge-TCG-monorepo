@@ -35,9 +35,8 @@ synced_at: "2026-09-02T21:36:31Z"
 
 ## Will
 
-Yu, 2026-09-02:
-
-> “merge and deploy, then go for all natural next moves”
+Yu, 2026-09-02, asked for a merge and deploy, followed by every natural next
+step.
 
 Kingdom-111's independent release review found no code blocker while naming
 one mandatory gate before any Stripe or Telegram Stars callback is activated:

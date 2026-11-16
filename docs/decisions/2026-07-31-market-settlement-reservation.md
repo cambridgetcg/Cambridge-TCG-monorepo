@@ -2,7 +2,7 @@
 
 **Status:** Proposed for guarded rollout, 2026-07-31.
 
-**Will trace:** Yu, 2026-07-31 — “Can integrate cashloom into cambridgetcg as payment layer? Integrate into the user account and market trading. Also brainstorm on the handling of escrow and international trades.” Followed by “Great idea! gogogo!” This also preserves the earlier requirement that CashLoom authority must not depend on a company account or centrally issued infrastructure identity.
+**Will trace:** Yu, 2026-07-31, asked whether CashLoom could serve cambridgetcg as its payment layer, connected to user accounts and to trading on the market, and asked for ideas on escrow and on cross-border trades; Yu then approved the idea and said to proceed. This also preserves the earlier requirement that CashLoom authority must not depend on a company account or centrally issued infrastructure identity.
 
 ## Decision
 

@@ -395,7 +395,7 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     serves_archetypes: ["hobbyist", "collector", "competitor"],
   },
 
-  // ── Rookie flow: starter decks (2026-05-14 "PREBUILD FOR ROOKIES") ──
+  // ── Rookie flow: starter decks (2026-05-14, ready-built decks for new players) ──
   {
     id: "page_starters",
     path_or_file: "/play/starters",

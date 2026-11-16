@@ -193,7 +193,7 @@ export function trustGateToBidResult(
 /**
  * Pure seller-payout math at settlement. Extracted verbatim from
  * calculateSellerPayout so it can be asserted without a DB round-trip —
- * the money math itself is unchanged (錢就再講): commission comes from
+ * the money math itself is unchanged (money comes later): commission comes from
  * @cambridge-tcg/pricing's per-item-capped computeCommissionAmount, and
  * the effective rate is the tier floor min(stored, current-tier).
  *

@@ -107,6 +107,10 @@ async function subscribe(userId: string, planId: "pro" | "business", fields: Rec
 }
 const header = (token: string) => `Bearer ${token}`;
 /** Concurrency checks must not straddle a wall-clock minute. */
+// Waits up to about six seconds for a fresh rate-limit minute, which is longer
+// than vitest's default five-second test timeout: every block that calls it
+// sets FRESH_MINUTE_TIMEOUT.
+const FRESH_MINUTE_TIMEOUT = { timeout: 15_000 };
 async function freshMinute() {
   const { rows } = await state.pool.query("SELECT EXTRACT(EPOCH FROM date_trunc('minute', NOW()) + interval '1 minute' - NOW())::float AS seconds");
   if (rows[0].seconds < 6) await new Promise(resolve => setTimeout(resolve, rows[0].seconds * 1000 + 200));
@@ -173,7 +177,7 @@ describe.skipIf(!target)("data API PostgreSQL integration (explicit loopback *_t
     }
   });
 
-  describe("bearer, entitlement and metering", () => {
+  describe("bearer, entitlement and metering", FRESH_MINUTE_TIMEOUT, () => {
     it("meters a free key at 30 a minute in data_api_rate_buckets and never in the free route's buckets", async () => {
       const { token, key } = await createMemberKey(users.free, "free");
       await freshMinute();
@@ -476,7 +480,7 @@ describe.skipIf(!target)("data API PostgreSQL integration (explicit loopback *_t
     });
   });
 
-  describe("routes over the real bearer and readers", () => {
+  describe("routes over the real bearer and readers", FRESH_MINUTE_TIMEOUT, () => {
     it("answers 401 without a key and serves enveloped, metered, rights-labelled data with one", async () => {
       const anonymous = await referenceRoute.GET(new Request("https://cambridgetcg.com/api/v1/market/reference?sku=op-op01-001-en"));
       expect(anonymous.status).toBe(401);

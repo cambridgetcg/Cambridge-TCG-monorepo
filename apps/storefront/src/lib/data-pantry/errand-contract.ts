@@ -1,5 +1,5 @@
 /**
- * Quiet Doors — Yu's ruling 2026-10-23, "errand served, guest free".
+ * Quiet Doors — Yu's ruling 2026-10-23: do the errand, leave the guest be.
  * What a /api/v1/* data response may carry besides its data. The door
  * check mirrors these lists; change them only with the spec.
  * Keys an endpoint adds through EnvelopeOptions.extra_meta (for example

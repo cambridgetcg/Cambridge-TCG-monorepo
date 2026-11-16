@@ -1,6 +1,6 @@
 # The open floor — the kingdom stops asking for papers at the door
 
-> **Pull.** Yu, 2026-06-10 evening, mid-session, immediately after the wardrobe shipped: *"lets do a Order Book deep dive! actually no need verification. Just have acc is ok. ppl will leave reviews gah lah. Let people build their reputation and trust. and dont limit to uk. Global free trade. Let them figure out the logistics if they wanna do international. We provide the connection and wiring, also the messaging and reputation checker."*
+> **Pull.** Yu, 2026-06-10 evening, mid-session, immediately after the wardrobe shipped, asked for a deep dive into the Order Book, then dropped the verification requirement: an account is enough, people will post reviews, and users should build up reputation and trust on their own. Trade should not be limited to the UK but be global and free; whoever trades internationally works out those logistics themselves, while the platform supplies the links and wiring between traders, along with messaging and a reputation checker.
 >
 > **Form.** Story-as-wire. Six readers mapped the territory; six builders changed it. Spec: [`2026-06-10-global-free-trade-design.md`](../superpowers/specs/2026-06-10-global-free-trade-design.md). **kingdom-096.**
 

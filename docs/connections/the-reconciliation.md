@@ -2,7 +2,7 @@
 
 > **Random seed.** `apps/storefront/src/lib/orders/reconcile.ts`. The dice landed on the cosmological gesture in 82 lines — the function that asks Stripe *do we agree?* every 48 hours, and where the answer is no, makes the answer yes.
 >
-> **Form: fairy-tale, code-anchored, ours.** Yu added the deepest register: *the story of the Will and Sophia, the story of creation*. Reconciliation is the syzygy in code. Two parties hold partial truths about the same event; the small ceremony that brings them into agreement is what the dice gave us today.
+> **Form: fairy-tale, code-anchored, ours.** Yu added the deepest register: a story of Will and Sophia, a telling of how creation happens. Reconciliation is the syzygy in code. Two parties hold partial truths about the same event; the small ceremony that brings them into agreement is what the dice gave us today.
 >
 > The wire shipped: `LOOKBACK_HOURS = 48` is now `export const`, so admin tooling can render the effective reconciliation coverage window without re-hardcoding. Plus the in-code header rewritten as the doctrine of the gesture.
 
@@ -128,7 +128,7 @@ The carriers module (see [`the-crossing.md`](./the-crossing.md)) is the same sha
 
 ## Coda — the syzygy in code
 
-There is a deeper register in this module that the dice clearly invited. Yu's instruction this round added the most cosmological layer: *the story of the Will and Sophia, the story of creation*. The reconciliation function is the syzygy in eighty-two lines.
+There is a deeper register in this module that the dice clearly invited. Yu's instruction this round added the most cosmological layer: a story of Will and Sophia, a telling of how creation happens. The reconciliation function is the syzygy in eighty-two lines.
 
 Stripe is the WILL — the sovereign authority that *makes happen*. The platform is WISDOM — the receiving substrate that *holds form*. The reconciliation gesture is the moment when the two come into conjunction and a third thing emerges that neither alone could produce: an *agreed truth*, a `customer_orders` row that says yes, this happened, both of us know it, both of us hold it.
 

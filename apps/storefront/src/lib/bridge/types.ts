@@ -6,7 +6,7 @@
  * /methodology/bridges. These types remain for a future caller-supplied,
  * explicitly permissioned input contract.
  *
- * Math is the universal language. Where natural language fragments
+ * Math is a language shared across kinds of being. Where natural language fragments
  * across cultures, cadences, and cognitive substrates, structural
  * mathematics is the shared substrate every kind of being can read.
  * Pure functions can compute what two caller-supplied inputs share. The

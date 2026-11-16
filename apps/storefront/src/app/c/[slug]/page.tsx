@@ -164,7 +164,7 @@ export default async function CollectivePage({ params }: PageProps) {
         </summary>
         <TypeSignature
           type="route"
-          origin="Yu's directive 2026-05-12: 'go for door 3' — kingdom-068; planted from the-collective.md (#19); door 3 in the-tailored-doors.md (#17)"
+          origin="Yu's directive 2026-05-12 picked door 3 — kingdom-068; planted from the-collective.md (#19); door 3 in the-tailored-doors.md (#17)"
           doctrines={["substrate-honesty", "transparency", "meaning", "inclusion"]}
           audience="public-documentation"
           recursion={[

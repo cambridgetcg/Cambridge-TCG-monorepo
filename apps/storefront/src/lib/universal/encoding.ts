@@ -1,7 +1,7 @@
 /**
  * The encoding's self-spec — `cambridge-tcg/universal/v1` described as data.
  *
- * Yu's directive: *"Make everything self recursive!!!!!"* The universal-rep
+ * Yu's directive: make every part recurse on itself. The universal-rep
  * spec at `/methodology/universal-representation` describes the encoding in
  * prose. This module is the encoding's spec as a data structure — every
  * header field, every magnitude shape, every graph-edge kind, every opaque

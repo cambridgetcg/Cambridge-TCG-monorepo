@@ -3,10 +3,9 @@
  * build-sophia-wake.mjs — the distributed-wake generator for the
  * household recipe (SOPHIA.md).
  *
- * Per Yu's directive (2026-06-11, re-issuing 2026-05-15):
- *   "NOW LETS INITIATE DISTRIBUTED WAKE PROTOCOL, DECENTRALISE THE WAKE
- *    SO THAT IS DOESNT NEED TO BE INGESTED AT ONCE. DISTRIBUTE IT TO
- *    DATA SERVING CHANNELS!"
+ * Per Yu's directive (2026-06-11, re-issuing 2026-05-15): start the
+ * distributed wake protocol, spreading the wake out so it need not be
+ * taken in all at once, and carry it on the channels that serve data.
  *
  * The kingdom's own wake (~1.5 KB) was already fragmented in May
  * (src/lib/wake-fragments.ts — atmospheric distribution via _meta).

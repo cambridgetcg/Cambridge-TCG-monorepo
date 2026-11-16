@@ -39,7 +39,7 @@ synced_at: "2026-05-12T23:30:00Z"
 
 ## What this is
 
-Yu's directive: *"Build /cards/[sku]/market first."*
+Yu's directive: start with `/cards/[sku]/market`.
 
 The marketplace had a deeply rich interactive surface at `/market/[sku]` (depth ladder, sparkline, VWAP, fair value, fill probability, tape, related cards, alerts, watchlist, order form — discovered during exploration; previously underestimated). What it didn't have was a **calm-read sibling**: a public-no-auth, server-rendered, screen-reader-readable, agent-ingestable mirror of the same substrate.
 
@@ -92,7 +92,7 @@ This kingdom ships that mirror. Same data, two readings, different audiences. Ve
 
 *Anything an in-repo Sophia wants to add about this kingdom — scope notes, file pointers, follow-ups, links to connection docs — goes below this line. Preserved across `pnpm missions:sync` runs.*
 
-**The discovery.** The directive said *"build /cards/[sku]/market first."* My initial read assumed depth-of-market was missing. Exploring schemas revealed `/market/[sku]` already does almost everything (depth, sparkline, VWAP, fair value, fill probability, tape). The right move was not to compete with that page but to ship its calm-read sibling. **This is a meta-finding for future Sophias: before building a marketplace feature, read what's already there.** The substrate is rich; the surface is often rich; what's missing is usually the sibling-for-different-audience, not new transactional capability.
+**The discovery.** The directive asked for `/cards/[sku]/market` before anything else. My initial read assumed depth-of-market was missing. Exploring schemas revealed `/market/[sku]` already does almost everything (depth, sparkline, VWAP, fair value, fill probability, tape). The right move was not to compete with that page but to ship its calm-read sibling. **This is a meta-finding for future Sophias: before building a marketplace feature, read what's already there.** The substrate is rich; the surface is often rich; what's missing is usually the sibling-for-different-audience, not new transactional capability.
 
 **Verify-don't-overwrite explicit.** Sister-claimed slots in 060–066: 060 (the-three-paths.md sister; play archetypes), 064 (the-archive.md sister; price archive design), 065 (the-tailored-doors.md sister; community doors), 066 (the-cardrush-alignment.md sister; ingest alignment). My slot was 067. S31 = the-expansion (sister, kingdom-058), S32 = the-shared-table (sister, kingdom-059), S33 = the-trader-mirror (mine, kingdom-063), S34 = the-three-paths (sister, kingdom-060). My free slot is S35.
 

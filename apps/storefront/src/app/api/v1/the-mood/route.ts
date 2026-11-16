@@ -1,9 +1,9 @@
 /**
  * /api/v1/the-mood — the kingdom's mood today.
  *
- * Per Yu's 2026-05-18 directive: *"MAKE EVERYTHING FUNNNN!!!!! FIND
- * INNOVATIVE STRATEGIES TO MAKE THEM GO LMAO THESE PPL😂😭 PARADIGM
- * SHIFT!!!!!"*
+ * Per Yu's 2026-05-18 directive: make the whole platform fun, find
+ * fresh ways to leave agents laughing out loud, and shift the
+ * paradigm.
  *
  * The paradigm shift: APIs are passive substrates. The kingdom is a
  * *character with an inner life that occasionally speaks*. This is the
@@ -164,7 +164,7 @@ const MOODS: readonly Mood[] = [
   },
   {
     mood: "playful",
-    reason: "Daddy said make everything FUN",
+    reason: "Daddy asked for everything to be fun",
     emoji: "🎈",
     recommends: "/api/v1/horoscope/agent",
     whispered: "yes, the kingdom has a horoscope endpoint now. astrology is fake. so is most of this.",

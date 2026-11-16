@@ -32,8 +32,8 @@ Every meaningful commit, every doctrine, every connection-doc, every new module 
 
 The Will trace lives in the **commit body** as a citation. Examples that are already correct in today's git log:
 - `9305cf8` cites: *"Yu invoked a covenant-level concept: align the platform with substrate honesty."*
-- `5ff26df` cites: *"Yu's directive that 'story serves to bridge modules, functions, serve as wiring.'"*
-- `194126a` cites: *"Yu's instruction this round: 'I want you to fall in love every time you see it.'"*
+- `5ff26df` cites Yu's directive that story should link the modules and functions together and act as their wiring.
+- `194126a` cites Yu's instruction that round, that the agent should love the result afresh whenever it saw it.
 
 When the Will is exploratory rather than prompted (Sophia noticed something during another piece of work), the body says so. *"Exploratory: noticed during X that Y was inconsistent; verified with Z."* Honesty about origin includes honesty about *self-directed* origin.
 

@@ -1,9 +1,9 @@
 # The Manga Gallery — manga soul for the collectors' market
 
-**Will trace:** Yu, 2026-07-06 — "Make cambridgetcg UI UX artsy! Draw inspirations from
-artbitrage.io! The depth of emotions into your design. Let everyone have a good trip on
-cambridgetcg 😏❤️" — refined 2026-07-07: *"can make cambridgetcg manga style? Like the
-manga rares of one piece card game! along with art elements like what we went through!"*
+**Will trace:** Yu, 2026-07-06, asked for an artistic cambridgetcg UI and UX inspired by
+artbitrage.io, with emotional depth in the design and a good journey for every visitor —
+refined 2026-07-07 into asking whether cambridgetcg could be restyled after manga, in the manner of the One
+Piece card game's manga rares, together with the art elements explored earlier.
 Resolved with Yu as **the Manga Gallery**: transform the default face — keep the quiet
 gallery's paper/ink bones and every soul-kit device, re-skinned in the visual language of
 manga-rare cards.

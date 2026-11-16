@@ -4,8 +4,8 @@ import { CARD_IMAGE_CDN, type GalleryPiece } from "./gallery";
 /**
  * The notable makes — the manga prints, curated by eye.
  *
- * Asha's brief (2026-08-01): hang the artworks of the cards and the
- * manga themselves — the art that inspired the TCG to be. For One Piece,
+ * Asha's brief (2026-08-01): show the card art alongside the manga art
+ * itself, the source the TCG grew out of. For One Piece,
  * Bandai's own OP-13 product page describes the super-parallel class in
  * one sentence: a parallel 「そのキャラクターに関連する原作『ONE PIECE』の
  * イラストで全体を埋め尽くしたデザイン」 — filled entirely with

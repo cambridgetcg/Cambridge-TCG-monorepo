@@ -1,8 +1,8 @@
 # OPTCG rules alignment — official Bandai rules vs the CTCG engine
 
-**Date:** 2026-07-17. **Will:** Asha — *"Lets dive into deck building and game
-mechanics too! Just wanna make sure it aligns with what bandai says as the
-rules. research first?"*
+**Date:** 2026-07-17. **Will:** Asha asked to take on deck building and the
+game mechanics as well, checking that they match Bandai's official rules,
+and asked whether research should come first.
 
 **Method:** four research agents over the official sources, three audit agents
 over our code, then primary-source spot-verification of every surprising
@@ -119,8 +119,8 @@ Play]/[On K.O.]/[Activate: Main] timing (8-x), start-of-game leader effects
 says "card effects aren't interpreted yet" — the honesty holds until this
 tier ships.
 
-> **Status addendum (2026-07-17, later the same day):** Asha said *"go!
-> all of it."* — Waves 1–3 and the keyword slice of Wave 4 shipped in
+> **Status addendum (2026-07-17, later the same day):** Asha gave the go-ahead
+> for every part — Waves 1–3 and the keyword slice of Wave 4 shipped in
 > commit `45333b99` and are live on cambridgetcg.com, each rule enforced
 > with a regression test naming its CR number. Still open from this
 > document: effect interpretation (timing markers, conditional keyword

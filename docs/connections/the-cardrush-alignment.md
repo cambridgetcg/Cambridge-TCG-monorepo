@@ -27,7 +27,7 @@ self_reference: this entry names itself in `this_entry_names`; ships its own SQL
 
 > **Current boundary, 2026-07-12:** This is a May implementation record, not a live operating guide. CardRush acquisition is hard-blocked by its official cross-site data policy; Cambridge has no recorded formal partnership. Legacy prices, images, history, derivatives, and external catalog sinks are withheld at anonymous, session, bearer, and sales-channel tiers. Authentication, transformation, storage, attribution, and downstream contracts do not create permission. Any runnable or redistributable language below is historical and withdrawn.
 
-> *"Dive deeper into the snapshot and data collection pipeline for cardrush. Think about how we can align it into the TCG data distribution and standardisation protocol."* — Yu, 2026-05-12.
+Yu, 2026-05-12, asked to examine the cardrush snapshot and collection pipeline more closely and to work out how it could fit the TCG data protocol for distribution and standardisation.
 
 The previous five entries in the data-aggregation arc named the catalog ([`the-tributaries.md`](./the-tributaries.md)), the contract ([`the-modules.md`](./the-modules.md) + `packages/data-ingest`), the pipeline design ([`the-pipeline.md`](./the-pipeline.md)), the first migration ([`the-consolidation.md`](./the-consolidation.md)), and the leakage audit ([`the-archive.md`](./the-archive.md)). They generalised. This entry **specialises** — taking *one* upstream (CardRush, the only one Cambridge TCG has been scraping daily for a year) and walking it end-to-end through the protocol, naming where each part *already aligns* and where each part *doesn't yet*.
 

@@ -1,6 +1,6 @@
 /**
- * The hourly traffic pull (/api/cron/traffic-pull; Yu chose "Vercel logs
- * hourly" on 2026-11-05). Each run reads the storefront's Vercel request
+ * The hourly traffic pull (/api/cron/traffic-pull; Yu chose reading Vercel's
+ * logs every hour on 2026-11-05). Each run reads the storefront's Vercel request
  * logs for whole UTC hours, classifies every record in memory
  * (classify.ts, ctcg.actor-class/v1), and keeps only counts:
  * traffic_hourly by host class, route group, RSC, declared class, status,

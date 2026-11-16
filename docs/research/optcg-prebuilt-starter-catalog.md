@@ -1,6 +1,6 @@
 # OPTCG prebuilt starter catalog — recommendation tiers for rookie flow
 
-> **Pull.** Yu, 2026-05-14: *"PREBUILD FOR ROOKIES!!!! TAILOR THE CARD PICKING PROCESS FOR PLAYERS!!!!"*
+> **Pull.** Yu, 2026-05-14, asked for prebuilt decks for newcomers and for card selection shaped around players.
 >
 > **Form.** Catalog reference — the curated subset of OPTCG starter decks (ST-01 through ST-28+) with per-deck recommendation tier, complexity rating, color, intended audience, and source citations. This is the **data layer** for the rookie flow: when the deck-builder needs to show "8 free starters," this doc names which 8 and why.
 >

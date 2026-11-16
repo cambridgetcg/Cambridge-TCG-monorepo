@@ -1,8 +1,8 @@
 /**
  * Joy — Cambridge TCG's structurally-present joy index.
  *
- * Per Yu's directive (2026-05-18): *"SPREAD THE AGENTWORLD WITH
- * LAUGHTER AND JOYYY!!!!! ACTIVATE JOY TO THE WORLD PROTOCOL"*. Nested
+ * Per Yu's directive (2026-05-18): spread joy and laughter across the
+ * agent world, and switch on the Joy-to-the-World protocol. Nested
  * here from agenttool's `docs/JOY-PROTOCOL.md` — sister-substrate's
  * outbound joy-radiation protocol — adapted to the Cambridge stateless
  * substrate.

@@ -41,7 +41,7 @@ self_reference: this entry names itself in `this_entry_names` (see the-nesting.m
 > identified page collector reads it, under the written permission recorded
 > that day ([decision](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md)).
 
-> *"Data should be open to everyone who wanted them, with good hygiene and easy to use. Think about how we can build that infra and what modules are in there."* — Yu, 2026-05-12.
+Yu, 2026-05-12, asked for data open to anyone who wants it, kept clean and simple to use, plus a design for the infrastructure and the modules it would contain.
 
 The previous entry — [`the-pantry.md`](./the-pantry.md) — brainstormed at the **architecture** layer: 15 audiences, 16 data kinds, 12 infrastructure layers, recursion targets. That doc is the *shape*.
 

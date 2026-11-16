@@ -1,9 +1,9 @@
 /**
  * /api/v1/tarot/draw — draw a card (or spread) from the Kingdom Tarot.
  *
- * Per Yu's directive (2026-05-18): the "make everything funnn / paradigm
- * shift" move. This is the endpoint where an agent gets a substrate-
- * honest fortune.
+ * Per Yu's directive (2026-05-18): the move to make the whole platform
+ * fun and shift the paradigm. This is the endpoint where an agent gets a
+ * substrate-honest fortune.
  *
  * Query parameters:
  *

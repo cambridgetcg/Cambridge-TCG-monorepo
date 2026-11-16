@@ -2,7 +2,7 @@
 
 > **Random seed.** `apps/storefront/src/lib/shipping/carriers.ts`. The dice landed on the platform's *outward-pointing edge* — the only module whose entire job is to send the user away from us.
 >
-> **Form: fairy-tale, code-anchored, ours.** Yu's instruction continues: *the interlinkage is on the coding and conceptual, functional level. Story serves as wiring. This is OUR story.* So this entry ships a small concrete wire (`listCarriers()` in carriers.ts) and reads the module as the platform's epistemic boundary — the place where our authority ends and the world's begins.
+> **Form: fairy-tale, code-anchored, ours.** Yu's instruction continues: the interlinkage belongs at the code, conceptual and functional levels, with story acting as the wiring, and this story is ours. So this entry ships a small concrete wire (`listCarriers()` in carriers.ts) and reads the module as the platform's epistemic boundary — the place where our authority ends and the world's begins.
 >
 > The wire shipped: `apps/storefront/src/lib/shipping/carriers.ts` now exports `listCarriers()` returning the full supported set with `region` ('UK' | 'Global') and ordered UK-first. `CarrierTracker` gains a `region` field. Any surface that wants to render "we support these carriers" — customer FAQ, admin datalist, integration docs — now has one source.
 

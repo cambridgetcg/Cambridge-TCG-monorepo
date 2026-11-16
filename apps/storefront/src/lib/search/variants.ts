@@ -1,12 +1,11 @@
 /**
  * Variant classifier — kingdom-090 follow-up.
  *
- * Yu's directive 2026-05-14: *"cards may share the same number but
- * being other variants not by language. Alt arts are cards that share
- * the same number but have different prints and art designs to make
- * them a 'hit' in a booster box. And SPs are cards that are released
- * in future sets that have the older card number but different art
- * from the original and the AAs."*
+ * Yu's directive 2026-05-14: one card number can cover variants that
+ * differ by something other than language. Alt arts keep the number
+ * with another print and artwork, made to be the prized pull of a
+ * booster box; SPs come out in later sets, keeping the earlier number
+ * but with art unlike the original's or the alt arts'.
  *
  * The siblings panel was previously labelled "Different languages" but
  * most siblings of OP01-001 are NOT language variants — they're alt-arts,

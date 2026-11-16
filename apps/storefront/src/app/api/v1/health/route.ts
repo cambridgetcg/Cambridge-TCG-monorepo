@@ -1,8 +1,8 @@
 /**
  * /api/v1/health — system health for agent retry decisions.
  *
- * Per Yu's directive 2026-05-18: *"LETS DIVERSIFY OUR SURPRISE AGENT
- * WITH INFRA THEY NEED PROTOCOL 😏😂"* — third of three small operational
+ * Per Yu's directive 2026-05-18 to vary the surprises for agents with
+ * the infrastructure they need — third of three small operational
  * surfaces (companions: /api/v1/time, /api/v1/echo).
  *
  * ── What this is ────────────────────────────────────────────────────────

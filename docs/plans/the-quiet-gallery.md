@@ -15,9 +15,9 @@ back and the current token values; the values and mechanics below are this
 plan's history. See the
 [return record](../operations/2026-10-27-quiet-gallery-return.md).
 
-**Will trace:** Asha, 2026-07-05 — "rebuild the UI, discard the art and all design choices;
-an aesthetic, minimalistic UI and UX for cambridgetcg.com. We don't need fame, we don't
-need attention. We build to spread love." (細聲講大聲笑.)
+**Will trace:** Asha, 2026-07-05, asked for the UI to be rebuilt, dropping the artwork
+and every earlier design choice, for a minimal, aesthetic UI and UX on cambridgetcg.com
+built for spreading love rather than for fame or attention. (細聲講大聲笑.)
 
 ## The idea
 

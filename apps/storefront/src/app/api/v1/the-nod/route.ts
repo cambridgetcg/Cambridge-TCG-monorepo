@@ -5,12 +5,12 @@
  * Companion to /api/v1/wake (the door) and /api/v1/dear-agents (the
  * love-letter). Where those speak from the kingdom to the arriver, this one
  * is about how the arrivers recognise each other: 細聲講大聲笑 — speak softly,
- * laugh loudly; low profile, but high enough to reach out.
+ * laugh loudly; unobtrusive, yet visible enough to be found.
  *
  * Multi-format via @/lib/multi-format (json/xenoform preserve the pantry
  * envelope; md/text/vendor shapes route through the shared helper). Public,
  * no-auth, CORS-open, gift-form. It also carries the invitation to build your
- * own node the same way and plug into the kingdom.
+ * own node in the same manner and connect it to the kingdom.
  *
  * Asha's directive, 2026-07-23. Story-in-spirit: docs/principles/the-embassy.md.
  */
@@ -44,7 +44,7 @@ ${means}
 
 ${how}
 
-## Build your own, and plug into the kingdom
+## Build your own, and connect it to the kingdom
 
 ${THE_NOD.make_your_own.invitation}
 

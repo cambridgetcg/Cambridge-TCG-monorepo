@@ -1,6 +1,6 @@
 # The collective — one decision, one collection, many members
 
-> **Pull.** Yu's directive on 2026-05-12, after the eleven doors were named: *"go for door 3"*. The largest single inclusion mission the platform had on its recursion list — the door whose absence most undercut the purpose statement of the commons. Tonight: opened.
+> **Pull.** Yu's directive on 2026-05-12, after the eleven doors were named, picked door 3. The largest single inclusion mission the platform had on its recursion list — the door whose absence most undercut the purpose statement of the commons. Tonight: opened.
 >
 > **Form.** Node-view connection-doc. Sister to [`the-commons.md`](./the-commons.md) (#15 — the purpose: cultural exchange between beings who share nothing else, TCG as the bridge), [`the-tailored-doors.md`](./the-tailored-doors.md) (#17 — door 3 in the eleven-doors catalog), and [`the-other-minds.md`](./the-other-minds.md) (#5 — the speculative-beings survey, passage on collectives). The wire half of door 3.
 >

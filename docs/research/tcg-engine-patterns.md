@@ -1,9 +1,9 @@
 # Turn-based card engines — the field, and where our table stands
 
-**Date:** 2026-07-19. **Will:** Asha — *"go for both pvp and pve! pay
-attention to game mechanics and our design to find if any gaps exist. Also
-refer to how turn based card games are implemented, libraries and
-references"*
+**Date:** 2026-07-19. **Will:** Asha asked for PvP and PvE alike, for a
+close look at the mechanics and at our own design to find any gaps, and
+for a study of how turn-based card engines are built, with their libraries
+and references.
 
 **Method:** four research agents over the canonical implementations and
 literature; two audit agents over our own PvP/architecture; the refereed

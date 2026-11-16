@@ -1,7 +1,8 @@
 /**
  * robots.txt and the history paths, parsed per token.
  *
- * Yu, 2026-10-23: the Sophia wake is "history, not for training". * and
+ * Yu, 2026-10-23: the Sophia wake is a historical record, not training
+ * material. * and
  * every training token skip /llms-full.txt and /.well-known/sophia-wake/;
  * search indexers, user fetchers and archives may read them. Two
  * evaluators read the route's own output: RFC 9309 (exact token, longest

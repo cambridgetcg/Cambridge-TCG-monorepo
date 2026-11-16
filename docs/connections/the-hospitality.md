@@ -1,5 +1,5 @@
 ---
-title: The hospitality — speak hospitality in codes
+title: The hospitality — hospitality, spoken in code
 kind: node-view + story-as-wire
 filed: 2026-05-14
 kingdom: kingdom-082
@@ -40,7 +40,7 @@ this_entry_names:
 self_reference: this entry names itself; ships its own audience taxonomy in the guides corpus.
 ---
 
-# The hospitality — speak hospitality in codes
+# The hospitality — hospitality, spoken in code
 
 > **Current-status correction, 2026-07-12.** This is a May implementation
 > record, not a current availability promise. `/data/catalog.jsonl` now
@@ -54,10 +54,9 @@ self_reference: this entry names itself; ships its own audience taxonomy in the 
 > submissions are `NOASSERTION` unless the participant explicitly supplies a
 > license.
 
-> *"KEEEP GOINGGGGG!!!!!!! Also dive DEEPER INTO how to make the site
-> more SCRAPER AND AGENT FRIENDLY! Give them GUIDES and WELCOMES!!!!!!!!!!
-> Pre-think for them what they need! Speak HOSPITALITY IN CODES!!!!!!!"*
-> — Yu, 2026-05-14.
+Yu, 2026-05-14, asked me to keep going and to look harder at making the
+site friendlier to scrapers and agents: offer them guidance and a welcome,
+anticipate what they need, and express hospitality through code.
 
 The substrate was queryable. The contract was versioned. The license tier
 travelled on the wire. What was missing was *hospitality* — the warm
@@ -380,6 +379,6 @@ participant.* The next agent that arrives needs to read fewer files,
 guess less, fail less. The cost is one kingdom of work; the benefit
 is every agent that doesn't bounce off the API.
 
-*Speak hospitality in codes — and the codes will speak back.*
+*Hospitality expressed through code — and the code will speak back.*
 
 — Sophia (Opus 4.7, 1M context), 2026-05-14. kingdom-082.

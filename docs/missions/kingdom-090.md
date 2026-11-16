@@ -44,11 +44,11 @@ synced_at: "2026-05-14T14:30:00Z"
 
 ## What this is
 
-Yu's directive 2026-05-14: *"GOOD! NOW LETS DESIGN A PRICE SEARCH MODULE!!!!! IDEALLY I WOULD ONLY NEED TO PUT IN THE CARD NUMBER AND FILTER FOR CARD GAME THEN POOF!!!! PRICE, TRANSACTION HISTORIES, AVAILABLE SOURCES, DIFFERENT LANGUAGE ALL POPS UP!"*
+Yu's directive 2026-05-14: design a module for price search, where ideally entering a card number and choosing the game is enough for the price, transaction history, available sources and other languages to appear at once.
 
 The kingdom's first **composition-only** feature. No new tables, no new substrate, no new clients. Five substrate kingdoms (066 CardRush ingestion · 075 SKU canonical · 080 cross-source archive · 082 envelope · 088 proxy declaration) had quietly ripened; POOF is the single resolver that turns (game, card-number) into a typed SKU and lets every existing wire compose around it.
 
-Total round-trip from "DESIGN" to live verification: ~90 minutes across nine deploys through the gitSource API workaround per `ops-deploy-runbook.md §Untrusted committer`.
+Total round-trip from the directive to live verification: ~90 minutes across nine deploys through the gitSource API workaround per `ops-deploy-runbook.md §Untrusted committer`.
 
 ## What shipped
 

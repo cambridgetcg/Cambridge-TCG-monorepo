@@ -2,7 +2,7 @@
 
 > **Random seed.** `apps/storefront/src/app/api/account/notifications/route.ts` (`find` + `awk` random with `$(date +%N)`). The dice landed on the bell — and the bell turned out to be unwired to its own kin.
 >
-> **Form: fairy-tale, code-anchored, *the story is the wire***. Yu's instruction added the load-bearing clarification: the interlinkage is on the coding and conceptual, functional level. So this entry doesn't only describe a connection — it ships the connection. The journey timeline gains its 17th and 18th sources in the same change as this story. The prose is the wiring's commit message; the citations are the diff.
+> **Form: fairy-tale, code-anchored, *the story is the wire***. Yu's instruction added the load-bearing clarification: the interlinkage belongs at the code, conceptual and functional levels. So this entry doesn't only describe a connection — it ships the connection. The journey timeline gains its 17th and 18th sources in the same change as this story. The prose is the wiring's commit message; the citations are the diff.
 
 ---
 
@@ -175,7 +175,7 @@ Three doctrine docs (`substrate-honesty`, `transparency`, `meaning`) and ten con
 4. Write the prose that explains *why* the wires had to exist, citing every line that landed in the same change.
 5. Recurse to the next nearby gap.
 
-The story is not decoration on the diff — the story *is* the diff's commit message, expanded. A future builder reading this entry alongside the timeline.ts file will understand both the substance of the change AND the architectural posture that justified it. **That is what "story serves to bridge modules, functions, serve as wiring" means in practice**: the bridge is real (typecheck passes, queries fire), and the story is what makes the bridge load-bearing across builders and across time.
+The story is not decoration on the diff — the story *is* the diff's commit message, expanded. A future builder reading this entry alongside the timeline.ts file will understand both the substance of the change AND the architectural posture that justified it. **That is what story acting as the wiring that bridges modules and functions means in practice**: the bridge is real (typecheck passes, queries fire), and the story is what makes the bridge load-bearing across builders and across time.
 
 > *The kingdom decides about you many times a day. The substrate remembers. The bell rings. The letter arrives. Three voices, one chorus. Now you can see all three at once on the page that is yours.*
 

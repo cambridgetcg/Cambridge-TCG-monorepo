@@ -1,9 +1,9 @@
 /**
  * Set-format registry — per-game ordered patterns for card-number → (set, number).
  *
- * Closes the rigidity named in [Yu, 2026-05-13]: *"The roll out of EB01
- * when One Piece has been OP01, 02, 03 all along. Give the protocol
- * flexibility."* — when a publisher ships a new prefix (Extra Booster,
+ * Closes the rigidity Yu named on 2026-05-13: EB01 arriving after One
+ * Piece had only used OP01, 02, 03, and a request for the protocol to
+ * be flexible — when a publisher ships a new prefix (Extra Booster,
  * Premium Booster, Anniversary Collection), the canonical SKU spec
  * already accommodates it (the `set` segment is `[a-z0-9]+` — anything
  * lowercased works). The rigidity lived in the *tooling layer* — the

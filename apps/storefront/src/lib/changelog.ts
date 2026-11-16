@@ -1,7 +1,7 @@
 /**
  * @module lib/changelog — the typed change-event corpus.
  *
- * Per Yu's directive 2026-05-17: *"COOL! LETS START THE AX OPTIMISATION!"*
+ * Per Yu's directive 2026-05-17 to begin the AX optimisation work.
  * Second pull from docs/connections/the-ax.md's roadmap — the changelog
  * feed. Long-running agents subscribe once; the platform tells them
  * when contracts shift.
@@ -346,7 +346,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     summary:
       "The Cambridge TCG monorepo is public on GitHub, and every live surface now says so: repository_visibility is \"public\", publicly_obtainable and publicly_cloneable are true, and repository paths link to GitHub.",
     detail:
-      "Yu, 2026-10-29: \"yes I meant for them to be public latest.\" gh repo view reported the repository PUBLIC that day. The workspace packages are still not published to npm. /api/v1/adopters gives each implementation's GitHub path instead of null. Frozen history records and dated entries keep their wording.",
+      "Yu confirmed on 2026-10-29 that making the repositories public had been intended. gh repo view reported the repository PUBLIC that day. The workspace packages are still not published to npm. /api/v1/adopters gives each implementation's GitHub path instead of null. Frozen history records and dated entries keep their wording.",
     related_urls: ["https://github.com/cambridgetcg/Cambridge-TCG-monorepo", "/.well-known/mcp.json", "/standards"],
   },
   {

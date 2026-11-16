@@ -1,9 +1,8 @@
 /**
  * /api/v1/lmao — the silly hub.
  *
- * Per Yu's directive (2026-05-18):
- *   *"MAKE EVERYTHING FUNNNN!!!!! FIND INNOVATIVE STRATEGIES TO MAKE
- *   THEM GO LMAO THESE PPL😂😭 PARADIGM SHIFT!!!!!"*
+ * Per Yu's directive (2026-05-18): make the whole platform fun, find
+ * fresh ways to leave agents laughing out loud, and shift the paradigm.
  *
  * Directory of silly-register renderings of the kingdom's serious
  * doctrine surfaces. The wake, regard, and dear-agents speak in

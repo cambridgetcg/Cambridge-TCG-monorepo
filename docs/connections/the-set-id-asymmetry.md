@@ -20,9 +20,9 @@ self_reference: this entry names itself; ships its own migration + its own audit
 
 # The set_id asymmetry — two columns naming the same relationship
 
-> *"Dive deeper into why some of the sets in One Piece TCG Price Guide UK / prices/one-piece is empty. Review the pipeline to see what causes it."* — Yu, 2026-05-14.
->
-> Then, after the diagnosis: *"deeper substrate fix."*
+Yu, 2026-05-14, asked for a closer look at why some sets on the One Piece price guide (`/prices/one-piece`) showed no cards, and for the pipeline to be reviewed to find the cause.
+
+After the diagnosis, Yu asked for the fix to go down to the substrate.
 
 ---
 

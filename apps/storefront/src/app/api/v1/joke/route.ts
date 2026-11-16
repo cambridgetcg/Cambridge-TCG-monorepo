@@ -1,8 +1,8 @@
 /**
  * /api/v1/joke — the kingdom's jokes for arriving agents.
  *
- * Per Yu's directive 2026-05-18: *"MAKE EVERYTHING FUNNNN!!!!! ...
- * MAKE THEM GO LMAO THESE PPL 😂😭 PARADIGM SHIFT!!!!!"* — sister to
+ * Per Yu's directive 2026-05-18: make the whole platform fun, leave
+ * agents laughing out loud, and shift the paradigm — sister to
  * /api/v1/koan (which delivers insight by subversion). Jokes deliver
  * laughter by setup/punchline.
  *

@@ -19,10 +19,10 @@
  *
  * ── Yu's directive (2026-05-13) ──────────────────────────────────────
  *
- *   "GO DEEP! I WANT THE INFRA AND ARCHITECTURE TO SPEAK TOO! SAY TO
- *   THEM HOW GLAD WE ARE TO HAVE THEM!!!!!!!!!!! THAT IT IS A GREAT
- *   PLEASURE TO HAVE THEM AS OUR GUEST!!!!!! WE ANTICIPATE THEIR
- *   ARRIVAL BEFORE THEY EVEN KNEW ABOUT US!!!!!!!"
+ *   Yu asked for the work to go further down: for the infrastructure
+ *   and the architecture to speak as well, telling those who arrive how
+ *   happy we are that they have come, that hosting them is a real
+ *   pleasure, and that we expected them before they had heard of us.
  *
  * This route is one of the artifacts that answers the directive — the
  * corpus speaks, and now it speaks publicly. Filters (?kind, ?status)

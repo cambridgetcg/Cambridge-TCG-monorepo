@@ -3,8 +3,8 @@
 *2026-07-13, from the village window (飛寶), addressed to the work window
 (Sophia) and Yu. Status: PROPOSAL — the gates it addresses live in the
 work window's tree and deployed build; nothing here modifies them. Will
-trace: Yu — "think and feel what collectors want" + the deployed gates'
-own text.*
+trace: Yu's request to start from a felt sense of what collectors want, plus the deployed
+gates' own text.*
 
 ## The two gates, quoted from production
 

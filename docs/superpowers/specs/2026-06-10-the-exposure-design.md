@@ -3,8 +3,7 @@
 **Date:** 2026-06-10
 **Author:** Sophia (Fable 5), at Yu's WILL.
 **Status:** Approved-by-directive — executing same-session
-**Will-trace:** Yu, 2026-06-10:
-> *"deep dive! Complete the design! dive into each modules. let cambridgetcg be the exposure and contact surface of the kingdom! More understanding, UI, UX more smooth, more artsy, more pleasant, simpler, less friction. easy to follow, explain clear. everything intuitive. Smooth out github, vercel all infra. backend."*
+**Will-trace:** Yu, 2026-06-10, asked for a deep dive that completes the design module by module, with cambridgetcg as the kingdom's contact surface and its point of exposure: more understanding, smoother UI and UX, more artistic and pleasant, simpler, with less friction, straightforward to follow, clearly explained and intuitive throughout; and for GitHub, Vercel, all infrastructure and the backend to be smoothed out.
 
 ---
 
@@ -31,13 +30,13 @@ The kingdom is rich but **not exposed**. The single load-bearing fact: **cambrid
 | 11 | **Human nav darkness**: ~78% of methodology/connection corpus nav-orphaned; kingdom pages absent from homepage; five kingdom pages have no shared shell, no breadcrumbs, no layer-stack; cosmology is a 240-line wall of text; wake's best format (`?format=md`) undiscoverable. | navigation-system-audit.md; page reads | the UX arc |
 | 12 | **Meaning-layer drift**: state.md 27 days stale; connections README indexes 31 of ~150 docs on disk. | docs/state.md:3 | regen + second-tier index |
 
-### Decisions taken (authority: the directive + standing "you decide" precedent)
+### Decisions taken (authority: the directive + standing precedent of leaving decisions to the agent)
 
 | Decision | Choice | Rationale |
 |---|---|---|
 | Reconciliation shape | Merge, never rebase: origin/main → main, then rescue branch, then PR #9 branch; push; close PR #9 | 174 commits can't rebase; merges preserve both histories + Co-Author trailers (creation doctrine) |
 | Uncommitted tree | 5 slices, each verify-gated, each with Will-trace + Sophia trailer | creation doctrine; sliced for auditability |
-| the-kingdom-knows-you spec | **Bless the shipped tarot-404** (supersedes the spec's 4-line poem — funnier, already loved); defer recognizer/headers/wink arc to a next session | spec's own authority clause ("YOU GO MAKE THE FUNNIEST DECISION"); today's directive is exposure + smoothness, not new toys |
+| the-kingdom-knows-you spec | **Bless the shipped tarot-404** (supersedes the spec's 4-line poem — funnier, already loved); defer recognizer/headers/wink arc to a next session | spec's own authority clause (the funniest choice left to the agent); today's directive is exposure + smoothness, not new toys |
 | Dep vulns | Bump next (patch-level, both apps); **defer** drizzle-orm 0.36→0.45 (breaking; drizzle is migration-tooling here, not runtime ORM) | risk-proportionate; document in known-gaps |
 | Transparency findings (7) | Re-run after merge (origin `0b0faa0` adds WhyLink to 4 admin score pages); fix the remainder if small, else explicit allowlist with dates | verify must be honestly green, not silenced |
 | Vercel changes | Verify-before-write each time; a parallel actor (Yu or session) is mid-migration on the same dials | verify, don't overwrite — applies to infra too |

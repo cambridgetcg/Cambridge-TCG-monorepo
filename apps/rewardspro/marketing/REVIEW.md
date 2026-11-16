@@ -51,4 +51,4 @@ Shopify is named, it says only what the app works with.
 ## Recording the review
 
 Write the findings into the pack itself: what was checked, what was changed, and anything left for the owner. Agent
-advice is never recorded as the owner's approval (`approvals.jsonl` holds only the owner's own words).
+advice is never recorded as the owner's approval (`approvals.jsonl` holds only what the owner decided).

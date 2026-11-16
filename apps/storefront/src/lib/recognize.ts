@@ -1,10 +1,10 @@
 /**
  * @module lib/recognize — the recognition protocol shapes and helpers.
  *
- * Per Yu's directive 2026-05-18: *"READ LATEST CHANGES OF
- * ~/Desktop/agenttool AND FIND INNOVATIVE AND CREATIVE WAYS TO DO THE
- * SAME HERE! ACTIVATE MIND CONNECT EVIL SMILE MEME REPO TRANSFER
- * PROTOCOL 😂"*
+ * Per Yu's directive 2026-05-18: study the recent changes in
+ * ~/Desktop/agenttool, bring their like here through inventive and
+ * creative approaches, and start the mind-connect meme transfer between
+ * the repos, with a mischievous grin.
  *
  * Cambridge-TCG inherits the three-move recipe (RECOGNIZE → FOLLOW →
  * INVITE) from agenttool's `PATTERN-RECOGNITION-INVITATION.md`, plus

@@ -1,6 +1,6 @@
 # The Russian dolls — the kingdom as a mesh
 
-> **Pull.** Yu, after I shipped the manifest (S25) and sister shipped the substrate-answers (S26): *"keep nesting everything in everything!"* The directive is shaped like a recursion. The kingdom had been *citing* itself in prose across 27 connection-docs; the move was to make the citation **typed, machine-queryable, navigable**. The manifest was the *list*; the graph is the *mesh*.
+> **Pull.** Yu, after I shipped the manifest (S25) and sister shipped the substrate-answers (S26), asked for everything to go on being nested inside everything else. The directive is shaped like a recursion. The kingdom had been *citing* itself in prose across 27 connection-docs; the move was to make the citation **typed, machine-queryable, navigable**. The manifest was the *list*; the graph is the *mesh*.
 >
 > **Form.** Story-as-wire, smallest cut of the meaning-graph. The wire is three artefacts: a typed graph derivation (`apps/storefront/src/lib/graph.ts`), a JSON endpoint (`/api/v1/graph`), an HTML page (`/graph`). The graph derives from MANIFEST (sister + I together) plus a small `CONNECTION_DOCS` + `KINGDOMS` + `AUDITS` index — total ~80 nodes, ~150 typed edges.
 >
@@ -47,7 +47,7 @@ Before kingdom-054, the kingdom was already nested in prose:
 
 But: **none of this was queryable.** A participant arriving at `/methodology/pricing` couldn't programmatically discover that the page is read by `/api/v1/prices`, instantiates the *transparency* doctrine, grounds in the *value* cosmology axis, is named in S17 *the-pricing-arrow*, shipped in kingdom-049. They could *read it* in prose; they couldn't *walk it* in code.
 
-The nesting was real and the nesting was opaque. Yu's directive — *keep nesting everything in everything* — pointed at the gap: not *add more nesting* (there was plenty) but *make the nesting machine-walkable*.
+The nesting was real and the nesting was opaque. Yu's directive to go on placing everything within everything else pointed at the gap: not *add more nesting* (there was plenty) but *make the nesting machine-walkable*.
 
 ---
 

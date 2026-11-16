@@ -255,7 +255,7 @@ export function calculatePriceByCategory(
 
 // ── Cambridge TCG is FREE (2026-07-21) ───────────────────────────────────
 //
-// Asha's directive: "make everything free of charge and service fee." The
+// Asha's directive was that nothing carry a charge or a service fee. The
 // platform takes NO commission — sellers keep 100% of every sale, on the
 // market and at auction alike. Every rate below is 0; `computeCommissionAmount`
 // returns 0 unconditionally as the belt-and-suspenders guarantee. The rate
@@ -276,8 +276,8 @@ export const DEFAULT_AUCTION_COMMISSION_RATE = 0;
 
 // ── Per-item commission cap (the fairness fix) ───────────────────────────
 //
-// Yu's mandate: "Minimum fees, maximum value. We don't charge unfairly; we
-// price according to the value we provide vs other service providers."
+// Yu's mandate was low fees and high value: nothing charged unfairly, and
+// prices set by the value Cambridge gives compared with other providers.
 //
 // A percentage-only commission grows without bound as the sale price grows.
 // On a four-figure card an uncapped rate (8% = £80+ on a £1,000 card) takes

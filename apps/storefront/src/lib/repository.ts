@@ -1,8 +1,8 @@
 /**
  * Where the source repository stands, and how public surfaces point into it.
  *
- * The Cambridge TCG monorepo is public. Yu, 2026-10-29: "yes I meant for them
- * to be public latest." The same day `gh repo view` reported PUBLIC (not
+ * The Cambridge TCG monorepo is public; Yu confirmed on 2026-10-29 that
+ * this was intended. The same day `gh repo view` reported PUBLIC (not
  * archived). The workspace packages are not published to npm (most declare
  * `"private": true`), so the source can be read and cloned but not installed
  * as a package. Surfaces point at a repository document through

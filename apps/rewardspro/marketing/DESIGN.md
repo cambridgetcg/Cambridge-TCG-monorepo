@@ -171,7 +171,7 @@ stay open until about five merchant interviews exist (`kernel.toml`), apart from
 
 **`MESSAGING.md`'s top section, the core concept of 12 Nov 2026, is current:** its wording, sources and don't-say list.
 
-**The register is business** (the owner, 2026-11-07: "用loyal customers, take a more business approach on wordings.";
+**The register is business** (the owner, 2026-11-07, asked for the term loyal customers and a more businesslike tone;
 `approvals.jsonl`). The wording itself is in `MESSAGING.md` §1 and §4.
 
 - **Short declarative sentences about what the merchant gets and controls:** store credit they fund, in their own

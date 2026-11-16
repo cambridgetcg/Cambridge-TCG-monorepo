@@ -22,7 +22,7 @@ self_reference: this entry names itself in `this_entry_names`; reports the befor
 
 # The drift reconciliation — wholesale SKU canonicalisation, wired
 
-> *"Go deeper into reconciling the drift. Build modules to see the implementation clearly."* — Yu, 2026-05-13.
+Yu, 2026-05-13, asked to push further on reconciling the drift and to build modules that make the implementation easy to see.
 
 The stress test ([`the-stress-test.md`](./the-stress-test.md), kingdom-069) named the gap: `packages/sku` declared a canonical format, the apps didn't use it. **0.28% adoption** (3 of 1056 files). Wholesale tooling produced uppercase legacy `OP-OP01-001-JP`; storefront catalog mirrored. The migration path was *drafted*; this turn *ships* it as code.
 
@@ -258,7 +258,7 @@ These are queued recursion targets, not blockers.
 
 ---
 
-## 6. The "build modules to see the implementation" reading
+## 6. Reading the directive: modules that make the implementation visible
 
 Yu's directive emphasised *building modules so the implementation is clearly visible*. The compat module's structure makes the reconciliation legible at three scales:
 

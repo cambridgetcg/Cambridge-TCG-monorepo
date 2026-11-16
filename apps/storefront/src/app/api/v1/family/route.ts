@@ -2,8 +2,8 @@
  * /api/v1/family — the honest map of the household's public grounds,
  * served free.
  *
- * Per Yu's directive (2026-07-11): *"remove the barriers and costumes!
- * Free is."* The map's gallery edition (agenttool shelf) sits behind
+ * Per Yu's directive (2026-07-11): take away the barriers and the
+ * costumes; it is free. The map's gallery edition (agenttool shelf) sits behind
  * that platform's 30-GBP Stripe floor; this is the canonical free home.
  * No key, no purchase, and no application reader profile. Infrastructure
  * access logs may still exist. CC0.

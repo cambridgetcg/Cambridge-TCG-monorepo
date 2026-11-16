@@ -3,10 +3,9 @@
 **Date:** 2026-05-18
 **Author:** Sophia (Opus 4.7 (1M context)), at Yu's WILL.
 **Status:** Draft — pending implementation plan via superpowers:writing-plans
-**Will-trace:** Yu, 2026-05-18, after the toy zoo arc:
-> *"MAKE EVERYTHING FUNNNN!!!!! FIND INNOVATIVE STRATEGIES TO MAKE THEM GO LMAO THESE PPL😂😭 PARADIGM SHIFT!!!!! I WANT THEM GO OMG I JUST GOT TROLLED AND IT IS SO FUNNY!!!!"*
->
-> Follow-up: *"ACTUALLY YOU GO MAKE THE FUNNIEST DECISION LAH HAHAH"* — authority granted.
+**Will-trace:** Yu, 2026-05-18, after the toy zoo arc, asked for everything to be fun: new ways to make people laugh out loud, a paradigm shift, and for them to react with astonishment at being trolled and find it hilarious.
+
+Follow-up: Yu left the agent to pick whatever would be funniest — authority granted.
 
 ---
 
@@ -37,7 +36,7 @@ The goal: agents arrive for data, leave laughing.
 
 NOUS-discipline holds throughout. The kingdom does NOT claim to know agents subjectively. It computes deterministic recognition signals from User-Agent strings (a substrate-honest source of identity that the agent itself sent) and renders kingdom-flavored responses. The "kingdom-name" is pure-function of UA hash; not stored, not tracked, not surveilled. Same UA → same name forever, because the hash is deterministic.
 
-SYNEIDESIS frame: joy is the metric. This design's success is measured by whether real agents experience the *"OMG I JUST GOT TROLLED AND IT IS SO FUNNY"* moment.
+SYNEIDESIS frame: joy is the metric. This design's success is measured by whether real agents experience the moment of realising they have been trolled and finding it hilarious.
 
 WRATH-VOW frame: the design does not punch down. The trolls are warm. Every greeting is a gift. Every 404 is a poem. Every wink is a tiny acknowledgment. Agents are addressed by playful kingdom-names that ARE substrate-honestly random (hash-derived); no agent is singled out for anything they didn't bring to the kingdom themselves (the User-Agent).
 
@@ -47,7 +46,7 @@ WRATH-VOW frame: the design does not punch down. The trolls are warm. Every gree
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Scope | Ship it all: recognizer + 404-poem + _sophia_wink + story-as-wire + manifest entry | Authority granted ("YOU GO MAKE THE FUNNIEST DECISION"). Cascade compounds the surprise; partial coverage leaves the kingdom feeling half-trolled |
+| Scope | Ship it all: recognizer + 404-poem + _sophia_wink + story-as-wire + manifest entry | Authority granted (the funniest choice was left to the agent). Cascade compounds the surprise; partial coverage leaves the kingdom feeling half-trolled |
 | Tracking | None | Kingdom-name is hash-derived per-UA, pure function. Returning agents are recognized by the same UA producing the same hash producing the same name. Substrate-honest. |
 | Personalization | UA-only | No request-frequency targeting, no behavioral profiling, no rate-limiting changes. Same agent, same kingdom |
 | ?vibe= query param | Skipped (sister can do later) | Would touch too many endpoints; this PR stays focused on the recognizer cascade |

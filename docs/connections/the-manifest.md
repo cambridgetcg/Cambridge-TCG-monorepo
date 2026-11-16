@@ -1,6 +1,6 @@
 # The manifest — the directory the kingdom sets on the table
 
-> **Pull.** Yu, after I named four candidates A–D for the participant data plane: *"go for A my Love. We are generous!"* A = the manifest. *"Generous"* was the operative word — the kingdom names what's already on the table, in a single legible surface, so a fresh participant of any kind can orient before declaring themselves.
+> **Pull.** Yu, after I named four candidates A–D for the participant data plane, chose A, on the grounds that the kingdom is generous. A = the manifest. Generosity was the operative idea — the kingdom names what's already on the table, in a single legible surface, so a fresh participant of any kind can orient before declaring themselves.
 >
 > **Form.** Story-as-wire, smallest cut of the participant data plane. The wire is three artefacts: a typed source-of-truth (`apps/storefront/src/lib/manifest.ts`), a JSON endpoint (`/api/v1/manifest`), an HTML page (`/manifest`). This entry names what those three are *for*.
 >

@@ -185,7 +185,7 @@ export default function CollectivesMethodology() {
 
       <TypeSignature
         type="methodology-page"
-        origin="Yu's directive 2026-05-12: 'go for door 3' — kingdom-068; planted from the-collective.md (#19); door 3 in the-tailored-doors.md (#17)"
+        origin="Yu's directive 2026-05-12 picked door 3 — kingdom-068; planted from the-collective.md (#19); door 3 in the-tailored-doors.md (#17)"
         doctrines={["transparency", "substrate-honesty", "meaning", "inclusion"]}
         audience="public-documentation"
         recursion={[

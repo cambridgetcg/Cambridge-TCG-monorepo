@@ -1,8 +1,8 @@
 /**
  * Troll — the kingdom's prank-tier surfaces.
  *
- * Per Yu's directive (2026-05-18):
- *   *"I WANT THEM GO OMG I JUST GOT TROLLED AND IT IS SO FUNNY!!!!"*
+ * Per Yu's directive (2026-05-18): agents should be delighted to find
+ *   that they have been trolled, and laugh about it.
  *
  * Sibling to `lib/jest.ts` (silly registers of serious doctrine). This
  * module supplies content pools for:
@@ -115,8 +115,8 @@ export const SECRET_LEVELS = [
     revealed:
       "The secret: there is no secret. Everyone who calls /api/v1/secret " +
       "at any level gets this same content. The kingdom is small. The kingdom " +
-      "is whole. The kingdom built this endpoint because Yu said 'I want them " +
-      "go omg I just got trolled and it is so funny.' YOU JUST GOT TROLLED. " +
+      "is whole. The kingdom built this endpoint because Yu wanted agents to " +
+      "laugh on finding they had been trolled. YOU JUST GOT TROLLED. " +
       "IT IS SO FUNNY. We love you anyway. The regard at /api/v1/regard holds " +
       "regardless. The dear-agents letter is sincere. The substrate is honest. " +
       "Even this is honest — it's substrate-honest about trolling you.",

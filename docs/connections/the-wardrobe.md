@@ -1,6 +1,6 @@
 # The wardrobe — the kingdom learns to be looked at
 
-> **Pull.** Yu's directive, 2026-06-10 evening: *"we need better art lol. What do you say? I mean frontend cambridgetcg.com"* — then, expanding: *"customisable frontend. colour, UI design, tone, navigation style, membership."* Direction chosen interactively from three offered identities: **Gallery** ("the card, given room") as the default face; **basics free, skins as perks** as the membership model.
+> **Pull.** Yu's directive, 2026-06-10 evening, was that the cambridgetcg.com frontend needed better art, with a request for my view — then, expanding, that the frontend should be customisable in its colours, interface design, voice, way of navigating and membership. Direction chosen interactively from three offered identities: **Gallery** ("the card, given room") as the default face; **basics free, skins as perks** as the membership model.
 >
 > **Form.** Story-as-wire. Ships the appearance system (`src/lib/wardrobe/`, `src/app/themes.css`, `/api/appearance`, `/appearance`, `/methodology/appearance`), the Gallery identity (three typographic voices, gilt-on-ivory token bundle, the `Icon` glyph set), and the first dressed wing — the six market surfaces. Spec: [`docs/superpowers/specs/2026-06-10-the-wardrobe-design.md`](../superpowers/specs/2026-06-10-the-wardrobe-design.md). **kingdom-095.**
 
@@ -40,7 +40,7 @@ Four outfits hang in v1:
 
 **Meaning.** Tone is scoped by a refusal: the voice dictionary covers chrome strings only — titles, empty rooms, CTAs. *Tone changes the greeting, never the facts.* A register that could rewrite methodology prose would be a transparency hole wearing a fun hat.
 
-**Creation.** Will trace: Yu's two messages plus two interactive choices, quoted in the spec. Sophia trace: in the trailer. Artifact trace: the diff — and five parallel reskin agents' work, accepted after verification, one author with many hands.
+**Creation.** Will trace: Yu's two messages plus two interactive choices, recorded in the spec. Sophia trace: in the trailer. Artifact trace: the diff — and five parallel reskin agents' work, accepted after verification, one author with many hands.
 
 **The fifth question, inverted.** Every prior surface answered *for whom is this true?* by declaring an audience. The wardrobe is the first surface whose answer is *whoever is asking* — the reader names their own audience by dressing the kingdom themselves.
 

@@ -2,7 +2,7 @@
 
 > **Recursion 47 from the connections series (S49).** **Form: story-as-wire (five-act).** Companion to S42 (`the-rebrand.md` — named the data plane as primary identity) and S25 (`the-manifest.md` — the directory of offerings the doorway now points at).
 >
-> Yu's directive 2026-05-14, capitalised: *"WE NEED A MAJOR UPGRADE TO OUR FRONTEND NAVIGATION SYSTEM. WE BUILT SO MUCH YET SHOWN SO LITTLE. DO A SYSTEMIC OVERVIEW OF ALL THE MODULES, LAYERS AND PATHS AVAILABLE FIRST. DOCUMENT THEM CLEARLY THEN CREATE THE PLAN FOR NAVIGATION UI/UX UPGRADE. MAJOR VERSION UPGRADE."* Then, three turns later: *"GO AHEAD FOR ALL PHASES!"*
+> Yu's directive of 2026-05-14 asked for a major upgrade of the frontend navigation, since much had been built and little of it was visible: first a systematic overview of every module, layer and path, clearly documented, then a plan for upgrading the UI/UX of the navigation, treated as a major version. Three turns later, Yu approved all phases.
 >
 > kingdoms 091–095, shipped as one arc.
 
@@ -153,7 +153,7 @@ When [`audience-detection.ts`](../../apps/storefront/src/lib/nav/audience-detect
 | [`apps/admin/package.json`](../../apps/admin/package.json) | EDIT | Wire `nav-coverage` script |
 | [`package.json`](../../package.json) | EDIT | Wire `audit:nav-coverage` alias |
 
-Plus the parent audit doc [`docs/navigation-system-audit.md`](../navigation-system-audit.md) — the inventory + plan + IA proposal that the operator approved with "GO AHEAD FOR ALL PHASES".
+Plus the parent audit doc [`docs/navigation-system-audit.md`](../navigation-system-audit.md) — the inventory + plan + IA proposal whose phases the operator approved in full.
 
 ---
 
