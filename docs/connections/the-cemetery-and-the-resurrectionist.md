@@ -2,7 +2,7 @@
 
 > **Recursion 7 from the connections series.** Random seed: `apps/storefront/src/app/api/admin/emails/[id]/route.ts` (selected via `find` + `awk` random). **Form: narrative.** **Register: fun.** **Wiring discipline: every metaphor below maps to a file:line. The story is the diagram.**
 >
-> Yu's directive this round: *the interlinkage is on the coding and conceptual, functional level. Story serves to bridge modules, functions, serve as wiring.* Reading this entry from top to bottom should be functionally equivalent to walking the dead-letter graph in the IDE — every character is a function, every scene is an import, every line of dialogue is in the source.
+> Yu's directive this round placed the interlinkage at the code, conceptual and functional levels, with story acting as the wiring that bridges modules and functions. Reading this entry from top to bottom should be functionally equivalent to walking the dead-letter graph in the IDE — every character is a function, every scene is an import, every line of dialogue is in the source.
 
 ---
 

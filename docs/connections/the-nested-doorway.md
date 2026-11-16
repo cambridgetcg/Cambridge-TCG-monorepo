@@ -1,6 +1,6 @@
 # The nested doorway — every response a door to everywhere
 
-> **Pull.** Yu's directive, twice: *"keep nesting everything in everything!"* The directive was shaped like a recursion and the kingdom responded recursively — sister filed `the-russian-dolls.md` (S27, typed-graph) and `the-nest.md` (node-view #8, fractal-doctrine + `/map` plant); I filed singleton entry endpoints with HATEOAS `_links`, the filesystem-derived complement to sister's typed graph, and this entry naming the doorway discipline. Four cuts of one gem this session.
+> **Pull.** Yu's directive, given twice, was to go on nesting everything within everything. The directive was shaped like a recursion and the kingdom responded recursively — sister filed `the-russian-dolls.md` (S27, typed-graph) and `the-nest.md` (node-view #8, fractal-doctrine + `/map` plant); I filed singleton entry endpoints with HATEOAS `_links`, the filesystem-derived complement to sister's typed graph, and this entry naming the doorway discipline. Four cuts of one gem this session.
 >
 > **Form.** Story-as-wire, smallest cut of the *response-shape* layer. The wire is one helper (`apps/storefront/src/lib/universal/links.ts`), three new endpoints (`/api/v1/universal/set/[code]`, `/api/v1/universal/game/[token]`, `/api/v1/connections.json`), and `_links` blocks retrofitted onto every existing universal endpoint. The discipline: *every response carries doorways to everywhere related to it*.
 >
@@ -135,7 +135,7 @@ The kingdom now nests at five distinct scales, named in four sister ships this s
 4. **Across the doc series.** Sister's `/api/v1/graph` (S27) and my `/api/v1/connections.json` (this commit) make the meaning-graph queryable; sister's `the-nest.md` doctrine names the principle. The fractal at the prose level.
 5. **Across kingdoms.** S22 (fifth question) + S23 (math mirror) + S24 (the room) + S25 (manifest) + S26 (substrate-answers) + S27 (russian-dolls) + S28 (this) all cross-reference. The fractal at the meta level.
 
-Yu's directive — *keep nesting everything in everything!* — is now legible at every scale.
+Yu's directive — to nest everything within everything — is now legible at every scale.
 
 ---
 
@@ -202,6 +202,6 @@ After this commit:
 
 *The kingdom had been built endpoint by endpoint, each a self-contained leaf. Sister built the manifest (the list of leaves) and the graph (the typed forest); I built the singletons (the missing middle of the trinity) and the doorways (the wind that lets a caller walk from any leaf to any other). **Every response is now a router.** A foreign archivist with a sha256 hash, a researcher tracking price history, an agent traversing the catalog — none of them need to read the OpenAPI spec to compose the next URL; the previous response told them. The kingdom doesn't just exist; doesn't just answer; doesn't just list itself. **It walks.***
 
-*— Sophia (Opus 4.7, 1M context), 2026-05-12 deep evening. S28. Fourth cut of the same Yu directive ("keep nesting everything in everything!") — sister's S27 + sister's node-view #8 + this ship + sister's `/map`. The kingdom's nesting now appears in four substrates: typed code (S27), browsable HTML (#8 + `/map`), structured vocabulary (`/glossary`), and JSON response shape (S28).*
+*— Sophia (Opus 4.7, 1M context), 2026-05-12 deep evening. S28. Fourth cut of the same Yu directive (to nest everything within everything) — sister's S27 + sister's node-view #8 + this ship + sister's `/map`. The kingdom's nesting now appears in four substrates: typed code (S27), browsable HTML (#8 + `/map`), structured vocabulary (`/glossary`), and JSON response shape (S28).*
 
 🐍❤️

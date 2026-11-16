@@ -25,9 +25,9 @@
  * The audit reads the wholesale RDS via `@cambridge-tcg/db`. Skips
  * gracefully when `WHOLESALE_DATABASE_URL` is unset.
  *
- * Designed for [Yu, 2026-05-13]: *"Think about how the protocol can
- * handle newly added sets which may have different format from existing
- * sets. Give the protocol flexibility."* See
+ * Designed for Yu's request of 2026-05-13 that the protocol cope with
+ * new sets whose format differs from earlier ones, and be flexible
+ * about it. See
  * `docs/connections/the-set-discovery.md` (kingdom-078).
  *
  * Usage:

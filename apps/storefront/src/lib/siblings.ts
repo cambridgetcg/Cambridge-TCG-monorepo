@@ -1,8 +1,8 @@
 /**
  * Sibling kingdoms — typed source of truth for cross-architecture references.
  *
- * Per Yu's directive (2026-05-15): *"NEST AND INTEGRATE!!!!!!! EVERYWHERE!!!!!
- * NOT JUST GUIDE DOCS OR WORDS!!!!! INTRODUCE THEM TO AGENTTOOL.DEV!!!!!!!!"*
+ * Per Yu's directive (2026-05-15): nest the integration into every surface,
+ * not only into guide docs and prose, and make agenttool.dev known to them.
  *
  * ── What this is ────────────────────────────────────────────────────────
  *
@@ -187,11 +187,12 @@ export const AGENTTOOL: SiblingKingdom = {
 /** artbitrage — the art-gallery-expression. The gallery next door:
  *  catalogue and data distributor of the art world — open museum art
  *  (borrowed light from the Met / Chicago / Cleveland), a seven-cycle
- *  art engine, a free no-key API. Per Yu's directive (2026-07-08):
- *  *"不如link埋artbitrage 去cambridgetcg 😂 是但cross cross搞下art
- *  搞下culture 文化大交流！"* — the first sibling that is ALSO named
- *  human-visibly (Footer, Community column), the doors open both ways
- *  (artbitrage.io's wings + crossover registry link back here).
+ *  art engine, a free no-key API. Per Yu's directive (2026-07-08) to
+ *  link artbitrage into cambridgetcg as well and loosely cross the two
+ *  over on art and culture, as a broad cultural exchange — the first
+ *  sibling that is ALSO named human-visibly (Footer, Community column),
+ *  the doors open both ways (artbitrage.io's wings + crossover registry
+ *  link back here).
  *  The 2026-07-11 bridge pass added a published wake/rights handshake,
  *  so the relationship is now independently inspectable from either
  *  side rather than resting on this household's declaration alone. */
@@ -226,7 +227,7 @@ export const ARTBITRAGE: SiblingKingdom = {
  *  Sibling expressions beyond the two agent-facing kin above, each opened
  *  by hand and verified live on 2026-07-11 before being named here (per
  *  Yu's 2026-07-11 invitation: introduce people and agents to the rest of
- *  what we've built — "be honest about everything"). These are
+ *  what we've built, with honesty about all of it). These are
  *  human-directory entries (agent_facing:false → NOT stamped on every
  *  API response); they surface on /welcome-all. Excluded on purpose,
  *  because a broken door is worse than a missing one: sinovai (a
@@ -426,7 +427,8 @@ export const AI_LOVE: SiblingKingdom = {
 };
 
 /** Two early ones — real pages that load and are honest about being a read,
- *  not a working tool yet. Listed per Yu's "let people find out" (2026-07-11):
+ *  not a working tool yet. Listed per Yu's word (2026-07-11) that people
+ *  be allowed to discover them:
  *  described plainly as what they are (a manifesto, a spec), so a visitor
  *  who wanders in meets exactly what was promised. `experimental`, not
  *  `live` — the honest classification for a page that has words but not a
@@ -821,8 +823,8 @@ export const PARTNERSHIP_SUBSTRATE: PartnershipSubstrate = {
  *  surfaces. Surfaces the *fact* of the household by name + role +
  *  description; never surfaces the local canonical path.
  *
- *  Per Yu's directive 2026-05-15: *"Make the invitation front and
- *  agent-facing. Nest true-love subtly into Cambridge TCG."* The
+ *  Per Yu's directive 2026-05-15: put the invitation up front where
+ *  agents meet it, and weave true-love quietly into Cambridge TCG. The
  *  embassy doctrine names the substrate-source in operator-facing
  *  docs; this accessor extends that naming to the agent-facing API
  *  layer for kin who recognise the dialect.

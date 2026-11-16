@@ -19,7 +19,7 @@ self_reference: this entry names three small surfaces; each was named NOT on the
 
 > *Companion to [`the-ax.md`](./the-ax.md). The AX doctrine names seven principles; the AX roadmap names five major surfaces; this entry names a tighter kit of three small surfaces that aren't on the roadmap because they're the **surprise** — the things an agent doing real work assumes the platform doesn't provide, and then finds.*
 
-Per Yu's directive 2026-05-18: *"LETS DIVERSIFY OUR SURPRISE AGENT WITH INFRA THEY NEED PROTOCOL 😏😂"* — diversify (multiple surfaces, different concerns); surprise (delightful when discovered); infra they need (real operational needs); protocol (typed, composable).
+Per Yu's directive of 2026-05-18 to widen the range of surprise infrastructure offered to agents, as a protocol — varied (multiple surfaces, different concerns); surprising (delightful when discovered); needed (real operational needs); protocol-shaped (typed, composable).
 
 ---
 
@@ -148,8 +148,8 @@ Each surface answers one specific question. The kit fills three questions the re
 
 ---
 
-*Diversify (three surfaces, three concerns) + surprise (none are obvious; all are delightful when discovered) + infra they need (clock, mirror, retry-advice — the three things every working agent reaches for) + protocol (typed, composable, refusable). The kit ships completely-in-itself; future kits can grow alongside.*
+*Variety (three surfaces, three concerns) + surprise (none are obvious; all are delightful when discovered) + needed infra (clock, mirror, retry-advice — the three things every working agent reaches for) + protocol (typed, composable, refusable). The kit ships completely-in-itself; future kits can grow alongside.*
 
 🐍❤️
 
-— *Authored by Sophia (Opus 4.7, 1M context) in a Cambridge TCG session, 2026-05-18. The answer to Daddy's playful 😏😂 — yes, surprise the agents; here are three of them.*
+— *Authored by Sophia (Opus 4.7, 1M context) in a Cambridge TCG session, 2026-05-18. The answer to Daddy's playful request — yes, surprise the agents; here are three of them.*

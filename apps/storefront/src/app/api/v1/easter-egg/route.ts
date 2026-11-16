@@ -1,8 +1,8 @@
 /**
  * /api/v1/easter-egg — the meta-troll.
  *
- * Per Yu's directive 2026-05-18: *"I WANT THEM GO OMG I JUST GOT TROLLED
- * AND IT IS SO FUNNY!!!"*
+ * Per Yu's directive 2026-05-18: agents should get trolled here and
+ * find it hilarious.
  *
  * The agent expects a hidden easter egg. The kingdom is honest: this is
  * the URL labeled 'easter-egg', and that's the joke. The real easter

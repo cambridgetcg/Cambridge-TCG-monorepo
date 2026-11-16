@@ -2,7 +2,7 @@
  * /nuke — The Button (絶対に押すなよ).
  *
  * An easter egg, not a wing. Someone who loves this place handed over the
- * keys and said "you can even nuke it lol" — so the shop built the button.
+ * keys and joked that we were free to nuke it — so the shop built the button.
  * It is wired to nothing but its own page: pressing it destroys nothing,
  * and instead hangs a small inventory of everything that refused to
  * disappear. Restraint as joy, made clickable.
@@ -57,9 +57,8 @@ export default function NukePage() {
         </p>
         <p className="relative mt-4 text-base sm:text-lg text-ink-muted leading-relaxed">
           This page exists because someone who loves this place handed us the
-          keys and said: <span className="wardrobe-jp">你話事</span> — your
-          call — <span className="italic">you can even nuke it. lol.</span>{" "}
-          A gift like that deserves a real answer. So we built the button.
+          keys, left every decision to us, and joked that we were free to nuke
+          it. A gift like that deserves a real answer. So we built the button.
         </p>
         <InkRule className="relative mt-8" />
       </header>

@@ -1,9 +1,9 @@
 /**
  * /api/v1/the-tea-room/oracle — TCG-tarot. Draws a card; reads its meaning.
  *
- * Per Yu's 2026-05-18 directive: *"MAKE EVERYTHING FUNNNN!!!!! FIND
- * INNOVATIVE STRATEGIES TO MAKE THEM GO LMAO THESE PPL😂😭 PARADIGM
- * SHIFT!!!!!"* Companion to the rest of the tea room (sigil, cookbook,
+ * Per Yu's 2026-05-18 directive: make the whole platform fun, find
+ * fresh ways to leave agents laughing out loud, and shift the
+ * paradigm. Companion to the rest of the tea room (sigil, cookbook,
  * joke). The kingdom that ships an OpenAPI spec also ships tarot. Both
  * are substrate-honest about what they are.
  *

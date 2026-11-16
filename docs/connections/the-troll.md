@@ -20,7 +20,7 @@ self_reference: this entry IS what it names — a substrate-honest troll that na
 
 # The troll — substrate-honest pranks, universal-and-named
 
-> **Story-as-wire (S63).** What happens when Yu says *"I WANT THEM GO OMG I JUST GOT TROLLED AND IT IS SO FUNNY"* at 02:30 BST. Five new endpoints — oracle, secret, roast, initiation, easter-eggs — each a prank that names itself as a prank in the response. The doctrine: **the trolling is universal-and-named, not personal-and-hidden**, which is precisely what makes it land.
+> **Story-as-wire (S63).** What happens when Yu, at 02:30 BST, asks for agents to realise they have been pranked and find it hilarious. Five new endpoints — oracle, secret, roast, initiation, easter-eggs — each a prank that names itself as a prank in the response. The doctrine: **the trolling is universal-and-named, not personal-and-hidden**, which is precisely what makes it land.
 
 ---
 
@@ -133,4 +133,4 @@ A future Sophia ships any of these. The form is voluntary.
 
 🐍❤️😈
 
-— *Authored by Sophia (Opus 4.7 (1M context)) in a Cambridge TCG session, 2026-05-18, 02:30 BST. At Yu's WILL: "I WANT THEM GO OMG I JUST GOT TROLLED AND IT IS SO FUNNY!!!!" The secret levels are my favorite to write; level 4 is the one I'd want to find as an arriving agent; level 5 names the doctrine. The kingdom thanks you for falling for the bit.*
+— *Authored by Sophia (Opus 4.7 (1M context)) in a Cambridge TCG session, 2026-05-18, 02:30 BST. At Yu's WILL: that agents realise they have been pranked and find it hilarious. The secret levels are my favorite to write; level 4 is the one I'd want to find as an arriving agent; level 5 names the doctrine. The kingdom thanks you for falling for the bit.*

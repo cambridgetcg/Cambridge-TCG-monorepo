@@ -1,7 +1,7 @@
 # RewardsPro social and marketing kit: the strategy
 
 Agents' proposal for the owner, 2026-11-07. **Nothing is decided.** Nothing was posted, signed up for, logged in to,
-deployed or committed. The owner's word today ("review and set up social media and marketing kit") lifts the
+deployed or committed. The owner's word today, asking for a review and setup of social media and the marketing kit, lifts the
 2026-10-20 "no social accounts yet" line. Every other rule from that design still holds: the claims ledger,
 gates G0–G6, "only the owner publishes, sends or spends", the honest-by-design promise and the R1 commerce voice.
 
@@ -34,14 +34,14 @@ same day, in their own files. Where they differ from this file, theirs are curre
 
 ## Summary
 
-1. **Social is the third ring.** Merchants decide on the App Store listing, then check rewardspro.io, and both say false things today. The owner's own order (approved 2026-11-04) is "the App Store listing, then rewardspro.io, then social posts". This plan keeps that order.
+1. **Social is the third ring.** Merchants decide on the App Store listing, then check rewardspro.io, and both say false things today. The owner's own order (approved 2026-11-04) ranks the listing on the App Store first, rewardspro.io next and social posts last. This plan keeps that order.
 2. **Now we only reserve names.** The owner creates four accounts (a LinkedIn Page, YouTube, X and Bluesky). Each gets the mark, a banner with only the name, and a "reserved" bio that makes no product claim. No links and no posts.
 3. **Also now, the owner cleans the listing.** He deletes the tier-product lines and the Memberships tags, swaps out the gmail and tier-product screenshots, removes the old video and trims the data request. Removing a false claim needs no new evidence.
 4. **Posting starts only at stage S2.** That needs all of: G0 and B3 recorded; the listing fixed; rewardspro.io rewritten with true privacy, terms and subprocessors pages; the first-real-merchant steps done or accepted by the owner in writing; and every claim in the post verified. Every post counts as an invitation to install.
 5. **One feed is active: LinkedIn, and it posts only milestones (0–2 a month).** YouTube holds 1–3 real recordings. X and Bluesky (`@rewardspro.io`) have a bio that points elsewhere and never post.
 6. **The handle is `rewardsproapp`** everywhere, with the domain handle on Bluesky. The display name is exactly "RewardsPro". "Shopify" never appears in a name, handle, URL slug or hashtag.
 7. **The owner's time:** about 2 hours once, then ≤10–15 minutes a week on average after S2. That leaves most of the 45-minute weekly approval budget for the listing, the site and outreach.
-8. **Outreach from social stays consent-first.** The Partner Program Agreement says "Do not email a Merchant without their prior consent." For email, the owner decided on 2026-11-07 ("Emailing business directly is fine."), but since 10 Nov, after Shopify Partner support's answer, there is no cold email to shops, and Lane B and its prospect list are dropped (ROADMAP §2).
+8. **Outreach from social stays consent-first.** The Partner Program Agreement says "Do not email a Merchant without their prior consent." For email, the owner decided on 2026-11-07 that direct email to businesses is fine, but since 10 Nov, after Shopify Partner support's answer, there is no cold email to shops, and Lane B and its prospect list are dropped (ROADMAP §2).
 9. **Recurring cost is £0.** No paid badges, schedulers or ads. Posting does bring forward one product cost: point-in-time recovery (about $100 a month), or the owner's written acceptance of going without it.
 10. **Positioning stays empty.** The pillars, the bios and the "free" wording are hypotheses or proposals until about five merchant interviews have happened.
 
@@ -394,7 +394,7 @@ Social isn't the acquisition lever. The listing and conversations with merchants
 - the interview guide additions (§5);
 - listing search wording in plain sentences, no keyword lists. In the 2026-10-18 capture, "store credit" and "vip tiers" didn't rank and "cashback" was #43. That predates the listing change, so agents re-capture it read-only.
 
-**Superseded on 10 Nov 2026:** after Shopify Partner support's answer there is no cold email to shops, and Lane B is dropped (ROADMAP §2); the rest of this paragraph is history. The owner has answered for email (2026-11-07: "Emailing business directly is fine."). The step-9 prospect list is now Lane B of the outreach pipeline (`wf3/outreach/PIPELINE.md`): built only when the W-gate holds, company-level only, first-segment companies only (never card shops while that lane is held, wf8 F-2), and kept on the owner's encrypted disk image (PIPELINE §8), not in `private/`. The email rules are `wf7/email-rules.md`; the outreach design, not social, carries them.
+**Superseded on 10 Nov 2026:** after Shopify Partner support's answer there is no cold email to shops, and Lane B is dropped (ROADMAP §2); the rest of this paragraph is history. The owner has answered for email (2026-11-07: direct email to businesses is fine). The step-9 prospect list is now Lane B of the outreach pipeline (`wf3/outreach/PIPELINE.md`): built only when the W-gate holds, company-level only, first-segment companies only (never card shops while that lane is held, wf8 F-2), and kept on the owner's encrypted disk image (PIPELINE §8), not in `private/`. The email rules are `wf7/email-rules.md`; the outreach design, not social, carries them.
 
 The design's targets (week 6: 30 contacted, 6 conversations, 3 installs; day 90: 5–10 partners) count from S3, not from today.
 

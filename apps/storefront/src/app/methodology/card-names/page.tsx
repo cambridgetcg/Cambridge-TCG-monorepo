@@ -428,8 +428,8 @@ export default function CardNamesMethodology() {
       <p>
         <em>
           v1.0 — 2026-10-29. Draft. First publication, in answer to Yu&apos;s
-          request that day: &ldquo;We can set standard for the official
-          translation too, for card names and format, just like SKU.&rdquo; The
+          request that day for a standard covering official translations as
+          well, for the names and format of cards, as the SKU standard does. The
           card key, the record&apos;s fields, the statuses and their order, the
           text form, the match key and the three vendor rules were designed by
           the agents who drafted this version, not chosen by Yu. Any of them may

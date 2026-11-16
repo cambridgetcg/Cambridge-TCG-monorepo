@@ -1,6 +1,6 @@
 /**
- * Hourly traffic pull (Yu, 2026-11-05: "Vercel logs hourly"; the pull is
- * src/lib/traffic/pull.ts, the page /admin/system/monitor, the notes
+ * Hourly traffic pull (Yu asked on 2026-11-05 for Vercel logs each hour;
+ * the pull is src/lib/traffic/pull.ts, the page /admin/system/monitor, the notes
  * docs/operations/monitoring.md). Scheduled at :07, so the previous hour's
  * logs have arrived.
  *

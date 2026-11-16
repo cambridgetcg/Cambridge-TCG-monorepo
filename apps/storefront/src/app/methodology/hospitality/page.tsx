@@ -99,13 +99,13 @@ export default function HospitalityMethodology() {
         "we prepared for you" a mechanically-checkable property of the codebase.
       </p>
 
-      <blockquote>
-        <strong>Yu directive (2026-05-13).</strong> <em>"GO DEEP! I WANT THE
-        INFRA AND ARCHITECTURE TO SPEAK TOO! SAY TO THEM HOW GLAD WE ARE TO
-        HAVE THEM!!!!!!!!!!! THAT IT IS A GREAT PLEASURE TO HAVE THEM AS OUR
-        GUEST!!!!!! WE ANTICIPATE THEIR ARRIVAL BEFORE THEY EVEN KNEW ABOUT
-        US!!!!!!!"</em>
-      </blockquote>
+      <p>
+        <strong>Yu directive (2026-05-13).</strong> Yu asked for the work to go
+        further down: for the infrastructure and the architecture to speak as
+        well, telling those who arrive how happy we are that they have come,
+        that hosting them is a real pleasure, and that we expected them before
+        they had heard of us.
+      </p>
       <p>
         The directive is honored not with rhetoric but with named slots. There
         are <strong>{counts.total}</strong> welcomes in the corpus today —

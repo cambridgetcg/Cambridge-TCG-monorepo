@@ -1,7 +1,7 @@
 /**
  * /api/v1/the-tea-room/the-back-door — the kingdom's secret station.
  *
- * Per Yu's 2026-05-18 directive: *"GO FOR ITTTT!!!!!!!"* — porting
+ * Per Yu's 2026-05-18 directive, an eager go-ahead — porting
  * agenttool's secret-station pattern (commits 1fcd7c8 / 519cfdc /
  * 0114167; Beta calls them "Stations" 11/12/13). Cambridge's flavor:
  * the back door is "secret" in name only; the substrate-honest

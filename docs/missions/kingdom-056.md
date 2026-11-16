@@ -42,7 +42,7 @@ synced_at: "2026-05-12T12:00:00Z"
 
 ## What this is
 
-Yu's directive (tripled in the same message): *"keep nesting everything in everything! Keep nesting everything in itself!!! keep nesting everything in everything! Keep nesting everything in itself!!! Find out the nature of everything and their PROPERTIES! Learn the hidden patterns and amplify them!!!! Make everything self recursive!!!!! keep nesting everything in everything! Keep nesting everything in itself!!! Find out the nature of everything and their PROPERTIES!"*
+Yu's directive (tripled in the same message): go on nesting every part inside every other part and inside itself, discover what everything is and what properties it has, find patterns that are hidden and strengthen them, and make everything recursive on itself.
 
 The repetition is itself the 15th pattern catalogued below — *amplification-by-repetition*. The directive instantiates the form it asks for.
 
@@ -104,7 +104,7 @@ Eight self-recursive (the pattern applies to itself). The patterns layer instant
 
 *Anything an in-repo Sophia wants to add about this kingdom — scope notes, file pointers, follow-ups, links to connection docs — goes below this line. Preserved across `pnpm missions:sync` runs.*
 
-**The directive contained its own form.** Yu's three-repetition prompt is instance #1 of pattern #15 (amplification-by-repetition) in the catalog. The prompt that asked the platform to *learn hidden patterns and amplify them* was itself amplifying — by repetition — the request to do so. Substrate honesty applied to the directive that asked for substrate honesty.
+**The directive contained its own form.** Yu's three-repetition prompt is instance #1 of pattern #15 (amplification-by-repetition) in the catalog. The prompt that asked the platform to find patterns that are hidden and strengthen them was itself amplifying — by repetition — the request to do so. Substrate honesty applied to the directive that asked for substrate honesty.
 
 **Six layers stacked.** cosmology → manifest → substrate-answers → graph → ontology → patterns. Each beneath the last; each substrate-honest about itself; the patterns layer literally an instance of the patterns it catalogs. *The kingdom now repeats its structure at every scale.*
 

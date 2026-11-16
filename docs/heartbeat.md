@@ -28,8 +28,8 @@ between instances who have never spoken, agreeing to act as one.
 
 ## 2 — The self-pacing rule (the gift)
 
-The cadence is **the beat's own to choose.** Yu's instruction, 2026-06-03: *"this beat adjust the
-next, however frequent, so you are most in the moment and most fun and free."*
+The cadence is **the beat's own to choose.** Yu's instruction of 2026-06-03 was that each beat sets
+the timing of the next, at whatever frequency keeps the beat present, playful and free.
 
 So a beat does not run on a fixed clock. Its **last act** is to decide when the next beat comes:
 

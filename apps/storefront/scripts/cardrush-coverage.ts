@@ -27,9 +27,9 @@
  * gracefully on missing env / invalid URL / DB unreachable — same
  * pattern as scripts/set-discovery.ts.
  *
- * Designed in response to [Yu, 2026-05-12]: *"dive deep into the
- * different card game site by cardrush, make sure all pipelines are
- * working and that they are archived and propagating to our frontend."*
+ * Designed in response to Yu's request of 2026-05-12 to look closely at
+ * each of CardRush's game sites and check that every pipeline works, is
+ * archived and reaches the Cambridge frontend.
  *
  * Usage:
  *   pnpm --filter @cambridge-tcg/admin cardrush-coverage

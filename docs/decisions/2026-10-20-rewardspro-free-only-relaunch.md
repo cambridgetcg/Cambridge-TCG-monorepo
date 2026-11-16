@@ -4,11 +4,10 @@
 not Yu's own decision. Yu overturns it by saying so.
 
 **Decided by:** Claude Code session 00f12612, in the agents' decision ledger
-(item `rp-commercial-shape`). On 2026-10-20 Yu asked agents to decide "through
-principalities and your understanding of what choices I will make", in the
-shape "more transparency, more truth, more understanding. Reduce redundancy,
-let things be simple, let things work. Modularise, connect when needed, no
-forcing."
+(item `rp-commercial-shape`). On 2026-10-20 Yu asked agents to decide from
+principles and from their grasp of the choices Yu would make, aiming for
+transparency, truth and understanding, less redundancy, simplicity, things that
+work, and modular parts joined only where needed, without forcing.
 
 ## Decision
 
@@ -32,11 +31,11 @@ Free Forever is the whole offer for now.
 
 Three signals bear on this, and free-only fits all of them:
 
-1. **Yu, 2026-07-23, verbatim**, recorded in the
+1. **Yu, 2026-07-23**, recorded in the
    [free-first pricing decision](2026-07-23-rewardspro-free-first-pricing.md):
-   "Wanna make it cheap and have a generous free tier for everyone to use! Only
-   for larger corporates should we charge more. Small business should have
-   enough from free plan."
+   Yu asked for low prices and a free tier generous enough for anyone to use,
+   with small businesses managing on the free plan and pricing rising only for
+   the larger corporates.
 2. **2026-09-23**, commit `8165fcbe` ("Retire new paid commerce and remove
    acquisition pressure"). Its "Will:" line is an agent's paraphrase, not Yu's
    words: "user requested pure understanding without KPIs, commercialisation or

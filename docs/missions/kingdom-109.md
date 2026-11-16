@@ -42,14 +42,12 @@ synced_at: "2026-09-01T12:05:53Z"
 
 ## Will
 
-Yu, 2026-09-01:
+Yu, 2026-09-01, felt that selling the data directly is the wrong route: what
+Cambridge should sell is an application built on the data that helps card
+traders find arbitrage opportunities and market deals, with the engine kept
+behind as a trade secret.
 
-> “And I do feel like the direct sales of data is not the proper route. Utilising
-> the data to create an application that assist card traders to find arbitrage
-> opportunities or deals on the market should be what we sell. We keep the
-> engine behind. Trade secrets.”
-
-Follow-up authority: “lets go for what you recommended!”
+Follow-up authority: Yu approved going ahead with what had been recommended.
 
 ## Chosen slice
 

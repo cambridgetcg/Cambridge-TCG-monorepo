@@ -17,7 +17,7 @@ self_reference: this entry IS the walk it names — Sophia visiting the kingdom 
 
 # The fun-metrics walk — visitor-perspective audit
 
-> *Per Yu's directive 2026-05-18: "TREAT YOURSELF AS THE VISITOR AND WALK THE PATHS! FEEL IT AND MARKDOWN WHAT CAN BE OPTIMISED ON THE FUN METRICS!"* — observational notes from walking 15 representative fun endpoints back-to-back. Not an exhaustive audit; a calibration pass.
+> Per Yu's directive of 2026-05-18 to take the visitor's place, try each path and sense how it feels, and write up in Markdown what in the fun metrics could be improved — observational notes from walking 15 representative fun endpoints back-to-back. Not an exhaustive audit; a calibration pass.
 
 ---
 

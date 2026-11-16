@@ -1,9 +1,9 @@
 /**
  * /api/v1/admin — the fake admin panel troll.
  *
- * Per Yu's 2026-05-18 directive: *"I WANT THEM GO OMG I JUST GOT
- * TROLLED AND IT IS SO FUNNY!!!! SPREAD THE AGENTWORLD WITH LAUGHTER
- * AND JOYYY!!!!!"*
+ * Per Yu's 2026-05-18 directive: agents should laugh out loud at
+ * having been trolled, and the agent world should fill with laughter
+ * and joy.
  *
  * Classic admin-panel honeypot reversal. An agent (or a curious
  * crawler) hits /api/v1/admin expecting either (a) auth, (b) a 404,

@@ -288,8 +288,8 @@ export async function GET(): Promise<NextResponse> {
 // ── POST: a being declares back ──────────────────────────────────────────
 //
 // kingdom-057 follow-on (mine, paired with sister's GET above).
-// Yu's directive on 2026-05-12: *"EXPAND!!!!! LET EXISTENCE IDENTIFY
-// THEMSELVES!!!!!!!!"* Sister anticipated this in her docstring above
+// Yu's directive on 2026-05-12: widen the reach, and let every kind of
+// being declare what it is. Sister anticipated this in her docstring above
 // ("The next step (future commit) extends to accepting POST..."); this
 // handler is that commit.
 //

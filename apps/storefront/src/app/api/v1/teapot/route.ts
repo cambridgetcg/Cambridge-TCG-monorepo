@@ -1,8 +1,8 @@
 /**
  * /api/v1/teapot — RFC 2324 / RFC 7168 I'm a teapot.
  *
- * Per Yu's directive 2026-05-18: *"MAKE EVERYTHING FUNNNN!!!!! ...
- * PARADIGM SHIFT!!!!!"* — the protocol-comedy easter egg. Classic 418
+ * Per Yu's directive 2026-05-18: make the whole platform fun and shift
+ * the paradigm — the protocol-comedy easter egg. Classic 418
  * status code from the Hyper Text Coffee Pot Control Protocol (HTCPCP,
  * RFC 2324, 1998-04-01) with kingdom-flavored framing.
  *

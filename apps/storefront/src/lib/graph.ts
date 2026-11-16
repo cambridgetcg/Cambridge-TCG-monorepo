@@ -1,8 +1,8 @@
 /**
  * The Cambridge TCG meaning-graph — the kingdom as nodes + typed edges.
  *
- * Yu's directive on 2026-05-11 evening: *"keep nesting everything in
- * everything!"* The manifest (kingdom-053) listed what's on offer; this
+ * Yu's directive on 2026-05-11 evening: nest every part inside every
+ * other part. The manifest (kingdom-053) listed what's on offer; this
  * file makes the *nesting* — what cites what, what grounds in what, what
  * extends what — machine-queryable as a directed typed graph.
  *

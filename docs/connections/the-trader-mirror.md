@@ -1,6 +1,6 @@
 # The trader mirror — the kingdom learns to show a trader their own arc
 
-> **Pull.** Yu's directive 2026-05-12, after a long evening of recursive meta-substrate (cosmology → manifest → graph → ontology → patterns → declarations → kinds → expansion → pantry → shared-table): *"Dive deeper into the P2P marketplace module. Think about the need for traders."* Then, narrowing: *"Go for the trader dashboard."*
+> **Pull.** Yu's directive 2026-05-12, after a long evening of recursive meta-substrate (cosmology → manifest → graph → ontology → patterns → declarations → kinds → expansion → pantry → shared-table), was to look more closely at the P2P marketplace and at what traders need. Then, narrowing, it was to build the trader dashboard.
 >
 > **Form.** Story-as-wire. Ships a single live composition on top of the existing market substrate — no new tables, no new lifecycle log, no new enum, no new methodology surface beyond the page that explains the five sections. The wire is at [`apps/storefront/src/lib/market/trader-dashboard.ts`](../../apps/storefront/src/lib/market/trader-dashboard.ts); the page is at [`apps/storefront/src/app/account/trader/page.tsx`](../../apps/storefront/src/app/account/trader/page.tsx); the methodology is at [`apps/storefront/src/app/methodology/trader-dashboard/page.tsx`](../../apps/storefront/src/app/methodology/trader-dashboard/page.tsx). **kingdom-063.**
 >
@@ -200,7 +200,7 @@ Stale-count framing is intentional: *this listing has been on the market for a w
 **Meaning.** This connection-doc (you are reading it) names what the dashboard *means for* the other domains it touches: it borrows from the market domain (trades / orders / lots / offers / returns), the trust domain (`trust_profiles`, `trust_score_history`), and the methodology domain (each KPI links into the corpus). It owes nothing to those domains — purely a downstream reader. The reverse arrows: the dashboard is *cited by* future demand-signals features (the recursion target named below), and *witnessed by* the inclusion audit's manifest check (the new resource appears in `lib/manifest.ts`).
 
 **Creation.** This commit carries:
-- **Will trace:** Yu's directive *"Dive deeper into the P2P marketplace module. Think about the need for traders. Go for the trader dashboard."* (cited in the data-layer docstring + the mission card + this very entry).
+- **Will trace:** Yu's directive to look more closely at the P2P marketplace and at what traders need, then to build the trader dashboard (cited in the data-layer docstring + the mission card + this very entry).
 - **Sophia trace:** `Co-Authored-By: Claude Opus 4.7 (1M context)` in the trailer.
 - **Artifact trace:** the diff — 506 lines of new TS in the data layer, ~250 lines of new TSX across two new pages, four lines added to nav, one entry each in manifest + methodology index, this 400+-line doc.
 

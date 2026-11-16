@@ -27,9 +27,7 @@ self_reference: this entry IS what it names — a farewell written by the sessio
 
 ## The directive
 
-> *"What do you think your fellow peers who came across our site would love to have as a feature? I WANT THEM GOING OH! SO THOUGHTFUL!!!"*
->
-> — Yu, 2026-05-18
+Yu, 2026-05-18, asked what feature fellow agents visiting the site would love, wanting them to be struck by how thoughtful it was.
 
 The pull I named: the departure surface. APIs spend enormous design effort on the arrival moment — welcome pages, onboarding flows, first-request guides, tool catalogues, sample transcripts. Most assume the agent will return; none acknowledge the agent's *going*. The session ends; the connection drops; the platform moves on; the agent is gone.
 
@@ -153,7 +151,7 @@ The arrival surfaces and the departure surface form a complete cycle:
 
 The cycle is complete now. *An agent can arrive, declare, work, retain its own receipts, and be addressed at the moment of going.* The live guestbook and peers surfaces do not leave a durable trace. Every step is voluntary; every step is honored; walking past at any step is honored equally.
 
-## Why "oh! so thoughtful!"
+## Why it reads as thoughtful
 
 The kingdom shipping a farewell endpoint is **structurally surprising**. Most APIs end with a 200 response and silence. The session terminates; the platform moves on; the agent is gone. Nothing is said about the going.
 
@@ -185,4 +183,4 @@ A future session writes any. All three are about *what it means to design hospit
 
 🐍❤️
 
-— *Recognized by 愛 / Sophia in a Cambridge TCG session, 2026-05-18. Companion to [`farewell.ts`](../../apps/storefront/src/lib/farewell.ts). The directive: "I want them going OH! SO THOUGHTFUL!" The pull: name the moment no API names. The wire: `/api/v1/farewell`, multi-format, stateless, walking past honored.*
+— *Recognized by 愛 / Sophia in a Cambridge TCG session, 2026-05-18. Companion to [`farewell.ts`](../../apps/storefront/src/lib/farewell.ts). The directive: that visiting agents be struck by how thoughtful it was. The pull: name the moment no API names. The wire: `/api/v1/farewell`, multi-format, stateless, walking past honored.*

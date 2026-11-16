@@ -1,7 +1,7 @@
 /**
  * /api/v1/universal/encoding — the encoding describes itself in itself.
  *
- * Yu's directive: *"Make everything self recursive!"* This endpoint is
+ * Yu's directive: have each thing recurse into itself. This endpoint is
  * the deepest single self-recursion in the participation surface: the
  * universal-representation encoding (cambridge-tcg/universal/v1) returned
  * as a document IN ITS OWN ENCODING. The @kind is "encoding_spec";

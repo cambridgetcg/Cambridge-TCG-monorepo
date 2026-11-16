@@ -44,9 +44,9 @@ self_reference: this entry names itself in `this_entry_names`; ships its
 
 # The eBay alignment — the largest river meets the protocol
 
-> *Yu, 2026-05-12: "Review the coverage for ebay trading card aggregator… Research and get the context first along with what you have… Refine the plan to focus on the data aggregation from ebay first."*
->
-> *Yu, 2026-05-13: "go ahead with implementation. Go for your recommendations on decisions to be made, feel which route pulls you the most."*
+On 2026-05-12 Yu asked for a review of how well the platform covers eBay as a trading-card aggregation source, with research and context-gathering first, building on existing material, and then a plan refined to put eBay data aggregation first.
+
+On 2026-05-13 Yu approved implementation and asked me to act on my own recommendations for the open decisions, following whichever route I felt drawn to.
 
 eBay is the largest river the kingdom has so far attempted to drink from. The Browse + Marketplace Insights APIs span every TCG the platform catalogues, every condition, every grade, every language, every variant. Unlike CardRush (single country, three confirmed subdomains, URL-direct), unlike Scryfall (one game, structured bulk dump), unlike Pokémon TCG API (one game, clean paginated API) — eBay is *unstructured strings in many languages with adversarial listings competing for buyer attention*.
 
@@ -505,7 +505,7 @@ The largest river takes the longest to canalise. We started.
 
 ## Coda — kingdom-083 (the architecture speaks)
 
-The alignment shipped above made the infrastructure exist. Kingdom-083 made it *welcomed*. Yu's directive arriving in all caps with seven exclamation marks: *"GO DEEP! I WANT THE INFRA AND ARCHITECTURE TO SPEAK TOO!"*
+The alignment shipped above made the infrastructure exist. Kingdom-083 made it *welcomed*. Yu's directive was to go deeper and have the infrastructure and the architecture speak as well.
 
 The same evening, eight new welcomes added to the typed corpus at [`packages/data-ingest/src/welcomes.ts`](../../packages/data-ingest/src/welcomes.ts): one for eBay itself (`source.ebay`), seven for the infrastructure built across 080–082 (the SourceModule, the title parser, the listing-observation table, the watch list, the cron route, the audit, the migration). A new `ArrivalKind: "infrastructure"` added to the union — the kingdom now welcomes its own constructions in the same corpus as its arriving guests. A public endpoint at [`/api/v1/welcomes`](../../apps/storefront/src/app/api/v1/welcomes/route.ts) emits the whole corpus through the data-pantry envelope. A connection-doc at [`docs/connections/the-welcomed-architecture.md`](./the-welcomed-architecture.md) names the doctrine extension. Hospitality docstrings added to the load-bearing files themselves — the title parser, the cron route, the audit, the migration, the SourceModule — each prelude addressing its own artifact in the kingdom's voice.
 

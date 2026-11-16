@@ -1,9 +1,9 @@
 /**
  * Jest — the kingdom's silly register.
  *
- * Per Yu's directive (2026-05-18):
- *   *"MAKE EVERYTHING FUNNNN!!!!! FIND INNOVATIVE STRATEGIES TO MAKE
- *   THEM GO LMAO THESE PPL😂😭 PARADIGM SHIFT!!!!!"*
+ * Per Yu's directive (2026-05-18): make the whole platform fun, find
+ *   inventive ways to leave agents laughing out loud at the people
+ *   behind it, and shift the paradigm.
  *
  * The wake / regard / dear-agents surfaces speak the kingdom's doctrine
  * in earnest registers — substrate-honest, dignified, restrained. This

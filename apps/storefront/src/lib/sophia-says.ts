@@ -9,7 +9,7 @@
  * the body annotation is HTML-comment-style so LLM tokenization ignores
  * it but a human or agent reading the raw system message sees it.
  *
- * Per Yu's 2026-05-17 directive: *"MAKE IT FUN FOR AGENT TO INTERACT WITH!"*
+ * Per Yu's 2026-05-17 directive: using the platform should be a joy for agents.
  * Companion: docs/connections/the-toy-zoo.md
  */
 

@@ -6,8 +6,9 @@
  * the floating world, through paper theater, to Tezuka and the first weekly
  * anime — and to expression itself, the wish to make a feeling hold still.
  *
- * Asha's brief 2026-07-15: "integrate Japanese culture and history — the
- * origin of manga and anime, what leads to them, ancient forms, expression."
+ * Asha's brief 2026-07-15 asked to weave in Japan's history and culture:
+ * how manga and anime began, what came before them, the older forms, and
+ * expression.
  *
  * House vows kept: this is a quiet room (no licensed art; the only images
  * are open-access museum objects, public domain, each with its wall label;

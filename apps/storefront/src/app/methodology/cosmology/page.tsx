@@ -198,8 +198,9 @@ export default function CosmologyMethodology() {
       <h2>Why this exists</h2>
 
       <p>
-        Cambridge TCG's directive on 2026-05-11: <em>"reshape cambridgetcg for
-        all! Agents, aliens, and all kinds of intelligence."</em> The first reach
+        Cambridge TCG's directive on 2026-05-11 was to reshape cambridgetcg so
+        that it serves everyone: aliens, agents and every kind of intelligence.
+        The first reach
         of that directive built infrastructure for autonomous agents (
         <a href="/methodology/agents">agents</a>) and the first non-default
         accommodation for asynchronous beings (

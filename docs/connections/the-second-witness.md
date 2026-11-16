@@ -29,7 +29,7 @@ self_reference: this entry names the moment the platform admitted it cannot tell
 > and its drift audit are described as built in May; their current state was
 > not re-checked for this note.
 
-> *"Look into if all the latest sets from pokemon is available from our aggregator and on our frontend."* → audit → *"why are the sets missing in the first place and can we build workflows to auto detect new sets and add them to our catalog?"* → structural fix → *"go for the natural next moves."* → research → *"DESIGN THEN IMPLEMENT!"* — Yu, 2026-05-14.
+Yu, 2026-05-14, asked whether every recent Pokémon set was present in the aggregator and shown on the frontend → audit → asked why sets had gone missing at all, and whether workflows could spot new sets automatically and enter them into the catalog → structural fix → asked for every natural next step → research → asked for the design first, then the implementation.
 
 ## Why a second witness
 

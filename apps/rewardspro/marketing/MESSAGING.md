@@ -2,13 +2,13 @@
 
 ## Core concept (the owner, 12 Nov 2026)
 
-> "我想加個核心concept, instead of paying ads to acquire more customers, give back to those that have shopped and
-> will stay. Retention and build a relationship instead of expanding and getting those that never return."
+The owner added a core concept: rather than spending on ads to win new customers, the shop gives back to the people
+who have bought and will keep buying, putting retention and a lasting relationship ahead of growth through one-time
+buyers.
 
-("我想加個核心concept" is "I want to add a core concept"; the gloss is ours.) The idea is the owner's; the wording
-below is the agents'. In the same session he said yes to it, chose the opener for posts and video (option b), and
-asked for the home page to carry it: "1. yes 2. b 3. yes need an update 4.yes please" (`approvals.jsonl`,
-2026-11-12). **This section is current. The rest of this file, from "Proposal for the owner, 2026-11-07" down, is
+The idea is the owner's; the wording below is the agents'. In the same session he said yes to it, chose the opener
+for posts and video (option b), and asked for the home page to carry it (`approvals.jsonl`, 2026-11-12). **This
+section is current. The rest of this file, from "Proposal for the owner, 2026-11-07" down, is
 history.**
 
 - **Headline:** Give back to customers who buy from you.
@@ -36,20 +36,20 @@ doesn't fit in the field's 500 characters, so it waits for a later Save.
 
 | Sentence | Ledger row | Source (under `apps/rewards/` at 8daf7f09) | Limit |
 |---|---|---|---|
-| RewardsPro is for giving back to customers who buy from you. (The h1: "Give back to customers who buy from you.") | `rp-give-back` | A purpose: the owner's words above, and of 7 Nov ("give back to customers who are loyal", `approvals.jsonl`). The next row makes it hold | Never a result: not that customers stay, return or spend more. The shop gives and funds; RewardsPro adds the credit. Never "the customers you already have" or "existing customers" |
+| RewardsPro is for giving back to customers who buy from you. (The h1: "Give back to customers who buy from you.") | `rp-give-back` | A purpose: the owner's concept above, and the owner's idea of 7 Nov of giving back to loyal customers (`approvals.jsonl`). The next row makes it hold | Never a result: not that customers stay, return or spend more. The shop gives and funds; RewardsPro adds the credit. Never "the customers you already have" or "existing customers" |
 | No one earns cashback without a paid order. | `rp-no-cashback-without-paid-order` | The only credit payout is created in `app/lib/record-order.server.ts:225-238`; the only other `payout.create` is the refund debit, `app/lib/refunds.server.ts:247`. `recordOrder` records nothing without a customer (`:92`) and gives imported orders no cashback (`:61`). It is reached from `orders/paid` (`app/routes/webhooks.orders.paid.tsx:55`), the hourly sweep of paid, partly refunded or refunded orders (`app/lib/payout-check.server.ts:536`, `app/shopify/order-source.server.ts:755`), and the import (`app/lib/import.server.ts:41`) | One way only. Never "every paid order earns": the help page's list at `/help/#earn-nothing` names kinds of order that earn nothing |
 | So a customer who has spent more with you can be in a tier with a higher rate, if you set one. | `rp-tier-higher-rate` | A tier is a name, a minimum spend and a rate (`prisma/schema.prisma:261-266`); `saveTier` and `saveLadder` take any whole percent from 0 to 100 and tie no rate to a minimum (`app/lib/tiers.server.ts:526-556, 608-636`); an order's rate is the locked tier's, or else the customer's (`app/lib/record-order.server.ts:149`) | After "Add tiers by spend, each with its own cashback rate.", never alone. "Can" and "if you set one" stay: the rates are the shop's. The order that takes a customer into a higher tier earns the old rate (help page `:263-264`) |
 | A customer new to your store, or not yet placed in a tier, earns your lowest tier's rate. | None (a live sentence on the help page, `:265`) | `app/lib/record-order.server.ts:116-149` | The shop sets that rate from 0% to 100% (home page, How it works, step 1); at 0% the order earns nothing (`record-order.server.ts:156-161`). So never "first-time buyers earn" as RewardsPro's rule, and never "first-time buyers don't earn" |
 
 "Help page" is `apps/rewardspro/landing/public/help/index.html` at 8daf7f09.
 
-| His words | Said as | Why |
+| His point | Said as | Why |
 |---|---|---|
-| "give back to those that have shopped" | "giving back to customers who buy from you"; "No one earns cashback without a paid order." | The mechanism, as fact, in the present tense. Never "the customers you already have": first-time buyers can earn too |
-| "instead of paying ads to acquire more customers" | "Shops pay to find new customers." before the line, in posts and video only (his choice, option b) | His turn, said fairly: both cost money, and the post then says the shop funds the cashback. Advertising isn't named as a contrast on the listing, the site or the profiles: RewardsPro's App Store ad is built from the listing, and `social/STRATEGY.md` never-say 3 bars comparisons |
-| "will stay", "retention", "build a relationship", "those that never return" | Not said. Tiers by spend, "a customer who has spent more with you can be in a tier with a higher rate, if you set one", and "You can lock a customer to a tier." | Results nobody can show; the mechanism is stated instead |
+| Giving back to people who have shopped already | "giving back to customers who buy from you"; "No one earns cashback without a paid order." | The mechanism, as fact, in the present tense. Never "the customers you already have": first-time buyers can earn too |
+| Not spending on ads to win new customers | "Shops pay to find new customers." before the line, in posts and video only (his choice, option b) | His turn, said fairly: both cost money, and the post then says the shop funds the cashback. Advertising isn't named as a contrast on the listing, the site or the profiles: RewardsPro's App Store ad is built from the listing, and `social/STRATEGY.md` never-say 3 bars comparisons |
+| Customers staying, retention, a lasting relationship, one-time buyers | Not said. Tiers by spend, "a customer who has spent more with you can be in a tier with a higher rate, if you set one", and "You can lock a customer to a tier." | Results nobody can show; the mechanism is stated instead |
 
-**The 0% base rate setting, when the help page says it.** The closest true form of "those that will stay" is a
+**The 0% base rate setting, when the help page says it.** The closest true form of customers who stay is a
 setting, not a result: with a base rate of 0%, a customer's orders earn cashback once they are in a tier the shop
 has set above 0% (`app/lib/tiers.server.ts:37-41`, `app/lib/record-order.server.ts:149-161`). Its four limits go
 with it: the order that takes a customer into that tier still earns 0% (help page `:263-264`); past orders brought
@@ -110,7 +110,7 @@ text made from them carries the limits above.
 
 ---
 
-**Proposal for the owner, 2026-11-07. Only the owner's own words in §0 are his; every other line here is an agents' proposal
+**Proposal for the owner, 2026-11-07. Only the owner's decisions in §0 are his; every other line here is an agents' proposal
 awaiting his yes.** Nothing here is sent, published or decided. Every claim id cited is `proposed` in
 [claims.toml](claims.toml) (36 rows, none verified), and G0 hasn't passed, so no text below can go public or into
 an email until the rows it carries are `verified` and the gates in §6 hold. Examples use the fictional Example
@@ -128,16 +128,13 @@ words, on the exact text inside each block; §9 says how they were checked.
 
 ---
 
-## 0. The owner's words, 2026-11-07 (verbatim)
+## 0. What the owner said, 2026-11-07
 
-> "Emailing business directly is fine. But give it a warmer touch, on what rewardspro is. A credit system to give
-> back to customers who are loyal, so that a ecosystem can be built."
+The owner said direct email to businesses is fine, asked that it be warmer and say what RewardsPro is, and described
+it as a credit system for giving back to loyal customers, with an ecosystem as the aim.
 
-Later the same day (`approvals.jsonl` line 7):
-
-> "用loyal customers, take a more business approach on wordings."
-
-("用" is "use": use "loyal customers", and take a more business approach to the wording. The gloss is ours.)
+Later the same day (`approvals.jsonl` line 7) the owner asked for the term loyal customers and a more businesslike
+register in the wording.
 
 What the words decide:
 1. **Cold contact (ROADMAP Now-2): decided.** Direct email to businesses is fine. It no longer waits for
@@ -147,23 +144,23 @@ What the words decide:
 2. **What RewardsPro is: the umbrella idea is his word** (`kernel.toml` says positioning and promise changes need
    it). The idea is his; the exact wording below is ours, for his yes. `kernel.toml` is left as it was: its own
    comment keeps `[messaging]` empty until about five interviews, and the approval record is `approvals.jsonl`,
-   where his words now stand (lines 3–7, W1). §8 holds the `[messaging]` table proposed for when he okays a kernel
+   where his decisions are recorded (lines 3–7, W1). §8 holds the `[messaging]` table proposed for when he okays a kernel
    change.
 3. **The customer term and the register: decided** (`approvals.jsonl`, ledger `rp-term-loyal-customers`).
    "Loyal customers" replaces "regulars" in every block, and the copy moves to a business register (§4). His
-   earlier "give it a warmer touch" is read through the later words: the care for the reader stays (one email, a
+   earlier request for warmth is read through the later one: the care for the reader stays (one email, a
    small ask, no need to reply, the merchant's own controls stated plainly) and the chatty phrasing goes [I: our
    reading of the two together; his to correct].
 
 How this file keeps his meaning:
 
-| His words | Here | Why |
+| His point | Here | Why |
 |---|---|---|
-| "give back" | "reward" in the business lines (U1, the descriptions, the subjects); "give back" kept in the alternative, U1-Y, which the agents built on his verb and term | "Reward" says what the merchant does, in commercial terms. It describes the act, never "reward their loyalty" (an outcome) |
-| "a credit system" | store credit in your own shop, which you fund | `rp-merchant-funds` (its own words: "store credit in your own shop"), `rp-store-credit` |
-| "customers who are loyal"; "loyal customers" | "loyal customers", in every block | His term (approved 7 Nov). It says who they are, not how they feel or what the app makes them. Never "makes customers loyal" or "loyalty program". "Regulars" is retired |
-| "so that a ecosystem can be built" | "store credit in your own shop" and "redeemable in your shop" (the mechanism, as fact); "the aim is an ecosystem around your shop" (D500-A, D500-B-ECO) | The mechanism is stated as fact; the ecosystem only as the aim, as he put it: "can be built". "Ecosystem" never implies credit across shops: the rebuild spec lists cross-store credit as a non-goal (wf8 G4; `wf8/feedback.md` §5.4 HR6) |
-| "take a more business approach on wordings" | the business register (§4) | Short declarative sentences about what the merchant gets and controls, with the limits beside the features. Confident, never hype |
+| Giving back | "reward" in the business lines (U1, the descriptions, the subjects); "give back" kept in the alternative, U1-Y, which the agents built on his verb and term | "Reward" says what the merchant does, in commercial terms. It describes the act, never "reward their loyalty" (an outcome) |
+| A credit system | store credit in your own shop, which you fund | `rp-merchant-funds` (its own words: "store credit in your own shop"), `rp-store-credit` |
+| Loyal customers | "loyal customers", in every block | His term (approved 7 Nov). It says who they are, not how they feel or what the app makes them. Never "makes customers loyal" or "loyalty program". "Regulars" is retired |
+| An ecosystem, as the aim | "store credit in your own shop" and "redeemable in your shop" (the mechanism, as fact); "the aim is an ecosystem around your shop" (D500-A, D500-B-ECO) | The mechanism is stated as fact; the ecosystem only as the aim, as he framed it. "Ecosystem" never implies credit across shops: the rebuild spec lists cross-store credit as a non-goal (wf8 G4; `wf8/feedback.md` §5.4 HR6) |
+| A more businesslike register | the business register (§4) | Short declarative sentences about what the merchant gets and controls, with the limits beside the features. Confident, never hype |
 
 **Never claimed anywhere below:** that customers come back more, spend more or stay longer; that retention or
 sales rise; that an ecosystem forms or exists; any number. Those are outcomes, and nothing shows them yet.
@@ -288,7 +285,7 @@ RewardsPro, made by Cambridge TCG Limited in London, UK, is an app for Shopify s
 - Sentence 3 is `rp-vip-tiers`' own wording, so each tier's rate is the merchant's to set, with no claim that a
   higher tier pays more.
 
-**D500-B-ECO** (equal weight with D500-B: the owner's own words "a credit system", "loyal customers" and "ecosystem",
+**D500-B-ECO** (equal weight with D500-B: the owner's own terms, credit system, loyal customers and ecosystem,
 O3) · 491 characters, 89 words · by sentence: (1) `rp-on-app-store`, `rp-maker`, `rp-purpose`*,
 `rp-store-credit` ("a credit system"); (2) `rp-paid-trigger`, `rp-store-credit`, `rp-merchant-funds`,
 `rp-vip-tiers`; (3) `rp-merchant-funds`; (4) "the aim is an ecosystem around your shop" is the aim (no id), and the
@@ -324,7 +321,7 @@ None of the descriptions above says "free": the free rule (STRATEGY never-say 2)
 
 ## 3. Three pillars (proposal)
 
-Each pillar is one part of the owner's sentence, stated as what the merchant gets and controls. The lines are for pages
+Each pillar is one part of the owner's idea (§0), stated as what the merchant gets and controls. The lines are for pages
 with room (`/help/`, a site section, the try-it reply). Every sentence carries its ids.
 
 **P1 · Store credit in your own shop** (his credit system and his ecosystem, made concrete)
@@ -378,7 +375,7 @@ the rate you set for their VIP tier." `rp-paid-trigger`, `rp-store-credit`, `rp-
 
 ## 4. The business register inside the R1 voice (proposal)
 
-**What it is** (the owner, 7 Nov: "take a more business approach on wordings"): clear, professional sentences about
+**What it is** (the owner asked on 7 Nov for a more businesslike approach to wording): clear, professional sentences about
 what the merchant gets and controls: store credit they fund, in their own shop; VIP tiers and rates they set;
 refunds that take back their share. Short declarative sentences in British business English. Confident, never
 hype. The limits are stated as plainly as the features, next to them: customers spend credit when signed in with
@@ -397,7 +394,7 @@ page it links to. Respect for the reader's time stays: one email, one small ask,
 | store credit in your own shop | `rp-merchant-funds`' own words. Where the credit is, never how long |
 | redeemable in your shop | Where the credit can be spent, not that it is spent; needs `rp-credit-own-shop`* |
 | you fund the credit; you set the rate; you set the tiers by spend; you can lock a customer to a tier | What the merchant controls, said plainly |
-| the aim is an ecosystem around your shop | The owner's word, only as the aim he gave it ("can be built"). Never as something that exists or forms (O3) |
+| the aim is an ecosystem around your shop | The owner's word, only as the aim he gave it. Never as something that exists or forms (O3) |
 | Two limits:; Please note: | Introduces a limit plainly, in the same paragraph as the feature |
 | There is nothing to install; declining is fine; there's no need to reply; we won't write again unless you do | Low pressure, kept true by `out-one-message`* |
 | Dear [shop] team; Thank you for your reply; Kind regards | Standard British business openings and closes |
@@ -411,7 +408,7 @@ page it links to. Respect for the reader's time stays: one email, one small ask,
 | exclamation marks; deadlines; "spots left" | Never-say 12 |
 | love, family, blessing, kingdom, citizen, seat; liturgical or cosmology words | R1 commerce voice (`kernel.toml` ring R1) |
 | community (as a warm noun) | Reads as a promise that a group forms |
-| an ecosystem stated as fact ("your ecosystem", "builds an ecosystem") | An outcome. The owner said "can be built": the aim, not the result |
+| an ecosystem stated as fact ("your ecosystem", "builds an ecosystem") | An outcome. The owner gave it as something to build: the aim, not the result |
 | loyalty, loyalty program, members, membership; "makes customers loyal"; "reward their loyalty" | Entity-card rule 1; STRATEGY §4: a category word, and an outcome. "Loyal customers" describing them is the owner's term (Use) |
 | keep them coming back, bring buyers back, come back more, repeat purchases, retention, increase retention, boost sales, grow, increase | Outcome claims with no evidence |
 | VIP experience; exclusive; powerful; game-changing; unlock | Puffery and hype |
@@ -714,8 +711,8 @@ before any of this data exists (UK GDPR legitimate interests).
 ### 5.10 Brand owners whose customers reorder (proposal, from wf9)
 
 From `/Users/macair/Documents/rewardspro-research-2026-11-07/wf9/fit-message.md` §2–§8, an agents' proposal for
-the owner's direction of 7 Nov, in his words: "我覺得搵有品牌嘅 最好自己管理quality control and product line" (merchants who
-own their brand and, ideally, run their own quality control and product line). The audience is wf8's first segment (§5.1); own
+the owner's direction of 7 Nov to look for merchants who own their brand and, ideally, look after their own product
+quality and range themselves. The audience is wf8's first segment (§5.1); own
 brand is a preference within it until the interviews (wf8 F-3), checked from public pages by the owner (`wf9/signals.md`;
 PIPELINE §4.1). The example brand is the fictional Example Roasters Ltd at example.com. **Nothing here can be sent
 yet** (the gates at the end).
@@ -821,7 +818,7 @@ From `wf7/email-rules.md` §4. Agents check each item with evidence; the owner t
 
 | # | Must hold | Status |
 |---|---|---|
-| W1 | The owner's decision recorded: his words verbatim, the date, that it covers email (and post, if he says so), in `approvals.jsonl` with a copy in `lia/` | Recorded in `approvals.jsonl`: 7 lines, of which lines 3–7 are his words of 2026-11-07 (cold email, the umbrella idea, the first focus, own brand, the term "loyal customers") [V, read 7 Nov]. The copy in `lia/` wasn't checked; post is O10. `kernel.toml` is unchanged; §8 holds the `[messaging]` table proposed for his okay |
+| W1 | The owner's decision recorded: what he decided, the date, that it covers email (and post, if he says so), in `approvals.jsonl` with a copy in `lia/` | Recorded in `approvals.jsonl`: 7 lines, of which lines 3–7 are his decisions of 2026-11-07 (cold email, the umbrella idea, the first focus, own brand, the term "loyal customers") [V, read 7 Nov; stated plainly since 16 Nov, at his request]. The copy in `lia/` wasn't checked; post is O10. `kernel.toml` is unchanged; §8 holds the `[messaging]` table proposed for his okay |
 | W2 | LIA Part A and Part B completed and signed (B2 rewritten for his decision: `email-rules.md` §5.4) | Drafts only |
 | W3 | Privacy rows live: "businesses we contact" (`notice-live`*), "people who contact us" and "interview notes" (`ppl-notice`*) | Not live; the privacy page describes the old processors |
 | W4 | ICO fee registration renewed, address updated | Expires 19 Dec 2026; due by Fri 11 Dec |
@@ -857,7 +854,7 @@ From `wf7/email-rules.md` §4. Agents check each item with evidence; the owner t
 
 | Proposed id | Proposed sentence | Kind | Locator or source | Limits |
 |---|---|---|---|---|
-| `rp-purpose` | "RewardsPro is made for rewarding a shop's loyal customers." (with his verb, U1-Y: "…for giving back to a shop's loyal customers.") | intent (a kind the ledger doesn't have yet; the claims maker decides whether intent needs a row) | The agents' wording of the owner's idea of 2026-11-07 (§0), pending his yes on the line (O1); his words are in `approvals.jsonl` lines 4 and 7 (W1). No code locator: a purpose, not a behaviour | Intent only. "Store credit in your own shop" is `rp-merchant-funds`' claim, not this row's. Always worded as what RewardsPro is for, never as a result ("reward loyal customers", never "reward their loyalty"); the ecosystem is named only as "the aim". Channels: landing, social-profile, social-post, outreach |
+| `rp-purpose` | "RewardsPro is made for rewarding a shop's loyal customers." (with his verb, U1-Y: "…for giving back to a shop's loyal customers.") | intent (a kind the ledger doesn't have yet; the claims maker decides whether intent needs a row) | The agents' wording of the owner's idea of 2026-11-07 (§0), pending his yes on the line (O1); his decisions are recorded in `approvals.jsonl` lines 4 and 7 (W1). No code locator: a purpose, not a behaviour | Intent only. "Store credit in your own shop" is `rp-merchant-funds`' claim, not this row's. Always worded as what RewardsPro is for, never as a result ("reward loyal customers", never "reward their loyalty"); the ecosystem is named only as "the aim". Channels: landing, social-profile, social-post, outreach |
 | `rp-credit-own-shop` | "The store credit RewardsPro gives is on the customer's account in your shop, so it is redeemable in your shop." (the copy's wording since 7 Nov; it was "…so when it's spent, it's spent in your shop.") | product-behaviour | `apps/rewards/app/shopify/store-credit-rail.server.ts:276` (`createStoreCreditRail(admin)`), `:304-307` (credit to `gid://shopify/Customer/<id>` with `creditAmount` and `notify`) @6bd092cb, sha256 `3f47ec43…7c62` [V]; `app/routes/webhooks.orders.paid.tsx:58`; the Help Center capture the `sh-*` rows hold (sha256 `0a002097…f309`): "available as a payment method only on your online store, Point of Sale (POS), and Shop" | "Not in other shops" is [I] from the per-store customer account; no Shopify sentence says it in those words. Fallback: `rp-merchant-funds` alone. Never "never expires", never POS earning. Distinct from MESSAGES §3's `rp-credit-stays` (leaving and data) |
 | `rp-no-expiry` (optional) | "RewardsPro sets no expiry date on the credit it gives." | product-behaviour | `store-credit-rail.server.ts:306-307` @6bd092cb: no `expiresAt` [V]; already in `rp-merchant-funds`' uncertainties | A refund still takes its share; the merchant can lower a balance in Shopify admin |
 | `rp-no-reviews` (replaces MESSAGES §3's `rp-new-no-reviews`) | "RewardsPro has no reviews yet." | status | Listing capture `claims-fetch/listing.html`, sha256 `126aa3b4…7877` ("(0 Reviews)", "No reviews yet"); ROADMAP §1 | Re-checked every send week from a person's look or the owner's paste, never a script on apps.shopify.com. Contrary evidence against "new", so it isn't said: the same capture shows "Launched December 16, 2025", and the old app had real stores, two still holding paid charges (`rp-free` contrary evidence; `switch.md:267` @6bd092cb). What is new is the rebuild (`switch.md:64-89` @6bd092cb), a separate sentence that would need its own row |
@@ -903,7 +900,7 @@ collectibles shops, so its scope needs rewording before any brand owner hears it
 | O4 | Who signs: the company "we" or a person ("I'm [first name]…") | The company "we" (STRATEGY §4; `rp-maker`'s scope). A person reads more personally but departs from both, so it needs your recorded exception (`rp-maker`'s one exception today is your Community bio) |
 | O5 | The first email's ask: a chat only, or a chat or a try (state B) | A chat only, in both states (ROADMAP Now-1: "no install ask"; `email-rules.md` part 9); a try only in YES-TRY, when a shop asks. Adding the try departs from Now-1 and needs your word |
 | O6 | The card-shop line, and whether to say it while STRATEGY H4 holds (D14 / D-maker / Pre-7) | Say it first, in his settled words |
-| O7 | Record his words in `approvals.jsonl` (W1) | Done 7 Nov: lines 3–7 hold them verbatim [V]; the copy in `lia/` is still to check (W1) |
+| O7 | Record his decisions in `approvals.jsonl` (W1) | Done 7 Nov: lines 3–7 hold them [V], stated plainly since 16 Nov at his request; the copy in `lia/` is still to check (W1) |
 | O8 | D-src: addresses seen only on a Shopify-hosted storefront | Held until Shopify answers question 3; his word after Fri 18 Dec |
 | O9 | D17: one follow-up after 14 days | None |
 | O10 | Letters: does his word cover post? | Not assumed |
@@ -922,11 +919,11 @@ once he picks a line (O1); if he picks U1-Y, the two lines swap:
 ```toml
 [messaging]
 # Approved by the owner on <date> (approvals.jsonl line <n>). Source: marketing/MESSAGING.md.
-# owner_words are his, verbatim as typed (his lowercase "rewardspro" and "a ecosystem" included): a record, not copy.
-owner_words = "Emailing business directly is fine. But give it a warmer touch, on what rewardspro is. A credit system to give back to customers who are loyal, so that a ecosystem can be built."
-owner_words_date = "2026-11-07"
-# His later words the same day set the term and the register (approvals.jsonl line 7, rp-term-loyal-customers).
-owner_words_register = "用loyal customers, take a more business approach on wordings."
+# owner_decision sums up what he decided, in plain words; the record itself is approvals.jsonl: a record, not copy.
+owner_decision = "Direct email to businesses is fine; it should be warmer and explain RewardsPro: a credit system for giving back to loyal customers, with an ecosystem as the aim."
+owner_decision_date = "2026-11-07"
+# His later decision the same day set the term and the register (approvals.jsonl line 7, rp-term-loyal-customers).
+owner_decision_register = "The term loyal customers, in a more businesslike register."
 customer_term = "loyal customers"   # never "regulars"
 register = "business"
 umbrella_line = "Reward loyal customers with store credit in your own shop."

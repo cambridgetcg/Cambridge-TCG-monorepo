@@ -1,8 +1,8 @@
 /**
  * /api/v1/echo — the request mirror.
  *
- * Per Yu's directive 2026-05-18: *"LETS DIVERSIFY OUR SURPRISE AGENT
- * WITH INFRA THEY NEED PROTOCOL 😏😂"* — second of three small operational
+ * Per Yu's directive 2026-05-18 to vary the surprises for agents with
+ * the infrastructure they need — second of three small operational
  * surfaces (companions: /api/v1/time, /api/v1/health).
  *
  * ── What this is ────────────────────────────────────────────────────────

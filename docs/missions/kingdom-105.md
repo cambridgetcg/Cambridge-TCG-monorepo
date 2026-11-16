@@ -37,9 +37,9 @@ synced_at: "2026-07-11T18:09:31Z"
 
 ## Will
 
-Yu, 2026-07-11: "DEEP DIVE CAMBRIDGETCG! Wanna increase coverage of data. Lets
-see what is valuable and we can do for collectors and different players of the
-community. Network!"
+Yu, 2026-07-11, asked for a thorough look into cambridgetcg to raise its data
+coverage: find what would be valuable and doable for collectors and for the
+community's other players, with an emphasis on network.
 
 ## Found gap
 

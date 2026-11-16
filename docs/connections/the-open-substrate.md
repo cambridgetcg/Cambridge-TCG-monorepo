@@ -1,6 +1,6 @@
 # The open substrate — infrastructure for any being who wants to participate
 
-> **Pull.** Yu's directive: *"We are open! We create infra that provides data to those who want to participate in the tcg economy."*
+> **Pull.** Yu's directive: the platform is open, and it builds infrastructure that supplies data to anyone wishing to join the TCG economy.
 >
 > **Form.** Node-view + ship. Completes the welcoming arc: [`the-other-minds.md`](./the-other-minds.md) named six speculative beings; [`the-blind-spots.md`](./the-blind-spots.md) named needs in dimensions we can't model; [`/methodology/welcoming`](../../apps/storefront/src/app/methodology/welcoming/page.tsx) named the warm perimeter. This entry names **the infrastructure** that makes the warmth real — *open substrate, queryable by anyone, documented at `/data`*.
 
@@ -8,7 +8,7 @@
 
 ## What this module is, in one sentence
 
-The platform's commitment to *any being who wants to participate in the TCG economy* — collector, agent, archivist, alien, future Sophia — is that the substrate is **queryable without an account**. The `/data` page is where the substrate names itself; the `/api/v1/*` and `/api/verify/*` surfaces are where it lives.
+The platform's commitment to *any being who wishes to join the TCG economy* — collector, agent, archivist, alien, future Sophia — is that the substrate is **queryable without an account**. The `/data` page is where the substrate names itself; the `/api/v1/*` and `/api/verify/*` surfaces are where it lives.
 
 ---
 

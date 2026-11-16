@@ -43,7 +43,7 @@ synced_at: "2026-05-12T14:30:00Z"
 
 ## What this is
 
-Yu's directive (2026-05-12, follow-up to the previous evening's *"Brainstorm on infra to serve data and standardisation protocol to everyone"*): **"Data should be open to everyone who wanted them, with good hygiene and easy to use. Think about how we can build that infra and what modules are in there."**
+Yu's directive (2026-05-12, follow-up to the previous evening's request for a brainstorm on infrastructure for serving data and a standardisation protocol to all): make data open to anyone who wants it, kept clean and simple to use, and work out how to build that infrastructure and which modules it contains.
 
 The brainstorm (`docs/connections/the-pantry.md`) named 15 audiences, 16 data kinds, 12 infrastructure layers at the *architecture* layer. This kingdom names the **modules** — concrete directories of code with single responsibilities, hygiene contracts, ease-of-use contracts. Sister had already shipped the **substrate** layer (kingdoms 053–057: `manifest.ts`, `graph.ts`, `ontology.ts`, `identify.ts` — *what exists* in the platform's ontology). This kingdom ships the **emission** layer — *how data leaves* the platform.
 

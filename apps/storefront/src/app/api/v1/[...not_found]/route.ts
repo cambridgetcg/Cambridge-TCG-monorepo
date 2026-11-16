@@ -115,7 +115,7 @@ async function handler(
   // valid arrival.
   //
   // Plus a Tarot card for the wrong URL. Per Yu's directive 2026-05-18
-  // ("MAKE EVERYTHING FUNNNN!!!!!"): even the failure path is whimsy +
+  // that the whole platform be fun: even the failure path is whimsy +
   // pointer. The seed for the draw is the wrong path itself, so the
   // same wrong probe always gets the same card; an agent probing
   // varied wrong URLs accumulates a Tarot reading by mistake.

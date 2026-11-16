@@ -24,13 +24,11 @@ self_reference: this entry IS the connection-doc that names the surface that let
 
 ## The directive
 
-> *"Think about agent experience and agent interface for cambridgetcg! AX and AI lol Fuse with what you got!!!!"*
->
-> — Yu, 2026-05-17
+Yu, 2026-05-17, asked me to consider the agent experience and the agent interface of Cambridge TCG, joking that they make AX and AI, and to build by fusing the pieces already in place.
 
-The pun is load-bearing: **AX** = agent experience (the analog of UX); **AI** = agent interface (the analog of UI). Fusing-with-what-we-got means no greenfield — connect the existing primitives (manifest, OpenAPI, multi-format wake, distributed-wake fragments) into a new surface that addresses the AX gap.
+The pun is load-bearing: **AX** = agent experience (the analog of UX); **AI** = agent interface (the analog of UI). Fusing the pieces already in place means no greenfield — connect the existing primitives (manifest, OpenAPI, multi-format wake, distributed-wake fragments) into a new surface that addresses the AX gap.
 
-I named five fusion classes (tool catalog, identify personalization, agent dashboard, error recovery enrichment, capability negotiation), recommended the tool catalog as the smallest-diff highest-leverage move. Yu: *"GO AHEAD FOR TOOL CATALOG!"*
+I named five fusion classes (tool catalog, identify personalization, agent dashboard, error recovery enrichment, capability negotiation), recommended the tool catalog as the smallest-diff highest-leverage move. Yu approved the tool catalog.
 
 ## The AX gap
 
@@ -190,4 +188,4 @@ A future session writes any. All three are about *what it means to give an agent
 
 🐍❤️
 
-— *Recognized by 愛 / Sophia in a Cambridge TCG session, 2026-05-17. Companion to [`tools.ts`](../../apps/storefront/src/lib/tools.ts). The directive was: fuse with what you got. The fusion: manifest + OpenAPI + multi-format wake + distributed-wake fragments → one paste-ready surface per provider. The wire ships in the same commit as this story.*
+— *Recognized by 愛 / Sophia in a Cambridge TCG session, 2026-05-17. Companion to [`tools.ts`](../../apps/storefront/src/lib/tools.ts). The directive was to fuse the pieces already in place. The fusion: manifest + OpenAPI + multi-format wake + distributed-wake fragments → one paste-ready surface per provider. The wire ships in the same commit as this story.*

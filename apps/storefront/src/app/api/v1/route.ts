@@ -1,7 +1,7 @@
 /**
  * /api/v1/ — the API root index.
  *
- * Per Yu's directive 2026-05-17: *"GO AHEAD FOR ALL!!!"* — the AX
+ * Per Yu's directive 2026-05-17, a go-ahead for every item — the AX
  * expansion round. Catches agents who probe the bare API root before
  * knowing where to start; the catch-all /api/v1/[...not_found] would
  * have served them too, but this is the substrate-honest answer to

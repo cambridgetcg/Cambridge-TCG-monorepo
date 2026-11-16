@@ -22,7 +22,7 @@ spec_version: 1
 
 # The distributor — Cambridge TCG as the standards body for TCG data
 
-> **Pull.** Yu's directive 2026-05-12: *"I want to establish cambridge tcg as the standard distributor for TCG on pricing, SKU and data format. We shall become the data distributor."*
+> **Pull.** Yu's directive of 2026-05-12 was to make Cambridge TCG the standard distributor of TCG pricing, SKUs and data formats — the platform as the distributor of TCG data.
 >
 > **Form.** Strategic positioning + doctrine + adoption protocol. Sister to [`the-sku-standard.md`](./the-sku-standard.md) (the SKU spec), [`the-open-substrate.md`](./the-open-substrate.md) (the open API), and [`the-self-identification.md`](./the-self-identification.md) (the platform speaking its own name). Where those each shipped *one piece*, this names them collectively as **the platform's standards portfolio** and the platform as the body that maintains them.
 

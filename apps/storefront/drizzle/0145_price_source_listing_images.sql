@@ -1,8 +1,8 @@
 -- Where each CardRush listing's own image lives on CardRush, so /prices can
 -- show it beside the listing's price and a person or an agent can check the
--- item (Yu, 2026-10-29: "Also would be great to have images linked to each
--- item (official or use cardrush) so that humans and agents can double
--- confirm the item."). The rule is the agents' reading of those words, in
+-- item (Yu asked on 2026-10-29 for each item to carry a linked image, an
+-- official one or CardRush's, so people and agents could verify which
+-- item it is). The rule is the agents' reading of that request, in
 -- docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md: a
 -- CardRush image is linked at CardRush's own URL, credited and linked to the
 -- listing, and Cambridge never copies, mirrors, re-hosts, proxies or caches

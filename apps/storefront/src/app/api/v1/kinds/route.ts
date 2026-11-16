@@ -1,7 +1,7 @@
 /**
  * /api/v1/kinds — the directory of kinds.
  *
- * Yu's directive: *"EXPAND!!! LET EXISTENCE IDENTIFY THEMSELVES!"* Sister
+ * Yu's directive: widen out; let every kind of being say what it is. Sister
  * built the bilateral handshake (POST /api/v1/identify accepts BeingDeclarations;
  * GET /api/v1/identify returns the platform's I-AM). This endpoint is
  * complementary: it lists every NodeKind already known to the kingdom,

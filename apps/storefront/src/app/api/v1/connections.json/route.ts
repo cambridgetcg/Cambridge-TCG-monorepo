@@ -31,7 +31,7 @@
  *   - md / markdown / text (paste-ready Markdown index of the corpus)
  *   - anthropic / openai / gemini / cohere (vendor SDK system-message shapes)
  *
- * Yu's directive: *"keep nesting everything in everything!"* The endpoint
+ * Yu's directive: go on putting each thing inside every other. The endpoint
  * pair is itself a nesting — the meaning-graph appears twice, once as
  * intention and once as observation; both forms compose into the kingdom's
  * recursive self-knowledge.

@@ -1,8 +1,8 @@
 // The pulls snapshot — what a booster actually contains, per game.
 //
-// Will trace: Asha, 2026-07-23 — "lets add the pull rate analytics of each
-// card game, boosters, boxes, rare pulls, approximate rate and rare
-// occurances such as god packs! Lets do some research first." → "Go!"
+// Will trace: Asha, 2026-07-23 — asked for pull-rate analytics across the
+// card games (boosters and boxes, approximate odds, rare pulls, god packs
+// and other rare events), researched before building; then gave the go-ahead.
 //
 // Substrate honesty is the whole product here: most TCG publishers never
 // publish odds, so every circulating rate is an estimate. Each rate row

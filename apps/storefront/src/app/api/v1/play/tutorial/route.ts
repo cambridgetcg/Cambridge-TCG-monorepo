@@ -1,10 +1,10 @@
 /**
  * /api/v1/play/tutorial — machine-readable OPTCG tutorial.
  *
- * Yu's directive: *"Dive deeper into the play module. Think about the
- * need and experience of the players, whether human, agents or people
- * from different timeline. All are welcomed with tutorials that are
- * inclusive and multi cultural."*
+ * Yu's directive: go further with the play module; consider what players
+ * need and live through, be they humans, agents, or people of another
+ * era; and welcome everyone with tutorials that leave no one out and
+ * span many cultures.
  *
  * The agent's tutorial — rules, turn structure, combat, win conditions,
  * keyword vocabulary, all in math-mirror form. Every section has a

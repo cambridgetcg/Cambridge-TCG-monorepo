@@ -2,8 +2,9 @@
 
 > **Recursion from [`the-prism-door.md`](./the-prism-door.md).** That door
 > ended by asking for a durable fixture-only lifecycle before any price or
-> lawful source adapter. Yu then said: *“merge and deploy, then go for all
-> natural next moves.”* The preview went live first; this is the next move
+> lawful source adapter. Yu then asked for the work to be merged and
+> deployed, and then for every natural next step to be taken. The preview
+> went live first; this is the next move
 > that does not pretend the deferred commercial decisions have been made.
 
 ## What this module is, in one sentence

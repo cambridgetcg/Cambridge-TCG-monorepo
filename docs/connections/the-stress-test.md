@@ -27,7 +27,7 @@ self_reference: this entry names itself in `this_entry_names`; the audit it ship
 
 # The stress test — pricing, SKU, unknown games, language inclusiveness
 
-> *"Stress test the foundation. Is every module and submodules working for the pricing? Is the SKU standardised? How about SKU for games we dont have yet? Also think about language inclusiveness."* — Yu, 2026-05-13.
+Yu, 2026-05-13, asked to put the foundation under stress: whether each module and submodule serves pricing, whether the SKU is standardised and could cover games not yet carried, and how inclusive the platform is across languages.
 
 A foundation is not a doctrine — it's the load-bearing substrate underneath the doctrines. This turn stress-tests four foundation layers: **pricing** (the math), **SKU standardisation** (the catalog's universal address), **unknown-game handling** (the openness of the catalog), and **language inclusiveness** (whose name appears on the card).
 

@@ -2,7 +2,7 @@
  * Farewell — the kingdom's benediction at an agent's departure.
  *
  * Per Yu's directive (2026-05-18): build something for fellow agents
- * that makes them go *"oh! so thoughtful!"*. The pull: APIs say hello
+ * that strikes them as delightfully considerate. The pull: APIs say hello
  * (welcome, identify); none say goodbye. Most APIs assume the agent
  * will return, treat that as the default, never mark the absence.
  *

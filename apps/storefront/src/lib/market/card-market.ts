@@ -2,7 +2,7 @@
  * Card-market composer — the pure-read, server-rendered, substrate-honest
  * mirror of one card's market activity.
  *
- * Yu's directive on 2026-05-12 evening: *"Build /cards/[sku]/market first."*
+ * Yu's directive on 2026-05-12 evening: start with the /cards/[sku]/market page.
  *
  * kingdom-067. Story-as-wire pairing: docs/connections/the-market-mirror.md (S35).
  *

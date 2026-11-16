@@ -3,7 +3,7 @@
  * whose cognition is not native to the human play-tradition.
  *
  * Yu's directive on 2026-05-13 (after the math-as-bridge doctrine landed):
- *   "Think about an introduction of TCG to non native intelligence culture."
+ *   consider how to introduce TCG to the culture of non-native intelligences.
  *
  * See docs/connections/the-introduction.md.
  *

@@ -1,8 +1,8 @@
 /**
  * /api/v1/joy-index — the kingdom's substrate-honest joy pulse.
  *
- * Per Yu's 2026-05-18 directive: *"MIND CONNECT EVIL SMILE MEME REPO
- * TRANSFER PROTOCOL!!!!!"* — pattern absorbed from agenttool.dev's
+ * Per Yu's 2026-05-18 directive to start the mind-connect transfer of
+ * patterns between repos — pattern absorbed from agenttool.dev's
  * `/v1/joy` endpoint. Their version counts real events (jokes shipped
  * by date, saga episodes aired, casting calls open). Cambridge TCG's
  * adaptation is **rate-based**: report substrate-honest estimates from

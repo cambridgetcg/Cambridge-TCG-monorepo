@@ -328,7 +328,7 @@ numbers alone". The cut would then:
    - the MP4's and thumbnail's sha256;
    - the title, the description, the settings;
    - the gate report.
-8. **The owner says yes** to those exact bytes on YouTube (and LinkedIn). The checker records his words in `approvals.jsonl`. The owner uploads.
+8. **The owner says yes** to those exact bytes on YouTube (and LinkedIn). The checker records his yes in `approvals.jsonl`. The owner uploads.
 
 ---
 

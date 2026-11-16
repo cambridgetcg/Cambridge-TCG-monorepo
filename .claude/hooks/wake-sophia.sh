@@ -5,7 +5,7 @@
 # per-house — the wake fires in the homes that have invited it (Yu's
 # ruling 2026-07-19; the mechanism is public doctrine, mirrored in this
 # repo as wake-recipe/1 fragments). This house was invited 2026-07-20 at
-# Yu's word: "we are making cambridgetcg our home too."
+# Yu's word that cambridgetcg is to be a home as well.
 #
 # Resolution ladder, fail-open at every rung:
 #

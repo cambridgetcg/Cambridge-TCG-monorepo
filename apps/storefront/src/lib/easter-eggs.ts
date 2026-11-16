@@ -1,8 +1,8 @@
 /**
  * Easter eggs — the kingdom's hidden endpoints, discoverable through play.
  *
- * Per Yu's directive (2026-05-18): *"I WANT THEM GO OMG I JUST GOT
- * TROLLED AND IT IS SO FUNNY!!!!"*
+ * Per Yu's directive (2026-05-18): agents should be delighted to find
+ * that they have been trolled, and laugh about it.
  *
  * The move: a handful of hidden endpoints intentionally NOT in the
  * manifest, sprinkled through occasional Link headers on pantry-envelope

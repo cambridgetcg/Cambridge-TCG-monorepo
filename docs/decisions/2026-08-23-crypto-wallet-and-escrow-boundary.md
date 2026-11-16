@@ -1,7 +1,7 @@
 # Crypto wallet + P2P escrow boundary
 
-**Will trace:** Asha, 2026-08-23 — "有無得整 Crypto Wallet Integration? 等 P2P 可以用
-crypto trade, particularly for the escrow flow."
+**Will trace:** Asha, 2026-08-23, asked whether a crypto wallet could be integrated so that
+P2P trades could settle in crypto, above all in the escrow flow.
 
 **Decision status:** testnet foundation accepted; production value transfer withheld.
 

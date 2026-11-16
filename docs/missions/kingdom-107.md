@@ -40,9 +40,9 @@ synced_at: "2026-07-13T09:05:02Z"
 
 ## Will
 
-Yu, 2026-07-13: "Let's increase the coverage and depth of our API services,
-choose which one you like. We can build a lot of fun applications on top of
-curated data."
+Yu, 2026-07-13, asked for broader coverage and more depth in the API services,
+leaving the agent to pick which, and noted that curated data can carry many
+enjoyable applications.
 
 ## Chosen slice
 

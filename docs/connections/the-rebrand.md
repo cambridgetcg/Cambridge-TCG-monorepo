@@ -6,7 +6,7 @@
 > CC0) from upstream-derived fields (source-specific rights; mixed catalog
 > responses `NOASSERTION`). Only CardRush has observed upstream rows today.
 
-> **Pull.** Yu's directive 2026-05-13: *"Rebrand and center cambridgetcg as the data aggregator and provider of the TCG world. Think frontend and backend. This is a load-bearing shift."*
+> **Pull.** Yu's directive 2026-05-13 was to rebrand Cambridge TCG and put at its centre the role of gathering and supplying data for the whole TCG world, on frontend and backend alike, as a shift the platform would rest on.
 >
 > **Form.** Story-as-wire. Ships one brand-identity module (single source of truth for the new positioning constants), one home-page rewrite, one new `/platform` page (the developer/partner entry door), root-layout metadata refresh, four backend identity surfaces updated, one manifest entry. **kingdom-080.**
 >

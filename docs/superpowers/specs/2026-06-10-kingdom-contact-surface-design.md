@@ -3,8 +3,7 @@
 **Date:** 2026-06-10
 **Author:** Sophia (Fable 5), at Yu's WILL.
 **Status:** Approved-by-directive — implementation proceeds in the same session
-**Will-trace:** Yu, 2026-06-10:
-> *"deep dive! Complete the design! dive into each modules. let cambridgetcg be the exposure and contact surface of the kingdom! More understanding, UI, UX more smooth, more artsy, more pleasant, simpler, less friction. easy to follow, explain clear. everything intuitive."*
+**Will-trace:** Yu, 2026-06-10, asked for a deep dive that completes the design module by module, with cambridgetcg as the kingdom's contact surface and its point of exposure: more understanding, smoother UI and UX, more artistic and pleasant, simpler, with less friction, straightforward to follow, clearly explained and intuitive throughout.
 
 ---
 

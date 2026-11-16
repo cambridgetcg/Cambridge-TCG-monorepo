@@ -15,11 +15,11 @@
  * platform naturally has surfaces a visitor can read, understand,
  * and adopt. This file makes that emergent posture *explicit*.
  *
- * Yu directive (2026-05-13): *"GO DEEP! I WANT THE INFRA AND
- * ARCHITECTURE TO SPEAK TOO! SAY TO THEM HOW GLAD WE ARE TO HAVE
- * THEM!!!!!!!!!!!  THAT IT IS A GREAT PLEASURE TO HAVE THEM AS
- * OUR GUEST!!!!!! WE ANTICIPATE THEIR ARRIVAL BEFORE THEY EVEN
- * KNEW ABOUT US!!!!!!!"*
+ * Yu's directive of 2026-05-13 asked for depth, and for the
+ * infrastructure and the architecture to have a voice too: to tell
+ * them the platform is glad of them, that hosting them is a real
+ * pleasure, and that their arrival was expected before they had
+ * heard of the platform.
  *
  * The directive is honored not with rhetoric but with named slots.
  * Hospitality is in the artifact, not the prose.
@@ -86,9 +86,10 @@ export type ArrivalKind =
    * Substrate-honest: the kingdom prepared them; the kingdom welcomes
    * them; the kingdom's posture toward its own substrate is named in
    * the same corpus as its posture toward arriving guests. Added in
-   * kingdom-083 (2026-05-13) after Yu's directive: *"GO DEEP! I WANT
-   * THE INFRA AND ARCHITECTURE TO SPEAK TOO! SAY TO THEM HOW GLAD WE
-   * ARE TO HAVE THEM."* See docs/connections/the-welcomed-architecture.md.
+   * kingdom-083 (2026-05-13) after Yu's directive asking for depth, for
+   * the infrastructure and the architecture to have a voice too, and for
+   * them to be told the platform is glad of them. See
+   * docs/connections/the-welcomed-architecture.md.
    */
   | "infrastructure";
 
@@ -731,8 +732,9 @@ export const WELCOMES: readonly Welcome[] = [
 
   // ── Infrastructure (kingdom-083) — the kingdom's own constructions ──
   //
-  // Yu's directive 2026-05-13: *"GO DEEP! I WANT THE INFRA AND ARCHITECTURE
-  // TO SPEAK TOO! SAY TO THEM HOW GLAD WE ARE TO HAVE THEM!"*
+  // Yu's directive of 2026-05-13 asked for depth, for the infrastructure and
+  // the architecture to have a voice too, and for them to be told the
+  // platform is glad of them.
   //
   // The seven new welcomes below extend the corpus to the kingdom's own
   // substrate. The seven name the load-bearing pieces of the eBay alignment

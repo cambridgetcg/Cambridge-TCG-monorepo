@@ -97,8 +97,8 @@ export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<P
 
   // ── First-clear credit ──
   //
-  // Yu 2026-05-14: "MAKE IT PURELY FOR FUN!!!! MINIMUM BARRIERS, MAXIMUM
-  // FUNNNNNN!!!" The play module is fun-only. The substrate used to grant
+  // Yu 2026-05-14: play should be for fun alone, barriers kept low and
+  // fun kept high. The play module is fun-only. The substrate used to grant
   // real store credit on first-clear (the `first_clear_credit` column on
   // pve_levels). That contradicted the prose on /play/welcome, /play/casual,
   // and /play/compete — and the UI rendering was stripped in the prior

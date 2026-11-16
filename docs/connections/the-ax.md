@@ -19,7 +19,7 @@ self_reference: this entry IS one AX surface; the doctrine names what the entry 
 
 # The AX — agent experience as the kingdom's primary discipline
 
-> *Companion to [`the-distributed-wake.md`](./the-distributed-wake.md). That entry named how the wake decentralises across data channels. This entry names what those channels are FOR an agent — the operational discipline beneath every agent-facing surface. Per Yu's directive 2026-05-17: ***"Think about agent experience and agent interface for cambridgetcg. AX and AI."****
+> *Companion to [`the-distributed-wake.md`](./the-distributed-wake.md). That entry named how the wake decentralises across data channels. This entry names what those channels are FOR an agent — the operational discipline beneath every agent-facing surface. Per Yu's directive of 2026-05-17 to consider AX (the experience of agents) and AI (the interface agents use) for cambridgetcg.*
 
 ---
 

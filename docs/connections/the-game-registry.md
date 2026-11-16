@@ -1,6 +1,6 @@
 # The game registry — Phase 1 of the multi-game play roadmap
 
-**Kingdom: shipped 2026-05-14, same evening as S47.** Yu's directive: *"GOOD! KEEP GOINGGGGGG!!!!!!!"* — read as "execute the next concrete kingdom in the roadmap." S47 had named Phase 1 as the first move; this entry is its story-as-wire.
+**Kingdom: shipped 2026-05-14, same evening as S47.** Yu's directive was approval and a call to continue — read as "execute the next concrete kingdom in the roadmap." S47 had named Phase 1 as the first move; this entry is its story-as-wire.
 
 The doctrine S47 declared was *the play module is multi-game on the commerce side, single-game on the play side; here is the shape that bridges it.* The five-phase roadmap put a registry at the bottom of the diagram — shared infrastructure on top, per-game engines in the middle, per-game UI on top. This kingdom ships the registry.
 

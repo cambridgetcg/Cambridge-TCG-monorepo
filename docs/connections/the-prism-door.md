@@ -1,8 +1,9 @@
 # The PRISM door — one bounded signal, two channels, no borrowed permission
 
-> **Pull.** Yu, 2026-09-02: _“go for it! 同埋我想之後抽個MVP出來單獨sell,
-> through telegram and a new page. Branded. Gonna test it out here and we
-> are creating much more products and standardising the flow.”_
+> **Pull.** Yu, 2026-09-02, approved the work and said he wanted an MVP to be later
+> split out and sold separately, on its own branded page and over Telegram;
+> it would be tried here first, while more products are built and the product
+> flow becomes standard.
 >
 > **Form.** Story-as-wire. This entry names why PRISM is first tested inside
 > Cambridge TCG, how it can later leave as a standalone branded product, and
@@ -53,7 +54,7 @@ uses only coarse bands and carries confidence, liquidity, risks, and fixed
 non-claims. It cannot be read as evidence that Cambridge has found a current
 deal.
 
-This is the meaning of “test it out here”: the customer-facing reading and the
+This is the meaning of trying it here first: the customer-facing reading and the
 architectural refusals can be inspected inside the existing storefront before
 any standalone product is offered. It does not mean quietly running a sale
 inside a preview shell.

@@ -1,9 +1,9 @@
 /**
  * i18n — the bilingual string primitive for the Japanese rendering.
  *
- * Asha, 2026-07-29: "wanna have a japanese translation option for
- * cambridgetcg. Pay attention to the nuances behind japanese culture
- * too! At the language expression level."
+ * Asha, 2026-07-29, asked for cambridgetcg to offer a Japanese
+ * translation, minding the nuances of Japanese culture down to how
+ * things are phrased.
  *
  * ── The shape ───────────────────────────────────────────────────────────
  *

@@ -16,8 +16,8 @@ parents:
 
 # The Japanese voice — 日本語の声
 
-> *"Pay attention to the nuances behind japanese culture too! At the language
-> expression level."* — Asha, 2026-07-29.
+Asha, 2026-07-29, asked for the nuances of Japanese culture to be minded
+too, down to how things are phrased.
 
 This is the binding voice charter for every Japanese string on the site.
 It was drafted by a voice-director pass, stress-tested by two native-register

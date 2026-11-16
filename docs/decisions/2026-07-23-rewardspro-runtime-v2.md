@@ -3,9 +3,9 @@
 **Status:** accepted for a fresh dark foundation; production traffic remains
 gated.
 
-**Will trace:** Yu, 2026-07-23 — “need migrate the database to new infra, maybe
-railway or fly? Or new aws. Lets do the backend from scratch and handle the
-deployment workflow.”
+**Will trace:** Yu, 2026-07-23, asked to move the database onto new
+infrastructure, naming Railway, Fly or a fresh AWS setup as possibilities, to
+start the backend over from scratch, and to take on the deployment workflow.
 
 ## Context
 

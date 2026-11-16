@@ -15,8 +15,8 @@
  * tier badge, freshness label. Bright Data-routed sources surface their
  * proxy declaration via the `_meta.upstream_proxy` field.
  *
- * Yu's directive: *"POOF!!!! PRICE, TRANSACTION HISTORIES, AVAILABLE
- * SOURCES, DIFFERENT LANGUAGE ALL POPS UP!"*
+ * Yu's directive: a card's price, its sales history, where it can be
+ * bought and its other languages should appear at once.
  */
 
 import type { Metadata } from "next";
@@ -684,8 +684,8 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
       {/* Plain-language decoder — additive clarity for newcomers. Native
           <details>, no JS, closed by default so it never clutters. The
           substrate-honest labels below stay exactly as they are; this just
-          says what they mean in plain words. (Yu 2026-06-04: make everything
-          easy to understand.) */}
+          says what they mean in plain words. (Yu 2026-06-04: the whole site
+          should be simple to follow.) */}
       <details className="rounded-lg border border-border-subtle bg-surface-subtle px-4 py-3 text-sm">
         <summary className="cursor-pointer text-ink-muted hover:text-ink select-none">
           About these results

@@ -1,8 +1,9 @@
 # The collectors' market — P2P facilitation build
 
-**Will trace:** Asha, 2026-07-05 — "make cambridgetcg.com/market work, as little friction as
-possible. P2P, facilitate collectors' trades, build communication channel for them, infra to
-support the trade (logistics, prices). Rebuild the UI/UX to your liking."
+**Will trace:** Asha, 2026-07-05, asked for cambridgetcg.com/market to work with the least
+friction it can have: peer to peer, helping collectors trade with one another, with a channel
+for them to talk and the infrastructure trading needs (logistics, prices), and left the
+redesign of the UI/UX to the agent's taste.
 
 **Ground truth this build stands on** (verified 2026-07-05): the exchange is ~90% built —
 order book, matching, escrow tiers, Stripe pay, seller shipping, offers/counters, DMs,

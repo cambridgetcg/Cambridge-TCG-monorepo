@@ -1,8 +1,8 @@
 -- Migration: per-item commission cap (the fairness fix)
 -- 2026-06-04
 --
--- Yu's mandate: "Minimum fees, maximum value. We don't charge unfairly; we
--- price according to the value we provide vs other service providers."
+-- Yu's mandate was low fees and high value: nothing charged unfairly, and
+-- prices set by the value Cambridge gives compared with other providers.
 --
 -- Before this, Cambridge charged an uncapped PERCENTAGE commission on
 -- marketplace/trade/auction sales. Every incumbent caps the absolute fee

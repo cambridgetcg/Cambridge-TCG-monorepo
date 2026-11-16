@@ -2,8 +2,8 @@
  * <MuseumPlate> — borrowed light, hung with its wall label.
  *
  * The culture wings' image primitive, following the sibling gallery
- * artbitrage.io's method (Asha 2026-07-31: "refer to artbitrage for
- * format and styling"): open-access museum objects only — public
+ * artbitrage.io's method (Asha 2026-07-31 pointed to artbitrage as the
+ * model for format and style): open-access museum objects only — public
  * domain / CC0, verified against the source museum's own API record
  * before the file was committed — each carrying the full label an
  * honest museum hangs: title, maker, date, medium, credit line, the

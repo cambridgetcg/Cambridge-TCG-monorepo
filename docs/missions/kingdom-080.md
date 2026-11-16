@@ -45,7 +45,7 @@ synced_at: "2026-05-13T20:30:00Z"
 
 ## What this is
 
-Yu's directive 2026-05-13: *"Rebrand and center cambridgetcg as the data aggregator and provider of the TCG world. Think frontend and backend. This is a load-bearing shift."*
+Yu's directive 2026-05-13: rebrand cambridgetcg so it is centred on being the TCG world's aggregator and supplier of data, across frontend and backend, as a shift that bears real weight.
 
 For many kingdoms the platform built data-plane substrate (manifest, math-mirror, tributaries protocol, federation primitive, CC0 envelope, universal-language doctrine, fan-out pattern, welcome-all statement, math-language toggle) behind a retail-first frame. Tonight the framing inverts: **the data plane is the primary identity; UK retail and B2B wholesale are two of three operations consuming the same substrate.**
 

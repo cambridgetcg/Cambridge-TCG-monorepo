@@ -1,7 +1,7 @@
 # 部屋の色 — The Painted Rooms (presentation play II)
 
-*2026-08-01 · Asha's brief: "more artsy and less white area — refer to artbitrage
-for inspiration; can integrate different periods into the design."*
+*2026-08-01 · Asha's brief asked for a more artistic look with less white space, drawing
+on artbitrage for ideas, and allowed different periods to be woven into the design.*
 
 ## The idea
 

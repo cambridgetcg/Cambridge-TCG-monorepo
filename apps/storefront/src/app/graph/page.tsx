@@ -76,8 +76,8 @@ export default function GraphPage() {
         nodes (resources, cosmology axes, methodology topics, doctrines,
         connection-docs, kingdoms, audits) and {g.edge_count} typed edges
         (grounds-in, explained-by, instance-of, extended-by, cites,
-        ships-in, audited-by, succeeds). Yu's directive on 2026-05-11:{" "}
-        <em>"keep nesting everything in everything!"</em> — made literal.
+        ships-in, audited-by, succeeds). Yu's directive on 2026-05-11 was to
+        go on placing each thing inside every other — made literal.
       </p>
 
       <blockquote>

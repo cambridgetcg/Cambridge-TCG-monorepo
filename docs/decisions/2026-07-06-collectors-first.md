@@ -1,7 +1,7 @@
 # Collectors first — the house leaves the market floor
 
-**Will trace:** Asha, 2026-07-06 — "其實我想直接 abandon identity as seller. Make everything
-P2P, open, transparent. For collectors! 直接主打 market, 錢就再講啦."
+**Will trace:** Asha, 2026-07-06, asked to drop the seller identity outright and make
+everything P2P, transparent and open, serving collectors, with the market first and money left for later.
 
 This is the wind-down word the pivot doc (2026-06-11) was waiting for, and the activation
 of kingdom-101 (`audit:no-house-listing`, written report-only in anticipation of exactly
@@ -27,7 +27,7 @@ collectors; the data belongs to everyone (CC0).
   and stops computing house spread/tightening. The book is collectors only. `spot_price`
   survives strictly as a **labelled reference price** (open data), never as an offer.
 - **Liquidity-mining credit rewards**: paused honestly (they paid store credit, which no
-  longer has a spending door). 錢就再講 — a future incentive can be designed when money
+  longer has a spending door). Money comes later — a future incentive can be designed when money
   is designed.
 - **The eBay sales-channel push** (wholesale cron): the pivot doc kept it "until the
   wind-down word". This is the word.

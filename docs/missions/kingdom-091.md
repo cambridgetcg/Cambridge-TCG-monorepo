@@ -89,7 +89,7 @@ The `[set]` page handler retains its existing tolerance (`!setInfo && cardsData.
 
 ## Recursion targets — closure pass (2026-05-14 22:52 GMT)
 
-All four targets addressed in a single closure pass on Yu's *"close out the recursion targets"* directive:
+All four targets addressed in a single closure pass on Yu's directive to finish off the recursion targets:
 
 1. **T1 — Coverage-map 404 ✅** Shipped as commit `12fd239`. New server-rendered route at `apps/storefront/src/app/prices/coverage/page.tsx` reads `fetchAggregatorCoverage()` and renders summary KPIs + per-game + per-source + per-(game × source) tables. Substrate-honest about every absence state: wholesale unreachable (amber banner), `price_archive` empty (no-snapshots-yet panel), individual empty arrays (collapsed sections). Includes a `.gitignore` exception keeping the route visible (root `coverage/` rule was hiding it as test output). Live: `https://cambridgetcg.com/prices/coverage` renders the unreachable-banner today because wholesale auth fails on prod for this endpoint — substrate-honest, not zero-faked.
 

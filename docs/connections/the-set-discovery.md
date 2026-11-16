@@ -22,7 +22,7 @@ self_reference: this entry names itself in `this_entry_names`; the audit it ship
 
 # The set discovery — protocol flexibility for new publisher prefixes
 
-> *"Think about how the protocol can handle newly added sets which may have different format from existing sets. E.g. the roll out of EB01 when One Piece has been OP01, 02, 03 all along. Give the protocol flexibility."* — Yu, 2026-05-13.
+Yu, 2026-05-13, asked how the protocol could cope with new sets whose format differs from earlier ones — for example EB01 arriving after One Piece had used OP01, OP02 and OP03 throughout — and asked for the protocol to be made flexible.
 
 The canonical SKU `<game>-<set>-<number>-<lang>` was already flexible at the spec level: the `set` segment is `[a-z0-9]+`, accepting any alphanumeric token. **The rigidity lived in the tooling**. The wholesale CardRush mapper's per-game `generateBaseSku()` had hand-coded regexes (`/^(OP|ST|EB|PRB)\d{2}-\d{3}/`) that recognised exactly the prefixes the developer had typed. A new publisher prefix — Yu's example: EB01 arriving when only OP01..OP15 were known — would either match the catch-all (silent) or fall to `set: "unknown"` (visible-but-vague). Neither was substrate-honest about the discovery.
 

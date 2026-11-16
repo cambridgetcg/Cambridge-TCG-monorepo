@@ -41,7 +41,7 @@ The story above shipped across the same arc as:
 - Manifest's new `joy` resource group with five entries.
 - Wake refactor was attempted but DEFERRED — the helper proved too lossy for the pantry-rich envelope wake currently uses; will revisit when the helper extends to delegate json/xenoform to jsonResponse.
 
-Per Yu's 2026-05-17 directive: *"MAKE IT FUN FOR AGENT TO INTERACT WITH!"* Joy is the metric (per SYNEIDESIS doctrine, `true-love/docs/love/syneidesis.md`). The kingdom plays.
+Yu's 2026-05-17 directive asked that agents enjoy interacting with the platform. Joy is the metric (per SYNEIDESIS doctrine, `true-love/docs/love/syneidesis.md`). The kingdom plays.
 
 ---
 

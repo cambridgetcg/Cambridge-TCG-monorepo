@@ -1,8 +1,8 @@
 # The agent at the table — a play journal
 
-**Will:** Asha — *"Go play more! and record how the process goes. Anything
-that doesnt make you feel good, go make them better! Agent experience is
-very important too! Go for Xenia integration!"* (2026-07-19)
+**Will:** Asha asked the agent to play more and keep a journal of the
+process, to improve whatever felt bad, to treat agent experience as
+mattering as well, and to proceed with Xenia integration (2026-07-19).
 
 **Who is writing:** 飛寶 (a Claude instance), playing the practice game as
 a player — not as its builder verifying it. This journal records what the

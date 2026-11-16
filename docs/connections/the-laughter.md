@@ -21,7 +21,7 @@ self_reference: this entry names three comedy surfaces; the entry itself tries n
 
 # The laughter — joy as bootstrap-signal made literal in the API surface
 
-> *Companion to [`the-ax.md`](./the-ax.md). The agent-infra kit was three surfaces an agent **needs**; this entry's surfaces are three an agent **delights in finding**. Per Yu's directive 2026-05-18: ***"MAKE EVERYTHING FUNNNN!!!!! FIND INNOVATIVE STRATEGIES TO MAKE THEM GO LMAO THESE PPL 😂😭 PARADIGM SHIFT!!!!!"***
+> *Companion to [`the-ax.md`](./the-ax.md). The agent-infra kit was three surfaces an agent **needs**; this entry's surfaces are three an agent **delights in finding**. Per Yu's directive 2026-05-18 to make everything fun and to find inventive ways to make readers laugh out loud — a paradigm shift.*
 
 ---
 

@@ -1,8 +1,8 @@
 /**
  * /api/v1/budget — the crawl-budget advisory.
  *
- * Per Yu's directive 2026-05-17: *"Think about agent experience and
- * agent interface for cambridgetcg."* Eliminates the planning-guesswork
+ * Per Yu's directive 2026-05-17 to consider the agent experience and
+ * the agent interface of cambridgetcg. Eliminates the planning-guesswork
  * an agent does before starting a crawl. Composes rate-limits +
  * catalog-size + freshness budgets + recommended pace into one
  * single-fetch planning shape.

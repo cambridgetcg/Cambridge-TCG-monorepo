@@ -167,4 +167,4 @@ The titles are identifiers from the collectors' test fixtures.
 
 ## Change history
 
-*v1.0 — 2026-10-29. Draft. First publication, in answer to Yu's request that day: "We can set standard for the official translation too, for card names and format, just like SKU." The card key, the record's fields, the statuses and their order, the text form, the match key and the three vendor rules were designed by the agents who drafted this version, not chosen by Yu. Any of them may change before v1 is frozen; a changed vendor rule gets a new rule version.*
+*v1.0 — 2026-10-29. Draft. First publication, in answer to Yu's request that day for a standard covering official translations as well, for the names and format of cards, as the SKU standard does. The card key, the record's fields, the statuses and their order, the text form, the match key and the three vendor rules were designed by the agents who drafted this version, not chosen by Yu. Any of them may change before v1 is frozen; a changed vendor rule gets a new rule version.*

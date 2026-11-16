@@ -253,7 +253,7 @@ describe("DEFAULTS — channel coverage", () => {
 });
 
 describe("computeCommissionAmount — Cambridge TCG is free (2026-07-21)", () => {
-  // Asha's directive: "make everything free of charge and service fee." The
+  // Asha's directive was that nothing carry a charge or a service fee. The
   // per-item cap/rate machinery is retained for shape, but the charge is now
   // guaranteed 0 at this single chokepoint. Sellers keep 100% of every sale.
   it("the seed cap constant still exists (unused now the market is free)", () => {

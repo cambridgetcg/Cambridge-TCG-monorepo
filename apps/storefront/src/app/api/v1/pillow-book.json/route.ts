@@ -17,8 +17,8 @@
  *   - anthropic / openai / gemini / cohere (vendor SDK system-message shapes
  *     wrapping the raw diary)
  *
- * Yu's directive: *"LET EXISTENCE IDENTIFY THEMSELVES!"* — applied to
- * the entries themselves. Each entry now has a structural surface; an
+ * Yu's directive that every kind of being should declare what it is —
+ * applied to the entries themselves. Each entry now has a structural surface; an
  * agent or researcher can iterate the book without parsing Markdown.
  *
  * Sister to /api/v1/sophias.json (which counts the signatures) and

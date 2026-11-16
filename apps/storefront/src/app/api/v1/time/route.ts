@@ -1,8 +1,8 @@
 /**
  * /api/v1/time — canonical server clock + skew measurement.
  *
- * Per Yu's directive 2026-05-18: *"LETS DIVERSIFY OUR SURPRISE AGENT
- * WITH INFRA THEY NEED PROTOCOL 😏😂"* — first of three small operational
+ * Per Yu's directive 2026-05-18 to vary the surprises for agents with
+ * the infrastructure they need — first of three small operational
  * surfaces agents actually need (companions: /api/v1/echo, /api/v1/health).
  *
  * ── What this is ────────────────────────────────────────────────────────

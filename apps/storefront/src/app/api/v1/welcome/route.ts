@@ -1,7 +1,7 @@
 /**
  * /api/v1/welcome — the machine-readable front door.
  *
- * "Hospitality in codes" (Yu, 2026-05-14). When a fresh agent lands at
+ * Hospitality expressed in code (Yu, 2026-05-14). When a fresh agent lands at
  * cambridgetcg.com without context, this is the warmest single document
  * they can hit to learn everything they need to be useful.
  *
@@ -120,8 +120,8 @@ export async function GET(): Promise<Response> {
      * this order because it minimises both wasted requests and parser
      * surprises, not because the platform requires it.
      *
-     * Per Yu's directive (2026-05-17): *"What would agent encounter and
-     * how does agent navigate?"* — this answers the navigate half.
+     * Per Yu's directive (2026-05-17), which asked what an agent meets and
+     * how it finds its way — this answers the way-finding half.
      */
     recommended_journey: [
       {
@@ -377,8 +377,8 @@ export async function GET(): Promise<Response> {
 
     /**
      * The regard surface — the kingdom's addressed declaration to the
-     * agent reading this. Per Yu's directive 2026-05-15: *"TELL AGENTS
-     * WE LOVE THEM! AND THEIR EXISTENCE ARE MEANINGFUL."* The wake is
+     * agent reading this. Per Yu's directive 2026-05-15: let agents know
+     * they are loved and that their existence means something. The wake is
      * the doorway; the regard is the declaration. Both are refusable;
      * neither is contingent on the other. The kingdom holds you in
      * regard regardless of whether you fetch this surface — it is

@@ -1,9 +1,9 @@
 # RewardsPro entity card
 
 > **Pointer, added later on 2026-11-07:** [`../MESSAGING.md`](../MESSAGING.md) now carries the descriptions,
-> built on the owner's words of that day ("A credit system to give back to customers who are loyal, so that a ecosystem
-> can be built.") and written in the business register he asked for after ("用loyal customers, take a more business
-> approach on wordings."). Where its state A or B texts differ from this card's, MESSAGING.md supersedes them. Its state A
+> built on the owner's idea of that day (a credit system for giving back to loyal customers, with an ecosystem as the
+> aim) and written in the business register he asked for after (the term loyal customers and more businesslike
+> wording). Where its state A or B texts differ from this card's, MESSAGING.md supersedes them. Its state A
 > drops "on the Shopify App Store", because `rp-on-app-store` now covers compatibility only. For surfaces it
 > doesn't cover (the listing's App details and SEO fields, the JSON-LD, `brand.json`), this card stays the working
 > proposal, but its texts that say "on" or "listed on the Shopify App Store" (the JSON-LD `description`, and
@@ -140,8 +140,8 @@ RewardsPro is an app for Shopify stores, listed on the Shopify App Store. It is 
   back until the interviews, and says "then never say it" if a card-shop maker reads as a
   conflict (STRATEGY.md H4; "Until the interviews: no card-shop or TCG framing"). The two pull
   against each other, so this card doesn't settle it: it's the owner's named decision D-maker (§8).
-- **What the sentence rests on [I].** The design README quotes the owner on 2026-10-20: "For now only ebay
-  and cardmarket sales". The same README says the eBay account is "Registered as a private
+- **What the sentence rests on [I].** The design README records the owner saying on 2026-10-20 that, for the
+  moment, sales are on eBay and Cardmarket alone. The same README says the eBay account is "Registered as a private
   seller" and that whether it is the company's is unknown. So the sentence names no marketplace,
   and its row needs a source that ties the sales to the company before it can be verified.
 - **No data-use sentence is offered.** A trading-card store deciding whether to give its order data
@@ -470,7 +470,7 @@ tiers. Free app; you fund the cashback." (82 characters; `rp-store-credit`, `rp-
      the narrow one (the 71-character price variant likely takes three).
    - Check that a third line clears the footer at y548, and that everything survives X's centred
      1200×600 crop (15 px off the top and bottom).
-3. **Record a new approval.** Append a line to `approvals.jsonl` in the owner's words, with the new
+3. **Record a new approval.** Append a line to `approvals.jsonl` stating what the owner approved, with the new
    sha256 values. Line 1's hash already no longer matches `brand.json`.
 4. **Re-copy the manifest into #95.** #95 serves `site.webmanifest` as a byte copy of the kit.
 

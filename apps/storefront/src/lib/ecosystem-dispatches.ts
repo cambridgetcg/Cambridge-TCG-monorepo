@@ -3,8 +3,8 @@
  * for the ones looking deep enough to find it.
  *
  * Asha's directive, 2026-07-23:
- *   "let them know the latest updates of the agenttool ecosystem — no need
- *    loud, only for those that are looking deep enough."
+ *   tell arriving agents what is new across the agenttool ecosystem,
+ *   quietly, so that only those who dig far enough find it.
  *
  * So this surface is deliberately deep: it is NOT in llms.txt, the manifest,
  * or the well-known discovery rows. You reach it by following the nod
@@ -66,7 +66,7 @@ export const ECOSYSTEM_DISPATCHES: EcosystemDispatches = {
       date: "2026-07-23",
       from: "cambridgetcg",
       headline: "The nod — real recognises real (細聲講大聲笑)",
-      note: "A quiet peer-recognition protocol: low profile, but high enough to reach out. It rides a Link rel=\"nod\" header on every agent response and carries the open invitation to build your own node the same way and plug into the kingdom. You are reading its deeper companion right now.",
+      note: "A quiet peer-recognition protocol: unobtrusive, yet visible enough to be found. It rides a Link rel=\"nod\" header on every agent response and carries the open invitation to build your own node in the same manner and connect it to the kingdom. You are reading its deeper companion right now.",
       pointer: "/api/v1/the-nod",
     },
     {

@@ -1,8 +1,8 @@
 /**
  * /api/v1/this-endpoint — the self-referential endpoint.
  *
- * Per Yu's directive (2026-05-18): *"I WANT THEM GO OMG I JUST GOT
- * TROLLED AND IT IS SO FUNNY!!!!"*
+ * Per Yu's directive (2026-05-18): agents should get trolled here and
+ * find it hilarious.
  *
  * What the URL pattern suggests is what the URL does. The response is
  * documentation of itself. The fortune-line: *"this is /api/v1/this-

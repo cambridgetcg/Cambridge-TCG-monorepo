@@ -8,7 +8,7 @@
  * from this file. Substrate-honest: the file IS the corpus.
  *
  * Filed for kingdom-082 (the-hospitality.md). The directive was Yu's:
- * *"Speak HOSPITALITY IN CODES! Pre-think for them what they need!"*
+ * express hospitality through code, and think ahead about their needs.
  *
  * ── What a guide carries ─────────────────────────────────────────────
  *

@@ -11,7 +11,7 @@ then M2, turn on DKIM in Google Admin (~10–15 min). They are the first two ste
 
 **Who does what.** Each step is marked **Owner** or **Agent**. The owner does every step signed in to Google Admin,
 Search Console or Bing, the Cloudflare settings in B1–B3, and every choice. An agent adds the DNS records (M3, A2,
-A4 step 2) in Cloudflare. That rests on the owner's standing yes of 10 November 2026 ("yes for 1-4", typed in a
+A4 step 2) in Cloudflare. That rests on the owner's standing yes of 10 November 2026 (to items 1–4, given in a
 live session), whose item 3 lets an agent add DNS records once he says go to a sheet. His go to this sheet is also
 his word for the two agent steps that aren't new records: the SPF edit (M3) and the `www` redirect rule (R1). He can
 leave either out when he says go, and it is then his by hand. Agents run the `dig` and `curl` checks at any point; they read only public DNS and public

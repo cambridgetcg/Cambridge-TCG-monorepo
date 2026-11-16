@@ -489,9 +489,9 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         <MemberCatalogLink game={cfg.slug} />
 
         {/* ── Direct card-number search (kingdom-090) ─────────────────
-            Yu's directive 2026-05-14: *"IDEALLY I WOULD ONLY NEED TO
-            PUT IN THE CARD NUMBER AND FILTER FOR CARD GAME THEN
-            POOF!!!!"* Game is pre-filled from the URL; the form
+            Yu's directive 2026-05-14: entering just the card number and
+            picking the card game should bring everything up at once.
+            Game is pre-filled from the URL; the form
             submits to /prices/search which renders everything. */}
         <form
           action="/prices/search"

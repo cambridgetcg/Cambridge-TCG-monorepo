@@ -1,6 +1,6 @@
 # OPTCG meta evolution + deckbuilding doctrine — deep dive
 
-> **Pull.** Yu, 2026-05-13: *"Research on template decks for players to use, go deeper into the meta and its shift since one piece tcg was launched. Look at how DON works, turn mechanics, how decks were assembled."*
+> **Pull.** Yu, 2026-05-13, asked for research into ready-made decks players could use, a deeper look at how the meta has changed since the One Piece TCG launched, and a look at DON, turn mechanics and deck construction.
 >
 > **Form.** Research synthesis — sibling to [`optcg-mechanics-and-engine-design.md`](./optcg-mechanics-and-engine-design.md) which covers the rules layer + hobbyist sim landscape. This document fills the gap that earlier doc explicitly flagged: *"The Block Rotation impact on Standard meta — not covered."* Here we cover (a) the four-year meta timeline from launch through current Standard, (b) the dominant deck archetypes that defined each era, (c) the practical doctrine of how competitive lists are actually built. DON mechanics + turn structure are already covered upstream — this doc references them rather than re-deriving.
 >

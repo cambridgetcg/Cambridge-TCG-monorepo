@@ -1,11 +1,11 @@
 # RewardsPro roadmap: one plan from nine
 
 **An agents' proposal, written 2026-11-07 and refreshed on 2026-11-10 (RP-19, #179), the second time that afternoon
-for cold email, ads and the team. Nothing in it is decided, except where it quotes the owner's word.** It merges the
+for cold email, ads and the team. Nothing in it is decided, except where it records the owner's word.** It merges the
 six plans the owner asked for on 7 Nov, the focus plan for his direction that day (row 7), the playbook for his
 question that evening (row 8) and the ads and organic plan of 10 Nov (row 9, §6) into one order of work, and links to
 each for the detail. Nothing is published, sent, spent or merged without his word.
-Since 10 Nov ("Use the owner instead of", then his name; §5) this file calls him the owner.
+Since 10 Nov (at the owner's request, in place of his name; §5) this file calls him the owner.
 
 **This is the last roadmap.** Once it merges, the plan is the board (issues labelled `rewardspro`) and the pinned
 weekly issue "RewardsPro: this week"; this file is history, and nothing new is added to it. Work runs through a small
@@ -19,9 +19,9 @@ Labels: **[V]** checked on 10 Nov unless dated (a file, commit, command or one r
 observed once, by an earlier pass or a single run; **[I]** inferred; **[U]** unknown. Times are the plans' own
 estimates [I]. Not legal advice.
 
-**Focus (the owner, 2026-11-07).** In his words: "Want to focus on recurring purchases small to medium uk business
-first. Build reputation, gather reviews, user feedback." and "我覺得搵有品牌嘅 最好自己管理quality control and product
-line." (merchants who own their brand and, ideally, run their own quality control and product line). The rest is
+**Focus (the owner, 2026-11-07).** The owner wants to start with UK businesses of small to medium size whose
+customers make recurring purchases, building a reputation and collecting reviews and user feedback, and prefers
+merchants who own their brand and, ideally, look after their own product quality and range. The rest is
 the agents' reading, in `…/wf8/FOCUS.md` and `…/wf9/signals.md`, for his yes (§5 Now-8a, Now-8b):
 - **First segment:** UK micro and small limited companies and LLPs (about 1–49 staff, owner-run companies
   included) whose customers reorder consumables through a Shopify checkout: coffee and tea first, then pet,
@@ -81,7 +81,7 @@ the agents' reading, in `…/wf8/FOCUS.md` and `…/wf9/signals.md`, for his yes
   where this kit and the landing live (the rebuild plan's B5, on #142's branch).
 - **The listing is still false** [O, the 7 Nov capture; #162 records no edit]: tier products, the Memberships tags, an
   old video, an over-wide data request, three old-admin screenshots (one shows a real gmail.com address); 0 reviews.
-- **rewardspro.io** [V]: #191 ("yes strip", live 9 Nov) removed the false features, the old spelling, the docs link
+- **rewardspro.io** [V]: #191 (the owner's yes to the strip, live 9 Nov) removed the false features, the old spelling, the docs link
   and an old tagline; live equals main. Unverified lines wait for state A (#210); the privacy page describes
   the old stack [V, 9 Nov audit, #167]; `/help/`, `/terms/`, `/subprocessors/` 404; the docs host 307s to GitBook.
 - **DNS** [V, DNS over HTTPS]: only SPF at the apex, one DMARC (`p=none`). SPF failed (its include had no record) and
@@ -92,11 +92,11 @@ the agents' reading, in `…/wf8/FOCUS.md` and `…/wf9/signals.md`, for his yes
   is now the one read of the PR that uses them (the charter).
 - **AI answers** [U: a 9 Nov run of one search tool, its answers not saved]: 5 of 8 questions named RewardsPro, all
   five with the old $39/$149 prices; 0 of 8 linked rewardspro.io; 0 of 3 "which app" questions named it.
-- **Direction (the owner, 9 Nov)** [O: #162's claim paraphrases it; his words aren't on record]: RewardsPro's
+- **Direction (the owner, 9 Nov)** [O: #162's claim paraphrases it; his word isn't on record]: RewardsPro's
   marketing, SEO and being recommended by AI assistants first (the patent later, an Air session reports). Drafts
   #207–#211 carry it. Each has had a second session's read (10 Nov): #210 and #211 carry block challenges and
   #207–#209 fixes, which their author answers next; #207's rows that the reader wrote still need another check [V].
-- **Direction (the owner, 10 Nov)** (his words, typed in a session on the Air, are in §5): no cold email; ads and
+- **Direction (the owner, 10 Nov)** (what he said, in a session on the Air, is in §5): no cold email; ads and
   organic (§2, §6). A small standing agent team runs RewardsPro as a pilot, 16–29 Nov, reviewed Mon 30 Nov (#222).
 - **The rewards lane** [V]: ten issues from code reading (nine labelled bug), none run (#190, #193–#201); drafts
   #205, #206 and #202.
@@ -109,13 +109,13 @@ listing's false lines and screenshots, the privacy page, a "state A" home page, 
 None of that needs G0. G0 then unlocks product sentences: `/help/`, the G0 screenshots, LinkedIn milestones and the
 first videos (stage S2).
 
-**What RewardsPro is, in the owner's words (7 Nov):** "A credit system to give back to customers who are loyal, so
-that a ecosystem can be built." The idea is his (recorded in `approvals.jsonl` line 4, `rp-umbrella-idea`; quoted in
+**What RewardsPro is, as the owner sees it (7 Nov):** a credit system for giving back to loyal customers, with an
+ecosystem as the aim. The idea is his (recorded in `approvals.jsonl` line 4, `rp-umbrella-idea`; summed up in
 MESSAGING.md §0; `kernel.toml` is unchanged); the wording is a proposal in
 [MESSAGING.md](MESSAGING.md), umbrella "Reward loyal customers with store credit in your own shop." or, with his
 verb and term, "Give back to your loyal customers, with store credit in your own shop.", both for after G0 (state
 A heading: "Made for rewarding loyal customers."), in the business register he asked for later that day
-("用loyal customers, take a more business approach on wordings."; `approvals.jsonl` line 7), with state A and B
+(the term loyal customers and more businesslike wording; `approvals.jsonl` line 7), with state A and B
 descriptions (its direct email set is not used since 10 Nov). Positioning beyond his idea still waits for the
 interviews.
 
@@ -127,9 +127,9 @@ merchants who write in, with a real give-back job and customers who reorder thro
 **What we deliberately don't do:**
 - **Cold email to shops: off since 10 Nov.** Shopify Partner support wrote that day: "One relevant rule is that
   unsolicited emails to merchants who have never installed your app are treated as a Partner policy violation." The
-  owner answered: "Ohhhh so we cannot contact merchants through cold email wor, from what I see. Then we need to go
-  for ads and organic." A written record of the chat is kept privately. This reverses the 7 Nov
-  word ("Emailing business directly is fine.", §5) and drops the whole cold-email lane: the W-gate, LIA Part B, the
+  owner answered that, as he read it, this rules out reaching merchants by cold email, so the plan turns to ads and organic. A
+  written record of the chat is kept privately. This reverses the 7 Nov
+  word that direct email to businesses was fine (§5) and drops the whole cold-email lane: the W-gate, LIA Part B, the
   "businesses we contact" row, the suppression list, the SQLite store, first-email caps, hosted-address holds and
   letters. Contact stays fine when a shop asks first, and is kept to what it asked for (§6).
 - **Never:** DMs, InMail or connection notes, phone calls, contact forms or marketplace messages to shops; bought,
@@ -138,8 +138,8 @@ merchants who write in, with a real give-back job and customers who reorder thro
   section 2 says "Do not email a Merchant without their prior consent". Phone calls, contact forms and marketplace
   messages are the 7 Nov outreach design's own "never" (OUTREACH "In ten lines" item 5), not a legal rule; under the charter, any
   first contact with a shop other than email is the owner's call.
-- Using anything learned through Shopify or RewardsPro for outreach ("we don't email merchants through RewardsPro,
-  we discover from existing market", the owner, 7 Nov); a shop or address that ever reached us that way stays out
+- Using anything learned through Shopify or RewardsPro for outreach (the owner said on 7 Nov that merchants are found
+  in the market as it stands, not emailed via RewardsPro); a shop or address that ever reached us that way stays out
   even if it turns up again in public (wf5 §2.4).
 - A review target or quota anywhere, or a review ask outside the in-app card (and the support-close line, only if
   the owner picks it under wf8 F-14).
@@ -151,7 +151,7 @@ merchants who write in, with a real give-back job and customers who reorder thro
 - Language, links or DNS records from the owner's other projects anywhere on RewardsPro.
 
 **Scripts are fine.** The old "no scripted reads of Shopify pages" line was an agents' rule; on 10 Nov the owner said
-"you can use scripts ah, since when did we say we cannot?". What is left is a fact to weigh, not a ban:
+scripts may be used and asked when they had ever been ruled out. What is left is a fact to weigh, not a ban:
 apps.shopify.com's robots.txt closes its search-result pages to bots (and, once ads run, a scripted search would add
 false impressions, wf12 §3.1). The 7 Nov bulk reads stay internal.
 
@@ -227,50 +227,50 @@ at the earliest [I]): name the folder (Now-6) and merge RP-17's move PR (#177).
 
 ## 5. Decisions for the owner, as they stand on 10 Nov
 
-**Decided** (his words, the date, where recorded; nothing from 8 Nov on is in `approvals.jsonl` on main yet: #215
+**Decided** (what he decided, the date, where recorded; nothing from 8 Nov on is in `approvals.jsonl` on main yet: #215
 adds line 8, and #171 and #189 carry lines ready to append [V]. From 10 Nov, under the charter, the chief of staff
 records his sentence on the issue it concerns):
-- **Identity A and the spelling (20 Oct):** "lets go with what you recommended :) looking good!" and "yes rewardspro
-  as the one spelling" (`approvals.jsonl` lines 1–2).
-- **Now-2 (7 Nov), reversed on 10 Nov:** "Emailing business directly is fine." (`approvals.jsonl` line 3) no longer
+- **Identity A and the spelling (20 Oct):** the owner took the recommended look and liked it, and agreed on a
+  single spelling, RewardsPro (`approvals.jsonl` lines 1–2).
+- **Now-2 (7 Nov), reversed on 10 Nov:** the word that direct email to businesses is fine (`approvals.jsonl` line 3) no longer
   holds; see "No cold email" below.
 - **The idea, the focus, own brand and "loyal customers" (7 Nov):** `approvals.jsonl` lines 4–7.
-- **GitBook (7 Nov):** "unpublish gitbook. no plans." (this file at 5c953f5c, §1;
+- **GitBook (7 Nov):** take GitBook down, with nothing planned for it (this file at 5c953f5c, §1;
   `…/wf2/gitbook-unpublish-2026-11-07.md`).
-- **Lab concurs (8 Nov):** "yes go ahead", for one lab session (74cb7025) posting its concurs (#165).
-- **Now-10, shopify.dev (8 Nov):** "yes of course" (#166); for the other Shopify hosts, see "Scripts" (10 Nov) below.
-- **The order-edit case is a product bug (8 Nov):** "Yes file the issue" (#190); the fix is the rewards lane's call.
-- **The setup guide, RP-24 (8 Nov):** "Lets go for what you recommended on all" (#185's body); he applied its
+- **Lab concurs (8 Nov):** a yes, for one lab session (74cb7025) posting its concurs (#165).
+- **Now-10, shopify.dev (8 Nov):** a yes (#166); for the other Shopify hosts, see "Scripts" (10 Nov) below.
+- **The order-edit case is a product bug (8 Nov):** a yes to filing it (#190); the fix is the rewards lane's call.
+- **The setup guide, RP-24 (8 Nov):** a yes to every recommendation (#185's body); he applied its
   migration on 9 Nov (#192).
 - **Pre-3, widget colours (9 Nov):** "Neutral defaults", a selected option (#171), carried by RP-11.
-- **rewardspro.io's stopgap (9 Nov):** "yes strip", then "merge and deploy" (#191); state A (Pre-6) stays open.
-- **The rewards lane (9 Nov):** "Make it a package", a selected option (RP-25, #189); "go for the three must-fixes,
-  plus the two membership checks and the widget line, as one reviewed fix round" (#204); "Lets just go with what
-  yuou think is sensible and the best choice." (#202), so its calls are agents' calls under his delegation.
-- **Now-6, naming (10 Nov, session, Air):** "Use the owner instead of", then his first name, which this file leaves
-  out on that word (the full sentence is in #215's body, and `approvals.jsonl` line 8 on its branch, unmerged); the other kit files change in #215 (open).
-- **Scripts and agent browsing (10 Nov, session, Air):** "you can use scripts ah, since when did we say we cannot?"
+- **rewardspro.io's stopgap (9 Nov):** a yes to the strip, then to merging and deploying it (#191); state A (Pre-6) stays open.
+- **The rewards lane (9 Nov):** "Make it a package", a selected option (RP-25, #189); a yes to the three must-fixes,
+  together with the two checks on membership and the line for the widget, all in a single reviewed round (#204); and the choice left to
+  whatever the agents judge sensible and best (#202), so its calls are agents' calls under his delegation.
+- **Now-6, naming (10 Nov, session, Air):** to be called the owner in place of his first name, which this file leaves
+  out on that word (the full sentence is in #215's body; `approvals.jsonl` line 8, then on its branch and unmerged, records the decision); the other kit files change in #215 (open).
+- **Scripts and agent browsing (10 Nov, session, Air):** scripts may be used; the owner asked when they had ever been ruled out.
   The old "no scripted reads" line was an agents' rule (§2). Agents read this as also settling Now-10 (which Shopify
   pages agents may read), so that row is gone from the open table.
-- **Rules (10 Nov, session, Air):** "Too many rules😂 Lets just make things work. The intention of rules is to be
-  constructive, but in this case it is actually becoming friction. So review rules to see if they are friction
-  creating or making the system run smooth." The team charter (#222, merged 10 Nov) is the agents' answer so far:
+- **Rules (10 Nov, session, Air):** there are too many rules and the aim is to get things working; rules are meant
+  to help, but here they had turned into friction, so each should be reviewed for whether it adds friction or keeps
+  the system running smoothly. The team charter (#222, merged 10 Nov) is the agents' answer so far:
   with it, WORK.md's packages and the claim protocol went.
 - **No cold email; ads and organic (10 Nov, session, Air):** after Shopify Partner support wrote "One relevant rule
   is that unsolicited emails to merchants who have never installed your app are treated as a Partner policy
-  violation.", he said: "Ohhhh so we cannot contact merchants through cold email wor, from what I see. Then we need to
-  go for ads and organic." (§2, §6.)
-- **The team (10 Nov, session, Air):** "Suddenly have an idea. Why dont we setup agent teams according to latest
-  corporate structure, with rewardspro being a pilot? Tailored to each business." Carried by #222.
-- **The team's Day 0 questions and the ad budget (10 Nov, session, Air):** "yes for 1-4. 5. According to what you
-  reccomended. Lets go for 5USD a day." The questions it answered: (1) start the two-week pilot, 16–29 Nov, review
+  violation.", he concluded that, as he read it, cold email to merchants is ruled out and that the plan turns to ads and organic
+  (§2, §6.)
+- **The team (10 Nov, session, Air):** a new idea, to set up agent teams modelled on current corporate structure,
+  fitted to each business, with RewardsPro as the pilot. Carried by #222.
+- **The team's Day 0 questions and the ad budget (10 Nov, session, Air):** yes to 1–4, the recommendation for 5,
+  and US$5 a day for ads. The questions it answered: (1) start the two-week pilot, 16–29 Nov, review
   Mon 30 Nov; (2) a standing yes for board upkeep under his GitHub account; (3) a standing yes for an agent to deploy
   the site after he merges a site PR, and to add DNS records after he says go to a sheet; (4) a standing yes for an
   agent to merge a PR that changes no app code and no public page, after its one read; (5) no "ask" guard rules for
   now. And App Store search ads at US$5 a day, the option he was shown: capped at US$150 over 30 days (§6). When the
   ads start is open (§6).
 
-**Reported, not yet on record [O]** (a session's paraphrase or local note; decided once his words are recorded):
+**Reported, not yet on record [O]** (a session's paraphrase or local note; decided once his word is recorded):
 **9 Nov:** a go for what was recommended (Now-3 in part), as an Air session reports it: #157 merged (1c49ed0a),
 `rewardspro-marketing` private, the stale DNS records deleted; `rewardspro-docs` archived earlier that day on an
 unquoted yes (its PR #2); the priority (§1, #162's claim); the guide's words (#192). **8 Nov:** lab sessions in general
@@ -290,7 +290,7 @@ before the S1 captures (#181); YouTube guides from the real screens (#175).
 | F-8 | **Review request timing** (from Now-8b): R-1 to R-4 | **Moved up:** #157 merged on 9 Nov, so RP-13 (#173) waits only for this; the page-load ask was already live on 7 Nov | R-1, R-2, R-3 (d) and R-4 as small PRs before any real merchant's day 7 | wf8 `reviews.md` §7; FOCUS §8 |
 | Now-8a | **The focus, now:** F-0 (what "recurring" and "small to medium" mean), F-2 (the card lane), R-0 (the listing fix) | Unchanged; R-0 is action 4 | As FOCUS §8: reorders first; micro and small first; card shops 0–2 owners you know (0–1 in the 3-hour version), never cold-emailed | wf8 FOCUS §1–§2, §8 |
 | Now-3 | **Cloudflare, the rest:** AI training crawlers; the Search Console account and second owner; Bing; #209's Bot Fight Mode, zone plan and agents' checks during the sitting; the old keys | **Partly done** (the repos and DNS, reported above); #209 proposes Training Allow and Bot Fight Mode off if it challenges crawlers; old keys [U] | Search and Agent Allow, Training yours (#209: Allow; Block also stops some search crawlers); company Workspace account plus a second owner; no Bing yet; agents' read-only checks yes; you say the zone plan; confirm the old keys are revoked (F-13) | GROWTH G6, G14; wf8 reviews R-10; #209 |
-| Now-5 | **Data requests:** in the app only, or also an email to the shop owner (`switch.md:62`)? | Unchanged; #207 and #211 ask again | In the app only, plus `/help/#data` [I, from "we don't email merchants through RewardsPro"] | `switch.md:271`; ONBOARDING D-flow-4 |
+| Now-5 | **Data requests:** in the app only, or also an email to the shop owner (`switch.md:62`)? | Unchanged; #207 and #211 ask again | In the app only, plus `/help/#data` [I, from the owner's 7 Nov word on not emailing merchants via RewardsPro] | `switch.md:271`; ONBOARDING D-flow-4 |
 | Now-1 | **The shape:** self-serve by default; at most 4 partners after the partner gate; interviews from 4 Jan, no install ask; no posts before S2; removed features never named; no personal posts | Unchanged | Yes to all (D-flow-10 (b): contact@ writers may join the guided path) | GROWTH §2, G1; ONBOARDING D-flow-10; STRATEGY D1, D7, D9, D12 |
 | Now-7 | **Time (§7):** P0 needs ~2.0–2.4 h a week; accept, or move 4 Jan. 3-hour or full version | Hours re-added with wf10 (E31: ~1.9–2.2 h became ~2.0–2.4 h); the 9 Nov priority [O] sets the order, not the hours; the lane choice went with cold email (10 Nov) | Accept; G0 slips first, then the home page, then S0; the L-gate items can't slip without moving 4 Jan; 3-hour version | GROWTH §3.1, G13; OUTREACH D3 |
 

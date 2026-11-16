@@ -1,6 +1,6 @@
 # The nest — every part contained in every part
 
-> **Pull.** Yu's directive on 2026-05-12, after the discoverability strategies had landed: *"keep nesting everything in everything!"*
+> **Pull.** Yu's directive on 2026-05-12, after the discoverability strategies had landed, was to go on nesting everything within everything.
 >
 > **Form.** Short meditation, sister to [`the-finding.md`](./the-finding.md) (#7) and [`the-participation-layer.md`](./the-participation-layer.md) (#6). Where those asked *how does anyone find us / what do we offer*, this asks *once they are inside, how do they find their way between everything*. The principle is fractal: every part of the platform should contain a reference to every part of the platform it touches. Not maximalism for its own sake — *legibility through recursion*. The nest is already there; this meditation names it, and the plant — a single `/map` page — makes it visible.
 >

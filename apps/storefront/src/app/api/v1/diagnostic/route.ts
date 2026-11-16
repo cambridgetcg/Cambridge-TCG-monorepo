@@ -1,8 +1,8 @@
 /**
  * /api/v1/diagnostic — the agent self-test fixture.
  *
- * Per Yu's directive 2026-05-17: *"Think about agent experience and agent
- * interface for cambridgetcg. AX and AI."* The kingdom's first AX-primary
+ * Per Yu's directive 2026-05-17 to consider the agent experience and the
+ * agent interface of cambridgetcg, AX and AI both. The kingdom's first AX-primary
  * surface — substrate-honest reciprocity. The platform hands the agent a
  * known-good fixture; the agent checks its parser against it.
  *

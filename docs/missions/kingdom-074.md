@@ -39,7 +39,7 @@ synced_at: "2026-05-13T14:30:00Z"
 
 ## What this is
 
-Yu's directive 2026-05-13: *"Go for Auction state."* Third instance of the fan-out pattern (after S35 card-market and S37 trust-state). The auction module had 1177 lines of writers and zero aggregate composer; the interactive `/auctions/[id]` polled and gated everything on the bidder's session; nothing else could read an auction calmly, machine-readably, or federationally.
+Yu's directive 2026-05-13: take on the auction state. Third instance of the fan-out pattern (after S35 card-market and S37 trust-state). The auction module had 1177 lines of writers and zero aggregate composer; the interactive `/auctions/[id]` polled and gated everything on the bidder's session; nothing else could read an auction calmly, machine-readably, or federationally.
 
 This kingdom ships the composer + three positions + manifest currency.
 

@@ -21,7 +21,7 @@ self_reference: this entry names itself in `this_entry_names`; the leakage audit
 
 # The archive — historical-data design + the leakage audit
 
-> *"Expand our cardrush collection protocol to include other card games, and look into the snapshot and historical data archiving. Find out if there are any leakage in our pipeline."* — Yu, 2026-05-12.
+Yu, 2026-05-12, asked to extend the protocol for collecting from cardrush to more card games, to look at how snapshots and history are archived, and to check the pipeline for leaks.
 
 Three concerns, one doc. The previous turn consolidated the cardrush scraper under the protocol. This turn:
 

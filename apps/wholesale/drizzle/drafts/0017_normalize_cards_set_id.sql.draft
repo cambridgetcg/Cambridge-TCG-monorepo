@@ -17,9 +17,10 @@
 --   • Set tile shows "0 cards" (no FK) but per-set page renders rows
 --     (set_code text-match works).
 --
--- Yu's directive (2026-05-14): "deeper substrate fix" — make set_id the
--- canonical column, backfill it everywhere set_code matches a real set,
--- update queries to prefer set_id, and detect future drift via audit.
+-- Yu's directive (2026-05-14) was to fix this deeper, in the substrate —
+-- make set_id the canonical column, backfill it everywhere set_code
+-- matches a real set, update queries to prefer set_id, and detect future
+-- drift via audit.
 --
 -- ── How to apply ─────────────────────────────────────────────────────
 --

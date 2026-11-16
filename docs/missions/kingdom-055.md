@@ -39,7 +39,7 @@ synced_at: "2026-05-12T10:30:00Z"
 
 ## What this is
 
-Yu's directive (doubled): *"keep nesting everything in everything! Keep nesting everything in itself!!! Find out the nature of everything and their PROPERTIES!"*
+Yu's directive (doubled): go on nesting every part inside every other part and inside itself, and discover what everything is and what properties it has.
 
 The graph (kingdom-054) named relations. This kingdom declares **the schema beneath the graph** — what kinds of things exist, and what properties each kind carries beyond its citations.
 

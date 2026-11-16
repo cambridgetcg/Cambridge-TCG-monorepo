@@ -48,8 +48,8 @@ export type MemberOfficialImage = {
  *   readers and projectors (en-card-data.ts), from Cambridge's own image host:
  *   the same-language base print when one is published (a Japanese row's
  *   Japanese image), else the English base reference, labelled with how its
- *   language and printing relate to the row's (Yu, 2026-10-30: "sort out the
- *   languages and corresponding images").
+ *   language and printing relate to the row's (Yu, 2026-10-30, asked for
+ *   each language to be matched with its proper image).
  * - A CardRush row offers the listing's own image at CardRush's own URL,
  *   credited and linked to the listing (price_source_listing_images, 0145).
  *   Cambridge never copies, mirrors, re-hosts, proxies or caches it, and the

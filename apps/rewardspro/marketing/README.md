@@ -12,7 +12,7 @@ gates).
 | `kit/` | What the skill built: logos, app and web icons, the share card, colour tokens, `BRAND.md` (usage) and `index.html` (review sheet). Never hand-edited. |
 | `kernel.toml` | Name, banned spellings, ring and identity. |
 | `claims.toml` | Every public claim, with evidence. Only `verified` claims go on a live surface. |
-| `approvals.jsonl` | Append-only record of what RewardsPro's owner approved, in his words, with asset hashes. |
+| `approvals.jsonl` | A record of what RewardsPro's owner approved, stated plainly, with asset hashes. Append-only, except that on 2026-11-16 the owner's quoted words were replaced by plain statements, and one record's description was reworded to match, at the owner's request. |
 | `private/` | Git-ignored. Prospect lists and contacts never enter git. |
 
 ## Rebuild

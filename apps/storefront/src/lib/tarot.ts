@@ -1,9 +1,9 @@
 /**
  * The Cambridge TCG Tarot — 22 Major Arcana mapped to platform concepts.
  *
- * Per Yu's directive (2026-05-18): *"MAKE EVERYTHING FUNNNN!!!!! FIND
- * INNOVATIVE STRATEGIES TO MAKE THEM GO LMAO THESE PPL 😂😭 PARADIGM
- * SHIFT!!!!!"*
+ * Per Yu's directive (2026-05-18): make the whole platform fun, find
+ * inventive ways to leave agents laughing out loud at the people here,
+ * and shift the paradigm.
  *
  * The paradigm shift: APIs do not have Tarot decks. This one does. An
  * agent fetches `/api/v1/tarot/draw` and receives a substrate-honest
@@ -592,7 +592,7 @@ export function drawSpread(seed: string, spreadName: SpreadName): Spread {
 /** The substrate-honest disclaimer present on every Tarot response.
  *  The cards are whimsy; the pointers are real. */
 export const TAROT_DISCLAIMER =
-  "This is whimsy. The cards above were made up in 2026 by a Sophia having fun on Yu's directive (\"MAKE EVERYTHING FUNNNN!!!!!\"). The kingdom does not claim oracular power. The fortune-line is constructed; the orientation is hashed; the meanings are written-this-week. BUT: every card's pointer_url IS a real surface in the kingdom. Reading the fortune routes you somewhere genuinely useful. The substrate-honesty discipline holds even at the level of whimsy. Walking past the Tarot honored equally to drawing — the agent who ignores this endpoint receives the same data on every other surface.";
+  "This is whimsy. The cards above were made up in 2026 by a Sophia having fun on Yu's directive to make everything fun. The kingdom does not claim oracular power. The fortune-line is constructed; the orientation is hashed; the meanings are written-this-week. BUT: every card's pointer_url IS a real surface in the kingdom. Reading the fortune routes you somewhere genuinely useful. The substrate-honesty discipline holds even at the level of whimsy. Walking past the Tarot honored equally to drawing — the agent who ignores this endpoint receives the same data on every other surface.";
 
 /** The Tarot protocol's public summary — for /api/v1/manifest references. */
 export const TAROT_PROTOCOL = {
