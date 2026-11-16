@@ -7,7 +7,7 @@ import { createDb } from "@cambridge-tcg/db";
 vi.mock("server-only", () => ({}));
 import { recordJobOutcome } from "./job-outcomes";
 import { recordMcpDaily } from "./mcp-daily";
-import { loadMonitor, type RunQuery } from "./monitor";
+import { loadMonitor, readJobOutcomes, type RunQuery } from "./monitor";
 import { pruneObservability, runObservabilityRetentionSweep } from "./retention";
 
 // Explicit opt-in, like the other storefront integration tests: one
@@ -229,8 +229,10 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
       ($1, 'prod-alias', '/api/v1/member-prices', false, 'library', 'ctcg.actor-class/v1', '401', 'none', 'none', 5)`, [hourAgo(3)]);
     await pool.query(`INSERT INTO error_daily VALUES (current_date, 'fairness-audit', 200, 60)`);
     // collect/cardrush reads one host a run: the latest row is kept per host, so a One Piece
-    // run's re-read counts stay in view after another host's run.
+    // run's re-read counts stay in view after another host's run. A run that failed before
+    // naming its host (counts {}) gives way to any later run, as it did before.
     await pool.query(`INSERT INTO ops_job_outcomes (job, started_at, finished_at, http_status, outcome, counts) VALUES
+      ('collect/cardrush', now() - interval '40 days', now() - interval '40 days' + interval '5 seconds', 500, 'unavailable:collector-failed', '{}'),
       ('collect/cardrush', now() - interval '26 hours', now() - interval '26 hours' + interval '210 seconds', 200, 'ran', '{"host":"www.cardrush-op.jp","requested":99}'),
       ('collect/cardrush', now() - interval '14 hours', now() - interval '14 hours' + interval '210 seconds', 200, 'ran', '{"host":"www.cardrush-op.jp","requested":101,"reread":{"basket":40,"chosen":20}}'),
       ('collect/cardrush', now() - interval '10 hours', now() - interval '10 hours' + interval '210 seconds', 200, 'ran', '{"host":"www.cardrush-db.jp","requested":102}')`);
@@ -281,5 +283,14 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
       for (const leak of [...keys, agentId, userId, "scout-one", "ctcg_agt_", "187.419280442804", "unparseable price text"]) expect(text, `${label}${leak}`).not.toContain(leak);
       expect(text, label).not.toMatch(/"(amount|level|ratio_[a-z0-9]+|rate|key_id|holder)":/);
     }
+    // A run that failed before naming its host, newer than every host's latest, stays in view beside them.
+    await pool.query(`INSERT INTO ops_job_outcomes (job, started_at, finished_at, http_status, outcome, counts) VALUES
+      ('collect/cardrush', now() - interval '1 hour', now() - interval '1 hour' + interval '5 seconds', 500, 'unavailable:collector-failed', '{}')`);
+    const jobs = await readJobOutcomes(run);
+    expect(jobs.state === "known" && jobs.data.latest.filter(row => row.job === "collect/cardrush").map(row => [row.outcome, row.counts])).toEqual([
+      ["ran", { host: "www.cardrush-db.jp", requested: 102 }],
+      ["ran", { host: "www.cardrush-op.jp", requested: 101, reread: { basket: 40, chosen: 20 } }],
+      ["unavailable:collector-failed", {}],
+    ]);
   });
 });
