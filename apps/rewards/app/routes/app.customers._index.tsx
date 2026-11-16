@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useNavigate, useNavigation } from "react-router";
 
@@ -17,6 +17,11 @@ import { EXPORT_SEARCH_UNREAD, NO_TIER, SEARCH_TOO_BROAD, SEARCH_UNREAD } from "
  * and never stored. Export CSV downloads the same buyers, every page. What
  * went wrong (the export, the search) is said above the table (DESIGN-9),
  * and the table shows it is loading while the next page loads (DESIGN-16).
+ * Both are errors, so red, and they share one banner (Built for Shopify
+ * 4.2.4 and 4.3.4): a search Shopify didn't answer first, then a failed
+ * export. A failed export is about the search it was made under, so a new
+ * search or tier clears it. The filter row stacks below 500 px of width
+ * (4.1.2).
  */
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -60,6 +65,9 @@ function hrefWith(current: { query: string; tierId: string; page: number }, chan
 }
 
 const DOWNLOAD_FAILED = "The file couldn't be made. Try again.";
+const SEARCH_FAILED = "Shopify didn't answer the search. Try again.";
+/** The search box and tier select side by side, or stacked when narrow. */
+const FILTER_COLUMNS = "@container filters (inline-size > 500px) 1fr auto, 1fr";
 
 export default function Customers() {
   const d = useLoaderData<typeof loader>();
@@ -68,6 +76,8 @@ export default function Customers() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const current = { query: d.query, tierId: d.tierId, page: d.page };
+  // A failed export is said only under the search it was made with
+  useEffect(() => setExportError(null), [d.query, d.tierId]);
 
   // fetch carries App Bridge's session token; a plain link would not
   const download = async () => {
@@ -97,6 +107,8 @@ export default function Customers() {
   };
 
   const filtered = d.query !== "" || d.tierId !== "";
+  // What went wrong, for the page's one banner
+  const problems = [d.searchFailed ? SEARCH_FAILED : null, exportError].filter((said) => said !== null);
   // The same filters from page 1, as a link (A21-F4)
   const pageOne = `/app/customers${hrefWith(current, { page: 1 }).replace(/^\?$/, "")}`;
 
@@ -105,11 +117,20 @@ export default function Customers() {
       <s-button slot="secondary-actions" loading={exporting} onClick={() => void download()}>
         Export CSV
       </s-button>
-      {/* One stack, so two banners at once stand apart, as on Home (M3d-F6) */}
-      {exportError || d.searchFailed ? (
+      {/* The page's banner in the same stack as Home's (M3d-F6) */}
+      {problems.length > 0 ? (
         <s-stack slot="supplemental-start" gap="base">
-          {exportError ? <s-banner tone="critical">{exportError}</s-banner> : null}
-          {d.searchFailed ? <s-banner tone="warning">{"Shopify didn't answer the search. Try again."}</s-banner> : null}
+          <s-banner tone="critical">
+            {problems.length === 1 ? (
+              problems[0]
+            ) : (
+              <s-stack gap="small-200">
+                {problems.map((said) => (
+                  <s-text key={said}>{said}</s-text>
+                ))}
+              </s-stack>
+            )}
+          </s-banner>
         </s-stack>
       ) : null}
       {d.searchUnread || d.searchCut ? (
@@ -129,28 +150,30 @@ export default function Customers() {
           onPreviousPage={() => navigate(hrefWith(current, { page: d.page - 1 }))}
           onNextPage={() => navigate(hrefWith(current, { page: d.page + 1 }))}
         >
-          <s-grid slot="filters" gap="small-200" gridTemplateColumns="1fr auto">
-            <s-search-field
-              label="Search buyers"
-              labelAccessibilityVisibility="exclusive"
-              placeholder="Search by name or email"
-              value={d.query}
-              onChange={(event) => navigate(hrefWith(current, { query: event.currentTarget.value.trim() }))}
-            />
-            <s-select
-              label="Tier"
-              labelAccessibilityVisibility="exclusive"
-              value={d.tierId}
-              onChange={(event) => navigate(hrefWith(current, { tierId: event.currentTarget.value }))}
-            >
-              <s-option value="">All tiers</s-option>
-              {d.tiers.map((tier) => (
-                <s-option key={tier.id} value={tier.id}>
-                  {tier.name}
-                </s-option>
-              ))}
-            </s-select>
-          </s-grid>
+          <s-query-container slot="filters" containerName="filters">
+            <s-grid gap="small-200" gridTemplateColumns={FILTER_COLUMNS}>
+              <s-search-field
+                label="Search buyers"
+                labelAccessibilityVisibility="exclusive"
+                placeholder="Search by name or email"
+                value={d.query}
+                onChange={(event) => navigate(hrefWith(current, { query: event.currentTarget.value.trim() }))}
+              />
+              <s-select
+                label="Tier"
+                labelAccessibilityVisibility="exclusive"
+                value={d.tierId}
+                onChange={(event) => navigate(hrefWith(current, { tierId: event.currentTarget.value }))}
+              >
+                <s-option value="">All tiers</s-option>
+                {d.tiers.map((tier) => (
+                  <s-option key={tier.id} value={tier.id}>
+                    {tier.name}
+                  </s-option>
+                ))}
+              </s-select>
+            </s-grid>
+          </s-query-container>
           <s-table-header-row>
             <s-table-header listSlot="primary">Buyer</s-table-header>
             <s-table-header listSlot="secondary">Tier</s-table-header>
