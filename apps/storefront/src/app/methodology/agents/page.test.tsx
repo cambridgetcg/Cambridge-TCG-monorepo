@@ -56,6 +56,10 @@ describe("agents methodology: refusals", () => {
     // Not every answer is typed: the page says which carry no refusal, and
     // claims no shape for them (route.test.ts pins that they carry none).
     expect(text).not.toContain("Every refusal at the MCP gate");
+    // The page's rule is "unknown: read the state first", and the code sends
+    // one unknown that is retryable (authUnavailableRefusal("unknown"),
+    // refusals.test.ts): the page names that one and says why.
+    expect(section).toContain("One refusal is both unknown and retryable: agent.act's auth_unavailable after a failed transaction. A signed act is applied at most once, so sending the same act again is safe.");
     expect(section).toContain("Some answers carry no typed refusal: a request from a web page on another site (403)");
     for (const bare of ["(413)", "an unknown method (404)", "without a tool name (400)", "-32022", "agent.revoke_key's 503"]) {
       expect(section, bare).toContain(bare);

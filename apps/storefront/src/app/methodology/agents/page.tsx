@@ -243,7 +243,10 @@ export default function AgentsMethodology() {
         <li>
           <code>unknown</code>: the change may or may not have been made. Read the state
           before sending the call again; the refusal&apos;s next action says how to read
-          it.
+          it. One refusal is both <code>unknown</code>{" "}and retryable:{" "}
+          <code>agent.act</code>&apos;s <code>auth_unavailable</code>{" "}after a failed
+          transaction. A signed act is applied at most once, so sending the same act again
+          is safe.
         </li>
       </ul>
       <p>

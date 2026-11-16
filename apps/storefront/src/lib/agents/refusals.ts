@@ -39,7 +39,9 @@ export const REFUSALS_DOCS_URL = `${AGENT_DOCS_URL}#refusals`;
  *     for. A call that only reads asks for no change, so its refusals are
  *     never unknown. side_effects lists anything it changed anyway.
  *   - unknown: the change may or may not have been made. Read the state
- *     before sending it again.
+ *     before sending it again. One unknown is also retryable: agent.act's
+ *     auth_unavailable after a failed transaction, because a signed act is
+ *     applied at most once (authUnavailableRefusal).
  */
 export type RefusalEffect = "not_attempted" | "not_applied" | "unknown";
 
