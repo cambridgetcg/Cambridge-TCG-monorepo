@@ -9,28 +9,43 @@
       content="The providers that handle personal data for RewardsPro: what each does, what data reaches it and where."
     />
     <link rel="canonical" href="https://rewardspro.io/subprocessors/" />
-    <meta name="theme-color" content="#09110F" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#F3F7FC" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#09110F" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="stylesheet" href="/assets/site.css" />
+    <link rel="preload" href="/assets/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin />
     <style>
       /* Reading pages only: the provider tables, which the home page doesn't use. */
-      .meta { margin-top: 1rem; color: var(--text-muted); font-size: 0.875rem; }
-      .doc h3 { margin: 1.75rem 0 0; font-size: 1.125rem; font-weight: 600; line-height: 1.3; }
-      .providers { width: 100%; margin-top: 1rem; border-collapse: collapse; font-size: 0.9375rem; line-height: 1.5; }
-      .providers th, .providers td { padding: 0.75rem 0.75rem 0.75rem 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
-      .providers thead th { color: var(--text-muted); font-size: 0.8125rem; font-weight: 600; }
-      .providers tbody th { font-weight: 600; }
-      .providers + p { margin-top: 1rem; }
+      .meta { margin-top: 1rem; }
+      .doc .intro, .doc .section > p { max-width: var(--measure); }
+      .providers { width: 100%; margin-top: 1.5rem; border-collapse: collapse; font-size: 0.9375rem; line-height: 1.5; }
+      .providers th, .providers td { padding: 0.875rem 1.25rem 0.875rem 0; border-bottom: 1px solid var(--hairline); text-align: left; vertical-align: top; }
+      .providers thead th { padding-top: 0; color: var(--text-muted); font-size: 0.8125rem; font-weight: 600; }
+      .providers tbody th { color: var(--ink); font-weight: 600; }
+      /* Column widths, so the two tables line up with each other. Below 60rem the layout stays automatic, so no
+         cell is made narrower than its longest word; from 60rem the columns are fixed and every browser agrees. */
+      @media (min-width: 40rem) {
+        .providers thead th:nth-child(1) { width: 18%; }
+        .providers thead th:nth-child(2) { width: 24%; }
+        .providers thead th:nth-child(4) { width: 18%; }
+        .providers th:last-child, .providers td:last-child { padding-right: 0; }
+      }
+      @media (min-width: 60rem) {
+        .providers { table-layout: fixed; }
+        .providers thead th:nth-child(1) { width: 15%; }
+        .providers thead th:nth-child(2) { width: 22%; }
+        .providers thead th:nth-child(4) { width: 18%; }
+      }
       /* Narrow screens: each provider becomes a block, each cell labelled. */
-      @media (max-width: 40rem) {
+      @media (max-width: 39.9375rem) {
         .providers thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
         .providers tr, .providers th, .providers td { display: block; }
-        .providers tr { padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
-        .providers th, .providers td { padding: 0.25rem 0; border-bottom: 0; }
+        .providers tr { padding: 0.875rem 0; border-bottom: 1px solid var(--hairline); }
+        .providers th, .providers td, .providers tbody tr:last-child > * { padding: 0.25rem 0; border-bottom: 0; }
         .providers td::before { content: attr(data-label); display: block; color: var(--text-muted); font-size: 0.8125rem; }
       }
     </style>
@@ -41,12 +56,15 @@
     <header class="site-header">
       <div class="wrap">
         <a class="logo" href="/">
-          <img
-            src="/assets/rewardspro-lockup-reversed.svg"
-            alt="RewardsPro"
-            width="163"
-            height="32"
-          />
+          <picture>
+            <source srcset="/assets/rewardspro-lockup-reversed.svg" media="screen and (prefers-color-scheme: dark)" />
+            <img
+              src="/assets/rewardspro-lockup.svg"
+              alt="RewardsPro"
+              width="163"
+              height="32"
+            />
+          </picture>
         </a>
         <nav aria-label="Main">
           <ul class="nav-list">

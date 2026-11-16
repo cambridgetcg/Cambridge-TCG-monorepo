@@ -439,7 +439,7 @@ the card needs neither the free rule nor the legacy limit.
    "icon": {"tile": "#FFFFFF", "ink": "original", "padding": 0.18, "radius": 0.22},
 -  "og": {"title": "Cashback your customers spend in your store", "subtitle": "Paid as Shopify store credit, with VIP tiers. Free.", "theme": "light"},
 +  "og": {"title": "Cashback as store credit, with VIP tiers", "subtitle": "An app for Shopify stores, made by Cambridge TCG Limited.", "theme": "light"},
-   "app": {"theme": "dark", "color_scheme": "dark"}
+   "app": {"color_scheme": "light dark"}
  }
 ```
 

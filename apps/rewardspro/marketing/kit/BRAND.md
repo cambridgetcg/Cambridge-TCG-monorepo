@@ -139,7 +139,7 @@ For a kit that is licence-clean and draws the same on every Mac, use a face vect
 
 ## Website head
 
-Copy the files in `web/` to the site root and put this early in `<head>` of every page (from `web/head-snippet.html`). It is the minimal modern set; obsolete tags (`shortcut icon`, `mask-icon`, `msapplication-*`, extra apple-touch sizes) are deliberately left out. Its `color-scheme` meta says `dark` (brand.json `app.color_scheme`): set it to the schemes the site's pages really support, and leave it out where the framework writes one.
+Copy the files in `web/` to the site root and put this early in `<head>` of every page (from `web/head-snippet.html`). It is the minimal modern set; obsolete tags (`shortcut icon`, `mask-icon`, `msapplication-*`, extra apple-touch sizes) are deliberately left out. Its `color-scheme` meta says `light dark` (brand.json `app.color_scheme`): set it to the schemes the site's pages really support, and leave it out where the framework writes one.
 
 ```html
 <!-- Icons: three links and the manifest. Serve the files in web/ at the site root. -->
@@ -147,10 +147,11 @@ Copy the files in `web/` to the site root and put this early in `<head>` of ever
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
-<meta name="theme-color" content="#09110F">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#09110F" media="(prefers-color-scheme: dark)">
 
 <!-- Colour schemes this page supports (brand.json app.color_scheme). "light dark" is true when the page loads colour/tokens.css or has its own dark theme. Light-only page: "only light" (plain "light" lets browsers auto-darken it). Dark-only: "dark" ("only dark" is invalid). One per page: leave this out if your framework writes one (Next.js viewport.colorScheme). -->
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="light dark">
 
 <!-- Social preview: keep these early in <head>, within the first 300 KB of the HTML (WhatsApp). og:title should be the page title, not the site name; pages with their own card have their lines in og/head-<slug>.html. -->
 <meta property="og:type" content="website">
@@ -167,7 +168,7 @@ Copy the files in `web/` to the site root and put this early in `<head>` of ever
 <meta name="twitter:card" content="summary_large_image">
 ```
 
-`web/site.webmanifest` sets `"display": "standalone"`, `theme_color` #09110F and `background_color` #09110F (from brand.json "app"; the default is a standalone app on the light ground). Its `lang` is en.
+`web/site.webmanifest` sets `"display": "standalone"`, `theme_color` #FFFFFF and `background_color` #FFFFFF (the defaults: set "app" in brand.json for "browser", "minimal-ui" or the dark ground). Its `lang` is en.
 
 On the home page only, add `web/head-home.html`: schema.org `Organization` and `WebSite` blocks for Google Search. The logo is `https://rewardspro.io/icon-512.png`, the square app icon (512 px, opaque, so it looks right on white as Google asks); keep that file at that URL. The `WebSite` block names the site (`url` `https://rewardspro.io/`, the root of the host, where Google reads site names). Google wants both on the home page, not on every page; if the site already emits an `Organization` or `WebSite` block, add these properties to that node rather than a second block. Google shows the logo and the name only if it chooses to.
 
