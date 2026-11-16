@@ -12,10 +12,12 @@
 
 import { query } from "@/lib/db";
 
-const WINDOW_DAYS = 7;
-const MIN_SAMPLES = 200;
+// WINDOW_DAYS, MIN_SAMPLES and UTC_HOUR_WINDOW are exported because
+// /verify/health states them; its test fails if the sentence drifts.
+export const WINDOW_DAYS = 7;
+export const MIN_SAMPLES = 200;
 const CHI_SQUARE_THRESHOLD = 30; // deliberately conservative
-const UTC_HOUR_WINDOW = 4;       // run once per UTC day at 04:xx
+export const UTC_HOUR_WINDOW = 4; // run once per UTC day at 04:xx
 
 export interface DriftResult {
   ranInWindow: boolean;
