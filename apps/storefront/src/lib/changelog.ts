@@ -112,6 +112,19 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
       "Smaller corrections on the same pages: the drift panel no longer says every group is within its threshold, since a group with fewer than 200 samples in 7 days is not tested; /verify/chain says a matching chain_hash shows that no digest up to the cached one was altered (it said no prior commitment was), and writes 1 leaf rather than 1 leaves; the self-audit sparkline is drawn in a neutral colour rather than green; and /verify/health says when its feed cannot be read instead of loading for ever. The wording here and on the pages is an AI agent's, for review.",
     related_urls: ["/verify/chain#digest-1-note", "/verify/health", "/api/verify/health"],
   },
+  {
+    id: "market-test-listings-removed",
+    date: "2026-11-16",
+    kind: "endpoint-modified",
+    // No code or response shape changed: this records what the two answers list.
+    impact: "documentation",
+    surface: "/api/market + /api/market/pulse",
+    summary:
+      "GET /api/market and GET /api/market/pulse no longer list leftover test data: the test orders and trades that lifecycle test scripts left in the production database were removed on 2026-11-16. No real listing or trade was affected; both now return empty lists.",
+    detail:
+      "Six lifecycle test scripts, run against the production database on 2026-04-24 and 2026-04-25, had left 187 orders and 71 trades owned by test accounts, with the offers, returns, cancellation requests, fraud signals, logs and notifications that existed only because of them: 574 rows in 10 tables in all. Nobody paid and nothing shipped. Until then GET /api/market listed 63 test SKUs, and GET /api/market/pulse listed 10 Test Card spreads under tightSpreads. The rows were removed on 2026-11-16 at 20:55 UTC, with the owner's agreement given that day. No other order or trade existed, so both tables are now empty: GET /api/market answers cards [] and total 0, and every list in GET /api/market/pulse is empty. No code changed, and neither answer's shape changed. The wording here is an AI agent's, for review.",
+    related_urls: ["/api/market", "/api/market/pulse"],
+  },
   // ── 2026-11-13 ─────────────────────────────────────────────────────────
   {
     id: "agent-refusals-effect-tool-refusals-typed",
