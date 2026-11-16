@@ -114,7 +114,7 @@ export default async function ChainPage() {
                 {tip.chain_hash ?? "(unlinked — predates migration 0066)"}
               </code>
               <p className="text-xs text-ink-faint mt-3">
-                Digest #{tip.id} · root {shortHash(tip.root)} · {tip.leaf_count} leaf{tip.leaf_count === 1 ? "" : "s"} ·
+                Digest #{tip.id} · root {shortHash(tip.root)} · {tip.leaf_count} {tip.leaf_count === 1 ? "leaf" : "leaves"} ·
                 published {fmtDate(tip.created_at)}
               </p>
             </>

@@ -7,8 +7,8 @@ vi.mock("@/lib/db", () => ({ query }));
 import ChainPage from "./page";
 import { DIGEST_ONE_NOTE_ID } from "../digest-one-note";
 
-/** One digest with one leaf, as the chain stands; the hashes are stand-ins. */
-function oneDigest() {
+/** One digest, with one leaf as the chain stands unless told otherwise; the hashes are stand-ins. */
+function oneDigest(leafCount = 1) {
   query.mockImplementation(async (sql: string) => ({
     rows: sql.includes("COUNT(*)")
       ? [{ n: "1" }]
@@ -17,7 +17,7 @@ function oneDigest() {
           root: "a".repeat(64),
           prev_hash: "0".repeat(64),
           chain_hash: "b".repeat(64),
-          leaf_count: 1,
+          leaf_count: leafCount,
           window_from: "2026-04-23 20:57:59.268+00",
           window_to: "2026-04-23 20:57:59.268+00",
           created_at: "2026-04-25 17:10:06.707725+00",
@@ -44,10 +44,17 @@ describe("/verify/chain", () => {
     expect(note).toBeLessThan(table);
   });
 
-  it("writes one leaf in the singular", async () => {
+  it("writes one leaf in the singular and any other count as leaves", async () => {
     const text = words(renderToStaticMarkup(await ChainPage()));
     expect(text).toContain("1 leaf ·");
     expect(text).not.toContain("1 leaves");
+
+    for (const count of [0, 2, 37]) {
+      oneDigest(count);
+      const many = words(renderToStaticMarkup(await ChainPage()));
+      expect(many).toContain(`${count} leaves ·`);
+      expect(many).not.toContain("leafs");
+    }
   });
 
   it("claims only what a matching chain hash shows", async () => {
