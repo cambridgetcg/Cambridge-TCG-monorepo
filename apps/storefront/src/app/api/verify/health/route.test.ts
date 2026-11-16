@@ -9,10 +9,11 @@ const mockQuery = vi.mocked(query);
 type Rows = Record<string, unknown>[];
 
 /** Answers each query by its SQL text; the windowed SQL itself runs in route.integration.test.ts. */
-function answer(pools: Rows, failures: Rows = []) {
+function answer(pools: Rows | Error, failures: Rows = []) {
   mockQuery.mockImplementation(async (sql: string) => {
+    if (pools instanceof Error && sql.includes("has_auditable_draws")) throw pools;
     const rows: Rows =
-      sql.includes("has_auditable_draws") ? pools
+      sql.includes("has_auditable_draws") ? (pools as Rows)
       : sql.includes("FROM fairness_digests") && sql.includes("ORDER BY id DESC") ? [{ id: "1", root: "a".repeat(64), chain_hash: "b".repeat(64), leaf_count: 1, created_at: "2026-04-25 17:10:06.707725+00" }]
       : sql.includes("FROM fairness_digests") ? [{ total: 1, last_7d: 0, last_24h: 0, leaves_7d: 0 }]
       : sql.includes("LIMIT 10") ? failures
@@ -54,6 +55,33 @@ describe("GET /api/verify/health", () => {
     const busy = await (await GET()).json();
     expect(busy.digest.has_undigested_draws).toBe(true);
     expect(busy.self_audit.has_auditable_draws).toBe(true);
+
+    // Each flag lands under its own section.
+    answer([{ has_undigested_draws: true, has_auditable_draws: false }]);
+    const waiting = await (await GET()).json();
+    expect(waiting.digest.has_undigested_draws).toBe(true);
+    expect(waiting.self_audit.has_auditable_draws).toBe(false);
+
+    answer([{ has_undigested_draws: false, has_auditable_draws: true }]);
+    const auditable = await (await GET()).json();
+    expect(auditable.digest.has_undigested_draws).toBe(false);
+    expect(auditable.self_audit.has_auditable_draws).toBe(true);
+  });
+
+  it("answers null for both flags, and everything else as usual, when their query fails", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    answer(new Error("relation \"verifiable_draws\" does not exist"), [
+      { source: "bounty_pull", reason: "outcome mismatch", run_at: "2026-11-16 19:47:17.062313+00" },
+    ]);
+    const response = await GET();
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.digest).toMatchObject({ total: 1, has_undigested_draws: null });
+    expect(body.digest.tip).toMatchObject({ id: "1", leaf_count: 1 });
+    expect(body.self_audit).toMatchObject({ lookback_days: 7, has_auditable_draws: null });
+    expect(body.self_audit.recent_failures).toHaveLength(1);
+    expect(logged).toHaveBeenCalledTimes(1);
+    logged.mockRestore();
   });
 
   it("answers null, meaning unknown, when the flags are missing or not booleans", async () => {

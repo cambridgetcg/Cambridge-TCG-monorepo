@@ -124,4 +124,28 @@ describe.skipIf(!target)("GET /api/verify/health on PostgreSQL (explicit loopbac
     );
     expect(await body()).toMatchObject({ digest: { has_undigested_draws: true }, self_audit: { has_auditable_draws: true } });
   });
+
+  it("takes no pull or draw that either job would skip", async () => {
+    const neither = { digest: { has_undigested_draws: false }, self_audit: { has_auditable_draws: false } };
+    const digest = "(SELECT id FROM fairness_digests LIMIT 1)";
+    // Already digested, with a seed but no rarity, or a rarity but no seed.
+    await pool.query(
+      `INSERT INTO bounty_pulls (id, rng_server_seed, rolled_rarity, revealed_at, merkle_digest_id)
+       VALUES ($1, 'z', NULL, NOW(), ${digest}), ($2, NULL, 'R', NOW(), ${digest})`,
+      [randomUUID(), randomUUID()],
+    );
+    expect(await body()).toMatchObject(neither);
+
+    // Not revealed yet, however complete otherwise.
+    await pool.query(
+      `INSERT INTO bounty_pulls (id, rng_server_seed, rolled_rarity, revealed_at) VALUES ($1, 'z', 'R', NULL)`,
+      [randomUUID()],
+    );
+    await pool.query(
+      `INSERT INTO verifiable_draws (id, commitment, server_seed, outcome, revealed_at)
+       VALUES ($1, 'x', 'y', '{"picked":"a","weight_order":["a"]}', NULL)`,
+      [randomUUID()],
+    );
+    expect(await body()).toMatchObject(neither);
+  });
 });

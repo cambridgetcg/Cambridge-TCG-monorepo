@@ -40,7 +40,8 @@ export async function GET() {
   // /api/verify/fairness. The predicates mirror runFairnessDigest
   // (lib/provable-draw/digest.ts) and runFairnessSelfAudit
   // (lib/provable-draw/self-audit.ts), without the self-audit's one-minute
-  // age floor.
+  // age floor. If this one query fails, both flags answer null (unknown)
+  // and the rest of the answer still stands.
   const drawPools = await query(
     `SELECT
         (EXISTS (SELECT 1 FROM bounty_pulls
@@ -53,7 +54,10 @@ export async function GET() {
          OR EXISTS (SELECT 1 FROM verifiable_draws
                   WHERE revealed_at IS NOT NULL AND server_seed IS NOT NULL
                     AND outcome IS NOT NULL AND outcome ? 'weight_order')) AS has_auditable_draws`,
-  );
+  ).catch((error: unknown) => {
+    console.error("[verify-health] draw flags unavailable:", error instanceof Error ? error.message : error);
+    return { rows: [] as Record<string, unknown>[] };
+  });
   const pools = drawPools.rows[0] as { has_undigested_draws?: unknown; has_auditable_draws?: unknown } | undefined;
   // null means unknown, and a reader takes it as neither answer.
   const flag = (value: unknown): boolean | null => (typeof value === "boolean" ? value : null);
