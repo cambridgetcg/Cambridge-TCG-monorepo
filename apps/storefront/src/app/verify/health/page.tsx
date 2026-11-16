@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { Audience } from "@/lib/ui";
 import { DigestOneNote } from "../digest-one-note";
-import { HealthView, type HealthResponse } from "./health-view";
+import { HealthBody, readHealth, type HealthResponse } from "./health-view";
 
 export default function HealthPage() {
   // The answer and when it arrived, so the tip's age is computed once, not
@@ -14,13 +14,7 @@ export default function HealthPage() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    fetch("/api/verify/health")
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<HealthResponse>;
-      })
-      .then((data) => setLoaded({ data, at: Date.now() }))
-      .catch(() => setFailed(true));
+    readHealth().then((data) => (data ? setLoaded({ data, at: Date.now() }) : setFailed(true)));
   }, []);
 
   return (
@@ -37,15 +31,7 @@ export default function HealthPage() {
         {/* Static, so it is in the first paint and explains the figures below. */}
         <DigestOneNote />
 
-        {failed ? (
-          <p className="text-sm text-ink-muted">
-            The health feed could not be read just now. The raw feed is linked below.
-          </p>
-        ) : !loaded ? (
-          <p className="text-ink-faint">Loading…</p>
-        ) : (
-          <HealthView data={loaded.data} now={loaded.at} />
-        )}
+        <HealthBody loaded={loaded} failed={failed} />
 
         <div className="mt-12 text-xs text-ink-faint border-t border-border-subtle pt-6">
           Raw feeds:{" "}

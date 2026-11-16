@@ -1,10 +1,11 @@
 // The three sections of /verify/health, rendered from one /api/verify/health
-// answer and the time it was read. Kept apart from page.tsx (which fetches)
+// answer and the time it was read, with the read itself and the choice between
+// failed, loading and loaded. Kept apart from page.tsx (which holds the state)
 // so tests can render each state with a fixed clock. No hooks: the client
 // page imports it.
 
 import Link from "next/link";
-import { auditState, tipLooksStale, tipState } from "./audit-state";
+import { STALE_TIP_MINUTES, auditState, tipLooksStale, tipState } from "./audit-state";
 
 interface DigestTip {
   id: number | string;
@@ -61,6 +62,36 @@ export interface HealthResponse {
   };
 }
 
+/** Reads /api/verify/health; null when it cannot be read (no answer, an HTTP error, or a body that is not JSON). */
+export async function readHealth(fetcher: typeof fetch = fetch): Promise<HealthResponse | null> {
+  try {
+    const response = await fetcher("/api/verify/health");
+    if (!response.ok) return null;
+    return (await response.json()) as HealthResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** What the page shows under the note: why the feed is missing, the wait, or the answer. */
+export function HealthBody({
+  loaded,
+  failed,
+}: {
+  loaded: { data: HealthResponse; at: number } | null;
+  failed: boolean;
+}) {
+  if (failed) {
+    return (
+      <p className="text-sm text-ink-muted">
+        The health feed could not be read just now. The raw feed is linked below.
+      </p>
+    );
+  }
+  if (!loaded) return <p className="text-ink-faint">Loading…</p>;
+  return <HealthView data={loaded.data} now={loaded.at} />;
+}
+
 /** `now` is when the answer was read, in milliseconds since the epoch. */
 export function HealthView({ data, now }: { data: HealthResponse; now: number }) {
   return (
@@ -110,7 +141,7 @@ function DigestSection({ data, now }: { data: HealthResponse["digest"]; now: num
       )}
       {state === "overdue" && (
         <p className="text-sm text-ink-muted mt-3">
-          A revealed draw is waiting for a digest, and the newest digest is more than an hour old.
+          A revealed draw is waiting for a digest, and the newest digest is more than {STALE_TIP_MINUTES} minutes old.
         </p>
       )}
 

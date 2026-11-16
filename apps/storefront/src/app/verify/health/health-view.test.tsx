@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/db", () => ({ query: vi.fn() }));
 
 import { MIN_SAMPLES, UTC_HOUR_WINDOW, WINDOW_DAYS } from "@/lib/provable-draw/drift";
+import { STALE_TIP_MINUTES } from "./audit-state";
 import { HealthView, type HealthResponse } from "./health-view";
 
 // A synthetic history shaped like production's on 2026-11-16: one digest
@@ -93,6 +94,12 @@ describe("/verify/health with no draws left, while old failures are still in the
     expect(data.self_audit.recent_failures).toHaveLength(10);
     expect(words).toContain("Failures in the last 7 days (latest 10)");
     expect(words).not.toContain("Recent failures");
+
+    // Fewer than the route's limit of 10 means the list is all there is.
+    const few = { ...data, self_audit: { ...data.self_audit, recent_failures: data.self_audit.recent_failures.slice(0, 3) } };
+    const { words: fewWords } = renderAt(NOW, few);
+    expect(fewWords).toContain("Failures in the last 7 days");
+    expect(fewWords).not.toContain("(latest 10)");
   });
 
   it("does not mark the months-old tip, or a day without digests, as stale", () => {
@@ -103,7 +110,7 @@ describe("/verify/health with no draws left, while old failures are still in the
   });
 });
 
-describe("/verify/health after the window empties (from 2026-11-23 19:47 UTC)", () => {
+describe("/verify/health after the window empties (after 2026-11-23 19:47:17 UTC)", () => {
   const data = answerAt(AFTER_WINDOW, { auditable: false, undigested: false });
   const { html, words } = renderAt(AFTER_WINDOW, data);
 
@@ -128,7 +135,8 @@ describe("/verify/health when draws exist or the flags are missing", () => {
     expect(html).toContain('data-audit-state="not-running"');
     expect(words).toContain("although there is a revealed draw to sample. The self-audit may not be running.");
     expect(html).toContain('data-tip-state="overdue"');
-    expect(words).toContain("A revealed draw is waiting for a digest, and the newest digest is more than an hour old.");
+    expect(words).toContain(`A revealed draw is waiting for a digest, and the newest digest is more than ${STALE_TIP_MINUTES} minutes old.`);
+    expect(words).not.toContain("no new digest is due");
     expect(html).toContain('data-tone="amber"');
   });
 
@@ -140,6 +148,9 @@ describe("/verify/health when draws exist or the flags are missing", () => {
     expect(words).not.toContain("although there is a revealed draw");
     expect(html).toContain('data-tip-state="old"');
     expect(html).toContain('data-tone="amber"');
+    // Unknown is neither answer: no claim that nothing waits, or that something does.
+    expect(words).not.toContain("no new digest is due");
+    expect(words).not.toContain("A revealed draw is waiting");
   });
 });
 
