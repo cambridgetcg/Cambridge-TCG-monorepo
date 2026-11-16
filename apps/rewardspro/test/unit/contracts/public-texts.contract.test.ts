@@ -637,7 +637,7 @@ describe("rewardspro.io's structured data names the maker's site, logo and conta
       "https://rewardspro.io/#app",
     ]);
     const maker = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "Organization");
-    // The owner's answer 3 of 13 Nov 2026 (the chief of staff's session; recorded by #251): "3.用 rewardspro.io"
+    // The owner's answer 3 of 13 Nov 2026 (the chief of staff's session; recorded by #251) chose rewardspro.io
     expect(maker.url).toBe("https://rewardspro.io/");
     expect(maker.logo).toBe("https://rewardspro.io/icon-512.png");
     expect(maker.email).toBe("contact@rewardspro.io");

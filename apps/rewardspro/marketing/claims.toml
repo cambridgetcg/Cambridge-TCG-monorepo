@@ -331,7 +331,7 @@ review_after = "2026-12-07"
 # verified row behind each factual sentence on a page, and the limits these sentences carry have to be somewhere an
 # agent on another machine finds them. All three checked on 12 Nov 2026 by the writer and by PR #244's one read,
 # at 8daf7f09; these rows' lines are at 8daf7f09. For rp-give-back, a purpose, verified means its approvals.jsonl
-# quotes are exact and the mechanism rows it rests on hold. The ids are new: `rp-purpose` is cited in MESSAGING.md's
+# sources match the record and the mechanism rows it rests on hold. The ids are new: `rp-purpose` is cited in MESSAGING.md's
 # 7 Nov blocks for other words, and an id that reads "no paid order, no cashback" reads both ways.
 [[claim]]
 id = "rp-no-cashback-without-paid-order"
@@ -374,12 +374,12 @@ review_after = "2027-02-12"
 [[claim]]
 id = "rp-give-back"
 claim = "RewardsPro is for giving back to customers who buy from you."
-scope = "A purpose, the owner's: his words of 12 Nov 2026, and of 7 Nov ('give back to customers who are loyal'), both in approvals.jsonl. It holds because the credit goes only to customers with a paid order (rp-no-cashback-without-paid-order), as store credit the shop funds (rp-store-credit, rp-merchant-funds). Also covers the h1 sentence, 'Give back to customers who buy from you.': the home page's h1 and, by the owner's choice of 13 Nov 2026 (approvals.jsonl), the first sentence of the App Store listing's App introduction once the owner's Save passes Shopify's review, with rp-no-cashback-without-paid-order's sentence as the second. Never a result: not that customers stay, return or spend more. The shop gives and funds; RewardsPro adds the credit. Present tense: never 'who have bought' without 'Past orders earn no cashback.' beside it, and never 'the customers you already have' or 'existing customers' (a first paid order can earn too, help page :265). In posts and video it may follow 'Shops pay to find new customers.' as '... to the ones who buy from you.'; that opener is framing, not a claim, and stays off the site, the listing and the profiles."
+scope = "A purpose, the owner's: his core concept of 12 Nov 2026, and his 7 Nov idea of giving back to loyal customers, both in approvals.jsonl. It holds because the credit goes only to customers with a paid order (rp-no-cashback-without-paid-order), as store credit the shop funds (rp-store-credit, rp-merchant-funds). Also covers the h1 sentence, 'Give back to customers who buy from you.': the home page's h1 and, by the owner's choice of 13 Nov 2026 (approvals.jsonl), the first sentence of the App Store listing's App introduction once the owner's Save passes Shopify's review, with rp-no-cashback-without-paid-order's sentence as the second. Never a result: not that customers stay, return or spend more. The shop gives and funds; RewardsPro adds the credit. Present tense: never 'who have bought' without 'Past orders earn no cashback.' beside it, and never 'the customers you already have' or 'existing customers' (a first paid order can earn too, help page :265). In posts and video it may follow 'Shops pay to find new customers.' as '... to the ones who buy from you.'; that opener is framing, not a claim, and stays off the site, the listing and the profiles."
 status = "verified"
 channels = ["listing", "landing"]
 sources = [
-  "approvals.jsonl, 2026-11-12: the owner's core concept and his yes to this wording, verbatim",
-  "approvals.jsonl, 2026-11-07 (ledger rp-umbrella-idea): 'A credit system to give back to customers who are loyal'",
+  "approvals.jsonl, 2026-11-12: the owner's core concept and his yes to this wording",
+  "approvals.jsonl, 2026-11-07 (ledger rp-umbrella-idea): the owner's idea of a credit system for giving back to loyal customers",
   "rp-no-cashback-without-paid-order, rp-store-credit and rp-merchant-funds: the mechanism that makes the purpose hold",
 ]
 uncertainties = []

@@ -41,7 +41,7 @@ points, counted by script on 2026-11-07.
   contact@rewardspro.io."), so none is used before that row is `verified`.
 - **Voice** (STRATEGY §4): plain and calm, the company "we", no exclamation marks, at most one emoji (default none),
   no "instant", no "seamless", no "loyalty program", no "points" in our own words. **Register: business** (the owner,
-  2026-11-07: "用loyal customers, take a more business approach on wordings."; `../../approvals.jsonl`): "Thank you"
+  2026-11-07, asked for the term loyal customers and a more businesslike tone; `../../approvals.jsonl`): "Thank you"
   rather than "Thanks", no chatty openers ("Good question", "that's useful to know"), and "loyal customers",
   never "regulars", if a reply needs to name them (`../../MESSAGING.md` §4).
 - **No time promises.** Not "within 24 hours", not "24/7" (STRATEGY §4, never-say 15).

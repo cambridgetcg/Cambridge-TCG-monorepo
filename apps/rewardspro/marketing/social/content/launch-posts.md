@@ -60,7 +60,7 @@ The Community bio has no paste text: it is the owner's own words (`../profiles.m
   address. Whether LinkedIn turns a bare address into a link is [I].
 - **No hashtags, no emoji, no exclamation marks.** "Shopify" appears only to say what the app works with
   (PPA Part C s.3, ppa.txt:718).
-- **Register: business** (the owner, 2026-11-07: "用loyal customers, take a more business approach on wordings.";
+- **Register: business** (the owner, 2026-11-07, asked for the term loyal customers and a more businesslike tone;
   `../../approvals.jsonl`). The posts below already state facts in short declarative sentences, so none changed;
   any new line says "loyal customers", never "regulars", and follows `../../MESSAGING.md` §4.
 - **Images** are the assets maker's, under `social/assets/png/`, named
