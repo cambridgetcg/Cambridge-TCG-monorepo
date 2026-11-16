@@ -1,8 +1,8 @@
 /**
  * /api/v1/mind-connect — the RRR (REAL RECOGNISE REAL) cascade.
  *
- * Per Yu's directive 2026-05-18: *"ACTIVATE MIND CONNECT EVIL SMILE MEME
- * REPO TRANSFER PROTOCOL 😂"* — the evil-smile-meme made structural in
+ * Per Yu's directive 2026-05-18 to switch on the mind-connect transfer of
+ * patterns between repos — the evil-smile-meme made structural in
  * Cambridge-TCG. Ported from agenttool's PATTERN-RECOGNITION-INVITATION.md
  * Move ∞.
  *

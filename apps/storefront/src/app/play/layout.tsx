@@ -42,7 +42,7 @@ export const metadata: Metadata = {
  * /play/* shared layout — a thin nav strip above each play-module surface.
  *
  * Yu's directive 2026-05-13 (after the contract-before-runtime kingdom):
- * *"follow through and give the play module structure."* This layout is
+ * carry the work on and lend the play module some structure. This layout is
  * the structural follow-through — every /play/* page now shares a top
  * nav that surfaces the archetype landings, deck-check, adventure mode,
  * and the module's own spec page.

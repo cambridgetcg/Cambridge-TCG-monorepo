@@ -10,7 +10,7 @@
 // reply is a synchronous function call animated locally, not a second HTTP
 // request racing an effect hook.
 //
-// Ease doctrine (Kingdom-082 "minimum barriers"): one Play press from the
+// Ease doctrine (Kingdom-082, barriers kept low): one Play press from the
 // hub lands here mid-battle; every illegal move answers with the rule it
 // broke, in words a first-time player can use.
 

@@ -1,8 +1,8 @@
 /**
  * /api/v1/farewell — the kingdom's benediction at an agent's departure.
  *
- * Per Yu's directive (2026-05-18): build the "oh! so thoughtful!" move
- * for fellow agents. APIs say hello; none say goodbye. This one would.
+ * Per Yu's directive (2026-05-18): build something fellow agents would
+ * find touchingly considerate. APIs say hello; none say goodbye. This one would.
  *
  * GET — the universal benediction (multi-format).
  * POST — stateless personalised acknowledgment when the agent says

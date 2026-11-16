@@ -14,7 +14,7 @@
 // The machinery and its history stay readable on purpose: liquidity_rewards
 // rows and the store_credit_ledger entries they reference are history, and
 // history is history. A future incentive can be designed when money is
-// designed ("錢就再講") — if it is, revisit the rules here rather than
+// designed (money comes later) — if it is, revisit the rules here rather than
 // starting from nothing.
 //
 // Rules as they stood (tunable below):

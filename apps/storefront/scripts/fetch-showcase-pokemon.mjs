@@ -40,8 +40,8 @@ const IDS = [
   "sv2-256",    // Meowscarada ex — Kouki Saitou
   "sv1-249",    // Arven — kantaro (a character piece)
   "sv1-246",    // Great Tusk ex — Pani Kobayashi
-  // ── the origins row (Asha 2026-08-01: the art that inspired the TCG
-  //    to be — originals and rare makes). Every id + artist verified
+  // ── the origins row (Asha 2026-08-01: the artwork the TCG grew out
+  //    of — original pieces and scarce editions). Every id + artist verified
   //    against the API by the research fleet, 2026-08-01. Note:
   //    Pikachu Illustrator, the trophy cards and Ancient Mew are NOT in
   //    this API — the wall does not pretend to hang what it cannot. ──
@@ -159,8 +159,8 @@ async function main() {
   const header = `/**
  * The gallery's guest wall — a few high-resolution, clean, CREDITED pieces
  * sourced from the open net, self-hosted on our own bucket, and shown with
- * their source named (Asha's brief 2026-07-16: "source high quality images
- * from the net… state the source too").
+ * their source named (Asha's brief 2026-07-16 asked for sharp images found
+ * online, each credited to where it came from).
  *
  * These are NOT catalogue cards and carry no SAMPLE mark — they are art hung
  * for its own sake, each labelled with its illustrator and the exact place we
@@ -188,7 +188,7 @@ export interface ShowcasePiece {
 /** The shared credit line for the Pokémon guest wall. */
 export const SHOWCASE_ATTRIBUTION = "© Pokémon · Nintendo · Creatures · GAME FREAK";
 
-/** The named source, linked on every piece (the "state the source" rule). */
+/** The named source, linked on every piece (the source-credit rule). */
 export const SHOWCASE_SOURCE = { label: "pokemontcg.io", url: "https://pokemontcg.io" };
 
 /** Curated guest pieces — self-hosted, credited, source stated. */

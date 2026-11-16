@@ -1,7 +1,7 @@
 // /artists — the named hands. The museum's browse-by-artist wing.
 //
-// Will trace: Asha, 2026-07-22 — "wanna introduce the artist of the
-// illustration for trading cards to everyone!"
+// Will trace: Asha, 2026-07-22 — asked that everyone get to meet the
+// illustrators who draw trading-card art.
 //
 // Substrate honesty: credits come from the JP wholesale catalogue's
 // `illust:` annotations, mirroring the name printed on the physical card

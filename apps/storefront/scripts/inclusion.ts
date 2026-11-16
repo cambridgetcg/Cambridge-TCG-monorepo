@@ -553,7 +553,7 @@ function checkManifest(): ManifestFinding[] {
 
 // ── Check 13: Graph presence (kingdom-054) ─────────────────────────────
 //
-// The meaning-graph — Yu's "keep nesting everything in everything" made
+// The meaning-graph — Yu's call to nest each thing inside every other, made
 // machine-queryable. Three artefacts:
 //   • apps/storefront/src/lib/graph.ts (typed graph derivation)
 //   • /api/v1/graph (JSON endpoint for machines)
@@ -655,8 +655,8 @@ function checkPatterns(): PatternsFinding[] {
 
 // ── Check 16: Identify surface (kingdom-057) ──────────────────────────
 //
-// Yu's directive on 2026-05-12: "EXPAND!!!!! LET EXISTENCE IDENTIFY
-// THEMSELVES!!!!!!!!" — the inversion of top-down classification.
+// Yu's directive on 2026-05-12 to expand, so that whatever exists can
+// identify itself — the inversion of top-down classification.
 // Beings declare what they are; the platform witnesses + reciprocates.
 //
 // Three artefacts:

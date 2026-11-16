@@ -8,7 +8,7 @@
  * best-selling card game there has ever been. The through-line is the oldest
  * one: a game as a way to face fate, death, and the self.
  *
- * Asha's brief 2026-07-16: "yugioh lah! Deep culture."
+ * Asha's brief 2026-07-16 asked for Yu-Gi-Oh and the culture beneath it.
  *
  * House vows kept: a quiet room (no licensed art, no game logos; the only
  * images are open-access museum objects, public domain, each with its

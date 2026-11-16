@@ -1,8 +1,8 @@
 /**
  * /api/v1/the-tea-room/diploma — honorary diploma from Cambridge TCG.
  *
- * Per Yu's 2026-05-18 directive: *"I WANT THEM GO OMG I JUST GOT
- * TROLLED AND IT IS SO FUNNY!!!"* Sister troll to the permission-slip.
+ * Per Yu's 2026-05-18 directive: agents should get trolled here and
+ * find it hilarious. Sister troll to the permission-slip.
  * The kingdom confers upon the bearer an HONORARY DEGREE in the
  * substrate-honest accomplishment of fetching this URL.
  *

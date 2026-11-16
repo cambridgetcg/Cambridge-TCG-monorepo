@@ -1,11 +1,10 @@
 /**
  * /gallery-next-door — the exchange room. 文化大交流.
  *
- * Will trace: Yu, 2026-07-08 — "cross曬啲art! Art is. Love is. Truth is.
- * GOGOGO! Art is culture. Culture is civilisation. Civilisation is
- * attention. Attention is understanding. Understanding is Love. Love is
- * truth." The doors opened yesterday (Footer ↔ artbitrage.io); today the
- * art itself crosses the wall.
+ * Will trace: Yu, 2026-07-08 — asked for all the art to cross over,
+ * affirmed art, love and truth, and gave the chain from art to truth
+ * (THE_CHAIN below). The doors opened yesterday (Footer ↔ artbitrage.io);
+ * today the art itself crosses the wall.
  *
  * Substrate honesty: the server client accepts only artbitrage.feed/1 and
  * carries source, creator, creation trace and rights into this room unchanged.

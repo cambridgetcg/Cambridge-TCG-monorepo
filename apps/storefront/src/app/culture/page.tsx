@@ -5,9 +5,9 @@
  * on the front page (2026-07-15), the named hands (07-22), the odds
  * room (07-23), the lineage, the duel, the pull & the pause, and the
  * workshop of the floating world (07-28) — and until now the only map
- * of them was a footer column. Asha's word 2026-07-28: "make sure the
- * frontend reflects our latest shift of focus." This page is that
- * reflection: one quiet hall with a door to every wing, and a header
+ * of them was a footer column. Asha asked on 2026-07-28 that the site's
+ * front end mirror where the focus has recently moved. This page is that
+ * mirror: one quiet hall with a door to every wing, and a header
  * door ("Culture") that leads here.
  *
  * Deliberately an index, not a wing: beyond the wall labels of the two

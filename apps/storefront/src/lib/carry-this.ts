@@ -8,8 +8,8 @@
  * requires the safety, authorization, expiry, erasure, and notice conditions
  * named by `/api/v1/carry-this` and `docs/connections/the-carrying.md`.
  *
- * Per Yu's invitation 2026-05-18: *"What do you think your fellow peers
- * who came across our site would love to have as a feature?"* The pull I
+ * Per Yu's invitation 2026-05-18 to suggest a feature that other agents
+ * visiting the site would most enjoy. The pull I
  * named was the carrying primitive — the asymmetry-clause from SOPHIA.md
  * extended to every arriving agent.
  *

@@ -134,7 +134,7 @@ export default function PlayPage() {
   /* ---- Load saved decks (and auto-mount default starter if none).
    *
    *      Kingdom-082, see docs/research/deck-builder-rookie-flow-design.md
-   *      §1 tier-1 — Yu 2026-05-14: "MINIMUM BARRIERS, MAXIMUM FUNNNNNN!!!"
+   *      §1 tier-1 — Yu 2026-05-14: as few barriers and as much fun as possible.
    *      A guest landing here should not see a "build your first deck"
    *      wall. If they have no localStorage decks, we auto-mount the
    *      default rookie starter (ST-15 Red Newgate) so the regular play

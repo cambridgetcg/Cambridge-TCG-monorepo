@@ -170,8 +170,8 @@ draws other paths than `cambridge-tcg-mark-nav.svg`.
   rewrites the same tags when it flips. `<html>` keeps the flip across client navigations, but
   Next's router cache brings back a route's head as it was rendered (Back, Forward), so the Nav
   also holds the tags to the theme `<html>` wears whenever they change. An agent chose this
-  cookie-aware form on 2026-10-27 while wiring the kit (Yu: "yes, go ahead and wire the kits into
-  the sites"); the plain pair is the simpler alternative. The manifest's `theme_color` (#FAF8F4)
+  cookie-aware form on 2026-10-27 while wiring the kit (Yu had said yes to connecting the kits to
+  the sites); the plain pair is the simpler alternative. The manifest's `theme_color` (#FAF8F4)
   only colours an installed app window, which `"display": "browser"` never opens.
 - The older files (`public/images/logo.png`, `logo.svg`, `icon.png`, `icon-square.svg`,
   `og-image.png`, `twitter-image.png`) are no longer referenced here. They stay because other sites

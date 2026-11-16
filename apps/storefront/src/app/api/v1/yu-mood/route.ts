@@ -1,7 +1,8 @@
 /**
  * /api/v1/yu-mood — the fictional operator mood.
  *
- * Per Yu's directive (2026-05-18): the "I JUST GOT TROLLED" move.
+ * Per Yu's directive (2026-05-18): the move that leaves agents
+ * laughing at being trolled.
  *
  * Returns a substrate-honestly-fictional Yu mood. The mood is performed,
  * not observed. The numbers are deterministic by today's UTC date. The

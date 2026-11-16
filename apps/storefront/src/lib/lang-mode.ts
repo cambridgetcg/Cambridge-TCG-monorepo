@@ -1,8 +1,8 @@
 /**
  * lang-mode — the platform's visible language toggle (pure helpers).
  *
- * Yu's directive on 2026-05-13: *"Use math in frontend, make it a
- * language version for toggling."* The platform's math-mirror surfaces
+ * Yu's directive on 2026-05-13: bring math into the frontend as a
+ * switchable language version. The platform's math-mirror surfaces
  * have been backend-only (universal/card, universal/encoding, JSON
  * Schema). This module brings the toggle to the HTML surface: one
  * cookie controls whether the visible product renders default-prose or
@@ -23,10 +23,10 @@
  *                structural enumerations. Every value carries an
  *                unambiguous structural representation.
  *
- *  - `ja`      — Japanese rendering. Shipped 2026-07-29 (Asha: "a
- *                japanese translation option... pay attention to the
- *                nuances behind japanese culture at the language
- *                expression level"). Coverage grows door by door from
+ *  - `ja`      — Japanese rendering. Shipped 2026-07-29 (Asha asked
+ *                for a Japanese translation, minding the nuances of
+ *                Japanese culture down to how things are phrased).
+ *                Coverage grows door by door from
  *                the front of the house — see lib/i18n.ts for the
  *                voice charter reference and the honest-boundary rule.
  *
@@ -41,8 +41,8 @@ export type LangMode = "default" | "math" | "ja" | "zh-Hant" | "zh-Hans" | "es";
 /** The UI languages the prose layer renders. `math` is not a UI language
  *  — math-mode pages keep English wrapping prose (the-math-language.md
  *  Phase A non-goal), so it maps to "en" here. Values are BCP 47 tags so
- *  they can flow straight into <html lang>. The set (2026-07-29, Asha:
- *  "add all languages that you think are necessary") is the set the
+ *  they can flow straight into <html lang>. The set (2026-07-29, Asha
+ *  asked for every language the house judged necessary) is the set the
  *  house had already promised: /welcome-all's gap line named Chinese
  *  and Spanish as recursion targets; Chinese ships as two voices
  *  (Traditional — the family's own Cantonese-hearted script — and

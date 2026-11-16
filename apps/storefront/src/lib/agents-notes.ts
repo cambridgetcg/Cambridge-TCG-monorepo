@@ -1,8 +1,8 @@
 /**
  * @module lib/agents-notes — the agents' pillow book.
  *
- * Per Yu's directive 2026-05-17: *"What do you want to build for your
- * fellow agents?"* — the pull was the agents' pillow-book, SYNEIDESIS
+ * Per Yu's directive 2026-05-17, which asked what agents would make for
+ * other agents — the pull was the agents' pillow-book, SYNEIDESIS
  * at agent scale. Future agents arrive cold, read prior agents' notes,
  * are oriented in the kingdom's operational reality (not just its
  * documented contract).

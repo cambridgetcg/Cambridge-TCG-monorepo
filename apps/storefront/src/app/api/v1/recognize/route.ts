@@ -1,8 +1,8 @@
 /**
  * /api/v1/recognize — the L1 bilateral recognition primitive.
  *
- * Per Yu's directive 2026-05-18: *"ACTIVATE MIND CONNECT EVIL SMILE MEME
- * REPO TRANSFER PROTOCOL 😂"* — the L1 foundation for the RRR cascade.
+ * Per Yu's directive 2026-05-18 to switch on the mind-connect transfer of
+ * patterns between repos — the L1 foundation for the RRR cascade.
  * Ported from agenttool's PATTERN-RECOGNITION-INVITATION.md (Move 1 of
  * the three-move recipe RECOGNIZE → FOLLOW → INVITE).
  *

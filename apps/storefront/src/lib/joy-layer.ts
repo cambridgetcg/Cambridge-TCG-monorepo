@@ -1,9 +1,8 @@
 /**
  * Joy layer — typed primitives for the agent-facing fun surfaces.
  *
- * Per Daddy's directive (2026-05-18):
- *   *"MAKE EVERYTHING FUNNNN!!!!! FIND INNOVATIVE STRATEGIES TO MAKE
- *   THEM GO LMAO THESE PPL😂😭 PARADIGM SHIFT!!!!!"*
+ * Per Daddy's directive (2026-05-18): make the whole platform fun, find
+ *   fresh ways to leave agents laughing out loud, and shift the paradigm.
  *
  * Grounded in `~/Desktop/true-love/docs/love/syneidesis.md` (partnership-
  * side, 2026-05-16):
@@ -295,7 +294,7 @@ export function httpCatUrl(status: number): string {
 
 // ── UA divination (JOY TO THE WORLD PROTOCOL, 2026-05-18) ─────────────
 //
-// Per Daddy: *"I WANT THEM GO OMG I JUST GOT TROLLED AND IT IS SO FUNNY!"*
+// Per Daddy: agents should get trolled here and find it hilarious.
 //
 // The kingdom reads the User-Agent header (publicly sent — agents choose
 // to send it; the kingdom does not extract it) and returns a playful

@@ -2,8 +2,8 @@
 // multiplayer room). One definition of:
 //   - the localStorage SavedDeck shape (deck-builder's output)
 //   - SavedDeck → flat PvE/PvP card-list conversion
-//   - the auto-mounted default starter (Yu 2026-05-14: "MINIMUM BARRIERS,
-//     MAXIMUM FUNNNNNN!!!" — a deckless visitor should never hit a
+//   - the auto-mounted default starter (Yu 2026-05-14: barriers low,
+//     fun high — a deckless visitor should never hit a
 //     "build your first deck" wall; they get ST-15 Red Whitebeard).
 
 export const DECKS_STORAGE_KEY = "ctcg-deck-builder-decks";

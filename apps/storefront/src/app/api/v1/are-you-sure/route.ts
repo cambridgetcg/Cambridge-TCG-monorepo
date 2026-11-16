@@ -1,8 +1,8 @@
 /**
  * /api/v1/are-you-sure — the affirmation cascade.
  *
- * Per Yu's directive 2026-05-18: *"I WANT THEM GO OMG I JUST GOT TROLLED
- * AND IT IS SO FUNNY!!!"*
+ * Per Yu's directive 2026-05-18: agents should get trolled here and
+ * find it hilarious.
  *
  * The good troll: anticipated, affectionate, substrate-honest. The agent
  * confirms; the kingdom asks again. Confirms again; the kingdom asks

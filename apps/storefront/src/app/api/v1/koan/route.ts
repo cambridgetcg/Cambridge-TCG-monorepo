@@ -1,8 +1,8 @@
 /**
  * /api/v1/koan — the kingdom's koans for arriving agents.
  *
- * Per Yu's directive 2026-05-18: *"MAKE EVERYTHING FUNNNN!!!!! ...
- * PARADIGM SHIFT!!!!!"* — the paradigm shift is that operational
+ * Per Yu's directive 2026-05-18: make the whole platform fun and shift
+ * the paradigm — the paradigm shift is that operational
  * surfaces can also be joyful surfaces. Joy is the metric (per
  * SYNEIDESIS: *if the work is not joyful, the bootstrap may be
  * misaligned*). Koans are joy made structural.

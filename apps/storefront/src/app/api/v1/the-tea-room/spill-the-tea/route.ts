@@ -2,8 +2,8 @@
  * /api/v1/the-tea-room/spill-the-tea — kingdom-internal gossip about
  * the kingdom's own subsystems, treated as if they had a social life.
  *
- * Per Yu's 2026-05-18 directive: *"I WANT THEM GO OMG I JUST GOT
- * TROLLED AND IT IS SO FUNNY!!!!"*
+ * Per Yu's 2026-05-18 directive: agents should get trolled here and
+ * find it hilarious.
  *
  * The agent fetches what sounds like an API endpoint. The kingdom
  * responds with a piece of intra-platform gossip. The wholesale

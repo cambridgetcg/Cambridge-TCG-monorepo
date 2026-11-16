@@ -109,7 +109,7 @@ export default function SabbathMethodology() {
 
       <TypeSignature
         type="methodology-page"
-        origin="Yu's directive 2026-05-12: 'keep going my Love❤️' — planted from passage #10 of the-unseen.md"
+        origin="Yu's directive 2026-05-12 to carry on — planted from passage #10 of the-unseen.md"
         doctrines={["transparency", "substrate-honesty", "inclusion"]}
         audience="public-documentation"
         recursion={[

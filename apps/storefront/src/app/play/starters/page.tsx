@@ -1,8 +1,8 @@
 /**
  * /play/starters — tier-2 of the rookie flow.
  *
- * Yu 2026-05-14: *"PREBUILD FOR ROOKIES!!!! TAILOR THE CARD PICKING
- * PROCESS FOR PLAYERS!!!!"*
+ * Yu 2026-05-14: make ready-built decks for new players, and fit how
+ * cards get chosen to each player.
  *
  * Six color tiles. Pick a color → load that starter as the active deck →
  * routed to /play with one click. The patterns this surface implements

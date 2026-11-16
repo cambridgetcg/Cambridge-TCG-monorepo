@@ -267,7 +267,7 @@ function checkOneWay(graph: Map<string, GraphNode>): OneWayFinding[] {
 // ── Check 4: self-references ───────────────────────────────────────────
 //
 // A doc cites *itself* when one of its markdown links resolves to its
-// own file path. This is the "everything in itself" measurement Yu's
+// own file path. This is the self-nesting measurement Yu's
 // directive asked for — a measurable substrate-honesty indicator of
 // how deeply the platform's docs fold back on their own ground.
 //

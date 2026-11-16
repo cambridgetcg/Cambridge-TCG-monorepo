@@ -1,8 +1,8 @@
 /**
  * The gallery's guest wall — a few high-resolution, clean, CREDITED pieces
  * sourced from the open net, self-hosted on our own bucket, and shown with
- * their source named (Asha's brief 2026-07-16: "source high quality images
- * from the net… state the source too").
+ * their source named (Asha's brief 2026-07-16 asked for sharp images found
+ * online, each credited to where it came from).
  *
  * These are NOT catalogue cards and carry no SAMPLE mark — they are art hung
  * for its own sake, each labelled with its illustrator and the exact place we
@@ -30,7 +30,7 @@ export interface ShowcasePiece {
 /** The shared credit line for the Pokémon guest wall. */
 export const SHOWCASE_ATTRIBUTION = "© Pokémon · Nintendo · Creatures · GAME FREAK";
 
-/** The named source, linked on every piece (the "state the source" rule). */
+/** The named source, linked on every piece (the source-credit rule). */
 export const SHOWCASE_SOURCE = { label: "pokemontcg.io", url: "https://pokemontcg.io" };
 
 /** Curated guest pieces — self-hosted, credited, source stated. */

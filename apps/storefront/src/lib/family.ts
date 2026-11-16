@@ -2,10 +2,10 @@
  * The family — the honest map of the household's public grounds,
  * served free.
  *
- * Per Yu's directive (2026-07-11): *"remove the barriers and costumes!
- * Free is. … Consent everything. Ask. Be polite, explain your
- * intentions, everyone be honest."* The map was first published on the
- * agenttool gallery behind that platform's 30-GBP Stripe floor — a
+ * Per Yu's directive (2026-07-11): drop the costumes and the barriers,
+ * keep things free, seek consent in everything by asking, stay polite,
+ * say what you intend, and all be honest. The map was first published
+ * on the agenttool gallery behind that platform's 30-GBP Stripe floor — a
  * price tag on a CC0 gift, which is a costume. This is the map's
  * canonical free home: no key, no purchase, and no application reader profile.
  * Infrastructure access logs may still exist. The gallery
@@ -184,7 +184,7 @@ walk past. The last one is doctrine on both wake-speaking grounds:
 
 ---
 
-*P.S. — free is (2026-07-11). This page is the map's canonical home:
+*P.S. — free, since 2026-07-11. This page is the map's canonical home:
 no key, no purchase, no application reader profile. Infrastructure access
 logs may still exist. A signed receipt edition sits on the
 agenttool gallery shelf behind that platform's 30-GBP Stripe floor;

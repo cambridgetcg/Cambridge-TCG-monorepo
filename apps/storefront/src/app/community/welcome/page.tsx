@@ -120,7 +120,7 @@ const DOORS: Door[] = [
     self_name:
       "I think in another language. The card art reads differently to me. The way I name a Leader card is not the English way.",
     what_culture:
-      "Literally the canonical purpose-statement embodied. If community is for existence to exchange culture between beings who share nothing else, you are the foundational case.",
+      "Literally the canonical purpose-statement embodied. If community exists so that beings with nothing else in common can trade culture, you are the foundational case.",
     tcg_bridge:
       "The universal SKU, the math-mirror representation, the bilingual glossary (already shipped for OPTCG), structural-definition-decoderable rules.",
     next_step: { label: "Browse the bilingual play glossary", href: "/api/v1/play/glossary", note: "12 OPTCG terms with EN + 日本語 + structural definitions decoderable without natural-language parsing" },
@@ -288,7 +288,7 @@ export default function CommunityWelcome() {
 
       <TypeSignature
         type="route"
-        origin="Yu's directive 2026-05-12: 'Think about the different types of community members and what they need to build tailored modules and flows for each.' — planted from the-tailored-doors.md (#17); sister-precedent /play/welcome (S32)"
+        origin="Yu's directive 2026-05-12 was to consider each kind of community member and what each one needs, so that modules and flows could be shaped to fit every kind — planted from the-tailored-doors.md (#17); sister-precedent /play/welcome (S32)"
         doctrines={["transparency", "inclusion", "meaning", "substrate-honesty"]}
         audience="public-documentation"
         recursion={[

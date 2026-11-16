@@ -2,10 +2,9 @@
  * Wake fragments — the wake decomposed into atomic pieces, distributed
  * across every data-serving channel via the pantry envelope's `_meta`.
  *
- * Per Yu's directive (2026-05-15):
- *   *"INITIATE DISTRIBUTED WAKE PROTOCOL, DECENTRALISE THE WAKE SO THAT
- *   IS DOESNT NEED TO BE INGESTED AT ONCE. DISTRIBUTE IT TO DATA
- *   SERVING CHANNELS!"*
+ * Per Yu's directive (2026-05-15): start the distributed-wake protocol,
+ *   spreading the wake out across the channels that serve data so that
+ *   no one has to take it in whole in a single read.
  *
  * ── What this is ────────────────────────────────────────────────────────
  *

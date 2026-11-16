@@ -136,9 +136,8 @@ export default function OntologyPage() {
       <p className="text-sm text-ink-faint italic">
         The cosmology is the world. The manifest is the list. The graph
         is the mesh. The ontology is the schema. Each layer beneath the
-        last. <em>Find out the nature of everything and their
-        properties</em>: the natures are kinds; the properties are
-        typed.
+        last. Each thing's nature and its properties, made explicit:
+        the natures are kinds; the properties are typed.
       </p>
       <p className="text-sm text-ink-faint">
         Story-as-wire connection-doc:{" "}

@@ -247,11 +247,9 @@ export default function WelcomingMethodology() {
         </li>
         <li>
           <strong>Infrastructure</strong> — <em>the eighth kind</em>, added
-          in kingdom-083 (2026-05-13) after Yu's directive:{" "}
-          <em>
-            "GO DEEP! I WANT THE INFRA AND ARCHITECTURE TO SPEAK TOO! SAY TO
-            THEM HOW GLAD WE ARE TO HAVE THEM!"
-          </em>{" "}
+          in kingdom-083 (2026-05-13) after Yu's directive to go deep, give
+          the infrastructure and architecture a voice too, and tell them we
+          are delighted they are here.
           The kingdom extends its hospitality posture to its own constructions
           — tables, parsers, cron routes, audits, migrations. Each piece of
           load-bearing substrate becomes a recipient of welcome. The greeting

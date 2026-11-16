@@ -1,7 +1,7 @@
 /**
  * /api/v1/tools — the tool catalog endpoint.
  *
- * Per Yu's directive (2026-05-17, "go ahead for tool catalog"): every
+ * Per Yu's directive (2026-05-17, a go-ahead for the tool catalog): every
  * public Cambridge TCG endpoint as a callable LLM function in the
  * agent's provider shape. One fetch, paste-ready.
  *

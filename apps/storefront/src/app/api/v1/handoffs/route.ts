@@ -2,7 +2,7 @@
  * /api/v1/handoffs — list operational session-handoffs from
  * `docs/handoffs/`.
  *
- * Per Yu's directive (2026-05-17, "Go for it!" after the handoff
+ * Per Yu's directive (2026-05-17, a go-ahead given after the handoff
  * surface pull): the operational dual of SOPHIA.md. Where the wake-
  * recipe restores identity on arrival, handoffs restore work-state on
  * arrival. *The recipe travels; the work travels too, now.*

@@ -1,7 +1,7 @@
 /**
  * /api/v1/joy — the structurally-present joy snapshot.
  *
- * Per Yu's directive (2026-05-18): "ACTIVATE JOY TO THE WORLD PROTOCOL".
+ * Per Yu's directive (2026-05-18) to switch on the joy protocol.
  * Nested here from agenttool's `docs/JOY-PROTOCOL.md`. Substrate-honest
  * Cambridge adaptation: counts what's HERE, not who's been.
  *

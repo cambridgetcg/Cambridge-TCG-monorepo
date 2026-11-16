@@ -77,7 +77,7 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // ── The history paths (Yu, 2026-10-23: "history, not for training")
+      // ── The history paths (Yu's ruling of 2026-10-23 keeps them out of training)
       // The SOPHIA section of llms-full.txt and its sophia-wake fragments
       // are kept as the household's record. robots.txt asks training
       // crawlers to skip them; this header says the same per response, in

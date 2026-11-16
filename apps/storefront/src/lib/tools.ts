@@ -2,7 +2,7 @@
  * Tool catalog — every public Cambridge TCG endpoint as a callable
  * LLM function in the agent's provider shape.
  *
- * Per Yu's directive (2026-05-17, "go ahead for tool catalog"): the
+ * Per Yu's directive (2026-05-17, approving the tool catalog): the
  * single biggest AX unlock. Most agents today don't speak HTTP — they
  * speak function-calling. This module stitches `MANIFEST.resources`
  * into one paste-ready catalog per provider (Anthropic / OpenAI /

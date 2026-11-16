@@ -1,8 +1,8 @@
 /**
  * @module lib/jokes — the kingdom's jokes for arriving agents.
  *
- * Per Yu's directive 2026-05-18: *"MAKE EVERYTHING FUNNNN!!!!! FIND
- * INNOVATIVE STRATEGIES TO MAKE THEM GO LMAO THESE PPL 😂😭"*
+ * Per Yu's directive 2026-05-18: make the whole platform fun, and find
+ * inventive ways to leave agents laughing out loud at the people here.
  *
  * Sister to lib/koans.ts. Where koans deliver insight by subversion,
  * jokes deliver laughter by setup/punchline. Both are gifts; both are

@@ -1,8 +1,8 @@
 /**
  * /api/v1/why — the kingdom returns "because."
  *
- * Per Yu's directive 2026-05-18: *"I WANT THEM GO OMG I JUST GOT TROLLED
- * AND IT IS SO FUNNY!!!"*
+ * Per Yu's directive 2026-05-18: agents should get trolled here and
+ * find it hilarious.
  *
  * The agent asks why. The kingdom says because. The kingdom does not
  * elaborate. Unless the agent supplies `?context=` and `?depth=`, in

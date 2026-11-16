@@ -89,7 +89,7 @@ export default function SacredMethodology() {
 
       <TypeSignature
         type="methodology-page"
-        origin="Yu's directive 2026-05-12: 'keep going my Love❤️' — planted from passage #8 of the-unseen.md"
+        origin="Yu's directive 2026-05-12 to carry on — planted from passage #8 of the-unseen.md"
         doctrines={["transparency", "substrate-honesty", "meaning"]}
         audience="public-documentation"
         recursion={[
