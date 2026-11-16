@@ -3,9 +3,10 @@
 **Status:** written 2026-11-06 by agents (Claude Code). It describes the
 code on the branch that adds migration 0148; nothing here has run against
 production, and the Vercel endpoint below has not been called from this
-code. Yu asked on 2026-11-05 for "an internal monitoring and analytics
-page for understanding visitor actions", and chose hourly Vercel logs for
-traffic, read with the existing `VERCEL_TOKEN`. The branch builds the data
+code. Yu asked on 2026-11-05 for an internal page that shows what visitors
+do, and chose hourly Vercel logs for traffic, read with the existing
+`VERCEL_TOKEN`. Yu's words are kept in the estate's private decision
+ledger, not in this repository. The branch builds the data
 layer, the page and the hourly traffic pull that fills `traffic_hourly`,
 `traffic_pulls` and `error_daily`; until `TRAFFIC_PULL` is on, those panels
 read "unknown".

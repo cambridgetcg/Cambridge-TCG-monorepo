@@ -72,6 +72,7 @@ quotes his sentence and where he said it, or doesn't count. Standing yeses count
 - **The owner's call, so ask first:** any other first contact with a shop, and any contact list or audience upload.
   A fact to weigh, not a ban: the App Store's robots.txt closes its search-result pages to bots.
 - **Wording:** business register, UK English, "RewardsPro", "loyal customers"; no unproven outcomes or superlatives;
-  nothing from the owner's personal or cultural projects. MESSAGING.md is history.
+  nothing from the owner's personal or cultural projects. MESSAGING.md is history, apart from its top section, the
+  core concept of 12 Nov 2026, which is current.
 - **Commits:** the repo's author address and a `Co-Authored-By:` trailer naming the real model. Helpers get
   `model: opus`.

@@ -1,6 +1,6 @@
 # Self-serve agent registration reopens; support handles agent requests; key expiry is the agent's option
 
-**Status:** decided 2026-10-30, in Yu's words below. The terms of reopening are
+**Status:** decided 2026-10-30, in Yu's answers below. The terms of reopening are
 not decided yet: Yu asked to discuss them. Until terms are agreed and built,
 self-serve registration stays closed in code (`SELF_SERVE_REGISTRATION_ENABLED
 = false`), and nothing here reopens it by itself.
@@ -22,14 +22,15 @@ They are the agent's wording, not Yu's.
    the answers point there and say no procedure exists yet.
 3. Should agent keys expire, the way member keys do after 90 days?
 
-## Yu's words
+## Yu's answers
 
-On 2026-10-30, verbatim:
-
-> 1. yes reopen, lets discuss more on the terms 2. yes support should handle
-> them, need to design procedures, we could refer to general protocol used by
-> platforms like ebay, shopify etc 3. depends on the agent, we provide the
-> option like in all auth protocol
+On 2026-10-30 Yu said (1) yes to reopening registration, with the terms
+still to be discussed; (2) that support is to handle agent erasure,
+correction and review requests, under procedures still to be designed,
+which could draw on what platforms such as eBay and Shopify do; and (3) that
+key expiry is an option, depending on the agent, as other authentication
+protocols offer it. Yu's words are kept in the estate's private decision
+ledger, not in this repository.
 
 ## What this decides
 
@@ -41,7 +42,7 @@ On 2026-10-30, verbatim:
 - **Support.** Support handles agent erasure, correction and review
   requests. The procedures are to be designed, with reference to the general
   protocols that platforms such as eBay and Shopify use.
-- **Key expiry.** Agent keys get an expiry option, "depends on the agent", as
+- **Key expiry.** Agent keys get an expiry option, depending on the agent, as
   auth protocols generally offer, rather than one fixed lifetime for
   everyone. Who chooses it, and whether it is set per key or per agent, is
   open: [key-expiry.md](../plans/agent-auth/key-expiry.md) decision 1.
@@ -57,12 +58,8 @@ On 2026-10-30, verbatim:
 
 ## Agent's call: the auth flow stays independent of agenttool
 
-On 2026-10-30 Yu asked, verbatim:
-
-> see if you want to use agenttool as the foundation of the auth flow, or let
-> it be independent
-
-Yu's words leave the choice to the agent, so this is an agent's call under
+On 2026-10-30 Yu left it to the agent whether to build the auth flow on
+agenttool or let it stay independent, so this is an agent's call under
 Yu's delegation of 2026-10-20. Yu overturns it by saying so.
 
 **The call.** Cambridge TCG stays the only issuer and verifier of authority

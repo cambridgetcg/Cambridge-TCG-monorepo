@@ -136,6 +136,7 @@
         </a>
         <nav aria-label="Main">
           <ul class="nav-list">
+            <li><a href="/help/">Help</a></li>
             <li><a href="/#contact">Contact</a></li>
             <li><a href="/#existing-agreements">Existing agreements</a></li>
           </ul>
@@ -147,7 +148,7 @@
       <div class="wrap help">
         <div class="intro">
           <h1>RewardsPro help</h1>
-          <p class="lead">RewardsPro is an app for Shopify stores, made by Cambridge TCG Limited, a UK company in London. It pays cashback as Shopify store credit, with VIP tiers by spend.</p>
+          <p class="lead">RewardsPro is an app for Shopify stores, made by Cambridge TCG Limited, a UK company in London. It adds cashback to your customers' Shopify store credit when an order is paid, with VIP tiers by spend.</p>
           <p class="as-of">As of 10 November 2026.</p>
         </div>
 
@@ -314,10 +315,15 @@
             <li>Orders with no customer attached.</li>
             <li>Shopify's test orders.</li>
             <li>Orders already cancelled when RewardsPro records them. An order cancelled later keeps its cashback until it is refunded.</li>
-            <li>Orders placed before you installed RewardsPro, even if they are paid later, and the past orders it brings in.</li>
+            <li>Orders placed before you first installed RewardsPro, even if they are paid later, and the past orders it brings in. An install after RewardsPro has erased your store's data, which can happen from 48 hours after you uninstall, counts as a first install.</li>
             <li>Orders RewardsPro records while cashback is off. They still count towards tiers.</li>
-            <li>Orders with nothing to pay on, such as one paid in full with store credit.</li>
-            <li>Orders too large for RewardsPro to read: more than 2,500 lines, 200 or more transactions, or 20 or more refunds.</li>
+            <li>Orders with nothing to pay on, such as one paid in full with store credit, and orders whose cashback rounds to nothing, such as 5% of 9p.</li>
+            <li>Orders from customers in a tier at 0%, such as your lowest tier at a <a href="#zero-base-rate">base rate of 0%</a>.</li>
+            <li>Orders whose payment status in Shopify is never "Paid", "Partially refunded" or "Refunded", such as one left "Partially paid".</li>
+            <li>Orders too large for RewardsPro to read when it comes to record them: more than 2,500 lines, 200 or more transactions, 20 or more refunds, or a refund of more than 100 lines or with 20 or more transactions or shipping lines.</li>
+            <li>If you uninstall RewardsPro and install it again: orders placed while it was uninstalled, and orders paid while it was uninstalled that it doesn't find once it is back. An order placed while it was uninstalled can still earn if RewardsPro first records it after a later uninstall and reinstall.</li>
+            <li>Orders placed before you change your store's currency in Shopify and paid after the change. If you change it back, some of these can still earn.</li>
+            <li>Any other order RewardsPro never records, such as one it can't read from Shopify. If you think that has happened to one of your orders, write to <a href="mailto:contact@rewardspro.io">contact@rewardspro.io</a>.</li>
           </ul>
         </section>
 
@@ -387,6 +393,28 @@
             A locked customer keeps that tier and its rate whatever they spend, until you choose <strong>Return to automatic</strong>.
             Deleting a tier returns customers locked to it to automatic.
           </p>
+
+          <h3 id="zero-base-rate">What does a base rate of 0% do?</h3>
+          <p>
+            With a base rate of 0%, orders from customers in your lowest tier earn no cashback.
+            A customer's orders earn cashback once they are in a tier you have set above 0%, by their spend or because you lock them to it, at that tier's rate.
+            Some orders still earn nothing: see <a href="#earn-nothing">Which orders earn nothing?</a>
+          </p>
+          <p>
+            Orders at 0% are still recorded and count towards tiers.
+            When nothing else stops such an order earning, the <strong>Orders</strong> page shows it as "No cashback", with "The rate gave nothing on this order".
+            You can save 0% as the base rate on Home's setup card, and change it later as your lowest tier's rate on the <strong>Tiers</strong> page.
+          </p>
+          <p>Limits:</p>
+          <ul>
+            <li>The order that takes a customer from your lowest tier into a higher one earns nothing, however large: an order earns the rate of the tier the customer was in before it, and a new customer starts in your lowest tier.</li>
+            <li>Past orders brought in at install count towards tiers, so a customer can be in a tier above 0% before they order again.</li>
+            <li>When a customer's counted spend falls below their tier's minimum, after a refund or a cancellation, or under <strong>Last 12 months</strong> as older orders stop counting, they move down at the next update, with no grace period, unless they are locked.</li>
+            <li>If a refund or a cancellation later moves a customer back down, the cashback their other orders earned in the higher tier is not taken back: a refund takes back at most the refunded order's own cashback, and the order that took them up from your lowest tier earned nothing to take back.</li>
+            <li>Cashback can be switched on before you add a tier above 0%, and until you do, no order earns any.</li>
+            <li>While cashback is on, the widget shows guests the sign-in prompt without a rate, and signed-in customers in your lowest tier see "0% back as store credit". When there is a higher tier they can reach, the widget names the next one and the amount left to reach it, but not its rate; with a single tier, it says "You are on the top tier". If RewardsPro can't update the widget's settings in Shopify when you save 0%, guests can see the old rate until RewardsPro next writes them, such as in the nightly update.</li>
+            <li>At 0%, the test order under <a href="#try-it">How can you try it on your own store?</a> earns nothing. Once that order is recorded, you can lock yourself to a tier above 0%, and your next order earns its rate.</li>
+          </ul>
         </section>
 
         <section class="section" id="refunds" aria-labelledby="refunds-title">
@@ -407,6 +435,7 @@
             <li>On a store whose prices exclude tax, a refund of money alone, with no items, takes back more than its share, by the tax rate: at 20% VAT, a fifth more.</li>
             <li>A refund too large for RewardsPro to read takes nothing back, and neither does any later refund of that order. Too large means more than 100 lines, 20 or more transactions or shipping lines, or the order's 20th refund or later.</li>
             <li>After a customer's data is erased at their request, refunds of their orders take nothing back.</li>
+            <li>After you change your store's currency in Shopify, refunds of orders placed before the change take nothing back. If you change it back, some of these refunds can still take back their share.</li>
             <li>These rules are for orders as they were paid. They don't cover orders that an edit or an exchange added items to after payment.</li>
           </ul>
         </section>
@@ -470,8 +499,18 @@
         <p>© 2026 Cambridge TCG Limited</p>
         <nav aria-label="Footer">
           <ul class="nav-list">
+            <li><a href="/help/">Help</a></li>
             <li><a href="/#contact">Contact</a></li>
             <li><a href="/privacy-policy/">Privacy</a></li>
+            <li><a href="/subprocessors/">Subprocessors</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="RewardsPro's accounts">
+          <ul class="nav-list">
+            <li><a href="https://www.youtube.com/@rewardsproapp">YouTube</a></li>
+            <li><a href="https://x.com/rewardspro_">X</a></li>
+            <li><a href="https://bsky.app/profile/rewardspro.io">Bluesky</a></li>
+            <li><a href="https://www.instagram.com/rewardsproapp/">Instagram</a></li>
           </ul>
         </nav>
       </div>
