@@ -221,6 +221,9 @@ describe('CardRush re-read basket', () => {
     expect(CARDRUSH_REREAD.share).toBeGreaterThan(0.5);
     expect(CARDRUSH_REREAD.share).toBeLessThanOrEqual(1);
     expect(Object.isFrozen(CARDRUSH_REREAD)).toBe(true);
+    // The values the plan (#cardrush-basket), the heartbeat, the changelog and the tributaries row state;
+    // the other tests derive their bounds from CARDRUSH_REREAD, so they would follow a change silently.
+    expect(CARDRUSH_REREAD).toEqual({ share: 0.8, perSet: 30, frozenAt: '2026-11-17T00:00:00.000Z', dueAfterMs: 4 * DAY - HOUR });
   });
 
   describe('over sixty days of runs (pure, no database)', () => {

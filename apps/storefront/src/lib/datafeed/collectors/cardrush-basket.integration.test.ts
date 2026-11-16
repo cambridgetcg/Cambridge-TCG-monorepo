@@ -35,10 +35,10 @@ const frozen = Date.parse(CARDRUSH_REREAD.frozenAt);
 const op = (id: number) => `www.cardrush-op.jp/product/${id}`;
 let runs = 0;
 /** One batch of readings, each `at` ms from the frozen instant. */
-async function read(listings: { id: number; at: number; set: string; condition?: string | null; host?: string }[]) {
-  const observations = listings.map(({ id, at, set, condition = null, host = 'www.cardrush-op.jp' }) => {
+async function read(listings: { id: number; at: number; set: string; condition?: string | null; host?: string; metric?: string }[]) {
+  const observations = listings.map(({ id, at, set, condition = null, host = 'www.cardrush-op.jp', metric = base.metric }) => {
     const instant = new Date(frozen + at).toISOString();
-    return { ...base, sourceProductId: `${host}/product/${id}`, sourceUrl: `https://${host}/product/${id}`, retrievedAt: instant, sourceUpdatedAt: instant, condition, sourceSetKey: set, amount: '1000' };
+    return { ...base, sourceProductId: `${host}/product/${id}`, sourceUrl: `https://${host}/product/${id}`, retrievedAt: instant, sourceUpdatedAt: instant, condition, sourceSetKey: set, metric, amount: '1000' };
   });
   await writeMemberPriceBatch('cardrush', { observations, quarantine: [], sourceRows: observations.length, missingPrices: 0 }, undefined, { ingestKey: `cardrush:basket-test:${++runs}` });
 }
@@ -116,5 +116,21 @@ describe.skipIf(!localUrl)('CardRush re-read basket PostgreSQL integration (expl
     // 108 and 203 (read at one instant) in sitemap order; then 900, never read; then 106 and 105, the stalest.
     expect(chosen.urls).toEqual([104, 103, 201, 202, 101, 102, 108, 203, 900, 106, 105].map(id => `https://${op(id)}`));
     expect(chosen.reread).toEqual({ basket: 8, listed: 8, due: 8, chosen: 8, urgent: 1, lapsed: 3, oldestHours: 239 });
+  });
+
+  // Last, because it changes the set crosswalks the tests above read.
+  it('counts only sell readings, places a listing only by its own game\'s live set crosswalk, and re-ranks a set when a crosswalk is remapped', async () => {
+    // 301's only reading is a buy price, closer to the instant than any OP01 member; 106's key OP09 is
+    // placed now, but for another game.
+    await read([{ id: 301, at: -15 * 60_000, set: 'OP01', metric: 'buy' }]);
+    await writeSetCrosswalk({ source: 'cardrush', game: 'pokemon', sourceSetKey: 'OP09', setCode: 'pk09', evidence: 'title-set:OP09', crosswalkVersion: 'cardrush-title/2' });
+    expect(await basket(30)).toEqual([op(101), op(102), op(103), op(104), op(108), op(201), op(202), op(203)]);
+    expect(await basket(1)).toEqual([op(102), op(201)]);
+    // OP02 now places its listings in op01, superseding OP02 → op02: op02 has no members, and op01 ranks
+    // all eight together, those first read before the instant first.
+    await writeSetCrosswalk({ source: 'cardrush', game: 'one-piece', sourceSetKey: 'OP02', setCode: 'op01', evidence: 'review:OP02-remap-test', crosswalkVersion: 'cardrush-title/2' });
+    expect(await basket(1)).toEqual([op(102)]);
+    expect(await basket(3)).toEqual([op(101), op(102), op(103)]);
+    expect(await basket(30)).toEqual([op(101), op(102), op(103), op(104), op(108), op(201), op(202), op(203)]);
   });
 });
