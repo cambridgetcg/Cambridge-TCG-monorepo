@@ -40,7 +40,14 @@
  *      The nonce stays either way.
  *  12. Write the event, purge a few expired nonces, commit. A database
  *      failure rolls back the lot, consumes nothing and answers
- *      auth_unavailable.
+ *      auth_unavailable, with effect unknown: a connection lost while the
+ *      COMMIT was in flight would look the same, and the act would then
+ *      have applied. Sending the same act again is safe either way.
+ *
+ * Every refusal says what became of the act (effect, refusals.ts). One
+ * refused after step 10 was still recorded as an event, with its jti spent,
+ * and, when step 11 confirmed a pending key before the act was refused, the
+ * key stays confirmed: its side_effects say so.
  *
  * Refusals are detected without a failing statement (ON CONFLICT DO
  * NOTHING, checks before writes), because postgres.js rolls back a whole
@@ -68,6 +75,7 @@ import {
   authUnavailableRefusal,
   signedActLimitedRefusal,
   signedActRefusal,
+  signedActSideEffects,
   type AgentRefusal,
   type SignedActRefusalCode,
 } from "./refusals";
@@ -145,7 +153,9 @@ const MESSAGES: Readonly<Record<RefusalCode, string>> = {
   act_stale: "The act is outside its time window. Nothing was applied.",
   act_limited: "Too many acts from here just now. Nothing was applied.",
   act_unverified: "The act could not be verified. Nothing was changed.",
-  act_replayed: "This act was already used. Nothing was changed.",
+  // This send changed nothing; whether the jti's first send applied the act
+  // is not known here (effect unknown, refusals.ts).
+  act_replayed: "This act was already used. This send changed nothing; whether the act was applied when first sent is not shown here.",
   signing_key_ended: "This signing key has ended. Nothing was applied.",
   act_disclosure_stale: "preview_sha256 is not a current disclosure. Nothing was applied.",
   act_params_invalid: "The act's params were refused. Nothing was applied.",
@@ -155,6 +165,11 @@ const MESSAGES: Readonly<Record<RefusalCode, string>> = {
   agent_archived: "The agent is archived, which this act needs it not to be. Nothing was applied.",
   auth_unavailable: "Signed acts are temporarily unavailable. Nothing was applied; repeating is safe.",
 };
+
+/** auth_unavailable when the transaction itself failed: most likely rolled
+ *  back, but not certainly (step 12). */
+const UNAVAILABLE_IN_TRANSACTION =
+  "Signed acts are temporarily unavailable. The act was most likely not applied, though that is not certain; sending it again is safe, since an act applies at most once.";
 
 function refused(
   code: Exclude<RefusalCode, "act_limited" | "agent_suspended" | "agent_archived" | "auth_unavailable">,
@@ -184,12 +199,14 @@ function limited(limit: Extract<LimitAnswer, { allowed: false }>, verified: bool
   };
 }
 
-function unavailable(verified: boolean): AgentActAnswer {
+/** auth_unavailable: before the transaction nothing was written
+ *  (not_applied); a failed transaction leaves it unknown. */
+function unavailable(verified: boolean, effect: "not_applied" | "unknown"): AgentActAnswer {
   return {
     ok: false,
     status: SIGNED_ACT_STATUS.auth_unavailable,
-    message: MESSAGES.auth_unavailable,
-    refusal: authUnavailableRefusal(),
+    message: effect === "unknown" ? UNAVAILABLE_IN_TRANSACTION : MESSAGES.auth_unavailable,
+    refusal: authUnavailableRefusal(effect),
     verified,
   };
 }
@@ -334,7 +351,7 @@ export async function submitAgentAct(args: unknown, context: AgentActContext): P
     key = await lookupSigningKey(signed.payload.sub, signed.header.kid);
   } catch (err) {
     console.error("[agent.act] key lookup failed", loggableErrorCode(err));
-    return unavailable(false);
+    return unavailable(false, "not_applied");
   }
   // 6. R rule and strict verify; an unknown key costs the same and answers the same.
   const valid = verifyActSignature(signed, key?.publicKey ?? DUMMY_VERIFICATION_KEY);
@@ -349,7 +366,7 @@ export async function submitAgentAct(args: unknown, context: AgentActContext): P
     return await transaction((tx) => applyVerifiedAct(tx, signed, key!.id, nowMs));
   } catch (err) {
     console.error("[agent.act] transaction failed", loggableErrorCode(err));
-    return unavailable(true);
+    return unavailable(true, "unknown");
   }
 }
 
@@ -534,6 +551,9 @@ async function applyVerifiedAct(tx: Tx, signed: ParsedSignedAct, keyRowId: strin
   await purgeNonces(tx);
 
   const receipt = { event_id: eventId, act_sha256: signed.sha256 };
+  // A refusal from here on was recorded (the event above), and may have
+  // confirmed the key first (step 11).
+  const sideEffects = signedActSideEffects(Boolean(effect.signing_key_confirmed));
   if (result.kind === "applied") {
     return {
       ok: true,
@@ -554,18 +574,19 @@ async function applyVerifiedAct(tx: Tx, signed: ParsedSignedAct, keyRowId: strin
   if (result.code === "agent_suspended" || result.code === "agent_archived") {
     const refusal =
       result.code === "agent_suspended"
-        ? authRefusal({ ok: false, status: 403, reason_code: "agent_suspended", error: "", suspended_at: result.suspendedAt ?? null })
-        : authRefusal({ ok: false, status: 403, reason_code: "agent_archived", error: "" });
+        ? authRefusal({ ok: false, status: 403, reason_code: "agent_suspended", error: "", suspended_at: result.suspendedAt ?? null }, "not_applied")
+        : authRefusal({ ok: false, status: 403, reason_code: "agent_archived", error: "" }, "not_applied");
     return {
       ok: false,
       status: SIGNED_ACT_STATUS[result.code],
       message: MESSAGES[result.code],
-      refusal: { ...refusal, receipt },
+      refusal: { ...refusal, side_effects: sideEffects, receipt },
       verified: true,
     };
   }
   return refused(result.code, true, {
     receipt,
+    side_effects: sideEffects,
     ...(result.detail ? { detail: result.detail } : {}),
     ...(result.code === "act_stale" ? { server_time: serverTime } : {}),
     ...(result.code === "signing_key_ended" ? { ended_at: endedAt ?? undefined, revoked_by_event: revokedByEvent } : {}),

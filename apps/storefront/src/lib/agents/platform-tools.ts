@@ -11,13 +11,13 @@
  * See docs/connections/the-agent-surface.md.
  */
 
-import { ToolError } from "./play-tools";
+import { ToolError } from "./tool-error";
 
 // ── catalog.search ───────────────────────────────────────────────────
 
 export async function catalogSearch(_actor: unknown, params: { q?: string; limit?: number }) {
   const q = (params.q ?? "").trim();
-  if (q.length < 2) throw new ToolError("query must be at least 2 characters");
+  if (q.length < 2) throw new ToolError("query must be at least 2 characters", 400, "invalid_input");
 
   // A two-character wildcard tool can enumerate the same fields whose bulk
   // publication is paused. NOASSERTION warns about reuse but does not itself
@@ -54,7 +54,7 @@ export async function leaderboardsRead(_actor: unknown, params: { kind?: string;
     };
   }
 
-  throw new ToolError(`unknown leaderboard kind: ${kind} (try "agents")`);
+  throw new ToolError(`unknown leaderboard kind: ${kind} (try "agents")`, 400, "invalid_input");
 }
 
 // ── prices.recent ────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ export async function pricesRecent(
   params: { sku?: string; days?: number },
 ) {
   const sku = (params.sku ?? "").trim();
-  if (!sku) throw new ToolError("sku required");
+  if (!sku) throw new ToolError("sku required", 400, "invalid_input");
 
   // A bearer key controls tool access; it does not grant source acquisition or
   // price-publication rights. Stop before the database so the MCP surface

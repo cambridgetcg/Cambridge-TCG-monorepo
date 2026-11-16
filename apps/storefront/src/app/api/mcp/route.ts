@@ -13,7 +13,10 @@
  * (`lib/agents/signed-acts.ts`, closed unless AGENT_SIGNED_ACTS is on).
  *
  * Refusals carry a typed object (`lib/agents/refusals.ts`) in JSON-RPC
- * `error.data`, or in `_meta` on a `tools/call` isError result.
+ * `error.data`, or in `_meta` on a `tools/call` isError result: the gate's
+ * own, a tool's (ToolError, `lib/agents/tool-error.ts`) and, in `error.data`,
+ * an unexpected exception's (internal_error). Each says what became of the
+ * change the call asked for (`effect`).
  *
  * Transport. JSON-RPC 2.0 over HTTP POST. Speaks both the Cambridge-
  * native dotted method names (`catalog.search`, `play.observe`, ...)
@@ -65,8 +68,8 @@ import {
   playCancelQueue,
   playMatchHistory,
   playListOpenRooms,
-  ToolError,
 } from "@/lib/agents/play-tools";
+import { ToolError } from "@/lib/agents/tool-error";
 import {
   catalogSearch,
   leaderboardsRead,
@@ -84,6 +87,7 @@ import {
   AGENT_SIGNED_ACTS,
   AGENT_REVOKE_KEY_INPUT_SCHEMA,
   canInvokeAgentTool,
+  isReadOnlyAgentTool,
   SELF_LIFECYCLE_TOOLS,
   SIGNED_ACT_TOOLS,
 } from "@/lib/agents/tool-access";
@@ -105,6 +109,8 @@ import {
 import {
   authRefusal,
   authUnavailableRefusal,
+  internalErrorRefusal,
+  isClosedDoorRefusal,
   MCP_REFUSAL_META_KEY,
   rateLimitedRefusal,
   toolNotPermittedRefusal,
@@ -164,12 +170,14 @@ const MCP_PROTOCOL_VERSION = MCP_EARLIER_REVISION;
 export const MCP_MAX_REQUEST_BYTES = 1024 * 1024;
 
 /** What POST knows of a request beyond the daily count's words: whether it
- *  came from a standard MCP client, whether it was a tools/call, and whether
- *  its 503 is a closed door (a refusal) rather than an outage. */
+ *  came from a standard MCP client, whether it was a tools/call, whether
+ *  its 503 is a closed door (a refusal) rather than an outage, and whether
+ *  its 500 carries a typed internal_error (standardClientToolStatus). */
 interface McpExchange {
   standard: boolean;
   toolsCall: boolean;
   closedDoor: boolean;
+  typedFault: boolean;
 }
 
 /** A web page on another site: refused before the body is read. JSON-RPC
@@ -576,7 +584,9 @@ function authFailureResponse(
  *  `{isError: true, content: [...]}` in the result rather than a JSON-RPC
  *  error; we follow that for `tools/call` (a refusal rides in `_meta`).
  *  Native dotted dispatch keeps JSON-RPC error semantics so old clients
- *  don't break (a refusal rides in `error.data`). */
+ *  don't break (a refusal rides in `error.data`). A refusal that names
+ *  retry_after_seconds also sends it as Retry-After, as the gate's own rate
+ *  limit does; a standard MCP client gets the header with the 200. */
 function toolErrorResponse(
   id: JsonRpcRequest["id"],
   isMcpCall: boolean,
@@ -584,6 +594,8 @@ function toolErrorResponse(
   status: number,
   refusal?: AgentRefusal,
 ) {
+  const headers =
+    refusal?.retry_after_seconds === undefined ? undefined : { "Retry-After": String(refusal.retry_after_seconds) };
   if (isMcpCall) {
     return NextResponse.json(
       rpcResult(id, {
@@ -591,10 +603,10 @@ function toolErrorResponse(
         isError: true,
         ...(refusal ? { _meta: { [MCP_REFUSAL_META_KEY]: refusal } } : {}),
       }),
-      { status },
+      { status, headers },
     );
   }
-  return NextResponse.json(rpcError(id, ERR_TOOL_ERROR, message, refusal), { status });
+  return NextResponse.json(rpcError(id, ERR_TOOL_ERROR, message, refusal), { status, headers });
 }
 
 /** `seen` collects the words the daily count records (method, tool, whether
@@ -894,6 +906,9 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
     );
   }
 
+  // Whether the tool's handler was called: an exception before it (the rate
+  // limiter) left everything the call asked for untried.
+  let handlerStarted = false;
   try {
     // Successful authenticated reads consume a per-key bucket and stamp
     // last_used_at.
@@ -909,6 +924,7 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
         { status: 429, headers: { "Retry-After": String(rl.resetSeconds) } },
       );
     }
+    handlerStarted = true;
     const result = await handler(actor, dispatchParams);
     // Fire-and-forget last-used stamp.
     void stampKeyUse(actor.keyId);
@@ -926,18 +942,35 @@ async function handlePost(request: Request, seen: McpRequestSeen, exchange: McpE
   } catch (err) {
     if (err instanceof ToolError) {
       seen.outcome = err.status === 403 ? "forbidden" : "tool-error";
-      return toolErrorResponse(body.id, isMcpCall, err.message, err.status);
+      // A tool's closed door (writes_paused, 503) is a refusal, like
+      // agent.act's signed_acts_closed: a standard MCP client gets it with
+      // 200. Any other 503 from a tool is an outage and keeps its status.
+      if (err.status === 503 && isClosedDoorRefusal(err.refusal)) exchange.closedDoor = true;
+      return toolErrorResponse(body.id, isMcpCall, err.message, err.status, err.refusal);
     }
+    // The log keeps the exception; the answer names no part of it, only
+    // what became of the call: untried if the handler never ran, unchanged
+    // for a tool that only reads, unknown for one that could write.
     console.error("[mcp]", dispatchName, err);
-    return NextResponse.json(rpcError(body.id, ERR_INTERNAL, "internal error"), {
-      status: 500,
-    });
+    const effect = !handlerStarted ? "not_attempted" : isReadOnlyAgentTool(dispatchName) ? "not_applied" : "unknown";
+    // A standard MCP client gets this 500 with 200, so it can read the
+    // refusal; the daily count still records the 500 (POST).
+    exchange.typedFault = true;
+    return NextResponse.json(
+      rpcError(body.id, ERR_INTERNAL, "internal error", internalErrorRefusal(dispatchName, dispatchParams, effect)),
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(request: Request) {
   const seen = unseenMcpRequest();
-  const exchange: McpExchange = { standard: isStandardMcpClient(request.headers), toolsCall: false, closedDoor: false };
+  const exchange: McpExchange = {
+    standard: isStandardMcpClient(request.headers),
+    toolsCall: false,
+    closedDoor: false,
+    typedFault: false,
+  };
   const response = await handlePost(request, seen, exchange);
   response.headers.set("Cache-Control", "private, no-store");
   // Counted after the response, only while OPS_MCP_DAILY is on
@@ -948,7 +981,7 @@ export async function POST(request: Request) {
   if (!exchange.standard || !exchange.toolsCall) return response;
   // Both SDKs throw on any status outside 2xx and drop the body, isError and
   // the refusal in _meta with it: the same body, sent with 200, unless it is
-  // a 401, a fault or an outage (standardClientToolStatus).
+  // a 401, an untyped fault or an outage (standardClientToolStatus).
   const status = standardClientToolStatus(response.status, exchange);
   if (status === response.status) return response;
   return new NextResponse(response.body, { status, headers: response.headers });

@@ -3,8 +3,8 @@
  *
  * Each function below is a single MCP tool. They share one shape: take
  * an AgentActor plus tool-specific params, return a JSON-serialisable
- * result or throw a ToolError. The MCP route translates throws into
- * proper JSON-RPC-shaped error responses.
+ * result or throw a ToolError (tool-error.ts), which carries a typed
+ * refusal. The MCP route sends it as a JSON-RPC error or an isError result.
  *
  * Why agent paths are separate from the legacy session-cookie paths:
  *   The human path at `apps/storefront/src/app/api/game/[code]/{state,
@@ -35,12 +35,7 @@ import { tickMatchmaker, finalizeMatch } from "./matchmaker";
 import { describeAgentToolGrant } from "./tool-access";
 import { operationalMetadataWrites } from "./operational-metadata";
 import { SELF_RECORD_JOINS, SELF_RECORD_SELECT, recordedAboutThisKey } from "./self-record";
-
-export class ToolError extends Error {
-  constructor(message: string, public status: number = 400) {
-    super(message);
-  }
-}
+import { ToolError } from "./tool-error";
 
 export const AGENT_MATCH_WRITES_ENABLED = false as const;
 
@@ -48,6 +43,7 @@ function matchWritesPaused(): never {
   throw new ToolError(
     "Agent match writes are paused for every key until exact action schemas, turn validation, and a route boundary that cannot be bypassed by the linked human account ship together.",
     503,
+    "writes_paused",
   );
 }
 
@@ -76,7 +72,7 @@ function projectAgentState(
   mySide: "player1" | "player2",
 ): PublicGameState {
   const projected = projectGameState(state, roomForProjection(state), mySide);
-  if (!projected) throw new ToolError("game state not initialised", 409);
+  if (!projected) throw new ToolError("game state not initialised", 409, "match_state_missing");
 
   // The shared participant projection keeps private zones correctly scoped,
   // but its names are account-derived. Agent tools need only stable roles.
@@ -107,17 +103,17 @@ async function loadAgentMatch(actor: AgentActor, matchId: string) {
       WHERE am.id = $1`,
     [matchId],
   );
-  if (result.rows.length === 0) throw new ToolError("match not found", 404);
+  if (result.rows.length === 0) throw new ToolError("match not found", 404, "match_not_found");
   const row = result.rows[0];
   const isA = row.agent_a_id === actor.agentId;
   const isB = row.agent_b_id === actor.agentId;
-  if (!isA && !isB) throw new ToolError("not a participant", 403);
+  if (!isA && !isB) throw new ToolError("not a participant", 403, "not_a_participant");
 
   // The agent's player side in the game state is determined by which
   // user_id row owns. The matchmaker sets player1_id = operator of agent_a
   // and player2_id = operator of agent_b.
   const state = row.game_state as GameState | null;
-  if (!state) throw new ToolError("game state not initialised", 409);
+  if (!state) throw new ToolError("game state not initialised", 409, "match_state_missing");
   const mySide: "player1" | "player2" =
     state.player1.userId === actor.operatorUserId ? "player1" : "player2";
   return { row, state, mySide };
@@ -281,7 +277,7 @@ export async function playTakeAction(
   params: { match_id: string; type: string; data?: Record<string, unknown> },
 ): Promise<{ state: PublicGameState; finished: boolean; match_id: string }> {
   matchWritesPaused();
-  if (!params.type) throw new ToolError("action.type required");
+  if (!params.type) throw new ToolError("action.type required", 400, "invalid_input");
 
   const out = await transaction(async (q) => {
     const r = await q(
@@ -293,15 +289,17 @@ export async function playTakeAction(
         FOR UPDATE`,
       [params.match_id],
     );
-    if (r.rows.length === 0) throw new ToolError("match not found", 404);
+    if (r.rows.length === 0) throw new ToolError("match not found", 404, "match_not_found");
     const m = r.rows[0];
-    if (m.status !== "playing") throw new ToolError(`match is ${m.status}`, 409);
+    if (m.status !== "playing") {
+      throw new ToolError(`match is ${m.status}`, 409, "match_not_playing", { matchId: params.match_id });
+    }
     const isA = m.agent_a_id === actor.agentId;
     const isB = m.agent_b_id === actor.agentId;
-    if (!isA && !isB) throw new ToolError("not a participant", 403);
+    if (!isA && !isB) throw new ToolError("not a participant", 403, "not_a_participant");
 
     const state = m.game_state as GameState;
-    if (!state?.player1 || !state?.player2) throw new ToolError("game not initialised", 409);
+    if (!state?.player1 || !state?.player2) throw new ToolError("game not initialised", 409, "match_state_missing");
 
     const mySide: "player1" | "player2" =
       state.player1.userId === actor.operatorUserId ? "player1" : "player2";
@@ -411,11 +409,11 @@ export async function playQueueMatch(
 ) {
   matchWritesPaused();
   if (!Array.isArray(params.deck) || params.deck.length < 10) {
-    throw new ToolError("deck must have at least 10 cards");
+    throw new ToolError("deck must have at least 10 cards", 400, "invalid_input");
   }
   const r = await query(`SELECT rating, status FROM agents WHERE id = $1`, [actor.agentId]);
   if (r.rows.length === 0 || r.rows[0].status !== "active") {
-    throw new ToolError("agent not active", 403);
+    throw new ToolError("agent not active", 403, "agent_not_active");
   }
   const rating = Number(r.rows[0].rating);
   await query(

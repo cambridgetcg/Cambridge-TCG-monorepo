@@ -272,7 +272,13 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
       const answers = await Promise.all([submit(act), submit(act), submit(act)]);
       expect(answers.map(codeOf).sort()).toEqual(["act_replayed", "act_replayed", "applied"]);
       expect((await events(agentId)).length).toBe(before + 1);
-      expect(codeOf(await submit(act))).toBe("act_replayed");
+      // The act was applied, so a replay must not say it was not: its effect
+      // is unknown (this send changed nothing; the first one is not visible).
+      const replay = await submit(act);
+      expect(replay).toMatchObject({ ok: false, status: 409, refusal: { reason_code: "act_replayed", effect: "unknown" } });
+      if (replay.ok) throw new Error("expected a refusal");
+      expect(replay.refusal).not.toHaveProperty("side_effects");
+      expect(replay.refusal.next_actions[0].text).toContain("signer.check");
     }
     expect(await liveUsageKeys(agentId)).toBe(5);
     expect((await pool.query(`SELECT count(*)::int AS n FROM agent_act_nonces WHERE thumbprint = $1`, [h.kid])).rows[0].n).toBe(6);
@@ -466,9 +472,37 @@ describe.skipIf(!target)("held keys on isolated PostgreSQL", () => {
     expect(await submit(ahead)).toMatchObject({ ok: false, refusal: { reason_code: "act_stale", receipt: { act_sha256: expect.any(String) } } });
     expect(codeOf(await submit(ahead))).toBe("act_replayed");
     await pool.query(`UPDATE agents SET status = 'suspended', suspended_at = NOW() WHERE id = $1`, [agentId]);
-    expect(await submit(sign(h, agentId, "key.mint", usageKey().params))).toMatchObject({ ok: false, status: 403, refusal: { reason_code: "agent_suspended" } });
+    // Refused for the agent's status inside the transaction, after its jti
+    // was recorded: the refusal says the act was recorded, and it was.
+    const suspended = await submit(sign(h, agentId, "key.mint", usageKey().params));
+    expect(suspended).toMatchObject({ ok: false, status: 403, refusal: { reason_code: "agent_suspended", effect: "not_applied" } });
+    if (suspended.ok) throw new Error("expected a refusal");
+    expect(suspended.refusal.side_effects?.map((entry) => entry.change)).toEqual(["act_recorded"]);
+    const recorded = await pool.query(`SELECT outcome, refusal FROM agent_act_events WHERE id = $1`, [suspended.refusal.receipt!.event_id]);
+    expect(recorded.rows[0]).toEqual({ outcome: "refused", refusal: "agent_suspended" });
     expect(codeOf(await submit(sign(h, agentId, "signer.check")))).toBe("applied");
     expect(await liveUsageKeys(agentId)).toBe(0);
+  });
+
+  it("says what a refused act committed: its event and spent jti, and a pending key it confirmed", async () => {
+    const { agentId, h, signingKeyId } = await setup({ confirm: false });
+    const confirmedAt = async () =>
+      (await pool.query(`SELECT confirmed_at FROM agent_signing_keys WHERE id = $1`, [signingKeyId])).rows[0].confirmed_at;
+    expect(await confirmedAt()).toBeNull();
+    // Refused for its params, after step 11 confirmed the pending key.
+    const answer = await submit(sign(h, agentId, "key.mint", { ...usageKey().params, expires: "tomorrow-ish" }));
+    expect(answer).toMatchObject({ ok: false, status: 422, refusal: { reason_code: "act_params_invalid", effect: "not_applied" } });
+    if (answer.ok) throw new Error("expected a refusal");
+    expect(answer.refusal.side_effects?.map((entry) => entry.change)).toEqual(["act_recorded", "signing_key_confirmed"]);
+    // Both are in the tables, committed.
+    expect(await confirmedAt()).not.toBeNull();
+    const event = await pool.query(`SELECT outcome, refusal FROM agent_act_events WHERE id = $1`, [answer.refusal.receipt!.event_id]);
+    expect(event.rows[0]).toEqual({ outcome: "refused", refusal: "act_params_invalid" });
+    expect(await liveUsageKeys(agentId)).toBe(0);
+    // The next refusal finds the key confirmed already, so it names only the record.
+    const next = await submit(sign(h, agentId, "key.mint", { ...usageKey().params, expires: "tomorrow-ish" }));
+    if (next.ok) throw new Error("expected a refusal");
+    expect(next.refusal.side_effects?.map((entry) => entry.change)).toEqual(["act_recorded"]);
   });
 
   it("refuses a key name with control characters as act_params_invalid, before any statement can fail", async () => {

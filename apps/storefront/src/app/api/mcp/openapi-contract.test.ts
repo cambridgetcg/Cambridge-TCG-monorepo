@@ -13,13 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ query: mocks.query, transaction: vi.fn() }));
 vi.mock("@/lib/agents/rate-limit", () => ({ checkAndConsume: mocks.checkAndConsume }));
 vi.mock("@/lib/agents/play-tools", () => {
-  class ToolError extends Error {
-    constructor(message: string, public status = 400) {
-      super(message);
-    }
-  }
   return {
-    ToolError,
     agentSelf: mocks.agentSelf,
     playObserve: vi.fn(),
     playLegalActions: vi.fn(),
@@ -50,11 +44,16 @@ import { isAgentToken, parseAgentBearer } from "@/lib/agents/auth";
 import {
   authRefusal,
   authUnavailableRefusal,
+  caseRestedSideEffects,
+  internalErrorRefusal,
   MCP_REFUSAL_META_KEY,
   rateLimitedRefusal,
   signedActLimitedRefusal,
   signedActRefusal,
+  signedActSideEffects,
+  TOOL_REFUSAL_CODES,
   toolNotPermittedRefusal,
+  toolRefusal,
   type AgentRefusal,
   type SignedActRefusalCode,
 } from "@/lib/agents/refusals";
@@ -84,6 +83,7 @@ type JsonSchema = {
   required?: string[];
   properties: Record<string, JsonSchema & { enum?: string[]; const?: unknown }>;
   items?: JsonSchema;
+  enum?: string[];
 };
 
 async function spec() {
@@ -131,6 +131,12 @@ function expectDocumentedRefusal(refusal: AgentRefusal, schema: JsonSchema) {
   }
   for (const exit of refusal.exit_paths ?? []) {
     expect(exit.tool).toBe(schema.properties.exit_paths.items!.properties.tool.const);
+  }
+  expect(schema.properties.effect.enum).toContain(refusal.effect);
+  const sideEffect = schema.properties.side_effects.items!;
+  for (const entry of refusal.side_effects ?? []) {
+    for (const key of Object.keys(entry)) expect(sideEffect.properties, key).toHaveProperty(key);
+    expect(sideEffect.properties.change.enum).toContain(entry.change);
   }
 }
 
@@ -204,6 +210,22 @@ describe("OpenAPI describes the agent key", () => {
         }),
       ),
       signedActLimitedRefusal(13),
+      // A tool's own refusals, with every extra one can carry.
+      ...TOOL_REFUSAL_CODES.map((code) =>
+        toolRefusal(code, {
+          caseId: "11111111-1111-4111-8111-111111111111",
+          matchId: "m-1",
+          retryAfterSeconds: 60,
+          sideEffects: caseRestedSideEffects("11111111-1111-4111-8111-111111111111"),
+        }),
+      ),
+      // An unexpected exception, for each effect it can carry.
+      internalErrorRefusal("coverage.hunt.contribute", { case_id: "11111111-1111-4111-8111-111111111111" }, "unknown"),
+      internalErrorRefusal("coverage.hunt.contribute", {}, "unknown"),
+      internalErrorRefusal("agent.self", {}, "not_applied"),
+      internalErrorRefusal("coverage.hunt.contribute", {}, "not_attempted"),
+      authUnavailableRefusal("unknown"),
+      signedActRefusal("act_params_invalid", { side_effects: signedActSideEffects(true) }),
     ];
     for (const refusal of built) expectDocumentedRefusal(refusal, schema);
     for (const code of ["agent_suspended", "agent_archived"] as const) {
@@ -211,10 +233,44 @@ describe("OpenAPI describes the agent key", () => {
       expectDocumentedRefusal({ ...status, receipt: { event_id: "e-1", act_sha256: "0".repeat(64) } }, schema);
     }
     expect([...schema.properties.reason_code.enum!].sort()).toEqual(
-      built.map((refusal) => refusal.reason_code).sort(),
+      [...new Set(built.map((refusal) => refusal.reason_code))].sort(),
+    );
+    expect([...schema.properties.effect.enum!].sort()).toEqual(
+      [...new Set(built.map((refusal) => refusal.effect))].sort(),
+    );
+    expect([...schema.properties.side_effects.items!.properties.change.enum!].sort()).toEqual(
+      [...new Set(built.flatMap((refusal) => (refusal.side_effects ?? []).map((entry) => entry.change)))].sort(),
+    );
+    expect([...schema.properties.next_actions.items!.properties.action.enum!].sort()).toEqual(
+      [...new Set(built.flatMap((refusal) => refusal.next_actions.map((next) => next.action)))].sort(),
     );
     const exits = built.filter((refusal) => refusal.exit_paths).map((r) => r.reason_code);
     expect(exits).toEqual(["agent_suspended", "agent_archived"]);
+  });
+
+  it("claims a refusal and act_recorded only where the gate gives them", async () => {
+    const document = await spec();
+    const schema = document.components.schemas.AgentRefusal as JsonSchema & { description: string };
+    const sideEffects = schema.properties.side_effects as JsonSchema & { description: string };
+    // A replay is refused inside the transaction but records no event.
+    expect(sideEffects.description).toContain("a validly signed act refused after the store recorded its jti is recorded as an event");
+    expect(sideEffects.description).toContain("act_replayed, whose jti was already used, records nothing");
+    expect(sideEffects.description).not.toContain("refused inside the store's transaction is recorded");
+    // The transport's own answers carry no AgentRefusal, and it says so.
+    const post = document.paths["/api/mcp"].post as { description: string };
+    expect(post.description).toContain("the transport's own answers carry none (a cross-site 403, unreadable or invalid JSON, a body without a method, 413, an unknown method, tools/call without a name, -32022)");
+    expect(post.description).not.toContain("A refusal, the gate's or a tool's, carries an AgentRefusal");
+  });
+
+  it("defines retryable by the values the gate sends", async () => {
+    const document = await spec();
+    const retryable = (document.components.schemas.AgentRefusal as JsonSchema).properties.retryable as JsonSchema & { description: string };
+    expect(retryable.description).toMatch(/^Whether the same call, sent again unchanged, may succeed once time passes, with nothing else changing first/);
+    expect(retryable.description).not.toContain("answered differently");
+    // case_expired is answered differently when sent again (case_terminal),
+    // and storage_not_ready once a migration runs; neither is retryable.
+    expect(toolRefusal("case_expired").retryable).toBe(false);
+    expect(toolRefusal("storage_not_ready").retryable).toBe(false);
   });
 });
 

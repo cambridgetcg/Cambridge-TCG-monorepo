@@ -11,6 +11,7 @@
     "apps/storefront/src/lib/agents/auth.ts",
     "apps/storefront/src/lib/agents/tool-access.ts",
     "apps/storefront/src/lib/agents/refusals.ts",
+    "apps/storefront/src/lib/agents/tool-error.ts",
     "apps/storefront/src/lib/agents/key-expiry.ts",
     "apps/storefront/src/lib/agents/key-revocation.ts",
     "apps/storefront/src/lib/agents/key-exit-inventory.ts",

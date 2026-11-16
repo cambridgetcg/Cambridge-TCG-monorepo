@@ -67,6 +67,9 @@ export const SIGNED_ACT_TOOLS: ReadonlySet<string> = new Set(["agent.act"]);
  *  (self-record.ts), so each item it reads says where it is listed. */
 export const LISTED_BUCKETS = "per-key rate-limit bucket for allowed authenticated calls";
 export const LISTED_LAST_USED = "agent key last-used timestamp after successful authenticated calls";
+/** The seven-day deletion every counted call runs, whoever's buckets they are. */
+export const LISTED_BUCKET_PRUNE =
+  "deletion of rate-limit buckets older than seven days, any key's, by each allowed authenticated call, even one then refused";
 
 /** Operational metadata a key can cause the gate to write. None of it is
  *  domain state; the same list holds for every registration kind. This is
@@ -77,6 +80,10 @@ export const AGENT_OPERATIONAL_METADATA_WRITES: readonly string[] = [
   LISTED_BUCKETS,
   LISTED_LAST_USED,
   "agent_keys.revoked_at and revoked_reason for this key when its holder calls agent.revoke_key with confirm: true",
+  // rate-limit.ts checkAndConsume prunes in the statement that counts the
+  // call, before the call can be refused (rate_limited, by its tool, or by
+  // an exception). Listed since 2026-11-13.
+  LISTED_BUCKET_PRUNE,
 ];
 
 export interface AgentToolGrant {
@@ -105,6 +112,14 @@ export function canInvokeAgentTool(
     return true;
   }
   return false;
+}
+
+/** Whether a tool only reads, so a failed call to it cannot have changed
+ *  anything it was asked to change (the refusal's effect is never unknown).
+ *  Any other name, an unknown one included, is treated as one that could
+ *  write. */
+export function isReadOnlyAgentTool(tool: string): boolean {
+  return AVAILABLE_READ_TOOLS.has(tool) || OPERATOR_MANAGED_READ_TOOLS.has(tool);
 }
 
 /** What a key of this registration kind may do, derived from the sets above

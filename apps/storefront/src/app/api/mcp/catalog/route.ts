@@ -106,6 +106,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         mcp_spec_version: TOOLS_CATALOG_SUMMARY.mcp_spec_version,
         auth: TOOLS_CATALOG_SUMMARY.auth,
         authority: TOOLS_CATALOG_SUMMARY.authority,
+        refusals: TOOLS_CATALOG_SUMMARY.refusals,
         self_serve_registration: TOOLS_CATALOG_SUMMARY.self_serve_registration,
         operator_provision_at: TOOLS_CATALOG_SUMMARY.operator_provision_at,
         discovery_files: TOOLS_CATALOG_SUMMARY.discovery_files,

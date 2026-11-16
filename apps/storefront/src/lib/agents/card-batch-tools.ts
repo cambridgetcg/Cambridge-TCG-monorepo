@@ -14,7 +14,7 @@ import {
   parseCardBatchInput,
   resolveCardBatch,
 } from "@/lib/catalog/card-batch";
-import { ToolError } from "./play-tools";
+import { ToolError } from "./tool-error";
 
 type CardBatchResolver = typeof resolveCardBatch;
 
@@ -42,12 +42,13 @@ export async function catalogLookupMany(
     } as const;
   } catch (error) {
     if (error instanceof CardBatchInputError) {
-      throw new ToolError(`invalid card batch input (${error.field}): ${error.message}`, 400);
+      throw new ToolError(`invalid card batch input (${error.field}): ${error.message}`, 400, "invalid_input");
     }
     if (error instanceof CardBatchUnavailableError) {
       throw new ToolError(
         "The storefront card mirror is temporarily unavailable. No supplied SKU is being reported as missing.",
         503,
+        "source_unavailable",
       );
     }
     throw error;

@@ -270,14 +270,16 @@ describe("before the database", () => {
     const jws = signAct(secretKey, kid);
     vi.mocked(query).mockRejectedValueOnce(Object.assign(new Error(`boom ${jws}`), { code: "57P01" }));
     const answer = await submit({ act: jws });
-    expect(answer).toMatchObject({ ok: false, status: 503, refusal: { reason_code: "auth_unavailable", retryable: true } });
+    // Before the transaction: nothing was written.
+    expect(answer).toMatchObject({ ok: false, status: 503, refusal: { reason_code: "auth_unavailable", retryable: true, effect: "not_applied" } });
+    expect(refusalOf(answer).refusal).not.toHaveProperty("side_effects");
     expect(JSON.stringify(logged.mock.calls)).not.toContain(jws.slice(0, 20));
     expect(logged.mock.calls[0]).toEqual(["[agent.act] key lookup failed", "57P01"]);
   });
 });
 
 describe("the transaction (scripted)", () => {
-  type Script = { nonce: boolean; dbEpoch?: number; revokedAt?: string | null };
+  type Script = { nonce: boolean; dbEpoch?: number; revokedAt?: string | null; pending?: boolean };
   function scripted(script: Script) {
     const calls: [string, unknown[]][] = [];
     const tx = async (sql: string, params: unknown[] = []) => {
@@ -290,7 +292,7 @@ describe("the transaction (scripted)", () => {
       if (/FROM agent_signing_keys\s+WHERE id = \$1/.test(sql)) {
         return {
           rows: [{
-            id: "k1", thumbprint: params[2], confirmed_at: new Date(), revoked_at: script.revokedAt ?? null, revoked_by_event: script.revokedAt ? "e0" : null,
+            id: "k1", thumbprint: params[2], confirmed_at: script.pending ? null : new Date(), revoked_at: script.revokedAt ?? null, revoked_by_event: script.revokedAt ? "e0" : null,
             not_after: null, created_at: new Date(),
           }],
           rowCount: 1,
@@ -312,7 +314,12 @@ describe("the transaction (scripted)", () => {
     lookupFinds(publicKey);
     const calls = scripted({ nonce: false });
     const answer = await submit({ act: signAct(secretKey, kid) });
-    expect(answer).toMatchObject({ ok: false, status: 409, verified: true, refusal: { reason_code: "act_replayed" } });
+    // unknown: this send changed nothing, but the jti's first send, which this
+    // answer cannot see, may have applied the act.
+    expect(answer).toMatchObject({ ok: false, status: 409, verified: true, refusal: { reason_code: "act_replayed", effect: "unknown" } });
+    expect(refusalOf(answer).message).not.toMatch(/Nothing was changed/);
+    // No event, so nothing to name: the expired nonces it purges are not the caller's.
+    expect(refusalOf(answer).refusal).not.toHaveProperty("side_effects");
     expect(calls.some(([sql]) => sql.includes("INSERT INTO agent_act_events"))).toBe(false);
     // Lock order: agent, then signing key; then the database's clock, read
     // only once both are held; then the nonce.
@@ -334,6 +341,10 @@ describe("the transaction (scripted)", () => {
     const refusal = refusalOf(answer).refusal;
     expect(refusal.server_time).toBe(new Date((Math.floor(now / 1000) - 61) * 1000).toISOString());
     expect(refusal.receipt?.act_sha256).toMatch(/^[0-9a-f]{64}$/);
+    // Refused, and recorded: the refusal says both.
+    expect(refusal.effect).toBe("not_applied");
+    expect(refusal.side_effects?.map((entry) => entry.change)).toEqual(["act_recorded"]);
+    expectInvariant(answer);
     const event = calls.find(([sql]) => sql.includes("INSERT INTO agent_act_events"));
     expect(event?.[1].slice(2, 5)).toEqual(["signer.check", "refused", "act_stale"]);
     expect(calls.some(([sql]) => sql.includes("SAVEPOINT"))).toBe(false);
@@ -366,12 +377,40 @@ describe("the transaction (scripted)", () => {
     expect(calls.filter(([sql]) => sql.includes("INSERT INTO agent_act_events"))).toHaveLength(2);
   });
 
-  it("answers a failed transaction auth_unavailable, having applied nothing", async () => {
+  it("answers a failed transaction auth_unavailable, saying it is not certain nothing applied", async () => {
     const { secretKey, publicKey, kid } = keyPair();
     lookupFinds(publicKey);
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(transaction).mockRejectedValueOnce(Object.assign(new Error("connection reset"), { code: "08006" }));
-    expect(await submit({ act: signAct(secretKey, kid) })).toMatchObject({ ok: false, status: 503, verified: true, refusal: { reason_code: "auth_unavailable" } });
+    const answer = refusalOf(await submit({ act: signAct(secretKey, kid) }));
+    // A connection lost while COMMIT was in flight looks the same as one lost
+    // before it, so the effect is unknown; the same act sent again is safe.
+    expect(answer).toMatchObject({ ok: false, status: 503, verified: true, refusal: { reason_code: "auth_unavailable", effect: "unknown", retryable: true } });
+    expect(answer.message).toMatch(/most likely not applied, though that is not certain/);
+    expect(answer.refusal.next_actions.map((next) => next.action)).toEqual(["retry", "sign_new_act"]);
+  });
+
+  it("says a refused act still confirmed the pending key that signed it", async () => {
+    const { secretKey, publicKey, kid } = keyPair();
+    lookupFinds(publicKey);
+    const calls = scripted({ nonce: true, pending: true });
+    const mint = {
+      act: "key.mint",
+      params: {
+        key_sha256: "a".repeat(64),
+        key_prefix: "ctcg_agt_Ab1",
+        expires: "not-an-expiry",
+        name: "laptop",
+        preview_sha256: disclosureSha256(currentDisclosure("key.mint").text),
+      },
+    };
+    const answer = refusalOf(await submit({ act: signAct(secretKey, kid, mint) }));
+    expect(answer.refusal).toMatchObject({ reason_code: "act_params_invalid", detail: "expires", effect: "not_applied" });
+    // The confirmation came before the act's savepoint, so the rollback kept it.
+    expect(calls.some(([sql]) => sql.includes("SET confirmed_at = NOW()"))).toBe(true);
+    expect(calls.some(([sql]) => sql === "ROLLBACK TO SAVEPOINT agent_act_apply")).toBe(true);
+    expect(answer.refusal.side_effects?.map((entry) => entry.change)).toEqual(["act_recorded", "signing_key_confirmed"]);
+    expectInvariant(answer);
   });
 });
 
