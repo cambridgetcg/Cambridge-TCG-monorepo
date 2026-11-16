@@ -85,7 +85,7 @@ const CRON_SCHEDULE: readonly CronJob[] = [
     path: "/api/cron/collect/cardrush",
     schedule: "15 */2 * * *",
     description:
-      "Every two hours at :15. Reads one CardRush host's stalest product pages at 0.5 rps, only while DATA_COLLECT_CARDRUSH is on; otherwise it does nothing.",
+      "Every two hours at :15. Reads one CardRush host's product pages at 0.5 rps. On One Piece a run first re-reads the listings of a fixed basket that are due, about four days after their last reading, up to 80% of the run; on every host the rest goes to pages not yet read, then the stalest. Only while DATA_COLLECT_CARDRUSH is on; otherwise it does nothing.",
   },
   {
     path: "/api/cron/collect/tcgplayer",

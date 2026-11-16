@@ -220,7 +220,7 @@ has room to write and report.
 | Collector | Route / schedule | Transport | Output |
 | --- | --- | --- | --- |
 | Cardmarket daily | `/api/cron/collect/cardmarket`, `30 5 * * *` | Existing public-file transport and ingest seam, Cambridge's identifying User-Agent. One Piece (18) only ([why](#cardmarket-measured)). Each run also writes the reviewed One Piece set crosswalk seed; an unchanged live row is left as it is. | Existing observations, unmapped to SKUs, with `source_set_key`, plus the set crosswalks |
-| CardRush | `/api/cron/collect/cardrush`, `15 */2 * * *` | `createFetcher` with the identifying User-Agent, one bucket per host at 0.5 rps (burst 1), no retries, no proxy options. Hosts in turn by run time, so each of the six is read every 12 hours. Each run reads the host's robots.txt once, first, through the same bucket: if it disallows product pages (or the sitemap) to this collector or to every crawler, or cannot be read, the run stops as `SOURCE_UNAVAILABLE`, and a listed page it disallows is never requested; a host with no robots.txt (404, 410) sets no rule. Product URLs come from the host sitemap, never-read pages first and then the oldest reading; a quarantined reading counts as read, so sealed products and supplies do not starve the singles. 60 s of the budget is kept for writes, so a run reads about 103 pages ([rhythm](#cardrush-rhythm)). | `sell`, JPY, `printing`. Language comes from the title (default `ja`), finish from parallel markers. Condition is recorded only when the page states a grade. No structured price means quarantine: there is no first-yen fallback. Product and set crosswalks under `cardrush-title/2`, exact only for One Piece plain base rarities, Japanese or marked in the title's trailing group (`(英語版/illust:…)`), never Chinese (`zh` names no script); the other five hosts' rows are unmapped. |
+| CardRush | `/api/cron/collect/cardrush`, `15 */2 * * *` | `createFetcher` with the identifying User-Agent, one bucket per host at 0.5 rps (burst 1), no retries, no proxy options. Hosts in turn by run time, so each of the six is read every 12 hours. Each run reads the host's robots.txt once, first, through the same bucket: if it disallows product pages (or the sitemap) to this collector or to every crawler, or cannot be read, the run stops as `SOURCE_UNAVAILABLE`, and a listed page it disallows is never requested; a host with no robots.txt (404, 410) sets no rule. Product URLs come from the host sitemap, never-read pages first and then the oldest reading; on One Piece a fixed re-read basket goes first ([basket](#cardrush-basket)); a quarantined reading counts as read, so sealed products and supplies do not starve the singles. 60 s of the budget is kept for writes, so a run reads about 103 pages ([rhythm](#cardrush-rhythm)). | `sell`, JPY, `printing`. Language comes from the title (default `ja`), finish from parallel markers. Condition is recorded only when the page states a grade. No structured price means quarantine: there is no first-yen fallback. Product and set crosswalks under `cardrush-title/2`, exact only for One Piece plain base rarities, Japanese or marked in the title's trailing group (`(英語版/illust:…)`), never Chinese (`zh` names no script); the other five hosts' rows are unmapped. |
 | TCGplayer | `/api/cron/collect/tcgplayer`, `45 * * * *` | One bucket for every TCGplayer host at 0.1 rps (burst 1): `www.tcgplayer.com`'s robots.txt asks `Crawl-Delay: 10`, and neither API host serves a robots.txt (404, 2026-10-28). The fetcher ignores any caller rate, refuses a proxy and never retries. The pages are client-rendered, so the collector reads the data the public set price-guide page itself loads, one request per set ([intake record](../../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)); it never reads seller listings, which robots.txt disallows. Each run first reads robots.txt on all three hosts (`www.tcgplayer.com` and the two data hosts), through the same bucket, and reuses no earlier reading. The group naming the collector applies if one exists, otherwise `*`; a host with no robots.txt (404) sets no rule. A file that disallows a path every run reads (the set lists, product types, every set's price-guide data as its request has it, query included, or a line's price-guide pages) refuses the run before any data request, as a refusal. A set whose page or data it disallows is skipped without a request and without a batch, so it starves no other set and leaves nothing in the append-only store; a file that leaves no listed set readable refuses the run, as CardRush's does when it permits no listed page. A failed read (a network error, a 5xx) collects nothing that run. Requests are spaced by the larger of 10 s and the Crawl-delay asked. A Crawl-delay over 60 s refuses the run, and so does a shorter one that leaves the budget no set: with three lines, anything over about 35 s when `www.tcgplayer.com` asks it, 40 s when `mpapi.tcgplayer.com` does and 46 s when `infinite-api.tcgplayer.com` does (the later a host's robots.txt is read, the less of the run its delay spaces). Measured with the collector's own fetcher and bucket on a simulated clock and instant answers; at 2 s an answer the limits are 33, 38 and 44 s, and a delay just under one can leave a run its set lists but no set. Lines collected: One Piece (68) and Pokemon Japan (85), whose ids and row labels were read on 2026-10-28, and Pokemon (3), read on 2026-10-30 ([intake record](../../methodology/source-intake.md#pokemon-line-3-2026-10-30)); Magic and Yu-Gi-Oh are off. A set is not begun with under 30 s left, so at 10 s a request a run reads about 16 sets with three lines (18 with two; modelled with writes taking no time, so slower writes mean a set or two fewer). The lines take turns, one set a turn (`tcgplayerTurns`): each round gives every line with sets left one turn, in one order for the run, the line read least recently first (by its latest reading; a line never read comes first), and within a line sets go stalest first (never read, newest release first, then the longest ago). A line's place comes from when it was last read, not from how stale its backlog is, so a run's spare turns pass from line to line, and a run with fewer turns than lines (a long Crawl-delay) gives them in rotation. One queue across all lines put every never-read set first, so switching on Pokemon's 220 sets would have read no One Piece or Pokemon Japan set for the first dozen or so runs; ordering each round by its lines' stalest sets did the same whenever a run had fewer turns than lines. With turns, 16 sets a run are 5 or 6 a line from the first run, about 5⅓ on average, and a line of n sets is read through in about 3n/16 runs: One Piece's 87 about every 17 hours, Pokemon's 220 about every 42 and Pokemon Japan's 461 about every 87 (18, 44 and 93 at 15 sets a run), against about 43 hours for every set under one queue. A set robots.txt disallows costs no turn: its line's next set takes it. A line's product types are asked only when a set can follow them in the run; otherwise the line passes its turns unread and goes first next run. A set whose read or write fails is recorded as read, by an empty batch whose quarantine names the failure, so stalest-first moves on. | `market` (Market Price) per condition × printing, USD. The data has no Listed Median, so none is collected; `lowPrice` and `sales` are not collected. Crosswalks under `tcgplayer-number/1`. |
 
 A host that refuses the identified collector or cannot serve it ends the run
@@ -279,6 +279,41 @@ derivation takes inputs at most 7 days old, so on a given day at most about
 in ten. Reading singles first, or giving the One Piece host more of the
 twelve slots, would raise that at the same 0.5 rps per host; either is Yu's
 call.
+
+<a id="cardrush-basket"></a>**Re-reading a fixed basket (from its deployment
+in the week of 2026-11-16).** The owner decided on 2026-11-16 that most of the
+CardRush page budget goes to re-reading a fixed set of listings and the rest
+to pages never read, at the same load. The chooser (`chooseCardRushPages` in
+`apps/storefront/src/lib/datafeed/collectors/cardrush.ts`) does this on each
+host whose titles it can place in a set: today only One Piece. The basket is a
+query over stored rows, not a list: for each set, the 30 listings whose first
+reading was an ungraded price that a live set crosswalk places, ranked by how
+close that first reading is to 2026-11-17 00:00 UTC, readings before it first.
+Rows are append-only and, once that instant has passed, no first reading can
+fall before it, so a full set keeps its members and a short one gains listings
+as they are first read. None is replaced; otherwise only a set crosswalk
+added, superseded or remapped changes a set's members. On 2026-11-16 the query
+found 548 listings in 22 sets, in about 50 ms. A member is due at the first
+run at least four days (less an hour) after its last reading. Due members go
+first, up to 80% of a run: those whose reading stops counting within two days
+(6 to 8 days old), then the rest, each oldest first. The remainder of the run
+reads never-read pages in sitemap order, then the stalest, as before. A test
+in `cardrush.test.ts` simulates sixty days of runs of 101 pages: the first
+three days clear the backlog at 80 re-reads a run, after which the basket
+takes about 137 re-reads a day (in runs of up to 80) and leaves about 65 pages
+a day for first reads; from the ninth day no member waits more than 4.5 days
+between readings, and with three days of runs missed no wait passes 7.5 days.
+A four-day cycle stays inside the derivation's seven-day window with three
+days to spare. Rate, budget, robots.txt and refusal handling are unchanged, so
+a run asks for no more pages than before. Each run's job outcome says what the
+chooser found (`reread`: `basket`, `listed`, `due`, `chosen`, `urgent`,
+`lapsed`, `oldestHours`), and the admin monitor keeps the latest run of each
+CardRush host. The first One Piece runs after deployment should show `basket`
+about 548, `listed` close to it and `chosen` about 80; a `listed` well below
+`basket`, or no `reread` at all, calls for a look before the next run. The
+numbers (30, four days, 80%) are agents' sizing against the 2026-11-16
+measurements, not the owner's. `CARDRUSH_REREAD.share = 0` restores the
+earlier order exactly.
 
 **One run at a time (migration 0143).** Two overlapping runs, from a duplicate
 cron delivery or a manual authenticated call during a scheduled run, would
@@ -589,10 +624,11 @@ observations by source or read time:
 - collector health (`apps/storefront/src/app/api/v1/sources/collector-health.ts`)
   calls a batch with no observations failing, so a batch of confirmations
   would read as a collector collecting nothing;
-- CardRush's stalest-first scheduling (`chooseStalestCardRushPages` in
-  `apps/storefront/src/lib/datafeed/collectors/cardrush.ts`) reads each
+- CardRush's scheduling (`chooseCardRushPages` and `chooseStalestCardRushPages`
+  in `apps/storefront/src/lib/datafeed/collectors/cardrush.ts`) reads each
   page's latest `retrieved_at` from observations, so a confirmed page would be
-  chosen again on every run and starve the rest;
+  chosen again on every run and starve the rest, and the One Piece basket would
+  never see an unchanged member as re-read, so its members would lapse;
 - the member feed shows each row's `retrievedAt`, which would become the
   first reading of the value rather than the latest, and history mode would
   list fewer rows.
@@ -747,17 +783,58 @@ The run row shows the hour (`created_at`) and the ceiling
 nothing alerts when a scheduled run is missed: the monitor shows such a day
 as "unknown", the same as a day whose run is not yet due.
 
-**Limits of the series found on 2026-11-10, not yet fixed.** Each needs a
+**Limits of the series found on 2026-11-10.** Each one still open needs a
 decision before `DATA_API_READS` is turned on.
 
-- CardRush index levels have so far moved only with the JPY to GBP rate. The
-  collector is still on its first pass through each sitemap and has read no
-  listing twice, so each matched pair carries the same yen price forward.
-- A day on which Cardmarket's price file did not change is written as a flat
-  day, with nothing in the run marking its input as unchanged (2026-11-08).
-- Reference prices are still zero in every run, and the
-  TCGplayer-against-CardRush premium medians rest on about ten pairs a set
-  and have swung roughly tenfold between runs.
+- *Expected to be addressed by the re-read basket ([§2](#cardrush-basket)),
+  from its deployment in the week of 2026-11-16; not yet observed.* CardRush
+  index levels have so far moved only with the JPY to GBP rate: the collector
+  had read no listing twice, so each matched pair carried the same yen price
+  forward, and on 2026-11-16 every CardRush step since 2026-11-10 still equalled
+  the exchange rate's. Once basket listings are re-read, a level pairs two
+  readings of each about four days apart and should move with CardRush prices
+  too. Of the 22 CardRush series, 16 stopped after a last level dated 2026-11-06
+  to 2026-11-12, when fewer than ten of the listings valued at that level still
+  had a reading inside the seven-day window. On 2026-11-16 the basket held at
+  least 12 of each stopped series' last-level listings, so each should resume
+  once ten of them are valued again, its row chained from that last level
+  (`previousAsOf`), never re-based. Both are checked on the first daily runs
+  after deployment, in `market_indices`: `previous_as_of` on resumed rows,
+  `constituents`, and whether a step differs from the exchange rate's.
+- *Not fixed:*
+  - Days a series was dark stay empty: runs refuse dates out of order and rows
+    are append-only. A resumed row carries the whole change since its last
+    level, exchange rate included, in one step, and its 7-day change compares
+    with that old level whenever it is at most 14 days back, so the "7-day"
+    change can span up to 14 days.
+  - op01 resumes only if 10 of the 12 listings in its last level re-read as
+    ungraded prices (op02 and st03: 10 of 13); otherwise it cannot resume under
+    `ctcg.market-derived/v1`.
+  - A listing read once is carried flat for seven or eight days and damps
+    moves by its share of a series; removing that needs a new method version.
+  - A set's series rests on its basket members (up to 30, fewer in small sets)
+    and on whatever of its listings were first read within the window, not on
+    every listing read before.
+  - A member that leaves the sitemap or stops being an ungraded price is not
+    replaced.
+  - Reference prices are still zero in every run: CardRush SKUs are Japanese
+    and TCGplayer's English, and a reference needs the same SKU from two
+    sources. The TCGplayer-against-CardRush premium medians rest on about ten
+    pairs a set and have swung roughly tenfold between runs; on 2026-11-16
+    TCGplayer had exact crosswalks for op01 and op02 but none for op03 to op07,
+    so those sets have no premium whatever CardRush reads.
+  - One Piece's first pass through its sitemap is expected to end around
+    mid-2027 rather than about mid-January 2027.
+  - Past about 640 members, due re-reads fill 80% of every run and the cycle
+    stretches past four days. Simulated, the longest wait at 1,034 members was
+    6.5 days; at 1,194 some members were never re-read, because members within
+    two days of lapsing always go first, so a lapsed one can wait for good.
+    Before the basket nears 1,000, lower the per-set count, or give One Piece
+    more slots (the owner's call: it raises that host's load).
+  - The other four hosts read as before; nothing derived reads them.
+  - A day on which Cardmarket's price file did not change is written as a
+    flat day, with nothing in the run marking its input as unchanged
+    (2026-11-08).
 
 <a id="plans"></a>
 

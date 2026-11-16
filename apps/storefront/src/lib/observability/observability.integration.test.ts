@@ -228,6 +228,12 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
       ($1, 'apex', '/market/[sku]', false, 'ai-training-crawler', 'ctcg.actor-class/v1', '404', 'miss', 'none', 15),
       ($1, 'prod-alias', '/api/v1/member-prices', false, 'library', 'ctcg.actor-class/v1', '401', 'none', 'none', 5)`, [hourAgo(3)]);
     await pool.query(`INSERT INTO error_daily VALUES (current_date, 'fairness-audit', 200, 60)`);
+    // collect/cardrush reads one host a run: the latest row is kept per host, so a One Piece
+    // run's re-read counts stay in view after another host's run.
+    await pool.query(`INSERT INTO ops_job_outcomes (job, started_at, finished_at, http_status, outcome, counts) VALUES
+      ('collect/cardrush', now() - interval '26 hours', now() - interval '26 hours' + interval '210 seconds', 200, 'ran', '{"host":"www.cardrush-op.jp","requested":99}'),
+      ('collect/cardrush', now() - interval '14 hours', now() - interval '14 hours' + interval '210 seconds', 200, 'ran', '{"host":"www.cardrush-op.jp","requested":101,"reread":{"basket":40,"chosen":20}}'),
+      ('collect/cardrush', now() - interval '10 hours', now() - interval '10 hours' + interval '210 seconds', 200, 'ran', '{"host":"www.cardrush-db.jp","requested":102}')`);
 
     // The page reads through sfQuery (postgres.js client.unsafe); the tests
     // above through pg. Both drivers must read the same panels.
@@ -243,6 +249,12 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
       expect(cardrush.hosts.hosts.find(host => host.host === "www.cardrush-pokemon.jp"), label).toMatchObject({ state: "suspended", suspended_reason: "http-403" });
       expect(data.collectors.leases, label).toMatchObject({ state: "known", data: [{ leaseKey: "cardrush:www.cardrush-op.jp", spacing: true }] });
       expect(data.collectors.jobs, label).toMatchObject({ state: "known", data: { latest: expect.arrayContaining([expect.objectContaining({ job: "derive/market", outcome: "refused:no-inputs", httpStatus: 503 })]) } });
+      if (data.collectors.jobs.state === "known") {
+        expect(data.collectors.jobs.data.latest.filter(row => row.job === "collect/cardrush").map(row => row.counts), label).toEqual([
+          { host: "www.cardrush-db.jp", requested: 102 },
+          { host: "www.cardrush-op.jp", requested: 101, reread: { basket: 40, chosen: 20 } },
+        ]);
+      }
       expect(data.derivation.state, label).toBe("known");
       if (data.derivation.state === "known") {
         expect(data.derivation.data.days[0], label).toMatchObject({ asOf: today, state: "ran", run: { sources: ["cardrush", "tcgplayer"], fxDates: { JPY: daysAgo(1), USD: daysAgo(1) }, written: { references: 1, indices: 1, premiums: 1 } } });

@@ -120,11 +120,15 @@ export interface JobOutcomeTally { job: string; outcome: string; runs: number; l
 export interface JobOutcomes { latest: JobOutcomeRow[]; tally: JobOutcomeTally[] }
 
 /** ops_job_outcomes (0148): each job's latest run, and its outcomes over the
- * last 7 days. */
+ * last 7 days. collect/cardrush reads a different host each run, so it keeps
+ * one latest row per host (counts.host): otherwise a One Piece run's counts,
+ * its re-read basket among them, would give way to the next host's two hours
+ * later. */
 export function readJobOutcomes(run: RunQuery): Promise<Known<JobOutcomes>> {
   return known("ops_job_outcomes", "0148", async () => {
     const [latest, tally] = await Promise.all([
-      run(`SELECT DISTINCT ON (job) job, started_at, finished_at, http_status, outcome, counts FROM ops_job_outcomes ORDER BY job, started_at DESC, id DESC`),
+      run(`SELECT DISTINCT ON (job, CASE WHEN job = 'collect/cardrush' THEN counts->>'host' END) job, started_at, finished_at, http_status, outcome, counts FROM ops_job_outcomes
+        ORDER BY job, CASE WHEN job = 'collect/cardrush' THEN counts->>'host' END, started_at DESC, id DESC`),
       run(`SELECT job, outcome, count(*)::int AS runs, max(started_at) AS last_at FROM ops_job_outcomes
         WHERE started_at >= now() - interval '7 days' GROUP BY 1, 2 ORDER BY 1, 3 DESC, 2`),
     ]);

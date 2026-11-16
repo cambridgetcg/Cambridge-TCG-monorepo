@@ -76,7 +76,7 @@ describe("monitor readers", () => {
 
   it("returns each job's latest outcome with its counts parsed, whichever driver read them", async () => {
     const run = database({
-      "DISTINCT ON (job)": () => [{ job: "collect/tcgplayer", started_at: new Date("2026-11-06T08:45:00Z"), finished_at: new Date("2026-11-06T08:49:31Z"), http_status: 200, outcome: "ran", counts: '{"setsWritten":3}' }],
+      "DISTINCT ON (job,": () => [{ job: "collect/tcgplayer", started_at: new Date("2026-11-06T08:45:00Z"), finished_at: new Date("2026-11-06T08:49:31Z"), http_status: 200, outcome: "ran", counts: '{"setsWritten":3}' }],
       "GROUP BY 1, 2": () => [{ job: "collect/tcgplayer", outcome: "ran", runs: 24, last_at: "2026-11-06T08:45:00Z" }],
     });
     expect(await readJobOutcomes(run)).toEqual({ state: "known", data: {
