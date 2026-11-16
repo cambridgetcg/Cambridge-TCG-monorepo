@@ -47,7 +47,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // From receipt, before authentication (which may refresh the token).
   const deadline = Date.now() + WEBHOOK_READ_DEADLINE_MS;
   // Throws a 401 Response for a delivery Shopify did not sign, and a 500 one
-  // (reported) when it can't renew the store's token.
+  // (reported) when it can't renew the store's token; a refresh token Shopify
+  // no longer accepts gives no session instead (4.0.3), answered below.
   const { topic, shop, payload, admin } = await authenticatedWebhook(TOPIC, () => authenticate.webhook(request));
   if (topic !== "REFUNDS_CREATE") return new Response(null, { status: 400 });
 
