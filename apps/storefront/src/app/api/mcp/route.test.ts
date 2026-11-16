@@ -253,7 +253,7 @@ describe("MCP initialize", () => {
       "All `tools/call` requests except `mcp.list_tools` and `agent.act` require bearer auth; `agent.act` takes a signed act instead and is closed unless this deployment opens it.",
     );
 
-    const closed = await (await GET()).json();
+    const closed = await (await GET(new Request("https://cambridgetcg.example/api/mcp"))).json();
     expect(closed.auth).toBe(
       "Authorization: Bearer ctcg_agt_<token> on every tools/call except mcp.list_tools and agent.act; agent.act takes a signed act instead (signed_acts below)",
     );
@@ -261,9 +261,9 @@ describe("MCP initialize", () => {
 
     // Open only with the flag exactly "on" and an audience.
     vi.stubEnv("AGENT_SIGNED_ACTS", "on");
-    expect((await (await GET()).json()).signed_acts.open_on_this_deployment).toBe(false);
+    expect((await (await GET(new Request("https://cambridgetcg.example/api/mcp"))).json()).signed_acts.open_on_this_deployment).toBe(false);
     vi.stubEnv("AGENT_SIGNED_ACTS_AUDIENCE", "https://cambridgetcg.com");
-    expect((await (await GET()).json()).signed_acts.open_on_this_deployment).toBe(true);
+    expect((await (await GET(new Request("https://cambridgetcg.example/api/mcp"))).json()).signed_acts.open_on_this_deployment).toBe(true);
     vi.unstubAllEnvs();
   });
 });
@@ -783,7 +783,7 @@ describe("self-serve denial and GET /api/mcp", () => {
   });
 
   it("names the revocation write and the revoke door", async () => {
-    const body = await (await GET()).json();
+    const body = await (await GET(new Request("https://cambridgetcg.example/api/mcp"))).json();
 
     expect(body.read_only_scope.domain_state).toBe(true);
     expect(body.read_only_scope.operational_metadata_writes).toContain(
@@ -818,7 +818,7 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
     }
     expect(afterTasks).toEqual([]);
     expect(await counted()).toEqual([]);
-    const body = await (await GET()).json();
+    const body = await (await GET(new Request("https://cambridgetcg.example/api/mcp"))).json();
     expect(body.read_only_scope.operational_metadata_writes.join(" ")).not.toContain("aggregate count");
   });
 
@@ -922,7 +922,7 @@ describe("MCP daily counts (mcp_daily, OPS_MCP_DAILY)", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).result.tools.length).toBeGreaterThan(0);
     await expect(counted()).resolves.toHaveLength(1);
-    const body = await (await GET()).json();
+    const body = await (await GET(new Request("https://cambridgetcg.example/api/mcp"))).json();
     expect(body.read_only_scope.operational_metadata_writes.join(" ")).toContain("aggregate count per UTC day");
     expect(body.read_only_scope.operational_metadata_writes.join(" ")).toContain("no key, agent or account id");
   });

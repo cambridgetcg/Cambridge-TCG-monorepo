@@ -24,7 +24,7 @@ The browser tools do not submit their inputs. Callers who choose a programmatic 
 
 ## Discovery points at the useful thing
 
-`lib/public-discovery.ts` composes selected reference assets, actual guide entries and manifest access classes. The compact `/llms.txt` and generated `/.well-known/agent.txt` describe public references separately from existing-account member pricing. The optional invitations and their refusal boundaries remain; the compact directory does not impersonate a standard MCP handshake. Existing MCP documentation names its custom JSON-RPC transport explicitly.
+`lib/public-discovery.ts` composes selected reference assets, actual guide entries and manifest access classes. The compact `/llms.txt` and generated `/.well-known/agent.txt` describe public references separately from existing-account member pricing. The optional invitations and their refusal boundaries remain; the compact directory does not impersonate a standard MCP handshake. Existing MCP documentation names its transport explicitly: until 2026-11-11 a custom JSON-RPC one, since then the JSON-response form of MCP Streamable HTTP, with when and how that was checked.
 
 The stable root sitemap no longer waits on a database. Catalog and artist URLs live in the separately advertised `/catalog/sitemap.xml`, retaining the existing bounded catalog coverage. An unavailable source fails that generation rather than turning absence of a response into an empty successful map. Documented framework revalidation can retain a prior successful snapshot; it cannot invent one on a cold failure. Unknown content-modification dates are omitted rather than set to the time someone requested a sitemap.
 

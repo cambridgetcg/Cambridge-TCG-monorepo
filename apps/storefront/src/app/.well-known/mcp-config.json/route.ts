@@ -1,9 +1,10 @@
 /**
  * /.well-known/mcp-config.json — paste-and-go MCP config snippet.
  *
- * Connection facts for the Cambridge TCG JSON-RPC gate and its vendored
- * stdio bridge. The remote endpoint is not a standard MCP remote transport,
- * so this document must not present its URL as a paste-ready MCP server entry.
+ * Connection facts for the Cambridge TCG MCP gate and its vendored stdio
+ * bridge. Since 2026-11-11 the remote endpoint speaks the JSON-response form
+ * of MCP Streamable HTTP to standard MCP clients; it has no OAuth, so a key
+ * is a header the client sets (lib/agents/mcp-transport.ts).
  *
  * Filed for kingdom-083 — the inner peace.
  */
@@ -26,20 +27,21 @@ import {
   reviewSubmissionsByRegistration,
 } from "@/lib/agents/tool-access";
 import { operationalMetadataWrites } from "@/lib/agents/operational-metadata";
+import { mcpTransportFacts } from "@/lib/agents/mcp-transport";
 
 const CONFIG = {
   /**
-   * The remote endpoint's exact transport. It accepts one JSON-RPC request
-   * per HTTPS POST and returns one response. That is useful to custom HTTP
-   * clients, but it is not MCP Streamable HTTP or the older HTTP+SSE form.
+   * The remote endpoint's exact transport. It accepts one JSON-RPC message
+   * per HTTPS POST and answers with one JSON response: the JSON-response
+   * form of MCP Streamable HTTP for standard MCP clients, plain JSON-RPC for
+   * everyone else. No event stream, no sessions, no OAuth, no HTTP+SSE. The
+   * key name is kept so existing readers of this document still find it.
    */
   remote_json_rpc_endpoint: {
     "cambridge-tcg": {
       url: "https://cambridgetcg.com/api/mcp",
-      transport: "custom-json-rpc-over-https-post",
-      mcp_streamable_http: false,
-      mcp_http_sse: false,
-      standard_mcp_client_compatible_without_bridge: false,
+      transport: "streamable-http",
+      ...mcpTransportFacts(),
       description:
         `Cambridge TCG open-source TCG data infrastructure (structural card directory, card-data standards). Read tools cover catalog, federation, and methodology; recent-price and agent-ladder tools return publication status only. ${DATA_RIGHTS}`,
       auth: {
@@ -78,7 +80,7 @@ const CONFIG = {
       "node dist/index.js",
     ],
     note:
-      "Native MCP clients that expect stdio need this bridge. Its source is in the public repository, so it can be built from a clone; npx @cambridge-tcg/mcp-server does not work because the package is not published to npm. Clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
+      "MCP clients that only speak stdio need this bridge. Its source is in the public repository, so it can be built from a clone; npx @cambridge-tcg/mcp-server does not work because the package is not published to npm. Clients that can POST JSON-RPC 2.0 call /api/mcp directly, and an MCP client that speaks Streamable HTTP and can send a static Authorization header should be able to as well: two MCP SDK clients did on 2026-11-11, with the route run locally; no editor, desktop app or hosted app was run (see streamable_http.checked).",
   },
 
   publication_boundaries: {

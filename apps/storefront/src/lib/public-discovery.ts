@@ -202,7 +202,7 @@ const DISCOVERY_POINTERS = {
   "openapi-documentation": `${PUBLIC_ORIGIN}/api/openapi.json`,
   "mcp-documentation": `${PUBLIC_ORIGIN}/.well-known/mcp.json`,
   "mcp-config-documentation": `${PUBLIC_ORIGIN}/.well-known/mcp-config.json`,
-  "mcp-transport-scope": "custom JSON-RPC over HTTPS POST, not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not published to npm (its source is packages/mcp-server in the public repository). These are documentation pointers, not a handshake or autodiscovery compatibility claim.",
+  "mcp-transport-scope": "the JSON-response form of MCP Streamable HTTP over HTTPS POST (revisions 2025-06-18 and 2025-11-25; no event stream, no sessions, no OAuth), checked on 2026-11-11 against two MCP SDK clients with the route run locally; the stdio bridge for clients that only speak stdio is not published to npm (its source is packages/mcp-server in the public repository). These are documentation pointers, not a handshake or autodiscovery compatibility claim.",
   crawling: `${PUBLIC_ORIGIN}/robots.txt`,
   sitemap: `${PUBLIC_ORIGIN}/sitemap.xml`,
   "catalog-sitemap": `${PUBLIC_ORIGIN}/catalog/sitemap.xml`,

@@ -25,12 +25,17 @@ describe("MCP daily count words", () => {
     // A tool the gate has but the counted list does not is unknown, never its name.
     expect(mcpMethodAndTool("agent.new_tool", undefined, (name) => name === "agent.new_tool")).toEqual({ method: "native", tool: "unknown" });
     expect(mcpMethodAndTool("DROP TABLE agents", undefined, isTool)).toEqual({ method: "other", tool: "none" });
+    // The transport's own methods have no word of their own (the CHECK list
+    // has none, and a word needs a migration): they count as other.
+    for (const method of ["ping", "server/discover", "notifications/cancelled", "notifications/roots/list_changed"]) {
+      expect(mcpMethodAndTool(method, undefined, isTool)).toEqual({ method: "other", tool: "none" });
+    }
   });
 
   it("reads the outcome from the status unless the gate named it", () => {
     const seen = unseenMcpRequest();
-    expect([200, 204, 400, 413, 401, 403, 404, 429, 500, 418].map((status) => mcpOutcome(seen, status)))
-      .toEqual(["ok", "notification", "invalid-request", "invalid-request", "unauthenticated", "forbidden", "not-found", "rate-limited", "error", "tool-error"]);
+    expect([200, 202, 204, 400, 413, 401, 403, 404, 429, 500, 418].map((status) => mcpOutcome(seen, status)))
+      .toEqual(["ok", "notification", "notification", "invalid-request", "invalid-request", "unauthenticated", "forbidden", "not-found", "rate-limited", "error", "tool-error"]);
     expect(mcpOutcome({ ...seen, outcome: "unauthenticated" }, 403)).toBe("unauthenticated");
     expect(mcpOutcome({ ...seen, outcome: "tool-error" }, 404)).toBe("tool-error");
   });

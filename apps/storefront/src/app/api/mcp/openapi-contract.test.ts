@@ -239,6 +239,57 @@ describe("the gate answers with the statuses and carriers OpenAPI lists", () => 
     expect(mocks.query).not.toHaveBeenCalled();
   });
 
+  it("answers a standard MCP client with the Streamable HTTP statuses it documents", async () => {
+    const document = await spec();
+    const post = document.paths["/api/mcp"].post;
+    const get = document.paths["/api/mcp"].get;
+    const responses = post.responses as Record<string, { description: string }>;
+    // What SDK 1.32.2 and 2.4.0 send (scripts/mcp-sdk-harness).
+    const standard = (message: Record<string, unknown>, headers: Record<string, string> = {}) =>
+      POST(new Request("https://cambridgetcg.example/api/mcp", {
+        method: "POST",
+        headers: { accept: "application/json, text/event-stream", "content-type": "application/json", "mcp-protocol-version": "2025-11-25", ...headers },
+        body: JSON.stringify(message),
+      }));
+
+    expect((await standard({ jsonrpc: "2.0", method: "notifications/initialized" })).status).toBe(202);
+    expect(responses).toHaveProperty("202");
+    const ping = await standard({ jsonrpc: "2.0", id: 1, method: "ping" });
+    expect(ping.status).toBe(200);
+    expect((await ping.json()).result).toEqual({});
+
+    const probe = await standard({ jsonrpc: "2.0", id: "p", method: "server/discover", params: {} }, { "mcp-protocol-version": "2026-07-28" });
+    const probeBody = await probe.json();
+    expect(probe.status).toBe(400);
+    expect(probeBody.error.code).toBe(-32022);
+    expect(responses["400"].description).toContain("-32022");
+    expect(probeBody.error.data.supported.map((revision: string) => `"${revision}"`).join(", "))
+      .toBe(responses["400"].description.match(/supported: \[([^\]]*)\]/)?.[1]);
+    expect(document.components.schemas.McpJsonRpcResponse.properties.error.properties.code.description).toContain("-32022");
+    expect(post.parameters.map((parameter: { name: string }) => parameter.name)).toContain("MCP-Protocol-Version");
+
+    // A refused tools/call is sent with 200, the body unchanged.
+    mocks.query.mockResolvedValue({ rows: [keyRow({ registered_via: "self-serve" })] });
+    const refused = await standard(
+      { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "deck.list_mine", arguments: {} } },
+      { authorization: `Bearer ${AGENT_TOKEN}` },
+    );
+    expect(refused.status).toBe(200);
+    expect((await refused.json()).result._meta[MCP_REFUSAL_META_KEY].reason_code).toBe("tool_not_permitted");
+    expect(post.description).toContain("a refused tools/call is sent with 200");
+
+    // A web page on another site, on either method; an event-stream GET.
+    const crossSite = await standard({ jsonrpc: "2.0", id: 3, method: "tools/list" }, { origin: "https://elsewhere.example" });
+    expect(crossSite.status).toBe(403);
+    expect(responses["403"].description).toContain("A web page on another site");
+    const { GET } = await import("./route");
+    expect((await GET(new Request("https://cambridgetcg.example/api/mcp", { headers: { origin: "https://elsewhere.example" } }))).status).toBe(403);
+    expect(get.responses).toHaveProperty("403");
+    const stream = await GET(new Request("https://cambridgetcg.example/api/mcp", { headers: { accept: "text/event-stream" } }));
+    expect(stream.status).toBe(405);
+    expect(get.responses["405"].headers.Allow.description).toBe(stream.headers.get("allow"));
+  });
+
   it("answers missing, malformed and unknown keys with a documented 401 and challenge", async () => {
     const { responses, refusal } = await documented();
     expect(responses["401"].headers).toHaveProperty("WWW-Authenticate");

@@ -714,7 +714,7 @@ export function publicDiscoveryHtmlLinks(): readonly DiscoveryHtmlLink[] {
     { rel: "describedby", type: "text/plain", href: "/llms.txt", title: "Cambridge TCG — compact resource index" },
     { rel: "describedby", type: "text/plain", href: "/.well-known/agent.txt", title: "Cambridge TCG — machine doorway" },
     { rel: "service-desc", type: "application/json", href: "/api/openapi.json", title: "OpenAPI documentation" },
-    { rel: "help", type: "application/json", href: "/.well-known/mcp.json", title: "Custom JSON-RPC and MCP bridge documentation" },
+    { rel: "help", type: "application/json", href: "/.well-known/mcp.json", title: "MCP endpoint and stdio bridge documentation" },
     { rel: "help", type: "application/json", href: "/api/v1/welcome", title: "Machine-readable welcome" },
     { rel: "help", type: "text/html", href: "/agents", title: "Agent welcome" },
   ];
