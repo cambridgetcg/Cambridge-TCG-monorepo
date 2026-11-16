@@ -63,7 +63,7 @@ describe("/admin/system/monitor behind the admin gate", () => {
       ["inserted_at >= now() - interval '7 days'", [{ source: "cardrush", host: "www.cardrush-op.jp", batches: 12, source_rows: "1236", missing_prices: "0", quarantined: "14", last_inserted_at: now }]],
       ["DISTINCT ON (source)", [{ source: "cardrush", inserted_at: now, source_rows: 103, missing_prices: 0, quarantined: 2 }]],
       ["FROM price_collector_leases", [{ lease_key: "tcgplayer", spacing: false, held: true, acquired_at: now, expires_at: now }]],
-      ["DISTINCT ON (job)", [{ job: "collect/tcgplayer", started_at: now, finished_at: now, http_status: 200, outcome: "ran", counts: { setsWritten: 3, crosswalks: { setWritten: 1 } } }]],
+      ["DISTINCT ON (job,", [{ job: "collect/tcgplayer", started_at: now, finished_at: now, http_status: 200, outcome: "ran", counts: { setsWritten: 3, crosswalks: { setWritten: 1 } } }]],
       ["job = 'derive/market'", [{ job: "derive/market", started_at: now, finished_at: now, http_status: 503, outcome: "refused:no-inputs", counts: { asOf: day, excludedSources: { cardmarket: "derivation-off" }, skipped: { unmapped: 7 } } }]],
       ["FROM ops_job_outcomes\n        WHERE started_at", [{ job: "collect/tcgplayer", outcome: "ran", runs: 24, last_at: now }]],
       ["ORDER BY as_of DESC, id DESC LIMIT 1", []],
@@ -83,7 +83,8 @@ describe("/admin/system/monitor behind the admin gate", () => {
     ];
     mocks.sfQuery.mockImplementation(async (sql: string) => ({ rows: answers.find(([needle]) => sql.includes(needle))?.[1] ?? [] }));
     const markup = renderToStaticMarkup(await MonitorPage());
-    for (const text of ["www.cardrush-pokemon.jp", "suspended", "1,236", "collect/tcgplayer", "refused:no-inputs", "cardmarket derivation-off", "tools/list",
+    // "setsWritten 3" comes only from the latest-run query: "collect/tcgplayer" is in the 7-day tally too.
+    for (const text of ["www.cardrush-pokemon.jp", "suspended", "1,236", "collect/tcgplayer", "setsWritten 3", "refused:no-inputs", "cardmarket derivation-off", "tools/list",
       "browser-like-fleet", "/product/[sku]", "/market/[sku]", "25.0%", "fairness-audit", "80.0%", "5.0%"]) expect(markup).toContain(text);
     expect(markup).not.toContain(">Unknown<");
     // With one data-API account and two keys used, what they did is withheld.
@@ -115,7 +116,7 @@ describe("/admin/system/monitor behind the admin gate", () => {
     mocks.sfQuery.mockImplementation(async (sql: string) => {
       if (sql.includes("to_regclass")) return { rows: [{ provisioned: true }] };
       if (sql.includes("FROM agent_act_nonces")) return { rows: [{ rows: "1234", expired: "3", oldest_expired: expired }] };
-      if (sql.includes("DISTINCT ON (job)")) return { rows: [{ job: "sweep/held-keys", started_at: swept, finished_at: swept, http_status: 200, outcome: "ran", counts: { nonces: 41, pendingKeys: 1 } }] };
+      if (sql.includes("DISTINCT ON (job,")) return { rows: [{ job: "sweep/held-keys", started_at: swept, finished_at: swept, http_status: 200, outcome: "ran", counts: { nonces: 41, pendingKeys: 1 } }] };
       return { rows: [] };
     });
     const markup = renderToStaticMarkup(await MonitorPage());
