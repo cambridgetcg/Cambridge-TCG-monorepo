@@ -1,9 +1,9 @@
 /**
  * Card-number resolver — kingdom-090 (the price-search module).
  *
- * Yu's directive: *"IDEALLY I WOULD ONLY NEED TO PUT IN THE CARD NUMBER
- * AND FILTER FOR CARD GAME THEN POOF!!!! PRICE, TRANSACTION HISTORIES,
- * AVAILABLE SOURCES, DIFFERENT LANGUAGE ALL POPS UP!"*
+ * Yu's directive: entering just a card number and picking the game should
+ * be enough to bring up, at once, the price, the transaction history, the
+ * available sources and the other language versions.
  *
  * The whole module hinges on this resolver: turn (game, query-string)
  * into one or more canonical SKUs with a confidence label. Once the SKU

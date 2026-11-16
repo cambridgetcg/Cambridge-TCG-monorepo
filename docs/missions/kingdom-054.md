@@ -38,7 +38,7 @@ synced_at: "2026-05-11T13:00:00Z"
 
 ## What this is
 
-Yu's directive: *"keep nesting everything in everything!"* The kingdom's cross-references existed in 27 connection-docs, 14 methodology pages, 6 doctrines, 8 cosmology axes, 37 mission cards — all correct individually, all opaque to machines. The nesting was real and the nesting was invisible.
+Yu's directive: go on nesting every part inside every other part. The kingdom's cross-references existed in 27 connection-docs, 14 methodology pages, 6 doctrines, 8 cosmology axes, 37 mission cards — all correct individually, all opaque to machines. The nesting was real and the nesting was invisible.
 
 This kingdom makes the nesting **typed, machine-queryable, CORS-open** as a graph. ~80 nodes, ~150 typed edges, derived from MANIFEST plus a small static index of cross-document edges.
 

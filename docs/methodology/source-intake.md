@@ -1,6 +1,6 @@
 # Source intake — the legal gate every data source passes before code
 
-> *"Sort out Vinted sold data. How to integrate, sources, legality. Declare intentions. Build a framework for integrations."* — Yu, 2026-07-11.
+On 2026-07-11 Yu asked for Vinted's sold data to be dealt with: how it could be integrated, from which sources and how legally, with intentions declared openly and a framework built for integrations.
 
 The [source protocol](./source-protocol.md) tells you *how to build* a source once you've decided to. This doc is what runs **before** it: the gate that decides *whether we may*, and forces the decision — and its legal reasoning — to be written down before a single line of ingestion code exists.
 
@@ -52,7 +52,7 @@ Under EDPB Guidelines 03/2026, a rights-reservation + active anti-bot posture is
 
 ### Gate B — Intention declaration
 
-Draft the full `SourceMeta` **in this intake record, before the module exists** — `id`, `access`, `license`, `redistribute`, `tos_notes`, `status`, `freshness`, `canonical_effort`, `games`. If you cannot write an honest `tos_notes`, Gate A is not finished. This block is the machine-readable form of "declare intentions": it ships in the code and surfaces on `_meta.sources` / `_meta.source_license` downstream, so every consumer sees exactly what the kingdom decided and why.
+Draft the full `SourceMeta` **in this intake record, before the module exists** — `id`, `access`, `license`, `redistribute`, `tos_notes`, `status`, `freshness`, `canonical_effort`, `games`. If you cannot write an honest `tos_notes`, Gate A is not finished. This block is the machine-readable form of declaring intentions: it ships in the code and surfaces on `_meta.sources` / `_meta.source_license` downstream, so every consumer sees exactly what the kingdom decided and why.
 
 ### Gate C — Tier assignment
 
@@ -187,7 +187,7 @@ meta: {
 
 **Revocation:** the source's `member_price_source_releases` row (`revoked_at`, `member_display`, `derivation`). Derived rows CardRush contributed to stop serving on the next read.
 
-**Needs Yu:** migrations 0139, 0140, 0143 and 0146 and the production flag (`DATA_COLLECT_CARDRUSH`). The collector's limits are the agents' choice, and Yu kept them on 2026-10-29 ("keep your choice on limits"; [decision record](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-answers-2026-10-29)).
+**Needs Yu:** migrations 0139, 0140, 0143 and 0146 and the production flag (`DATA_COLLECT_CARDRUSH`). The collector's limits are the agents' choice, and Yu kept them on 2026-10-29 ([decision record](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-answers-2026-10-29)).
 
 ---
 
@@ -211,7 +211,7 @@ Same basis and plan as CardRush above. Yu chose collection from TCGplayer pages 
 - *A.2:* TCGplayer is a marketplace whose listings belong to individual sellers, and a seller's name linked to a price is personal data. The guide's rows are product-level (`productID`, `productName`, `number`, `rarity`, `printing`, `condition`, `marketPrice`, `lowPrice`, `sales`, `set`, `setAbbrv`, `type`, `game`), carry no seller field, and no listing is read. The collector keeps Market Price only. The endpoint supplies no Listed Median, so none is collected; `lowPrice` (0 on many Japanese rows, its meaning unstated) and `sales` are not collected. The product page's sales history, which needs a per-request salt and nonce, is never read. Drop-list, should a response ever embed listings: seller name, seller id, seller rating or feedback, listing id, ship-from location. **Pass — no personal data.**
 - *A.3:* Reading many product pages is systematic extraction. TCGplayer is a US maker, and UK database-right qualification is not assessed here; the terms bind by contract either way. **Fenced; answered by the permission within its scope.**
 
-**Question for Yu, answered 2026-10-29.** Yu's choice was "Scrape TCGplayer pages". The agent asked whether that permission covers reading the data the public price-guide page itself loads (the requests above) rather than its rendered HTML, since the page cannot show a price without those requests; the alternative was rendering the pages in a headless browser, about 90 times as many page loads for One Piece alone. Yu answered "yes permission allows that" ([decision record](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-answers-2026-10-29)). The collector makes only those requests, as built.
+**Question for Yu, answered 2026-10-29.** Yu's choice was "Scrape TCGplayer pages". The agent asked whether that permission covers reading the data the public price-guide page itself loads (the requests above) rather than its rendered HTML, since the page cannot show a price without those requests; the alternative was rendering the pages in a headless browser, about 90 times as many page loads for One Piece alone. Yu answered that the permission covers it ([decision record](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-answers-2026-10-29)). The collector makes only those requests, as built.
 
 **Forward-only.** The repository records no earlier TCGplayer collection (production was not queried); nothing gathered before 2026-10-28 is an input.
 
@@ -233,7 +233,7 @@ Same basis and plan as CardRush above. Yu chose collection from TCGplayer pages 
 
 ### Pokemon line (3), 2026-10-30
 
-**Yu's words, 2026-10-30, verbatim:** "lets go for what you recommended", in answer to an agent's recommendation to probe TCGplayer's English Pokémon line (category 3) and switch it on. Same permission and scope as this record: the data the public price-guide pages load, attributed member display and derivation input; never the API, downloads or seller listings.
+**Yu's word, 2026-10-30:** agreement with an agent's recommendation to probe TCGplayer's English Pokémon line (category 3) and switch it on. Same permission and scope as this record: the data the public price-guide pages load, attributed member display and derivation input; never the API, downloads or seller listings.
 
 - *Probe.* Six requests, started between 17:20:57 and 17:22:02 UTC and spaced by the collector's 10 s bucket (start to start 10.001 to 24.29 s as the probe stamped them, and once 9.999 s. The probe stamped each start itself, to the millisecond, after the bucket had let the request through, so that 1 ms is the stamps' timing and rounding: with a burst of 1 the bucket keeps no credit, and on its own clock lets two requests through at least 10,000 ms apart), under the collector's User-Agent and through its own code: `createTcgplayerFetcher` (no retries), `readTcgplayerRobots`, the URL builders and both parsers. The three hosts' robots.txt, then category 3's set list, its product types and one set's guide. A dry run with synthetic answers and no network came first. No 401, 403 or 429, no `cf-mitigated` header, no challenge page and no redirect.
 - *robots.txt.* `www.tcgplayer.com` answered `User-agent: *`, `Crawl-Delay: 10`, `Allow: /`, disallowing `/content/*/deck/`, `/content/*/decks/player`, `/login`, `/search/articles`, `/search/decks` and the two seller-listing paths; none is a path the collector reads. Both data hosts answered 404 (no rules). Everything a run reads for line 3 is allowed: its set list, its product types, the `/pokemon/price-guides/` pages, every set's guide data, and the sampled set's page and data. The interval stays 10 s.
@@ -321,8 +321,9 @@ AWS profile they name), and the question never asked: API, or pages only?
 
 ## Intake record — PriceCharting (Pokémon), 2026-10-30
 
-**Yu's words, 2026-10-30, verbatim:** "Lets use pricecharting data too, for
-pokemon if cardrush is blocking. they just say scrape if can."
+**Yu's words, 2026-10-30:** Yu asked to use PriceCharting data as well, for
+Pokémon, should CardRush block collection, and passed on an unnamed party's
+word that scraping is fine where it is possible.
 
 **What was read** (7 requests under `CambridgeTCG-research/1.0`, 6–22 s
 apart, no images):
@@ -339,8 +340,8 @@ apart, no images):
   internal use, and showing the prices to others needs express written
   permission. That matches the earlier reading above.
 
-**Gate result:** blocked. "Scrape if can" is not met while every page
-challenges the collector, and the record does not yet say who said it, when
+**Gate result:** blocked. The condition that scraping be possible is not met while every page
+challenges the collector, and the record does not yet say who gave that word, when
 or in what form. Nothing is built and nothing collects.
 
 **What would open it (an agent's reading):** PriceCharting lets the

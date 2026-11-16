@@ -40,7 +40,7 @@ self_reference: this entry names itself in `this_entry_names`; ships its
 > rights, and redistribution permission are separate facts. Participant
 > submissions default to `NOASSERTION` unless an explicit license is recorded.
 
-> *"Dive deeper into the data aggregation protocol and standardisation, also the barriers and how to overcome them. Think structure, think pipeline."* — Yu, 2026-05-12.
+Yu, 2026-05-12, asked to study the protocol for data aggregation and its standardisation more deeply, including the barriers and ways past them, thinking in terms of structure and pipeline.
 
 The previous three entries named (a) the catalog of upstream rivers — [`the-tributaries.md`](./the-tributaries.md); (b) the typed contract every source implements — [`the-modules.md`](./the-modules.md) + [`packages/data-ingest/`](../../packages/data-ingest/); (c) the eight-step protocol for adding one — [`docs/methodology/source-protocol.md`](../methodology/source-protocol.md). This entry asks the **deeper** structural question: *what is the full pipeline from upstream HTTP response to partner `console.log`, and what does it take to keep it honest at scale?*
 

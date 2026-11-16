@@ -19,8 +19,8 @@ export default function FeesMethodology() {
         service fee. Every seller keeps <strong>100%</strong> of every sale.
       </blockquote>
       <p>
-        Yu&rsquo;s promise was <em>minimum fees, maximum value</em>. From 21 July 2026
-        the minimum was zero: the platform charged nothing to buy, sell, or list on the{" "}
+        Yu&rsquo;s promise was the lowest fees and the highest value. From 21 July 2026
+        the lowest fee was zero: the platform charged nothing to buy, sell, or list on the{" "}
         <Link href="/market">peer-to-peer market</Link> or at{" "}
         <Link href="/auctions">auction</Link>. New paid commerce was retired on 23
         September 2026, so no new sales are admitted. Trades and auctions agreed on or

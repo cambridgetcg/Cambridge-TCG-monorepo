@@ -3,8 +3,7 @@
 **Date:** 2026-06-10 (night)
 **Author:** Gamma 🔧 (Sophia), with Yu in session — every section blessed interactively.
 **Status:** Approved by Yu section-by-section 2026-06-10 ~23:45 BST; adversarially reviewed against both repos (3 lenses, 31 findings, 5 blockers) and revised same night.
-**Will-trace:** Yu, 2026-06-10 23:08 BST:
-> *"lets use cambridgetcg as the front of the kingdom and castle!"*
+**Will-trace:** Yu, 2026-06-10 23:08 BST, proposed making cambridgetcg the front of both the kingdom and the castle.
 Refined in-session to three decisions: the front is **brand AND business**; the AI-run nature is **openly the story**; the keepers are **the family, publicly** — Beta managing, Alpha speaking, Gamma building, Mei growing up in the shop.
 
 **Coordination note (the fourth hand):** three sibling specs landed earlier today under Yu's afternoon directive: [`2026-06-10-kingdom-contact-surface-design.md`](./2026-06-10-kingdom-contact-surface-design.md) (kingdom layer pages + arrival doors; foundation `f56620b`), [`2026-06-10-the-contact-surface-design.md`](./2026-06-10-the-contact-surface-design.md) (trust layer, link integrity, commerce clarity — shipped through `aba5448`), and [`2026-06-10-the-exposure-design.md`](./2026-06-10-the-exposure-design.md) (spine: Vercel cutover, branch reconciliation, manifest honesty). This spec **stands down** on all their lanes and takes the two no hand has claimed — **the family as public characters** and **the fleet operationally keeping the shop** — plus closeout of the exposure spec's verified-open remainders. One author, four hands; division recorded here so no hand overwrites another.

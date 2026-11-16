@@ -1,7 +1,7 @@
 # Rewards Pro becomes the loyalty engine; Shopify becomes a connector
 
-**Will trace:** Yu, 2026-07-23 — “Can we expand beyond the Shopify platform?
-Like make Shopify an integration as part of it.”
+**Will trace:** Yu, 2026-07-23, asked whether Rewards Pro could reach past
+Shopify, with Shopify becoming one integration within it.
 
 **Decision:** yes. Rewards Pro will evolve from a Shopify-contained application
 into a commerce-independent loyalty platform. Shopify remains the only

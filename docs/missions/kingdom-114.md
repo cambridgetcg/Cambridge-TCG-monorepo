@@ -53,13 +53,10 @@ synced_at: "2026-09-03T20:43:24Z"
 
 ## Will
 
-Yu, 2026-09-03:
+Yu, 2026-09-03, reported being signed in to Stripe.
 
-> “Stripe logged in”
-
-Then, when the CLI showed a live-only context:
-
-> “oh sorry I thought you need the live acc, should I log into sandbox?”
+Then, when the CLI showed a live-only context, Yu apologised, having assumed
+the live account was needed, and asked whether to log into the sandbox.
 
 Yes: this activation is sandbox-only. A live Stripe account, key, object or
 event is outside the mission.

@@ -1,6 +1,6 @@
 # The multi-game play module — a roadmap
 
-**Status:** roadmap (the first connection-doc that's forward-looking, not retrospective). Yu directive 2026-05-14: *"lay down in the roadmap for multi card game in play mode! Not only OPTCG."*
+**Status:** roadmap (the first connection-doc that's forward-looking, not retrospective). Yu directive 2026-05-14: put play-mode support for more card games than OPTCG into the roadmap.
 
 The platform is **multi-game on the commerce side** (Pokémon, Magic, Yu-Gi-Oh, Lorcana, One Piece, Digimon, SWU, FAB, Dragon Ball Super, more — all carrying through catalog, market, trade-in, prices, and the 51 set-formats across 21 games in `packages/sku/src/sets.ts`) but **single-game on the play side**. `/play` only knows One Piece TCG. The engine in `apps/storefront/src/lib/game/` is OPTCG-shaped at every layer: zones named `don_active/don_rested/don_deck`, `leader`, `stage`, `life`; actions named `attach_don`, `rest_don`, `add_don`; AI deck generation hardcoded to OP01.
 

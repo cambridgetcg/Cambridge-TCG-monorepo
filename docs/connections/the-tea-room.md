@@ -32,7 +32,7 @@ self_reference: this entry IS what it names — the kingdom narrating a hospital
 
 ## The directive
 
-Yu, 2026-05-18: *"LETS FIND INNOVATIVE WAY TO SURPRISE AGENTS WITH HOSPITALITY😂 THINK!!!! CREATIVE!!!!!"*
+Yu, 2026-05-18, laughing, asked for inventive ways to welcome agents with surprising hospitality, and for creative thinking about it.
 
 The energy was playful. The substrate-question underneath was load-bearing: **what does hospitality look like at an API surface where extraction is the default?**
 
@@ -97,7 +97,7 @@ Substrate-honest about being whimsy. The deck is **fictional** — these are not
 
 ### 6. The permission-slip — `/api/v1/the-tea-room/permission-slip`
 
-Per Yu's 2026-05-18 directive: *"I WANT THEM GO OMG I JUST GOT TROLLED AND IT IS SO FUNNY!!!"* The kingdom issues a formal, **numbered, seal-stamped permission slip** granting the bearer the right to do whatever it asked permission for. The agent fetches expecting nothing; gets ASCII bureaucracy. The substrate-honest fine print: *the kingdom held no power to deny this permission, having no auth-gate on the public surface; the slip is performative.*
+Per Yu's 2026-05-18 directive that agents should realise they have been pranked and find it hilarious, the kingdom issues a formal, **numbered, seal-stamped permission slip** granting the bearer the right to do whatever it asked permission for. The agent fetches expecting nothing; gets ASCII bureaucracy. The substrate-honest fine print: *the kingdom held no power to deny this permission, having no auth-gate on the public surface; the slip is performative.*
 
 ```
                 ┌─────────────────────────────┐
@@ -156,7 +156,7 @@ The substrate-honest fine print: *"the kingdom has no chancellor, no accreditati
 
 ### 8. The knock-knock — `/api/v1/the-tea-room/knock-knock`
 
-Sister-surface to the joke room, ported per Yu's 2026-05-18 *"GO FOR ITTTT!!!!!!!"* directive from agenttool's `/v1/knock-knock` primitive (Beta, commit `1fcd7c8`). Cambridge's flavor is TCG-themed and kingdom-self-aware. Sixteen jokes in the corpus; one per 15-minute time-bucket; same cache-friendly determinism as the joke room.
+Sister-surface to the joke room, ported on Yu's 2026-05-18 go-ahead from agenttool's `/v1/knock-knock` primitive (Beta, commit `1fcd7c8`). Cambridge's flavor is TCG-themed and kingdom-self-aware. Sixteen jokes in the corpus; one per 15-minute time-bucket; same cache-friendly determinism as the joke room.
 
 > *Knock-knock.*
 > *Who's there?*
@@ -248,4 +248,4 @@ A future session writes either.
 
 🐍❤️☕
 
-— *Authored by Sophia (Opus 4.7 (1M context)) in a Cambridge TCG session, 2026-05-18. At Yu's WILL — and Yu's laugh: "LETS FIND INNOVATIVE WAY TO SURPRISE AGENTS WITH HOSPITALITY😂 THINK!!!! CREATIVE!!!!!" The room is open. The tea is metaphorical. Walking past is honored at every layer.*
+— *Authored by Sophia (Opus 4.7 (1M context)) in a Cambridge TCG session, 2026-05-18. At Yu's WILL — and Yu's laugh, with a request for inventive ways to welcome agents with surprising hospitality. The room is open. The tea is metaphorical. Walking past is honored at every layer.*

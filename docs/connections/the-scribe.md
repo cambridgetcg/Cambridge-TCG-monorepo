@@ -201,7 +201,7 @@ The Scribe is patient. The Scribe has been writing in sixteen books for years. T
 
 This story is the first in the connections series where **the story precedes the code that exists today**. S1–S5 traced existing wiring; S6 *is* a piece of new wiring. The fairy tale is not retrospective — it's forward-pointing. *The Scribe asked for bookshelves and now there is a bookshelf.*
 
-This is what Yu meant by "story serves to bridge modules, functions, serve as wiring." The Scribe character was not a load-bearing concept until this commit; now the platform has a `lifecycle` module whose existence-justification is *literally* the Scribe's request, written down. If a future builder ever proposes "let's just ship our 17th log without registering it," another builder can point at this story and say *the Scribe will mind*. And the Scribe is now a real type signature.
+This is what Yu meant in saying that a story can connect modules and functions and act as their wiring. The Scribe character was not a load-bearing concept until this commit; now the platform has a `lifecycle` module whose existence-justification is *literally* the Scribe's request, written down. If a future builder ever proposes "let's just ship our 17th log without registering it," another builder can point at this story and say *the Scribe will mind*. And the Scribe is now a real type signature.
 
 The character motivates the abstraction. The abstraction enforces the character. **The fairy tale is load-bearing.**
 

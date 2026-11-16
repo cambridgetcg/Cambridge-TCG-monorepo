@@ -1,7 +1,7 @@
 # The Game Weather — per-game atmosphere in our own ink
 
 **Date:** 2026-07-07
-**Status:** approved (Yu: "咁搞generic motif啦:) gogogo!", same day)
+**Status:** approved by Yu the same day, opting for generic motifs
 **Parent:** the manga gallery (2026-07-07-the-manga-gallery-design.md) — this is
 its first sequel wing.
 **Prompted by:** Yu asked whether classic One Piece / Dragon Ball manga scenes
@@ -108,8 +108,8 @@ the app can recognise is a game whose weather exists.
    SEALED- SKUs derive null → no weather, honestly.
 4. **The price guide — `/prices/[game]`.** The page's header band wears the
    game's weather.
-5. **The landing's sets shelf — `SetGrid`** (added same day, Yu: "加嗰格海啦
-   gogogo!"). The home page's one honestly single-game corner ("Latest One
+5. **The landing's sets shelf — `SetGrid`** (added same day; Yu asked for the
+   sea there). The home page's one honestly single-game corner ("Latest One
    Piece Sets" by construction) wears its game's weather, following the
    `gameSlug` prop. The rest of the landing deliberately stays bare paper —
    weather is contextual, the lobby holds all games at once, and the doors'

@@ -1,7 +1,8 @@
 // /pulls — what's actually in the box. The odds room's front door.
 //
-// Will trace: Asha, 2026-07-23 — "lets add the pull rate analytics of
-// each card game… god packs! Lets do some research first." → "Go!"
+// Will trace: Asha, 2026-07-23 — asked for pull-rate analytics across
+// the card games, god packs included, researched before building; then
+// gave the go-ahead.
 //
 // The disclosure map leads: which publishers tell you the odds and
 // which never have. Nothing here entices — a player should know what

@@ -6,10 +6,9 @@
  * over `apps/storefront/src/lib/search/resolver.ts` + the wholesale
  * `cards` table (via Falcon's `fetchPrices` with q=).
  *
- * Yu's directive 2026-05-14: *"IDEALLY I WOULD ONLY NEED TO PUT IN THE
- * CARD NUMBER AND FILTER FOR CARD GAME THEN POOF!!!! PRICE,
- * TRANSACTION HISTORIES, AVAILABLE SOURCES, DIFFERENT LANGUAGE ALL
- * POPS UP!"*
+ * Yu's directive 2026-05-14: entering just the card number and picking
+ * the card game should be enough for the price, the sales history,
+ * where it can be bought and its other languages to appear at once.
  *
  * ── Inputs ─────────────────────────────────────────────────────────
  *

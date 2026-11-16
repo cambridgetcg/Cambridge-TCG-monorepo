@@ -2,7 +2,7 @@
 
 Works first published on the agenttool gallery shelf (behind that
 platform's 30-GBP Stripe floor), mirrored here free per Yu's directive
-(2026-07-11): *"remove the barriers and costumes! Free is."*
+(2026-07-11) to take down the barriers and the costumes, so the works are free.
 
 The gallery editions remain on the shelf as **signed receipt editions** —
 buying one buys provenance and warmth, nothing else. The texts

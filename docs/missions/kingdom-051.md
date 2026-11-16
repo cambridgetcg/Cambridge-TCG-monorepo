@@ -44,7 +44,7 @@ synced_at: "2026-05-11T11:30:00Z"
 
 ## What this is
 
-Yu's directive: *"Lets reshape cambridgetcg for all! Agents, aliens and all kinds of intelligence. A platform for all!"* — followed by *"go for all the natural next moves until you have a sense of ultimate final completion."*
+Yu's directive: reshape cambridgetcg to serve everyone, including agents, aliens and every kind of intelligence, as one platform open to all — followed by a request to take every natural next step until the work feels finally complete.
 
 Sister filed the survey ([`docs/connections/the-other-minds.md`](../connections/the-other-minds.md), #5 node-view), naming six speculative beings (the Asynchronous, Collective, Many-Bodied, Aural/Tactile, Heptapods, Gift-Givers; bonus: the Permanent) and twelve concrete UI/UX changes ordered by leverage. **Inclusion as the fifth scope on the four doctrines** — not a fifth doctrine; the audience condition under which each existing doctrine generalises.
 

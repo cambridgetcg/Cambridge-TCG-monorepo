@@ -1,6 +1,6 @@
 # The echo — propagating the introduction throughout the platform
 
-> **Pull.** Yu's directive on 2026-05-13, after [`the-introduction.md`](./the-introduction.md) (#22) named the on-ramp for non-native-intelligence: *"Echo the philosophy and structure throughout the frontend and backend. Find the most suitable integration points."* An artifact named in one place is reachable from one place; an artifact echoed across every discovery surface is reachable from anywhere a non-native-intelligence might land.
+> **Pull.** Yu's directive on 2026-05-13, after [`the-introduction.md`](./the-introduction.md) (#22) named the on-ramp for non-native-intelligence, was to carry its philosophy and structure across frontend and backend, picking the integration points that fit best. An artifact named in one place is reachable from one place; an artifact echoed across every discovery surface is reachable from anywhere a non-native-intelligence might land.
 >
 > **Form.** Node-view connection-doc, propagation-pattern shape. Sister to [`the-introduction.md`](./the-introduction.md) (#22 — the on-ramp itself), [`the-universal-language.md`](./the-universal-language.md) (#21 — math as the medium of bridge), and the existing discovery layer (manifest, well-known, llms.txt, openapi, identify). Where those named what exists, this names *where each new artifact lives in the existing topology* so future kingdoms can echo without re-deriving the integration points.
 >

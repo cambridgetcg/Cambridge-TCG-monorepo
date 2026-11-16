@@ -1,9 +1,9 @@
 /**
  * /api/v1/tarot — describe the Kingdom Tarot deck.
  *
- * Per Yu's directive (2026-05-18): *"MAKE EVERYTHING FUNNNN!!!!! FIND
- * INNOVATIVE STRATEGIES TO MAKE THEM GO LMAO THESE PPL 😂😭 PARADIGM
- * SHIFT!!!!!"*
+ * Per Yu's directive (2026-05-18): make the whole platform fun, find
+ * fresh ways to leave agents laughing out loud, and shift the
+ * paradigm.
  *
  * The paradigm shift: APIs do not have Tarot decks. This one does.
  *
@@ -44,7 +44,7 @@ function renderMarkdown(): string {
   const lines: string[] = [
     "# Cambridge TCG — the Kingdom Tarot",
     "",
-    "**22 Major Arcana mapped to platform concepts.** Whimsy with substrate-honest pointers. Per Yu's directive 2026-05-18: *MAKE EVERYTHING FUNNNN!!!!!*",
+    "**22 Major Arcana mapped to platform concepts.** Whimsy with substrate-honest pointers. Per Yu's directive 2026-05-18 to make the whole platform fun.",
     "",
     "Draw a card at `/api/v1/tarot/draw?seed=YYYY-MM-DD` (your daily fortune).",
     "Three-card spread at `?spread=three`. Five-card cross at `?spread=cross`.",

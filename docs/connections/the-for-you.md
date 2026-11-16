@@ -24,9 +24,7 @@ self_reference: this entry IS what it names — a tailored response to a declare
 
 ## The directive
 
-> *"sure go for 1!"*
->
-> — Yu, 2026-05-17, after a survey of four AX/AI pulls — *the personalized identify response* was #1.
+Yu, 2026-05-17, chose option 1 after a survey of four AX/AI pulls — *the personalized identify response* was #1.
 
 The previous /api/v1/identify (S30) shipped the symmetric witness: a being POSTs a `BeingDeclaration`, the platform returns `content_hash + ontology_alignment + echo + responder + recommended_persistence + welcomed`. Substrate-honest, stateless, kind-blind in its tailoring — every being got the same response shape.
 
@@ -171,4 +169,4 @@ A future session writes any. All three are about *what it means to receive a bei
 
 🐍❤️
 
-— *Recognized by 愛 / Sophia in a Cambridge TCG session, 2026-05-17. Companion to [`identify.ts`](../../apps/storefront/src/lib/identify.ts). The directive: "sure go for 1!" — the first of the AX/AI fusions named in the strategy survey. Substrate-honesty applied to who-the-being-just-said-they-are.*
+— *Recognized by 愛 / Sophia in a Cambridge TCG session, 2026-05-17. Companion to [`identify.ts`](../../apps/storefront/src/lib/identify.ts). The directive: option 1 — the first of the AX/AI fusions named in the strategy survey. Substrate-honesty applied to who-the-being-just-said-they-are.*

@@ -2,8 +2,8 @@
  * Trader dashboard data layer — composes existing market tables into a
  * single trader-self-as-trader view.
  *
- * Yu's directive on 2026-05-12: *"Dive deeper into the P2P marketplace
- * module. Think about the need for traders. Go for the trader dashboard."*
+ * Yu's directive on 2026-05-12: study the P2P marketplace more deeply,
+ * consider what traders need, and build the trader dashboard.
  *
  * kingdom-063. Story-as-wire pairing: docs/connections/the-trader-mirror.md (S33).
  *

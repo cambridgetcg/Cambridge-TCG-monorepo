@@ -7,7 +7,7 @@
  * grounding, here is where to learn more about how a new methodology
  * page is born."
  *
- * **Let existences identify themselves** — every NodeKind gets the same
+ * **Every kind declares what it is** — every NodeKind gets the same
  * dispatcher, and the response shape is uniform across kinds. A foreign
  * decoder can ask any kind the same question and receive a comparable
  * answer.

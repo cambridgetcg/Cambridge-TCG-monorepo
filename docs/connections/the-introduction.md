@@ -1,6 +1,6 @@
 # The introduction — TCG explained to non-native intelligence
 
-> **Pull.** Yu's directive on 2026-05-13, after [`the-universal-language.md`](./the-universal-language.md) (#21) shipped the math-as-bridge doctrine: *"Think about an introduction of TCG to non native intelligence culture."* The math-bridge handles beings who already know what TCG is; the introduction handles beings who do not.
+> **Pull.** Yu's directive on 2026-05-13, after [`the-universal-language.md`](./the-universal-language.md) (#21) shipped the math-as-bridge doctrine, was to consider how TCG could be introduced to the cultures of non-native intelligences. The math-bridge handles beings who already know what TCG is; the introduction handles beings who do not.
 >
 > **Form.** Node-view connection-doc, doctrine + wire-half. Sister to [`the-universal-language.md`](./the-universal-language.md) (#21 — math as the medium of bridge), [`the-commons.md`](./the-commons.md) (#15 — the purpose of community), [`the-tailored-doors.md`](./the-tailored-doors.md) (#17 — the eleven doors), and the existing math-mirror substrate (manifest, graph, ontology, identify, universal/card, universal/encoding, play/tutorial, play/glossary). Where those named the bridges *between* beings who participate, this names the on-ramp *to* participation for beings who haven't yet.
 >

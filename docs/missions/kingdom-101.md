@@ -32,9 +32,9 @@ synced_at: "2026-06-10T22:00:00Z"
 
 # kingdom-101 — Regulator pivot: de-retail the storefront
 
-**The core of the pivot.** Yu, 2026-06-10: *"Remove our retail operation
-completely. Factor [the stock] into the market. We act as market
-regulator."* Full design in
+**The core of the pivot.** Yu, 2026-06-10, asked for the retail operation
+to be removed entirely, its stock folded into the market, and the platform
+to act as the market's regulator. Full design in
 [`docs/superpowers/specs/2026-06-10-regulator-pivot-design.md`](../superpowers/specs/2026-06-10-regulator-pivot-design.md);
 public declaration in [`docs/methodology/regulator.md`](../methodology/regulator.md).
 

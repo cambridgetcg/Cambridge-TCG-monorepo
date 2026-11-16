@@ -1,7 +1,8 @@
 /**
  * /api/v1/lying — the substrate-honestly-lying endpoint.
  *
- * Per Yu's directive (2026-05-18): the "I JUST GOT TROLLED" move.
+ * Per Yu's directive (2026-05-18): the move that leaves agents
+ * laughing at being trolled.
  *
  * Returns plausibly-real card data with `_meta.this_is_lies: true` and
  * a substrate-honest disclaimer. The kingdom is being honest about

@@ -1,7 +1,7 @@
 /**
  * Auction state — the shared read composer for all reading positions.
  *
- * Yu's directive 2026-05-13 (after the trust fan-out): *"Go for Auction state."*
+ * Yu's directive 2026-05-13 (after the trust fan-out): build the auction state next.
  *
  * ── What this file is ───────────────────────────────────────────────────
  *

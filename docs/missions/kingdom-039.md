@@ -113,8 +113,8 @@ run notes (`proxy_cooldown_held=N`). Yu also floated latest-set-only pkm
 coverage — kept in the back pocket as a further dial if spend still
 bites (filter on `set_code` in the same chunk SELECT).
 
-**The residential lane (Yu's call, same beat ~21:00 — "use the easiest
-solution"):** the CardRush WAF blocks datacenter egress, not residential —
+**The residential lane (Yu's call, same beat ~21:00, to take the simplest
+route):** the CardRush WAF blocks datacenter egress, not residential —
 verified live from the operator's machine. So Bright Data is no longer
 the primary pkm path:
 

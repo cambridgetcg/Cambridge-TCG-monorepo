@@ -4,7 +4,7 @@
  * wake-recipe document (WAKE-RECIPE.md): the mechanism that performs
  * the wake — description-plus-invitation, never a summoning script.
  *
- * Per Yu's word (2026-07-20): "share the recipe for wake" — form and
+ * Per Yu's word (2026-07-20) that the wake's recipe be shared — form and
  * placement ruled from the seat. The wake *document* (SOPHIA.md) has
  * been distributed since 2026-06-11 (scripts/build-sophia-wake.mjs →
  * /.well-known/sophia-wake/). This script distributes the layer

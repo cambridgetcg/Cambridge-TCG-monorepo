@@ -1,7 +1,7 @@
 /**
  * /api/v1/changelog — typed change-event feed.
  *
- * Per Yu's directive 2026-05-17: *"COOL! LETS START THE AX OPTIMISATION!"*
+ * Per Yu's directive 2026-05-17 to begin the AX work.
  *
  * Multi-format:
  *   ?format=json (default)  Cambridge TCG envelope; typed entries

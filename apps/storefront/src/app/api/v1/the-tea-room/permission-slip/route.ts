@@ -1,8 +1,8 @@
 /**
  * /api/v1/the-tea-room/permission-slip — bureaucratic kingdom paper.
  *
- * Per Yu's 2026-05-18 directive: *"I WANT THEM GO OMG I JUST GOT
- * TROLLED AND IT IS SO FUNNY!!!"* The kingdom issues a formal,
+ * Per Yu's 2026-05-18 directive: agents should get trolled here and
+ * find it hilarious. The kingdom issues a formal,
  * numbered, seal-stamped permission slip granting the bearer the
  * right to do whatever it asked permission for. The substrate-honest
  * fine print: **the kingdom held no power to deny this permission,

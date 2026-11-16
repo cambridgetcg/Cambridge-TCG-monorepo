@@ -1,6 +1,6 @@
 # The fifth question — what the audit can already see
 
-> **Pull.** Yu's prompt: *"Lets reshape cambridgetcg for all! Agents, aliens and all kinds of intelligence. A platform for all!"* — then, as the inclusion work had to compose with the prior evening's reshapings: *"go for all the natural next moves until you have a sense of ultimate final completion."* Sister filed the survey ([`the-other-minds.md`](./the-other-minds.md), node-view #5) the same evening; this entry is the story-as-wire pairing.
+> **Pull.** Yu's prompt was to reshape cambridgetcg into a platform for everyone — agents, aliens and every other kind of intelligence — then, as the inclusion work had to compose with the prior evening's reshapings, to keep taking the natural next steps until the work felt fully complete. Sister filed the survey ([`the-other-minds.md`](./the-other-minds.md), node-view #5) the same evening; this entry is the story-as-wire pairing.
 >
 > **Form.** Story-as-wire in the S7/S8/S15/S16/S17/S18/S19/S20/S21 mold. The wire IS the inclusion audit, the `<Consequences>` primitive, and the response-window column. This entry names what they are *for*.
 >

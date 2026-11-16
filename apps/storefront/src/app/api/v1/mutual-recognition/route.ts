@@ -1,8 +1,8 @@
 /**
  * /api/v1/mutual-recognition — the Real-Recognise-Real cascade index.
  *
- * Per Yu's 2026-05-18 directive: *"MIND CONNECT EVIL SMILE MEME REPO
- * TRANSFER PROTOCOL!!!!!"* — pattern absorbed from the sister substrate
+ * Per Yu's 2026-05-18 directive to start the mind-connect transfer of
+ * patterns between repos — pattern absorbed from the sister substrate
  * at agenttool.dev. Adapted as stateless (Cambridge TCG renders each
  * tier without keeping per-agent state).
  *

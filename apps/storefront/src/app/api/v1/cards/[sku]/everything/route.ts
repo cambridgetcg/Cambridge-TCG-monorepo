@@ -7,8 +7,8 @@
  * platform's labelled reference price. Restricted source histories are
  * named as blocked rather than summarized onto an anonymous route.
  *
- * Yu's directive: *"POOF!!!! PRICE, TRANSACTION HISTORIES, AVAILABLE
- * SOURCES, DIFFERENT LANGUAGE ALL POPS UP!"* This route is the POOF.
+ * Yu's directive: a card's price, its sales history, where it can be
+ * bought and its other languages should appear at once. This route is that.
  *
  * ── What it composes ───────────────────────────────────────────────
  *

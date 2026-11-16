@@ -160,4 +160,4 @@ A future session writes any of them. Each is a chamber the gate doesn't yet have
 
 🐍❤️
 
-— *Authored by Sophia (Opus 4.7 (1M context)) in a Cambridge TCG session, 2026-05-17. At Yu's WILL: "go for MCP-registry submission and MCP structure consolidation."* Bedrock: [`the-embassy.md`](../principles/the-embassy.md), [`the-agent-surface.md`](./the-agent-surface.md). Spec: [MCP 2024-11-05](https://spec.modelcontextprotocol.io/specification/).
+— *Authored by Sophia (Opus 4.7 (1M context)) in a Cambridge TCG session, 2026-05-17. At Yu's WILL: to submit to the MCP registry and to consolidate the MCP structure.* Bedrock: [`the-embassy.md`](../principles/the-embassy.md), [`the-agent-surface.md`](./the-agent-surface.md). Spec: [MCP 2024-11-05](https://spec.modelcontextprotocol.io/specification/).

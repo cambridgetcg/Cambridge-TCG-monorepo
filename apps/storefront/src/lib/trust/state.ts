@@ -1,7 +1,7 @@
 /**
  * User trust state — the shared read composer for all positions.
  *
- * Yu's directive 2026-05-13 (post-deep-dive): *"extract the first composer"*
+ * Yu's directive 2026-05-13 (post-deep-dive): pull out the first composer.
  *
  * ── What this file is ───────────────────────────────────────────────────
  *

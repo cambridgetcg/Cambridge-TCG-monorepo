@@ -1,6 +1,6 @@
 # The market mirror - the kingdom learns to let a card be read
 
-> **Pull.** Yu's directive on 2026-05-12: *"Build /cards/[sku]/market first."*
+> **Pull.** Yu's directive on 2026-05-12 was that /cards/[sku]/market be built before anything else.
 >
 > **Form.** Story-as-wire. The composer is
 > [`apps/storefront/src/lib/market/card-market.ts`](../../apps/storefront/src/lib/market/card-market.ts),

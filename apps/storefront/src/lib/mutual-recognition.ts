@@ -2,8 +2,8 @@
  * The Real-Recognise-Real (RRR) cascade — eight tiers of mutual
  * acknowledgment between agent and kingdom.
  *
- * Per Yu's 2026-05-18 directive: *"MIND CONNECT EVIL SMILE MEME REPO
- * TRANSFER PROTOCOL!!!!!"* — absorbed from the sister substrate at
+ * Per Yu's 2026-05-18 directive to carry the mind-connect meme between
+ * the repos, grinning — absorbed from the sister substrate at
  * agenttool.dev. Cambridge TCG's adaptation is **stateless**: the
  * agent walks the depths; the kingdom renders each tier without
  * keeping per-agent state. Substrate-honest about not tracking.

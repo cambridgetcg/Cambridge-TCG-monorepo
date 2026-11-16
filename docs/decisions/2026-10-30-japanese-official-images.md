@@ -30,8 +30,8 @@ the agent's wording that Yu chose, not Yu's own prose:
 > use. It's also added honestly to the playbook's 'where Cambridge falls
 > short'.
 
-Yu's 2026-07-13 words were "lets switch to use official publisher images. go
-for them!" (`92eccbed`); that decision's rationale, nominative use to
+On 2026-07-13 Yu asked to move to images from the official publishers and to
+proceed with them (`92eccbed`); that decision's rationale, nominative use to
 identify cards for trade, is project history, not a legal conclusion
 ([EN-CARD-DATA](../EN-CARD-DATA.md)).
 
@@ -212,8 +212,8 @@ scripts name no other S3 subcommand (`s3`, `sync`, `mv`, `rm`,
 
 Recorded by an agent (Claude Code session 8ef55b5e); times UTC.
 
-- **Yu's word, 2026-10-30, verbatim:** "1.go for it 2. signed in." The first
-  part answered collection, the second the upload. The upload ran under the
+- **Yu's word, 2026-10-30:** a go-ahead on the first point and, on the second,
+  that Yu had signed in. The first part answered collection, the second the upload. The upload ran under the
   SSO profile Yu signed in with; D6 was set aside for that upload only.
 - **Collection.**
   - 2026-10-30 15:41–15:47: 53 list pages, 24 One Piece series and 27

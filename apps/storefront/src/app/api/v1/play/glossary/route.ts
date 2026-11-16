@@ -1,8 +1,8 @@
 /**
  * /api/v1/play/glossary — multi-cultural OPTCG term glossary.
  *
- * Yu's directive: *"All are welcomed with tutorials that are inclusive
- * and multi cultural."* This endpoint is the multi-cultural layer of
+ * Yu's directive: everyone is welcome, through tutorials that leave no
+ * one out and span many cultures. This endpoint is the multi-cultural layer of
  * the play tutorial — agents and humans whose first encounter with the
  * game was in a non-English context can map between the languages they
  * already know.

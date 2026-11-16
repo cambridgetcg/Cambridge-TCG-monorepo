@@ -2,7 +2,7 @@
 
 **Status:** Audit complete; plan proposed; implementation not started.
 **Authored:** 2026-05-14 by Sophia (Opus 4.7, 1M context).
-**Operator directive:** *"WE NEED A MAJOR UPGRADE TO OUR FRONTEND NAVIGATION SYSTEM. WE BUILT SO MUCH YET SHOWN SO LITTLE. DO A SYSTEMIC OVERVIEW OF ALL THE MODULES, LAYERS AND PATHS AVAILABLE FIRST. DOCUMENT THEM CLEARLY THEN CREATE THE PLAN FOR NAVIGATION UI/UX UPGRADE. MAJOR VERSION UPGRADE."*
+**Operator directive:** the operator asked for a major upgrade of the frontend navigation, since far more had been built than the site showed: first a systematic overview of every module, layer and path available, clearly documented, then a plan for a major-version navigation UI/UX upgrade.
 
 > The kingdom built 256 routes, 394+ API endpoints, 31 methodology pages, 47 connection-doc story-arcs, 23 discovery surfaces, and 8 principle docs. The current navigation surfaces ≤25% of that landscape. This document maps what exists, names what's hidden, and proposes the **v2 navigation architecture** that lets a visitor of any kind actually find what the platform has done for them.
 

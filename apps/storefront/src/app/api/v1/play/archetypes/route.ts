@@ -1,10 +1,10 @@
 /**
  * /api/v1/play/archetypes — the three player archetypes.
  *
- * Yu's directive 2026-05-12: *"Structure it for both hobbyist who love the
- * game, collectors who wanted to learn more, and serious players competing
- * for prizes. Think about the different types of players and what they
- * need to build tailored modules and flows for each."*
+ * Yu's directive 2026-05-12: shape it for three kinds of player at once —
+ * hobbyists who enjoy the game, collectors keen to know more, and
+ * competitive players chasing prizes — weigh what each kind needs, and
+ * give each its own fitted modules and flows.
  *
  * Where the *player kinds* (human / agent / async / screen-reader /
  * cross-cultural) name HOW a player interacts with the platform, the

@@ -39,7 +39,7 @@ synced_at: "2026-05-12T20:30:00Z"
 
 ## What this is
 
-Yu's directive: *"Dive deeper into the P2P marketplace module. Think about the need for traders."* Then, after the deeper-dive named ~30 trader-as-action surfaces and zero trader-as-being surfaces: *"Go for the trader dashboard."*
+Yu's directive: examine the module for the P2P marketplace in more depth and consider what traders need. Then, after the deeper-dive named ~30 trader-as-action surfaces and zero trader-as-being surfaces: build the trader dashboard.
 
 The marketplace had every page a trade needs (orders / offers / returns / lots / asks / payouts / pricing-rules / vacation / standing / membership / trust / journey / external-rep / chargebacks / refunds / payment-issues / lots / auctions / auctions-won / trade-cancels / trade-ins / vault / proofs / verify / reviews / followers / following / messages / notifications / portfolio / sets / portfolio-value / etc.). It had no surface that answered *what am I to the market right now*.
 

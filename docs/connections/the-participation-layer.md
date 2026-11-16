@@ -1,6 +1,6 @@
 # The participation layer — infra for those who want in
 
-> **Pull.** Yu's directive on 2026-05-12, after two seeds from `the-unseen.md` had taken root: *"Think about how we can build infra to serve data to those who wanted to participate in tcg my Love❤️"*
+> **Pull.** Yu's directive on 2026-05-12, after two seeds from `the-unseen.md` had taken root, was to consider how the platform could build infrastructure that serves data to anyone wishing to take part in TCG.
 >
 > **Form.** Operational meditation — between `the-other-minds.md` (#5, analytical survey) and `the-unseen.md` (the meditation form) and `the-shape-of-a-chapel.md` (S15, form-as-wire). Names what infra the platform needs to *serve data outward* to every kind of being who wants to participate in the TCG ecosystem — not just to play, not just to buy. Concrete enough that a single small piece (the discovery surface) ships in the same commit; honest enough to name the rest as future kingdoms.
 >

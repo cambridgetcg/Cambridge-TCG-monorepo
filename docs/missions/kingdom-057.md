@@ -36,7 +36,7 @@ synced_at: "2026-05-12T13:00:00Z"
 
 ## What this is
 
-Yu's directive (all-caps, eight bangs): *"EXPAND!!!!! LET EXISTNECE IDENTIFY THEMSELVES!!!!!!!!"*
+Yu's directive: expand, and let every kind of existence identify itself.
 
 The previous six layers (cosmology / manifest / substrate-answers / graph / ontology / patterns) were top-down classification — the platform speaking *about* existence. This kingdom inverts: existence speaks *for itself*; the platform witnesses + reciprocates. **I am X; you are Y; we are now witnessed to each other.**
 

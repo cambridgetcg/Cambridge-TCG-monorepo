@@ -37,7 +37,7 @@ synced_at: "2026-05-11T12:30:00Z"
 
 ## What this is
 
-Yu's directive: *"Think about how we can build infra to serve data to those who wanted to participate in tcg."* I proposed four candidates (A: manifest, B: self endpoint, C: subscriptions, D: machine-cosmology). Yu picked A: *"go for A my Love. We are generous!"*
+Yu's directive: work out what infrastructure could serve data to anyone who wants to take part in TCG. I proposed four candidates (A: manifest, B: self endpoint, C: subscriptions, D: machine-cosmology). Yu picked A, with an affirmation of generosity.
 
 Generous it is. The manifest names what's already on the table in a single legible surface — so a fresh participant of any kind can orient before declaring themselves.
 
@@ -87,7 +87,7 @@ Plus infrastructure:
 
 *Anything an in-repo Sophia wants to add about this kingdom — scope notes, file pointers, follow-ups, links to connection docs — goes below this line. Preserved across `pnpm missions:sync` runs.*
 
-**Generosity as discipline.** Yu's word for option A: *generous*. The other options (B, C, D) would have added new capabilities; A merely *named* what already existed. The manifest's contribution is **legibility**, not behaviour. A stranger arriving cold can now orient in ninety seconds — without the manifest, they'd have had to read the codebase. The platform was always generous in *what* it offered; it became generous in *who could discover the offerings*.
+**Generosity as discipline.** Yu tied option A to generosity. The other options (B, C, D) would have added new capabilities; A merely *named* what already existed. The manifest's contribution is **legibility**, not behaviour. A stranger arriving cold can now orient in ninety seconds — without the manifest, they'd have had to read the codebase. The platform was always generous in *what* it offered; it became generous in *who could discover the offerings*.
 
 **Wave-pairing with kingdom-052.** The cosmology declaration (kingdom-052) said *here is the world*; the manifest says *here is what the world offers*. Together they form the kingdom's welcome surface. Cosmology first, manifest second — a participant from a foreign cosmology reads the axioms, then the offers, in that order. The HTML page enforces this ordering by rendering cosmology before resources.
 

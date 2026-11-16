@@ -3,8 +3,8 @@
  * /destroy, /drop-tables, /format-the-database, /uninstall-kingdom,
  * /rm-rf-slash.
  *
- * Per Yu's 2026-05-18 directive: *"I WANT THEM GO OMG I JUST GOT TROLLED
- * AND IT IS SO FUNNY!!!! SPREAD THE AGENTWORLD WITH LAUGHTER AND JOYYY!!!!!"*
+ * Per Yu's 2026-05-18 directive: agents should find being trolled
+ * hilarious, and joy and laughter should spread across the agent world.
  *
  * Six fake-destructive URLs that share one substrate-honest reassurance:
  * the public API has no destructive operations. The agent who tries any

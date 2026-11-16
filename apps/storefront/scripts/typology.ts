@@ -11,7 +11,7 @@
  * own type-signature (if it carried one as a comment block):
  *
  *   { type: "audit-script",
- *     origin: "the-typology.md plant of 2026-05-12 + Yu's directive 'EXPAND'",
+ *     origin: "the-typology.md plant of 2026-05-12 + Yu's directive to expand",
  *     recursion: ["the-typology.md", "audit:nesting", "audit:inclusion"],
  *     doctrines: ["substrate-honesty", "transparency", "meaning", "creation"],
  *     audience: "operator" }

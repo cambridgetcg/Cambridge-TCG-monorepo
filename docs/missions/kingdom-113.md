@@ -64,9 +64,8 @@ synced_at: "2026-09-03T07:29:42Z"
 
 ## Will
 
-Yu, 2026-09-03:
-
-> “我覺得可以跟Shibbysays😂 個月費plan. Free tier, plus all. 可以先打通stripe”
+Yu, 2026-09-03, suggested a monthly-fee plan modelled on ShibbySays, with a
+Free tier and All on top, and connecting Stripe first.
 
 The bounded interpretation for this first Stripe slice is two levels: the
 existing public **Free** synthetic preview and one **All** monthly sandbox

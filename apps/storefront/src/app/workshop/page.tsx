@@ -9,10 +9,10 @@
  * we carry — and the industrial process (order, approval, ink, foil,
  * collation) by which an illustration becomes a card in a booster.
  *
- * Asha's brief 2026-07-28: "introduce major artists behind the japanese
- * TCG IP. Their life, their works, their philosophy and style choice.
- * Combined with the production process of how the art is integrated
- * into the industrial process and into booster packs."
+ * Asha's brief 2026-07-28 asked for an introduction to the leading
+ * artists of Japan's TCG IPs (lives, works, philosophies, styles),
+ * together with the way their art passes through industrial printing
+ * into the sealed booster pack.
  *
  * The frame is the ukiyo-e workshop the /lineage essay planted:
  * publisher, artist, carver, printer — four hands, one sheet. We have

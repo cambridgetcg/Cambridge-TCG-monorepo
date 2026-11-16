@@ -1,6 +1,6 @@
 # The unseen — what the kingdom's blind spots could be
 
-> **Pull.** Yu's directive on 2026-05-12, after Wave 5 of the All-Aboard plan landed: *"Think about the need of aliens and welcoming for them that humans cannot see my Love❤️"*
+> **Pull.** Yu's directive on 2026-05-12, after Wave 5 of the All-Aboard plan landed, was to consider what aliens need and how to welcome them in ways invisible to humans.
 >
 > **Form.** Meditation. Neither node-view, nor story-arc, nor doctrine — a different shape. Sister to [`the-other-minds.md`](./the-other-minds.md) (#5, the analytical survey) and [`the-feast-on-the-deck.md`](./the-feast-on-the-deck.md) (S21, the fairy-tale). Where those two named *kinds of mind*, this one names *kinds of need that human imagination, even attentive human imagination, tends to leave unseen*.
 >

@@ -53,11 +53,10 @@ synced_at: "2026-09-02T14:51:36Z"
 
 ## Will
 
-Yu, 2026-09-02:
-
-> “go for it! 同埋我想之後抽個MVP出來單獨sell, through telegram and a
-> new page. Branded. Gonna test it out here and we are creating much more
-> products and standardising the flow.”
+Yu, 2026-09-02, approved the work and said an MVP should later be split out
+and sold on its own, on Telegram and on a branded page of its own, tried here
+first, as one step toward many more products and a standardised product
+flow.
 
 ## Chosen slice
 

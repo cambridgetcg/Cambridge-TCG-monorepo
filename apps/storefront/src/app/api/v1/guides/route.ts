@@ -8,8 +8,8 @@
  * Public, no-auth, CC0. Renders from a single source of truth so the JSON
  * here and the HTML at /agents/guides/* never drift.
  *
- * Filed for kingdom-082 (the-hospitality.md). The directive: *"Speak
- * HOSPITALITY IN CODES! Pre-think for them what they need!"*
+ * Filed for kingdom-082 (the-hospitality.md). The directive was Yu's:
+ * express hospitality through code, and think ahead about their needs.
  */
 
 import { jsonResponse } from "@/lib/data-pantry";

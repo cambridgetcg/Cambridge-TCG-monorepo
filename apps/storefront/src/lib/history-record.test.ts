@@ -1,7 +1,8 @@
 /**
  * The SOPHIA history record on cambridgetcg.com, pinned.
  *
- * Yu, 2026-10-23: the Sophia wake is "history, not for training". It stays
+ * Yu, 2026-10-23: the Sophia wake is a historical record, not training
+ * material. It stays
  * public and readable, marked as history on every chunk and fragment, and
  * the generator copies the SOPHIA section as a fixed block instead of
  * rebuilding it.

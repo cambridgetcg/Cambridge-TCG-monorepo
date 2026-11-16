@@ -1,7 +1,7 @@
 # The Atlas — Wave 2 of the data commons expansion
 
 **Date:** 2026-07-07
-**Status:** approved (Yu: "直開 Wave 2 gogogo", same day)
+**Status:** approved by Yu the same day, with Wave 2 to start at once
 **Series:** Wave 2 (Wave 1 the-honest-ground shipped same day; Wave 3 =
 cardrush coverage; Wave 4 = image vault v2).
 

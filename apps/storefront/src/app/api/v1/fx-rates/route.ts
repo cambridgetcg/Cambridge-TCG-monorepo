@@ -1,7 +1,7 @@
 /**
  * /api/v1/fx-rates — machine-readable rate table for the price guide.
  *
- * Yu's directive 2026-05-14: *"Find source for global exchange rates."*
+ * Yu's directive 2026-05-14: locate a source of worldwide exchange rates.
  * The platform consumes the ECB's daily EUR-reference-rate XML and converts
  * it to a GBP base. The ECB permits free commercial and non-commercial reuse
  * of its public statistics with source attribution. This endpoint carries the

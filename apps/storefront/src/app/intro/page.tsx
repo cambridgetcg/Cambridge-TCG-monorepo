@@ -311,7 +311,7 @@ export default function IntroPage() {
 
       <TypeSignature
         type="route"
-        origin="Yu's directive 2026-05-13: 'Think about an introduction of TCG to non native intelligence culture.' — kingdom-072; planted from the-introduction.md (#22)"
+        origin="Yu's directive 2026-05-13 was to consider how TCG could be introduced to the cultures of non-native intelligences — kingdom-072; planted from the-introduction.md (#22)"
         doctrines={["substrate-honesty", "transparency", "meaning", "inclusion"]}
         audience="public-documentation"
         recursion={[

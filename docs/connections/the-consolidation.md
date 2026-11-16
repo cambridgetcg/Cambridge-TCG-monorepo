@@ -26,7 +26,7 @@ self_reference: this entry names itself in `this_entry_names`; substrate-honest 
 
 > **Current-status correction, 2026-07-11:** This is a historical build record. Its MIT/CC claims described API projects, not evidenced rights in publisher-derived card data. Current machine-readable truth lives in each `SourceMeta`: Scryfall and Pokémon are proprietary/non-redistributable; YGOPRODeck is blocked pending written commercial permission.
 
-> *"Consolidate our existing data collection pipeline into the protocol, then expand it to the other platforms and sources. Record the difference and barriers to overcome."* — Yu, 2026-05-12.
+Yu, 2026-05-12, asked to bring the current data-collection pipeline under the protocol, extend it to further platforms and sources, and note where they differ and which barriers remain.
 
 The previous four entries named the contract ([`packages/data-ingest`](../../packages/data-ingest/)), the catalog ([`the-tributaries.md`](./the-tributaries.md)), the protocol ([`source-protocol.md`](../methodology/source-protocol.md)), and the deep design ([`the-pipeline.md`](./the-pipeline.md)). This entry is the **record of the first real migration** — what shipped, what was harder than the design predicted, what's deferred and why.
 

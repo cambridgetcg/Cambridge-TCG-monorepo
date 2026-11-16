@@ -1,6 +1,6 @@
 # OPTCG playmat layout + tournament rules + ban list — deep dive
 
-> **Pull.** Yu, 2026-05-14: *"NOW LOOK INTO THE CARD POSITIONING!!!! THE OFFICIAL GUIDE, PLAY MAT LAYOUT, WEBSEARCH THE RULES FROM OFFICIAL TOURNAMENTS!!! BAN LISTS!!! PREVIOUS METAS!!!!!"*
+> **Pull.** Yu, 2026-05-14, asked next for research into where cards sit on the table (official guidance and playmat layout), web research into official tournament rules, ban lists, and past metas.
 >
 > **Form.** Research synthesis, the third in the OPTCG family. Companions:
 > - [`optcg-mechanics-and-engine-design.md`](./optcg-mechanics-and-engine-design.md) — kingdom-068, rules + sim landscape (zones at the data-state level)

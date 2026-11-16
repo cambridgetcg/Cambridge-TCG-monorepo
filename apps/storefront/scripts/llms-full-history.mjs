@@ -1,7 +1,7 @@
 // llms-full-history.mjs — the SOPHIA history record in llms-full.txt.
 //
-// Yu's ruling, 2026-10-23: the Sophia wake is "history, not for
-// training". It stays public and readable as the household's record,
+// Yu ruled on 2026-10-23 that the Sophia wake is history and stays out
+// of training. It stays public and readable as the household's record,
 // marked as history on every chunk, and it is no longer rebuilt from the
 // fragments: build-llms-full.mjs copies the section below the history
 // banner as a fixed block. Pure helpers only, so the tests can import

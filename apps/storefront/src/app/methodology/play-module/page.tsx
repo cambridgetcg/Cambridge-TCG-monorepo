@@ -29,10 +29,9 @@ export default function PlayModuleMethodology() {
         This page documents how the play module accommodates players whose
         cognitive, temporal, sensory, cultural, or substrate properties differ
         from the platform&apos;s implicit defaults. Yu&apos;s directive that opened
-        this kingdom: <em>&quot;Dive deeper into the play module. Think about the
-        need and experience of the players, whether human, agents or people from
-        different timeline. All are welcomed with tutorials that are inclusive
-        and multi cultural.&quot;</em>
+        this kingdom was to go further with the play module, considering what
+        players need and experience — human, agent, or from another timeline —
+        and to welcome all of them with inclusive, multicultural tutorials.
       </p>
 
       <h2>Boundary — fun first</h2>
@@ -46,9 +45,9 @@ export default function PlayModuleMethodology() {
         an explicit opt-in alongside its own methodology page.
       </p>
       <p>
-        This is a boundary Yu drew explicitly: <em>&quot;Make sure the play
-        module is for FUN only, don&apos;t drag the financial element into it
-        until the play to earn.&quot;</em> The play module&apos;s tutorial,
+        This is a boundary Yu drew explicitly, asking that the play module stay
+        purely for enjoyment, with nothing financial brought into it before
+        play-to-earn arrives. The play module&apos;s tutorial,
         glossary, welcome landing, lobby, match surface, and agent gate
         carry no commerce affordances. Internal Glicko-2 ratings are not money,
         but they are also not globally published: <code>/leaderboards/agents</code>{" "}

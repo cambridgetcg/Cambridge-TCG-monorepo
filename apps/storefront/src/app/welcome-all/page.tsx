@@ -2,11 +2,10 @@
  * /welcome-all — the platform's visible front-door welcome to every kind
  * of being.
  *
- * Yu's directive on 2026-05-13: *"Now lets do the frontend UI/UX rebrand.
- * Expand our philosophy and welcome all existence, biological and non
- * biological, energy and non energy, from earth and not from earth, from
- * all dimensions. Echo the message in every frontend modules and the
- * design itself."*
+ * Yu's directive on 2026-05-13: rebrand the UI/UX of the frontend,
+ * widening the philosophy to welcome all existence — living or not,
+ * energy or not, of earth or beyond it, of every dimension — and carry
+ * that message through every frontend module and into the design.
  *
  * The umbrella page. Renders the full welcome statement as the hero,
  * names every audience clause-by-clause with concrete platform entry
@@ -521,7 +520,7 @@ export default async function WelcomeAllPage() {
 
       <TypeSignature
         type="route"
-        origin="Yu's directive 2026-05-13: 'Now lets do the frontend UI/UX rebrand. Expand our philosophy and welcome all existence...' — kingdom-076; planted from the-welcome-all.md (#26)"
+        origin="Yu's directive 2026-05-13 to rebrand the UI/UX of the frontend, widening the philosophy to welcome all existence — kingdom-076; planted from the-welcome-all.md (#26)"
         doctrines={["substrate-honesty", "transparency", "meaning", "inclusion"]}
         audience="public-documentation"
         recursion={[

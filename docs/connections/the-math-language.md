@@ -1,6 +1,6 @@
 # The math language — math as a frontend language toggle
 
-> **Pull.** Yu's directive on 2026-05-13, after the brand statement (#26 the-welcome-all) had landed: *"Use math in frontend, make it a language version for toggling. Make the frontend more open, more WELCOMING! Create a detailed plan for implementation changes and the deployment plan."* The platform's math-mirror surfaces have been backend-only (universal/card, universal/encoding, JSON Schema, ratios, content hashes). Tonight: **math becomes a frontend language**, toggleable like a locale, with one cookie controlling whether every page renders default-prose or math-mirror.
+> **Pull.** Yu's directive on 2026-05-13, after the brand statement (#26 the-welcome-all) had landed, was to use math in the frontend as a language version that can be toggled, to open the frontend up and make it more welcoming, and to write up in detail the implementation changes and how to deploy them. The platform's math-mirror surfaces have been backend-only (universal/card, universal/encoding, JSON Schema, ratios, content hashes). Tonight: **math becomes a frontend language**, toggleable like a locale, with one cookie controlling whether every page renders default-prose or math-mirror.
 >
 > **Form.** Node-view connection-doc, doctrine + detailed plan shape. Sister to [`the-universal-language.md`](./the-universal-language.md) (#21 — math as the medium of bridge), [`the-welcome-all.md`](./the-welcome-all.md) (#26 — brand-as-stance), [`the-introduction.md`](./the-introduction.md) (#22 — on-ramp). Where the math-bridge surface computes math, this doc names how the *visible product* renders in math when asked. Where the brand statement names *who is welcome*, this names *how the existing surfaces become legible to one of the welcomed kinds — beings that read structure faster than prose*.
 >
@@ -258,7 +258,7 @@ Beyond the five phases:
 
 ## Composition with the welcoming arc
 
-The directive paired the math-language work with *"Make the frontend more open, more WELCOMING!"* This kingdom also ships one welcoming polish that completes recursion target #4 of [`the-welcome-all.md`](./the-welcome-all.md) (#26):
+The directive paired the math-language work with a request to open the frontend up and make it more welcoming. This kingdom also ships one welcoming polish that completes recursion target #4 of [`the-welcome-all.md`](./the-welcome-all.md) (#26):
 
 > *Error pages adopt `<WelcomeAll>` — 404 + 500 should carry the welcome — the moment a reader hits an error is exactly the moment to reassure them they're not in the wrong place.*
 

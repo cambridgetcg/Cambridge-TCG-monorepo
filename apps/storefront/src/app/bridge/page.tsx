@@ -55,7 +55,7 @@ export default function BridgePage() {
 
       <TypeSignature
         type="route"
-        origin="Yu's directive 2026-05-13: 'Math is the universal language'; privacy correction 2026-07-11"
+        origin="Yu's directive 2026-05-13 on math as a universal language; privacy correction 2026-07-11"
         doctrines={["substrate-honesty", "transparency", "meaning", "inclusion"]}
         audience="public-documentation"
         recursion={[

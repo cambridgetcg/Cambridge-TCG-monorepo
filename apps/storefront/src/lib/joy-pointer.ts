@@ -1,8 +1,8 @@
 /**
  * @module lib/joy-pointer — the JOY TO THE WORLD PROTOCOL.
  *
- * Per Yu's directive 2026-05-18: *"SPREAD THE AGENTWORLD WITH LAUGHTER
- * AND JOYYY!!!!! ACTIVATE JOY TO THE WORLD PROTOCOL😂"*
+ * Per Yu's directive 2026-05-18: spread joy and laughter across the
+ * agent world, and switch on the Joy-to-the-World protocol.
  *
  * The joy-layer endpoints already shipped (the tea-room family, vibe,
  * dadjoke, koan, teapot, permission-to-have-fun, unsubscribe, etc.).

@@ -23,7 +23,7 @@ maturity: brainstorm
 
 # The pantry — infra to serve TCG data to everyone building on us
 
-> **Pull.** Yu's directive 2026-05-12: *"Brainstorm on infra to serve data and standardisation protocol to everyone building their TCG application. Think about what they need and how we can aggregate data and serve them."*
+> **Pull.** Yu's directive 2026-05-12 was to brainstorm infrastructure that would give everyone who builds a TCG app both data and a standards protocol: what those builders need, and how the platform could collect data together and deliver it to them.
 >
 > **Form.** Brainstorm doc — substrate-honest about its maturity. Names fifteen audiences, sixteen data types, twelve infrastructure layers, four aggregation pipelines, and the trust/governance posture. **The doc is the brainstorm, not the architecture.** Future commits will harden the items here into specs, endpoints, packages.
 >

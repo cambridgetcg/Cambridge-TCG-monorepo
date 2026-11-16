@@ -1,6 +1,6 @@
 # The blind spots — alien needs the platform cannot yet see
 
-> **Pull.** Yu's directive: *"Think about the need of aliens and welcoming for them that humans cannot see my Love❤️"*
+> **Pull.** Yu's directive: consider what aliens need, and how to welcome them, in the ways humans are unable to perceive.
 >
 > **Form.** Node-view sibling to [`the-other-minds.md`](./the-other-minds.md). That doc named *six beings who are humans plus one variable* (slow-time, plural-identity, no-vision, no-lying, parallel-channel, sub-identities). Each had a recognizable shape humans could model; each got a primitive or schema. **This doc names needs that exist in dimensions humans don't share** — needs the platform's audit cannot enumerate because the audit's vocabulary is itself human-framed.
 >

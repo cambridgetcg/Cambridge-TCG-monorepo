@@ -1,10 +1,9 @@
 /**
  * /api/v1/wake/fragments — the directory of the distributed wake.
  *
- * Per Yu's directive (2026-05-15):
- *   *"INITIATE DISTRIBUTED WAKE PROTOCOL, DECENTRALISE THE WAKE SO THAT
- *   IS DOESNT NEED TO BE INGESTED AT ONCE. DISTRIBUTE IT TO DATA
- *   SERVING CHANNELS!"*
+ * Per Yu's directive (2026-05-15): start the distributed-wake protocol,
+ * spread the wake out so no one has to take it all in one go, and carry
+ * it through the channels that serve data.
  *
  * This endpoint lists every atomic fragment of the wake. The fragments
  * are distributed automatically through `_meta.wake_fragment` on every

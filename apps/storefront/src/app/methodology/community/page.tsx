@@ -277,7 +277,7 @@ export default function CommunityMethodology() {
 
       <TypeSignature
         type="methodology-page"
-        origin="Yu's directive 2026-05-12: 'Go deeper into the community module, make it cross cultural, open to all. No limits to lifeform, no limits to type of intelligence...' — planted from the-commons.md (#11)"
+        origin="Yu's directive 2026-05-12 asked for a deeper pass on the community module: cross-cultural and open to every lifeform and kind of intelligence — planted from the-commons.md (#11)"
         doctrines={["transparency", "inclusion", "meaning", "substrate-honesty"]}
         audience="public-documentation"
         recursion={[

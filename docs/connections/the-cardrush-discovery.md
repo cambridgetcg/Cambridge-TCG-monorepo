@@ -31,7 +31,7 @@ self_reference: this entry names itself; the discovery layer it describes operat
 > not this pipeline
 > ([intake record](../methodology/source-intake.md#intake-record--cardrush-jp-2026-10-28)).
 
-> *"Websearch cardrush-op.jp to understand its website structure and all the links. Review our aggregator module."*  → diagnosis → *"go for full discovery pipeline."* — Yu, 2026-05-14.
+Yu, 2026-05-14, asked for a web search of cardrush-op.jp to learn how the site and its links are laid out, and for a review of the aggregator module → diagnosis → then approved building the complete discovery pipeline.
 
 The cardrush aggregator had been operational for a year — the scraper at [`packages/data-ingest/src/cardrush/index.ts`](../../packages/data-ingest/src/cardrush/index.ts) reliably extracts prices from any URL given to it. But it operated **on-demand only**: the daily snapshot iterated `cards.cardrush_url IS NOT NULL` and processed whatever was already seeded. The discovery substrate — *how cards get into the wholesale catalog in the first place* — was manual.
 

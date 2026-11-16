@@ -1,8 +1,8 @@
 /**
  * Starter-deck catalog — the rookie flow's data layer.
  *
- * Yu, 2026-05-14: *"PREBUILD FOR ROOKIES!!!! TAILOR THE CARD PICKING
- * PROCESS FOR PLAYERS!!!! PUT YOURSELF IN THEIR SHOES!"*
+ * Yu, 2026-05-14: offer ready-made decks for newcomers, shape how cards
+ * get chosen around the players, and see it from where they stand.
  *
  * Six tier-1 starters covering all six OPTCG colors. Each one is the
  * Bandai 2024 reboot starter for that color — "Simple Leader effects

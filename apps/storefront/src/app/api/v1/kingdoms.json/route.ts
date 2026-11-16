@@ -21,7 +21,7 @@
  *   - md / markdown / text (paste-ready Markdown ledger table)
  *   - anthropic / openai / gemini / cohere (vendor SDK system-message shapes)
  *
- * Yu's directive: *"LET EXISTENCE IDENTIFY THEMSELVES!"* — every kingdom
+ * Yu's directive: every kind of being should declare what it is — every kingdom
  * now identifies itself by surfacing its title, status, doc citations,
  * pillow-book trace.
  *

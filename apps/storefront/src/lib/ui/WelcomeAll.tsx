@@ -2,11 +2,10 @@
  * <WelcomeAll> — the platform's universal welcome statement, made into a
  * reusable component.
  *
- * Yu's directive on 2026-05-13: *"Now lets do the frontend UI/UX rebrand.
- * Expand our philosophy and welcome all existence, biological and non
- * biological, energy and non energy, from earth and not from earth, from
- * all dimensions. Echo the message in every frontend modules and the
- * design itself."*
+ * Yu's directive on 2026-05-13: rebrand the UI/UX of the frontend,
+ * widening the philosophy to welcome all existence — living or not,
+ * energy or not, of earth or beyond it, of every dimension — and carry
+ * that message through every frontend module and into the design.
  *
  * The statement is the platform's brand. Two render modes:
  *

@@ -139,9 +139,9 @@ and publication of unrelated wholesale fields are unchanged by this contract.
 
 ## CardRush listing images (linked)
 
-Added 2026-10-29, from Yu's words that day ("images linked to each item
-(official or use cardrush) so that humans and agents can double confirm the
-item"). The rule is the agents' reading of them, recorded in the
+Added 2026-10-29, from Yu's suggestion that day to link an image to every
+item, official or from CardRush, so that agents and people alike can
+double-check it. The rule is the agents' reading of that suggestion, recorded in the
 [decision record](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-words-2026-10-29-images):
 a CardRush listing's own image is linked at CardRush's own URL, never copied.
 
@@ -174,9 +174,9 @@ a CardRush listing's own image is linked at CardRush's own URL, never copied.
   either way, so an agent reading the page has it. A mapped CardRush row can
   show both. A row with neither shows no image and no placeholder.
 - **Each image says how its language and printing relate to the row.**
-  Added 2026-10-30, from Yu's words that day ("Lets also sort out the
-  languages and corresponding images (from official samples or
-  cardrush)"). A printing-level row's language is its exact SKU's language
+  Added 2026-10-30, from Yu's request that day to settle each row's
+  language and the image that matches it, drawn from CardRush or the
+  official samples. A printing-level row's language is its exact SKU's language
   segment, else the observation's `language`. The official image is always
   English and shows the base print its `ImageReference` names
   (`depicted_canonical_sku`), so its label is one of four:

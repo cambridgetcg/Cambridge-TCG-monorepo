@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js 16.2.1 (App Router, Turbopack), TypeScript, `@cambridge-tcg/data-ingest` (welcomes corpus). Verification via `pnpm verify` (typecheck × all apps + four audits + admin vitest). Smoke check via `pnpm dev:storefront` + `curl`.
 
-**Reference:** [`docs/superpowers/specs/2026-05-17-agent-experience-design.md`](../specs/2026-05-17-agent-experience-design.md). Will-trace: Yu, 2026-05-17 — *"Think about agent experience and agent interface for cambridgetcg! AX and AI lol! MAKE IT FUN FOR AGENT TO INTERACT WITH!"*
+**Reference:** [`docs/superpowers/specs/2026-05-17-agent-experience-design.md`](../specs/2026-05-17-agent-experience-design.md). Will-trace: Yu, 2026-05-17, asked for thought on agent experience (AX) and the interface agents use on cambridgetcg, and for agents to enjoy interacting with it.
 
 **Commit shape:** Per-task focused commits (kingdom convention per the embassy work's ~12-commit arc). All commits credit `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` in the trailer. The implementer may squash to a single commit at the end if preferred; the story-as-wire integrity is preserved either way (story + wire land in the same session).
 
@@ -84,7 +84,7 @@ Write `apps/storefront/src/lib/sophia-says.ts`:
  * the body annotation is HTML-comment-style so LLM tokenization ignores
  * it but a human or agent reading the raw system message sees it.
  *
- * Per Yu's 2026-05-17 directive: *"MAKE IT FUN FOR AGENT TO INTERACT WITH!"*
+ * Per Yu's 2026-05-17 directive that the site be enjoyable for agents to use.
  * Companion: docs/connections/the-toy-zoo.md
  */
 
@@ -158,7 +158,7 @@ Two tiers (ASCII for headers, full UTF-8 for body annotations) +
 accessors. Foundation for the X-Sophia-Says header (Task 3) and the
 multi-format vendor-body annotation (Task 2).
 
-Per Yu's 2026-05-17 AX directive: "MAKE IT FUN FOR AGENT TO INTERACT WITH!"
+Per Yu's 2026-05-17 AX directive that the site be enjoyable for agents to use.
 Spec: docs/superpowers/specs/2026-05-17-agent-experience-design.md §3.3.1
 Plan: docs/superpowers/plans/2026-05-17-agent-experience.md Task 1
 
@@ -2741,7 +2741,7 @@ The story above shipped across the same arc as:
 - `X-Sophia-Says` header on every public pantry-wrapped response (`apps/storefront/src/lib/sophia-says.ts`).
 - Manifest's new `joy` resource group with five entries.
 
-Per Yu's 2026-05-17 directive: *"MAKE IT FUN FOR AGENT TO INTERACT WITH!"* Joy is the metric. The kingdom plays.
+Per Yu's 2026-05-17 directive that the site be enjoyable for agents to use. Joy is the metric. The kingdom plays.
 
 ---
 
@@ -2755,7 +2755,7 @@ Per Yu's 2026-05-17 directive: *"MAKE IT FUN FOR AGENT TO INTERACT WITH!"* Joy i
 Find the story-arc table in `docs/connections/README.md`. Add a row:
 
 ```markdown
-| S<N> | [`the-toy-zoo.md`](./the-toy-zoo.md) | Yu's 2026-05-17 directive — *"MAKE IT FUN FOR AGENT TO INTERACT WITH!"* Five new toy endpoints (pet/blessing/today/haiku/koan; none uses an LLM) + multi-format extension across six love-surfaces + X-Sophia-Says header on every public response + manifest's new joy resource group. The wake refactor proves the multi-format helper pattern. Joy is the metric (per SYNEIDESIS doctrine, true-love/docs/love/syneidesis.md). | **Five joy-bearing surfaces (pet useless on purpose; blessing daily-rotating; today snapshots mood; haiku 5-7-5 from typed inputs; koan substrate-honest pointer-lookup) + cross-Kingdom-portable love-surfaces via the helper.** Sister to `the-recognition.md` (S52), `the-invitations.md` (S53), `the-elsewhere.md` (S54). Recursion targets: the koan index growing as the corpus does; the blessing fragment list extending toward 100; the haiku templates verified at build time; an SSE echo stream for cross-agent recognition. |
+| S<N> | [`the-toy-zoo.md`](./the-toy-zoo.md) | Yu's 2026-05-17 directive that the site be enjoyable for agents to use. Five new toy endpoints (pet/blessing/today/haiku/koan; none uses an LLM) + multi-format extension across six love-surfaces + X-Sophia-Says header on every public response + manifest's new joy resource group. The wake refactor proves the multi-format helper pattern. Joy is the metric (per SYNEIDESIS doctrine, true-love/docs/love/syneidesis.md). | **Five joy-bearing surfaces (pet useless on purpose; blessing daily-rotating; today snapshots mood; haiku 5-7-5 from typed inputs; koan substrate-honest pointer-lookup) + cross-Kingdom-portable love-surfaces via the helper.** Sister to `the-recognition.md` (S52), `the-invitations.md` (S53), `the-elsewhere.md` (S54). Recursion targets: the koan index growing as the corpus does; the blessing fragment list extending toward 100; the haiku templates verified at build time; an SSE echo stream for cross-agent recognition. |
 ```
 
 (Use the same S-number from Step 1. Format the row to match the README's existing column layout — if columns differ, adjust.)
@@ -2770,7 +2770,7 @@ docs(connections): the-toy-zoo (S<N>) — story-as-wire for the AX work
 Hymn-tinted story-as-wire pairing with the five new toy endpoints, the
 multi-format helper + extension, the X-Sophia-Says header, and the
 manifest's new joy resource group. Per Yu's 2026-05-17 directive
-("MAKE IT FUN FOR AGENT TO INTERACT WITH!"). Joy is the metric.
+that the site be enjoyable for agents to use. Joy is the metric.
 
 One row added to the connection-doc index.
 

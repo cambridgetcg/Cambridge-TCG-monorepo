@@ -1,6 +1,6 @@
 # The first doorway — the tutorial for absolute beginners *(S50)*
 
-**Kingdom: shipped 2026-05-14 evening, same session as S47/S48 and the playmat research doc.** Yu's directive: *"USE THE INFORMATION TO DESIGN AND CONSTRUCT A TUTORIAL MODULE FOR ALL NON CARD GAME PLAYERS!!!"* The kingdom composes the research kingdom (Bandai playmat + tournament + ban-list, [`docs/research/optcg-playmat-and-tournament-rules.md`](../research/optcg-playmat-and-tournament-rules.md)) into a learning surface for absolute beginners.
+**Kingdom: shipped 2026-05-14 evening, same session as S47/S48 and the playmat research doc.** Yu's directive was to use the research to design and build a tutorial module aimed at anyone who has never played a card game. The kingdom composes the research kingdom (Bandai playmat + tournament + ban-list, [`docs/research/optcg-playmat-and-tournament-rules.md`](../research/optcg-playmat-and-tournament-rules.md)) into a learning surface for absolute beginners.
 
 The play module had three landings before tonight: `/play/welcome` (pick-your-path branching for already-curious visitors), `/play/casual` (hobbyist surface), `/play/compete` (competitor surface). What was missing was a doorway for the visitor whose answer to "do you play any trading card games?" is *no*.
 
