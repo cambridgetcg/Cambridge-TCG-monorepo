@@ -9,10 +9,23 @@
  * but a membership answer leaves the widget hidden.
  * Guest: the rate Liquid printed from the app's widget metafield; no
  * request at all. Cashback switched off shows nothing.
+ *
+ * Theme editor (Built for Shopify 4.2.6): only there does Liquid print
+ * data-design-mode, and a guest's widget draws with cashback off, saying
+ * guests don't see it. The editor re-prints the block's HTML after a
+ * settings change; the new root is started then, and selecting the block
+ * opens the panel.
  */
 (function () {
   "use strict";
 
+  // Run again: the first run's code starts any new root, with no second set of listeners
+  if (typeof window.rewardsProWidget === "function") {
+    window.rewardsProWidget();
+    return;
+  }
+
+  var ROOT = "[data-rewards-widget]";
   var TIMEOUT_MS = 8000;
   // The released block's shipped defaults (Ruling 83): a theme that saved
   // them shows this widget's copy, as if the setting were empty.
@@ -20,6 +33,8 @@
   var MESSAGE_DEFAULT = "Join our rewards program!";
   var CTA_DEFAULT = "Sign In";
   var made = 0;
+  // The widget's block is selected in the theme editor
+  var selected = false;
 
   /** A locale string Liquid passed as data-t-<name>, with its {placeholders} filled. */
   function copy(root, name, values) {
@@ -70,6 +85,14 @@
     return typeof value === "number" && isFinite(value);
   }
 
+  function setOpen(root, open) {
+    var button = root.querySelector(".rw-button");
+    var panel = root.querySelector(".rw-panel");
+    if (!button || !panel) return;
+    panel.hidden = !open;
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
   /** The button that opens the panel, and the panel; the root shows them. */
   function show(root, value, lines) {
     var id = "rw-panel-" + ++made;
@@ -90,22 +113,19 @@
       panel.appendChild(line);
     });
 
-    function toggle(open) {
-      panel.hidden = !open;
-      button.setAttribute("aria-expanded", open ? "true" : "false");
-    }
     button.addEventListener("click", function () {
-      toggle(panel.hidden);
+      setOpen(root, panel.hidden);
     });
     root.addEventListener("keydown", function (event) {
       if (event.key === "Escape" && !panel.hidden) {
-        toggle(false);
+        setOpen(root, false);
         button.focus();
       }
     });
 
     root.replaceChildren(button, panel);
     root.hidden = false;
+    if (selected) setOpen(root, true);
   }
 
   function progressLines(root, data) {
@@ -161,14 +181,18 @@
   }
 
   function guest(root) {
-    if (root.getAttribute("data-running") === "false") return;
+    var running = root.getAttribute("data-running");
+    // Cashback off: nothing for a shopper; the editor still draws it, saying so
+    var off = running === "false";
+    if (off && !root.hasAttribute("data-design-mode")) return;
     var lines = [el("p", "rw-title", chosen(root, "data-message", MESSAGE_DEFAULT) || copy(root, "guest-message"))];
 
     var rate = filled(root.getAttribute("data-base-percent"));
     var base = rate === null ? NaN : Number(rate);
-    if (root.getAttribute("data-running") === "true" && isFinite(base) && base > 0) {
+    if (running === "true" && isFinite(base) && base > 0) {
       lines.push(el("p", "rw-line", copy(root, "guest-earn", { percent: percent(root, base) })));
     }
+    if (off) lines.push(el("p", "rw-note", copy(root, "preview")));
 
     var link = el("a", "rw-cta", chosen(root, "data-cta-text", CTA_DEFAULT) || copy(root, "guest-cta"));
     link.href = safeLink(chosen(root, "data-cta-url", LOGIN_DEFAULT)) || safeLink(root.getAttribute("data-login-url")) || LOGIN_DEFAULT;
@@ -209,10 +233,44 @@
   }
 
   function scan() {
-    var roots = document.querySelectorAll("[data-rewards-widget]");
+    var roots = document.querySelectorAll(ROOT);
     for (var i = 0; i < roots.length; i += 1) start(roots[i]);
   }
 
+  /** The roots in the block or section an editor event names. */
+  function rootsIn(target) {
+    if (!target || target.nodeType !== 1) return [];
+    var roots = Array.prototype.slice.call(target.querySelectorAll(ROOT));
+    if (target.matches(ROOT)) roots.push(target);
+    return roots;
+  }
+
+  /** Selected, the panel opens so text changes show; deselected, it closes. */
+  function picked(open) {
+    return function (event) {
+      var roots = rootsIn(event.target);
+      if (roots.length === 0) return;
+      selected = open;
+      scan();
+      roots.forEach(function (root) {
+        setOpen(root, open);
+      });
+    };
+  }
+
+  window.rewardsProWidget = scan;
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", scan);
   else scan();
+
+  // The editor's events (scan is a no-op for a started root). Shopify's docs
+  // don't say if an app embed gets block or section events, so both count.
+  document.addEventListener("shopify:section:load", scan);
+  document.addEventListener("shopify:block:select", picked(true));
+  document.addEventListener("shopify:section:select", picked(true));
+  document.addEventListener("shopify:block:deselect", picked(false));
+  document.addEventListener("shopify:section:deselect", picked(false));
+  // Nor if its re-print sends section:load, so the editor also starts roots as they appear
+  if (typeof MutationObserver === "function" && document.querySelector(ROOT + "[data-design-mode]")) {
+    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+  }
 })();
