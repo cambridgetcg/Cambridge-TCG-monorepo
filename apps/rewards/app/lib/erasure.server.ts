@@ -162,8 +162,11 @@ const CLOSED_AT_ERASURE: readonly PayoutState[] = ["pending", "held", "needs_loo
  * not started or running, Ruling 53). While it can, a later chunk of its
  * file, taken before Shopify erased the buyer, can still bring their orders
  * and their id back (CONCURRENCY-5), so the route answers 503 and Shopify
- * delivers the redaction again. A failed or done import, or an uninstalled
- * store's, writes nothing more: the app holds nothing about the buyer.
+ * delivers the redaction again. A done import, or an uninstalled store's,
+ * writes nothing more: the app holds nothing about the buyer. A failed one
+ * may be tried again within 30 days of install (retryFailedImport); its new
+ * bulk query is taken after this redaction, so it brings the buyer back only
+ * if Shopify still lists them on their orders then (importStillWriting).
  *
  * The locks follow lockPayout's order, order by order: the order's credit
  * (then the order), then its take-backs. A credit is closed first, which nets

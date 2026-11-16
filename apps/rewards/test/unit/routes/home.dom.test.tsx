@@ -275,7 +275,7 @@ describe("Home", () => {
       stubAppBridge("active");
       await renderHome(homeData({ importState: "running" }));
       expect(card()?.textContent).toContain(
-        "Bringing in your last 12 months of orders so buyers start in the right tier. These orders earn no cashback.",
+        "Bringing in your last 12 months of orders so buyers are placed in the right tier. These orders earn no cashback.",
       );
       // For as long as it runs (plan Decision 13)
       expect(usePolling).toHaveBeenLastCalledWith(true, expect.any(Number), { forMs: undefined, restartKey: "running" });

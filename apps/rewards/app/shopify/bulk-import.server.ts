@@ -14,6 +14,11 @@
  * are idempotent by their natural key. The file is read as a stream, one line
  * at a time (bulk-file.ts, Ruling 48), so it is never held as one string.
  *
+ * A failed import is tried again once a night for IMPORT_RETRY_DAYS after
+ * install (retryFailedImport, from the nightly housekeeping job), so one that
+ * failed while Shopify refused the app's bulk queries runs once it lets them
+ * through again.
+ *
  * Bulk limits shape what is read (graphql.ts, RewardsBulkOrderNodes): the
  * node has no refunds' items, so it is read with "quantities" (Ruling 25),
  * and a refund of money with no items that the file lists on its order
@@ -22,6 +27,7 @@
  * (`importRefundIds`, Ruling 54): its quantities count those refunds, so
  * recording one later adds no spend again.
  */
+import type { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import { importStillWriting, ingestImportedOrders } from "~/lib/import.server";
 import { type ConnectionContext, findConnection } from "~/lib/merchant.server";
@@ -49,6 +55,17 @@ const CALL_TIMEOUT_MS = 5000;
  * row since: the hourly sweep stamps it seconds before it polls imports.
  */
 const START_GRACE_MS = 5 * 60 * 1000;
+/**
+ * How long after install a failed import is tried again, once a night
+ * (retryFailedImport). Since 12 Nov 2026 Shopify refuses bulk queries from a
+ * public app with no IP allowlist, and it stops a lapsed app's bulk access;
+ * an import that failed for either reason runs once access is back. Thirty
+ * days is long enough to put that right, and short enough that a store's
+ * buyers are not moved up its tiers long after it was set up.
+ */
+export const IMPORT_RETRY_DAYS = 30;
+/** The least time between two tries of a failed import, so a second run of the nightly job on one day tries none again. */
+const RETRY_GAP_MS = 20 * 60 * 60 * 1000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -132,6 +149,74 @@ export async function startImport(admin: GraphqlClient, connectionId: string, in
   });
   if (count === 0) return;
   await launch(admin, connectionId, installedAt, CALL_TIMEOUT_MS);
+}
+
+/**
+ * The failed imports due a try (retryFailedImport): the store is installed,
+ * it was installed within IMPORT_RETRY_DAYS of `now`, and no launch was
+ * claimed in the last RETRY_GAP_MS (or none since a reinstall).
+ */
+export function importRetryDue(now: Date): Prisma.ConnectionWhereInput {
+  return {
+    status: "active",
+    importState: "failed",
+    installedAt: { gt: new Date(now.getTime() - IMPORT_RETRY_DAYS * DAY_MS) },
+    OR: [{ importLaunchedAt: null }, { importLaunchedAt: { lt: new Date(now.getTime() - RETRY_GAP_MS) } }],
+  };
+}
+
+/**
+ * Try a failed import once more, if it is due (importRetryDue):
+ * - the claim (failed → running) is conditional on the row as read, so of
+ *   two tries only one starts it. It is the import's last attempt
+ *   (importAttempts at 1 + MAX_IMPORT_RESTARTS), so a bulk query that then
+ *   fails, or a start that is lost, ends it as failed at the next poll, and
+ *   the next try is the next night's. The cursor starts at 0: orders an
+ *   earlier attempt wrote are skipped by their natural key, and imported
+ *   orders never earn, so a try credits nothing.
+ * - `started`: Shopify started the bulk query, and Home and the hourly job
+ *   follow it like any running import.
+ * - `still_failed`: Shopify still refused it (or couldn't be reached). The
+ *   row is failed again with Shopify's error and its dismissal as it was, so
+ *   Home shows what it showed before.
+ * - `not_due`: nothing was tried.
+ * Throws only when the database does.
+ */
+export async function retryFailedImport(
+  admin: GraphqlClient,
+  connectionId: string,
+  now: Date = new Date(),
+): Promise<"started" | "still_failed" | "not_due"> {
+  const row = await prisma.connection.findFirst({
+    where: { id: connectionId, ...importRetryDue(now) },
+    select: { installedAt: true, importLaunchedAt: true },
+  });
+  if (!row) return "not_due";
+  const launchedAt = new Date();
+  const { count } = await prisma.connection.updateMany({
+    where: { id: connectionId, status: "active", importState: "failed", importLaunchedAt: row.importLaunchedAt },
+    data: {
+      importState: "running",
+      importOperationId: null,
+      importCursor: 0,
+      importAttempts: 1 + MAX_IMPORT_RESTARTS,
+      importError: null,
+      importFileRefusals: 0,
+      importLaunchedAt: launchedAt,
+    },
+  });
+  if (count === 0) return "not_due";
+  try {
+    await launch(admin, connectionId, row.installedAt, CALL_TIMEOUT_MS);
+    return "started";
+  } catch (error) {
+    // Only this try's claim, still without an operation, goes back to failed
+    await prisma.connection.updateMany({
+      where: { id: connectionId, importState: "running", importOperationId: null, importLaunchedAt: launchedAt },
+      data: { importState: "failed", importError: messageOf(error).slice(0, 500) },
+    });
+    return "still_failed";
+  }
 }
 
 type ImportRow = {
@@ -424,6 +509,8 @@ export async function pollImport(
       importState: "done",
       importedCount,
       importError: summary,
+      // A retried import's earlier failure may have been dismissed; this outcome is new
+      importDismissedAt: null,
       ...(unfinished
         ? { tierPassRequestedAt: new Date(Math.max(resolvedBefore.getTime(), row.tierPassRequestedAt?.getTime() ?? 0)) }
         : {}),
