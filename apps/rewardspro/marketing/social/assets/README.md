@@ -34,6 +34,7 @@ built without its bands only when all of these hold:
   channel");
 - no `<placeholder>` is left in its text;
 - A6 only: a real screenshot is embedded in its slot (see below);
+- A7 only: nothing is left in its `holds` (see Doubt 5);
 - A9 only: `corrects` names the claim that proved wrong, its row has a `correction_url`, and the new
   sentence's claim ids are set.
 
@@ -230,6 +231,15 @@ its alt text fits the form's 64 characters. The PNG is a listing upload, so it g
      example is staging check B (`apps/rewards/docs/staging-run.md:7-9, 23`: the "RewardsPro
      Staging" app with a throwaway database), not the released app. If production check B is run,
      the line can say so instead.
+   - 12 Nov 2026: A7's body, its worked example (`ex-label`, `ex`) and its alt text (the card's
+     `alt` function in `render.mjs`) are 7 Nov's and match neither `rp-cashback-base` nor any live
+     page: rewrite all three from that row and the help page. Until then the card stays a draft now
+     that both its claim ids carry `social-post` (PR #242): the body ends in the placeholder
+     `<body to rewrite>`, and the card's `holds` says "the example and alt rewritten". The example
+     and the alt are held there, not by a placeholder: a placeholder is drawn in accent-text teal,
+     4.22:1 on the example's grey panel, under the build's 4.5:1, and the alt isn't drawn. Remove
+     the placeholder with the body's rewrite and the hold with the other two. The committed A7
+     files are still the 7 Nov build.
    - A8 is now titled "Some of Shopify’s rules for spending store credit", so it doesn't claim to be
      the whole list (`sh-sc-channels` also records other sales channels, B2B stores and
      subscriptions, which the card leaves out; POS stays out per STRATEGY §6.4). The partial-balance

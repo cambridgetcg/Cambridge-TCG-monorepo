@@ -3,6 +3,11 @@
 # Last update: 10 Nov 2026, by RewardsPro's Growth lead (RP-06, #166, PR #207). From now on, the source of a new
 # public sentence goes in the body of the PR that adds it, and this file isn't extended. Every earlier row, with its
 # history, is in git: this file on main before PR #207, and PR #207's earlier commits (up to e8c90600).
+# 12 Nov 2026 (PR #242): social-post added to 13 rows and to the channel list; rp-tier-lock's scope widened to tier
+# deletion and to the customer's erasure, checked against the code at 8daf7f09 by the writer and a fresh reader.
+# 13 Nov 2026 (PR #251): listing added to rp-give-back and rp-no-cashback-without-paid-order, whose scopes now say
+# how the App Store listing's App introduction is to carry them, on the owner's answer of that day (approvals.jsonl),
+# checked by the writer and by one fresh read, whose fixes are in.
 #
 # Kept: the rows behind a sentence on the live App Store listing or rewardspro.io, or in the listing text of PR #208
 # (App Store ads are built from the listing), plus the four rows PR #187 re-checked. The other 24 rows backed only
@@ -21,14 +26,14 @@
 # A sentence is used only with its scope. Locators are under apps/rewards/, with lines at dbd67564. The sh-* rows are
 # Shopify's rules, not RewardsPro's: re-read Shopify's page before review_after.
 # channels: listing (the App Store listing, and the ads built from it), landing (rewardspro.io, /help/ included),
-# internal (never public).
+# social-post (posts, cards and video captions on RewardsPro's own social accounts), internal (never public).
 
 [[claim]]
 id = "rp-store-credit"
 claim = "RewardsPro pays cashback as Shopify store credit."
 scope = "A store with cashback switched on and at least one tier."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "app/lib/record-order.server.ts:225-235: an order that earns cashback gets a pending payout on rail shopify_store_credit",
   "prisma/schema.prisma:89-90: shopify_store_credit is the only payout rail",
@@ -62,7 +67,7 @@ id = "rp-vip-tiers"
 claim = "Set tiers by spend, each with its own cashback rate. Loyal customers move between tiers as their spend changes, unless you lock them to a tier."
 scope = "Moves are worked out after a customer's paid orders, refunds and cancellations, and in a nightly pass, not at the moment their spend changes."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "prisma/schema.prisma:257-265: a tier has a name, a minimum spend and a cashback rate",
   "app/lib/tiers.server.ts:233-237: a locked tier wins; otherwise the customer gets the tier their spend qualifies for",
@@ -75,11 +80,14 @@ review_after = "2027-02-10"
 [[claim]]
 id = "rp-tier-lock"
 claim = "You can lock a customer to a tier."
-scope = "From the customer's page in the app, for a customer RewardsPro has recorded an order for and whose data hasn't been erased, on a store with at least one tier. A locked customer keeps that tier and its rate whatever their spend, until 'Return to automatic'."
+scope = "From the customer's page in the app, for a customer RewardsPro has recorded an order for and whose data hasn't been erased, on a store with at least one tier. A locked customer keeps that tier and its rate whatever their spend, until 'Return to automatic', until that tier is deleted, which returns them to automatic, or until the customer's data is erased. The lowest tier can't be deleted."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "app/routes/app.customers.$id.tsx:158-184: 'Lock to a tier' (shown only when the store has tiers, :168), and 'Locked to <tier>.' with 'Return to automatic'",
+  "app/lib/tiers.server.ts:682-683, 690-692 (deleteTier, :670-695; tiers.server.ts is unchanged at 8daf7f09): deleting a tier refuses the lowest one, clears the locks to it and places its customers again before the row goes. Added 12 Nov 2026",
+  "app/routes/app.tiers.tsx:332 (:341 at 8daf7f09): the lowest tier has no Delete button. Added 12 Nov 2026",
+  "app/lib/erasure.server.ts:215 (redactCustomer, customers/redact; erasure.server.ts is unchanged at 8daf7f09): erasing a customer's data sets lockedTierId to null. Added 12 Nov 2026",
   "app/routes/app.customers.$id.tsx:87-101 and app/lib/tiers.server.ts:276-286: lockTier sets the lock, or with null clears it, then resolves the tier",
   "app/lib/tiers.server.ts:234-235 and app/lib/record-order.server.ts:149: a locked tier wins, for the tier and for an order's rate",
   "app/lib/record-order.server.ts:120-131: customer rows are made only when an order is recorded; app/lib/stats.server.ts:478-485: an erased customer has no page",
@@ -94,7 +102,7 @@ id = "rp-tier-window"
 claim = "Tiers count a loyal customer's spend over the last 12 months or over all time, from the orders RewardsPro has recorded: those since install, and past orders from up to 12 months before it."
 scope = "The merchant picks one window for the store; the default is the last 12 months. 'All time' is used only with this sentence's limit. Without the read_all_orders scope the import reads 60 days back, and if the import fails, past orders don't count."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "prisma/schema.prisma:31-33, 147: the two windows, rolling_12_months by default",
   "app/lib/tiers.server.ts:68-76, 97-104: spend counts recorded orders from the window's start (no start for all time), leaving out test and cancelled orders",
@@ -109,7 +117,7 @@ id = "rp-cashback-base"
 claim = "Cashback is paid on the product price after discounts, as the order stood when it was paid, less any part of the order paid with store credit or gift cards. Shipping, and gift cards bought as products, earn nothing."
 scope = "Orders no edit changed before RewardsPro first records them (PR #187 at 740f2da0)."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "app/lib/order-facts.ts:80-97: the base is the product value less store-credit and gift-card payments, never below zero",
   "app/shopify/order-source.server.ts:244-250: a line's value is its total less its discounts; a gift card bought as a product counts as zero",
@@ -127,9 +135,9 @@ review_after = "2027-02-10"
 [[claim]]
 id = "rp-refund-takeback"
 claim = "When items are refunded, RewardsPro takes back their share of the cashback, up to the store credit the customer still holds in the order's currency. A refund of shipping alone takes nothing back."
-scope = "Stores whose prices include tax; orders with no item added after payment by an edit or an exchange; and refunds within the app's read limits: fewer than 20 refunds on the order, and no refund of it with more than 100 lines or with 20 or more transactions or shipping lines (PR #187 at 740f2da0)."
+scope = "Stores whose prices include tax; orders with no item added after payment by an edit or an exchange; refunds within the app's read limits: fewer than 20 refunds on the order, and no refund of it with more than 100 lines or with 20 or more transactions or shipping lines (PR #187 at 740f2da0); and orders placed in the store's current currency: while the store's currency isn't the one an order was placed in, a refund of that order can't be read and takes nothing back; once the store changes back, a refund read then takes back its share, so some still can (app/shopify/order-source.server.ts:222-225, 741; added 12 Nov 2026, PR #247)."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "app/lib/order-facts.ts:109-130: a refund takes its share, rounded down; the refund that completes the order takes what is left; shipping alone takes nothing",
   "app/lib/payouts.server.ts:246-258: the take-back is capped at the customer's balance in the payout's currency",
@@ -204,7 +212,7 @@ id = "rp-no-order-rules"
 claim = "Each tier has one cashback rate, with no setting to exclude products, collections or sales channels."
 scope = "Says what a merchant can't set, never that everything earns: test, cancelled and past orders, and gift cards bought as products, earn nothing."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "prisma/schema.prisma:257-265: a tier holds a name, a minimum spend, a cashback rate and a position",
   "app/routes/app.tiers.tsx:358-406: the tier form asks for Name, Minimum spend and Cashback",
@@ -219,7 +227,7 @@ id = "rp-merchant-funds"
 claim = "The cashback is store credit in your own shop, so you fund the cashback you give."
 scope = "Every store using RewardsPro. Every 'free' sits beside this sentence."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "app/shopify/store-credit-rail.server.ts:304-307 and app/shopify/rail-for.server.ts:27-28: the credit is issued on the store's own customer, through the store's own admin session",
   "No billing code (rp-free): RewardsPro charges nothing and pays nothing towards the credit",
@@ -233,7 +241,7 @@ id = "rp-free"
 claim = "RewardsPro is free for every store that installs it, and no paid plans are offered."
 scope = "Always beside rp-merchant-funds (you fund the cashback). Never 'free forever'. Shopify's own store-credit fee (sh-sc-fee) is Shopify's charge, not RewardsPro's."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "git grep -i for appSubscription, billing, recurringApplicationCharge, appUsageRecord and appPurchase over app/, extensions/, prisma/, shopify.app.toml and package.json: 0",
   "The App Store listing, saved 10 Nov 2026 09:48 UTC (sha256 10700c21): 'Pricing' 'Free', with no plans",
@@ -273,7 +281,7 @@ id = "sh-sc-signin-legacy"
 claim = "Customers can spend store credit at checkout when signed in with Shopify's new customer accounts or with Shop Pay; it isn't available for legacy customer accounts."
 scope = "Shopify's rule, as its Help Center put it on the date read."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "help.shopify.com/en/manual/customers/store-credit, saved 7 Nov 2026 11:46 UTC (sha256 0a002097): 'Customers can use their store credit as a payment method on your store only when signed in through customer accounts or using Shop Pay.' and 'Store credit isn't available for legacy customer accounts.'",
 ]
@@ -285,7 +293,7 @@ id = "sh-sc-full"
 claim = "Shopify applies the full store-credit balance at checkout; customers can't choose part of it."
 scope = "Shopify's rule, as its Help Center put it on the date read."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "help.shopify.com/en/manual/customers/store-credit, saved 7 Nov 2026 11:46 UTC (sha256 0a002097): 'Only the full store credit amount can be applied as a payment method. Customers can't select a partial amount of their store credit to pay for an order.'",
 ]
@@ -297,7 +305,7 @@ id = "sh-sc-fee"
 claim = "For Shopify stores created on or after 12 May 2025, Shopify charges third-party transaction fees on the part of an order paid with store credit."
 scope = "Shopify's own charge to the merchant, as its Help Center put it on the date read. Not a RewardsPro charge."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "help.shopify.com/en/manual/customers/store-credit, saved 7 Nov 2026 11:46 UTC (sha256 0a002097): 'For Shopify stores created on or after May 12, 2025, orders that include store credit as a payment method are charged third-party transaction fees on the order amount paid for using store credit.'",
   "help.shopify.com third-party transaction fees page, saved 7 Nov 2026 11:46 UTC (sha256 e55d3343): 'Store credit and gift card transaction fees don't apply to Shopify stores created before May 12, 2025.'",
@@ -310,9 +318,100 @@ id = "sh-sc-subscriptions"
 claim = "Shopify lets store credit pay for the initial purchase of a subscription, but not its recurring bills."
 scope = "Shopify's rule, as its Help Center put it on the date read. The shorter 'Shopify doesn't let store credit pay subscription renewals.' says the same. Subscriptions appear only inside Shopify's limit, never as a RewardsPro feature."
 status = "verified"
-channels = ["listing", "landing"]
+channels = ["listing", "landing", "social-post"]
 sources = [
   "help.shopify.com/en/manual/customers/store-credit, saved 7 Nov 2026 11:46 UTC (sha256 0a002097): 'Customers can use store credit towards the initial purchase of a subscription, but not towards recurring subscription bills.'",
 ]
 uncertainties = []
 review_after = "2026-12-07"
+
+# Added 12 Nov 2026 by RewardsPro's Growth lead, with the home page change that puts the owner's core concept of
+# that day on rewardspro.io (MESSAGING.md, top section; approvals.jsonl, 2026-11-12). The header says this file
+# isn't extended after 10 Nov. These three rows are added anyway: DESIGN.md's Claims section still asks for a
+# verified row behind each factual sentence on a page, and the limits these sentences carry have to be somewhere an
+# agent on another machine finds them. All three checked on 12 Nov 2026 by the writer and by PR #244's one read,
+# at 8daf7f09; these rows' lines are at 8daf7f09. For rp-give-back, a purpose, verified means its approvals.jsonl
+# quotes are exact and the mechanism rows it rests on hold. The ids are new: `rp-purpose` is cited in MESSAGING.md's
+# 7 Nov blocks for other words, and an id that reads "no paid order, no cashback" reads both ways.
+[[claim]]
+id = "rp-no-cashback-without-paid-order"
+claim = "No one earns cashback without a paid order."
+scope = "One way only: never turned round into 'every paid order earns'. Some paid orders earn nothing, such as those with no customer attached, Shopify's test orders and orders placed before install; the help page lists them at /help/#earn-nothing, so link it where there is room. Never 'only paying customers' (social/STRATEGY.md never-say 3). On the App Store listing it is to be the second sentence of the App introduction, after rp-give-back's h1 sentence (the owner's choice, 13 Nov 2026, approvals.jsonl). That field has no room for a link (the two sentences take 84 of its 100 characters), so the listing's nearest way to the list is a help link to https://rewardspro.io/help/ under the listing's Resources, which the owner plans to add in the same Save. Until that Save passes Shopify's review, the listing carries neither sentence and has no such link (on 13 Nov 2026 its only link to rewardspro.io was the privacy policy)."
+status = "verified"
+channels = ["listing", "landing"]
+sources = [
+  "app/lib/record-order.server.ts:225-238: the only credit payout is created here, for a recorded order's cashback entry",
+  "app/lib/refunds.server.ts:247-253: the only other payout.create, a refund's debit",
+  "app/lib/record-order.server.ts:92 and 61: an order with no customer is not recorded; an imported order earns nothing (reason import)",
+  "recordOrder's three callers: app/routes/webhooks.orders.paid.tsx:55 (orders/paid, shopify.app.toml:25-27); app/lib/payout-check.server.ts:536, the hourly sweep, whose list (app/shopify/order-source.server.ts:755) holds only paid, partly refunded or refunded orders; app/lib/import.server.ts:41, the past-orders import",
+  "app/lib/payouts.server.ts:139-152 and 529-543: adjustment entries create no payout; :240-241: the one credit call to Shopify is for a credit payout",
+  "git grep over app/ for payout.create, createMany and upsert, nested payout writes and INSERT INTO: no other path (12 Nov 2026)",
+  "apps/rewardspro/test/unit/contracts/public-texts.contract.test.ts: pins the home page's sentence beside these facts",
+]
+uncertainties = [
+  "That Shopify sends orders/paid only once an order is paid is Shopify's behaviour, and wasn't checked here; the handler checks the topic, not the order's payment status (app/routes/webhooks.orders.paid.tsx:36).",
+  "Added 12 Nov 2026 by the Growth lead (PR #247), and brought up to date by the commit that adds the list's closing line: the help page's list is complete by construction, checked against the code, not on a store. An order earns only if recordOrder records it with no no-cashback reason (the only credit payout is created there, after the order's row, app/lib/record-order.server.ts:166-238); each reason it can give has its line, except no_tier, which can't be given while cashback is on; and the closing line, 'Any other order RewardsPro never records, such as one it can't read from Shopify', covers every order never recorded that the lines above it don't name. One such order, found by PR #247's third pass and not verified on a store or in Shopify's docs: an order placed more than 60 days before it is paid, on a store where Shopify hasn't granted read_all_orders. The app asks for that scope (shopify.app.toml:49), the order read's notes say orders older than 60 days need it (app/shopify/graphql.ts:190-191), and the import reads 60 days back without it (app/shopify/bulk-import.server.ts:93); if Shopify then answers that the order doesn't exist, orders/paid records nothing (app/routes/webhooks.orders.paid.tsx:52-53). The named lines: since PR #247 the list also names orders whose cashback rounds to nothing; orders whose payment status is never Paid, Partially refunded or Refunded; orders placed before a store currency change and paid after it, some of which can still earn after a change back, since the read compares the order's currency with the store's at the time of the read (app/shopify/order-source.server.ts:222-225); as too large to read, only an order too large when RewardsPro comes to record it, a refund already on it included (:330-331, 351-352), since cashback is worked out once, then (app/lib/record-order.server.ts:156); that an install after the store's data is erased (shop/redact, or the nightly pass 30 days after an uninstall) counts as a first install, since the connection is deleted and the next install sets installedAt anew (app/lib/erasure.server.ts:123-131, app/lib/merchant.server.ts:97); and, for a store that installs RewardsPro again, orders placed while it was uninstalled, except one first recorded after a later uninstall and reinstall (app/lib/record-order.server.ts:63-65; uninstalledAt and activatedAt are overwritten at each uninstall and reinstall, app/lib/merchant.server.ts:256, 124), and orders paid while it was uninstalled that the hourly sweep doesn't list once it is back (app/lib/payout-check.server.ts:473, three days back). Failures (orders/paid and three days of sweeps both failing, a sweep past its page limit, an order deleted before it is read) leave an order never recorded, so the closing line covers them. Left off: orders whose credit is closed without being sent, which earned first (app/lib/order-status.ts:91). Two edges the construction doesn't close, found at 1095dd80 by PR #247's third read and the check of it, against the code, not on a store. RewardsPro counts an install, the first or a later one, from the first time the app is opened after it (onAppOpened, the afterAuth hook, app/shopify.server.ts:47; installedAt and activatedAt, app/lib/merchant.server.ts:97-98, 124), so an order placed between an install and that open can earn nothing (app/lib/record-order.server.ts:62-65), though the help page names only orders placed before the install or while RewardsPro was uninstalled. And an uninstall RewardsPro hears of only after that open is stale and marks nothing (app/lib/merchant.server.ts:247-267, app/routes/webhooks.app.uninstalled.tsx:34-38), so an order placed in that absence can earn, though the help page says it earns nothing.",
+  "Shopify's help defines Partially refunded and Refunded by what the customer paid, not by the order's value. So a part-paid order with a refund may be listed by the sweep and recorded, and it would earn on its full product value (app/shopify/order-source.server.ts:551). Not checked on a store.",
+]
+review_after = "2027-02-12"
+
+[[claim]]
+id = "rp-tier-higher-rate"
+claim = "So a customer who has spent more with you can be in a tier with a higher rate, if you set one."
+scope = "Follows 'Add tiers by spend, each with its own cashback rate.' (rp-vip-tiers), never alone. 'Can' and 'if you set one' stay: the rates are the shop's, and nothing makes a higher tier's rate higher. 'Spent more' is the spend RewardsPro counts (rp-tier-window). The order that takes a customer into a higher tier earns at the old rate (help page :263-264); customers move down too, and a locked customer stays in the locked tier (rp-vip-tiers, rp-tier-lock). Never 'the more they spend, the more they earn'."
+status = "verified"
+channels = ["landing"]
+sources = [
+  "prisma/schema.prisma:261-266: a tier is a name, a minimum spend and a cashback rate",
+  "app/lib/tiers.server.ts:124-132: qualify places a customer in the tier with the highest minimum their spend has reached",
+  "app/lib/tiers.server.ts:526-556 and 608-636: saveTier and saveLadder take any whole percent from 0 to 100 as a tier's rate, and tie no rate to a minimum (saveLadder asks only that each minimum rises)",
+  "app/lib/record-order.server.ts:149: an order's rate is the locked tier's, or else that of the tier the customer holds before the order",
+  "apps/rewardspro/test/unit/contracts/public-texts.contract.test.ts: pins the home page's sentence beside these facts",
+]
+uncertainties = []
+review_after = "2027-02-12"
+
+[[claim]]
+id = "rp-give-back"
+claim = "RewardsPro is for giving back to customers who buy from you."
+scope = "A purpose, the owner's: his words of 12 Nov 2026, and of 7 Nov ('give back to customers who are loyal'), both in approvals.jsonl. It holds because the credit goes only to customers with a paid order (rp-no-cashback-without-paid-order), as store credit the shop funds (rp-store-credit, rp-merchant-funds). Also covers the h1 sentence, 'Give back to customers who buy from you.': the home page's h1 and, by the owner's choice of 13 Nov 2026 (approvals.jsonl), the first sentence of the App Store listing's App introduction once the owner's Save passes Shopify's review, with rp-no-cashback-without-paid-order's sentence as the second. Never a result: not that customers stay, return or spend more. The shop gives and funds; RewardsPro adds the credit. Present tense: never 'who have bought' without 'Past orders earn no cashback.' beside it, and never 'the customers you already have' or 'existing customers' (a first paid order can earn too, help page :265). In posts and video it may follow 'Shops pay to find new customers.' as '... to the ones who buy from you.'; that opener is framing, not a claim, and stays off the site, the listing and the profiles."
+status = "verified"
+channels = ["listing", "landing"]
+sources = [
+  "approvals.jsonl, 2026-11-12: the owner's core concept and his yes to this wording, verbatim",
+  "approvals.jsonl, 2026-11-07 (ledger rp-umbrella-idea): 'A credit system to give back to customers who are loyal'",
+  "rp-no-cashback-without-paid-order, rp-store-credit and rp-merchant-funds: the mechanism that makes the purpose hold",
+]
+uncertainties = []
+review_after = "2027-02-12"
+
+# Added 12 Nov 2026 by RewardsPro's Product lead, with the help page's section "What does a base rate of 0% do?"
+# (/help/#zero-base-rate), on the owner's yes of that day (approvals.jsonl, 2026-11-12, item 4). It is extended after
+# 10 Nov for the reason given above rp-no-cashback-without-paid-order. Verified on 12 Nov 2026 by the writer and by
+# two reads, whose fixes are in (see uncertainties). Lines are at 8daf7f09; apps/rewards is the same at 94b32de1.
+[[claim]]
+id = "rp-zero-base-rate"
+claim = "With a base rate of 0%, orders from customers in your lowest tier earn no cashback. A customer's orders earn cashback once they are in a tier you have set above 0%, by their spend or because you lock them to it, at that tier's rate."
+scope = "A setting, said as a setting, never as advice or a result: not 'so only returning customers earn', not 'reward loyalty', nothing about customers staying, returning or spending more. Some orders still earn nothing (/help/#earn-nothing). Its limits go with it: (1) the order that takes a customer from the lowest tier into a higher one earns nothing, however large, and a new customer starts in the lowest tier; (2) past orders brought in at install count towards tiers, so a customer can be in a tier above 0% before they order again; (3) when a customer's counted spend falls below their tier's minimum (a refund, a cancellation, or, under Last 12 months, older orders leaving the window), they move down at the next update, with no grace period, unless locked; (4) if a refund or a cancellation later moves a customer back down, the cashback their other orders earned in the higher tier is not taken back: a refund takes back at most the refunded order's own cashback, and the order that took them up from the lowest tier earned nothing to take back; (5) cashback can be switched on before a tier above 0% exists, and until one does, no order earns any; (6) while cashback is on, the widget shows guests no rate and shows signed-in customers in the lowest tier '0% back as store credit'; when there is a higher tier they can reach, it names the next tier and the amount left, but not its rate, and with a single tier it says 'You are on the top tier'; if the widget's settings can't be written to Shopify when 0% is saved, guests can see the old rate until RewardsPro next writes them, such as in the nightly rewrite; (7) the help page's test order earns nothing at 0%, and locking yourself to a tier above 0% after it is recorded makes the next order earn that rate. Said on the help page first (the owner, 12 Nov 2026); a post may follow only with these limits beside it."
+status = "verified"
+channels = ["landing"]
+sources = [
+  "app/lib/tiers.server.ts:36-41: a base rate or tier rate is any whole percent from 0 to 100, so 0 is accepted",
+  "app/routes/app._index.tsx:176-184 and 358-383: Home's setup card saves it until the first tier exists; app/lib/tiers.server.ts:337-359: with no tiers it creates the lowest tier, Everyone, at a spend of 0, otherwise it sets the lowest tier's rate; app/routes/app.tiers.tsx:396-406 with tiers.server.ts:526-575: after that, the lowest tier's Cashback on Tiers takes 0 too",
+  "app/lib/record-order.server.ts:149-162: an order's rate is the locked tier's, or else the held tier's; at 0% the amount is 0, so the reason is nothing_to_pay_on, with no ledger entry and no payout (:207-240); the order is still written (:166-196) and counts as spend (tiers.server.ts:97-105)",
+  "app/lib/order-status.ts:48 and 77-83: Orders shows an order at 0% as No cashback, 'The rate gave nothing on this order', when nothing else stopped it earning: a reason found before the amounts (record-order.server.ts:61-69, such as Cashback was off) or nothing to pay on (cashbackBase 0) shows its own detail",
+  "(1) app/lib/record-order.server.ts:116-131: a new customer is created in the lowest tier; app/routes/webhooks.orders.paid.tsx:55-64 and app/lib/payout-check.server.ts:536-540: the tier is resolved only after the order is recorded",
+  "(2) app/lib/tiers.server.ts:1-9 and 97-105: tier spend counts imported orders (no source filter); app/lib/import.server.ts:4-6; app/shopify/bulk-import.server.ts:417-418: the import's end runs a tier pass; app/routes/app._index.tsx:181 and app/routes/app.tiers.tsx:88: so do the first base rate and a tier change that can move buyers",
+  "(3) app/lib/tiers.server.ts:63-77 and 97-105: the rolling window and the orders spend counts (refunds subtracted, cancelled orders left out); :222-261: resolveTier takes the locked tier, else the tier the spend qualifies for, with no grace; resolves after orders/refunded (webhooks.orders.refunded.tsx:102) and orders/cancelled (webhooks.orders.cancelled.tsx:82), and nightly (app/routes/api.cron.tiers.tsx, vercel.json:9)",
+  "(4) app/lib/record-order.server.ts:149-162: cashback is worked out once, when the order is recorded, at the rate then; app/lib/refunds.server.ts:155-160 and 191-197: a refund reads the refunded order's own cashback entry, and an order with none takes back nothing ('spend only'); :212-219 with app/lib/order-facts.ts:116-130: the take-back is that order's share, or what is left of its cashback when the refund completes the order, and never more than what is left, so it can be less (the help page's refunds section); app/lib/tiers.server.ts:222-261: resolveTier moves the tier and touches no ledger entry or payout; webhooks.orders.cancelled.tsx:1-5: a cancellation moves no money",
+  "(5) app/lib/merchant.server.ts:163-176: switching cashback on needs one tier, at any rate",
+  "(6) extensions/rewards-widget/assets/rewards-widget.js:163-171: a guest sees a rate only above 0, and nothing while cashback is off; :131-139 and locales/en.default.json:5: a signed-in customer sees their tier's rate, 0 included, while cashback is on (:137); :111-129 and en.default.json:8-10: the next-tier line has the amount and the name of the next tier above the held one (tiers.server.ts:150), the top tier says 'You are on the top tier' (:115), and the widget never reads nextTierCashbackPercent; app/routes/api.proxy.$.tsx:80-86 and app/lib/tiers.server.ts:144-151: no next tier for a locked customer or one whose spend already qualifies above the held tier, and isTop with no tier above; app/shopify/widget-config.server.ts:66-78: the guest's rate is the lowest tier's; app/routes/app.tiers.tsx:84-94 and app/routes/app._index.tsx:88-96: a failed widget write is logged and the save stands; app/shopify/widget-config.server.ts:11-13 and 21-23: the settings are written again whenever the switch or the tiers change (app._index.tsx:173 and 182, app.tiers.tsx:87-95), whenever the app is opened (app/shopify/install.server.ts:1-15 and 90, app/shopify.server.ts:42-47: after each token exchange, about hourly with expiring tokens) and every night, and after a failed write Shopify may hold either value; app/routes/api.cron.housekeeping.tsx:21-29, 50 and 135-162, vercel.json:10: the nightly rewrite, within a 240 s budget, with stores tried longest ago first, so it can miss a store",
+  "(7) app/lib/record-order.server.ts:120-131: a customer's row, which a lock needs, exists only once an order of theirs is recorded; app/lib/tiers.server.ts:276-286 and app/routes/app.customers.$id.tsx:88-100: Lock to a tier; record-order.server.ts:149: the locked tier's rate wins",
+  "apps/rewardspro/test/unit/contracts/public-texts.contract.test.ts: pins the help page's sentences beside these facts",
+]
+uncertainties = [
+  "The one read ran on 12 Nov 2026 at 80623a36: no sentence false, no data error. It found one missing money limit, now (4), and three sentences too broad or too loose, now fixed (the Orders page, the widget, and this file's notes in MESSAGING.md). A second read ran at 94ed8037: no sentence false, no data error. It found two sentences too broad (in (4), a refund's take-back read as a promised amount; in (6), the nightly update named as if it were the one end of the old rate) and one too loose (in (6), which higher tier the widget names), now fixed on the page, here and in the test; a clause in (4) here that the page doesn't say was cut. The chief of staff marked the row verified on 12 Nov 2026 after those two reads: each changed sentence is the second reader's wording, or narrower, and the writer checked it against the code again.",
+  "RP-24's setup guide (#185, #192, not merged) will send new stores to a three-step tier guide instead of Home's base rate field (#238); the help page's sentence on where 0% is saved changes then. RP-25 (#189) plans a widget line with the next tier's rate, and #243 may name the setting; either changes limit (6) or the section.",
+  "That a draft order marked as paid reaches orders/paid is the help page's existing try-it, and wasn't re-checked here.",
+]
+review_after = "2027-02-12"

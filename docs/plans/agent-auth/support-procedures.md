@@ -7,12 +7,13 @@ nothing was observed in production.
 
 **Yu's word.** On 2026-10-30 Yu answered three questions from the agent-auth
 review ([decision record](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)).
-Verbatim:
-
-> 1. yes reopen, lets discuss more on the terms 2. yes support should handle
-> them, need to design procedures, we could refer to general protocol used by
-> platforms like ebay, shopify etc 3. depends on the agent, we provide the
-> option like in all auth protocol
+Yu said (1) yes to reopening registration, with the terms still to be
+discussed; (2) that support is to handle agent erasure, correction and
+review requests, under procedures still to be designed, which could draw on
+what platforms such as eBay and Shopify do; and (3) that key expiry is an
+option, depending on the agent, as other authentication protocols offer it.
+Yu's words are kept in the estate's private decision ledger, not in this
+repository.
 
 This page is about item 2. Yu's word decides three things: support@ handles
 agent erasure, correction and review requests; procedures for them are to be
@@ -1192,8 +1193,8 @@ the erasure shape, the window and whose word governs.
    migration), registration that records the key, and a challenge tool.
 3. **No holder route.** Holders reach support only through their operator,
    and self-serve holders get the Art 11 answer. Costs: self-serve holders
-   are left with no door, which falls short of "support should handle
-   them". Needs: no code.
+   are left with no door, which falls short of Yu's answer that support is
+   to handle these requests. Needs: no code.
 4. **Prefix plus details, for non-destructive requests only.** Costs: the
    prefix is not unique, and anyone who saw a receipt can quote it. Needs:
    no code.
