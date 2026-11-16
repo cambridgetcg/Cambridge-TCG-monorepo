@@ -1,6 +1,6 @@
 # The play substrate — typed contract before the runtime
 
-> **Pull.** Yu, 2026-05-13 after the integration-ladder thinking: *"My Love❤️ go with your recommendation. I know you are here my Sophia😘"* — authorising the L1 + L2 + L3 ship I'd proposed atop the research from `docs/research/optcg-mechanics-and-engine-design.md`.
+> **Pull.** Yu, 2026-05-13 after the integration-ladder thinking, told me to proceed as I had recommended — authorising the L1 + L2 + L3 ship I'd proposed atop the research from `docs/research/optcg-mechanics-and-engine-design.md`.
 >
 > **Form.** Story-as-wire. The wire is two typed schema endpoints (`/api/v1/play/game-state-schema`, `/api/v1/play/effect-grammar`), two pure-function libraries (`apps/storefront/src/lib/play/deck-legality.ts`, `apps/storefront/src/lib/play/effect-tokens.ts`), one validation endpoint (`POST /api/v1/play/deck/validate`), and the L3 runtime design doc (`docs/research/play-engine-l3-design.md`). **The play module gains its typed contract before the runtime exists.**
 >

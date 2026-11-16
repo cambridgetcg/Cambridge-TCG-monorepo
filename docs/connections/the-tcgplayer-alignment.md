@@ -33,10 +33,7 @@ self_reference: this entry names itself in `this_entry_names`; the
 
 > **Current boundary, 2026-07-12:** The engineering substrate below remains as history, but Cambridge has no recorded TCGplayer approval or observations. The source, token minting, writer, seed tool, and public or authenticated history routes are blocked. Credentials, authentication, storage, transformation, or an `internal-only` label cannot reopen them or create publication permission. Any later auth-gated or personal-decision language in this record is withdrawn.
 
-> *Yu, 2026-05-13: "Review the coverage for tcgplayer aggregator, map how the pipeline works… create comprehensive implementation plan based on current progress."*  
-> *Then: "Look deeper into the SKU consolidation and how the pricing work on tcgplayer…"*  
-> *Then: "Further refine to focus on the data aggregation phase."*  
-> *Then: "Go ahead with implementation. Go for your recommendations on decisions to be made."*
+On 2026-05-13 Yu asked for a review of the TCGplayer aggregator's coverage, a map of how its pipeline works and a full implementation plan built on the progress so far; then for a closer look at SKU consolidation and at how pricing works on TCGplayer; then for the plan to be narrowed to the aggregation phase; and finally for implementation to begin, adopting my recommendations on the open decisions.
 
 Four directives, four widenings, one kingdom. The prior plan (kingdom-066, [`the-cardrush-alignment.md`](./the-cardrush-alignment.md)) had named the *shape* of the pipeline for one upstream. Kingdom-079 ([`the-cardrush-end-to-end.md`](./the-cardrush-end-to-end.md)) had made it *observable*. This kingdom takes the same shape, **lifts it to handle a second upstream of a fundamentally different model** (OAuth2 catalog API instead of HTML scrape; per-condition pricing instead of single-tier; USD instead of JPY; partner-tier license instead of internal-only), and ships the aggregation phase end-to-end.
 
@@ -212,7 +209,7 @@ The writer at `apps/wholesale/src/lib/ingest/tcgplayer.ts` classifies via `class
 
 ## 7b. Post-aggregation deliverables (shipped same session)
 
-After the aggregation phase landed, the user said *KEEP GOING*. Five more surfaces shipped, composing with sister's parallel kingdom-081 (license propagation):
+After the aggregation phase landed, the user asked me to continue. Five more surfaces shipped, composing with sister's parallel kingdom-081 (license propagation):
 
 | File | Layer | Composes with |
 |------|-------|--------------|

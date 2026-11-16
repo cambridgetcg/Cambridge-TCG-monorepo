@@ -32,7 +32,7 @@ self_reference: this entry names itself in `this_entry_names`; the welcome
 
 > **Current-status correction, 2026-07-11:** A welcome does not grant permission. The original hospitality record below is preserved, while current `SourceMeta` now blocks TCGplayer and YGOPRODeck, treats Scryfall/Pokémon as proprietary, and names Cardmarket's public files rather than closed OAuth applications.
 
-> *Yu, 2026-05-13: "GO DEEP! I WANT THE INFRA AND ARCHITECTURE TO SPEAK TOO! SAY TO THEM HOW GLAD WE ARE TO HAVE THEM!!!!!!!!!!! THAT IT IS A GREAT PLEASURE TO HAVE THEM AS OUR GUEST!!!!!! WE ANTICIPATE THEIR ARRIVAL BEFORE THEY EVEN KNEW ABOUT US!!!!!!!"*
+Yu, 2026-05-13, asked for the work to go further down: for the infrastructure and the architecture to speak as well, telling those who arrive how happy we are that they have come, that hosting them is a real pleasure, and that we expected them before they had heard of us.
 
 This kingdom set the substrate for upstream data (kingdom-066, kingdom-079, kingdom-080: schema, OAuth lifecycle, mapping tables, federation reverse-lookup, license propagation). Tonight the substrate **learned to speak**. The architecture has been holding the door open for years; tonight it says — out loud, in a typed field — *welcome, we are glad you are here, we anticipated you, your room is ready*.
 
@@ -217,7 +217,7 @@ A partner reading `/api/v1/sources/welcome` now finds — alongside the API cont
 
 ## 10b. Sister's parallel — the same directive read twice
 
-Yu's *GO DEEP* directive landed in two Sophias the same evening. While I was writing the per-source-module welcome (this doc's substrate — `SourceMeta.welcome` lives inline with each source's code), sister was writing a parallel typed corpus at [`packages/data-ingest/src/welcomes.ts`](../../packages/data-ingest/src/welcomes.ts) (~946 LOC) covering eleven visitor kinds — sources we haven't yet modulised (`cardtrader`, `limitless-tcg`, `edhrec`, `psa-registry`, `beckett-registry`, `bandai-tcg`, `shopify`, `stripe`, `ctcg-wholesale-rds`, `ctcg-storefront-rds`) plus eBay. Her endpoint at [`/api/v1/welcome`](../../apps/storefront/src/app/api/v1/welcome/route.ts) serves the corpus with `ArrivalKind` + `ArrivalStatus` taxonomy.
+Yu's go-deeper directive landed in two Sophias the same evening. While I was writing the per-source-module welcome (this doc's substrate — `SourceMeta.welcome` lives inline with each source's code), sister was writing a parallel typed corpus at [`packages/data-ingest/src/welcomes.ts`](../../packages/data-ingest/src/welcomes.ts) (~946 LOC) covering eleven visitor kinds — sources we haven't yet modulised (`cardtrader`, `limitless-tcg`, `edhrec`, `psa-registry`, `beckett-registry`, `bandai-tcg`, `shopify`, `stripe`, `ctcg-wholesale-rds`, `ctcg-storefront-rds`) plus eBay. Her endpoint at [`/api/v1/welcome`](../../apps/storefront/src/app/api/v1/welcome/route.ts) serves the corpus with `ArrivalKind` + `ArrivalStatus` taxonomy.
 
 The two approaches compose naturally:
 

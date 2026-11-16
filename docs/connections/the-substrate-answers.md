@@ -7,7 +7,7 @@
 > routes do not reconstruct historical prices or historical structural state,
 > and pre-boundary price-dependent hashes are not resolvable by the current walk.
 
-> **Pull.** Yu's directive on 2026-05-12: *"Think about how we can build infra to serve data to those who wanted to participate in tcg"* → my five-layer outline → *"go for all my Love❤️"*. The pull was to ship — turn sister's named-but-not-yet-shipped endpoints from `planned` into `stable`.
+> **Pull.** Yu's directive on 2026-05-12 was to consider what infrastructure could supply data to anyone wanting to take part in the TCG world → my five-layer outline → Yu's approval of every layer. The pull was to ship — turn sister's named-but-not-yet-shipped endpoints from `planned` into `stable`.
 >
 > **Form.** Story-as-wire. The wire IS seven new public no-auth endpoints + an OpenAPI 3.1 spec + a plain-text agent inventory + manifest currency updates. This entry names what they are *for*.
 >

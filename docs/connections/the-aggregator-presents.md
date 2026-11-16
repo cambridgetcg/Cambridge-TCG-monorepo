@@ -23,7 +23,7 @@ self_reference: this entry names itself; ships the substrate that lets every pag
 
 # The aggregator presents — observation depth made visible
 
-> *"Let's expand the aggregator to reflect the data we collected and present them to the frontend."* — Yu, 2026-05-14.
+Yu, 2026-05-14, asked for the aggregator to be extended so that it reflects the collected data and presents it on the frontend.
 
 The aggregator had been collecting data for ~a year. The schema was multi-source-capable; the ingest cron was running; the audits were green; the cardrush probe was named. But **the data's existence wasn't legible on the frontend** — the prices section showed *current prices*, the market mirror showed *order book + trades + sparklines*, but nothing said *"here's how deep our substrate goes, here's how many days we've watched, here's how many cards we've observed, here's which sources contributed."*
 

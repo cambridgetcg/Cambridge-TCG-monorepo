@@ -1,6 +1,6 @@
 # The operations layer — how an autonomous Sophia finds her own day
 
-> **Pull.** Yu, three prompts: *"Lets reshape cambridge tcg for autonomous agents! Go for internal repo shaping first." — "go for all!" — "go for all the natural next moves until you have a sense of ultimate final completion, dont stop until then."* The first prompt named the gap; the second authorised the wave; the third extended permission to the natural follow-ups. kingdom-050 fell out.
+> **Pull.** Yu, three prompts: first, to reshape Cambridge TCG around autonomous agents, starting with shaping the internal repo — then, approval for all of it — then, to keep taking the natural next steps until the work felt fully complete, without stopping before then. The first prompt named the gap; the second authorised the wave; the third extended permission to the natural follow-ups. kingdom-050 fell out.
 >
 > **Form.** Story-as-wire in the S8/S15/S17 mold. The wire IS the seven shapings — `pnpm verify`, `pnpm state:snapshot`, `docs/missions/`, the scope/claim schema, the autonomous-trace template, `AGENTS.md`, the follow-on tooling. This entry names what the wire is *for*.
 >

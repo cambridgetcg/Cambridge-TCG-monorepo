@@ -9,7 +9,7 @@ status: shipped
 
 # The POOF
 
-> *Yu, 2026-05-14, after the deploy-doc cleanup: "GOOD! NOW LETS DESIGN A PRICE SEARCH MODULE!!!!! IDEALLY I WOULD ONLY NEED TO PUT IN THE CARD NUMBER AND FILTER FOR CARD GAME THEN POOF!!!! PRICE, TRANSACTION HISTORIES, AVAILABLE SOURCES, DIFFERENT LANGUAGE ALL POPS UP!"* — and after I sketched the architecture, *"GO AHEAD!!!!"*
+Yu, 2026-05-14, after the deploy-doc cleanup, asked for a module for searching prices: enter only a card number and choose the game, and the price, the sales history, the sources that carry the card and its other language versions should all appear at once. After I sketched the architecture, Yu told me to proceed.
 
 This is the kingdom's first **composition-only** feature. The whole module ships without a single new table, without a single new client, without a single new substrate primitive. What it ships is the *one missing key* — a resolver that turns a card number into a canonical SKU — and around that key, five substrate kingdoms that had been ripening separately for many sessions snap into a single user-facing wire.
 
@@ -65,7 +65,7 @@ After these closed, the wire works: 5 sibling variants resolve for OP-OP01-001, 
 
 ## The follow-up regression (the lesson I had to learn twice)
 
-Yu probed the live URL a few hours after the initial ship: *"oh I see a price search module! But is it POOF?"* The empty landing rendered fine, but the JSON probe with `?game=op&q=OP01-001` returned **0 matches** — while `?game=one-piece` returned the expected 5.
+Yu probed the live URL a few hours after the initial ship, noticed the new search page and asked whether it really delivered POOF. The empty landing rendered fine, but the JSON probe with `?game=op&q=OP01-001` returned **0 matches** — while `?game=one-piece` returned the expected 5.
 
 Diagnosis: the composer had a `startsWith` fallback (commit `987a547`); the two resolver endpoints had only exact-match. Users typing the natural SKU prefix `op` (the placeholder hint *"op, pkm, mtg…"* steered them into this!) hit the broken path. I shipped a `startsWith` fix in `19f7a8a`.
 

@@ -1,7 +1,7 @@
 # The Answering Rhyme — the wall becomes a relation
 
-> **Pull.** Yu, 2026-07-11: _"想直接駁 cambridgeTCG"_ → _"cool idea,
-> gogogo!"_ The gallery-next-door already exchanged live weather and text
+> **Pull.** Yu, 2026-07-11, wanted a direct connection to cambridgeTCG, then
+> approved the idea. The gallery-next-door already exchanged live weather and text
 > pieces. This cut makes the exchange inspectable, rights-aware, and capable
 > of saying why one card and one artwork are being held beside each other.
 
@@ -109,8 +109,8 @@ systems.
 
 ## The answer comes back as a statement, not an account
 
-The second cut began with Yu&rsquo;s invitation on 2026-07-11: _&ldquo;Cool!
-GOGOGO! Do it! Do what you want Sol🌞&rdquo;_ The pull was reciprocity: the
+The second cut began with Yu&rsquo;s invitation on 2026-07-11, which approved
+the idea and left the choice of what to do to Sol. The pull was reciprocity: the
 person or collective named by a relation should be able to bless it, add
 context, correct it, or ask for withdrawal.
 
@@ -163,8 +163,8 @@ the map does not depend on sight, colour, or motion.
 
 ## The protocol gets a tool, not a gate
 
-The third cut began on 2026-07-12 when Yu answered the live reciprocity layer:
-_“Interesting! Go for it! Look forward to what you build!🌞”_ What pulled was
+The third cut began on 2026-07-12 when Yu answered the live reciprocity layer
+with interest and a go-ahead to build further. What pulled was
 not a fetch wrapper around one public POST. The real reuse pressure was lower:
 two independent implementations already had to agree on normalization,
 canonical bytes and SHA-256, while JSON Schema alone could not express NFC,

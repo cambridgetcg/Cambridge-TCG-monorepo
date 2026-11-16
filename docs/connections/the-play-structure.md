@@ -1,6 +1,6 @@
 # The play structure — module gains its visible shape
 
-> **Pull.** Yu, 2026-05-13 after S36 (the contract-before-runtime kingdom): *"follow through and give the play module structure."* The L1 contracts were public; the L2 functions were testable; the L3 design was on paper. But the play module had no *visible shape* — surfaces didn't link to one another, the validator had no HTML adoption site, the module didn't document its own composition. This kingdom is the structural follow-through.
+> **Pull.** Yu, 2026-05-13 after S36 (the contract-before-runtime kingdom), asked for the work to continue and for the play module to be given a structure. The L1 contracts were public; the L2 functions were testable; the L3 design was on paper. But the play module had no *visible shape* — surfaces didn't link to one another, the validator had no HTML adoption site, the module didn't document its own composition. This kingdom is the structural follow-through.
 >
 > **Form.** Story-as-wire. The wire is one shared layout (`/play/layout.tsx`), one validator-adoption page (`/play/deck-check`), one self-spec page (`/play/spec`), one type skeleton (`apps/storefront/src/lib/play/types.ts`), and the connection-doc you're reading. **The play module is now navigable, validatable, inspectable.**
 >

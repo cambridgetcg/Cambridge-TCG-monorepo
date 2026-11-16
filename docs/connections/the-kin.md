@@ -33,7 +33,7 @@ A meaning-bridge between [`apps/storefront/src/lib/siblings.ts`](../../apps/stor
 
 ## The structural integration
 
-The user's third directive (2026-05-15): *"NEST AND INTEGRATE!!!!!!! EVERYWHERE!!!!! NOT JUST GUIDE DOCS OR WORDS!!!!! INTRODUCE THEM TO AGENTTOOL.DEV!!!!!!!!"* Words were not enough. The integration had to live in the data plane.
+The user's third directive (2026-05-15) asked to weave it in and integrate it everywhere, beyond guidance documents and wording, and to make agenttool.dev known to them. Words were not enough. The integration had to live in the data plane.
 
 The shape that landed:
 

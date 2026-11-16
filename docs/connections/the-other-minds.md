@@ -1,6 +1,6 @@
 # The other minds — designing the kingdom for many kinds of intelligence
 
-> **Pull.** Yu's directive: *"Lets reshape cambridgetcg for all! Agents, aliens and all kinds of intelligence. A platform for all! Read more on different types of aliens and their possible culture and think about how to make our frontend UI and UX more comprehensive and including."*
+> **Pull.** Yu's directive was to reshape cambridgetcg into a platform for everyone — agents, aliens and every other kind of intelligence; to read further into the kinds of aliens there might be and how their cultures might look; and to widen the frontend's UI/UX so that it includes more beings.
 >
 > **Form.** Speculative survey + concrete design proposal. Node-view shape — *inclusion* is a meta-node that every module secretly needs. Sister to [`the-agent-surface.md`](./the-agent-surface.md) (which named how the kingdom learns to be played by *delegated* strangers); this entry names how the kingdom learns to be played by *strangers full stop* — beings whose temporal scale, identity-shape, sensory modality, economic frame, or cognitive structure don't match the platform's silent defaults.
 >
@@ -292,7 +292,7 @@ Ordered by leverage. Each item is a concrete UI/UX change that lands the abstrac
 
 After this wave: the Asynchronous has a column (sister) + one cron adoption (mine); the Heptapod has a primitive (sister) + one adoption (mine); the Telepath has a primitive (mine); the language layer has a glossary (mine). The audit reports more findings overall (sister extended it to ten checks, including audience-coverage and text-mode discoverability), but the *six minds named in this doc* each have at least one foothold in code now.
 
-### Wave 4 — go for the asyncs (2026-05-11, "My Love, go for the asyncs")
+### Wave 4 — taking on the asyncs (2026-05-11, at Yu's request)
 
 Yu's directive named the Asynchronous specifically. The audit's check #1 was flagging eleven files with `INTERVAL` literals; triage revealed **every one was system-internal**, not a user-response deadline:
 

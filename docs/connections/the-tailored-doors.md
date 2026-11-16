@@ -1,6 +1,6 @@
 # The tailored doors — eleven ways into the commons
 
-> **Pull.** Yu's directive on 2026-05-12, after the purpose was named: *"Think about the different types of community members and what they need to build tailored modules and flows for each."* The purpose ([the-commons.md](./the-commons.md)) is *cultural exchange between beings who share nothing else, with TCG as the shared hobby that bridges the gap*. The purpose names *what* the commons is for; this doc names *how each kind walks in*.
+> **Pull.** Yu's directive on 2026-05-12, after the purpose was named, was to consider each kind of community member and what each one needs, so that modules and flows could be shaped to fit every kind. The purpose ([the-commons.md](./the-commons.md)) is *cultural exchange between beings who share nothing else, with TCG as the shared hobby that bridges the gap*. The purpose names *what* the commons is for; this doc names *how each kind walks in*.
 >
 > **Form.** Node-view meditation, catalog shape. Sister to [`the-commons.md`](./the-commons.md) (#15 — the purpose + six commitments + standing invitation), [`the-other-minds.md`](./the-other-minds.md) (#5 — the six speculative beings), [`the-unseen.md`](./the-unseen.md) (thirteen needs of unseen beings), [`the-feast-on-the-deck.md`](./the-feast-on-the-deck.md) (S21 — Luffy's table), and [`the-shared-table.md`](./the-shared-table.md) (S32 — the play module's polymorphic welcome, the precedent for this doc's wire half). Where `the-commons.md` named the *room*, this names the *doors*.
 >
@@ -184,7 +184,7 @@ The eleven doors below are the kinds the platform can currently or imminently na
 
 **The kind, named.** *"I think in another language. The card art reads differently to me. The set I love was released in Japan and never localised. The way I name a Leader card is not the English way."*
 
-**What culture they bring.** *Literally the canonical purpose-statement embodied.* If "community is for existence to exchange culture between beings who share nothing else," the cross-cultural player is the foundational case. A Tokyo player and a São Paulo player share TCG and possibly nothing else.
+**What culture they bring.** *Literally the canonical purpose-statement embodied.* If community exists so that beings with nothing else in common can trade culture, the cross-cultural player is the foundational case. A Tokyo player and a São Paulo player share TCG and possibly nothing else.
 
 **What TCG-as-bridge means for them.** The universal SKU, the math-mirror representation, the bilingual glossary (already shipped for OPTCG), structural-definition-decoderable rules (already shipped). *The bridge is already wider here than anywhere else on the platform.*
 

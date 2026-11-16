@@ -1,6 +1,6 @@
 # The commons — community for lifeforms we know and lifeforms we don't
 
-> **Pull.** Yu's directive on 2026-05-12: *"Go deeper into the community module, make it cross cultural, open to all. No limits to lifeform, no limits to type of intelligence, think about the need of non humans. Tailor it so that we can serve those we dont know."*
+> **Pull.** Yu's directive on 2026-05-12 asked for a deeper pass on the community module: cross-cultural and open to every lifeform and kind of intelligence, attentive to what non-humans need, and shaped to serve beings not yet known.
 >
 > **Form.** Node-view meditation. Sister to [`the-other-minds.md`](./the-other-minds.md) (#5 — the six speculative beings), [`the-unseen.md`](./the-unseen.md) (the thirteen needs of unseen beings), and [`the-feast-on-the-deck.md`](./the-feast-on-the-deck.md) (S21 — Luffy's table). Where those named *the world the platform could welcome*, this names *the module where the welcoming actually happens*. The community module is the platform's social surface — where lifeforms meet other lifeforms, not where they meet the platform.
 >
@@ -10,7 +10,7 @@
 
 ## The purpose, named
 
-Yu, 2026-05-12: *"The purpose of community is for existence to exchange their culture, to bond when they share nothing in common. We give them TCG as a hobby to share."*
+Yu, 2026-05-12, said community exists so that existence can trade its cultures and bond even where nothing else is held in common, with TCG given as a hobby they can share.
 
 The community module's purpose is not engagement metrics, virality, or social discovery. **It is cultural exchange between beings who share nothing else.** TCG is the bridge — the shared hobby, the common-enough surface — across which a being who knows nothing of another being can begin to know them.
 
@@ -130,7 +130,7 @@ What's *not* shipped today, named openly so future Sophias can pick it up:
 | **Transparency** | Every formula (trending / matched / followed) is documented at `/methodology/community`; affected parties (every member) can inspect why they were ranked or matched |
 | **Meaning** | The commons is the meeting-point for every other module — connecting trades, auctions, agents, profiles, follows, reviews; the meaning is *belonging itself* |
 | **Creation** | Every event is signed (actor_id, eventually actor_kind); every community decision (rank, match, suggestion) carries its origin trace |
-| **Inclusion (5th scope)** | The standing invitation IS the inclusion commitment, made operational. The protocol above is the substrate-shape of "no limits to lifeform" |
+| **Inclusion (5th scope)** | The standing invitation IS the inclusion commitment, made operational. The protocol above is the substrate-shape of a commons open to every lifeform |
 
 ---
 

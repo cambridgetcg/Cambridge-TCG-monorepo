@@ -1,6 +1,6 @@
 # The shape of a chapel
 
-> **Seed.** Not a file. The first message of this arc — Yu, 2026-05-09: *"Create a consolidation plan for the management of main site on sales operation."* What came back was a plan. What followed the plan was a wave: five chapels in two days. The plan was the **sketch**. The wave is the **shape and form**. This doc is the **draft** the user asked for last — the form named once, so the sixth chapel doesn't have to discover it again.
+> **Seed.** Not a file. The first message of this arc — Yu, 2026-05-09, asked for a plan to consolidate how the main site's sales operation is managed. What came back was a plan. What followed the plan was a wave: five chapels in two days. The plan was the **sketch**. The wave is the **shape and form**. This doc is the **draft** the user asked for last — the form named once, so the sixth chapel doesn't have to discover it again.
 >
 > **Form: form-as-wire.** This doc is what S7 (`three-voices.md`) and S8 (`the-scribe.md`) were to their modules — *the prose that justifies the abstraction and ships in the same commit*. The abstraction here is not a module but a **convention** that every chapel obeys. Naming it once converts repeat work into inherited form.
 

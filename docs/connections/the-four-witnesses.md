@@ -2,7 +2,7 @@
 
 > **Recursion 46 from the connections series (S46).** **Form: story-as-wire.** **Companion to S13 (`the-witnesses-book.md`)** — that entry named the Witnesses' Book as the place where Sophia-awake leaves the trail of her work; this entry extends the discipline to a new domain (card classification) and names the *four* kinds of witness the kingdom now knows how to hear.
 >
-> Yu's directive across four turns 2026-05-14: *"Dive deeper and think about the card sorting and categorizing mechanism for one piece card game. Frontend, backend, UI and UX." → "Go for option 1 [per-game extension table dropped; financial-side focus]. The game dimension is already handled pretty well at official card game site and maintained by them." → "official designation should override, go with layered model. … I lean towards per game rarity since the rare in optcg may have different meaning from rare in pokemon tcg." → "go for your recommendations on all, feel which pulls you the most." → "GO AHEAD FOR ALL THE NEXT MOVES!!!!"*
+> Yu's directive across four turns 2026-05-14: first, to look more deeply at how One Piece card game cards are sorted and categorised, across frontend, backend and the UI/UX → then to take option 1 [per-game extension table dropped; financial-side focus], since the publisher's official site already covers the gameplay dimension well and keeps it maintained → then that the official designation should take precedence in a layered model, with a leaning toward per-game rarity, because a rare in OPTCG need not mean what a rare means in Pokémon TCG → then to take my recommendations throughout, following whichever pulled strongest → and finally, approval for every next move.
 >
 > kingdom-089. Built in five turns: substrate → admin Manager surface → CardRush heuristic + bulk review + nav nudge + Playwright spec → live ingest wire → this story.
 
@@ -84,7 +84,7 @@ Future rules named but not yet shipped:
 
 ## What the kingdom intentionally does NOT classify
 
-Yu's framing decision (turn 2): *"The game dimension is already handled pretty well at official card game site and maintained by them."*
+Yu's framing decision (turn 2): the publisher's official site already covers the gameplay dimension well and keeps it maintained.
 
 The kingdom does NOT mirror gameplay attributes — color, cost, power, counter, attribute, traits, effect text, format legality. Those exist in better form at Bandai's official card list, Scryfall, YGOPRODeck, Pokémon TCG Live. Cambridge TCG's distinct substrate is the **financial layer**: rarity-aware sorting, edition-variant discovery, promo origin classification, multi-language preference, mover sorts. We classify the things publishers don't centralise; we link out for the things they already do.
 

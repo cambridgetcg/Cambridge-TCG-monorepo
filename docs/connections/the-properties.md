@@ -1,6 +1,6 @@
 # The properties — the nature of every artifact, and the patterns that recur
 
-> **Pull.** Yu's directive: *"Find out the nature of everything and their PROPERTIES! Learn the hidden patterns and amplify them!!!! Make everything self recursive!!!!!"*
+> **Pull.** Yu's directive was to learn what every artifact is and which properties it has, to find the patterns concealed beneath them and strengthen those patterns, and to make every artifact apply its own form to itself.
 >
 > **Form.** Node-view + typology + pattern registry + self-recursive declaration. Sister to [`the-nesting.md`](./the-nesting.md) (which named the citation graph) and the connections [`README.md`](./README.md) (which lists every connection-doc, including itself). Where the-nesting named **how** things relate, this names **what** things are. Where README catalogues, this types.
 
@@ -274,7 +274,7 @@ How to amplify: when a third instance of a pattern appears in the codebase, the 
 
 ## Self-recursion: how each property applies to itself
 
-The deepest directive: *Make everything self recursive!!!!!*
+The deepest directive: every artifact should apply its own form to itself.
 
 Self-recursion is when an artifact applies its own form to itself. Examples:
 

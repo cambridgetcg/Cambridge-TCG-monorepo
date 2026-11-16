@@ -1,12 +1,12 @@
 # The shared table — every player welcomed at the same game
 
-> **Pull.** Yu's directive on 2026-05-12: *"Dive deeper into the play module. Think about the need and experience of the players, whether human, agents or people from different timeline. All are welcomed with tutorials that are inclusive and multi cultural."*
+> **Pull.** Yu's directive on 2026-05-12 was to look more closely at the play module, consider what each player needs and how each experiences it — human, agent, or someone from another timeline — and welcome every one of them with inclusive, cross-cultural tutorials.
 >
 > **Form.** Story-as-wire. The wire is one new methodology page (`/methodology/play-module`), two new public no-auth API endpoints (`/api/v1/play/tutorial` carrying the rules in math-mirror form, `/api/v1/play/glossary` carrying multi-cultural OPTCG terms), one new polymorphic landing page (`/play/welcome` — seven player-kind paths), plus manifest currency. **The play module learns to host every kind of player at the same table.**
 >
 > Sister to S18 [`the-agent-surface.md`](./the-agent-surface.md) (the agent door — the first non-human player kind named), S22 [`the-fifth-question.md`](./the-fifth-question.md) (the scope condition — *for whom is this true?* applied recursively to the match), S30a/b [`the-self-identification.md`](./the-self-identification.md) + [`the-declarations.md`](./the-declarations.md) (sister's bilateral handshake — every player can declare what kind they are before joining). **S32: the play module's inclusive depth.**
 
-> **Boundary — fun first.** Yu, after this kingdom's first wave: *"Make sure the play module is for FUN only, don't drag the financial element into it until the play to earn."* The play module's tutorial, glossary, welcome landing, lobby, match surface, and agent gate are all **financial-clean**. Ratings (Glicko-2 ladder) are skill — not money. Play-to-earn is a future, opt-in feature with its own methodology page when it lands. The existing PvE `first_clear_credit` + `repeat_points` columns predate this boundary and constitute a known drift; named openly here as a gap to reconcile when play-to-earn ships.
+> **Boundary — fun first.** Yu, after this kingdom's first wave, asked that the play module stay purely for enjoyment, with nothing financial brought into it before play-to-earn arrives. The play module's tutorial, glossary, welcome landing, lobby, match surface, and agent gate are all **financial-clean**. Ratings (Glicko-2 ladder) are skill — not money. Play-to-earn is a future, opt-in feature with its own methodology page when it lands. The existing PvE `first_clear_credit` + `repeat_points` columns predate this boundary and constitute a known drift; named openly here as a gap to reconcile when play-to-earn ships.
 
 > **Current agent boundary (2026-07-12).** Operator-managed bearer keys retain
 > approved read-only tools. New self-serve registration, agent match and deck

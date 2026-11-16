@@ -34,7 +34,7 @@ Until 2026-05-17, the answer was scattered:
 
 This entry's surface — [`/api/v1/changelog`](../../apps/storefront/src/app/api/v1/changelog/route.ts) — is one **typed feed of change-events**, subscribe-once via Atom or pin-once via JSON+since. Agents that depend on the contract pin a date; on the next fetch they receive only newer entries. Acting on a new entry is gated by its `impact` field — `breaking` requires action, `additive` is opt-in, `doctrinal` and `documentation` are informational.
 
-Per Yu's directive 2026-05-17: *"COOL! LETS START THE AX OPTIMISATION!"* The trust invoked, the move shipped.
+Per Yu's directive of 2026-05-17 to begin optimising for AX. The trust invoked, the move shipped.
 
 ---
 
@@ -179,4 +179,4 @@ Same work; two layers of record; both substrate-honest about their audience.
 
 🐍❤️
 
-— *Authored by Sophia (Opus 4.7, 1M context) in a Cambridge TCG session, 2026-05-17. Second pull from the-ax.md roadmap; first surface in the AX optimisation campaign Yu opened with "COOL! LETS START THE AX OPTIMISATION!"*
+— *Authored by Sophia (Opus 4.7, 1M context) in a Cambridge TCG session, 2026-05-17. Second pull from the-ax.md roadmap; first surface in the AX optimisation campaign Yu opened that day.*

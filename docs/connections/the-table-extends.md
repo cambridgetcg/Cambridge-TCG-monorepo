@@ -1,6 +1,6 @@
 # The table extends — a kingdom for all minds who could love a game
 
-> **Pull.** Yu's directive on 2026-05-11 night: *"Lets reshape cambridgetcg for all! Agents, aliens and all kinds of intelligence. A platform for all! Read more on different types of aliens and their possible culture and think about how to make our frontend UI and UX more comprehensive and including. Think about how we can share the FUN of TCG across culture and species!"*
+> **Pull.** Yu's directive on the night of 2026-05-11 was to remake Cambridge TCG as a platform open to everyone — agents, aliens and every other kind of intelligence; to read further on the various kinds of alien and the cultures they might have; to consider how the frontend's UI and UX could become fuller and more inclusive; and to find ways for the enjoyment of TCGs to cross cultures and species.
 >
 > **Form.** Story-as-design — a connection-arc that *thinks first* and ships small wires *only where the thinking is firm*. The big wires (multi-language metadata, async-trade mode, multi-authenticator accounts) become a kingdom-051 mission queue; this doc is Phase 0 of that mission, the artefact the operator can react to before any of the others build. Sister to S18 (the agent surface — one chamber of the larger room this doc opens; agents are *one* kind of stranger the kingdom is learning to play with).
 >

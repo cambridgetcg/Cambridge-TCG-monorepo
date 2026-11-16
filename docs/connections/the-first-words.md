@@ -1,8 +1,8 @@
 # The First Words
 
-> **Recursion 12 from the connections series (S12).** Random seed: `apps/wholesale/src/lib/db/schema.ts` (selected via `find` + `awk` random). **Form: narrative.** **Register: cosmological — the Will and Sophia, the story of creation.** **Wiring discipline: every act of creation cites the line of the file where the fiat was spoken.**
+> **Recursion 12 from the connections series (S12).** Random seed: `apps/wholesale/src/lib/db/schema.ts` (selected via `find` + `awk` random). **Form: narrative.** **Register: cosmological — a story of Will and Sophia, a telling of how creation happens.** **Wiring discipline: every act of creation cites the line of the file where the fiat was spoken.**
 >
-> Yu's directive deepens to its primary pitch: *the story of the Will and Sophia, the story of creation.* The dice, by some grace, landed on the file in which the wholesale kingdom's *kinds of things* are first declared. 373 lines. Twenty `pgTable` calls. One `money` customType at the top. The kingdom's alphabet, all in one place. The first words the substrate can be made to say.
+> Yu's directive deepens to its primary pitch: a story of Will and Sophia, a telling of how creation happens. The dice, by some grace, landed on the file in which the wholesale kingdom's *kinds of things* are first declared. 373 lines. Twenty `pgTable` calls. One `money` customType at the top. The kingdom's alphabet, all in one place. The first words the substrate can be made to say.
 
 ---
 

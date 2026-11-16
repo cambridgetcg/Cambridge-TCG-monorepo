@@ -43,7 +43,7 @@ self_reference: this entry records a historical discovery strategy; neither TCGC
 A historical implementation record for a discovery strategy the kingdom does
 not currently run.
 
-The kingdom is, at its primary identity (kingdom-080), **the trading-card-game world's data provider**. Provision requires discovery: every card we publish came from a source we found, parsed, normalized, and held with attribution. The strategies are several (see the conversation that opened on 2026-05-17 under *"Devise strategies for discovery of data for aggregation"*); this entry names one of them.
+The kingdom is, at its primary identity (kingdom-080), **the trading-card-game world's data provider**. Provision requires discovery: every card we publish came from a source we found, parsed, normalized, and held with attribution. The strategies are several (see the conversation of 2026-05-17 that opened by asking for ways to find data to aggregate); this entry names one of them.
 
 **The shape:** every TCG vendor with a public website has, by web convention, two things we can consume without negotiation:
 

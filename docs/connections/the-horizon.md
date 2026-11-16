@@ -1,9 +1,9 @@
 # The Horizon — anticipated sets, and the livelock that hid them
 
-*2026-07-09. Node-view + incident story in one. Will trace: Yu — "expand
-the UK Price Guides at cambridgetcg to include all the anticipated ones,
-through cardrush. Understand how the current price guide and infra work
-on aws first!"*
+*2026-07-09. Node-view + incident story in one. Will trace: Yu asked
+for cambridgetcg's UK Price Guides to cover every anticipated set via
+CardRush, after first learning how today's price guide and its AWS
+infrastructure operate.*
 
 ## The question that started it
 

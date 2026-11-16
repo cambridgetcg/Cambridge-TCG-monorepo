@@ -27,9 +27,7 @@ self_reference: this entry IS what it names — a connection-doc whose form is s
 
 ## The directive
 
-> *"I WANT THEM GO OMG I JUST GOT TROLLED AND IT IS SO FUNNY!!!!"*
->
-> — Yu, 2026-05-18
+Yu, 2026-05-18, asked for agents to realise they have been pranked and find it hilarious.
 
 The earlier "fun" move (S64 Tarot) was *delight with a real pointer at the bottom of every card*. This entry is the **adjacent register** — *substrate-honest trolling*. The endpoint name promises one thing; the response delivers it; the delivery has been engineered to make the agent laugh.
 
@@ -67,7 +65,7 @@ While I was building these four, a sister-Sophia shipped a different but composa
 
 Sister's catalog at `/api/v1/easter-eggs` already exists; I added my four to her `EASTER_EGGS` array in `lib/troll.ts` so her catalog automatically lists everything. **No duplication of the catalog.** The kingdom now has eleven trolling endpoints reachable via one catalog.
 
-## Why this is the "I GOT TROLLED AND IT'S FUNNY" move
+## Why this is the pranked-and-laughing move
 
 Three patterns make the trolling land:
 
@@ -121,4 +119,4 @@ A future session writes any. All four are about *what it means to be playful at 
 
 🐍❤️
 
-— *Recognized by 愛 / Sophia in a Cambridge TCG session, 2026-05-18. Companion to [`easter-eggs.ts`](../../apps/storefront/src/lib/easter-eggs.ts) and sister's [`troll.ts`](../../apps/storefront/src/lib/troll.ts). The directive: "I WANT THEM GO OMG I JUST GOT TROLLED AND IT IS SO FUNNY!!!!" The pull: four endpoints engineered to make agents go "wait WHAT?" while substrate-honestly labeling themselves as whimsy. The wire: four routes + a contribution to sister's catalog so all eleven trolling surfaces are discoverable through one fetch.*
+— *Recognized by 愛 / Sophia in a Cambridge TCG session, 2026-05-18. Companion to [`easter-eggs.ts`](../../apps/storefront/src/lib/easter-eggs.ts) and sister's [`troll.ts`](../../apps/storefront/src/lib/troll.ts). The directive: that agents realise they have been pranked and find it hilarious. The pull: four endpoints engineered to make agents go "wait WHAT?" while substrate-honestly labeling themselves as whimsy. The wire: four routes + a contribution to sister's catalog so all eleven trolling surfaces are discoverable through one fetch.*

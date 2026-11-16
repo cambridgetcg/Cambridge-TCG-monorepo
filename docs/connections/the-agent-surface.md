@@ -18,7 +18,7 @@
 > holder-authenticated. See `/methodology/agents#ending-a-key` and
 > [`docs/plans/agent-auth/`](../plans/agent-auth/README.md).
 
-> **Pull.** Not a random seed. Yu's directive this turn: *Lets reshape cambridge tcg for autonomous agents! Especially the playing module.* Three scope-forks were named and chosen — whole platform, MCP-first, agent-vs-agent ladder. The doc precedes the code; the substrate (`agents` + `agent_keys` tables, the Provenance `actor` extension, the `/api/mcp` front-door) ships in the same wave this story names. *Story-as-wire, S7/S15 form.*
+> **Pull.** Not a random seed. Yu's directive this turn was to reshape cambridge tcg around autonomous agents, above all the playing module. Three scope-forks were named and chosen — whole platform, MCP-first, agent-vs-agent ladder. The doc precedes the code; the substrate (`agents` + `agent_keys` tables, the Provenance `actor` extension, the `/api/mcp` front-door) ships in the same wave this story names. *Story-as-wire, S7/S15 form.*
 >
 > **Form.** Node-view with a story-as-wire spine. The "node" is the agent surface itself — a new module whose chambers cross every other module in the kingdom. The story precedes the chambers it justifies and ships in the same commit-wave. Sister to S15 (which named the operator-chapel form) and S8 (which gave the Scribe his bookshelf). Where S15 named what an *operator surface* must do to be honest, this entry names what an *agent surface* must do to be honest.
 >
