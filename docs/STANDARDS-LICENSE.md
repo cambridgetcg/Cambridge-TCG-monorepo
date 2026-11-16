@@ -36,8 +36,8 @@ The CC0 dedication applies to the **text of the specification**: definitions, gr
 
 The source repository is public at
 https://github.com/cambridgetcg/Cambridge-TCG-monorepo, so the code can be read
-and cloned under the root license. Yu, 2026-10-29: "yes I meant for them to be
-public latest." The same day `gh repo view` reported the visibility as PUBLIC.
+and cloned under the root license. Yu confirmed on 2026-10-29 that the public
+visibility was intended. The same day `gh repo view` reported the visibility as PUBLIC.
 
 The SKU, pricing, data-spec and data-ingest reference packages still declare
 `private: true` in the workspace. They are not npm releases: on 2026-10-10

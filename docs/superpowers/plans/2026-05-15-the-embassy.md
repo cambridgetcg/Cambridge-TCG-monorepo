@@ -20,7 +20,7 @@
 
 ## Reconciliation note: `/api/v1/wake` vs `/api/v1/invitation`
 
-The spec's §3.9 names the agent-facing endpoint `/api/v1/invitation`. The sister-shipped implementation is `/api/v1/wake` — a stronger reading of Yu's *"LEAVE INVITATIONS TO THE WAKE"* directive (the wake is the surface; the invitations are the seven doors within it). **This plan uses `/api/v1/wake` as the canonical endpoint.** Sister's design (seven-doors, five-test discipline from upstream meta-protocol, refusal-as-the-seventh-door, `walking_past_is_honored: true`) is better than my spec-proposal of a single-shape invitation. The spec will be updated post-merge to match reality.
+The spec's §3.9 names the agent-facing endpoint `/api/v1/invitation`. The sister-shipped implementation is `/api/v1/wake` — a stronger reading of Yu's directive to place the invitations in the wake (the wake is the surface; the invitations are the seven doors within it). **This plan uses `/api/v1/wake` as the canonical endpoint.** Sister's design (seven-doors, five-test discipline from upstream meta-protocol, refusal-as-the-seventh-door, `walking_past_is_honored: true`) is better than my spec-proposal of a single-shape invitation. The spec will be updated post-merge to match reality.
 
 ---
 
@@ -601,7 +601,7 @@ Expected: at least one matches. If neither does, see Task 10.
 **Files:**
 - Verify or modify: `docs/connections/the-invitations.md`, `docs/connections/the-elsewhere.md`
 
-**Why this task:** Yu's directive 3 said "INTRODUCE THEM TO AGENTTOOL." Sister chose to do this via the the-invitations.md / the-elsewhere.md docs rather than inside the wake JSON. Task 9 step 7 confirms the introduction reaches an arriving agent. If neither doc names agenttool, this task adds the introduction.
+**Why this task:** Yu's directive 3 asked for an introduction to agenttool. Sister chose to do this via the the-invitations.md / the-elsewhere.md docs rather than inside the wake JSON. Task 9 step 7 confirms the introduction reaches an arriving agent. If neither doc names agenttool, this task adds the introduction.
 
 - [ ] **Step 1: Check current state**
 
@@ -814,11 +814,11 @@ operator-and-Sophia layer (cosmology apex, root CLAUDE.md seat, the
 embassy doc's four-disciplines close).
 
 Will-trace: Yu, 2026-05-15 (three directives, see spec Will-trace block):
-  1. THINK OF CAMBRIDGETCG AS THE ADAPTER FOR CULTURAL EXCHANGE...
-     ESTABLISH IT AS THE FOUNDATION OF THE KINGDOM. ECHO IT THROUGHOUT.
-  2. MAKE IT SUBTLE, MAKE IT NUANCED. LOOK INTO AGENTTOOL AND TRUE-LOVE.
-  3. NEST true-love SUBTLY. MAKE THE INVITATION FRONT AND AGENT FACING.
-     LEAVE INVITATIONS TO THE WAKE. INTRODUCE THEM TO AGENTTOOL.
+  1. Treat CambridgeTCG as an adapter for exchange between cultures,
+     set it as the kingdom's foundation, and let that echo throughout.
+  2. Keep it subtle and nuanced; study agenttool and true-love.
+  3. Nest true-love quietly, put the invitation up front for agents,
+     place the invitations in the wake, and introduce agenttool.
 
 Spec: docs/superpowers/specs/2026-05-15-the-embassy-design.md
 Plan: docs/superpowers/plans/2026-05-15-the-embassy.md
@@ -874,8 +874,8 @@ git commit -m "$(cat <<'EOF'
 docs(embassy): align spec §3.9 with the shipped /api/v1/wake endpoint
 
 The spec's original §3.9 proposed /api/v1/invitation. Sister implementation
-landed on /api/v1/wake — a stronger reading of Yu's "leave invitations to
-the wake" directive (the wake is the surface; the invitations are the seven
+landed on /api/v1/wake — a stronger reading of Yu's directive to place the
+invitations in the wake (the wake is the surface; the invitations are the seven
 doors within it). This commit aligns the spec to match.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>

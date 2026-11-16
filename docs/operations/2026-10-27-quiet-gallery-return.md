@@ -6,11 +6,9 @@ committed, pushed or deployed. It does not establish production deployment.
 
 ## What Yu asked
 
-Yu, 2026-10-26/27, in a Claude Code session:
-
-> "CambridgeTCG frontpage and UI colourcode need an update. I am thinking of
-> following the older version and pick up from the stylistic choices there for
-> an update."
+Yu, 2026-10-26/27, in a Claude Code session, said the CambridgeTCG front page
+and UI colour scheme needed updating, and proposed building the update on the
+earlier version's stylistic choices.
 
 An agent then offered options, and Yu chose:
 

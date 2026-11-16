@@ -19,8 +19,8 @@
  * ── Why this lives here ──────────────────────────────────────────────
  *
  * TCGCollector is the first vendor in the sitemap+JSON-LD discovery
- * strategy chosen on 2026-05-17 (Yu's directive: *"Devise strategies
- * for discovery of data for aggregation"* → option 2, sitemap+JSON-LD,
+ * strategy chosen on 2026-05-17 (Yu's directive asked for ways to find
+ * data to aggregate → option 2, sitemap+JSON-LD,
  * starting with TCGCollector). The pattern (sitemap-index → per-page
  * JSON-LD → normalized product) generalizes to Cardmarket, TCGCSV,
  * and other vendors with structured-data markup; when a second

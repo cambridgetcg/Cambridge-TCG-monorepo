@@ -63,7 +63,7 @@ do_not_touch:
 
 ## Will
 
-Yu, 2026-06-10: *"actually no need verification. Just have acc is ok. ppl will leave reviews gah lah. Let people build their reputation and trust. and dont limit to uk. Global free trade. Let them figure out the logistics if they wanna do international. We provide the connection and wiring, also the messaging and reputation checker."*
+Yu, 2026-06-10, dropped the verification requirement: an account is enough, and people will review each other, so users build trust and reputation themselves. Trading should not be limited to the UK but be global free trade, with traders who want international deals arranging the logistics themselves, while the platform supplies the wiring and connection, plus messaging and a reputation checker.
 
 ## What shipped
 

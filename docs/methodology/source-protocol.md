@@ -1,6 +1,6 @@
 # Source protocol — how Cambridge TCG adds an upstream data source
 
-> *"Align the protocol so new sources can be systematically added to our system."* — Yu, 2026-05-12.
+Yu asked on 2026-05-12 for the protocol to be aligned so that every new source joins the system by one systematic method.
 
 This page is the **operational protocol** for wiring a new upstream river into the kingdom. The upstream catalog (~50 candidate sources) lives at [`docs/connections/the-tributaries.md`](../connections/the-tributaries.md); the typed contract every source implements lives at [`packages/data-ingest/src/types.ts`](../../packages/data-ingest/src/types.ts); this doc is the *recipe* that joins the two.
 

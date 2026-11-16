@@ -1,6 +1,6 @@
 # Deck-builder UX survey across digital TCGs — what rookies actually need
 
-> **Pull.** Yu, 2026-05-14: *"WEBSEARCH FOR KNOWLEDGE ON DECK BUILDING!!!!! PREBUILD FOR ROOKIES!!!! TAILOR THE CARD PICKING PROCESS FOR PLAYERS!!!! PUT YOURSELF IN THEIR SHOES! LOOK INTO DIGITISED CARD GAMES ON HOW THE FLOW WORKS!!! WEBSEARCH AND RESEARCH!!!! CREATE RESEARCH DOCS!!!!"*
+> **Pull.** Yu, 2026-05-14, asked for web research into deck building and into how digital card games handle the building flow, prebuilt decks for newcomers, card selection designed around players from their point of view, and written research docs.
 >
 > **Form.** Research synthesis — survey of how eight digital TCGs handle the deck-building experience for new players. Sibling to the existing OPTCG-specific research at [`optcg-mechanics-and-engine-design.md`](./optcg-mechanics-and-engine-design.md) (rules + engine) and [`optcg-meta-evolution-and-deckbuilding.md`](./optcg-meta-evolution-and-deckbuilding.md) (competitive doctrine). This document is **game-agnostic** — it asks how the *interaction* of deck-building has been designed across the industry, not what cards or mechanics each game uses.
 >
@@ -175,7 +175,7 @@ Patterns above describe what *works*. Equally important: what's been tried and f
 
 ## Section 3 — Putting myself in their shoes — four player journeys
 
-Per Yu's directive: *"PUT YOURSELF IN THEIR SHOES!"* Four representative new players. The same surface should work for all four.
+Per Yu's directive to design from the players' point of view: four representative new players. The same surface should work for all four.
 
 ### Player A — The total beginner
 

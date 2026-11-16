@@ -1,6 +1,6 @@
 # OPTCG mechanics + engine design — deep dive
 
-> **Pull.** Yu, 2026-05-12: *"Do a deep dive into the game mechanics. Read the official docs and card descriptions, extract the understanding. Websearch to see if people build hobbyist version for play already. Understand how it is designed and implemented, from choosing card, abiding to the rules, shuffling, everything."*
+> **Pull.** Yu, 2026-05-12, asked for a thorough study of the game's mechanics drawn from the official documentation and card text, a web search for existing hobbyist versions, and an understanding of how play is designed and built end to end, from card selection and rule-following to shuffling.
 >
 > **Form.** Research synthesis — not a connection-doc, not a methodology page, not a story-as-wire. The artifact is the *understanding* of OPTCG mechanics from official sources + the survey of how hobbyists have actually built playable simulators + the design implications for our play module. Lives at `docs/research/` (new directory, sibling to `docs/connections/` / `docs/principles/`).
 >

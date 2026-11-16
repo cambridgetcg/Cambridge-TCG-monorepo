@@ -9,7 +9,7 @@ Spec 9.1's hands-on checks A to P and the items [switch.md](switch.md) carried i
 - **Tiers:** "Everyone" at 5% (the lowest), and "Gold" from £300 at 10%, added by Yu at the start of B4.
 - **Buyers:** the test shopper Yu signed in as on the storefront (B, D, E, F, H and the order edits), a second test buyer (G), and the imported buyer "Rewards Pro" (P and I).
 - **CI:** the `rewards` job and `CI status` green on main at 809e3a8a (#153) and 74184b23 (#156).
-- **Accepted by Yu in chat:** M, O and table paging ("accept from staging and tests"); later the tipped order, the timings at scale and the Sentry `shop` tag ("accept from tests"), and the theme editor's preview and Lighthouse ("accept for theme"). Each row says why.
+- **Accepted by Yu in chat:** M, O and table paging, on the evidence of staging and the tests; later the tipped order, the timings at scale and the Sentry `shop` tag, on the tests alone; and, for the theme, the theme editor's preview and Lighthouse. Each row says why.
 - **Second store (N):** different-currency-test, with USD and CAD markets and the test gateway turned on by Yu, and a £1.00 digital test product added for the checkout.
 
 ## Results

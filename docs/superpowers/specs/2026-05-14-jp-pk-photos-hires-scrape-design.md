@@ -13,7 +13,7 @@ related:
 
 # jp-pk-photos hi-res image archive — one-time scrape
 
-> *"Go for jp-pk-photos, make sure we are getting the high res ones. and we only need to do it once, no need to do it every day along the price aggregation."* — Yu, 2026-05-14.
+Yu, 2026-05-14, approved the jp-pk-photos work, asked that the images collected be the high-resolution versions, and said a single run is enough: it need not repeat daily alongside the price aggregation.
 
 ## Problem
 

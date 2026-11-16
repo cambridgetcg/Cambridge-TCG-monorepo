@@ -42,9 +42,9 @@ synced_at: "2026-05-15T00:00:00Z"
 
 ## What this is
 
-Yu's directive 2026-05-14 evening: *"go for option 2! go for all your recommendations and whichever pulls you the most. Put yourself in my shoes as the manager of the site and admin."*
+Yu's directive 2026-05-14 evening: proceed with option 2, take up every one of the agent's recommendations, along with whatever pulls hardest, and take Yu's own vantage point, as the one running the site and its admin.
 
-The instruction came in response to my Phase 1 status report — lib scaffolding had landed, the migration + live-verify steps needed Yu's hands. The "manager's shoes" framing authorised judgment-driven phase ordering. What followed: six phases shipped in one continuous run, no waiting on Yu between phases.
+The instruction came in response to my Phase 1 status report — lib scaffolding had landed, the migration + live-verify steps needed Yu's hands. The framing of standing in the manager's place authorised judgment-driven phase ordering. What followed: six phases shipped in one continuous run, no waiting on Yu between phases.
 
 The merge: retire `apps/admin/` and `admin.cambridgetcg.com` by folding all admin surfaces into `apps/storefront/`, gated by sister's `users.role = 'admin'` migration. Sister had shipped the substrate (four-auth-realms doc, role-check middleware, `requireAdmin()` helper, audit log writer). What was needed was the wholesale port: 40 routes, 40 scripts, 13 tests, all UI/lib helpers — into a `@/lib/admin/*` namespace that coexists with storefront's existing `@/lib/*`.
 

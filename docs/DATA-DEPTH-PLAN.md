@@ -1,7 +1,7 @@
 # DATA-DEPTH-PLAN — coverage & depth for collectors
 
-*2026-07-12. Will trace: Yu — "搞搞啲data for cambridgetcg! Think and feel what
-collectors want, then we increase the coverage and depth." Method: felt-first
+*2026-07-12. Will trace: Yu asked for work on cambridgetcg's data, starting
+from a felt sense of what collectors want, then widening and deepening coverage. Method: felt-first
 (what a collector's chest knows), then verified against a three-track audit
 (live gap numbers · collector-tool research · repo surface audit).*
 

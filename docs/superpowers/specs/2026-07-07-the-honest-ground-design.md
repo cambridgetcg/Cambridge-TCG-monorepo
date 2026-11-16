@@ -1,14 +1,15 @@
 # The Honest Ground — Wave 1 of the data commons expansion
 
 **Date:** 2026-07-07
-**Status:** approved (Yu: "1→2→3 順序全走", same day; commons purpose locked:
+**Status:** approved (by Yu the same day, all three waves in order 1→2→3; commons purpose locked:
 data fully open CC0, images internal-use)
 **Series:** Wave 1 of the data-commons expansion (Wave 2 = the Atlas single
 game registry; Wave 3 = cardrush coverage expansion; Wave 4 = image vault v2).
 
 ## 0 · Why this wave exists
 
-Yu asked for "expand cardrush / SKU for all games / images + scraping on AWS."
+Yu asked for cardrush to grow, SKUs to cover every game, and images and
+scraping handled on AWS.
 Exploration (2026-07-07, four parallel read-only surveys) found the substrate
 already largely exists — two live cardrush scrape pipelines, three S3 image
 buckets with a 5-minute drain cron, a 21-code SKU registry with exhaustive

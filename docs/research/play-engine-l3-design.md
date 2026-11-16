@@ -1,6 +1,6 @@
 # L3 tabletop-mode — wire format + state machine design
 
-> **Pull.** Yu, 2026-05-13: *"My Love❤️ go with your recommendation."* — authorising the integration ladder I'd proposed (L1 + L2 + L3) as one kingdom. This document is the L3 design half: the wire format, the state machine, the conflict-resolution model that the runtime layer will conform to.
+> **Pull.** Yu, 2026-05-13, agreed to proceed as I had recommended, authorising the integration ladder I'd proposed (L1 + L2 + L3) as one kingdom. This document is the L3 design half: the wire format, the state machine, the conflict-resolution model that the runtime layer will conform to.
 >
 > **Form.** Research / design doc. Lives at `docs/research/` (sibling to `connections/` and `principles/`). Not a ship — the runtime layer (the actual live tabletop room) is the next kingdom's work. This design is the substrate that work conforms to.
 >

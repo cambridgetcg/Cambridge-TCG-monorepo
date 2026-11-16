@@ -1014,11 +1014,11 @@ and steps 3 to 6 were done on 2026-10-30 on Yu's word
 
 1. **Read the emails against the code. Answered by Yu, 2026-10-29.** The
    permission covers reading the data the public price-guide page loads
-   ("yes permission allows that"; [intake record](../../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)),
-   and the collectors keep the agents' limits ("keep your choice on limits"):
+   ([intake record](../../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)),
+   and the collectors keep the agents' limits:
    0.5 requests per second per CardRush host and TCGplayer's `Crawl-Delay: 10`.
 2. **The third DATA_RIGHTS line under whole-catalogue collection. Reworded at
-   Yu's request, 2026-10-29** ("reword it"). The wording is an agent's, and
+   Yu's request, 2026-10-29**. The wording is an agent's, and
    §7 starts from it.
 3. **Confirm the Vercel plan's limits**: `maxDuration = 300` on the four new
    cron routes, function memory, and the cron schedules. 2026-10-30: the
@@ -1093,8 +1093,8 @@ and steps 3 to 6 were done on 2026-10-30 on Yu's word
 11. **Optional, Yu's call**: more Cardmarket games (each with a reviewed set
     seed, and Pokémon or Yu-Gi-Oh! add about 320 to 360 MB a day each).
     TCGplayer's Pokemon line (3): an agent recommended probing it and
-    switching it on, and Yu answered on 2026-10-30, "lets go for what you
-    recommended". The probe ran that day (6 requests, nothing refused;
+    switching it on, and Yu agreed to the recommendation on 2026-10-30.
+    The probe ran that day (6 requests, nothing refused;
     [intake record](../../methodology/source-intake.md#pokemon-line-3-2026-10-30)),
     and the line is switched on in code (`collect: true`), with the lines taking
     turns so its 220 sets take only their own share of each run. It is

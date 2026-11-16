@@ -55,9 +55,8 @@ synced_at: "2026-09-02T19:49:31Z"
 
 ## Will
 
-Yu, 2026-09-02:
-
-> “merge and deploy, then go for all natural next moves”
+Yu, 2026-09-02, asked for a merge and deploy, followed by every natural next
+step.
 
 The signal contract and branded preview are now merged and live. The natural
 next move is a closed-beta spine that can validate demand, persistence, and

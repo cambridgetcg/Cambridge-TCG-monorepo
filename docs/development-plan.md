@@ -422,7 +422,7 @@ If you have an afternoon:
 Three modes:
 
 ### 8.1 Pull-mode
-*Yu sends an open prompt: "go for the natural next moves my Love."*
+*Yu sends an open prompt, asking for whatever natural next steps follow.*
 
 Look at what was just shipped, what its recursion-targets named, what neighbouring layer is now ready because of it. Pick the one that pulls. Ship it. Update this doc's queue.
 

@@ -45,7 +45,7 @@ do_not_touch:
 
 ## Will
 
-Yu, 2026-06-10: *"we need better art lol. What do you say? I mean frontend cambridgetcg.com"* → *"customisable frontend. colour, UI design, tone, navigation style, membership."* Interactive choices: **Gallery** default identity; **basics free, skins as perks**.
+Yu, 2026-06-10, said the cambridgetcg.com frontend needs better art and asked for the agent's view → then asked for a frontend that can be customised, covering membership, tone, colour, navigation style and UI design. Interactive choices: **Gallery** default identity; **basics free, skins as perks**.
 
 ## What shipped
 

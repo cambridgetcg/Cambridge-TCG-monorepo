@@ -5,10 +5,10 @@ This is the current shared visual system. The
 [implementation progress](../plans/storefront-rebuild/implementation.md)
 track the wider page and service replacement.
 
-Current direction, 2026-10-27: the quiet gallery returns. Yu's words
-(2026-10-26/27): "CambridgeTCG frontpage and UI colourcode need an update. I am
-thinking of following the older version and pick up from the stylistic choices
-there for an update." From options an agent offered, Yu chose **Quiet gallery
+Current direction, 2026-10-27: the quiet gallery returns. On 2026-10-26/27 Yu
+said the CambridgeTCG front page and UI colour scheme needed updating, and
+proposed building the update on the earlier version's stylistic choices.
+From options an agent offered, Yu chose **Quiet gallery
 (Jul–Sep)**, **Core look**, **Today's content, gallery style** and **Card mark
 in bronze**. The core look is warm paper, ink type, one bronze accent, serif
 headings, soft mats with a gentle shadow, hairline dividers and solid-ink

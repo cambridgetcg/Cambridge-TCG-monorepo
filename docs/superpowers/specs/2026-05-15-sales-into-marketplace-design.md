@@ -17,11 +17,11 @@ The platform was built in two shapes that have grown into each other awkwardly:
 
 The two shapes coexist on `cambridgetcg.com` and confuse each other. The retail shape suggests the platform sells; the marketplace shape suggests the platform makes a market. The synthetic-injection pattern in `unified.ts` is the load-bearing piece of evidence that the second shape is the truer one — the platform is already market-making, just not legibly.
 
-This spec abandons the retail shape. The marketplace becomes the foundation. CTCG becomes a legible market maker by participating in its own market — keeping the synthetic-injection mechanism but attributing it honestly, badging it, and routing all card-shaped traffic through one canonical surface at `/cards/[sku]`. The retail flow is deleted.
+This spec abandons the retail shape. The marketplace becomes the foundation. CTCG becomes a legible market maker by trading in its own market — keeping the synthetic-injection mechanism but attributing it honestly, badging it, and routing all card-shaped traffic through one canonical surface at `/cards/[sku]`. The retail flow is deleted.
 
 **This is a refounding, not a migration.** The end state is the new foundation; the work is to lay it cleanly.
 
-> *"We become the market maker by participating in the market."* — Yu, 2026-05-15
+On 2026-05-15 Yu set the principle: we make the market by trading in it ourselves.
 
 ---
 
@@ -294,8 +294,8 @@ Per `ListingRow` CTA navigates to:
 
 | File | Content |
 |------|---------|
-| `docs/methodology/pivot.md` + `apps/storefront/src/app/methodology/pivot/page.tsx` | Canonical public text of the refounding. What changed (retail → marketplace), why (CTCG becomes legibly a market maker by participating), what's preserved (marketplace, tradein, auctions, wholesale), what's gone (retail), what the methodology page itself signals (the kingdom can declare its own pivots in public). Fifth-question paragraph: this rebuild is *inclusive* of one being (the market participant — trader, market maker, seller) and *exclusive* of another (the casual fixed-price retail buyer). Name that asymmetry honestly. |
-| `docs/connections/the-new-foundation.md` (S40 or next slot) | Story-as-wire. Cites the three commits (Phases A, B, C) by hash. Names the cosmology shift: from retail-storefront cosmology to marketplace-platform cosmology. Carries the *"we become the market maker by participating in the market"* line as the load-bearing sentence. References how each of the four doctrines is honored differently by the new foundation. |
+| `docs/methodology/pivot.md` + `apps/storefront/src/app/methodology/pivot/page.tsx` | Canonical public text of the refounding. What changed (retail → marketplace), why (CTCG becomes legibly a market maker by trading), what's preserved (marketplace, tradein, auctions, wholesale), what's gone (retail), what the methodology page itself signals (the kingdom can declare its own pivots in public). Fifth-question paragraph: this rebuild is *inclusive* of one being (the market participant — trader, market maker, seller) and *exclusive* of another (the casual fixed-price retail buyer). Name that asymmetry honestly. |
+| `docs/connections/the-new-foundation.md` (S40 or next slot) | Story-as-wire. Cites the three commits (Phases A, B, C) by hash. Names the cosmology shift: from retail-storefront cosmology to marketplace-platform cosmology. Carries, as the load-bearing sentence, that we make the market by trading in it ourselves. References how each of the four doctrines is honored differently by the new foundation. |
 | `docs/missions/kingdom-NNN.md` | Phase C mission card. |
 
 ### Doctrines
@@ -408,7 +408,7 @@ These are deliberately deferred to writing-plans / implementation — they're di
 
 ## The load-bearing sentence
 
-> *"We become the market maker by participating in the market."*
+We make the market by trading in it ourselves.
 
 This line carries into the methodology pages of all three phases and is the heart of `the-new-foundation.md`. The platform's market-making is not hidden behind a synthetic injection; it is named, badged, and made auditable by being visible.
 

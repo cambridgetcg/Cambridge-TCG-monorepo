@@ -11,10 +11,10 @@ collection methods and the start of paid plans are Yu's word. Since
 `task_7406e70d-3ac9-4468-91a1-c8b93bc70f7b`. Agents' calls and Yu's hand
 updated the same day after the integration review and again after the final
 review, which also took an agents' reading of the third DATA_RIGHTS line out
-of "What this changes" and put the question to Yu. Yu's words and the table
-below are unchanged. Updated again on 2026-10-29 with Yu's answers to four
+of "What this changes" and put the question to Yu. That update left Yu's words
+and the table below as they were. Updated again on 2026-10-29 with Yu's answers to four
 more questions; the answered items left "What still needs Yu's hand", and
-every earlier quote is unchanged. Updated again on 2026-10-29 with Yu's words
+every earlier entry was left as it was. Updated again on 2026-10-29 with Yu's words
 on images and the agents' reading of them, and again the same day with three
 agents' calls on collecting politely (TCGplayer's robots.txt read every run,
 per-host backoff and self-suspension, migration 0146) and a pointer to the
@@ -23,11 +23,10 @@ word that day on TCGplayer's English Pokémon line.
 
 ## Yu's words
 
-On 2026-10-28, verbatim:
-
-> Lets sort out the tcg data service in cambridgetcg. got permission to use
-> cardrush and cardmarket data. also TCG player. Look into the scraping
-> pipeline. We are creating paid plans for the data API.
+On 2026-10-28 Yu asked agents to put the cambridgetcg data service in order,
+said that permission had been obtained for CardRush, Cardmarket and TCGplayer
+data, asked for a look at the scraping pipeline, and said that the data API
+will get paid plans.
 
 The agent then asked four questions. Yu picked these options. The option text
 is the agent's wording, which Yu chose; it is not Yu's own prose.
@@ -42,16 +41,14 @@ is the agent's wording, which Yu chose; it is not Yu's own prose.
 ## Yu's answers, 2026-10-29
 
 The agent asked four more questions. The questions are the agent's wording.
-Yu answered on 2026-10-29, verbatim:
-
-> 1.yes 2. yes permission allows that 3. reword it 4.keep your choice on limits
+Yu answered all four on 2026-10-29:
 
 | Question | Yu's answer |
 | --- | --- |
-| 1. Merge #99? (it publishes that Cambridge holds written permission, recorded 2026-10-28, from CardRush and TCGplayer) | "yes" |
-| 2. Does the permission cover reading the data TCGplayer's public price-guide pages load (one request per set, instead of rendering ~7,700 pages)? | "yes permission allows that" |
-| 3. DATA_RIGHTS line 3 ("Third-party prices name their source, and we don't copy anyone's whole database.") under whole-catalogue collection: keep or reword? | "reword it" |
-| 4. Do the emails name agreed rates or hours? (current limits are the agent's choice: 0.5 rps per CardRush host, TCGplayer Crawl-Delay 10) | "keep your choice on limits" |
+| 1. Merge #99? (it publishes that Cambridge holds written permission, recorded 2026-10-28, from CardRush and TCGplayer) | Yes. |
+| 2. Does the permission cover reading the data TCGplayer's public price-guide pages load (one request per set, instead of rendering ~7,700 pages)? | Yes, the permission covers it. |
+| 3. DATA_RIGHTS line 3 ("Third-party prices name their source, and we don't copy anyone's whole database.") under whole-catalogue collection: keep or reword? | Reword. |
+| 4. Do the emails name agreed rates or hours? (current limits are the agent's choice: 0.5 rps per CardRush host, TCGplayer Crawl-Delay 10) | Keep the agent's limits. |
 
 What the answers change:
 
@@ -70,14 +67,12 @@ What the answers change:
 
 ## Yu's words, 2026-10-29: images
 
-On 2026-10-29, verbatim:
-
-> Also would be great to have images linked to each item (official or use
-> cardrush) so that humans and agents can double confirm the item.
+On 2026-10-29 Yu suggested linking an image to every item, official or from
+CardRush, so that agents and people alike can double-check it.
 
 **What follows is the agents' reading, not Yu's decision.** The permission
 above covers prices; it names no image, and image copies stay locked (below).
-An agent took the more careful reading of these words for Yu:
+An agent took the more careful reading of this suggestion for Yu:
 
 - **Official images keep their existing lane, unchanged:** self-hosted,
   attributed Bandai English samples, through the existing projector and
@@ -143,10 +138,9 @@ references only and the collector records no image links.
 ## Agents' calls
 
 These follow from Yu's words, the published data-rights lines (Yu,
-2026-10-19), and Yu's pricing ethos for RewardsPro (2026-07-23: "Wanna make it
-cheap and have a generous free tier for everyone to use! Only for larger
-corporates should we charge more. Small business should have enough from free
-plan.").
+2026-10-19), and Yu's pricing ethos for RewardsPro (2026-07-23: low prices and
+a free tier generous enough for anyone to use, with small businesses managing
+on the free plan and pricing rising only for the larger corporates).
 
 - **Collection is forward-only.** Prices gathered before 2026-10-28 (about
   269k CardRush rows in the catalogue database's `price_archive`, collected
@@ -159,8 +153,7 @@ plan.").
 - **Collect politely and openly.** Use an identifying User-Agent that names
   Cambridge TCG and the permission. Stay at or below 0.5 requests per second
   per CardRush host and honour TCGplayer's `Crawl-Delay: 10`. These limits
-  are the agents' choice; Yu kept them on 2026-10-29 ("keep your choice on
-  limits"). Use no Bright Data, no unlocker, no residential lanes and no
+  are the agents' choice; Yu kept them on 2026-10-29. Use no Bright Data, no unlocker, no residential lanes and no
   browser impersonation. If a host refuses an identified collector, it
   reports `SOURCE_UNAVAILABLE` rather than being routed around. A CardRush
   run reads the host's robots.txt first and stops if it disallows product
@@ -219,13 +212,13 @@ plan.").
   `infinite-api.tcgplayer.com` for one set's guide), one request per set,
   at most one request every 10 s across all TCGplayer hosts (robots.txt
   `Crawl-Delay: 10`), and never seller listings. That "Scrape TCGplayer
-  pages" covers this is Yu's word since 2026-10-29 ("yes permission allows
-  that"); the transport is the agents' call
+  pages" covers this is Yu's word since 2026-10-29 (answer 2,
+  above); the transport is the agents' call
   ([intake record](../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)).
   TCGplayer's English Pokémon line (3) was not to be collected until a probe
   confirmed its category id and row label. On 2026-10-30 an agent
-  recommended probing it and switching it on, and Yu answered "lets go for
-  what you recommended". The probe that day confirmed both (category 3, rows
+  recommended probing it and switching it on, and Yu agreed to the
+  recommendation. The probe that day confirmed both (category 3, rows
   labelled `Pokemon`), and the line is switched on in code
   ([intake record](../methodology/source-intake.md#pokemon-line-3-2026-10-30)):
   it is collected once that code is deployed, its rows unmapped until a
@@ -272,8 +265,8 @@ plan.").
 
 ## Done on 2026-10-30
 
-Yu, 2026-10-29: "Go for the migration before collection and all sensible
-actions." Recorded by an agent (Claude Code session 8ef55b5e); times UTC.
+Yu, 2026-10-29, said to proceed with the migration ahead of collection,
+along with every sensible step. Recorded by an agent (Claude Code session 8ef55b5e); times UTC.
 
 - **Database credential.** The storefront database password had been rotated
   since June, and Vercel held it as a Sensitive value that cannot be read

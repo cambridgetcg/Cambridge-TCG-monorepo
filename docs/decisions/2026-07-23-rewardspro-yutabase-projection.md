@@ -2,8 +2,8 @@
 
 **Status:** accepted for the fresh v2 foundation; AWS activation remains gated.
 
-**Will trace:** Yu, 2026-07-23 — “see if you wanna use yutabase format? Can
-build from scratch lol.”
+**Will trace:** Yu, 2026-07-23, invited agents to consider the YUTABASE format
+and noted that building from scratch was possible.
 
 ## Context
 

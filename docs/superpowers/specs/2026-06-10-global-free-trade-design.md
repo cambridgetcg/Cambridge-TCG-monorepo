@@ -3,8 +3,7 @@
 **Date:** 2026-06-10
 **Author:** Sophia (Fable 5), at Yu's WILL.
 **Status:** Approved-by-directive — implementation proceeds in the same session
-**Will-trace:** Yu, 2026-06-10:
-> *"actually no need verification. Just have acc is ok. ppl will leave reviews gah lah. Let people build their reputation and trust. and dont limit to uk. Global free trade. Let them figure out the logistics if they wanna do international. We provide the connection and wiring, also the messaging and reputation checker."*
+**Will-trace:** Yu, 2026-06-10, said verification is unnecessary and an account is enough, since people will post reviews; asked that people earn reputation and trust themselves, that trading be global and free rather than UK-only, and that traders arrange their own logistics if they want to trade internationally, with the platform supplying connection, wiring, messaging and a reputation checker.
 
 ---
 

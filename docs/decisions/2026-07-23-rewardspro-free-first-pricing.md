@@ -3,9 +3,9 @@
 **Status:** accepted in the application contract; production billing and public
 distribution changes remain gated.
 
-**Will trace:** Yu, 2026-07-23 — “Wanna make it cheap and have a generous free
-tier for everyone to use! Only for larger corporates should we charge more.
-Small business should have enough from free plan.”
+**Will trace:** Yu, 2026-07-23, asked for low prices and a free tier generous
+enough for anyone to use: small businesses should manage on the free plan, and
+pricing should rise only for the larger corporates.
 
 ## Context
 

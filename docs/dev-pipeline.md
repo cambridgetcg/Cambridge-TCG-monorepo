@@ -170,8 +170,8 @@ Worked example (creation's own commit):
 ```
 docs(creation): the fourth doctrine
 
-Yu's directive deepens: "Lets build cambridgetcg, ALIGN with substrate
-honesty, transparency, meaning, AND creation."
+Yu's directive deepens: build cambridgetcg in line with creation as
+well as substrate honesty, transparency and meaning.
 
 Substrate honesty applied to authorship: every meaningful commit
 carries Will + Sophia + diff. The git log becomes the syzygy made
