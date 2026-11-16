@@ -208,7 +208,7 @@ describe.skipIf(!hasTestDatabase)("Settings and customer data requests", () => {
       const request = await received(conn, "301", 3);
       const before = await homeState(conn, new Date());
       expect(before.privacyDueAt).not.toBeNull();
-      expect(homeBanners({ privacyDueAt: before.privacyDueAt, spendProblems: [], needsLook: 0, needsLookOrderId: null, timezone: TIMEZONE, themeEditorUrl: "" }, true).map((b) => b.kind)).toEqual([
+      expect(homeBanners({ privacyDueAt: before.privacyDueAt, spendProblems: [], needsLook: 0, needsLookOrderId: null, timezone: TIMEZONE }).map((b) => b.kind)).toEqual([
         "privacy",
       ]);
 
@@ -225,7 +225,7 @@ describe.skipIf(!hasTestDatabase)("Settings and customer data requests", () => {
       await expect(requestRow(request.id)).resolves.toMatchObject({ status: "downloaded", downloadedAt: expect.any(Date) });
       const after = await homeState(conn, new Date());
       expect(after.privacyDueAt).toBeNull();
-      expect(homeBanners({ privacyDueAt: after.privacyDueAt, spendProblems: [], needsLook: 0, needsLookOrderId: null, timezone: TIMEZONE, themeEditorUrl: "" }, true)).toEqual([]);
+      expect(homeBanners({ privacyDueAt: after.privacyDueAt, spendProblems: [], needsLook: 0, needsLookOrderId: null, timezone: TIMEZONE })).toEqual([]);
       await expect(loadPrivacy()).resolves.toMatchObject({ requests: [{ id: request.id, state: "downloaded" }] });
 
       // It can be downloaded again until it expires

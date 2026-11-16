@@ -148,7 +148,7 @@ model Merchant {
   notifyBuyers            Boolean    @default(false) @map("notify_buyers")
   reviewPromptDismissedAt DateTime?  @map("review_prompt_dismissed_at")
   reviewPromptShownAt     DateTime?  @map("review_prompt_shown_at")
-  /// When Home first saw every setup step done (Ruling 60); the setup card stays closed after.
+  /// When Home first saw every setup step done (Ruling 60), or the merchant dismissed the steps; the setup card stays closed after.
   setupCompletedAt        DateTime?  @map("setup_completed_at")
   /// When the merchant pressed Finish later in the setup guide (RP-24); the guide stays away after.
   guideDismissedAt        DateTime?  @map("guide_dismissed_at")
