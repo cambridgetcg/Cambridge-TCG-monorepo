@@ -32,7 +32,6 @@
     "theme": "light"
   },
   "app": {
-    "theme": "dark",
-    "color_scheme": "dark"
+    "color_scheme": "light dark"
   }
 }

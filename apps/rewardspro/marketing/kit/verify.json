@@ -26,28 +26,28 @@
    "pass": true,
    "level": "error",
    "file": "BRAND.md",
-   "measured": 26279
+   "measured": 26420
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "index.html",
-   "measured": 32204
+   "measured": 32375
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "kit.json",
-   "measured": 17193
+   "measured": 17200
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "source/brand.json",
-   "measured": 799
+   "measured": 784
   },
   {
    "id": "file.exists",
@@ -383,7 +383,7 @@
    "pass": true,
    "level": "error",
    "file": "web/head-snippet.html",
-   "measured": 1806
+   "measured": 1931
   },
   {
    "id": "file.exists",
@@ -2465,8 +2465,8 @@
    "file": "web/site.webmanifest",
    "measured": {
     "display": "standalone",
-    "theme_color": "#09110F",
-    "background_color": "#09110F"
+    "theme_color": "#FFFFFF",
+    "background_color": "#FFFFFF"
    },
    "note": "display and colours as brand.json \"app\" asks"
   },
@@ -2510,9 +2510,9 @@
    "level": "error",
    "file": "web/head-snippet.html",
    "measured": [
-    "dark"
+    "light dark"
    ],
-   "note": "exactly one color-scheme meta, \"dark\" (brand.json app.color_scheme)"
+   "note": "exactly one color-scheme meta, \"light dark\" (brand.json app.color_scheme)"
   },
   {
    "id": "head.theme_color",
@@ -2521,8 +2521,12 @@
    "file": "web/head-snippet.html",
    "measured": [
     [
+     "#FFFFFF",
+     "light"
+    ],
+    [
      "#09110F",
-     null
+     "dark"
     ]
    ],
    "note": "the pair for a page with both schemes, one colour (no media) for a one-scheme page"
@@ -2587,7 +2591,7 @@
    "measured": {
     "identical": 70,
     "different": [],
-    "fingerprint": "a34c41117c959c656e88c437d6aabe3067d4c80f1f856935157e140776a81c0a"
+    "fingerprint": "db1dd1d063e15a8e23e01c61655f73a35bdcd8cecb0597833214c708c77ea803"
    },
    "note": "second build from source/brand.json in a temp folder, compared byte for byte (the PDFs too: both builds gave VectorCraft SOURCE_DATE_EPOCH 1793094207)"
   }

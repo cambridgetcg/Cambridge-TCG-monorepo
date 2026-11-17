@@ -2,7 +2,7 @@
 "format": "brandkit inventory 1",
 "generator": "artcraft-brand brandkit.py 1.8",
 "paths": {
-"BRAND.md": "file edbb9c798f2f366d2b591c4a4ff377fceb9a37198731bf368f1d5f0c16532caa",
+"BRAND.md": "file 068205ee66d82460700f64fa8e16793902d563a5915969bcabb8106b15163538",
 "brand.vectorcraft": "file daad278914b610473214b61c16c0f3d53d68ca91aec64d9b747d045f54ab3dcd",
 "colour": "dir",
 "colour/colour-sheet.png": "file 692dd88b0e002bb513a927f63f071589217f8aa4e3c357526b1176b4cfefd910",
@@ -17,8 +17,8 @@
 "colour/tailwind.theme.css": "file d2c4aeeada341d90b8ac3d4d7fcd1fe8271a00e58520f7350f69c7e7c7d5d0a7",
 "colour/tokens.css": "file 8c4ac6f46ef29c2e5330a5ec0b0b8c8241140297f2f77acc332808dd5ca9c86d",
 "colour/tokens.json": "file 538dd5aeefcaa3c215ba3866a5a807366354e759170a220a657cdda42cb0c00a",
-"index.html": "file f669bf161c5a377ac4aff23e0f4bd45fffba14078d28654ea879b7f34a327fcd",
-"kit.json": "file 1de1122457f621ef2a3f590da308831d196d4f682553d3cdaffea19c17f9e181",
+"index.html": "file 4193f45498f1704a04907ca6cf9ef04da950b7b00b5005b9dd5a7744a307b5da",
+"kit.json": "file 3fc60a1553832cc891b9b0ad09cd154e877df1a3afd2cbbf55daffe9d35b4db5",
 "logo": "dir",
 "logo/lockup-horizontal-reversed.png": "file 38dcd6e2d5840dbca09f5bf1f4b2c7e656dafcfe4e4942dcd8562676865645e4",
 "logo/lockup-horizontal-reversed.svg": "file f3440b861495ff5ae25c17ec84ece502442fdfec30609e1f8ed49d828170e665",
@@ -63,7 +63,7 @@
 "social/avatar-1024.png": "file e7dc70089adaa41116514641e0b2bf597ac1f25e44a2990b9d4b0ed30863d80a",
 "social/avatar-400.png": "file 8b07557b5ff0087ae2b0f2ff28688a8cf866085c53cbb5e089d674be6eb09bd8",
 "source": "dir",
-"source/brand.json": "file 8e642b92a1536b4f5cad576402349c7dec51ef221db0dc23f39aea52a5feafa1",
+"source/brand.json": "file 979501e42b2214d8ba4df339d27adf294d92466cd66cf0623549c05b9db02991",
 "source/mark-source.svg": "file 1b89fcc9717b13299881b11ebed2238555d69f0061383dd7691b21dd62e65f02",
 "verify.json": "file",
 "web": "dir",
@@ -73,12 +73,12 @@
 "web/favicon.ico": "file a5eafb1ccb868431bdf14a4a0950ee724b055b0c9f1f8e00d10585475a2f5673",
 "web/favicon.svg": "file ad96f4a68968f72aa073f62055af723087eac7b023c5ec6b605911a71ed0f653",
 "web/head-home.html": "file 729a9c4a3dd64ffe79212b411ba460212be0b88117ebad6c6e7e7df37932f32e",
-"web/head-snippet.html": "file a2e097535a8ef516564b92850ded3cf1a6573df4a7a0e91032793196e88c62f5",
+"web/head-snippet.html": "file e61b69ced53bfccdf5b21a8ec5724837c71552786768745e4ea450c5391b0ea1",
 "web/icon-192.png": "file 5b75295baaebb7fab7725ceefdd4edf93801d11b0e60404092b3b8eb2d60ebb2",
 "web/icon-512.png": "file 3c139fe17ca3a13480c508cefd65ceea03d4d71f624b408469bce2a693d136ec",
 "web/icon-maskable-512.png": "file 96ce2b4c1a588c62b0a06fc59631e8ee8bb48e9e00dcd99a61f3444e50892131",
 "web/og.jpg": "file 3244a5878bbb866e6073dd8fcdd0feb3e7ede74193aa0a13f310f49a5d7e522f",
 "web/og.png": "file 137dfbd05621cadb17d86ab2f1175f54e1343f41334b388387f55c02e34fd264",
-"web/site.webmanifest": "file 6cc74d158b4bf558f32f454b21b700ef8237cf6f1e5a9ee5dc3955bfb8ea08ef"
+"web/site.webmanifest": "file e2c8610407ff95ddb8f7594b27eaeefc0ece0c9c60409bce507548d83b8980a1"
 }
 }

@@ -1,28 +1,75 @@
 /*
-  rewardspro.io shared styles: look A, dark only (apps/rewardspro/marketing/DESIGN.md).
-  The colour values are the dark roles from the brand kit (marketing/kit/colour/tokens.css).
-  The kit's tokens file is not loaded here: its plain :root holds the light roles, so a
-  light-mode visitor would get a white page.
-  System fonts, no webfont, no script, nothing from another host (the CSP in _headers is
-  self-only).
+  rewardspro.io shared styles: look A, "paper and ink" (apps/rewardspro/marketing/DESIGN.md).
+  The page follows the visitor's system scheme. Light is its home: cool paper, white sheets for
+  raised things, navy ink for headings. Dark uses the brand kit's dark roles.
+  Every colour is a value from the kit's scales or roles (marketing/kit/colour/tokens.css).
+  Inter 4.1 (SIL OFL 1.1; the licence is beside the font file) is served from this site.
+  No script, nothing from another host (the CSP in _headers is self-only).
+  Dark is for screens only, so a page always prints in the light roles.
 */
 
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/assets/fonts/inter-latin-var.woff2") format("woff2");
+}
+
 :root {
-  color-scheme: dark;
-  --bg: #09110F;
-  --surface: #1B2321;
-  --border: #2C3532;
-  --text: #F6F7F7;
-  --text-muted: #9EA2A6;
-  --primary: #658AAD;
-  --on-primary: #1B1D1F;
-  --accent-text: #17BEBB;
-  --accent: #17BEBB;
-  --focus: #658AAD;
-  --font: "Inter", system-ui, sans-serif;
-  --measure: 36rem;
+  color-scheme: light dark;
+  --paper: #F3F7FC;        /* primary-50: the page */
+  --sheet: #FFFFFF;        /* raised things: contents, Shopify's rule, tables */
+  --hairline: #CADCEC;     /* primary-200: rules and sheet edges, like a ledger's ruling */
+  --underline: #658AAD;    /* primary-500: the underline of a contents link, 3:1 or more on a sheet */
+  --text: #1B1D1F;
+  --text-muted: #686C70;
+  --ink: #1A3E5C;          /* primary-800, the brand navy: headings */
+  --headline: #1A3E5C;     /* the h1 */
+  --link: #007C7A;         /* accent-text */
+  --link-hover: #1A3E5C;
+  --accent: #17BEBB;       /* the brand teal: the one button */
+  --accent-hover: #7BD3D0; /* accent-300 */
+  --accent-edge: #007C7A;  /* the button's edge, so it holds on paper */
+  --on-accent: #1B1D1F;
+  --focus: #1A3E5C;
+  --rule-edge: #1A3E5C;    /* the frame round "Shopify's rule" */
+  --mount: #1A3E5C;        /* the navy board a screenshot is mounted on, in both schemes */
+  --on-mount: #A9C5DE;     /* primary-300: a caption on the board */
+  --selection: #CADCEC;
+  --on-selection: #1B1D1F;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --page: 74rem;
+  --measure: 38rem;        /* about 70 characters of body text a line */
+  --head-col: 17rem;
+  --col-gap: 4rem;
   --gutter: 1rem;
   --radius: 8px;
+}
+
+@media screen and (prefers-color-scheme: dark) {
+  :root {
+    --paper: #09110F;      /* dark bg role */
+    --sheet: #1B2321;      /* dark surface role */
+    --hairline: #2C3532;   /* dark border role */
+    --underline: #4B7091;  /* primary-600 */
+    --text: #F6F7F7;
+    --text-muted: #9EA2A6;
+    --ink: #83A6C5;        /* dark primary-text role: the navy, moved up its scale */
+    --headline: #F6F7F7;   /* white, as on the brand's dark banners */
+    --link: #17BEBB;
+    --link-hover: #F6F7F7;
+    --accent-edge: #17BEBB;
+    --focus: #658AAD;
+    --rule-edge: #658AAD;
+    --selection: #658AAD;
+  }
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --gutter: 2rem;
+  }
 }
 
 *,
@@ -34,43 +81,81 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  scrollbar-color: var(--border) var(--bg);
+  background: var(--paper);
+  scrollbar-color: var(--underline) var(--paper);
 }
 
+/* A column, so a short page (the 404) still puts its footer at the foot of the window. */
 body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
-  background: var(--bg);
+  background: var(--paper);
   color: var(--text);
   font-family: var(--font);
+  font-optical-sizing: auto;
   font-size: 1.0625rem;
   line-height: 1.6;
+  overflow-wrap: break-word;
   accent-color: var(--accent);
 }
 
+main {
+  flex: 1 0 auto;
+}
+
 ::selection {
-  background: var(--primary);
-  color: var(--on-primary);
+  background: var(--selection);
+  color: var(--on-selection);
 }
 
 h1,
 h2,
+h3,
 p,
-ul {
+ul,
+ol,
+figure {
   margin: 0;
 }
 
-h1 {
-  font-size: clamp(2.25rem, 9vw, 3.5rem);
+h1,
+h2,
+h3 {
+  color: var(--ink);
   font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+h1 {
+  color: var(--headline);
+  font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.012em;
 }
 
 h2 {
-  font-size: 1.75rem;
-  font-weight: 600;
+  font-size: clamp(1.5rem, 1.35rem + 0.6vw, 1.75rem);
   line-height: 1.2;
   letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 1.1875rem;
+  line-height: 1.3;
+}
+
+p,
+li,
+caption {
+  text-wrap: pretty;
+}
+
+th,
+.contents a {
+  text-wrap: balance;
 }
 
 h1 + p,
@@ -79,8 +164,12 @@ p + p {
   margin-top: 1rem;
 }
 
+strong {
+  font-weight: 600;
+}
+
 a {
-  color: var(--accent-text);
+  color: var(--link);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.2em;
@@ -92,9 +181,13 @@ a {
   outline-offset: 2px;
 }
 
+[id] {
+  scroll-margin-top: 1.5rem;
+}
+
 .wrap {
   width: 100%;
-  max-width: calc(var(--measure) + 2 * var(--gutter));
+  max-width: calc(var(--page) + 2 * var(--gutter));
   margin-inline: auto;
   padding-inline: var(--gutter);
 }
@@ -104,8 +197,9 @@ a {
   left: var(--gutter);
   top: 0.5rem;
   z-index: 1;
+  border: 1px solid var(--hairline);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--sheet);
   color: var(--text);
   padding: 0.5rem 0.75rem;
   transform: translateY(-200%);
@@ -115,21 +209,19 @@ a {
   transform: none;
 }
 
+/* Header and footer: the same bytes on every page, quiet chrome. */
+
 .site-header {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--hairline);
 }
 
-.site-header .wrap,
-.site-footer .wrap {
+.site-header .wrap {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem 1.5rem;
-}
-
-.site-header .wrap {
-  padding-block: 1.25rem;
+  gap: 0.125rem 2rem;
+  padding-block: 0.875rem;
 }
 
 .logo {
@@ -137,8 +229,12 @@ a {
   line-height: 0;
 }
 
+.logo picture,
 .logo img {
   display: block;
+}
+
+.logo img {
   height: 2rem;
   width: auto;
 }
@@ -146,57 +242,455 @@ a {
 .nav-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 1.25rem;
+  gap: 0 1.5rem;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .nav-list a {
   display: inline-block;
-  padding-block: 0.25rem;
+  padding-block: 0.5rem;
   color: var(--text);
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
-.intro {
-  padding-block: clamp(3rem, 10vw, 5.5rem);
-}
-
-.lead {
-  font-size: 1.25rem;
-  line-height: 1.5;
-}
-
-h1 + .lead {
-  margin-top: 1.5rem;
-}
-
-.section {
-  border-top: 1px solid var(--border);
-  padding-block: 2.5rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-decoration: none;
 }
 
 .site-footer {
-  margin-top: 2.5rem;
-  border-top: 1px solid var(--border);
+  margin-top: clamp(3rem, 8vw, 5rem);
+  border-top: 1px solid var(--hairline);
   color: var(--text-muted);
   font-size: 0.875rem;
   line-height: 1.5;
 }
 
 .site-footer .wrap {
-  padding-block: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 3rem;
+  padding-block: 1.5rem 2rem;
 }
 
+.site-footer p {
+  margin-right: auto;
+}
+
+@media (max-width: 59.9375rem) {
+  .site-footer p {
+    flex-basis: 100%;
+  }
+}
+
+/* Footer links keep an underline, in the muted ink, so they read as links without a pointer. */
 .site-footer .nav-list a {
+  padding-block: 0.375rem;
   color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 400;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  a:hover,
+  a:hover {
+    color: var(--link-hover);
+  }
+
   .nav-list a:hover,
   .site-footer .nav-list a:hover {
-    color: var(--text);
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.25em;
+  }
+}
+
+/* Page openings and sections. */
+
+.intro {
+  padding-block: clamp(2rem, 5vw, 3.75rem) clamp(2.5rem, 5vw, 3.5rem);
+}
+
+.lead {
+  font-size: clamp(1.125rem, 1.05rem + 0.35vw, 1.25rem);
+  line-height: 1.5;
+}
+
+h1 + .lead {
+  margin-top: 1.25rem;
+}
+
+.section {
+  border-top: 1px solid var(--hairline);
+  padding-block: clamp(2.5rem, 5vw, 3.5rem);
+}
+
+.maker,
+.source,
+.as-of,
+.meta,
+figcaption,
+caption {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* The one primary button. Its size is in rem, so it follows the reader's text size, and its label wraps
+   when it must: it is never shrunk to fit and never pushes the page sideways. */
+
+.button {
+  display: inline-block;
+  border: 1px solid var(--accent-edge);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: 0.75rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  text-wrap: balance;
+}
+
+@media (max-width: 39.9375rem) {
+  .button {
+    display: block;
+    padding-inline: 0.625rem;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .button:hover {
+    background: var(--accent-hover);
+    color: var(--on-accent);
+  }
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button:active {
+    transform: none;
+  }
+}
+
+/* A contents list, built from the page's own section headings. Its links are underlined, as every link
+   in the text is. On reading pages it is a sheet; on the home page it is a quiet line (it wraps on a phone). */
+
+.contents {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  padding: 1rem 1.25rem 0.75rem;
+}
+
+.contents-label {
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.contents ul {
+  margin: 0;
+  padding: 0.375rem 0;
+  list-style: none;
+}
+
+.contents a {
+  display: block;
+  padding-block: 0.4375rem;
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-decoration-color: var(--underline);
+  text-underline-offset: 0.3em;
+}
+
+.contents.inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 1.5rem;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  padding: 0;
+}
+
+.contents.inline .contents-label {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.contents.inline ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.5rem;
+  padding: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .contents a:hover {
+    color: var(--link-hover);
+    text-decoration-color: currentColor;
+  }
+}
+
+/* Reading pages (help, privacy): a calm column. On wide screens the contents sheet sits beside it, and
+   stays in view while the window is tall enough to show all of it. */
+
+.reading .section,
+.reading .intro > :not(.contents) {
+  max-width: var(--measure);
+}
+
+.reading .contents {
+  max-width: var(--measure);
+  margin-top: 2rem;
+}
+
+/* The section or the question a link brought the reader to is marked with a navy rule above it. */
+.reading .section:target {
+  border-top-color: var(--ink);
+}
+
+.reading h3:target {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--ink);
+}
+
+/* Forced colours draw every rule in one colour, so there the mark is its weight. */
+@media (forced-colors: active) {
+  .reading .section:target,
+  .reading h3:target {
+    border-top-width: 3px;
+  }
+}
+
+@media (min-width: 64rem) {
+  .reading {
+    display: grid;
+    grid-template-columns: minmax(15rem, 18rem) minmax(0, var(--measure));
+    column-gap: var(--col-gap);
+  }
+
+  .reading .intro {
+    display: contents;
+  }
+
+  .reading .intro > :not(.contents),
+  .reading .section {
+    grid-column: 2;
+  }
+
+  .reading h1 {
+    padding-top: clamp(2rem, 5vw, 3.75rem);
+  }
+
+  .reading .as-of,
+  .reading .meta {
+    padding-bottom: 2.5rem;
+  }
+
+  /* The sheet spans every row of the page. The span is far more rows than a page has; rows past the last
+     section are empty and take no height. */
+  .reading .contents {
+    grid-column: 1;
+    grid-row: 1 / span 80;
+    align-self: start;
+    max-width: none;
+    margin-top: clamp(2rem, 5vw, 3.75rem);
+  }
+
+  .reading .contents a {
+    font-size: 0.875rem;
+  }
+}
+
+/* If the reader's text is large enough that the sheet outgrows the window, it scrolls inside itself. */
+@media (min-width: 64rem) and (min-height: 46rem) {
+  .reading .contents {
+    position: sticky;
+    top: 1.5rem;
+    max-height: calc(100vh - 3rem);
+    max-height: calc(100dvh - 3rem);
+    overflow-y: auto;
+  }
+
+  /* When the sheet scrolls to a focused link, it leaves room for the focus ring. */
+  .reading .contents a {
+    scroll-margin-block: 0.5rem;
+  }
+}
+
+/* "Shopify's rule": a sheet in a navy frame, with its label, the rule, then its source and the date it
+   was read. The frame is what tells Shopify's limits from the app's own at a glance. */
+
+.rule {
+  padding: 1.125rem 1.25rem;
+  border: 1px solid var(--rule-edge);
+  border-radius: var(--radius);
+  background: var(--sheet);
+}
+
+.rule > * + * {
+  margin-top: 0.5rem;
+}
+
+.rule-label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* A figure: a real screenshot mounted on the brand navy, with its caption on the board. The board says
+   "this is a picture" in both schemes: on paper the white admin screen no longer reads as a live form,
+   and on the dark ground it no longer sits as a bare bright slab. */
+
+figure {
+  margin-top: 1.75rem;
+  margin-inline: calc(-1 * var(--gutter));
+  padding: var(--gutter) var(--gutter) 0.75rem;
+  background: var(--mount);
+}
+
+figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #FFFFFF;
+}
+
+figcaption {
+  margin-top: 0.625rem;
+  color: var(--on-mount);
+}
+
+@media (min-width: 40rem) {
+  figure {
+    margin-inline: 0;
+    padding: 1.5rem 1.5rem 1rem;
+    border-radius: var(--radius);
+  }
+}
+
+@media (min-width: 60rem) {
+  figure {
+    padding: 2rem 2rem 1.125rem;
+  }
+
+  figcaption {
+    margin-top: 0.875rem;
+  }
+}
+
+/* Example tables sit on a sheet, money in tabular figures. */
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  padding: 1rem 1.25rem 0.5rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+caption {
+  padding-bottom: 0.75rem;
+  text-align: left;
+}
+
+th,
+td {
+  padding: 0.5rem 0.5rem 0.5rem 0;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+  vertical-align: top;
+}
+
+tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+/* The result row is closed off with a double rule, as a ledger closes a sum. It is drawn in the darker
+   underline ink, so it reads as a closing line and not as one more hairline. */
+.table-wrap tbody tr:last-child > * {
+  border-top: 3px double var(--underline);
+}
+
+thead th {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+tbody th {
+  font-weight: 400;
+}
+
+.num {
+  padding-right: 0;
+  padding-left: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+thead .num {
+  white-space: normal;
+}
+
+@media (max-width: 23.4rem) {
+  .table-wrap {
+    padding-inline: 1rem;
+  }
+}
+
+/* A reader who asks for more contrast gets rules they can see. */
+@media (prefers-contrast: more) {
+  :root {
+    --hairline: var(--underline);
+  }
+}
+
+/* On paper: no navy boards to spend ink on, no contents list (the header's and footer's links still print),
+   and the navy logo whatever the screen's scheme. */
+@media print {
+  .logo img {
+    content: url("/assets/rewardspro-lockup.svg");
+  }
+
+  figure {
+    margin-inline: 0;
+    padding: 0;
+    background: none;
+  }
+
+  figure img {
+    border: 1px solid var(--hairline);
+  }
+
+  figcaption {
+    color: var(--text-muted);
+  }
+
+  .contents,
+  .contents.inline,
+  .skip-link {
+    display: none;
   }
 }

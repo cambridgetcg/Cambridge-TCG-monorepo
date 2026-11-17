@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -40,7 +41,9 @@ describe("rewardspro.io privacy and subprocessors pages", () => {
     for (const path of [PRIVACY, SUBPROCESSORS]) {
       const html = readText(path);
       expect(html, path).toContain('href="/assets/site.css"');
-      expect(html, path).toContain('src="/assets/rewardspro-lockup-reversed.svg"');
+      // The navy lockup by default, the reversed one on a dark screen
+      expect(html, path).toContain('src="/assets/rewardspro-lockup.svg"');
+      expect(html, path).toContain('srcset="/assets/rewardspro-lockup-reversed.svg"');
       expect(html, path).not.toContain("Rewards Pro");
       // No bracketed placeholders left for the owner to fill
       expect(html, path).not.toContain("[");
@@ -708,5 +711,80 @@ describe("rewardspro.io's structured data names the maker's site, logo and conta
     expect(notice.urlList).toEqual(pages);
     expect(deploy).toContain("Content-Type: application/json; charset=utf-8");
     expect(deploy).toContain("never before the owner's word to merge");
+  });
+});
+
+describe("rewardspro.io's contents lists and font", () => {
+  /** A page's "On this page" links, as [target id, link text]. */
+  const contents = (path: string): [string, string][] => {
+    const nav = readText(path).match(/<nav class="contents[^"]*"[\s\S]*?<\/nav>/)?.[0];
+    if (!nav) throw new Error(`${path} has no contents list`);
+    return [...nav.matchAll(/<a href="#([^"]+)">([^<]+)<\/a>/g)].map(([, id, text]) => [id, text]);
+  };
+  /** The heading of the section with this id. */
+  const headingOf = (html: string, id: string) =>
+    html.match(new RegExp(`<section[^>]*\\bid="${id}"[^>]*>\\s*<h2[^>]*>([^<]+)</h2>`))?.[1];
+
+  it("lists the home and help pages' own section headings, word for word, and every link lands on its section", () => {
+    // The home and help pages repeat their headings in an "On this page" list. A heading reworded without
+    // its list entry would leave a link that names something the page no longer says.
+    for (const path of [HOME, HELP]) {
+      const html = readText(path);
+      for (const [id, text] of contents(path)) expect(headingOf(html, id), `${path} #${id}`).toBe(text);
+    }
+    // The help page lists every one of its sections, in the page's order
+    const helpSections = [...readText(HELP).matchAll(/<section class="section" id="([^"]+)"/g)].map(([, id]) => id);
+    expect(contents(HELP).map(([id]) => id)).toEqual(helpSections);
+    // The privacy policy's list uses shorter names, so only its targets are checked
+    const privacy = readText(PRIVACY);
+    for (const [id] of contents(PRIVACY)) expect(privacy, `#${id}`).toMatch(new RegExp(`<section[^>]*\\bid="${id}"`));
+  });
+
+  it("names the home page's sections in its opening, the limits among them, and no step on its own", () => {
+    // A step's heading is true beside its text: "A paid order earns cashback as store credit" is followed, in
+    // the same step, by the orders that earn nothing, and "Customers spend it at checkout" by Shopify's sign-in rule
+    // (marketing/MESSAGING.md, "Rules that travel with it"). Lifted into the opening they would stand alone,
+    // so the opening lists sections only.
+    expect(contents(HOME)).toEqual([
+      ["how-it-works", "How it works"],
+      ["cost", "What it costs"],
+      ["limits", "What it doesn't do"],
+    ]);
+    // Read as words, not markup, so a tag or a non-breaking space inside the sentence can't hide it
+    const opening = readText(HOME)
+      .match(/<div class="intro">[\s\S]*?<section/)![0]
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;|&#160;|&#xa0;/gi, " ")
+      .replace(/\s+/g, " ");
+    expect(opening).not.toMatch(/A paid order earns|spend it at checkout/i);
+  });
+
+  it("serves Inter from the site itself with its licence beside it, and follows the visitor's light or dark setting", () => {
+    // SIL OFL 1.1 asks that the licence travels with the font, and the CSP lets fonts come only from the site
+    const font = readFileSync(resolve(process.cwd(), "landing/public/assets/fonts/inter-latin-var.woff2"));
+    // _headers lets browsers keep this file for a year, so its bytes must never change under this name: a new
+    // cut of the font takes a new file name (and landing/tools/subset-inter.py rebuilds this one exactly)
+    expect(createHash("sha256").update(font).digest("hex")).toBe("7a6763bf4b3fa09288f18c8cf6f7a28a488187091876ea338f57e1a37be911c2");
+    expect(read("landing/public/_headers")).toMatch(/\/assets\/fonts\/\*\n\s+Cache-Control: public, max-age=31536000, immutable/);
+    expect(read("landing/public/assets/fonts/Inter-OFL.txt")).toContain("SIL Open Font License, Version 1.1");
+    const css = read("landing/public/assets/site.css");
+    expect(css).toContain('src: url("/assets/fonts/inter-latin-var.woff2") format("woff2");');
+    expect(read("landing/public/_headers")).toContain("font-src 'self'");
+    // Nothing in the stylesheet comes from another host
+    expect(css).not.toMatch(/url\(\s*["']?(https?:)?\/\//);
+    expect(css).not.toContain("@import");
+    for (const path of PAGES) {
+      const html = read(path);
+      expect(html, path).toContain('<link rel="preload" href="/assets/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin />');
+      expect(html, path).toContain('<meta name="color-scheme" content="light dark" />');
+      expect(html, path).toContain('<meta name="theme-color" content="#F3F7FC" media="(prefers-color-scheme: light)" />');
+      expect(html, path).toContain('<meta name="theme-color" content="#09110F" media="(prefers-color-scheme: dark)" />');
+      // Light is the default in the markup as in the stylesheet: the navy lockup, and the reversed one on a dark screen
+      expect(html, path).toContain('<source srcset="/assets/rewardspro-lockup-reversed.svg" media="screen and (prefers-color-scheme: dark)" />');
+      expect(html, path).toContain('src="/assets/rewardspro-lockup.svg"');
+      // No script on any page but the home page's structured data
+      expect(html.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, ""), path).not.toContain("<script");
+    }
+    expect(css).toContain("@media screen and (prefers-color-scheme: dark)");
   });
 });

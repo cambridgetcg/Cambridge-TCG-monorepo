@@ -30,6 +30,15 @@ verify `https://rewardspro.io`, `/privacy-policy`, `robots.txt`, `sitemap.xml`,
 external links, responsive layout, and the visible integration status labels.
 Cloudflare Pages retains earlier deployments for rollback.
 
+After a deploy that changes the look, also check the font and both schemes:
+
+```sh
+curl -sI https://rewardspro.io/assets/fonts/inter-latin-var.woff2 | grep -i -E '^(content-type|cache-control)'
+```
+
+It should show `content-type: font/woff2` and `cache-control: public, max-age=31536000, immutable`. Then look at
+the home page and `/help/` with the system set to light and to dark.
+
 ### After a deploy that changes a page
 
 The site has an IndexNow key. The file

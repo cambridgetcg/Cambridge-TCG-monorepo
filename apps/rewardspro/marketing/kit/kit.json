@@ -52,8 +52,8 @@
   },
   "app": {
    "display": "standalone",
-   "theme": "dark",
-   "color_scheme": "dark"
+   "theme": "light",
+   "color_scheme": "light dark"
   },
   "pages": []
  },

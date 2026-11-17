@@ -23,7 +23,8 @@ Inter (SIL Open Font License) must be installed. Then, from this folder:
 python3 ~/.kingdom/tools/artcraft-brand/scripts/brandkit.py brand.json --out kit --rebuild-check
 ```
 
-Exit 0 means every check passed. Last rebuilt 2026-10-27 with artcraft-brand generator 1.8 and
+Exit 0 means every check passed. Last rebuilt 2026-11-16 (see "Metadata change, 2026-11-16"
+below); before that on 2026-10-27, with artcraft-brand generator 1.8 and
 vectorcraft-cli 0.17.0: 269 checks, 0 failed, 4 warnings explained in `kit/BRAND.md`, and the
 rebuild check found all 70 files byte-identical. Every logo SVG and PNG, the app icons and the
 share card are the same bytes as the 2026-10-20 build (generator 1.2). The 16 px favicon cut is
@@ -43,6 +44,31 @@ Marks, colours, wordmark and the share card's words are unchanged.
 
 brand.json's sha256 no longer matches `approvals.jsonl` line 1, which approved the look. That file
 stays append-only; no new approval is claimed.
+
+### Metadata change, 2026-11-16
+
+rewardspro.io's pages now follow the visitor's system scheme, light and dark (`DESIGN.md`), so the
+2026-10-27 note above no longer describes the site. `brand.json` says so:
+
+- `app.color_scheme` is `"light dark"` and `app.theme` is left to its default: the head snippet
+  writes `color-scheme` `light dark` and one theme-color for each scheme, and the manifest's theme
+  and background colours are the light ground.
+- `ground.dark` is unchanged, so the dark roles are the same values as before.
+
+Rebuilt the same day with artcraft-brand generator 1.8 and vectorcraft-cli 0.17.0: 269 checks,
+0 failed, the same 4 warnings. Eight generated files changed (`BRAND.md`, `index.html`, `kit.json`,
+`verify.json`, `.brandkit-fingerprint`, `source/brand.json`, `web/head-snippet.html`,
+`web/site.webmanifest`); every logo, icon, card and colour file is the same bytes as before. Before
+the change, a rebuild of the committed spec on the same Mac reproduced the committed kit byte for
+byte.
+
+The site's page ground in light is `#F3F7FC`, a step of the kit's primary scale (primary 50), and
+its raised sheets are the kit's light `bg` role, `#FFFFFF`. So the kit's light roles are unchanged,
+and the site's own light `theme-color` and manifest colours (`landing/public/`) are the paper, not
+the `#FFFFFF` the head snippet writes. The look itself (the mark, the colours, the wordmark) is as
+approved on 2026-10-20; the pages' design is an agent's, under the owner's delegation of 2026-11-16
+(`DESIGN.md`, "Whose choices these are"; `approvals.jsonl` records the delegation). No approval of the
+design is claimed.
 
 ## State on 2026-10-20
 

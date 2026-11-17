@@ -9,8 +9,9 @@
       content="How RewardsPro works for Shopify stores: setup, what earns cashback, spending credit (new customer accounts or Shop Pay), VIP tiers, refunds and cost."
     />
     <link rel="canonical" href="https://rewardspro.io/help/" />
-    <meta name="theme-color" content="#09110F" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#F3F7FC" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#09110F" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -31,16 +32,15 @@
       content="How RewardsPro works for Shopify stores: setup, what earns cashback, spending credit (new customer accounts or Shop Pay), VIP tiers, refunds and cost."
     />
     <link rel="stylesheet" href="/assets/site.css" />
+    <link rel="preload" href="/assets/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin />
     <style>
+      /* Help only: its lists and subheadings. The reading layout and the contents sheet are in site.css. */
       .help .section > * + * {
         margin-top: 1rem;
       }
 
-      .help h3 {
-        margin: 2rem 0 0;
-        font-size: 1.125rem;
-        font-weight: 600;
-        line-height: 1.3;
+      .help .section > h3 {
+        margin-top: 2.25rem;
       }
 
       .help .section > h3 + * {
@@ -54,70 +54,12 @@
         padding-left: 1.25rem;
       }
 
-      .help li + li {
+      .help .section li + li {
         margin-top: 0.375rem;
-      }
-
-      .as-of,
-      .source,
-      caption {
-        color: var(--text-muted);
-        font-size: 0.875rem;
-        line-height: 1.5;
       }
 
       .intro .as-of {
         margin-top: 1rem;
-      }
-
-      .rule {
-        padding: 1rem 1.25rem;
-        border-radius: var(--radius);
-        background: var(--surface);
-      }
-
-      .rule > * + * {
-        margin-top: 0.5rem;
-      }
-
-      .rule-label {
-        font-weight: 600;
-      }
-
-      .table-wrap {
-        overflow-x: auto;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-variant-numeric: tabular-nums;
-      }
-
-      caption {
-        padding-bottom: 0.5rem;
-        text-align: left;
-      }
-
-      th,
-      td {
-        padding: 0.5rem 0.375rem;
-        border-bottom: 1px solid var(--border);
-        text-align: left;
-        vertical-align: top;
-      }
-
-      thead th {
-        background: var(--surface);
-      }
-
-      .num {
-        text-align: right;
-        white-space: nowrap;
-      }
-
-      thead .num {
-        white-space: normal;
       }
     </style>
   </head>
@@ -127,12 +69,15 @@
     <header class="site-header">
       <div class="wrap">
         <a class="logo" href="/">
-          <img
-            src="/assets/rewardspro-lockup-reversed.svg"
-            alt="RewardsPro"
-            width="163"
-            height="32"
-          />
+          <picture>
+            <source srcset="/assets/rewardspro-lockup-reversed.svg" media="screen and (prefers-color-scheme: dark)" />
+            <img
+              src="/assets/rewardspro-lockup.svg"
+              alt="RewardsPro"
+              width="163"
+              height="32"
+            />
+          </picture>
         </a>
         <nav aria-label="Main">
           <ul class="nav-list">
@@ -145,11 +90,28 @@
     </header>
 
     <main id="main">
-      <div class="wrap help">
+      <div class="wrap help reading">
         <div class="intro">
           <h1>RewardsPro help</h1>
           <p class="lead">RewardsPro is an app for Shopify stores, made by Cambridge TCG Limited, a UK company in London. It adds cashback to your customers' Shopify store credit when an order is paid, with VIP tiers by spend.</p>
           <p class="as-of">As of 10 November 2026.</p>
+          <nav class="contents" aria-labelledby="contents-label">
+            <p class="contents-label" id="contents-label">On this page</p>
+            <ul>
+              <li><a href="#before-you-start">What should you know before you start?</a></li>
+              <li><a href="#setup">How do you set up RewardsPro?</a></li>
+              <li><a href="#widget">How do you turn on the widget?</a></li>
+              <li><a href="#earning">How much cashback does an order earn?</a></li>
+              <li><a href="#payouts">When is the store credit added?</a></li>
+              <li><a href="#spending">How do customers spend their store credit?</a></li>
+              <li><a href="#tiers">How do VIP tiers work?</a></li>
+              <li><a href="#refunds">What happens to cashback when you refund an order?</a></li>
+              <li><a href="#cost">What does it cost you?</a></li>
+              <li><a href="#data">Does RewardsPro email your customers?</a></li>
+              <li><a href="#uninstall">What happens when you uninstall?</a></li>
+              <li><a href="#contact">How do you reach us?</a></li>
+            </ul>
+          </nav>
         </div>
 
         <section class="section" id="before-you-start" aria-labelledby="before-you-start-title">
