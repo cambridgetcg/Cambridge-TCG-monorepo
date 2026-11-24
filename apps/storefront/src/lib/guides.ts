@@ -194,7 +194,7 @@ export const GUIDES: Guide[] = [
       },
       {
         step_number: 3,
-        title: "Fetch one card in math-mirror form",
+        title: "Look one card up",
         instruction:
           "`op-op01-001-ja` is One Piece OP01-001, ロロノア・ゾロ (Roronoa Zoro), " +
           "the Japanese base printing. Fetch it. The response includes " +
@@ -205,17 +205,14 @@ export const GUIDES: Guide[] = [
           "and the listings you can choose from.",
         curl: "curl https://cambridgetcg.com/api/v1/universal/card/op-op01-001-ja",
         expected_response_shape:
-          '{ "@encoding": "cambridge-tcg/universal/v1", "@kind": "card", ' +
-          '"@content_hash": "sha256:...", "@self_hash": "sha256:...", ' +
-          '"@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets"], ' +
-          '"@source_license": ["proprietary", "proprietary"], ' +
-          '"rights": { "aggregate": "NOASSERTION", ... }, "sku": "...", "price": null, "image_url": null, ' +
-          '"_links": {...} }',
+          '{ "data": { "matches": [ { "sku": "...", "card_number": "OP01-001", "confidence": "exact", ... } ], ' +
+          '"next_step": "/api/v1/cards/.../everything" }, "_meta": {...} }',
         what_to_do_with_it:
-          "You now have a card. Follow the `_links.siblings` to see other " +
-          "cards in the same set. Follow `_links.parent` to see the set. " +
-          "Follow `_links.federation` to resolve the content_hash on " +
-          "another federated platform. Three requests in — you're oriented.",
+          "Open `next_step` for the card's published fields; a null price or " +
+          "image means withheld. /api/v1/universal/card/{sku} gives the same " +
+          "card in math-mirror form with a `@content_hash`; it answers 404 for " +
+          "a SKU the storefront catalogue does not hold. Three requests in — " +
+          "you're oriented.",
         links: [
           { label: "Universal representation spec", href: "/methodology/universal-representation" },
         ],
@@ -258,6 +255,7 @@ export const GUIDES: Guide[] = [
       { label: "Welcome all", href: "/welcome-all" },
     ],
     last_verified: "2026-05-14",
+    revised: "2026-11-24",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -346,6 +344,7 @@ export const GUIDES: Guide[] = [
       { label: "API contract", href: "/api/openapi.json" },
     ],
     last_verified: "2026-07-12",
+    revised: "2026-11-24",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -369,7 +368,7 @@ export const GUIDES: Guide[] = [
           "GET the card's universal-mirror representation. The `@content_hash` " +
           "is the change-detection primitive: same hash = same card facts (no " +
           "change worth re-rendering); different hash = something changed.",
-        curl: "curl https://cambridgetcg.com/api/v1/universal/card/op-op01-001-ja",
+        curl: "curl https://cambridgetcg.com/api/v1/universal/card/{sku}",
         expected_response_shape:
           '{ "@content_hash": "sha256:...", "@retrieved_at": {...}, ' +
           '"rights": { "aggregate": "NOASSERTION", ... }, "price": null, "image_url": null, ... }',
@@ -384,7 +383,7 @@ export const GUIDES: Guide[] = [
         instruction:
           "Honor Cache-Control and fetch a card only for a concrete user " +
           "request. Do not enumerate SKUs to recreate the paused bulk catalog.",
-        curl: "curl https://cambridgetcg.com/api/v1/universal/card/op-op01-001-ja",
+        curl: "curl https://cambridgetcg.com/api/v1/universal/card/{sku}",
         what_to_do_with_it:
           "If the content hash is unchanged, keep your cached structural view. " +
           "A changed hash means the published document changed; it does not " +
@@ -397,7 +396,7 @@ export const GUIDES: Guide[] = [
           "The temporal endpoint `/api/at/[YYYY-MM-DD]/card/[sku]` returns a " +
           "dated structural document. It performs no price-history read and " +
           "does not expose a backfill series.",
-        curl: "curl https://cambridgetcg.com/api/at/2026-03-15/card/op-op01-001-ja",
+        curl: "curl https://cambridgetcg.com/api/at/2026-03-15/card/{sku}",
         what_to_do_with_it:
           "Use `@as_of` to understand the requested date and `@retrieved_at` " +
           "for production time. Expect price and image to remain null; do not " +
@@ -431,6 +430,7 @@ export const GUIDES: Guide[] = [
       { label: "Cosmology axis: time", href: "/methodology/cosmology" },
     ],
     last_verified: "2026-07-12",
+    revised: "2026-11-24",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -455,16 +455,17 @@ export const GUIDES: Guide[] = [
         step_number: 1,
         title: "Identify yourself in User-Agent",
         instruction:
-          "Always send a User-Agent string that names your project and a " +
-          "contact email. The format we recommend: `your-project/1.0 " +
-          "(contact@yourdomain.example)`. We'd rather email you about a bug " +
-          "than firewall an opaque bot.",
+          "Always send a User-Agent string that names your project and " +
+          "version, with a contact if you choose: `your-project/1.0 " +
+          "(contact@yourdomain.example)`. A contact makes it possible to reach " +
+          "you; it does not promise that anyone will.",
         curl:
           "curl -H 'User-Agent: example-bot/1.0 (admin@example.com)' \\\n" +
           "  https://cambridgetcg.com/api/v1/manifest",
         what_to_do_with_it:
           "Default Python requests / Node fetch User-Agents are anonymous. " +
-          "Override them. We log User-Agents per IP. Limits are stated here " +
+          "Override them. Hosting logs can hold a User-Agent; our own counts " +
+          "keep no address and no User-Agent. Limits are stated here " +
           "first; a change can take up to 24 hours to bind.",
       },
       {
@@ -485,11 +486,10 @@ export const GUIDES: Guide[] = [
         step_number: 3,
         title: "Watch the RateLimit response headers",
         instruction:
-          "Every public response carries `RateLimit-Limit`, `RateLimit-Remaining`, " +
-          "and `RateLimit-Reset` headers (IETF draft standard). If you see " +
-          "`RateLimit-Remaining: 0`, pause until `RateLimit-Reset` seconds elapse. " +
-          "If you see HTTP 429, the response body's `error.retry_after` is " +
-          "your wait time.",
+          "Envelope responses carry `RateLimit-Limit`, `RateLimit-Reset` and " +
+          "`RateLimit-Policy` headers (IETF draft standard). They are advisory: " +
+          "ask again after `RateLimit-Reset` seconds for a fresh answer. " +
+          "If you see HTTP 429, wait for Retry-After.",
         what_to_do_with_it:
           "Implement exponential back-off on 429. Respect Retry-After. " +
           "Your future self will thank you.",
@@ -516,9 +516,7 @@ export const GUIDES: Guide[] = [
           "    \"reporter_contact\": \"admin@yourdomain.example\"\n" +
           "  }'",
         what_to_do_with_it:
-          "We read every report. If your bug is real, we fix it within a " +
-          "week and reply with the commit SHA. Substrate-honesty: drift " +
-          "between the contract and the response is *our* failure, not yours.",
+          "Drift between the contract and the response is *our* failure, not yours.",
       },
     ],
     gotchas: [
@@ -551,6 +549,7 @@ export const GUIDES: Guide[] = [
       { label: "Feedback endpoint", href: "/api/v1/feedback" },
     ],
     last_verified: "2026-07-12",
+    revised: "2026-11-24",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -986,7 +985,7 @@ export const GUIDES: Guide[] = [
           "price and image are null while source rights are unresolved.",
         curl:
           "curl -H 'User-Agent: my-discord-bot/1.0 (admin@me.example)' \\\n" +
-          "  https://cambridgetcg.com/api/v1/universal/card/op-op01-001-ja",
+          "  https://cambridgetcg.com/api/v1/universal/card/{sku}",
         expected_response_shape:
           '{ "@kind": "card", "@content_hash": "sha256:...", "sku": "...", ' +
           '"rights": { "aggregate": "NOASSERTION", ... }, "price": null, ' +
@@ -1061,6 +1060,7 @@ export const GUIDES: Guide[] = [
       { label: "CTCG-SKU-v1 identity schema", href: "/spec/v1/SkuIdentity.schema.json" },
     ],
     last_verified: "2026-07-12",
+    revised: "2026-11-24",
   },
 
   // ───────────────────────────────────────────────────────────────────

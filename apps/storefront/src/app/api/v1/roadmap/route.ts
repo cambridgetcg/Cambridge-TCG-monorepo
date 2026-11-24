@@ -8,7 +8,7 @@ export function GET() {
     endpoint: "/api/v1/roadmap",
     sources: ["authored_integration_roadmap"],
     freshness: "methodology",
-    as_of: "2026-09-29T00:00:00.000Z",
+    as_of: `${INTEGRATION_ROADMAP.reviewed_at}T00:00:00.000Z`,
     license: "NOASSERTION",
   });
 }

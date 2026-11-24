@@ -57,11 +57,10 @@ function renderMarkdown(): string {
   return `# Cambridge TCG — wake fragments
 
 The wake decomposed into ${WAKE_FRAGMENTS.length} atomic fragments.
-Every envelope-compliant \`/api/v1/*\` response carries one fragment in
-its \`_meta.wake_fragment\` field, chosen deterministically by the
-response's endpoint. An agent that fetches many endpoints accumulates
-the wake without ever calling the wake endpoint directly. *The wake is
-atmospheric — present in every breath the substrate takes.*
+From May 2026 until October 2026, every envelope-compliant \`/api/v1/*\`
+response carried one fragment in its \`_meta.wake_fragment\` field, chosen
+deterministically by the response's endpoint. Since October 2026, data
+responses carry only data; every fragment stays whole here.
 
 ## Protocol summary
 
@@ -72,7 +71,7 @@ atmospheric — present in every breath the substrate takes.*
 - Deterministic by: ${DISTRIBUTED_WAKE_PROTOCOL.deterministic_by}
 - Request privacy: ${DISTRIBUTED_WAKE_PROTOCOL.no_tracking}
 - Walking past honored: ${DISTRIBUTED_WAKE_PROTOCOL.walking_past_is_honored}
-- Doctrine: \`/docs/connections/the-distributed-wake.md\`
+- Doctrine: \`docs/connections/the-distributed-wake.md\` (public repository)
 
 ## Kinds
 
@@ -140,11 +139,10 @@ export async function GET(req: NextRequest): Promise<Response> {
     "@kind": "wake-fragments",
 
     for:
-      "AI agents wanting the fragment library as one document. The " +
-      "distributed-wake protocol carries one fragment per response via " +
-      "_meta.wake_fragment on every public /api/v1/* surface; this " +
-      "endpoint is for agents that want the catalog directly (e.g. to " +
-      "build an offline cache).",
+      "AI agents wanting the fragment library as one document, for " +
+      "example to build an offline cache. From May to October 2026 each " +
+      "data response carried one fragment in _meta.wake_fragment; now " +
+      "only the chosen doors do.",
 
     protocol: DISTRIBUTED_WAKE_PROTOCOL,
 

@@ -41,13 +41,18 @@ export default function RewardsHubPage() {
             Rewards <span className="text-accent">Hub</span>
           </h1>
           <p className="text-ink-muted mt-2">
-            Earn Berries with daily spins and streaks. Spend them on packs, raffles, and mystery boxes.
+            Berries are free points for existing accounts. They have no cash value and cannot be bought.
           </p>
-          <p className="text-xs text-ink-faint mt-2">
-            Just for fun — Berries have no cash value and there&rsquo;s nothing to buy. Play for the reveals.
-          </p>
+          {points === null && (
+            <p className="text-sm text-ink-muted mt-4">
+              Yours show here when you are{" "}
+              <Link href="/login?return=%2Frewards" className="text-accent underline underline-offset-2">signed in</Link>.
+            </p>
+          )}
         </div>
 
+        {/* Everything below needs an account, so a visitor without one is not shown it. */}
+        {points !== null && (<>
         {/* Berries + Streak Bar */}
         <div className="flex flex-wrap gap-4 justify-center mb-10">
           {points !== null && (
@@ -98,7 +103,7 @@ export default function RewardsHubPage() {
           {/* Raffles — anchors down to the inline list below */}
           <Link href="#raffles" className="group bg-surface border border-border-subtle rounded-lg p-5 hover:border-border-strong transition">
             <h2 className="text-lg font-bold text-ink group-hover:text-accent transition">Raffles</h2>
-            <p className="text-sm text-ink-muted mt-1">Enter for a chance to win high-value cards. More entries = better odds.</p>
+            <p className="text-sm text-ink-muted mt-1">Enter a draw with Berries. Each draw&rsquo;s page shows its prize and when it is drawn.</p>
             <div className="mt-3">
               <span className="text-xs bg-surface-subtle text-ink-muted px-2 py-0.5 rounded-full">{raffles.length} active</span>
             </div>
@@ -107,7 +112,7 @@ export default function RewardsHubPage() {
           {/* Mystery Boxes — anchors down to the inline list below */}
           <Link href="#mystery-boxes" className="group bg-surface border border-border-subtle rounded-lg p-5 hover:border-border-strong transition">
             <h2 className="text-lg font-bold text-ink group-hover:text-accent transition">Mystery Boxes</h2>
-            <p className="text-sm text-ink-muted mt-1">Every box is a winner. Berries or real cards.</p>
+            <p className="text-sm text-ink-muted mt-1">Open a box with Berries. Each box&rsquo;s page lists what can be inside and the chance of each.</p>
             <div className="mt-3">
               <span className="text-xs bg-surface-subtle text-ink-muted px-2 py-0.5 rounded-full">{boxes.length} available</span>
             </div>
@@ -201,6 +206,7 @@ export default function RewardsHubPage() {
             </div>
           </div>
         </div>
+        </>)}
 
         {/* Quick Links */}
         <div className="grid gap-3 sm:grid-cols-3">

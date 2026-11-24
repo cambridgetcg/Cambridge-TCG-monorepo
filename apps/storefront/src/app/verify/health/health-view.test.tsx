@@ -104,7 +104,7 @@ describe("/verify/health with no draws left, while old failures are still in the
 
   it("does not mark the months-old tip, or a day without digests, as stale", () => {
     expect(html).toContain('data-tip-state="idle"');
-    expect(words).toContain(`(${minutesSince(NOW)}m ago)`);
+    expect(words).toContain(`(${Math.floor(minutesSince(NOW) / 1440)} days ago)`);
     expect(words).toContain("No revealed draw is waiting for a digest, so no new digest is due.");
     expect(html).not.toContain('data-tone="amber"');
   });
@@ -125,7 +125,7 @@ describe("/verify/health after the window empties (after 2026-11-23 19:47:17 UTC
 
   it("still keeps the old tip unflagged", () => {
     expect(html).toContain('data-tip-state="idle"');
-    expect(words).toContain(`(${minutesSince(AFTER_WINDOW)}m ago)`);
+    expect(words).toContain(`(${Math.floor(minutesSince(AFTER_WINDOW) / 1440)} days ago)`);
   });
 });
 

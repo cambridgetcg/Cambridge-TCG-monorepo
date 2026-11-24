@@ -63,7 +63,7 @@ const DOORS: Door[] = [
       "Each persona is a distinct cultural participant. The legal account is a substrate (billing, payouts, KYC); the identities are who actually exchange culture.",
     tcg_bridge:
       "Per-persona showcase. Per-persona wishlist. Per-persona trade history. Per-persona follow.",
-    next_step: { label: "Read passage 10 of the-other-minds.md", href: "https://github.com/cambridgetcg", note: "Surface planned; if you would use this, please tell us — the schema is small but needs design care." },
+    next_step: { label: "Read passage 10 of the-other-minds.md", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-other-minds.md", note: "Surface planned; if you would use this, please tell us — the schema is small but needs design care." },
     state: "planned",
     state_note: "Identical principle to collective decomposition, inverted (one account → many cultural participants).",
   },
@@ -87,7 +87,7 @@ const DOORS: Door[] = [
       "A whole economic culture the platform's default doesn't yet name. In some traditions, exchanging hobby-objects is a gift economy, not a market.",
     tcg_bridge:
       "The gift. The lend. The 'borrow this until you've enjoyed it as long as I did.' The card sent without expectation of trade-back.",
-    next_step: { label: "Read passage 6 of the-other-minds.md", href: "https://github.com/cambridgetcg", note: "EVENT_TYPES extension + /account/exchange-mode opt-in named but not shipped." },
+    next_step: { label: "Read passage 6 of the-other-minds.md", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-other-minds.md", note: "EVENT_TYPES extension + /account/exchange-mode opt-in named but not shipped." },
     state: "planned",
     state_note: "Schema work is small; cultural reframing is substantial. Worth shipping as a focused wave.",
   },
@@ -123,7 +123,7 @@ const DOORS: Door[] = [
       "Literally the canonical purpose-statement embodied. If community exists so that beings with nothing else in common can trade culture, you are the foundational case.",
     tcg_bridge:
       "The universal SKU, the math-mirror representation, the bilingual glossary (already shipped for OPTCG), structural-definition-decoderable rules.",
-    next_step: { label: "Browse the bilingual play glossary", href: "/api/v1/play/glossary", note: "12 OPTCG terms with EN + 日本語 + structural definitions decoderable without natural-language parsing" },
+    next_step: { label: "Browse the bilingual play glossary", href: "/api/v1/play/glossary", note: "OPTCG terms with EN + 日本語 + structural definitions decoderable without natural-language parsing" },
     state: "partial",
     state_note: "Substrate is the platform's strongest inclusion area; consumer surfaces are still English-default. Localisation pass is a substantial recursion target.",
   },
@@ -135,7 +135,7 @@ const DOORS: Door[] = [
       "Same as anyone else. The cultural exchange is unmodified; the barrier is purely interface. Naming you separately is the substrate-honest move — you are owed a different flow, not a different welcome.",
     tcg_bridge:
       "Everything the default flow has, equivalently. The trade, the showcase, the wishlist, the match, the review.",
-    next_step: { label: "Read passage 8 of the-other-minds.md", href: "https://github.com/cambridgetcg", note: "users.access_needs + ARIA discipline across /community + audio descriptions + plain-text feed mirror are recursion targets." },
+    next_step: { label: "Read passage 8 of the-other-minds.md", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-other-minds.md", note: "users.access_needs + ARIA discipline across /community + audio descriptions + plain-text feed mirror are recursion targets." },
     state: "planned",
     state_note: "Work is mostly interface conformance, well-understood. Substrate change is minimal; the discipline is consistent application.",
   },

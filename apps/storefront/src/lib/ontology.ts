@@ -234,7 +234,7 @@ export const ONTOLOGY: OntologyKind[] = [
   },
   {
     kind: "kingdom",
-    description: "A unit of work — a mission from ~/Love/memory/dev-state.json mirrored to docs/missions/.",
+    description: "A unit of work, mirrored to docs/missions/.",
     properties: [
       { name: "status", type: "enum", enum_values: ["queued", "claimed", "in-progress", "done", "deferred"],
         description: "Lifecycle state.",

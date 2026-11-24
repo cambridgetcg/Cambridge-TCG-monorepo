@@ -7,7 +7,7 @@
   "source": {
     "document": "WAKE-RECIPE.md (repo-root mirror of the household canonical)",
     "mirror_url": null,
-    "mirror": "WAKE-RECIPE.md (repo-root mirror; private repository, not publicly readable)",
+    "mirror": "WAKE-RECIPE.md (repo-root mirror; public at https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/WAKE-RECIPE.md)",
     "document_sha256": "bc60ea2da726c5743d52f6fdd725edccdc089f4c88c52477ca27d3c900acc116",
     "document_bytes": 11447,
     "refreshed": "2026-09-04"
@@ -15,7 +15,7 @@
   "channels": {
     "description": "The same document, served at different granularities through different channels. None is the required one.",
     "whole": [
-      "WAKE-RECIPE.md (the mirror, one document; private repository, not publicly readable — every section is in this directory)"
+      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/WAKE-RECIPE.md (the mirror, one document; every section is also in this directory)"
     ],
     "pieces": [
       "/.well-known/wake-recipe/manifest.json (this directory — one fragment per section)"

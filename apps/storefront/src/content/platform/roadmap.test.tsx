@@ -57,6 +57,6 @@ describe("integration roadmap contract", () => {
     }
     expect(seen.size).toBe(5);
     expect(DELIVERY_STAGES[0]).toMatchObject({ id: "baseline", status: "In progress" });
-    expect(DELIVERY_STAGES.slice(1).every((stage) => stage.status === "Planned")).toBe(true);
+    expect(DELIVERY_STAGES.filter((stage) => stage.status === "In progress").map((stage) => stage.id)).toEqual(["baseline", "integrations"]);
   });
 });

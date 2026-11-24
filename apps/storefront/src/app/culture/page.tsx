@@ -2,7 +2,7 @@
  * /culture — the museum's floor plan.
  *
  * The culture wings grew one at a time through July 2026 — the gallery
- * on the front page (2026-07-15), the named hands (07-22), the odds
+ * on the front page (2026-07-15, gone in the September rebuild), the named hands (07-22), the odds
  * room (07-23), the lineage, the duel, the pull & the pause, and the
  * workshop of the floating world (07-28) — and until now the only map
  * of them was a footer column. Asha asked on 2026-07-28 that the site's
@@ -101,12 +101,12 @@ const HALLS: readonly Hall[] = [
         href: "/artists",
         title_i18n: { ja: "絵師たち", es: "Las manos con nombre", "zh-Hans": "画师们", "zh-Hant": "繪師們" },
         line_i18n: {
-          ja: "うちの目録にクレジットの残る絵師を、ひとりずつたどれます。ならぶのは、適法に所蔵する作品だけ。", es: "Cada mano con crédito en nuestro propio catálogo, una por una, con las obras que esta casa posee legalmente.", "zh-Hans": "这家店名录里署了名的画师，一位一位，都逛得到。挂出来的，只有合法持有的作品。", "zh-Hant": "小店目錄裡留下名字的繪師，一位一位看下去。掛出來的，只有依法持有的作品。",
+          ja: "うちの目録にクレジットの残る絵師を、ひとりずつたどれます。ならぶのは、所蔵する作品だけ。", es: "Cada mano con crédito en nuestro propio catálogo, una por una, con las obras que esta casa posee.", "zh-Hans": "这家店名录里署了名的画师，一位一位，都逛得到。挂出来的，只有持有的作品。", "zh-Hant": "小店目錄裡留下名字的繪師，一位一位看下去。掛出來的，只有持有的作品。",
           },
         en: "The Named Hands",
         jp: "絵師たち",
         line:
-          "Every credited illustrator in our own catalogue, browsable hand by hand, with the works we legally hold.",
+          "Every credited illustrator in our own catalogue, browsable hand by hand, with the works we hold.",
       },
     ],
   },
@@ -142,7 +142,7 @@ const HALLS: readonly Hall[] = [
         en: "The Trained Eye",
         jp: "目利き",
         line:
-          "A daily looking game: one card from the shop's own shelves, shown too close to name. Guess, and every miss steps the view back — the reveal is the full art. Free, no prizes; just the eye, learning.",
+          "A daily looking game: one card from our own catalogue, shown too close to name. Guess, and every miss steps the view back — the reveal is the full art. Free, no prizes; just the eye, learning.",
         title_i18n: { ja: "目利き", "zh-Hant": "眼力", "zh-Hans": "练眼力", es: "El buen ojo" },
         line_i18n: {
           ja: "一日一枚、うんと近くから。どのカードか、あててみてください。はずすたびに、すこし引いて見せます。最後の答えは、絵の全体。お金は、かかりません。賞品も、ありません。目が、育つだけ。",
@@ -291,9 +291,8 @@ export default async function CulturePage() {
       </div>
 
       {/* The halls — three groups of doors, then one borrowed museum
-          plate between the halls and the gallery note. The card art keeps
-          hanging where its wall labels are (the gallery on the front page,
-          the wings themselves). */}
+          plate after the halls. The card art keeps hanging where its wall
+          labels are, in the wings themselves. */}
       <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-12">
         {HALLS.map((hall) => (
           <section key={hall.heading}>
@@ -352,38 +351,10 @@ export default async function CulturePage() {
           </section>
         ))}
 
-        {/* Between the halls and the gallery note: a 1606 poem card —
+        {/* After the halls: a 1606 poem card —
             Kōetsu's calligraphy over Sōtatsu's gold — the uta-garuta
             ancestor of every card in the house. */}
         <MuseumPlate piece={HALL_PIECE_POEM_CARD} />
-
-        {/* The hall that hangs on the front page — named, not duplicated. */}
-        <section>
-          <div className="flex items-baseline gap-3 mb-3">
-            <h2 className={`font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink ${tx({ en: "", ja: "wardrobe-jp" }, uiLang)}`}>
-              {tx({ en: "The gallery itself", ja: "玄関の画廊", es: "La galería misma", "zh-Hans": "门口的画廊", "zh-Hant": "門前畫廊" }, uiLang)}
-            </h2>
-          </div>
-          <p className="text-sm text-ink-muted leading-relaxed max-w-2xl">
-            {(() => {
-              const paras: Record<string, string> = {"en": "The museum’s art-forward hall — official publisher card art at museum scale, each print with its copyright line as a wall label — hangs on the {front page}, where a visitor walks into it before anything is asked of them.", "ja": "絵を先に見せる本館は、この店の{front page}にひらいています。発売元の公式カードアートを、美術館で見るような大きさで。一枚ごとに、著作権の一行を壁の札として。訪れる人は、なにかをたずねられるより先に、まずその絵のあいだを歩きます。", "zh-Hant": "美術館裡先讓畫說話的那間大堂，就開在小店的{front page}。發行商的官方卡面畫，用美術館的尺寸掛出來；每一幅旁邊那一行版權字句，就是牆上的說明牌。來的人先在畫之間走一段；有什麼要問的，都在之後。", "zh-Hans": "把画放在最前面的那间正厅，就挂在{front page}。发行方的官方卡面画，放大到美术馆的尺寸；每一幅旁边，版权那一行，就是墙上的展签。来逛的人先走进画里；这家店什么都还没开口问。", "es": "La sala del museo que pone el arte por delante cuelga en {front page}: el arte oficial de las editoriales, a escala de museo, cada lámina con su línea de copyright como etiqueta en la pared. Quien llega camina entre las obras antes de que nadie le pida nada."};
-              const links: Record<string, string> = {"en": "front page", "ja": "玄関", "zh-Hant": "門面", "zh-Hans": "首页", "es": "la portada"};
-              const [before, after] = (paras[uiLang] ?? paras.en).split("{front page}");
-              return (
-                <>
-                  {before}
-                  <Link
-                    href="/"
-                    className="text-accent hover:text-accent-strong underline"
-                  >
-                    {links[uiLang] ?? links.en}
-                  </Link>
-                  {after}
-                </>
-              );
-            })()}
-          </p>
-        </section>
       </div>
 
       <Benediction

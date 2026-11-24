@@ -285,6 +285,7 @@ interface StatusBody {
     cors: string;
     cache_control: string;
     request_id: string;
+    state: string;
   };
 }
 
@@ -370,7 +371,9 @@ export async function GET(): Promise<NextResponse> {
       cache_control:
         "Cache-Control matches the freshness budget — max-age=min(freshness, 3600), s-maxage=min(freshness*3, 86400).",
       request_id:
-        "Every response carries X-Request-Id header + _meta.request_id (UUID-derived, 12 chars). Quote it when filing support.",
+        "Envelope responses carry X-Request-Id header + _meta.request_id (UUID-derived, 12 chars). Quote it when filing support.",
+      state:
+        "Taken from each resource's since date alone: shipped means listed since that date, not open. A paused, closed or withdrawn route says so in its own response.",
     },
   };
 

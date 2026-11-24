@@ -231,9 +231,9 @@ const MOVEMENTS: Movement[] = [
         thing in the deck, older than any card — 魂,{" "}
         <span className="italic">tamashii</span>, the soul, made into a game so a
         feeling could be shared. The same wish that runs through every card we
-        hang next door in{" "}
-        <Link href="/" className="text-accent hover:text-accent-strong underline underline-offset-2">
-          the gallery
+        hang on{" "}
+        <Link href="/artists" className="text-accent hover:text-accent-strong underline underline-offset-2">
+          the artists&apos; wall
         </Link>
         .
       </>

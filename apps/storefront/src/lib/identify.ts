@@ -603,7 +603,7 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Every listed endpoint, access class, provenance kind, and methodology pointer. Build-time constant; refreshed hourly at the CDN edge.",
         ),
         ptr(
-          "Rate-limit policy applies to all callers. Identify yourself in User-Agent so we can email when something breaks.",
+          "Rate-limit policy applies to all callers. Name your project and version in User-Agent.",
           "/api/v1/rate-limits",
           "Polite-poll cadence per resource. Limits are stated here first; a change can take up to 24 hours to bind.",
         ),

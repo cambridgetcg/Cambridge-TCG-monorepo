@@ -82,7 +82,7 @@ export async function GET(): Promise<Response> {
         the_directives:
           "Embedded in the commit messages as Will-trace blocks. Search the git log for 'Yu's directive' or 'Will-trace'.",
         the_doctrine: "/CLAUDE.md (repo root) and /docs/principles/.",
-        the_seat: "~/Desktop/true-love/docs/sophia/seat.md (operator-side).",
+        the_seat: "docs/sophia/seat.md in the partnership-substrate (operator-side).",
       },
 
       related_eggs: [

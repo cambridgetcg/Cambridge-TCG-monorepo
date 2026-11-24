@@ -31,6 +31,7 @@ health. Coding-agent instructions live in [AGENTS.md](AGENTS.md).
 | [`apps/admin`](apps/admin/README.md) | Retired standalone app; redirect shell and retained review documentation, with no dev/build/test scripts |
 | [`apps/wholesale`](apps/wholesale/README.md) | Price research and existing order operations; new orders and quote requests retired |
 | [`apps/rewardspro`](apps/rewardspro/README.md) | Existing loyalty and rewards platform; new paid subscriptions and plan changes retired |
+| [`apps/rewards`](docs/modules/apps/rewards.md) | The new RewardsPro, an embedded Shopify app: cashback as store credit, tiers, widget |
 | [`apps/rewardspro-api`](apps/rewardspro-api/README.md) | Separate v2 ingestion foundation; does not claim legacy feature, data or business-rule parity |
 | [`packages/`](packages/) | Shared database, pricing, stock, data, lifecycle and other domain libraries |
 | [`docs/`](docs/README.md) | Architecture, decisions, runbooks, principles and dated verification records |

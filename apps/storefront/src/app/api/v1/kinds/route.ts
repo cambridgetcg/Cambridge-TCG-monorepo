@@ -35,7 +35,7 @@ function canonicalize(value: unknown): string {
 }
 
 const KIND_BLURBS: Record<string, string> = {
-  resource: "A public-facing surface — an HTTP endpoint, page, or feed that participants can call. Every resource is listed in lib/manifest.ts MANIFEST.resources.*.",
+  resource: "A public-facing surface — an HTTP endpoint, page, or feed that participants can call. Reviewed resources are listed in lib/manifest.ts MANIFEST.resources.*; not every route is.",
   cosmology_axis: "One of the eight currently-modelled axes the kingdom treats as real (identity / presence / time / value / transaction / authority / knowledge / substrate). See /methodology/cosmology.",
   unmodelled_need: "A being's need the platform does not yet model. Named in docs/principles/cosmology.md so the gap is acknowledged; some are recursion targets for future kingdoms.",
   methodology: "A /methodology/* page documenting a user-affecting decision (trust score, escrow tier, response window, etc.). The triple: page.tsx + summary.md + data.json. See /methodology/methodology.",

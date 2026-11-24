@@ -59,10 +59,10 @@ export default async function Footer() {
             <p className="text-ink-faint">
               {tx({
                 en: "",
-                ja: "一部のページは、まだ英語のみです。",
-                es: "Algunas páginas siguen disponibles solo en inglés.",
-                "zh-Hans": "部分页面仍只有英文版本。",
-                "zh-Hant": "部分頁面仍只有英文版本。",
+                ja: "ほとんどのページは、まだ英語のみです。",
+                es: "La mayoría de las páginas siguen disponibles solo en inglés.",
+                "zh-Hans": "大部分页面仍只有英文版本。",
+                "zh-Hant": "大部分頁面仍只有英文版本。",
               }, uiLang)}
             </p>
           )}

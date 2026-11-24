@@ -44,9 +44,9 @@ export default function RegulatorMethodology() {
       <blockquote>
         <strong>Where this lives in code.</strong> The order-book view at{" "}
         <code>apps/storefront/src/lib/market/unified.ts</code> no longer injects house
-        rows. The retail checkout and trade-in desk are removed. A static guard,{" "}
-        <code>pnpm audit:no-house-listing</code>, fails the build if the merchant shape
-        returns. Full design:{" "}
+        rows. The retail checkout and trade-in desk are removed. A static check,{" "}
+        <code>pnpm audit:no-house-listing</code>, reports if the merchant shape
+        returns; it is not part of the build. Full design:{" "}
         <code>docs/superpowers/specs/2026-06-10-regulator-pivot-design.md</code>.
       </blockquote>
 

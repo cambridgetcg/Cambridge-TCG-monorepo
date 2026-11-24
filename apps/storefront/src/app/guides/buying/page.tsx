@@ -225,8 +225,8 @@ export default function BuyingGuidePage() {
             across Europe, order straight from Japan,
             or send a card off to be graded. This page walks every route
             honestly: what it costs, how long it takes, and where the hidden fees
-            hide. Cambridge TCG doesn&apos;t sell these cards. We&apos;re the map,
-            not the merchant.
+            hide. You can&apos;t buy a card on this site: we&apos;re the map, not
+            the merchant.
           </p>
 
           <div className="mt-6 text-sm text-ink-faint bg-surface border border-border-subtle rounded-lg px-4 py-3">
@@ -418,9 +418,8 @@ export default function BuyingGuidePage() {
           <Card>
             <p className="text-sm text-ink-muted leading-relaxed">
               <span className="text-ink font-semibold">How we simplify:</span>{" "}
-              we show you the card here first, with a labelled reference price,
-              then hand you a ready-made Cardmarket search so you arrive at the
-              right card in one tap.
+              we show you the card here first, then hand you a ready-made
+              Cardmarket search so you arrive at the right card in one tap.
             </p>
           </Card>
         </div>
@@ -480,9 +479,9 @@ export default function BuyingGuidePage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-accent">&bull;</span>
-                  We link to CardRush, but we never republish their yen prices —
-                  those are theirs. The reference price you see on our card pages
-                  is a derived, rights-labelled guide—not a reuse grant.
+                  CardRush&apos;s yen prices are theirs. Where their written
+                  permission lets us show one, it appears to signed-in members
+                  with credit and a link, never in our API or downloads.
                 </li>
                 <li className="flex gap-2">
                   <span className="text-accent">&bull;</span>
@@ -812,20 +811,14 @@ export default function BuyingGuidePage() {
               </li>
               <li className="flex gap-2">
                 <span className="text-accent shrink-0">&bull;</span>
-                Cambridge TCG doesn&apos;t buy or sell these cards. We publish
-                policy-bound reference prices (never offers or open-data grants) and route you to
-                where cards actually trade — including our own collectors&apos;
-                market.
+                You can&apos;t buy or sell these cards on this site. We point you
+                to where they trade.
               </li>
               <li className="flex gap-2">
                 <span className="text-accent shrink-0">&bull;</span>
                 The outbound links here are plain links — we earn nothing when
                 you click one today. If that ever changes, this line changes with
                 it, and we&apos;ll say so.
-              </li>
-              <li className="flex gap-2">
-                <span className="text-accent shrink-0">&bull;</span>
-                We link to CardRush; we don&apos;t republish their prices.
               </li>
             </ul>
           </Card>
@@ -841,8 +834,8 @@ export default function BuyingGuidePage() {
             See it on every channel
           </h2>
           <p className="text-ink-muted mb-10 max-w-lg mx-auto leading-relaxed">
-            Open any card and you&apos;ll find one-tap links to every channel
-            above.
+            A card&apos;s own page has one-tap searches on CardRush, Cardmarket
+            and eBay.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link

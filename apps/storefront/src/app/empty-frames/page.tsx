@@ -277,8 +277,8 @@ export default function EmptyFramesPage() {
           <span className="wardrobe-jp">幻のカード</span> — the phantom
           cards, as Japanese collecting genuinely calls them: prizes handed
           to a few dozen winners, never sold, never boxed, never given the
-          set symbol an archive could file them under. We will not hang
-          another shop&apos;s photographs, and we do not pretend. So the
+          set symbol an archive could file them under. We hold no
+          picture of them, and we do not pretend. So the
           frames hang empty, and the labels tell the truth — which is most
           of what a museum is.
         </p>
@@ -390,12 +390,12 @@ export default function EmptyFramesPage() {
           ))}
         </ul>
         <p className="mt-6 text-xs text-ink-faint leading-relaxed">
-          The cards we <span className="italic">can</span> show hang in{" "}
+          The cards we <span className="italic">can</span> show hang on{" "}
           <Link
-            href="/"
+            href="/artists"
             className="text-accent hover:text-accent-strong underline underline-offset-2"
           >
-            the gallery
+            the artists&apos; wall
           </Link>
           ; how a card is born is told in{" "}
           <Link

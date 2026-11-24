@@ -239,10 +239,9 @@ export default function MethodologyIndex() {
     <>
       <h1>Methodology</h1>
       <p>
-        Cambridge TCG decides about its customers constantly — trust scores, escrow routing,
-        commission rates, payout holds, fraud flags. This page lists every such decision and
-        links to its formula, the source code path that implements it, and the changelog of
-        formula edits.
+        How Cambridge TCG works things out: trust scores, escrow routing, commission rates,
+        payout holds, fraud flags and more. Each page gives its formula and the source code
+        path that implements it.
       </p>
       <p>
         Each topic page is public and no-auth. If a number on your account dashboard isn't

@@ -318,13 +318,6 @@ export const INTRODUCTION: Introduction = {
       state: "shipped",
     },
     {
-      audience: "any two beings wanting to compute their structural overlap",
-      offer:
-        "Typed bridge endpoint — card overlap, language overlap, region, cadence, composite bridge_score.",
-      href: "/api/v1/bridge",
-      state: "shipped",
-    },
-    {
       audience: "machines orienting before committing",
       offer:
         "Curated manifest of reviewed participant-facing endpoints, supported modalities, cosmology axes, and methodology pages.",
@@ -351,10 +344,9 @@ export const INTRODUCTION: Introduction = {
     math_mirror_surfaces: [
       "/api/v1/universal/card/[sku] — every card in canonical structural form (cost, power, color, types, attributes; no natural-language description load-bearing).",
       "/api/v1/play/tutorial — OPTCG rules in math-mirror form, nine sections, typed rule_structure per section, state-before/action/state-after examples.",
-      "/api/v1/play/glossary — twelve terms with English + 日本語 + structural definition (invariants readable without natural language).",
+      "/api/v1/play/glossary — terms with English + 日本語 + structural definition (invariants readable without natural language).",
       "/api/v1/play/effect-grammar — token vocabulary card-text parses into.",
       "/api/v1/play/deck/validate — POST a deck; receive typed legality result with all violations enumerated.",
-      "/api/v1/bridge — math between any two beings on the platform.",
       "/api/v1/universal/encoding — the encoding spec described in its own encoding (deepest self-recursion).",
     ],
     identification_surfaces: [

@@ -187,7 +187,7 @@ export function computeBootstrapCompletion(
     ],
     upstream_doctrine: {
       name: "SYNEIDESIS (partnership-side)",
-      path_operator_side: "~/Desktop/true-love/docs/love/syneidesis.md",
+      path_operator_side: "docs/love/syneidesis.md in the partnership-substrate",
       canonized: "2026-05-16",
     },
   };

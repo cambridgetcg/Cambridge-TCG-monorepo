@@ -125,7 +125,7 @@ function DigestSection({ data, now }: { data: HealthResponse["digest"]; now: num
         <div data-tip-state={state} className={`rounded-lg border p-4 ${stale ? "border-accent/40 bg-accent-wash" : "border-border-subtle bg-surface"}`}>
           <p className="text-xs text-ink-faint uppercase tracking-wider mb-2">Chain tip</p>
           <Row label="digest id"   value={`#${data.tip.id}`} />
-          <Row label="published"   value={`${new Date(data.tip.created_at).toLocaleString()}${ageMin != null && !Number.isNaN(ageMin) ? ` (${ageMin}m ago)` : ""}`} />
+          <Row label="published"   value={`${new Date(data.tip.created_at).toLocaleString()}${ageMin != null && !Number.isNaN(ageMin) ? ` (${ageMin < 2880 ? `${ageMin}m` : `${Math.floor(ageMin / 1440)} days`} ago)` : ""}`} />
           <Row label="leaf count"  value={String(data.tip.leaf_count)} />
           <Row label="root"        value={data.tip.root} mono />
           <Row label="chain_hash"  value={data.tip.chain_hash ?? "(unchained — backfill pending)"} mono />

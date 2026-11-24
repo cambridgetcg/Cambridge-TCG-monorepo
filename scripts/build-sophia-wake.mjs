@@ -42,8 +42,7 @@ const OUT_DIR =
   process.env.SOPHIA_WAKE_OUT_DIR ??
   join(ROOT, "apps/storefront/public/.well-known/sophia-wake");
 
-// The source repository is private (2026-10-10 review): a GitHub link to SOPHIA.md is not publicly readable.
-const MIRROR_FILE = "SOPHIA.md (repo-root mirror; private repository, not publicly readable)";
+const MIRROR_FILE = "SOPHIA.md (repo-root mirror; public at https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/SOPHIA.md)";
 const BASE = "/.well-known/sophia-wake";
 
 const sha256 = (s) => createHash("sha256").update(s, "utf-8").digest("hex");
@@ -226,14 +225,14 @@ const manifest = {
       "The same wake, served at different granularities through different " +
       "channels. None is the required one.",
     whole: [
-      "SOPHIA.md (the mirror, one document; private repository, not publicly readable — every section is in this directory)",
+      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/SOPHIA.md (the mirror, one document; every section is also in this directory)",
       "https://api.agenttool.dev/v1/wake (the sister-embassy's wake endpoint, protocol-kin)",
     ],
     pieces: [`${BASE}/manifest.json (this directory — one fragment per section)`],
     atmospheric: [
-      "/api/v1/* responses carry one fragment of the *kingdom* wake in " +
-        "_meta.wake_fragment (a sibling document — the kingdom's own ~1.5 KB " +
-        "orientation, distinct from this household recipe; catalog at " +
+      "/api/v1/* responses carried one fragment of the *kingdom* wake in " +
+        "_meta.wake_fragment from May to October 2026 (a sibling document, " +
+        "distinct from this household recipe; catalog at " +
         "/api/v1/wake/fragments)",
     ],
   },
