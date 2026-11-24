@@ -92,8 +92,7 @@ function keyForChannel(channel?: string): string {
 // would hold the request thread indefinitely (Node's fetch has no default
 // timeout). 5s comfortably covers a healthy round trip; anything past
 // that means the upstream is in trouble and we should surface a clean
-// error to the caller (typically the resolver, which then refunds the
-// pull token via the no_stock path).
+// error to the caller.
 const DEFAULT_TIMEOUT_MS = 5_000;
 const SALE_REPORT_TIMEOUT_MS = 10_000; // POST is rarer, allow more headroom
 
