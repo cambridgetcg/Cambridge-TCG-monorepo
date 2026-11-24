@@ -32,5 +32,5 @@ export const MEDIA_REASON_MEANINGS = {
   japanese_images_switched_off: "No official English image is available for this card, and Cambridge has switched official Japanese images off.",
   no_official_image_available: "Cambridge shows official images for this card's game, but has none it can show for this card.",
   no_official_text_available: "Cambridge shows official rules text for this card's game, but has none it can show for this card. Some cards have no rules text.",
-  could_not_be_read: "Cambridge could not read its own record for this field. This is a fault, not a rights decision.",
+  could_not_be_read: "Cambridge could not read its own record for this field, or the record failed its own checks. This is a fault, not a rights decision.",
 } as const satisfies Record<(typeof IMAGE_REASON)[keyof typeof IMAGE_REASON] | (typeof TEXT_REASON)[keyof typeof TEXT_REASON], string>;

@@ -33,6 +33,8 @@ describe("stored official image projection", () => {
     { s3_key: null }, { s3_key: "" }, { s3_key: "official/../private.png" },
     { s3_key: "official/%2e%2e/private.png" }, { s3_key: "official/a.png?key=example" },
     { s3_key: "https://en.onepiece-cardgame.com/image.png" },
+    // A Japanese object, however an English row came to name it: that lane has its own switch.
+    { s3_key: "official/OP-OP01-001-JA.png" }, { s3_key: "official/DBF-FB10-001-ja.webp" },
   ])("withholds a row outside the recorded boundary: %o", (change) => {
     expect(projectOfficialImage("op-op01-001-ja", { ...row, ...change })).toBeNull();
   });

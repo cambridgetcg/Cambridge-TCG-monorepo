@@ -67,17 +67,13 @@ export interface CardEvidenceModel {
  * Of the three rivers this ledger names, CardRush and TCGplayer, since
  * 2026-10-28. Their values are on Cambridge's price pages with their names
  * beside them and never in an API, this one included. They used to read
- * "blocked" (TCGplayer) and "internal lineage" (CardRush). */
+ * "blocked" (TCGplayer) and "internal lineage" (CardRush). A source whose
+ * export is paused is not one of them: its permission is its own. */
 function displayOnly(id: string): boolean {
   if (!Object.hasOwn(MEMBER_PRICE_POLICIES, id)) return false;
-  const uses: readonly string[] = MEMBER_PRICE_POLICIES[id as MemberPriceSource].uses;
-  return uses.includes("member-display") && !uses.includes("member-api") && !uses.includes("member-download");
-}
-
-function displayOnlyReason(id: string): string {
-  const paused = MEMBER_PRICE_POLICIES[id as MemberPriceSource].paused;
-  if (paused) return `Display-only for now. ${paused.reason} Raw values and source URLs are never served by this response.`;
-  return "Display-only (written permission recorded 2026-10-28): prices collected only while its collector is scheduled (see /api/v1/sources) appear with the source named on Cambridge price pages. Raw values and source URLs are never served by an API, a download or this response; rows stored before that date stay withheld.";
+  const policy = MEMBER_PRICE_POLICIES[id as MemberPriceSource];
+  const uses: readonly string[] = policy.uses;
+  return !policy.paused && uses.includes("member-display") && !uses.includes("member-api") && !uses.includes("member-download");
 }
 
 function sourceState(source: SourceMeta): EvidenceSourceState | null {
@@ -110,7 +106,7 @@ export function evidenceSourcesForGame(
       if (state === null) return [];
       const reason =
         state === "display_only"
-          ? displayOnlyReason(source.id)
+          ? "Display-only (written permission recorded 2026-10-28): prices collected only while its collector is scheduled (see /api/v1/sources) appear with the source named on Cambridge price pages. Raw values and source URLs are never served by an API, a download or this response; rows stored before that date stay withheld."
           : state === "blocked"
             ? "No collection or display: the required permission or access is not available."
             : "A source slot exists, but no live collection path is being claimed.";

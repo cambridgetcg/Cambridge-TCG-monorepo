@@ -160,6 +160,7 @@ export default function StartersPage() {
         set_name: "",
         rarity: detail.leader.rarity,
         image_url: detail.leader.image_url,
+        image_attribution: detail.leader.image_attribution ?? null,
         spot_price: 0,
       };
       const entries = detail.cards
@@ -175,6 +176,7 @@ export default function StartersPage() {
             set_name: "",
             rarity: c.rarity,
             image_url: c.image_url,
+            image_attribution: c.image_attribution ?? null,
             spot_price: 0,
           },
         }));

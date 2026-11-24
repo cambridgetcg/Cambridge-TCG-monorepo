@@ -35,6 +35,8 @@ describe('operation-specific member price permissions', () => {
     const { uses, paused } = MEMBER_PRICE_POLICIES.cardmarket;
     expect(paused).toMatchObject({ uses: ['member-api', 'member-download'], since: expect.stringMatching(/^2026-11-\d{2}$/) });
     expect(paused!.reason).toMatch(/Cardmarket prices are not in our API or downloads/);
+    // The words and the date are one fact.
+    expect(paused!.reason).toContain(`Since ${new Date(paused!.since).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })} `);
     // A use is open or paused, never both.
     for (const use of paused!.uses) expect(uses).not.toContain(use);
     for (const source of ['scryfall', 'cardrush', 'tcgplayer'] as const) expect(MEMBER_PRICE_POLICIES[source].paused).toBeNull();

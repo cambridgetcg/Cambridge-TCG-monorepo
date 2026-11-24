@@ -740,7 +740,7 @@ function auditOfficialImageLanes(runtimeLanes: unknown): void {
   requireText(8, EN_CARD_DATA, single, "getEnCardImages([catalogSku])", "single-card reads must share the English batch boundary");
   requireText(8, EN_CARD_DATA, single, "getSameLanguageImages([catalogSku], env)", "single-card reads must share the Japanese batch boundary and its switch");
   // 4. The switch: the Japanese lane is off unless it is exactly "show", read before any query.
-  requireText(8, EN_CARD_DATA, enCardData, 'return env.OFFICIAL_IMAGES_JA?.trim().toLowerCase() === "show";', "the Japanese lane must stay off unless OFFICIAL_IMAGES_JA is show");
+  requireText(8, EN_CARD_DATA, enCardData, 'return env.OFFICIAL_IMAGES_JA?.trim() === "show";', "the Japanese lane must stay off unless OFFICIAL_IMAGES_JA is show");
   requireBefore(8, EN_CARD_DATA, functionBlock(enCardData, OFFICIAL_IMAGE_READERS.ja.reader), "if (!officialImagesJaOn(env)) return new Map();", "FROM card_images",
     "the Japanese reader must read its switch before any query");
   // Text provenance stays English (card_texts has no Japanese lane).
