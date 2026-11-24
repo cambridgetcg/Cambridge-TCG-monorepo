@@ -19,11 +19,12 @@ def deployment(state, age_min=600, sha="feedface00"):
     return {"readyState": state, "created": (time.time() - age_min * 60) * 1000, "meta": {"githubCommitSha": sha}}
 
 
-def issues(newest, live, touched_min_ago=10_000, code=200, project=PROJECT):
+def issues(newest, live, touched_min_ago=10_000, code=200, project=PROJECT, holds=True):
     def api(path):
         return {"deployments": [live] if "state=READY" in path and live else newest if "limit=100" in path else []}
     with mock.patch.object(dh, "vercel_api", side_effect=api), \
          mock.patch.object(dh, "last_touch", return_value=("abc1234", int(time.time() - touched_min_ago * 60))), \
+         mock.patch.object(dh, "holds", return_value=holds), \
          mock.patch.object(dh, "probe_url", **({"side_effect": code} if isinstance(code, list) else {"return_value": code})), \
          mock.patch.object(dh.time, "sleep"):
         return dh.check_project(project)["issues"]
@@ -43,10 +44,20 @@ class Judgements(unittest.TestCase):
 
     def test_a_skipped_build_hides_neither_a_failed_one_nor_drift(self):
         self.assertEqual(len(issues([deployment("CANCELED", 1), deployment("ERROR", 60)], deployment("READY"))), 1)
-        self.assertIn("commit abc1234", issues([deployment("CANCELED", 1), deployment("READY")], deployment("READY"), touched_min_ago=300)[0])
+        self.assertIn("commit abc1234", issues([deployment("CANCELED", 1), deployment("READY")], deployment("READY"), touched_min_ago=300, holds=False)[0])
 
-    def test_drift_waits_for_the_grace(self):
-        self.assertEqual(issues([deployment("READY", 60)], deployment("READY", 60), touched_min_ago=45), [])
+    def test_drift_waits_for_the_build_and_no_longer(self):
+        self.assertEqual(issues([deployment("BUILDING", 1), deployment("READY")], deployment("READY"), touched_min_ago=2, holds=False), [])
+        self.assertIn("commit abc1234", issues([deployment("READY", 60)], deployment("READY", 60), touched_min_ago=45, holds=False)[0])
+
+    def test_drift_asks_git_whether_the_live_commit_holds_mains_newest(self):
+        self.assertTrue(dh.holds("HEAD", "HEAD"))
+        self.assertFalse(dh.holds("HEAD~1", "HEAD"))
+        self.assertFalse(dh.holds("?", "HEAD"))
+        with mock.patch.object(dh.subprocess, "run") as run:
+            run.return_value.stdout = "abc1234 5\n"
+            self.assertEqual(dh.last_touch("apps/site"), ("abc1234", 5))
+            self.assertIn("--first-parent", run.call_args[0][0])
 
     def test_a_health_endpoint_must_answer_2xx_and_a_plain_site_anything_below_500(self):
         ready = [deployment("READY")], deployment("READY")

@@ -6,8 +6,8 @@ build fine, is it as new as main, and does its site answer.
 For each project in PROJECTS it reports an issue when:
   - the newest production deployment that was not skipped is ERROR or
     BLOCKED, or in a state this script does not know
-  - a commit touching the app is newer than the live (newest READY)
-    deployment by more than DRIFT_GRACE_MINUTES
+  - the newest commit on main touching the app is not in the live (newest
+    READY) deployment, and is more than DRIFT_GRACE_MINUTES old
   - the probe does not connect, or answers 5xx; for an entry with a
     probePath (a health endpoint), answers anything but 2xx
 
@@ -71,19 +71,25 @@ def vercel_api(path: str) -> dict:
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
             return json.loads(r.read())
-    except urllib.error.URLError:  # HTTPError too: one more try, then it counts
+    except (OSError, ValueError):  # refused, timed out, not JSON: one more try, then it counts
         time.sleep(PAUSE_SECONDS)
         with urllib.request.urlopen(req, timeout=20) as r:
             return json.loads(r.read())
 
 
 def last_touch(app_path: str) -> tuple[str, int]:
-    """(short sha, unix time) of the newest commit touching `app_path`, or ('', 0)."""
+    """(short sha, unix time) of the newest commit on main touching `app_path`, or
+    ('', 0). Of a merge, the merge itself: its branch's commits can be days older."""
     out = subprocess.run(
-        ["git", "log", "-1", "--format=%h %ct", "--", app_path],
+        ["git", "log", "-1", "--first-parent", "--format=%h %ct", "--", app_path],
         capture_output=True, text=True,
     ).stdout.split()
     return (out[0], int(out[1])) if len(out) == 2 else ("", 0)
+
+
+def holds(live_sha: str, sha: str) -> bool:
+    """Whether the live deployment's commit has `sha` in its history."""
+    return subprocess.run(["git", "merge-base", "--is-ancestor", sha, live_sha], stderr=subprocess.DEVNULL).returncode == 0
 
 
 def probe_url(url: str) -> int:
@@ -105,17 +111,18 @@ def deployments(project_id: str, query: str) -> list:
 def check_project(p: dict) -> dict:
     out: dict = {"name": p["name"], "domain": p["domain"], "state": "?", "sha": "?", "issues": []}
 
-    newest = next((d for d in deployments(p["id"], "limit=100") if d.get("readyState") != "CANCELED"), None)
+    newest = next((d for d in deployments(p["id"], "limit=100") if d.get("readyState") not in ("CANCELED", "DELETED")), None)
     live = next(iter(deployments(p["id"], "limit=1&state=READY")), None)
     if newest:
         out["state"] = newest.get("readyState") or "?"
         if out["state"] != "READY" and out["state"] not in WAITING_STATES:
             out["issues"].append(f"newest production deployment is {out['state']}, so it is not serving")
     if live:
-        out["sha"] = ((live.get("meta") or {}).get("githubCommitSha") or "?")[:8]
+        live_sha = (live.get("meta") or {}).get("githubCommitSha") or "?"
+        out["sha"] = live_sha[:8]
         sha, touched = last_touch(p["appPath"])
-        if touched > live.get("created", 0) / 1000 + DRIFT_GRACE_MINUTES * 60:
-            out["issues"].append(f"commit {sha} ({int((time.time() - touched) / 60)} min old) is newer than the live deployment {out['sha']}")
+        if sha and touched < time.time() - DRIFT_GRACE_MINUTES * 60 and not holds(live_sha, sha):
+            out["issues"].append(f"commit {sha} ({int((time.time() - touched) / 60)} min old) is not in the live deployment {out['sha']}")
     else:
         out["issues"].append("no READY production deployment found")
 
