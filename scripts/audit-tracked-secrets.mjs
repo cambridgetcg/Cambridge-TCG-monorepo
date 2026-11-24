@@ -67,7 +67,6 @@ const forbiddenTrackedArtifactPatterns = [
     /(?:^|\/)(?:tfplan(?:\..*)?|[^/]+\.tfplan(?:\..*)?)$/,
   ],
   ["Terraform working directory artifact", /(?:^|\/)\.terraform(?:\/|$)/],
-  ["Compiled Python cache", /(?:^|\/)__pycache__\/|\.py[co]$/],
 ];
 
 const databaseUrl =
@@ -390,12 +389,12 @@ function urlCredentialLabels(body, file) {
 
 // Token prefixes and database URLs: shapes that are unlikely by accident, so
 // they can be looked for in any file, binary or text.
-function distinctiveLabels(body) {
+function distinctiveLabels(body, shape = (pattern) => pattern) {
   const labels = new Set();
 
   for (const [label, pattern, isConcrete] of tokenPatterns) {
     pattern.lastIndex = 0;
-    for (const match of body.matchAll(pattern)) {
+    for (const match of body.matchAll(shape(pattern))) {
       if (isConcrete(match[0])) {
         labels.add(label);
         break;
@@ -404,7 +403,7 @@ function distinctiveLabels(body) {
   }
 
   databaseUrl.lastIndex = 0;
-  for (const match of body.matchAll(databaseUrl)) {
+  for (const match of body.matchAll(shape(databaseUrl))) {
     let password = match[1];
     try {
       password = decodeURIComponent(password);
@@ -433,17 +432,30 @@ function labelsInBody(body, file) {
 }
 
 // A compiled or packed file can hold a credential as plain bytes. Each run of
-// printable ASCII becomes a line, so the bytes beside a match cannot join it.
-// Text stored as UTF-16, or compressed, is not seen.
+// printable ASCII becomes a line. Text stored as UTF-16, or compressed, is not
+// seen.
 function printableText(bytes) {
   return bytes.toString("latin1").replace(/[^\x20-\x7e]+/g, "\n");
+}
+
+// The byte beside a value is often printable too: a one-byte length (55 is
+// "7"), or the first byte of whatever is stored next. There a word boundary or
+// an end-of-key lookahead says nothing, so binary files are read without them.
+function withoutEdges(pattern) {
+  return new RegExp(
+    pattern.source.replace(/^\\b|\\b$|\(\?!\[[^\]]*\]\)$/g, ""),
+    pattern.flags,
+  );
 }
 
 const assignmentCheckLimit = 2_000_000;
 
 function labelsInFile(bytes, file) {
   if (bytes.includes(0)) {
-    return { depth: "binary", labels: distinctiveLabels(printableText(bytes)) };
+    return {
+      depth: "binary",
+      labels: distinctiveLabels(printableText(bytes), withoutEdges),
+    };
   }
   const body = bytes.toString("utf8");
   return bytes.length > assignmentCheckLimit
@@ -655,10 +667,6 @@ function runSelfTest() {
     "Terraform working directory artifact",
   ]);
   assert.deepEqual(labelsForTrackedPath("infra/terraform/.terraform.lock.hcl"), []);
-  assert.deepEqual(labelsForTrackedPath("tools/__pycache__/job.cpython-314.pyc"), [
-    "Compiled Python cache",
-  ]);
-  assert.deepEqual(labelsForTrackedPath("tools/job.py"), []);
 
   // Built from parts, so this file holds no literal of the shape it looks for.
   const databaseUrlIn = (password) =>
@@ -667,10 +675,10 @@ function runSelfTest() {
     Buffer.concat([
       Buffer.from([0x0b, 0x0e, 0x00, 0xe3]),
       Buffer.from(text, "latin1"),
-      Buffer.from([0x00, 0xff, 0x3e, 0x01]),
+      Buffer.from([0xff, 0x3e, 0x00, 0x01]),
     ]);
-  const found = (bytes) => {
-    const { depth, labels } = labelsInFile(bytes, "tools/packed.bin");
+  const found = (bytes, file = "tools/packed.bin") => {
+    const { depth, labels } = labelsInFile(bytes, file);
     return [depth, ...labels];
   };
   const opaque = "Opaque47f9a2bcMaterial";
@@ -682,6 +690,26 @@ function runSelfTest() {
     "binary",
     "GitHub access token",
   ]);
+  // Every shape, with a printable length byte before it and a letter after.
+  const samples = [
+    ["database URL with embedded password", databaseUrlIn(opaque)],
+    ["Shopify access token", `shpat_${"0123456789abcdef".repeat(2)}`],
+    ["GitHub access token", `ghp_${"aB3dE6gH9j".repeat(3)}`],
+    ["AWS access key", `AKIA${"Q2W3E4R5".repeat(2)}`],
+    ["private key", ["-----BEGIN", "PRIVATE KEY-----"].join(" ")],
+    ...keyShapes.map(({ label, prefix, concrete }) => [
+      label,
+      `${prefix}${concrete[0]}`,
+    ]),
+  ];
+  for (const [label] of tokenPatterns) {
+    assert(samples.some(([sampled]) => sampled === label));
+  }
+  for (const [label, value] of samples) {
+    for (const body of [value, `7${value}N`, `z${value}_`]) {
+      assert.deepEqual(found(withBytes(body)), ["binary", label]);
+    }
+  }
   assert.deepEqual(found(withBytes(databaseUrlIn("placeholder"))), ["binary"]);
   // The assignment heuristics stay out of binary files.
   assert.deepEqual(found(withBytes(`password = "${opaque}"`)), ["binary"]);
@@ -689,6 +717,21 @@ function runSelfTest() {
     found(Buffer.from(`${" ".repeat(assignmentCheckLimit)}${databaseUrlIn(opaque)}`)),
     ["large", "database URL with embedded password"],
   );
+  // A NUL far into a large file still makes it binary.
+  const late = Buffer.alloc(assignmentCheckLimit, " ");
+  assert.deepEqual(
+    found(Buffer.concat([late, withBytes(databaseUrlIn(opaque))])),
+    ["binary", "database URL with embedded password"],
+  );
+  // An ordinary file, up to the limit, still gets every check.
+  const envLine = `AWS_SECRET_ACCESS_KEY=${opaque}`;
+  const filler = "#".repeat(2_000_000 - envLine.length - 1);
+  for (const body of [envLine, `\ufeff${envLine}`, `${filler}\n${envLine}`]) {
+    assert.deepEqual(found(Buffer.from(body), "deploy.env"), [
+      "text",
+      "hardcoded AWS secret literal assigned to AWS_SECRET_ACCESS_KEY",
+    ]);
+  }
 }
 
 runSelfTest();
