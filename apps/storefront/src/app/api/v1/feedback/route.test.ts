@@ -88,6 +88,20 @@ describe("/api/v1/feedback while the door is open", () => {
     expect(JSON.stringify(params)).not.toContain(body.data.holder_key);
   });
 
+  it("says in the receipt where the answer is shown and that nothing is emailed, with an address or without", async () => {
+    mockQuery.mockResolvedValue(stored);
+    const receipt = async (over: Record<string, unknown>) => (await (await POST(post({ kind: "question", message: "hi", ...over }))).json()).data;
+    expect(await receipt({ reply_to: "ada@example.com" })).toMatchObject({
+      reply: "The answer is shown to whoever holds the message's key. Nothing is emailed automatically. A person may write to the address you gave.",
+      response_aim: "We aim to read every message within 48 hours.",
+    });
+    expect(await receipt({})).toMatchObject({
+      reply: "The answer is shown to whoever holds the message's key. Nothing is emailed automatically. No reply address was given.",
+      response_aim: "We aim to read every message within 48 hours.",
+    });
+    expect((await (await GET()).json()).data.fields.reply_to).toBe("optional email address or https URL. Nothing is sent to it automatically; a person may write to it (reporter_contact is read the same way)");
+  });
+
   it("accepts the older report shapes its signposts show", async () => {
     mockQuery.mockResolvedValueOnce(stored);
     const response = await POST(post({ kind: "contract-drift", endpoint: "/api/v1/universal/card/op-op01-001-ja", observed: "missing _meta.source_license", expected: "per OpenAPI spec", reporter_contact: "admin@yourdomain.example" }));

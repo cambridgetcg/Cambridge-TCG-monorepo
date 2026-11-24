@@ -44,6 +44,7 @@ import {
   validateFeedback,
   type DoorUnavailable,
 } from "@/lib/feedback/door";
+import { FEEDBACK_ANSWER_PLACE, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 
 const ENDPOINT = "/api/v1/feedback";
 const CONTACT = "contact@cambridgetcg.com";
@@ -78,7 +79,7 @@ export async function GET(request?: Request): Promise<Response> {
         kind: "required, one of kinds",
         message: `your words, at most ${FEEDBACK_MESSAGE_MAX} characters`,
         topic: `optional, one of: ${CONTACT_TOPICS.join(", ")} (the /contact form sends it)`,
-        reply_to: "optional email address or https URL, if you want an answer there as well (reporter_contact is read the same way)",
+        reply_to: "optional email address or https URL. Nothing is sent to it automatically; a person may write to it (reporter_contact is read the same way)",
         reply_name: "optional name, at most 100 characters (name is read the same way)",
         references: Object.fromEntries(Object.entries(FEEDBACK_DETAIL_FIELDS).map(([field, rule]) => [field, describe(rule)])),
         anything_else: "refused with 400, so you know exactly what was kept",
@@ -208,10 +209,10 @@ export async function POST(request?: Request): Promise<Response> {
       expires_at: stored.expiresAt,
       kept: keptFields(submission),
       not_kept: NOT_KEPT,
-      reply: submission.replyTo
-        ? "We may answer at the address you gave, and the answer can also be read here with the key."
-        : "No reply address was given, so read the answer here with the key.",
-      response_aim: "We aim to read every message within 48 hours.",
+      reply: `${FEEDBACK_ANSWER_PLACE} ${submission.replyTo
+        ? "A person may write to the address you gave."
+        : "No reply address was given."}`,
+      response_aim: FEEDBACK_READ_AIM,
       rights: "Your words stay yours (NOASSERTION); sending them dedicates nothing.",
       notice: FEEDBACK_NOTICE,
     },

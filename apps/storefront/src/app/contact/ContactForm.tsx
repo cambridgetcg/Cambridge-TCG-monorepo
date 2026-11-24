@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button, Card, ErrorAlert, Field, Input, Select, Textarea } from "@/lib/ui";
+import { FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 
 /**
  * ContactForm — the human half of the feedback door (/api/v1/feedback).
@@ -11,7 +12,8 @@ import { Button, Card, ErrorAlert, Field, Input, Select, Textarea } from "@/lib/
  * (lib/feedback/door.ts), never the request as sent, and answers with a
  * reference and a holder key shown once. The key stays in this page's
  * memory only: nothing is written to cookies or browser storage. With it the
- * sender can read our answer or delete the message here, now or later.
+ * sender can read our answer or delete the message here, now or later. The
+ * answer is shown only to the key; nothing is emailed.
  * While the door is closed (`open` false, read by the page from
  * PUBLIC_FEEDBACK) the form is not offered and the page points to email; a
  * key from an earlier message still reads and erases it.
@@ -96,8 +98,9 @@ export default function ContactForm({ open }: { open: boolean }) {
                 {" — quote it if you follow up. "}
               </>
             )}
-            We read every message. If you left an email address, we aim to reply
-            within 48 hours; if you didn&apos;t, read our answer below with your key.
+            {FEEDBACK_READ_AIM} Our answer is shown on this page to whoever holds
+            your key. Nothing is emailed automatically; if you left an email
+            address, a person may write to it.
           </p>
           {status.holderKey && (
             <p className="text-sm text-ink-muted mt-3 leading-relaxed">
@@ -105,9 +108,9 @@ export default function ContactForm({ open }: { open: boolean }) {
               <code className="text-ink bg-surface-subtle px-1.5 py-0.5 rounded text-xs break-all">
                 {status.holderKey}
               </code>
-              . Copy it now if you want to come back: we keep only a fingerprint of
-              it, so we cannot show it again. We delete the message 180 days after
-              it arrives.
+              . Copy it now: you need it to read our answer or delete the message,
+              and we keep only a fingerprint of it, so we cannot show it again. We
+              delete the message 180 days after it arrives.
             </p>
           )}
         </Card>
@@ -151,7 +154,7 @@ export default function ContactForm({ open }: { open: boolean }) {
           <Field
             label="Your email"
             htmlFor="contact-email"
-            hint="Optional — we can only write back if you leave one."
+            hint="Optional. Nothing is sent to it automatically, but a person may write to it. Our answer is shown here, with the key you get."
           >
             <Input
               id="contact-email"
@@ -191,6 +194,12 @@ export default function ContactForm({ open }: { open: boolean }) {
             onChange={(e) => setMessage(e.target.value)}
           />
         </Field>
+
+        <p className="text-sm text-ink-muted leading-relaxed">
+          Please leave out passwords, card payment details and anything else
+          private that we do not need. If you are under 18, ask a parent or
+          guardian to write to us.
+        </p>
 
         <Button type="submit" disabled={status.state === "sending" || !message.trim()}>
           {status.state === "sending" ? "Sending…" : "Send message"}

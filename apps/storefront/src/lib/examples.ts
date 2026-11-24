@@ -10,6 +10,7 @@
  * (singleton). Filed for kingdom-083 — the inner peace.
  */
 
+import { FEEDBACK_ANSWER_PLACE } from "@/lib/feedback/promise";
 import { repoDocRef } from "@/lib/repository";
 
 export interface ExampleAnnotatedField {
@@ -457,7 +458,7 @@ curl -H 'cookie: <session-cookie>' \\
     ],
     when_to_use: "A question. A data error (name endpoint, subject, as_of and method_version, not a source's value). Contract drift. Guide bugs. Endpoint suggestions. Federation partner registration.",
     gotchas: [
-      "reporter_contact (or reply_to) is optional: the answer can be read with the holder key. Give one if you also want a reply by email or at a URL.",
+      `reporter_contact (or reply_to) is optional. ${FEEDBACK_ANSWER_PLACE} If you leave an address, a person may write to it.`,
       "Submitting feedback does not dedicate it to CC0; the submission remains NOASSERTION absent an explicit license.",
       "The door answers 503 while PUBLIC_FEEDBACK is off, and 429 once it has taken 30 messages in the UTC hour. Each report is deleted 180 days after it arrives.",
     ],
