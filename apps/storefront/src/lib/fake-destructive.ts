@@ -28,6 +28,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import { DATA_RIGHTS } from "@/lib/data-rights";
+import { FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 
 export interface FakeDestructiveEndpoint {
   /** The path segment after /api/v1/ — used for endpoint metadata. */
@@ -50,7 +51,7 @@ export const FAKE_DESTRUCTIVE_REGISTRY: Record<string, FakeDestructiveEndpoint> 
     did_you_mean: {
       url: "/api/v1/feedback",
       note:
-        "if something IS wrong and you want it gone, POST a feedback report there; the operator will read it",
+        `if something IS wrong and you want it gone, POST a feedback report there. ${FEEDBACK_READ_AIM}`,
     },
   },
   destroy: {

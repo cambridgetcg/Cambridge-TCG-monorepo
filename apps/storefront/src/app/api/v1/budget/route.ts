@@ -30,6 +30,7 @@
 
 import { jsonResponse, FRESHNESS } from "@/lib/data-pantry";
 import { scheduledCollection } from "@/lib/datafeed/collection-flags";
+import { FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 import { trafficPullOn } from "@/lib/traffic/pull";
 
 export const dynamic = "force-static";
@@ -246,7 +247,7 @@ export async function GET(): Promise<Response> {
     feedback: {
       endpoint: "/api/v1/feedback",
       kinds_relevant_here: ["contract-drift", "endpoint-suggestion", "federation-adopter", "general"],
-      response_window_hours: 48,
+      response_aim: FEEDBACK_READ_AIM,
       contact_email: "contact@cambridgetcg.com",
     },
 

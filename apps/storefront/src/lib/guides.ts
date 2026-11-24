@@ -40,6 +40,8 @@
  *   - operator_of_upstream: third-party operating a future tributary
  */
 
+import { FEEDBACK_ANSWER_PLACE, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
+
 export type AudienceKind =
   | "agent"
   | "scraper"
@@ -515,9 +517,9 @@ export const GUIDES: Guide[] = [
           "    \"reporter_contact\": \"admin@yourdomain.example\"\n" +
           "  }'",
         what_to_do_with_it:
-          "We read every report. If your bug is real, we fix it within a " +
-          "week and reply with the commit SHA. Substrate-honesty: drift " +
-          "between the contract and the response is *our* failure, not yours.",
+          `${FEEDBACK_READ_AIM} Keep the key in the reply. ${FEEDBACK_ANSWER_PLACE} ` +
+          "Substrate-honesty: drift between the contract and the response is " +
+          "*our* failure, not yours.",
       },
     ],
     gotchas: [
@@ -550,6 +552,7 @@ export const GUIDES: Guide[] = [
       { label: "Feedback endpoint", href: "/api/v1/feedback" },
     ],
     last_verified: "2026-07-12",
+    revised: "2026-11-24",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -591,9 +594,9 @@ export const GUIDES: Guide[] = [
         title: "Register your platform in the adopters registry",
         instruction:
           "POST a registration to /api/v1/feedback with `kind: federation-adopter` " +
-          "and your platform's URL + the federation endpoint URL. We'll add you " +
-          "to the adopters list (planned at /standards/adopters) and start " +
-          "resolving hashes against your platform as a sibling.",
+          "and your platform's URL + the federation endpoint URL. A person adds " +
+          "platforms to the adopters list (/api/v1/adopters) by hand; nothing " +
+          "you send is called or added automatically.",
         curl:
           "curl -X POST https://cambridgetcg.com/api/v1/feedback \\\n" +
           "  -H 'content-type: application/json' \\\n" +
@@ -605,8 +608,7 @@ export const GUIDES: Guide[] = [
           "    \"reporter_contact\": \"admin@my-tcg.example\"\n" +
           "  }'",
         what_to_do_with_it:
-          "We'll reply with confirmation + a smoke-test call we'll run against " +
-          "your endpoint. Once it returns a sane response, you're registered.",
+          `${FEEDBACK_READ_AIM} Keep the key in the reply. ${FEEDBACK_ANSWER_PLACE}`,
       },
       {
         step_number: 3,
@@ -646,7 +648,7 @@ export const GUIDES: Guide[] = [
       { label: "Federation OpenAPI section", href: "/api/openapi.json" },
     ],
     last_verified: "2026-05-14",
-    revised: "2026-10-29",
+    revised: "2026-11-24",
   },
 
   // ───────────────────────────────────────────────────────────────────

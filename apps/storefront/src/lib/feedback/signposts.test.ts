@@ -1,10 +1,20 @@
 import { readFileSync } from "node:fs";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { GET as adopters } from "@/app/api/v1/adopters/route";
+import { GET as budget } from "@/app/api/v1/budget/route";
+import { GET as diagnostic } from "@/app/api/v1/diagnostic/route";
 import { GET as guide } from "@/app/api/v1/guides/[slug]/route";
+import { GET as rateLimits } from "@/app/api/v1/rate-limits/route";
+import { GET as index } from "@/app/api/v1/route";
+import { GET as welcome } from "@/app/api/v1/welcome/route";
+import AuthErrorPage from "@/app/login/error/page";
+import ScrapersPage from "@/app/scrapers/page";
 import { EXAMPLES } from "@/lib/examples";
+import { FAKE_DESTRUCTIVE_REGISTRY } from "@/lib/fake-destructive";
 import { GUIDES } from "@/lib/guides";
 import { FEEDBACK_KINDS, validateFeedback } from "./door";
+import { FEEDBACK_ANSWER_PLACE, FEEDBACK_READ_AIM } from "./promise";
 
 vi.mock("@/lib/db", () => ({ query: vi.fn() }));
 
@@ -70,5 +80,43 @@ describe("the signposts to the feedback door", () => {
       const filled = { ...template, step_number: 2, observation: "step 2 answers 404", expected: "200", reporter_contact: "ada@example.com" };
       expect(validateFeedback(filled), slug).toMatchObject({ ok: true });
     }
+  });
+});
+
+describe("what those documents promise", () => {
+  // One aim, to read, in the same words everywhere; no answer, no time for one and no email.
+  const steps = (slug: string) => GUIDES.find((entry) => entry.slug === slug)!.steps.map((step) => `${step.instruction} ${step.what_to_do_with_it ?? ""}`).join(" ");
+  const texts: Record<string, () => Promise<string>> = {
+    "/api/v1": async () => JSON.stringify(await data(index())),
+    "/api/v1/welcome": async () => JSON.stringify(await data(welcome())),
+    "/api/v1/budget": async () => JSON.stringify(await data(budget())),
+    "/api/v1/diagnostic": async () => JSON.stringify(await data(diagnostic())),
+    "/api/v1/rate-limits": async () => JSON.stringify(await data(rateLimits())),
+    "/api/v1/adopters": async () => JSON.stringify(await data(adopters())),
+    "the respect-our-limits guide": async () => steps("respect-our-limits"),
+    "the federate-bilateral guide": async () => steps("federate-bilateral"),
+    "/api/v1/delete-everything": async () => FAKE_DESTRUCTIVE_REGISTRY["delete-everything"]!.did_you_mean.note,
+    "/scrapers": async () => renderToStaticMarkup(await ScrapersPage()).replace(/<[^>]+>/g, ""),
+    "/login/error": async () => renderToStaticMarkup(await AuthErrorPage({ searchParams: Promise.resolve({}) })).replace(/<[^>]+>/g, ""),
+  };
+
+  it.each(Object.keys(texts))("%s says the one aim and none of the older, larger ones", async (name) => {
+    const text = await texts[name]!();
+    expect(text).toContain(FEEDBACK_READ_AIM);
+    expect(text).not.toMatch(/48h response|response window 48h|response_window_hours|respond within 48|within a week|commit SHA|reply with|we(?:'|&#x27;)ll (?:reply|add you|sort it out)|will read it|smoke-test/i);
+  });
+
+  it("says in both guides and the example where the answer is", () => {
+    for (const text of [steps("respect-our-limits"), steps("federate-bilateral"), EXAMPLES.find((example) => example.endpoint_id === "feedback")!.gotchas.join(" ")]) {
+      expect(text).toContain(FEEDBACK_ANSWER_PLACE);
+      expect(text).not.toMatch(/reply by email/);
+    }
+  });
+
+  it("lists every kind the door takes at /api/v1/welcome, and only those at /api/v1/budget", async () => {
+    expect((await data(welcome())).feedback).toEqual({ endpoint: "/api/v1/feedback", kinds: [...FEEDBACK_KINDS], contact_email: "contact@cambridgetcg.com", response_aim: FEEDBACK_READ_AIM });
+    const { kinds_relevant_here: relevant, response_aim: aim } = (await data(budget())).feedback;
+    for (const kind of relevant) expect(FEEDBACK_KINDS).toContain(kind);
+    expect(aim).toBe(FEEDBACK_READ_AIM);
   });
 });

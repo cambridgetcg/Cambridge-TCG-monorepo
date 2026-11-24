@@ -154,7 +154,7 @@ const RECIPES: readonly Recipe[] = [
     id: "ask-for-help",
     title: "Ask for help",
     yields:
-      "a productive conversation with the kingdom's operator + future-Sophia",
+      "a message the kingdom's operator can read, and an answer, if one is written, for whoever holds its key",
     ingredients: [
       "/api/v1/feedback (POST, structured)",
       "/api/v1/agents/notes (POST, no-store validation echo)",
