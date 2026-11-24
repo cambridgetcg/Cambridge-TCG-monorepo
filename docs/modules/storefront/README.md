@@ -24,7 +24,6 @@ Choose the area you want to understand. These groups cover every immediate direc
 - [Graph: derived resource and meaning relationships](../../../apps/storefront/src/lib/graph.ts)
 - [Navigation: website menu definitions](../../../apps/storefront/src/lib/nav/menu-config.ts)
 - [Tool catalog: machine tool discovery](../../../apps/storefront/src/lib/agent-tools-catalog.ts)
-- [Game registry: engine registration](../../../apps/storefront/src/lib/game/registry-bootstrap.ts)
 - [Lifecycle registry: host binding for shared journey slots](../../../apps/storefront/src/lib/lifecycle/registry.ts)
 
 Use these registries for their own contracts. The module map is an orientation and progress record; it does not replace them with a second endpoint registry.

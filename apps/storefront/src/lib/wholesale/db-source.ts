@@ -13,10 +13,6 @@
  * Legacy price and image fields have no field-level rights receipt. They stay
  * stored for review but this public-facing adapter does not select or emit
  * them. Price and image fields are explicit nulls.
- *   - channel configs come from the wholesale channel_pricing table
- *     (runtime authoritative), degrading to @cambridge-tcg/pricing DEFAULTS
- *     only when that table itself is unreadable — mirroring
- *     apps/wholesale/src/lib/channel-pricing.ts.
  *
  * Every exported fetch function THROWS on database failure. Degrading to
  * an empty result is the caller's decision (client.ts), because "the
@@ -27,7 +23,6 @@
  */
 
 import { Pool } from "pg";
-import { computePrice, DEFAULTS, positivePrice, type ChannelConfig } from "@cambridge-tcg/pricing";
 import { skuIdentity } from "@cambridge-tcg/sku";
 import { skuSpellings } from "@/lib/catalog/sku-spellings";
 import { isPlainListing, mayStandForSku, mayStandSql, plainListingSql } from "./listing-printing";
@@ -130,124 +125,6 @@ async function qCoverage<T>(sql: string, args: unknown[] = []): Promise<{ rows: 
   } finally {
     client.release();
   }
-}
-
-// ── Channel pricing configs ─────────────────────────────────────────────
-//
-// Mirror of apps/wholesale/src/lib/channel-pricing.ts: channel_pricing
-// table is authoritative; a partial row throws (operators must see and
-// fix); only a table-level read failure degrades to package DEFAULTS.
-
-// Mirrors CACHE_TTL_MS in apps/wholesale/src/lib/channel-pricing.ts.
-const CHANNEL_CACHE_TTL_MS = 5 * 60 * 1000;
-
-let channelCache: { configs: Map<string, ChannelConfig>; at: number } | null = null;
-
-interface ChannelPricingRow {
-  channel: string;
-  margin_multiplier: string | null;
-  flat_fee_singles: string | null;
-  flat_fee_sealed: string | null;
-  vat_multiplier: string | null;
-  retail_multiplier: string | null;
-  round_to: string | null;
-}
-
-function rowToConfig(row: ChannelPricingRow): ChannelConfig {
-  const missing = (
-    [
-      ["margin_multiplier", row.margin_multiplier],
-      ["flat_fee_singles", row.flat_fee_singles],
-      ["flat_fee_sealed", row.flat_fee_sealed],
-      ["vat_multiplier", row.vat_multiplier],
-      ["retail_multiplier", row.retail_multiplier],
-      ["round_to", row.round_to],
-    ] as const
-  )
-    .filter(([, v]) => v === null)
-    .map(([k]) => k);
-  if (missing.length > 0) {
-    throw new Error(
-      `channel_pricing row for "${row.channel}" has NULL columns: ${missing.join(", ")}. ` +
-      `Re-run apps/wholesale/drizzle/0010_seed_channel_pricing.sql.`,
-    );
-  }
-  return {
-    channel: row.channel,
-    marginMultiplier: Number(row.margin_multiplier),
-    flatFeeSingles: Number(row.flat_fee_singles),
-    flatFeeSealed: Number(row.flat_fee_sealed),
-    vatMultiplier: Number(row.vat_multiplier),
-    retailMultiplier: Number(row.retail_multiplier),
-    roundTo: Number(row.round_to),
-  };
-}
-
-async function getChannelConfigs(): Promise<Map<string, ChannelConfig>> {
-  const now = Date.now();
-  if (channelCache && now - channelCache.at < CHANNEL_CACHE_TTL_MS) {
-    return channelCache.configs;
-  }
-  try {
-    const { rows } = await q<ChannelPricingRow>(
-      `SELECT channel, margin_multiplier, flat_fee_singles, flat_fee_sealed,
-              vat_multiplier, retail_multiplier, round_to
-         FROM channel_pricing`,
-    );
-    const configs = new Map(rows.map((r) => [r.channel, rowToConfig(r)]));
-    channelCache = { configs, at: now };
-    return configs;
-  } catch (err) {
-    console.error(
-      "[wholesale db-source] failed to load channel_pricing — using SEED constants from @cambridge-tcg/pricing.",
-      err,
-    );
-    return new Map(Object.entries(DEFAULTS));
-  }
-}
-
-async function channelConfigFor(channel: string): Promise<ChannelConfig> {
-  const configs = await getChannelConfigs();
-  const config = configs.get(channel);
-  if (!config) {
-    // Unknown channels throw, same as wholesale's priceForChannel —
-    // a missing channel row is an operator-visible error, not a silent
-    // default.
-    throw new Error(
-      `channel_pricing has no row for channel "${channel}". ` +
-      `Known channels: ${Array.from(configs.keys()).join(", ")}.`,
-    );
-  }
-  return config;
-}
-
-// ── Per-row channel price (pure) ────────────────────────────────────────
-
-export interface PriceableRow {
-  cardrush_jpy: number | null;
-  gbp_jpy_rate: number | null;
-  category: string | null;
-  /** cards.price as a number, or null when never priced. */
-  price_gbp: number | null;
-}
-
-/**
- * The HTTP API's `channel_price: channelPrice ?? r.priceGbp` semantics:
- * compute from the JPY observation when one exists, otherwise fall back
- * to the card's stored price (which may itself be null).
- */
-export function channelPriceForRow(row: PriceableRow, config: ChannelConfig): number | null {
-  if (row.cardrush_jpy !== null) {
-    if (row.gbp_jpy_rate === null) return null;
-    try {
-      return positivePrice(computePrice(row.cardrush_jpy, row.gbp_jpy_rate, config, row.category).price);
-    } catch {
-      // An invalid observed amount/rate/config cannot establish a channel price.
-      // Do not silently replace it with a differently sourced stored amount.
-      return null;
-    }
-  }
-  return positivePrice(row.price_gbp);
 }
 
 // ── Card filter builder ─────────────────────────────────────────────────
@@ -474,7 +351,7 @@ export async function dbLookupCard(sku: string): Promise<{ card: PriceItem | nul
 // fed the catalog route's we-buy enrichment — was removed on 2026-07-06
 // with the rest of the house desk (docs/decisions/2026-07-06-collectors-
 // first.md). The house computes no price channel of its own for the
-// market anymore; channelPriceForRow stays for the per-item paths above.
+// market anymore; the per-item channel price, unused since, followed it.
 
 // ── fetchGames / fetchSets shapes ───────────────────────────────────────
 

@@ -10,7 +10,7 @@ import { BREADCRUMB_REGISTRY } from "../src/lib/nav/breadcrumb-registry";
  * `apps/storefront/src/app/account/_nav.tsx` + the breadcrumb registry,
  * and reports orphans (routes not reachable from any nav).
  *
- * Six checks:
+ * Five checks:
  *
  *   1. Direct-nav coverage (informational): reports public pages that are not
  *      named directly in one of these compact navigation surfaces:
@@ -28,15 +28,12 @@ import { BREADCRUMB_REGISTRY } from "../src/lib/nav/breadcrumb-registry";
  *      (depth >= 2) must have a registered pattern, and the root layout
  *      must mount the global breadcrumb slot. HARD GATE.
  *
- *   5. Audience-rule consistency: every prefix in audience-detection
- *      resolves to exactly one audience (no overlapping ambiguity).
- *
- *   6. Page-body href validity (contact-surface spec W4): every
+ *   5. Page-body href validity (contact-surface spec W4): every
  *      string-literal internal href in app/**\/page.tsx resolves to a
  *      real route, a route handler, or an explicit allowlist entry.
  *      "Every promise kept — no href that 404s." HARD GATE.
  *
- * Behaviour: checks 1–3 and 5 are informational. Checks 4 and 6 exit
+ * Behaviour: checks 1–3 are informational. Checks 4 and 5 exit
  * non-zero on violations.
  */
 
@@ -109,7 +106,7 @@ const ORPHAN_ALLOWLIST: ReadonlyArray<string | RegExp> = [
 /**
  * Routes being shipped by a parallel session this same hour
  * (contact-surface spec W4/W6) — treated as existing so hrefs that
- * point at them don't fail check 6 mid-flight.
+ * point at them don't fail check 5 mid-flight.
  * TODO next session: confirm each is on disk, then delete this list
  * (the route walk will discover them).
  */
@@ -122,7 +119,7 @@ const PENDING_ROUTES: string[] = [
 
 /**
  * Internal hrefs that resolve outside the page tree — middleware
- * rewrites, generated files, static assets in /public. Check 6 skips
+ * rewrites, generated files, static assets in /public. Check 5 skips
  * these. Keep this list small and commented; every entry is a promise
  * someone else keeps.
  */
@@ -324,7 +321,7 @@ function isSectionOwnedBreadcrumbRoute(route: string): boolean {
 
 /**
  * True when `url` exactly matches a route, or matches a dynamic route
- * with its [param] segments substituted. Shared by checks 2 and 6.
+ * with its [param] segments substituted. Shared by checks 2 and 5.
  */
 function resolvesToRoute(url: string, routeSet: Set<string>, routes: string[]): boolean {
   if (routeSet.has(url)) return true;
@@ -389,7 +386,7 @@ function main() {
   console.log("");
 
   const discovered = discoverRoutes();
-  // Merge in-flight routes (parallel session, same hour) so checks 2+6
+  // Merge in-flight routes (parallel session, same hour) so checks 2+5
   // hold them to the same contract they'll meet once on disk.
   const pendingMerged = PENDING_ROUTES.filter((p) => !discovered.includes(p));
   const routes = [...discovered, ...pendingMerged].sort();
@@ -505,15 +502,8 @@ function main() {
   }
   console.log("");
 
-  // ── Check 5: audience-rule consistency (informational) ──────────────
-  console.log("Check 5: audience-rule consistency (informational)");
-  console.log("─".repeat(72));
-  console.log("  See apps/storefront/src/lib/nav/audience-detection.ts.");
-  console.log("  Longest-prefix-wins. Buyer is the default fallthrough.");
-  console.log("");
-
-  // ── Check 6: page-body href validity (HARD GATE) ────────────────────
-  console.log("Check 6: page-body hrefs → route validity (hard gate)");
+  // ── Check 5: page-body href validity (HARD GATE) ────────────────────
+  console.log("Check 5: page-body hrefs → route validity (hard gate)");
   console.log("─".repeat(72));
   const pageFiles = collectPageFiles();
   const handlerRoutes = discoverHandlerRoutes();

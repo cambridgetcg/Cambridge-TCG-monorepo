@@ -92,22 +92,6 @@ export interface DisputeEvidence {
   created_at: string;
 }
 
-export interface EscrowPayment {
-  id: string;
-  trade_id: string;
-  type: string;
-  stripe_payment_intent: string | null;
-  stripe_checkout_session: string | null;
-  amount: string;
-  status: string;
-  paid_at: string | null;
-  payout_amount: string | null;
-  payout_at: string | null;
-  refund_amount: string | null;
-  refunded_at: string | null;
-  created_at: string;
-}
-
 export const DISPUTE_REASONS = [
   { value: "condition_mismatch", label: "Card condition doesn't match listing" },
   { value: "wrong_card", label: "Wrong card received" },

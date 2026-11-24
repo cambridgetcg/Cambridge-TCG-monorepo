@@ -126,9 +126,9 @@
       "path": "packages/play", "group": "packages", "label": "Game engine contracts",
       "purpose": "Define the shared engine protocol and registry used to initialize, act, run AI turns and inspect game results.",
       "scope": "Common protocol; each game's mechanics, action vocabulary and UI stay with its implementation.",
-      "progress": "Typed engine interfaces and registry code are present. Game implementations and registry bootstrap live in storefront.",
-      "next": "Register additional games through the existing protocol; verify both engine behavior and storefront registry coverage.",
-      "evidence": ["packages/play/src/index.ts", "apps/storefront/src/lib/game/registry-bootstrap.ts", "apps/storefront/scripts/play-game-registry.ts"]
+      "progress": "Typed engine interfaces and registry code are present. Game implementations live in storefront and run without the registry: the bootstrap that registered one engine had no caller and was removed on 2026-11-24.",
+      "next": "Decide whether a host should register engines through this protocol; until one does, nothing dispatches through it.",
+      "evidence": ["packages/play/src/index.ts", "apps/storefront/scripts/play-game-registry.ts"]
     },
     {
       "path": "packages/pricing", "group": "packages", "label": "Shared pricing calculations",

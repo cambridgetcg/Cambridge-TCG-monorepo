@@ -93,7 +93,7 @@ export async function GET(request: Request) {
     runBuyerWatchlistDigest(),
     // Liquidity mining ran here until 2026-07-06 — paused with the
     // collectors-first decision (rewards paid store credit, which no
-    // longer has a spending door). See lib/market/liquidity.ts.
+    // longer has a spending door), and removed 2026-11-24.
     // The trade-in + custom-quote sweeps lived here until the desk was
     // fully retired (it bought cards for store credit / cash, which the
     // collectors-first platform no longer does).
