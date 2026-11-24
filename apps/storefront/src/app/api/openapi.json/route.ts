@@ -124,7 +124,7 @@ const SPEC = {
       get: {
         tags: ["prices"],
         summary: "Free account-owned member price feed",
-        description: "Requires a read-only member data key minted after Cambridge TCG login at /account/data. Agent and wholesale keys are not accepted. Source/use-filtered observations in native currency; Cardmarket official-file projections are eligible, Scryfall is view-only and excluded. No billing tier. Private, no-store. Follow nextCursor with unchanged filters to finish the permitted result; empty/unavailable does not claim ingestion has run.",
+        description: "Requires a read-only member data key minted after Cambridge TCG login at /account/data. Agent and wholesale keys are not accepted. Observations in native currency from the sources whose policy opens them to this feed: /api/v1/sources names each source's open uses, and any paused ones with the reason (member_pricing.reviewed_uses, member_pricing.paused). While none is open, an authenticated request that names no source, or a paused one, answers 503 with the reason. No billing tier. Private, no-store. Follow nextCursor with unchanged filters to finish the permitted result; empty/unavailable does not claim ingestion has run.",
         operationId: "getMemberPrices",
         security: [{ MemberDataKey: [] }],
         parameters: [
@@ -143,7 +143,7 @@ const SPEC = {
           "400": { description: "Invalid query or continuation cursor." },
           "401": { description: "Missing, invalid, expired or revoked member data key; no price query performed." },
           "429": { description: "Free per-key request limit exceeded; Retry-After supplied." },
-          "503": { description: "Authentication storage or price observations unavailable; not an empty catalog." },
+          "503": { description: "Authentication storage or price observations unavailable, or the use is paused (data.paused names the source and date; data.reason says why); not an empty catalog." },
         },
       },
     },

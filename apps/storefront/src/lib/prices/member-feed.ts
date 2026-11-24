@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { query as dbQuery } from '@/lib/db';
-import { MEMBER_PRICE_POLICIES, type MemberPriceSource, type MemberPriceUse } from '@cambridge-tcg/data-ingest/member-prices';
+import { MEMBER_PRICE_POLICIES, pausedPriceUse, type MemberPriceSource, type MemberPriceUse } from '@cambridge-tcg/data-ingest/member-prices';
 import { assertPriceObservationValues } from '@cambridge-tcg/data-spec';
 import { DISPLAY_ONLY_INPUT_NOT_EXPORTED, DISPLAY_ONLY_INPUT_PAGES, DISPLAY_ONLY_INPUT_PAGES_END, displayOnlyInputsOffered, isDisplayOnlyInput, MemberPriceQueryError, type MemberPriceItem, type MemberPricePage, type MemberPriceQuery } from './member-feed-types';
 export * from './member-feed-types';
@@ -186,6 +186,10 @@ export async function readMemberPrices(actor: { userId: string }, input: MemberP
   // Named for the API or a download, a display-only source is refused, as an
   // unknown source always was, rather than read as an empty success.
   if (query.source && !MEMBER_PRICE_POLICIES[query.source].uses.includes(use) && isDisplayOnlyInput(MEMBER_PRICE_POLICIES[query.source])) throw new MemberPriceQueryError(DISPLAY_ONLY_INPUT_NOT_EXPORTED);
+  // A paused use is unavailable (503 at both routes) with its date and reason,
+  // before any read or cursor: never an empty, complete result to mirror.
+  const paused = pausedPriceUse(use, query.source);
+  if (paused) return { ...unavailable(paused.reason), paused: { source: paused.source, uses: paused.uses, since: paused.since } };
   const bound = binding(actor, query, use);
   const cursor = query.cursor ? decodeCursor(query.cursor, bound) : null;
   // Display-only derivation inputs (CardRush, TCGplayer) join only the current

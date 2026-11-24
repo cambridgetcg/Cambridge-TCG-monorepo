@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MEMBER_PRICE_POLICIES } from "@cambridge-tcg/data-ingest/member-prices";
+import { MEMBER_PRICE_POLICIES, pausedPriceUse } from "@cambridge-tcg/data-ingest/member-prices";
 import { Field, Input, Select } from "@/lib/ui/Input";
 import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, DISPLAY_ONLY_INPUT_PAGES, DISPLAY_ONLY_INPUT_PAGES_END, isDisplayOnlyInput, type MemberPriceItem, type MemberPricePage, type MemberPriceSource } from "@/lib/prices/member-feed-types";
 import type { MemberPriceImage, MemberPriceImages } from "@/lib/prices/member-images";
@@ -13,6 +13,7 @@ const MARKET_NAMES = { cardmarket: "Cardmarket", tcgplayer: "TCGplayer", cardrus
 // The yen has no minor unit; euro and dollar amounts show at least cents.
 const MINOR_DIGITS = { EUR: 2, USD: 2, JPY: 0 } as const satisfies Record<MemberPriceItem["currency"], number>;
 const isSource = (value: string | null): value is MemberPriceSource => value !== null && Object.hasOwn(MEMBER_PRICE_POLICIES, value);
+const downloadable = (source: MemberPriceSource) => (MEMBER_PRICE_POLICIES[source].uses as readonly string[]).includes("member-download");
 const DISPLAY_ONLY_INPUTS = (Object.keys(MEMBER_PRICE_POLICIES) as MemberPriceSource[]).filter((source) => isDisplayOnlyInput(MEMBER_PRICE_POLICIES[source]));
 
 // Display only: the reader and export retain the exact decimal string. Avoid
@@ -39,7 +40,7 @@ export function MemberPriceFilters({ params, displayOnly }: { params: URLSearchP
         <Field label="Source" htmlFor="member-price-source">
           <Select id="member-price-source" name="source" defaultValue={params.get("source") ?? ""}>
             <option value="">All eligible display sources</option>
-            <option value="cardmarket">Cardmarket · display and export</option>
+            <option value="cardmarket">Cardmarket · {downloadable("cardmarket") ? "display and export" : "display only"}</option>
             <option value="scryfall">Scryfall · display only</option>
             {offered.map((source) => <option key={source} value={source}>{SOURCE_NAMES[source]} · display only</option>)}
           </Select>
@@ -294,18 +295,21 @@ export function MemberPriceDownloads({ params }: { params: URLSearchParams }) {
   // Named from the policy, never echoed from the URL. An unknown source is
   // refused by the reader and the export alike.
   const source = params.get("source");
-  const displayOnly = isSource(source) && !(MEMBER_PRICE_POLICIES[source].uses as readonly string[]).includes("member-download") ? SOURCE_NAMES[source] : null;
+  const paused = pausedPriceUse("member-download");
+  const displayOnly = isSource(source) && !downloadable(source) && source !== paused?.source ? SOURCE_NAMES[source] : null;
   return (
     <section aria-labelledby="member-downloads-heading" className="mt-8 border-t border-border-subtle pt-5">
       <h3 id="member-downloads-heading" className="font-display text-lg font-medium text-ink">Take permitted data with you</h3>
-      <p className="mt-2 max-w-3xl text-sm text-ink-muted">Cardmarket official-file observations can be exported. Scryfall, CardRush and TCGplayer observations are for these views only and are excluded from every API and download. These are source-specific permissions, not a CC0 license for a mixed dataset.</p>
-      {displayOnly ? <p className="mt-3 text-sm text-ink-muted">Downloads are unavailable for the {displayOnly}-only filter.</p> : (
-        <div className="mt-3 flex flex-wrap gap-4 text-sm">
-          <a href={memberPriceExportHref(params, "csv")} className="text-accent underline underline-offset-4">Download CSV</a>
-          <a href={memberPriceExportHref(params, "ndjson")} className="text-accent underline underline-offset-4">Download NDJSON</a>
-        </div>
+      <p className="mt-2 max-w-3xl text-sm text-ink-muted">{paused?.reason ?? "Cardmarket official-file observations can be exported."} Scryfall, CardRush and TCGplayer observations are for these views only and are excluded from every API and download. These are source-specific permissions, not a CC0 license for a mixed dataset.</p>
+      {paused || displayOnly ? <p className="mt-3 text-sm text-ink-muted">Downloads are unavailable{displayOnly ? ` for the ${displayOnly}-only filter` : " for now"}.</p> : (
+        <>
+          <div className="mt-3 flex flex-wrap gap-4 text-sm">
+            <a href={memberPriceExportHref(params, "csv")} className="text-accent underline underline-offset-4">Download CSV</a>
+            <a href={memberPriceExportHref(params, "ndjson")} className="text-accent underline underline-offset-4">Download NDJSON</a>
+          </div>
+          <p className="mt-3 max-w-3xl text-xs text-ink-muted">Downloads start at the first page with these filters, without a display cursor. Requests are bounded; follow the export continuation information for remaining rows.</p>
+        </>
       )}
-      <p className="mt-3 max-w-3xl text-xs text-ink-muted">Downloads start at the first page with these filters, without a display cursor. Requests are bounded; follow the export continuation information for remaining rows.</p>
       <Link href="/account/data" prefetch={false} className="mt-3 inline-block text-sm text-accent underline underline-offset-4">Data keys, API and complete-export instructions</Link>
     </section>
   );

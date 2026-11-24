@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Audience, audienceMetadata } from "@/lib/ui";
+import { pausedPriceUse } from "@cambridge-tcg/data-ingest/member-prices";
 import { collectionOn, collectionSchedule } from "@/lib/datafeed/collection-flags";
 
 export const metadata: Metadata = {
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 export default function MemberPricingMethodology() {
   // Built statically, so this follows the deployment's DATA_COLLECT_CARDMARKET.
   const cardmarketScheduled = collectionOn("cardmarket");
+  const cardmarketPause = pausedPriceUse("member-download", "cardmarket");
   return (
     <>
       <Audience kind="public-documentation" contexts={["pricing", "methodology"]} />
@@ -44,6 +46,7 @@ export default function MemberPricingMethodology() {
           “however you see fit.” This is the recorded basis for normalized member
           views and feeds from those files, not permission to scrape Cardmarket
           or use its separately restricted API. No CC0 license is asserted.
+          {cardmarketPause && <> <strong>Paused:</strong> {cardmarketPause.reason}</>}
         </li>
         <li>
           <strong>Scryfall.</strong> Its{" "}

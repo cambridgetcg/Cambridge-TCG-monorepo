@@ -42,7 +42,7 @@ and whether any of this is deployed or applied in production was not checked.
 ```
 CardRush pages ─┐  identified collectors (crons; DATA_COLLECT_* on)
 TCGplayer data  ┼─► member_price_observations ──► /prices (member-display, attributed)
-Cardmarket files┘        │  (raw, immutable)        /api/v1/member-prices (Cardmarket only, as before)
+Cardmarket files┘        │  (raw, immutable)        /api/v1/member-prices (Cardmarket only; paused 2026-11-24)
                          ▼
              price_source_crosswalks (product → SKU, evidence)
              price_source_set_crosswalks (source set → set code)
@@ -697,7 +697,9 @@ else: references and premiums still need the exact product crosswalk.
 | `market_premiums` (game, set, market pair, as_of) | Median, p25 and p75 of the ratio of one market's GBP value to the other's, over card identities exactly mapped in both: the SKU without its language segment (variant kept) where the game's oracle policy shares numbering across languages, otherwise the whole SKU. One row per market pair, base the pair's first source in source order. Each side records its language basis (`market_languages`, `base_languages`; `*` for a product-level value with no language). | CHECK `sku_count >= 10`; language bases canonical |
 
 **Why Cardmarket never counts toward a reference's two sources.** Cardmarket's
-raw trend is exported free (member API and downloads). If a reference were the
+raw trend was exported free (member API and downloads) until it was paused on
+[2026-11-24](../../decisions/2026-11-24-cardmarket-export-pause.md),
+and anyone can download its own daily files. If a reference were the
 mean of Cardmarket and one CardRush or TCGplayer value, anyone could recover
 that display-only value as 2 × reference − Cardmarket, up to rounding. So a
 reference needs at least two sources whose raw values Cambridge does not
