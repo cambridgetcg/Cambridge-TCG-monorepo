@@ -30,7 +30,8 @@ health. Coding-agent instructions live in [AGENTS.md](AGENTS.md).
 | [`apps/storefront`](apps/storefront/README.md) | Human data tools, collector pages, `/api/v1` interfaces and `/admin/*` console; Next.js App Router |
 | [`apps/admin`](apps/admin/README.md) | Retired standalone app; redirect shell and retained review documentation, with no dev/build/test scripts |
 | [`apps/wholesale`](apps/wholesale/README.md) | Price research and existing order operations; new orders and quote requests retired |
-| [`apps/rewardspro`](apps/rewardspro/README.md) | Existing loyalty and rewards platform; new paid subscriptions and plan changes retired |
+| [`apps/rewards`](apps/rewards/DEPLOY.md) | RewardsPro, the Shopify app: a paid order earns cashback as store credit, with tiers and a storefront widget |
+| [`apps/rewardspro`](apps/rewardspro/README.md) | rewardspro.io, RewardsPro's brand kit and the previous version's schema; new paid subscriptions and plan changes retired |
 | [`packages/`](packages/) | Shared database, pricing, stock, data, lifecycle and other domain libraries |
 | [`docs/`](docs/README.md) | Architecture, decisions, runbooks, principles and dated verification records |
 

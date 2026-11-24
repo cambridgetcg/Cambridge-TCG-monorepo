@@ -101,7 +101,7 @@ pnpm verify:fast   # typecheck only — for quick sanity checks
 
 `verify` is the root verification chain in `package.json`. It runs:
 
-- The workspace typecheck set, excluding `@cambridge-tcg/admin` and `rewardspro`
+- The workspace typecheck set, excluding `@cambridge-tcg/admin`, `rewards` and `rewardspro-site`
 - The registered project audit chain (`pnpm run audit`) and strict CardRush coverage
 - The named Answering Rhymes, Opportunity Signal, PRISM Signals Core, Product Flow, and Product Flow Runtime tests
 - Storefront Vitest, including migrated admin tests; there is no separate `pnpm test:admin` script
@@ -192,7 +192,7 @@ Two workflows in [`.github/workflows/`](../.github/workflows/):
 
 | Workflow | When | Does | Blocks merge? |
 |---|---|---|---|
-| `ci.yml` | every push + PR | install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes typecheck-test-build jobs; `ci-status` is the final gate. There is currently no admin job. | yes (red X is the merge gate — branch protection isn't enabled, see runbook §Branch protection) |
+| `ci.yml` | every push + PR | install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes typecheck-test-build jobs and rewardspro.io's tests; `ci-status` is the final gate. There is currently no admin job. | yes (red X is the merge gate — branch protection isn't enabled, see runbook §Branch protection) |
 | `health.yml` | hourly + manual; changes to the workflow itself | Probes deploys + domains, opens/updates/closes one `deploy-health` issue | n/a (post-deploy) |
 
 **CI builds use mock env vars** (`postgres://x:x@localhost:5432/x`, `ci-fake-secret-not-used`). Next.js requires the env vars to *exist* at build time but doesn't run DB pages. Do not add real secrets to CI.
@@ -203,7 +203,8 @@ paths-filter keys (in `ci.yml`):
 |---|---|
 | `storefront` | `apps/storefront/**` |
 | `wholesale` | `apps/wholesale/**` |
-| `rewardspro` | `apps/rewardspro/**` |
+| `rewards` | `apps/rewards/**` |
+| `rewardspro` | `apps/rewardspro/**` (runs only rewardspro.io's tests) |
 | `answering_rhymes` | `packages/answering-rhymes/**` plus shared workspace/config files |
 | `shared` | `packages/**`, lock/workspace/root package config, `.npmrc`, `.github/workflows/**` |
 

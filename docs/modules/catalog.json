@@ -19,20 +19,20 @@
       "evidence": ["apps/wholesale/README.md", "apps/wholesale/src/app", "apps/wholesale/src/lib", "docs/wholesale-app-retirement-runbook.md"]
     },
     {
-      "path": "apps/rewardspro", "group": "apps", "label": "RewardsPro loyalty platform",
-      "purpose": "Loyalty tiers, credit, points and reward records, with Shopify integration and merchant-facing administration.",
-      "scope": "Existing platform; new paid subscriptions and paid plan changes are retired. Existing agreements retain their records and support paths.",
-      "progress": "Remix routes, services, repositories, Shopify extensions and a separate public landing site are present. Connector separation is documented as ongoing; it is not parity with the new API foundation.",
-      "next": "Use the app architecture and navigation registries before editing services; keep existing agreements and the documented connector boundaries intact.",
-      "evidence": ["apps/rewardspro/README.md", "apps/rewardspro/app/services", "apps/rewardspro/app/repositories", "apps/rewardspro/app/navigation/registry.ts", "apps/rewardspro/scripts/architecture/README.md", "apps/rewardspro/landing/public", "docs/decisions/2026-07-23-rewardspro-platform.md"]
+      "path": "apps/rewardspro", "group": "apps", "label": "rewardspro.io and the RewardsPro brand kit",
+      "purpose": "rewardspro.io's pages, the brand kit, the claims ledger and the marketing records.",
+      "scope": "A static site deployed by hand to Cloudflare Pages, with its records. The Shopify app is apps/rewards. New paid subscriptions and paid plan changes are retired; existing agreements retain their records and support paths.",
+      "progress": "2026-11-24: the previous version's code was removed (git keeps it at 493cd14e). landing/, marketing/, prisma/ and the site's tests stayed in place. The tests hold public sentences beside the code they rest on in apps/rewards. prisma/ is the map of database schema rewardspro until the owner drops it.",
+      "next": "After that drop, remove prisma/ and the site's sentences about the previous version's records. The owner names a folder for the site and the kit (RP-17, issue 177).",
+      "evidence": ["apps/rewardspro/README.md", "apps/rewardspro/DEPLOY.md", "apps/rewardspro/landing/public", "apps/rewardspro/marketing/README.md", "apps/rewardspro/prisma/schema.prisma", "apps/rewardspro/test/unit/contracts", "apps/rewards/docs/switch.md"]
     },
     {
-      "path": "apps/rewards", "group": "apps", "label": "RewardsPro rebuild",
-      "purpose": "The new RewardsPro: one embedded Shopify app where a paid order earns cashback as Shopify store credit, tiers raise the rate, a widget shows tier and credit, and refunds take the cashback back.",
-      "scope": "Being built on Shopify's React Router template to replace apps/rewardspro. Not deployed: production still serves apps/rewardspro, and the switch waits for Yu's yes.",
-      "progress": "2026-11-05: All four milestones are built. The foundation: the data model in Postgres schema rewards, with an append-only ledger and the payout checks enforced by the database, a local Postgres test bed, exact money maths, encrypted Shopify sessions. The engine: recording paid orders, cashback sent as Shopify store credit, refund take-backs, tiers and the past-orders import. The webhooks (orders, customers, products, compliance, uninstall); the payouts, with the hourly payout check and the nightly tier and housekeeping jobs; the admin (Home, Orders, Customers, Tiers, Settings with customer data requests); the storefront widget. The staging run on a development store is recorded in apps/rewards/docs/staging-run.md, and the final review's fixes are in. The CI job runs typecheck, unit tests, migrations, a drift check, the Postgres tests on Postgres 17 and the build. Not deployed: production still serves apps/rewardspro.",
-      "next": "The switch: plan Part B, run from apps/rewards/docs/switch.md, each step on Yu's yes.",
-      "evidence": ["apps/rewards/package.json", "apps/rewards/prisma/schema.prisma", "apps/rewards/prisma/migrations/20261105000000_init/migration.sql", "apps/rewards/scripts/test-db.sh", "apps/rewards/app/lib/money.ts", "apps/rewards/app/lib/order-facts.ts", "apps/rewards/app/shopify/session-storage.server.ts", "apps/rewards/app/shopify/store-credit-rail.server.ts", "apps/rewards/app/shopify/order-source.server.ts", "apps/rewards/app/shopify/graphql.ts", "apps/rewards/app/routes", "apps/rewards/extensions/rewards-widget", "apps/rewards/test/postgres", "apps/rewards/test/unit", "apps/rewards/vercel.json", "apps/rewards/scripts/vercel-ignore-build.sh", "apps/rewards/docs/staging-run.md", "apps/rewards/docs/switch.md"]
+      "path": "apps/rewards", "group": "apps", "label": "RewardsPro Shopify app",
+      "purpose": "One embedded Shopify app where a paid order earns cashback as Shopify store credit, tiers raise the rate, a widget shows tier and credit, and refunds take the cashback back.",
+      "scope": "The app production serves, on Shopify's React Router template, with no billing code. Its database is schema rewards on Supabase. Its site and brand kit are apps/rewardspro.",
+      "progress": "2026-11-05: All four milestones are built. The foundation: the data model in Postgres schema rewards, with an append-only ledger and the payout checks enforced by the database, a local Postgres test bed, exact money maths, encrypted Shopify sessions. The engine: recording paid orders, cashback sent as Shopify store credit, refund take-backs, tiers and the past-orders import. The webhooks (paid orders, refunds, cancellations, compliance, uninstall, scopes); the payouts, with the hourly payout check and the nightly tier and housekeeping jobs; the admin (Home, Orders, Customers, Tiers, Settings with customer data requests); the storefront widget. The staging run on a development store is recorded in apps/rewards/docs/staging-run.md, and the final review's fixes are in. The CI job runs typecheck, unit tests, migrations, a drift check, the Postgres tests on Postgres 17 and the build. The switch record (apps/rewards/docs/switch.md) has production on this app from 2026-11-06 and version rewardspromembership-217 released on 2026-11-07; the gates after it are in apps/rewards/docs/gates.md. 2026-11-24: its own deploy and database guides were written.",
+      "next": "Finish what the switch left: the owner's B5 steps in apps/rewards/docs/switch.md and the open erasure check in apps/rewards/docs/gates.md. Apply a migration to production before its pull request merges.",
+      "evidence": ["apps/rewards/DEPLOY.md", "apps/rewards/docs/DATABASE.md", "apps/rewards/docs/gates.md", "apps/rewards/package.json", "apps/rewards/prisma/schema.prisma", "apps/rewards/prisma/migrations/20261105000000_init/migration.sql", "apps/rewards/scripts/test-db.sh", "apps/rewards/app/lib/money.ts", "apps/rewards/app/lib/order-facts.ts", "apps/rewards/app/shopify/session-storage.server.ts", "apps/rewards/app/shopify/store-credit-rail.server.ts", "apps/rewards/app/shopify/order-source.server.ts", "apps/rewards/app/shopify/graphql.ts", "apps/rewards/app/routes", "apps/rewards/extensions/rewards-widget", "apps/rewards/test/postgres", "apps/rewards/test/unit", "apps/rewards/vercel.json", "apps/rewards/scripts/vercel-ignore-build.sh", "apps/rewards/docs/staging-run.md", "apps/rewards/docs/switch.md"]
     },
     {
       "path": "apps/admin", "group": "apps", "label": "Admin redirect shell",
@@ -187,36 +187,12 @@
       "evidence": ["packages/walls/README.md", "packages/walls/src/index.ts", "packages/walls/src/expression.ts"]
     },
     {
-      "path": "apps/rewardspro/extensions/theme-app-extension-rewardspro", "group": "extensions", "label": "RewardsPro theme widgets",
-      "purpose": "Embed loyalty and reward widgets into Shopify storefront themes using Liquid, JavaScript and CSS.",
-      "scope": "Theme extension with no package build step; enabling a block and backend availability remain host responsibilities.",
-      "progress": "Assets, blocks, snippets and locale files are present. The shared RPUtils module owns common widget helpers.",
-      "next": "Reuse RPUtils and verify widget behavior against current API and retirement boundaries; preserve translations and safe rendering.",
-      "evidence": ["apps/rewardspro/extensions/theme-app-extension-rewardspro/README.md", "apps/rewardspro/extensions/theme-app-extension-rewardspro/shopify.extension.toml", "apps/rewardspro/extensions/theme-app-extension-rewardspro/assets", "apps/rewardspro/extensions/theme-app-extension-rewardspro/blocks"]
-    },
-    {
-      "path": "apps/rewards/extensions/rewards-widget", "group": "extensions", "label": "RewardsPro rebuild widget",
+      "path": "apps/rewards/extensions/rewards-widget", "group": "extensions", "label": "RewardsPro widget",
       "purpose": "Show a storefront buyer their tier, its cashback rate, their Shopify store credit and their progress to the next tier; invite guests to sign in with the base rate.",
-      "scope": "One app embed block for apps/rewards, with the released extension's identity (uid, handle, block file name, body target) so the merchant's embed survives. Not released: the live store runs apps/rewardspro's widget until the trimmed release (spec 8, phase 3), which waits for Yu's yes.",
-      "progress": "2026-11-05: built. Liquid prints no buyer details; a signed-in buyer's widget asks the app proxy once (8 s limit, no retry); a guest's reads the app's rewards.config metafield and asks no server. About 10 KB of JS and CSS, Light and Dark looks with a teal accent kept off text, English strings only.",
-      "next": "Check it on the staging app at laptop and phone widths, then read the deploy output and version diff so the extension shows as updated, never created plus removed.",
-      "evidence": ["apps/rewards/extensions/rewards-widget/shopify.extension.toml", "apps/rewards/extensions/rewards-widget/blocks/membership_widget.liquid", "apps/rewards/extensions/rewards-widget/assets", "apps/rewards/test/unit/extensions"]
-    },
-    {
-      "path": "apps/rewardspro/tools", "group": "tooling", "label": "RewardsPro development tools",
-      "purpose": "Provide webhook simulation, shop inspection and scenario-running tools for local RewardsPro development.",
-      "scope": "Nested support package outside the root workspace. Some commands send requests or inspect databases; command availability is not permission to run them against a service.",
-      "progress": "CLI code, local configuration documentation and declared test/typecheck scripts are present.",
-      "next": "Inspect a scenario's target and effects, use explicit local fixtures, and keep all credential values out of output.",
-      "evidence": ["apps/rewardspro/tools/README.md", "apps/rewardspro/tools/package.json", "apps/rewardspro/tools/cli"]
-    },
-    {
-      "path": "apps/rewardspro/tools/prompt-evaluator", "group": "tooling", "label": "Exploration prompt evaluator",
-      "purpose": "Record structured evaluations and reports for code-exploration prompts.",
-      "scope": "Nested developer tool; its scores describe an evaluation framework, not product readiness or objective agent capability.",
-      "progress": "CLI, templates and report commands are present. It is nested beneath RewardsPro tools and outside the root workspace patterns.",
-      "next": "Use only if relevant to an exploration task; keep evaluation records separate from authoritative module verification.",
-      "evidence": ["apps/rewardspro/tools/prompt-evaluator/README.md", "apps/rewardspro/tools/prompt-evaluator/package.json", "apps/rewardspro/tools/prompt-evaluator/cli.ts"]
+      "scope": "One app embed block for apps/rewards, with the released extension's identity (uid, handle, block file name, body target) so the merchant's embed survives. A change reaches shops only through shopify app deploy and release, on the owner's word.",
+      "progress": "2026-11-05: built. Liquid prints no buyer details; a signed-in buyer's widget asks the app proxy once (8 s limit, no retry); a guest's reads the app's rewards.config metafield and asks no server. About 10 KB of JS and CSS, Light and Dark looks with a teal accent kept off text, English strings only. 2026-11-07: released in version rewardspromembership-217; it kept its uid and updated in place (apps/rewards/docs/switch.md), and it was checked on a phone signed in, as a guest and in Dark (apps/rewards/docs/gates.md).",
+      "next": "Keep the uid, the handle, the block file name and the proxy path /apps/rewardspro. Before a release, read the deploy output and version diff so the extension shows as updated, never created plus removed.",
+      "evidence": ["apps/rewards/extensions/rewards-widget/shopify.extension.toml", "apps/rewards/extensions/rewards-widget/blocks/membership_widget.liquid", "apps/rewards/extensions/rewards-widget/assets", "apps/rewards/test/unit/extensions", "apps/rewards/docs/gates.md"]
     }
   ],
   "storefrontDomains": [

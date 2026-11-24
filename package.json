@@ -6,22 +6,20 @@
   "scripts": {
     "dev:wholesale": "pnpm --filter ./apps/wholesale dev",
     "dev:storefront": "pnpm --filter ./apps/storefront dev",
-    "dev:rewardspro": "pnpm --filter ./apps/rewardspro dev",
     "dev:rewards": "pnpm --filter ./apps/rewards dev",
     "build:wholesale": "pnpm --filter ./apps/wholesale build",
     "build:storefront": "pnpm --filter ./apps/storefront build",
-    "build:rewardspro": "pnpm --filter ./apps/rewardspro build",
     "build:rewards": "pnpm --filter ./apps/rewards build",
     "test:answering-rhymes": "pnpm --filter @cambridge-tcg/answering-rhymes test",
     "test:opportunity-signal": "pnpm --filter @cambridge-tcg/opportunity-signal test",
     "test:prism-signals-core": "pnpm --filter @cambridge-tcg/prism-signals-core test",
     "test:product-flow": "pnpm --filter @cambridge-tcg/product-flow test",
     "test:product-flow-runtime": "pnpm --filter @cambridge-tcg/product-flow-runtime test",
-    "test:rewardspro": "pnpm --filter rewardspro test:unit",
+    "test:rewardspro-site": "pnpm --filter rewardspro-site test",
     "test:rewards": "pnpm --filter rewards test:unit",
     "test:rewards:postgres": "pnpm --filter rewards test:postgres",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro' --filter '!rewards' -r exec tsc --noEmit",
+    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro-site' --filter '!rewards' -r exec tsc --noEmit",
     "audit:tracked-secrets": "node scripts/audit-tracked-secrets.mjs",
     "docs:modules": "node scripts/module-map.mjs --write",
     "audit:modules": "node scripts/module-map.mjs --check",
@@ -95,24 +93,6 @@
           "@types/react-dom": { "optional": true }
         }
       },
-      "@remix-run/react": {
-        "peerDependencies": {
-          "@types/react": "*",
-          "@types/react-dom": "*"
-        },
-        "peerDependenciesMeta": {
-          "@types/react": { "optional": true },
-          "@types/react-dom": { "optional": true }
-        }
-      },
-      "react-router-dom": {
-        "peerDependencies": {
-          "@types/react": "*"
-        },
-        "peerDependenciesMeta": {
-          "@types/react": { "optional": true }
-        }
-      },
       "react-router": {
         "peerDependencies": {
           "@types/react": "*"
@@ -131,24 +111,6 @@
       }
     },
     "overrides": {
-      "@shopify/polaris>@types/react": "^18.3.31",
-      "@shopify/polaris>@types/react-dom": "^18.3.7",
-      "@types/react-transition-group>@types/react": "^18.3.31",
-      "@visx/annotation>@types/react": "^18.3.31",
-      "@visx/axis>@types/react": "^18.3.31",
-      "@visx/bounds>@types/react": "^18.3.31",
-      "@visx/drag>@types/react": "^18.3.31",
-      "@visx/event>@types/react": "^18.3.31",
-      "@visx/glyph>@types/react": "^18.3.31",
-      "@visx/grid>@types/react": "^18.3.31",
-      "@visx/group>@types/react": "^18.3.31",
-      "@visx/react-spring>@types/react": "^18.3.31",
-      "@visx/responsive>@types/react": "^18.3.31",
-      "@visx/shape>@types/react": "^18.3.31",
-      "@visx/text>@types/react": "^18.3.31",
-      "@visx/tooltip>@types/react": "^18.3.31",
-      "@visx/voronoi>@types/react": "^18.3.31",
-      "@visx/xychart>@types/react": "^18.3.31",
       "qs": "^6.16.0"
     }
   }

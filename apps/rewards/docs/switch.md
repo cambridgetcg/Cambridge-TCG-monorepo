@@ -76,6 +76,8 @@ What happened, with evidence, so a later session or reviewer can trust each step
 
 ## B1: the production toml and the old-app guard (a PR, deploys nothing)
 
+Done (the switch record). The old toml and the guard that items 1 and 2 name left main with the old app's code (B5).
+
 As the plan says, plus two changes:
 
 1. **Ai on Yu's yes:** write `apps/rewards/shopify.app.toml` and its test (`test/unit/config/production-toml.test.ts`) with the identity values from the plan's Global Constraints. The subscriptions are `orders/paid`, `refunds/create` (uri `/webhooks/orders/refunded`), `orders/cancelled`, `app/uninstalled`, `app/scopes_update` and compliance (`/webhooks/compliance`), on `api_version = "2026-10"`. `[auth] redirect_urls` and `[app_proxy]` equal `apps/rewardspro/shopify.app.toml`'s.
@@ -198,7 +200,7 @@ Expected: one merchant, one connection, the import `running` or `done`, and the 
 
 ### Rollback
 
-This rollback is for phase 2, before B3's release. Since `rewardspromembership-217` was released (2026-11-07), the stores hold the trimmed scopes and 2026-10 webhooks, so going back to the old app would also need a Shopify release of the old config, which the old directory's guard refuses: that is a new plan, not these steps.
+This rollback is for phase 2, before B3's release. Since `rewardspromembership-217` was released (2026-11-07), the stores hold the trimmed scopes and 2026-10 webhooks, so going back to the old app would also need a Shopify release of the old config, which the old directory's guard refuses: that is a new plan, not these steps. And since the old app's code left main (B5), step 2's Root Directory holds no app to build.
 
 1. **Yu:** Vercel Instant Rollback to the last old-app deployment (683e30b9 today).
 2. **Yu:** in the project settings, Root Directory back to `apps/rewardspro`, and the Output Directory (`build`), the Framework, Node and the default region (`iad1`) as they were.

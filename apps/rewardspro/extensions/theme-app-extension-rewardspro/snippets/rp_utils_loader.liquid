@@ -1,9 +1,0 @@
-{%- comment -%}
-  Loads the shared loading/empty/error styles reused by every widget.
-
-  The legacy snippet name is retained so installed blocks remain compatible.
-  Script loading now belongs to the schema-injected `rp-widget-loader.js`,
-  which reads each root's asset URLs and guarantees rp-utils.js finishes
-  before the corresponding widget runtime executes.
-{%- endcomment -%}
-<link rel="stylesheet" href="{{ 'rp-shared.css' | asset_url }}">

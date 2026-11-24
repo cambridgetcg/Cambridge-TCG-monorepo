@@ -4,7 +4,7 @@
 
 [Project entry](../../README.md) · [Documentation](../README.md) · [Agent guide](../agents/README.md)
 
-Find a module's purpose, source, scope, recorded progress and next review. This map covers **27 module roots**: 23 pnpm workspace packages, 2 extensions without package.json, and 2 nested support packages. Source review: **2026-09-28**.
+Find a module's purpose, source, scope, recorded progress and next review. This map covers **24 module roots**: 23 pnpm workspace packages, 1 extension without package.json, and 0 nested support packages. Source review: **2026-09-28**.
 
 **Start with the website:** [Storefront domains](storefront/README.md) groups 75 library directories and 77 route families by purpose.
 
@@ -16,8 +16,8 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 |---|---|
 | [Storefront and admin](apps/storefront.md) | Human and API entry to Cambridge TCG data infrastructure: SKU identity, images, prices and market observations, alongside collector tools, retained account records and the operator console. |
 | [Wholesale records and research](apps/wholesale.md) | Price and stock research plus the lifecycle of existing wholesale orders. |
-| [RewardsPro loyalty platform](apps/rewardspro.md) | Loyalty tiers, credit, points and reward records, with Shopify integration and merchant-facing administration. |
-| [RewardsPro rebuild](apps/rewards.md) | The new RewardsPro: one embedded Shopify app where a paid order earns cashback as Shopify store credit, tiers raise the rate, a widget shows tier and credit, and refunds take the cashback back. |
+| [rewardspro.io and the RewardsPro brand kit](apps/rewardspro.md) | rewardspro.io's pages, the brand kit, the claims ledger and the marketing records. |
+| [RewardsPro Shopify app](apps/rewards.md) | One embedded Shopify app where a paid order earns cashback as Shopify store credit, tiers raise the rate, a widget shows tier and credit, and refunds take the cashback back. |
 | [Admin redirect shell](apps/admin.md) | Preserve old admin bookmarks by redirecting to the storefront operator console. |
 
 ## Shared packages
@@ -47,19 +47,11 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 
 | Module | Purpose |
 |---|---|
-| [RewardsPro theme widgets](extensions/theme-app-extension-rewardspro.md) | Embed loyalty and reward widgets into Shopify storefront themes using Liquid, JavaScript and CSS. |
-| [RewardsPro rebuild widget](extensions/rewards-widget.md) | Show a storefront buyer their tier, its cashback rate, their Shopify store credit and their progress to the next tier; invite guests to sign in with the base rate. |
-
-## Nested support packages
-
-| Module | Purpose |
-|---|---|
-| [RewardsPro development tools](tooling/tools.md) | Provide webhook simulation, shop inspection and scenario-running tools for local RewardsPro development. |
-| [Exploration prompt evaluator](tooling/prompt-evaluator.md) | Record structured evaluations and reports for code-exploration prompts. |
+| [RewardsPro widget](extensions/rewards-widget.md) | Show a storefront buyer their tier, its cashback rate, their Shopify store credit and their progress to the next tier; invite guests to sign in with the base rate. |
 
 ## How the pieces connect
 
-The storefront is the main visitor and operator application. Wholesale retains its research and existing-order responsibilities. RewardsPro owns its current loyalty platform and extensions. Shared packages hold reusable contracts and domain logic. Nested tools support their owning app.
+The storefront is the main visitor and operator application. Wholesale retains its research and existing-order responsibilities. The RewardsPro Shopify app (apps/rewards) keeps its own database and widget; apps/rewardspro holds its site and brand kit. Shared packages hold reusable contracts and domain logic.
 
 Each module card derives declared dependency and consumer links from package.json. The storefront domain guide links the existing runtime registries. Those two views cover different questions: package composition and public interfaces. Neither is a claim that every listed path executes in production.
 
