@@ -11,6 +11,7 @@ function assert(cond: unknown, msg: string): void {
 }
 
 const users: string[] = [];
+let superRareEnabled: boolean | null = null;
 
 try {
   const u = await pool.query(
@@ -75,6 +76,8 @@ try {
   assert(!r5.ok && "error" in r5 && r5.error === "not_mergeable", "legendary not mergeable");
 
   // 8) Disabled tier refuses merge-into
+  const tier = await pool.query(`SELECT enabled FROM bounty_pull_tiers WHERE tier = 'super_rare'`);
+  superRareEnabled = tier.rows[0].enabled;
   await pool.query(`UPDATE bounty_pull_tiers SET enabled = false WHERE tier = 'super_rare'`);
   // User has 1 rare. Seed 3 more.
   await pool.query(
@@ -83,7 +86,6 @@ try {
   );
   const r6 = await merge.mergeTokens(userId, "rare");
   assert(!r6.ok && "error" in r6 && r6.error === "tier_disabled", "merging into disabled tier refused");
-  await pool.query(`UPDATE bounty_pull_tiers SET enabled = true WHERE tier = 'super_rare'`);
 
   // Stats
   const stats = await merge.getMergeStats(userId);
@@ -92,9 +94,16 @@ try {
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 } finally {
-  await cleanUp(pool, async () => {
-    await pool.query(`DELETE FROM bounty_merges WHERE user_id = ANY($1::uuid[])`, [users]);
-    await pool.query(`DELETE FROM bounty_pull_tokens WHERE user_id = ANY($1::uuid[])`, [users]);
-    await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
-  });
+  await cleanUp(
+    pool,
+    () => pool.query(
+      `UPDATE bounty_pull_tiers SET enabled = COALESCE($1, enabled) WHERE tier = 'super_rare'`,
+      [superRareEnabled],
+    ),
+    async () => {
+      await pool.query(`DELETE FROM bounty_merges WHERE user_id = ANY($1::uuid[])`, [users]);
+      await pool.query(`DELETE FROM bounty_pull_tokens WHERE user_id = ANY($1::uuid[])`, [users]);
+      await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
+    },
+  );
 }

@@ -26,6 +26,9 @@ function assert(cond: boolean, msg: string) {
 }
 
 const users: string[] = [];
+const ts = Date.now();
+const cbId = `du_test_${ts}`;
+const refId = `re_test_${ts}`;
 
 async function main() {
   // Seed user
@@ -53,8 +56,6 @@ async function main() {
   );
 
   // Seed a chargeback + log
-  const ts = Date.now();
-  const cbId = `du_test_${ts}`;
   await pool.query(
     `INSERT INTO chargebacks (stripe_dispute_id, stripe_payment_intent, user_id,
       amount_gbp, currency, stripe_status, stripe_reason)
@@ -68,7 +69,6 @@ async function main() {
   );
 
   // Seed a refund + log (with abuse_checked → admin-only)
-  const refId = `re_test_${ts}`;
   await pool.query(
     `INSERT INTO refunds (stripe_refund_id, stripe_payment_intent, user_id,
       amount_gbp, currency, stripe_status, stripe_reason, initiated_by)
@@ -127,5 +127,10 @@ async function main() {
 try {
   await main();
 } finally {
-  await cleanUp(pool, () => pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]));
+  // A chargeback and a refund outlive their user; their log rows go with them.
+  await cleanUp(pool, async () => {
+    await pool.query(`DELETE FROM chargebacks WHERE stripe_dispute_id = $1`, [cbId]);
+    await pool.query(`DELETE FROM refunds WHERE stripe_refund_id = $1`, [refId]);
+    await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
+  });
 }

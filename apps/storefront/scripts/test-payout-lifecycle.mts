@@ -107,6 +107,8 @@ async function cleanup(userIds: string[]) {
   await pool.query(`DELETE FROM market_trades WHERE buyer_id = ANY($1::uuid[]) OR seller_id = ANY($1::uuid[])`, [userIds]);
   await pool.query(`DELETE FROM market_orders WHERE user_id = ANY($1::uuid[])`, [userIds]);
   await pool.query(`DELETE FROM auctions WHERE seller_user_id = ANY($1::uuid[])`, [userIds]);
+  await pool.query(`DELETE FROM tradein_submissions WHERE user_id = ANY($1::uuid[])`, [userIds]);
+  await pool.query(`DELETE FROM admin_actions_log WHERE target_user_id = ANY($1::uuid[])`, [userIds]);
   await pool.query(`DELETE FROM trust_profiles WHERE user_id = ANY($1::uuid[])`, [userIds]);
   await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
 }

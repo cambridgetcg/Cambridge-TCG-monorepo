@@ -51,6 +51,7 @@ async function cleanup(userIds: string[], stripeIds: string[]) {
   }
   if (userIds.length > 0) {
     await pool.query(`DELETE FROM customer_orders WHERE user_id = ANY($1::uuid[])`, [userIds]);
+    await pool.query(`DELETE FROM admin_actions_log WHERE target_user_id = ANY($1::uuid[])`, [userIds]);
     await pool.query(`DELETE FROM trust_profiles WHERE user_id = ANY($1::uuid[])`, [userIds]);
     await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
   }
