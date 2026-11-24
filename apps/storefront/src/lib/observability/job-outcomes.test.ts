@@ -123,4 +123,21 @@ describe("recordMaintenance", () => {
       [500, "unavailable:sweep-rejected", { rejected: { fraudSweep: true, market: true } }],
     ]);
   });
+
+  it("names a sweep first rejected later in the hour, and tries again when the row could not be written", async () => {
+    vi.useFakeTimers();
+    for (const [time, rejected] of [[at(5, 0), ["market"]], [at(5, 1), ["market"]], [at(5, 30), ["market", "fraudSweep"]], [at(5, 31), ["market"]]] as const) {
+      vi.setSystemTime(time);
+      await recordMaintenance(time, rejected, run);
+    }
+    expect(recorded().map(([, , counts]) => Object.keys(counts.rejected))).toEqual([["market"], ["market", "fraudSweep"]]);
+    run.mockClear();
+    vi.setSystemTime(at(6, 30));
+    run.mockRejectedValueOnce(new Error("away"));
+    await recordMaintenance(at(6, 30), ["fraudSweep"], run);
+    vi.setSystemTime(at(6, 31));
+    await recordMaintenance(at(6, 31), ["fraudSweep"], run);
+    vi.useRealTimers();
+    expect(recorded()).toHaveLength(2);
+  });
 });
