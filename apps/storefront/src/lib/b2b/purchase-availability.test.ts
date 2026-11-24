@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { B2B_PURCHASE_AVAILABILITY } from "./purchase-availability";
 
@@ -18,19 +18,27 @@ describe("B2B new-purchase boundary", () => {
     });
   });
 
-  it("rejects checkout before cart, price, stock, or Stripe work", () => {
-    const checkout = source("src/lib/b2b/checkout.ts");
-    const guard = checkout.indexOf("if (!B2B_PURCHASE_AVAILABILITY.checkout_enabled)");
-
-    expect(guard).toBeGreaterThan(-1);
-    for (const operation of [
-      "loadCartRows(userId)",
-      'fetchCard(r.sku, "wholesale")',
-      "getStripe()",
-      "reserveCartItems(",
+  it("has no checkout left, and nothing that reserves stock or opens a Stripe session", () => {
+    for (const path of [
+      "src/lib/b2b/checkout.ts",
+      "src/app/account/b2b/checkout/_client.tsx",
+      "src/app/account/b2b/checkout/actions.ts",
+      "src/app/account/b2b/checkout/success/page.tsx",
     ]) {
-      expect(guard, operation).toBeLessThan(checkout.indexOf(operation));
+      expect(existsSync(resolve(process.cwd(), path)), path).toBe(false);
     }
+
+    for (const folder of ["src/lib/b2b", "src/app/account/b2b"]) {
+      const files = readdirSync(resolve(process.cwd(), folder), { recursive: true, encoding: "utf8" })
+        .filter((name) => /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name));
+      expect(files.length, folder).toBeGreaterThan(0);
+      for (const name of files) {
+        expect(source(join(folder, name)), name).not.toMatch(
+          /getStripe|checkout\.sessions|lib\/stock\/reservations/,
+        );
+      }
+    }
+    expect(source("src/lib/stock/reservations.ts")).not.toMatch(/reserver\.reserve\b|reserveCartItems/);
   });
 
   it("does not let the add-item action create a row while paused", () => {

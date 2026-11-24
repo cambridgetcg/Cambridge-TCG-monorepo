@@ -529,9 +529,12 @@ export async function linkPullToVaultItem(pullId: string, vaultItemId: string): 
 
 // Auto-expire reserved vault items past expires_at. Each expired item is
 // converted to store credit at SELL_BACK_RATE (user still gets value, just
-// doesn't get the physical card). Intended to be called from the maintenance
-// cron; safe to run frequently since the query is indexed and usually
-// returns 0 rows.
+// doesn't get the physical card). Safe to run frequently since the query is
+// indexed and usually returns 0 rows.
+//
+// Nothing calls it since 2026-11-24: behind the constant below it could only
+// return zeros, so the minute cron stopped calling it. Opening that constant
+// means calling it again.
 //
 // Each item is processed independently with a compensating revert: if the
 // credit grant fails after the status flip succeeded, the item is rolled
