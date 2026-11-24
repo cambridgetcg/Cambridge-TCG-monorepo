@@ -16,7 +16,7 @@ export default function CardImagesPolicyPage() {
     <PageLayout width="reading">
       <div lang="en">
         <PageHeader title="Card images and text" description="A picture can help identify a card without proving which printing it shows. Publisher credit and image context belong beside it." />
-        <p className="mb-8 text-sm text-ink-faint">Implementation reviewed 29 September 2026; the section on linked CardRush listing images was added 29 October 2026, and the note on member price page labels and the section on official Japanese images 30 October 2026. This records existing project decisions; it is not a new legal review or reuse licence.</p>
+        <p className="mb-8 text-sm text-ink-faint">Implementation reviewed 29 September 2026; the section on linked CardRush listing images was added 29 October 2026, and the note on member price page labels and the section on official Japanese images 30 October 2026; the notes that Japanese images are switched off and that copied CardRush photos are labelled, 24 November 2026. This records existing project decisions; it is not a new legal review or reuse licence.</p>
 
         <div className="space-y-8 text-sm leading-7 text-ink-muted">
           <section>
@@ -28,13 +28,14 @@ export default function CardImagesPolicyPage() {
 
           <section>
             <h2 className={headingClass}>Official Japanese images</h2>
+            <p className="mb-3">These are switched off. No Cambridge page or API shows one: a Japanese card is shown the English reference instead. Showing them waits for a separate decision by the project owner. The copies already made stay stored at public addresses.</p>
             <p>On 30 October 2026 the project owner chose to host official Japanese sample images for One Piece and Dragon Ball Fusion World in the same way as the English ones: a copy on a Cambridge host, with the publisher&apos;s Japanese credit line and a clear takedown state. Bandai&apos;s Japanese card lists, like the English ones, ask that their images not be reproduced without permission; this is Cambridge&apos;s own decision, not a permission from Bandai.</p>
-            <p className="mt-3">A Japanese card is shown the base print of the same card in Japanese when one is hosted, labelled by how it relates to the card: the same printing matched by its identifier, never checked against a physical card, or the base print beside a parallel, whose art may differ. Without a hosted Japanese image it is shown the English reference as before. The credit appears as the site prints it:</p>
+            <p className="mt-3">While they are switched on, a Japanese card is shown the base print of the same card in Japanese when one is hosted, labelled by how it relates to the card: the same printing matched by its identifier, never checked against a physical card, or the base print beside a parallel, whose art may differ. Without a hosted Japanese image it is shown the English reference as before. The credit appears as the site prints it:</p>
             <ul className="mt-3 list-disc pl-5">
               <li>One Piece: <span lang="ja">{OFFICIAL_IMAGE_LANES.ja.credits.op}</span></li>
               <li>Dragon Ball Fusion World: <span lang="ja">{OFFICIAL_IMAGE_LANES.ja.credits.dbf}</span></li>
             </ul>
-            <p className="mt-3">These images appear on Cambridge pages that print their label and credit beside them, in the universal card API as one separate field, and in the data the market pages load. They are not part of member price data, downloads or the market data API, and they are not offered as a page&apos;s share image. Collecting and hosting them are separate manual steps, each run only with the owner&apos;s word for it.</p>
+            <p className="mt-3">While they are switched on, these images appear on Cambridge pages that print their label and credit beside them, in the universal card API as one separate field, and in the data the market pages load. They are not part of member price data, downloads or the market data API. Collecting and hosting them are separate manual steps, each run only with the owner&apos;s word for it.</p>
           </section>
 
           <section>
@@ -45,7 +46,8 @@ export default function CardImagesPolicyPage() {
 
           <section>
             <h2 className={headingClass}>Other image paths</h2>
-            <p>A separate decision on 16 July retained catalogue photos as a market fallback. These images are labelled unverified: the legacy record does not establish the source and printing evidence required by the official-reference reader.</p>
+            <p>A separate decision on 16 July retained catalogue photos as a market fallback. Those copied from CardRush listings are labelled as CardRush listing photos; any other is labelled unverified. The legacy record does not establish the source and printing evidence required by the official-reference reader.</p>
+            <p className="mt-3">No official image is offered as a page&apos;s share image: a social platform would show and keep it without its credit.</p>
             <p className="mt-3">Gallery, artist and retained multiplayer readers still have separate limitations. Starter and browser-practice images now use the shared source checks and carry reference context. The <Link href="/roadmap#images" className={linkClass}>image roadmap</Link> tracks the remaining work.</p>
           </section>
 

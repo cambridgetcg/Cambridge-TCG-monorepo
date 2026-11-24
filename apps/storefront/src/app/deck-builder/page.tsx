@@ -15,6 +15,7 @@ import {
 } from "@/lib/play/banlist";
 import { statsFor } from "@/lib/play/card-stats";
 import HandSimulator from "@/components/deck-builder/HandSimulator";
+import { ImageCredits } from "@/components/cards/ImageCredits";
 import DeckStatsPanel from "@/components/deck-builder/DeckStatsPanel";
 import BulkImport, { type ParsedEntry } from "@/components/deck-builder/BulkImport";
 
@@ -30,6 +31,8 @@ interface CatalogCard {
   set_name: string;
   rarity: string | null;
   image_url: string | null;
+  /** The credit an official image is shown with; null for a catalogue photo. */
+  image_attribution?: string | null;
   // Yu 2026-05-14: the play module is fun-only. Catalog responses may
   // still carry a reference price; we deliberately don't surface it
   // anywhere on this surface. The deck builder lives in the
@@ -926,6 +929,11 @@ export default function DeckBuilderPage() {
               </div>
             )}
 
+            <ImageCredits
+              className="mt-4"
+              credits={[leader, ...filteredCards, ...deckEntries.map((entry) => entry.card)].map((card) => card?.image_url ? card.image_attribution : null)}
+            />
+
             {/* Pagination */}
             {!loading && totalPages > 1 && (
               <div className="flex justify-center items-center gap-2 mt-6">
@@ -1418,6 +1426,7 @@ export default function DeckBuilderPage() {
             },
             quantity: e.quantity,
           }))}
+          credits={deckEntries.map((entry) => entry.card.image_url ? entry.card.image_attribution : null)}
           onClose={() => setShowSimulator(false)}
         />
       )}

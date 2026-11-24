@@ -22,6 +22,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ImageCredits } from "@/components/cards/ImageCredits";
 
 interface StarterTile {
   id: string;
@@ -50,6 +51,8 @@ interface ResolvedCard {
   set_code: string | null;
   rarity: string | null;
   image_url: string | null;
+  /** The credit an official image is shown with; null for a catalogue photo. */
+  image_attribution?: string | null;
   quantity: number;
   role: string | null;
   resolved: boolean;
@@ -420,6 +423,10 @@ export default function StartersPage() {
                           No image
                         </div>
                       )}
+                      <ImageCredits
+                        className="mt-2 max-w-[180px]"
+                        credits={[detail.leader.image_url ? detail.leader.image_attribution : null]}
+                      />
                     </div>
 
                     {/* Card list */}

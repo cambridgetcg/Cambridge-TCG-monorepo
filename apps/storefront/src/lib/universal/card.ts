@@ -34,6 +34,7 @@ import { query } from "@/lib/db";
 import { buildLinks } from "@/lib/universal/links";
 import { resolveCardName } from "@/lib/cards/name";
 import { getEnCardData } from "@/lib/cards/en-card-data";
+import { IMAGE_REASON, TEXT_REASON } from "@/lib/cards/media-reasons";
 
 export type Density = "sparse" | "normal" | "saturated";
 
@@ -52,7 +53,8 @@ export interface UniversalCardRow {
   variant: string;
   game: string;
   set_name: string;
-  released_at: Date | null;
+  /** YYYY-MM-DD, read as text: the driver gives a DATE column as text, not a Date. */
+  released_at: string | null;
   total_cards: number;
 }
 
@@ -110,7 +112,7 @@ async function fetchCardRow(sku: string): Promise<UniversalCardRow | null> {
        csc.variant,
        (to_jsonb(csc.*) ->> 'name_en') AS name_en,
        (to_jsonb(csc.*) -> 'name_translations') AS name_translations,
-       cs.game, cs.set_name, cs.released_at, cs.total_cards
+       cs.game, cs.set_name, cs.released_at::text AS released_at, cs.total_cards
      FROM card_set_cards csc
      JOIN card_sets cs ON cs.set_code = csc.set_code
      WHERE csc.sku = $1
@@ -320,12 +322,10 @@ export async function buildUniversalCard(
       : null,
     publication_boundary: {
       price: "withheld_pending_field_level_source_rights",
-      image: image || sameLanguage
-        ? "cleared_official_sample_self_hosted_attributed"
-        : "withheld_pending_field_level_source_rights",
-      text: en.effect_text
-        ? "cleared_official_text_attributed"
-        : "withheld_pending_field_level_source_rights",
+      // The reader's own reason. An image it gave that this document could
+      // not carry whole is a fault of ours, never a rights decision.
+      image: IMAGE_REASON[image || sameLanguage ? "shown" : en.image_state === "shown" ? "unreadable" : en.image_state],
+      text: TEXT_REASON[en.text_state],
     },
   };
 
@@ -371,7 +371,7 @@ export async function buildUniversalCard(
               target_hash: sha256(`set:${row.game}:${row.set_code}`),
               set_name: row.set_name,
               total_cards: row.total_cards,
-              released_at: row.released_at?.toISOString().slice(0, 10) ?? null,
+              released_at: row.released_at,
               cover_image_url: null,
             }
           : null,

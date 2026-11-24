@@ -57,7 +57,8 @@ Each reader binds its lane by the function it calls, never from a row's own
   the shared ones: the exact credit line, `license_note` equal to the decision
   id, `s3_key` equal to `official/<sku>.<ext>`, and a publisher file that names
   the same card in a URL with an empty or bare numeric query.
-  `OFFICIAL_IMAGES_JA=off` returns nothing before any key or query.
+  Unless `OFFICIAL_IMAGES_JA=show` it returns nothing, before any key or query
+  (off by default since 2026-11-24).
 - `getOfficialCardImages()` chooses the Japanese image first, else the English
   reference, each lane caught on its own so a Japanese failure leaves the
   English images. Market and `/prices` use it; `getEnCardData()` carries both.
@@ -102,9 +103,9 @@ does not certify metadata supplied by callers on later moves.
 | Reader / consumer | Boundary |
 | --- | --- |
 | `getEnCardData()` → universal card API | Official English reference metadata accompanies the existing image fields in image-bearing projections; a Japanese request's own-language image travels separately as `image_same_language`. Sparse output omits all four. |
-| `getEnCardData()` → market card identity | The Japanese image first, else the English reference, with `image_language` and the matching reference field. Existing effect text and attributes remain under the later July decision. The card page's `og:image` is the share card for a Japanese image. |
-| `getOfficialCardImages()` → market catalogue → grid/table | Batch images use the same projectors and relationship semantics as single-card reads, with `image_language` and `image_same_language_reference`. The Japanese lane runs only for `images=same-language`, which only `/market`'s grid and table send, since they print the label and credit; the other catalogue callers (the deck builder and the listing, auction and swap pickers) show a bare thumbnail and keep the English reference. |
-| Market catalogue-photo fallback | Retained under the 16 July decision and labelled unverified. Its URL is restricted to the reviewed existing catalogue hosts; it does not inherit the official-image source/identity guarantees. |
+| `getEnCardData()` → market card identity | The Japanese image first, else the English reference, with `image_language` and the matching reference field. Existing effect text and attributes remain under the later July decision. The card page's `og:image` is always the share card. |
+| `getOfficialCardImages()` → market catalogue → grid/table | Batch images use the same projectors and relationship semantics as single-card reads, with `image_language` and `image_same_language_reference`. The Japanese lane runs only for `images=same-language`, which only `/market`'s grid and table send, since they print the label and credit; the other catalogue callers keep the English reference. The deck builder prints its credit once for the page; the swap composer prints none, a recorded gap. |
+| Market catalogue-photo fallback | Retained under the 16 July decision. A copy under `hires/` is labelled "CardRush listing photo", any other is labelled unverified. Its URL is restricted to the reviewed existing catalogue hosts; it does not inherit the official-image source/identity guarantees. |
 | Starter detail/load → browser and stateless practice | Card-number references preserve selected suffixes and credit, using the shared projector. Encoded practice decks remain complete when enrichment is missing. |
 
 Market identity also reaches `/mekiki`, retained auction pages and fulfillment

@@ -1318,8 +1318,9 @@ export const GUIDES: Guide[] = [
       {
         title: "Card effects are not interpreted yet",
         description:
-          "Every card's verbatim rules text rides along (with its copyright " +
-          "line — render it wherever you show the text) so you can plan, but " +
+          "A card's verbatim rules text rides along where Cambridge holds it " +
+          "(with its copyright line — render it wherever you show the text) " +
+          "so you can plan, but " +
           "[Trigger]/[On Play]-style effects do not fire. The scope note in " +
           "every response says exactly what is real.",
       },

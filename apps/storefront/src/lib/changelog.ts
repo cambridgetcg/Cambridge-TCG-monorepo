@@ -97,6 +97,18 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-11-24 ─────────────────────────────────────────────────────────
   {
+    id: "official-images-and-text-return",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/universal/card/[sku], /api/market/catalog, /api/v1/play/starters/[id], /market",
+    summary:
+      "Official English card images and rules text show again. From 29 September a date check refused every stored row, and publication_boundary then gave a rights reason that was not true.",
+    detail:
+      "publication_boundary.image and .text now say why a field is null: no source rights recorded, Japanese images switched off, none available, or could_not_be_read, which is a fault and never a rights decision. Japanese official images are off unless OFFICIAL_IMAGES_JA=show, so image_same_language is null. density=saturated answers again for sets with a release date. Field shapes are unchanged.",
+    related_urls: ["/standards/card-data", "/legal/card-images"],
+  },
+  {
     id: "cardmarket-member-export-paused",
     date: "2026-11-24",
     kind: "endpoint-modified",

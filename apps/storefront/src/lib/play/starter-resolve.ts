@@ -14,6 +14,15 @@ import {
   projectOfficialCardNumberImage, type OfficialCardNumberImage, type StoredOfficialImage,
 } from "@/lib/cards/image-publication";
 
+/** A fault here leaves the deck whole without its media, so it is logged: a
+ * failed read by error name, and held rows that all failed our own checks by
+ * count. */
+const unavailable = (what: string, error: unknown) =>
+  console.error(`[starters] ${what} unavailable`, error instanceof Error ? error.name : "unknown");
+const logRefused = (what: string, held: number, shown: number) => {
+  if (held && !shown) console.error(`[starters] none of ${held} held ${what} passed the checks`);
+};
+
 /**
  * A practice deck asks for card numbers, not a printing. Keep the selected
  * English image's full key, including reprint/parallel markers. Shared source
@@ -56,8 +65,10 @@ async function cardImageFallbacks(
         });
       if (candidates[0]) out.set(number, candidates[0]);
     }
+    logRefused("images", rows.length, out.size);
     return out;
-  } catch {
+  } catch (error) {
+    unavailable("images", error);
     return new Map();
   }
 }
@@ -173,8 +184,10 @@ async function cardTextFallbacks(
         out.set(e.num, { text: r.effect_text, attribution: provenance.attribution });
       }
     }
+    logRefused("texts", rows.length, out.size);
     return out;
-  } catch {
+  } catch (error) {
+    unavailable("texts", error);
     return new Map();
   }
 }

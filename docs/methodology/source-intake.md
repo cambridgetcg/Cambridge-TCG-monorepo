@@ -311,7 +311,7 @@ the JSON behind the market pages (`/api/market/catalog?images=same-language`);
 never member API, downloads or `/api/v1/market/*`.
 
 **Carried rules:** credit is the footer's own line verbatim; a takedown is per
-card, every language; `OFFICIAL_IMAGES_JA=off` hides the lane;
+card, every language; the lane is off unless `OFFICIAL_IMAGES_JA=show`;
 `ImageReference` v1 is unchanged.
 
 **Needs Yu:** each collection run, the upload (with D6 lifted for it and the
