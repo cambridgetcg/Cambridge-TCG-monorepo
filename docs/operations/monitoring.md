@@ -54,7 +54,11 @@ why. It never shows that as zero.
 ## The tables (migration 0148)
 
 - `ops_job_outcomes`: one row per run of `collect/cardmarket`,
-  `collect/cardrush`, `collect/tcgplayer` and `derive/market`, and, while
+  `collect/cardrush`, `collect/tcgplayer` and `derive/market`; of
+  `reconcile/stripe` and `retention/prism-beta` (whether they worked, none of
+  their counts); of `check/daily`; one an hour of the minute cron
+  (`sweep/maintenance`, and one for an hour's first rejected sweep, naming the
+  rejected sweeps); and, while
   signed acts are open, of the maintenance cron's held-keys sweep
   (`sweep/held-keys`, counting the nonces and pending signing keys it
   deleted; `src/lib/agents/signed-act-sweep.ts`): start, finish,
@@ -366,6 +370,46 @@ matches only the production alias, so if those hosts are public they still
 serve the API around Cloudflare. The monitor counts their requests as
 `deploy-url` (panel 5, "Direct to Vercel"), which is where that would show.
 
+## What reaches the operator
+
+Two halves, so that neither has to report its own death.
+
+- **From the site, once a day.** `/api/cron/daily-check` (08:40 UTC,
+  `src/lib/observability/daily-check.ts`) walks one card as a guest, counts
+  the messages waiting at the feedback door, and sends at most one plain
+  email, to `ADMIN_DIGEST_EMAIL` or else `STORE_NOTIFICATION_EMAIL`, from
+  `AUTH_FROM_EMAIL`, over the site's own mail seam (AWS SES): when something
+  is newly wrong, when someone wrote, once a week while either waits, and a
+  first one that proves the path. It holds counts, links and what the walk
+  found, never a message's words. It needs no database to go out. A message
+  that could not be sent is recorded (`unavailable:mail-…`) and owed to the
+  next day. SES accepting a message is not a person reading it: only the
+  reader can say that it arrived.
+- **From outside, several times a day.** `.github/workflows/health.yml` runs
+  the same walk from GitHub, whose last step reads at `/api/v1/health` when
+  the daily check last ran and whether it could send, and
+  `.github/scripts/deploy-health.py` for the Vercel deployments. Each keeps
+  one issue (labels `guest-walk`, `deploy-health`): opened and assigned to
+  the repository's account, edited while it stays, commented on when something
+  more fails, closed by the first clean run. A run ends red only when it has
+  such news. GitHub starts about three or four of the hourly runs a day
+  (62 in the 18 days to 2026-11-24, up to twelve hours apart), so this
+  half notices within hours, not minutes.
+
+The walk (`src/lib/guest-walk.ts`; by hand, `node
+apps/storefront/scripts/guest-walk.mts`) is GET only: the front page, a
+search as a person and as a program, the card and its picture and credit, the
+published example, each price source's last collection, `/api/v1/health`
+(the database's own clock, and each scheduled job: ok, failing, late or off),
+pull rates with their sources, a practice deck, and the feedback door. Every
+request carries a `walk` parameter, and an answer from an edge cache counts as
+a failure. A step that fails is tried once more before it counts. It cannot
+start a practice game, which takes a POST.
+
+What nothing here sees: the frozen wholesale app's own cron; a mailbox that
+drops or hides the message; whether the GitHub account mails about issues or
+failed runs.
+
 ## Checks
 
 - `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/observability src/lib/traffic src/app/admin/system/monitor src/app/api/mcp src/app/api/cron`
@@ -381,6 +425,10 @@ serve the API around Cloudflare. The monitor counts their requests as
   as failed, and sweeps past retention. The observability one also runs the
   maintenance cron's minute-23 sweep with no writer on.
 - `pnpm audit:cron-auth` checks that the route calls `requireCronAuth`.
+- The daily check and the walk: `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/guest-walk.test.ts src/lib/observability src/app/api/v1/health src/app/api/cron`,
+  `python3 -m unittest discover -s .github/scripts`, and on a disposable
+  loopback database the same `OPS_TEST_DATABASE_URL` with
+  `src/lib/observability/daily-check.integration.test.ts` (0148 and 0149).
 - The doors: `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/feedback src/app/api/v1/feedback src/app/api/v1/peers src/app/contact src/app/admin/feedback src/lib/agents src/proxy.test.ts`,
   and on a disposable loopback database
   `DOORS_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/<a name containing test> pnpm --filter cambridgetcg-storefront exec vitest run src/lib/feedback/door.integration.test.ts`,

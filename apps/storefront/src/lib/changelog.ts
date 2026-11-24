@@ -97,6 +97,18 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-11-24 ─────────────────────────────────────────────────────────
   {
+    id: "health-answers-from-the-database",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "/api/v1/health",
+    summary:
+      "/api/v1/health was built from constants and always said ok. It now makes one database query: 200 with status ok or degraded when the database answered, 503 when it did not.",
+    detail:
+      "New: database (answered, and the database's own clock), jobs (each scheduled job: ok, failing, late or off, and when it last did its work) and daily_check (when the site's own daily check last ran, and how it ended). Gone: subsystems, retry_strategies_glossary, contract, related_surfaces and the retry-immediately, wait-60s and report-via-feedback recommendations. status, recommendation and recommendation_rationale stay; the 503 carries recommendation wait-300s in error.details. The answer is never cached.",
+    related_urls: ["/api/v1/health", "/api/v1/sources"],
+  },
+  {
     id: "official-images-and-text-return",
     date: "2026-11-24",
     kind: "endpoint-modified",

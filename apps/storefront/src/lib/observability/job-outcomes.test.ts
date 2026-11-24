@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { emptySkips } from "@/lib/market-derived/method";
 import type { CardRushRunSummary } from "@/lib/datafeed/collectors/cardrush";
 import {
-  cardRushJobOutcome, declined, derivationJobOutcome, opsCounts, recordJobOutcome, recordedRun, tcgplayerJobOutcome,
+  cardRushJobOutcome, declined, derivationJobOutcome, opsCounts, recordJobOutcome, recordMaintenance, recordedRun, tcgplayerJobOutcome,
 } from "./job-outcomes";
 
 vi.mock("server-only", () => ({}));
@@ -102,5 +102,25 @@ describe("recordedRun", () => {
     expect(await recordedRun("collect/cardrush", async () => response, () => { throw new TypeError("unreadable"); }, run)).toBe(response);
     expect(run).not.toHaveBeenCalled();
     expect(console.error).toHaveBeenCalledWith("[ops/job-outcomes] not recorded", "collect/cardrush", "TypeError");
+  });
+});
+
+describe("recordMaintenance", () => {
+  const at = (hour: number, minute: number) => new Date(Date.UTC(2026, 10, 25, hour, minute));
+  const recorded = () => run.mock.calls.filter(([sql]) => String(sql).startsWith("INSERT INTO ops_job_outcomes")).map(([, params]) => [...params.slice(3, 5), JSON.parse(params[5])]);
+
+  it("leaves one row an hour, and one for the hour's first failure, naming the sweeps and nothing else", async () => {
+    vi.useFakeTimers();
+    for (const [time, rejected] of [[at(1, 5), []], [at(1, 23), []], [at(2, 5), ["fraudSweep"]], [at(2, 6), ["fraudSweep"]], [at(2, 23), ["fraudSweep"]], [at(3, 0), ["fraudSweep", "market"]]] as const) {
+      vi.setSystemTime(time);
+      await recordMaintenance(time, rejected, run);
+    }
+    vi.useRealTimers();
+    expect(recorded()).toEqual([
+      [200, "ran", { rejected: {} }],
+      [500, "unavailable:sweep-rejected", { rejected: { fraudSweep: true } }],
+      [500, "unavailable:sweep-rejected", { rejected: { fraudSweep: true } }],
+      [500, "unavailable:sweep-rejected", { rejected: { fraudSweep: true, market: true } }],
+    ]);
   });
 });

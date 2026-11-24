@@ -171,6 +171,7 @@ jobs:
           src/lib/datafeed/price-sources.integration.test.ts
           src/lib/market-derived/derive.integration.test.ts
           src/lib/observability/observability.integration.test.ts
+          src/lib/observability/daily-check.integration.test.ts
           src/lib/traffic/pull.integration.test.ts
           src/lib/feedback/door.integration.test.ts
         env:
