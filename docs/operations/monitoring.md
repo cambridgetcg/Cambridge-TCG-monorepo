@@ -324,13 +324,15 @@ one way back to what was kept.
   row, open or closed. The one abuse control in the app is a global cap of
   30 accepted messages per UTC hour (`feedback_hourly_intake`, kept 48
   hours, no sender), shared by agents and the /contact form; a per-source
-  rule needs an address, so it belongs at Cloudflare. The production alias
+  rule needs an address, so it would belong at Cloudflare, and none for this
+  door is known to be applied (2026-11-24). The production alias
   sends every method on this door, the hello door and `/api/mcp` to the
   apex (308, or 421 naming the apex URL when the request carries
-  Authorization, which a client would drop on the redirect), so Cloudflare's
-  rule stands in front of the cap. Against a sender spread over many
-  addresses, which a per-source rule does not catch, the cap is the only
-  defence, and it closes the form for everyone for the rest of the hour.
+  Authorization, which a client would drop on the redirect), so those
+  requests pass Cloudflare, where such a rule would stand in front of the
+  cap. Until there is one, the cap is the only defence, against one sender
+  as against many, and once reached it closes the form for everyone for the
+  rest of the hour.
   The references a report carries are bounded by field and by the 16 KiB
   read; 0149's whole-object check (20 KiB) is set above what such a request
   can hold in any script, and a check that still refuses one answers 400,
@@ -349,9 +351,9 @@ one way back to what was kept.
   caller when someone else said hello. Once an instance has seen a kind
   reach the cap it skips the database for that kind until the UTC day turns,
   so a flood past the cap writes nothing. Below the cap each counted hello is
-  one statement; Cloudflare's per-source rule, and the switch, are what
-  bound a faster flood. The content hash is echoed, never written. Kept 13
-  months.
+  one statement; the switch is what bounds a faster flood. A per-source rule
+  at Cloudflare would too, and none is known to be applied (2026-11-24). The
+  content hash is echoed, never written. Kept 13 months.
 - **What you record about me**, MCP `agent.self`
   (`src/lib/agents/self-record.ts`): the calling key's own minute buckets
   (summed per UTC day), `last_used_at`, tier limit and how long each is

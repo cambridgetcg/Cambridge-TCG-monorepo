@@ -27,17 +27,18 @@
 // no longer the role gate — it's the first of two gates.
 //
 // The production alias (2026-11-06). cambridgetcg-storefront.vercel.app
-// reaches Vercel without Cloudflare, so API reads there skipped its
-// firewall and rate rules (5,615 of 8,143 /api/v1/prices requests on
+// reaches Vercel without Cloudflare, so API reads there skipped whatever
+// Cloudflare applies (5,615 of 8,143 /api/v1/prices requests on
 // 2026-11-05). Yu chose to stop the alias serving the API. On that host:
 //   - a GET or HEAD to /api/* answers 308 to the same path and query on
 //     https://cambridgetcg.com;
 //   - so does every method to the doors that keep or count what a caller
 //     sends (/api/v1/feedback, /api/v1/peers, /api/mcp, and since held
-//     keys /api/v1/agents/act), so their global caps and per-request writes
-//     stand behind Cloudflare's per-source rules. None had a caller on the
-//     alias: feedback answered 503 and peers stored nothing before
-//     2026-11-06, and the act door was new;
+//     keys /api/v1/agents/act), so that they pass Cloudflare, where a
+//     per-source rule would stand in front of their global caps and
+//     per-request writes. None is known to be applied (2026-11-24). No door
+//     had a caller on the alias: feedback answered 503 and peers stored
+//     nothing before 2026-11-06, and the act door was new;
 //   - a request that would be redirected but carries Authorization answers
 //     421 naming the apex URL instead, since clients drop that header when
 //     they follow a redirect to another host and the apex would then answer
