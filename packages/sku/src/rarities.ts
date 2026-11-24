@@ -13,10 +13,8 @@
  * filter; disabled otherwise. See `/methodology/edition-variants` and
  * (planned) `/methodology/rarity-vocabulary`.
  *
- * This TS source is the canonical seed of the `rarity_map` table in
- * the wholesale RDS. The seed runner reads from here and writes via
- * idempotent UPSERTs. The audit `pnpm audit:rarity-mapping` (planned)
- * flags any `cards.rarity` value not present here for its game.
+ * This file is the source. The wholesale `rarity_map` table was made to hold
+ * a copy, but no query reads it and nothing seeds it.
  *
  * ── To add a rarity ───────────────────────────────────────────────────
  *
@@ -24,8 +22,6 @@
  *      `./games.ts`, then create a `RARITIES[<code>]` entry here.
  *   2. Add the row with `publisher_rarity`, `ordinal` (higher = rarer),
  *      `display_name`, and an optional `palette_key`.
- *   3. Re-run the seed (TODO: `pnpm --filter @cambridge-tcg/admin seed-rarity-map`).
- *   4. The audit stops flagging cards that bear this rarity.
  */
 
 import type { GameCode } from "./games";
