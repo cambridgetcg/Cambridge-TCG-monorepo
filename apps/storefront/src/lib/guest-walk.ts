@@ -105,8 +105,9 @@ const STEPS: readonly Step[] = [
       const hosts: Json[] = collector.hosts ?? [];
       const ages = hosts.map(host => hoursAgo(host.last_success_at, now())).filter(Number.isFinite);
       if (!(Math.min(...ages) <= hours)) late.push(source);
-      // A suspended host waits for a person, so say so for two days.
-      late.push(...hosts.filter(host => hoursAgo(host.suspended_at, now()) < 48).map(host => host.host));
+      // A suspended host waits for a person, so say so for eight days: past a
+      // few days without mail, and into one weekly reminder.
+      late.push(...hosts.filter(host => hoursAgo(host.suspended_at, now()) < 192).map(host => host.host));
     }
     need(!late.length, `not collected, or newly suspended: ${late.join(", ")}`, late);
     return "they were";
@@ -115,7 +116,7 @@ const STEPS: readonly Step[] = [
     const { database, jobs } = (await get("/api/v1/health")).json.data ?? {};
     need(database?.answered === true && Math.abs(now() - Date.parse(database.clock)) < 300_000, "health does not show the database's own clock");
     const bad = (jobs as Json[]).filter(job => job.state === "late" || job.state === "failing");
-    need(!bad.length, bad.map(job => `${job.job} is ${job.state}`).join(", "), bad.map(job => job.job));
+    need(!bad.length, bad.map(job => `${job.job} is ${job.state}`).join(", "), bad.map(job => `${job.job}.${job.state}`));
     return "they did";
   } },
   { id: "daily", asks: "the site's own daily check ran and could send its message", outside: true, run: async (get, now) => {
@@ -158,10 +159,10 @@ function visitor(base: string, tag: string, deadline: number, options: WalkOptio
     const url = new URL(path, base);
     if (url.origin === new URL(base).origin) url.searchParams.set("walk", tag);
     const left = deadline - now();
-    need(left > 0, "the walk ran out of time");
+    need(left > 0, "not looked at, the walk ran out of time", ["unanswered"]);
     const response = await request(url, { headers: { "User-Agent": USER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(Math.min(ANSWER_MS, left)) });
     need(!response.headers.has("cf-mitigated"), `Cloudflare asked for a browser check (HTTP ${response.status})`);
-    need(response.status === 200, `HTTP ${response.status} from ${path}`);
+    need(response.status === 200, `HTTP ${response.status} from ${path}`, ["unanswered"]);
     const copy = [response.headers.get("cf-cache-status"), response.headers.get("x-vercel-cache")].find(state => /^(HIT|STALE|UPDATING|REVALIDATED|PRERENDER)$/i.test(state ?? ""));
     need(!copy || url.origin !== new URL(base).origin, `an edge copy answered for ${path} (${copy})`);
     const bytes = new Uint8Array(await response.arrayBuffer());
@@ -184,11 +185,13 @@ export async function guestWalk(options: WalkOptions = {}): Promise<Walk> {
     const get = visitor(base, `${started.toString(36)}-${pass}`, started + WALK_MS, options);
     for (const step of left) {
       const { id, asks } = step;
+      // Out of time: what the first pass saw stands.
+      if (pass > 1 && now() >= started + WALK_MS) break;
       try {
         results.set(id, { id, asks, ok: true, says: await step.run(get, now), parts: [] });
       } catch (error) {
         const says = error instanceof Broken ? error.message : error instanceof Error && error.name === "TimeoutError" ? "no answer in time" : "it could not be reached or read";
-        results.set(id, { id, asks, ok: false, says: says.replace(/[\s`]+/g, " ").slice(0, 200), parts: error instanceof Broken ? error.parts : [] });
+        results.set(id, { id, asks, ok: false, says: says.replace(/[\s`]+/g, " ").slice(0, 200), parts: error instanceof Broken ? error.parts : ["unanswered"] });
       }
     }
     left = steps.filter(step => !results.get(step.id)!.ok);
@@ -198,7 +201,7 @@ export async function guestWalk(options: WalkOptions = {}): Promise<Walk> {
 
 /** What failed, by name: the step, or each part of it that it could tell apart. */
 export const walkFailures = (walk: Walk): string[] =>
-  walk.steps.filter(step => !step.ok).flatMap(step => step.parts.length ? step.parts.map(part => `${step.id}.${part.replace(/[^A-Za-z0-9_.-]/g, ".")}`) : [step.id]);
+  walk.steps.filter(step => !step.ok).flatMap(step => step.parts.length ? step.parts.map(part => `${step.id}.${String(part).replace(/[^A-Za-z0-9_.-]/g, ".")}`) : [step.id]);
 
 /** The walk as plain text; its last line names what failed, for a script to read. */
 export function walkReport(walk: Walk): string {

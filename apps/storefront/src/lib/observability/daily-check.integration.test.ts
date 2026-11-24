@@ -16,13 +16,14 @@ const schema = `daily_check_test_${randomUUID().replaceAll("-", "")}`;
 const walk: Walk = { base: "x", startedAt: "x", ms: 1, steps: [{ id: "example", asks: "it answers", ok: false, says: "HTTP 404", parts: [] }], failed: ["example"] };
 let pool: Pool, site: ReturnType<typeof createCompatDb>;
 
-describe.skipIf(!localUrl)("the daily check on migrations 0041, 0148 and 0149 (explicit loopback DB only)", () => {
+describe.skipIf(!localUrl)("the daily check on migrations 0039, 0041, 0148 and 0149 (explicit loopback DB only)", () => {
   beforeAll(async () => {
     const url = new URL(localUrl!);
     if (!["127.0.0.1", "[::1]"].includes(url.hostname) || !url.pathname.includes("test") || url.search) throw new Error("Explicit disposable local test database required");
     pool = new Pool({ connectionString: localUrl, options: `-c search_path=${schema}`, max: 2 });
     await pool.query(`CREATE SCHEMA ${schema}`);
-    for (const name of ["0041_digest_runs.sql", "0148_ops_observability.sql", "0149_agent_doors.sql"]) await pool.query(await readFile(new URL(`../../../drizzle/${name}`, import.meta.url), "utf8"));
+    await pool.query("CREATE TABLE users (id UUID PRIMARY KEY)"); // what 0039 refers to
+    for (const name of ["0039_email_queue.sql", "0041_digest_runs.sql", "0148_ops_observability.sql", "0149_agent_doors.sql"]) await pool.query(await readFile(new URL(`../../../drizzle/${name}`, import.meta.url), "utf8"));
     url.searchParams.set("search_path", schema);
     // The site's own database layer: one connection, and dates as Postgres text.
     site = createCompatDb({ url: url.toString(), ssl: false, max: 1 });

@@ -24,7 +24,8 @@ function ran(health: Health | null, path: string): { state: keyof typeof JOB_TON
   if (!health) return { state: "unknown", at: null };
   if (path === DAILY_CHECK.path) {
     const last = health.daily_check;
-    return { state: !last ? "late" : last.outcome === "ran" ? "ok" : "failing", at: last?.at ?? null };
+    const late = !last || Date.parse(health.clock) - Date.parse(last.at) > 26 * 3_600_000;
+    return { state: late ? "late" : last.outcome === "ran" ? "ok" : "failing", at: last?.at ?? null };
   }
   const name = SCHEDULED_JOBS.find((entry) => entry.path === path)?.job;
   const job = health.jobs.find((entry) => entry.job === name);

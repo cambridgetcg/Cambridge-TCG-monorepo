@@ -88,7 +88,13 @@ describe("the guest walk", () => {
 
   it("names each job that is behind", async () => {
     const done = await walk(answers => { (answers["/api/v1/health"] as { data: { jobs: unknown } }).data.jobs = [{ job: "collect/cardrush", state: "late" }, { job: "derive/market", state: "failing" }]; });
-    expect(done.steps.find(step => step.id === "health")).toMatchObject({ ok: false, says: "collect/cardrush is late, derive/market is failing", parts: ["collect/cardrush", "derive/market"] });
+    expect(done.steps.find(step => step.id === "health")).toMatchObject({ ok: false, says: "collect/cardrush is late, derive/market is failing", parts: ["collect/cardrush.late", "derive/market.failing"] });
+  });
+
+  it("tells a step that answered wrongly from one that did not answer", async () => {
+    expect((await walk(answers => { answers["/"] = "<p>hello</p>"; })).steps.find(step => step.id === "home")).toMatchObject({ ok: false, parts: [] });
+    const silent = await walk(answers => { delete answers["/"]; });
+    expect(silent.steps.find(step => step.id === "home")).toMatchObject({ ok: false, parts: ["unanswered"] });
   });
 
   it("counts an edge copy, a browser check and a refusal as broken, and tries a step twice first", async () => {

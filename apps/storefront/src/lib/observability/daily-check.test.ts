@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Walk } from "@/lib/guest-walk";
-import { CHECKS_SQL, CLAIM_SQL, SWEEPS_SQL, UNCLAIM_SQL, WAITING_SQL, runDailyCheck, type Mail } from "./daily-check";
+import { CHECKS_SQL, CLAIM_SQL, DEAD_MAIL_SQL, SWEEPS_SQL, UNCLAIM_SQL, WAITING_SQL, runDailyCheck, type Mail } from "./daily-check";
 
 const sendMail = vi.hoisted(() => vi.fn());
-vi.mock("@cambridge-tcg/email", () => ({ sendMail }));
+const transport = vi.hoisted(() => vi.fn(() => "ses"));
+vi.mock("@cambridge-tcg/email", () => ({ sendMail, resolveTransportName: transport }));
 
 const NOW = new Date("2026-11-25T08:40:00Z");
 const ago = (hours: number) => new Date(NOW.getTime() - hours * 3_600_000).toISOString();
@@ -11,18 +12,20 @@ const step = (id: string, ok: boolean, parts: string[] = []) => ({ id, asks: `th
 const walked = (...failed: ReturnType<typeof step>[]): Walk => ({ base: "https://cambridgetcg.com", startedAt: NOW.toISOString(), ms: 9, steps: [step("home", true), ...failed], failed: failed.map(entry => entry.id) });
 const past = (hours: number, counts: Record<string, unknown>) => ({ started_at: ago(hours), counts });
 
-interface Given { walk?: Walk; checks?: Record<string, unknown>[]; waiting?: Record<string, number>; sweeps?: string[]; down?: boolean; fails?: string; taken?: boolean }
+interface Given { walk?: Walk | (() => Promise<Walk>); dead?: number; broken?: string; checks?: Record<string, unknown>[]; waiting?: Record<string, number>; sweeps?: string[]; down?: boolean; fails?: string; taken?: boolean }
 async function check(given: Given) {
   const mails: Mail[] = [];
   const query = vi.fn(async (sql: string, _params?: unknown[]) => {
+    if (given.broken === sql) throw new Error("no answer in time");
     if (given.down) throw Object.assign(new Error("connect ECONNREFUSED 10.1.2.3:5432"), { code: "ECONNREFUSED" });
     if (sql === CHECKS_SQL) return { rows: given.checks ?? [] };
     if (sql === WAITING_SQL) return { rows: [{ arrived: 0, unread: 0, unanswered: 0, ...given.waiting }] };
     if (sql === SWEEPS_SQL) return { rows: (given.sweeps ?? []).map(sweep => ({ sweep })) };
+    if (sql === DEAD_MAIL_SQL) return { rows: [{ dead: given.dead ?? 0 }] };
     if (sql === CLAIM_SQL) return { rows: given.taken ? [] : [{ kind: "check/daily" }] };
     return { rows: [] };
   });
-  const report = await runDailyCheck({ query, now: () => NOW, walk: async () => given.walk ?? walked(), send: async mail => { mails.push(mail); return given.fails ?? null; } });
+  const report = await runDailyCheck({ query, now: () => NOW, walk: typeof given.walk === "function" ? given.walk : async () => (given.walk as Walk | undefined) ?? walked(), send: async mail => { mails.push(mail); return given.fails ?? null; } });
   const insert = query.mock.calls.find(([sql]) => sql.startsWith("INSERT INTO ops_job_outcomes"));
   const ran = (sql: string) => query.mock.calls.some(([text]) => text === sql);
   return { report, mails, mail: mails[0], claimed: ran(CLAIM_SQL), gaveBack: ran(UNCLAIM_SQL), record: insert ? { outcome: insert[1]![4], status: insert[1]![3], counts: JSON.parse(insert[1]![5] as string) } : null, query };
@@ -88,6 +91,23 @@ describe("the daily check", () => {
     expect(swept.record!.counts.findings).toEqual({ "sweep.tradeCompletionSweep": true });
   });
 
+  it("names emails the queue gave up on, and what could not be read, each on its own", async () => {
+    const dead = await check({ checks: [MAILED, MAILED], dead: 2 });
+    expect(dead.mail.text).toContain("- 2 emails to members could not be delivered");
+    expect(dead.record!.counts.findings).toEqual({ "mail.dead": true });
+    const swept = await check({ checks: [MAILED, MAILED], sweeps: ["market"], dead: 1, broken: WAITING_SQL });
+    expect(Object.keys(swept.record!.counts.findings)).toEqual(["database", "sweep.market", "mail.dead"]);
+    expect(Object.keys((await check({ checks: [MAILED, MAILED], broken: SWEEPS_SQL })).record!.counts.findings)).toEqual(["sweeps"]);
+  });
+
+  it("sends when the walk itself fails, and takes a name that is not a name", async () => {
+    const failed = await check({ checks: [MAILED, MAILED], walk: async () => { throw new TypeError("not a function"); } });
+    expect(failed.mail.text).toContain("- the walk itself failed");
+    expect(failed.record!.counts.findings).toEqual({ walk: true });
+    const odd = await check({ checks: [MAILED, MAILED], walk: walked(step("health", false, [undefined as unknown as string])) });
+    expect(odd.record!.counts.findings).toEqual({ "health.undefined": true });
+  });
+
   it("still sends when the database does not answer, and says so", async () => {
     const down = await check({ down: true, walk: walked(step("health", false)) });
     expect(down.mail.subject).toBe("Cambridge TCG: 2 things wrong");
@@ -105,6 +125,11 @@ describe("the daily check", () => {
     expect(next.mails).toHaveLength(1);
     // Owed, but mended since: there is nothing left to say.
     expect((await check({ checks: [past(24, failed.record!.counts), past(48, { mailed: true })] })).mails).toEqual([]);
+  });
+
+  it("sends the next morning after an afternoon's run by hand", async () => {
+    const afternoon = past(17, { mailed: true, findings: {} });
+    expect((await check({ walk: walked(step("example", false)), checks: [afternoon, afternoon] })).mails).toHaveLength(1);
   });
 
   it("never sends two in a day: a second run owes it to the next", async () => {
@@ -139,6 +164,12 @@ describe("the daily check", () => {
     expect(sendMail).toHaveBeenCalledWith({ from: "Cambridge TCG <noreply@example.test>", to: "owner@example.test", subject: expect.any(String), text: expect.any(String) }, { stream: "noreply" });
     expect((await run({ ok: false, error: "Email address is not verified: owner@example.test", transport: "ses" })).outcome).toBe("unavailable:mail-not-verified");
     expect((await run({ ok: true, messageId: "1", transport: "console" })).outcome).toBe("unavailable:mail-console-only");
+    // In production that transport would print the address, so it is not asked to send.
+    vi.stubEnv("NODE_ENV", "production");
+    transport.mockReturnValueOnce("console");
+    expect((await run({ ok: true, messageId: "1", transport: "console" })).outcome).toBe("unavailable:mail-console-only");
+    expect(sendMail).not.toHaveBeenCalled();
+    vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("STORE_NOTIFICATION_EMAIL", "");
     expect((await run(null)).outcome).toBe("unavailable:mail-no-address");
     expect(vi.mocked(console.error).mock.calls.flat().join(" ")).not.toContain("owner@example.test");

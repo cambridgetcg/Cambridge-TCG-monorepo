@@ -208,7 +208,8 @@ export async function recordJobOutcome(
   entry: { job: OpsJob; startedAt: Date; finishedAt?: Date; httpStatus: number } & JobOutcome,
   runQuery?: RunQuery,
 ): Promise<JobOutcomeWrite> {
-  const finishedAt = entry.finishedAt ?? new Date();
+  // A clock that stepped back during the run must not lose the row (0148 wants finished_at >= started_at).
+  const finishedAt = new Date(Math.max(entry.startedAt.getTime(), (entry.finishedAt ?? new Date()).getTime()));
   const outcome = /^(ran|already-derived|disabled|(refused|unavailable):[a-z0-9][a-z0-9-]{0,63})$/.test(entry.outcome) ? entry.outcome : "unavailable:unexpected";
   let run: RunQuery;
   try {

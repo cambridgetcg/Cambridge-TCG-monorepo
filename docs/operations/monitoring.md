@@ -380,13 +380,14 @@ Two halves, so that neither has to report its own death.
   email a day, to `ADMIN_DIGEST_EMAIL` or else `STORE_NOTIFICATION_EMAIL`,
   from `AUTH_FROM_EMAIL`, over the site's own mail seam (AWS SES): when
   something is newly wrong, when someone wrote, once a week while either
-  waits, and a first one that proves the path. A row in `digest_runs` keeps
-  two deliveries of one run to one message; only while the database is away
-  can a second go out. It holds counts, links and what the walk
-  found, never a message's words. It needs no database to go out. A message
-  that could not be sent is recorded (`unavailable:mail-…`) and owed to the
-  next day. SES accepting a message is not a person reading it: only the
-  reader can say that it arrived.
+  waits, and a first one that proves the path. It also names a maintenance
+  sweep that keeps failing, and how many emails to members the queue gave up
+  on that day. A row in `digest_runs` keeps two deliveries of one run to one
+  message; only while the database is away can a second go out. It holds
+  counts, links and what the walk found, never a message's words. It needs
+  no database to go out. A message that could not be sent is recorded
+  (`unavailable:mail-…`) and owed to the next day. SES accepting a message is
+  not a person reading it: only the reader can say that it arrived.
 - **From outside, several times a day.** `.github/workflows/health.yml` runs
   `.github/scripts/deploy-health.py` for the Vercel deployments and keeps one
   issue (label `deploy-health`). It does not run the walk yet: until it does,
