@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
-import { CARDRUSH_EVIDENCE_VERSION, MEMBER_PRICE_REVIEW_VERSION, TCGPLAYER_EVIDENCE_VERSION, type NativePriceObservation } from '@cambridge-tcg/data-ingest/member-prices';
+import { CARDRUSH_EVIDENCE_VERSION, MEMBER_PRICE_POLICIES, MEMBER_PRICE_REVIEW_VERSION, TCGPLAYER_EVIDENCE_VERSION, type NativePriceObservation } from '@cambridge-tcg/data-ingest/member-prices';
 
 vi.mock('server-only', () => ({}));
 // Every statement the reader or writer sends, so a test can say which path answered.
@@ -254,6 +254,8 @@ describe.skipIf(!localUrl)('member price latest index PostgreSQL integration (ex
     const url = new URL(localUrl!);
     if (!['127.0.0.1', '[::1]'].includes(url.hostname) || !url.pathname.includes('test') || url.search) throw new Error('Explicit disposable local test database required');
     process.env.AUTH_SECRET = 'fixture-only-cursor-secret-not-a-production-key';
+    // Cardmarket's API and download uses are paused in its policy; this suite tests the reader as it is with no pause.
+    Object.assign(MEMBER_PRICE_POLICIES.cardmarket, { uses: ['member-display', 'member-api', 'member-download'], paused: null });
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(NOW);
     admin = new Pool({ connectionString: localUrl });

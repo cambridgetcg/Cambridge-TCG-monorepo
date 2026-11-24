@@ -7,7 +7,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getHand } from "@/lib/cards/artists";
+import { getHand, printingsHref } from "@/lib/cards/artists";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +86,7 @@ export default async function HandPage({ params }: Props) {
               const p = w.print!;
               return (
                 <li key={p.sku}>
-                  <Link href={`/market/${p.sku}`} className="group block">
+                  <Link href={printingsHref(w)} className="group block">
                     <div className="relative aspect-[3/4] overflow-hidden wardrobe-mat">
                       <Image
                         src={p.image_url}

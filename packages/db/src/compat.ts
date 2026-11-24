@@ -34,7 +34,8 @@ import { createDb, type CreateDbOptions } from "./index";
 
 // ── Types ───────────────────────────────────────────────────────────────
 
-/** Matches pg's QueryResult shape — what storefront code expects. */
+/** Matches pg's QueryResult shape, except that a timestamptz is Postgres text,
+ *  not a Date: turn it into one with dbTimestamp (./timestamp.ts). */
 export interface CompatQueryResult {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rows: any[];
@@ -86,19 +87,15 @@ function toCompatResult(rows: postgres.RowList<postgres.Row[]>): CompatQueryResu
 }
 
 /**
- * Pre-serialize parameter values that postgres.js's `unsafe()` path doesn't
- * always reach with its type inference under aggressive bundling.
+ * Write a Date parameter as ISO 8601 text.
  *
- * Under Next.js + Turbopack the storefront chunk loses the date-type
- * serializer in some code paths, so `client.unsafe(sql, [new Date()])`
- * ends up calling `Buffer.byteLength(dateObject)` and throws
- * `TypeError: The "string" argument must be of type string ...
- * Received an instance of Date`. This broke next-auth's email sign-in
- * (handleLoginOrRegister → updateUser({ emailVerified: new Date() })).
- *
- * The serialization here mirrors postgres.js's own date serializer
- * (ISO 8601 timestamptz string). Tagged-template queries are unaffected
- * because they go through a different code path.
+ * drizzle() in ./index.ts replaces this client's date serializers with ones
+ * that pass the value through, so `client.unsafe(sql, [new Date()])`, and a
+ * tagged template with a Date, end in `Buffer.byteLength(dateObject)` and
+ * throw `TypeError: The "string" argument must be of type string ... Received
+ * an instance of Date`. In May 2026 that broke next-auth's email sign-in
+ * (updateUser({ emailVerified: new Date() })). The same call replaces the date
+ * parsers, so timestamps come back as text: see ./timestamp.ts.
  */
 function serializeParam(x: unknown): unknown {
   if (x instanceof Date) return x.toISOString();

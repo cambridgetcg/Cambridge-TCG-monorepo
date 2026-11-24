@@ -396,7 +396,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       deck: [
         {
           sku: "op-op01-001-ja",
-          name: "Monkey.D.Luffy",
+          name: "Roronoa Zoro",
           cardNumber: "OP01-001",
           imageUrl: null,
           rarity: "L",
@@ -517,7 +517,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       additionalProperties: false,
     },
     example_input: {
-      skus: ["op-op01-001-ja", "op-op01-999-ja"],
+      skus: ["OP-OP01-001-JP-V11L1", "op-op01-999-ja"],
     },
     example_output_shape: {
       "@kind": "card-batch",
@@ -532,12 +532,12 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       mirror_queried: true,
       results: [
         {
-          requested_sku: "op-op01-001-ja",
+          requested_sku: "OP-OP01-001-JP-V11L1",
           status: "found",
           card: {
-            sku: "op-op01-001-ja",
-            canonical_sku: "op-op01-001-ja",
-            name: "Monkey D. Luffy",
+            sku: "OP-OP01-001-JP-V11L1",
+            canonical_sku: "op-op01-001-ja-v11l1",
+            name: "ロロノア・ゾロ",
             set: { code: "OP01", name: "Romance Dawn" },
           },
         },

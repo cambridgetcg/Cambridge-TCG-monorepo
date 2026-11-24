@@ -33,6 +33,8 @@ describe("stored official image projection", () => {
     { s3_key: null }, { s3_key: "" }, { s3_key: "official/../private.png" },
     { s3_key: "official/%2e%2e/private.png" }, { s3_key: "official/a.png?key=example" },
     { s3_key: "https://en.onepiece-cardgame.com/image.png" },
+    // A Japanese object, however an English row came to name it: that lane has its own switch.
+    { s3_key: "official/OP-OP01-001-JA.png" }, { s3_key: "official/DBF-FB10-001-ja.webp" },
   ])("withholds a row outside the recorded boundary: %o", (change) => {
     expect(projectOfficialImage("op-op01-001-ja", { ...row, ...change })).toBeNull();
   });
@@ -50,6 +52,10 @@ describe("stored official image projection", () => {
     ["2026-09-29T00:15:30.123456+05:30", "2026-09-28T18:45:30.123Z"],
     ["2026-09-29T00:15:30.000001-03:30", "2026-09-29T03:45:30.000Z"],
     ["2026-09-29T00:15:30.1+00:00", "2026-09-29T00:15:30.100Z"],
+    // Postgres text, as the production driver returns a timestamptz.
+    ["2026-07-11 09:30:00+00", "2026-07-11T09:30:00.000Z"],
+    ["2026-07-11 10:30:00.123456+01", "2026-07-11T09:30:00.123Z"],
+    ["2026-07-11 15:00:00.5+05:30", "2026-07-11T09:30:00.500Z"],
   ])("preserves valid retrieval input %s with the existing UTC millisecond output", (retrieved_at, expected) => {
     expect(projectOfficialImage("op-op01-001-en", { ...row, retrieved_at })?.retrieved_at).toBe(expected);
   });
@@ -61,6 +67,9 @@ describe("stored official image projection", () => {
     "2026-09-29T24:00:00Z", "2026-09-29T25:00:00Z", "2026-09-29T23:60:00Z",
     "2026-09-29T23:59:60Z", "2026-09-29T00:00:00+24:00", "2026-09-29T00:00:00-01:60",
     "2026-02-30T00:15:30.123456+05:30",
+    "2026-02-30 00:00:00+00", "2026-07-11 24:00:00+00", "2026-07-11 09:30:00+24",
+    // No offset names no moment, and a date is not a time.
+    "2026-07-11 09:30:00", "2026-07-11", "infinity", "Sat Jul 11 2026 09:30:00 GMT+0000",
   ])("withholds impossible calendar or time fields instead of rolling them over: %s", (retrieved_at) => {
     expect(projectOfficialImage("op-op01-001-en", { ...row, retrieved_at })).toBeNull();
   });

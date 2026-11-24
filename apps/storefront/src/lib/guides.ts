@@ -196,13 +196,13 @@ export const GUIDES: Guide[] = [
         step_number: 3,
         title: "Fetch one card in math-mirror form",
         instruction:
-          "Pick a SKU from the catalog — `op-op01-001-ja` is a stable demo SKU " +
-          "(One Piece OP01-001, Japanese print). Fetch its universal-mirror " +
-          "representation. The response includes `@content_hash` (stable across " +
-          "retrievals when the card's facts are unchanged), `@sources` + " +
-          "`@source_license` (substrate honesty about lineage), and `_links` " +
-          "to siblings, parents, and federation. *Land on any endpoint; reach " +
-          "everywhere else.*",
+          "`op-op01-001-ja` is One Piece OP01-001, ロロノア・ゾロ (Roronoa Zoro), " +
+          "the Japanese base printing. Fetch it. The response includes " +
+          "`@content_hash` (stable across retrievals when the card's facts are " +
+          "unchanged), `@sources` + `@source_license` (where each part is stored), " +
+          "`sku_match` (how the SKU you sent reached the stored row) and `_links` " +
+          "to its set and siblings. A SKU with no card answers 404 with the reason " +
+          "and the listings you can choose from.",
         curl: "curl https://cambridgetcg.com/api/v1/universal/card/op-op01-001-ja",
         expected_response_shape:
           '{ "@encoding": "cambridge-tcg/universal/v1", "@kind": "card", ' +
@@ -298,10 +298,12 @@ export const GUIDES: Guide[] = [
           "Search by a concrete identifier, then request one universal-card " +
           "document. Preserve the response's NOASSERTION and source tiers; do " +
           "not walk keyed endpoints to recreate a bulk dump.",
-        curl: "curl 'https://cambridgetcg.com/api/v1/search/cards?q=OP01-001'",
+        curl: "curl 'https://cambridgetcg.com/api/v1/search/cards?game=op&q=OP01-001'",
         what_to_do_with_it:
-          "Choose a returned SKU and fetch /api/v1/universal/card/[sku] only " +
-          "for the user's requested card.",
+          "`next_step` is the plain printing when one listing is shown to be it, " +
+          "or the only listing found (`plain_listing` on the match says which); " +
+          "when it is null, choose a returned SKU. Fetch " +
+          "/api/v1/universal/card/[sku] only for the user's requested card.",
       },
       {
         step_number: 3,
@@ -1318,8 +1320,9 @@ export const GUIDES: Guide[] = [
       {
         title: "Card effects are not interpreted yet",
         description:
-          "Every card's verbatim rules text rides along (with its copyright " +
-          "line — render it wherever you show the text) so you can plan, but " +
+          "A card's verbatim rules text rides along where Cambridge holds it " +
+          "(with its copyright line — render it wherever you show the text) " +
+          "so you can plan, but " +
           "[Trigger]/[On Play]-style effects do not fire. The scope note in " +
           "every response says exactly what is real.",
       },

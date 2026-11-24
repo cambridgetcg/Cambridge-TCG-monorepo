@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMemberSessionActor } from "@/lib/prices/member-access";
 import { listMemberKeys } from "@/lib/datafeed/member-keys";
+import { pausedPriceUse } from "@cambridge-tcg/data-ingest/member-prices";
 import { PageHeader, WhyLink, ErrorAlert } from "@/lib/ui";
 import { MemberDataClient } from "./_client";
 
@@ -15,9 +16,11 @@ export default async function MemberDataPage() {
   let keys;
   try { keys = await listMemberKeys(actor.userId); }
   catch { return <ErrorAlert description="Member key management is unavailable. No keys have been changed. Please try again later." />; }
+  const paused = pausedPriceUse("member-download") ?? pausedPriceUse("member-api");
   return <div className="space-y-6">
     <PageHeader title="Member data" description="Free price access for your scripts and spreadsheets. No subscription, paid tier, or agent identity needed." />
     <WhyLink href="/methodology/member-pricing" />
+    {paused && <p role="note" className="max-w-3xl text-sm text-ink">{paused.reason} Until then the feed and the downloads answer 503 with this reason. Your keys are unchanged and can still be created and revoked here.</p>}
     <MemberDataClient initialKeys={keys} />
     <section className="space-y-3 text-sm text-ink-muted" aria-labelledby="feed-instructions">
       <h2 id="feed-instructions" className="font-display text-xl text-ink">Using the feed</h2>
@@ -26,8 +29,8 @@ export default async function MemberDataPage() {
       <p>Each request returns one bounded page, not the whole archive. Snapshot timestamps are not source freshness; every observation carries its own source time, retrieval time, metric, native currency, attribution, and permission evidence. Data is not collectively licensed CC0.</p>
       <p>For session downloads, add the same filters to <code className="break-all">/api/account/prices/export?format=csv</code> or <code>format=ndjson</code>. CSV continuation is in <code>X-Next-Cursor</code> and completeness/counts in <code>X-Price-Complete</code>, <code>X-Price-Count</code>, <code>X-Price-Total</code>. NDJSON includes a manifest and footer; <code>pageComplete</code> means that page arrived, not the whole dataset.</p>
       <p className="flex flex-wrap gap-4">
-        <a href="/api/account/prices/export?format=csv" className="text-accent underline">Download CSV page</a>
-        <a href="/api/account/prices/export?format=ndjson" className="text-accent underline">Download NDJSON page</a>
+        {!paused && <a href="/api/account/prices/export?format=csv" className="text-accent underline">Download CSV page</a>}
+        {!paused && <a href="/api/account/prices/export?format=ndjson" className="text-accent underline">Download NDJSON page</a>}
         <Link href="/prices" prefetch={false} className="text-accent underline">Browse prices</Link>
       </p>
       <p>Only sources permitted for downloads appear in feeds. Display-only sources such as Scryfall stay out; blocked or uncollected sources are not unlocked by signing in.</p>

@@ -19,20 +19,21 @@ export interface MemberPriceQuery {
 export type MemberPriceItem = MemberPriceObservation;
 /** Raw CardRush and TCGplayer values are display-only (Yu, 2026-10-28): a
  * member may look at them, not harvest them. A source that feeds Cambridge-
- * derived data but has no member-api release is offered only to the current
- * view of a narrowed search (a SKU, a set within a game, or a name search),
- * at most DISPLAY_ONLY_INPUT_PAGE_LIMIT rows a page, and a cursor chain whose
- * filtered snapshot holds its rows ends after DISPLAY_ONLY_INPUT_PAGES pages.
- * Cardmarket (exported) and Scryfall (never a derivation input) read exactly
- * as before, and so does any view that holds no display-only row.
+ * derived data and has never had a member-api release is offered only to the
+ * current view of a narrowed search (a SKU, a set within a game, or a name
+ * search), at most DISPLAY_ONLY_INPUT_PAGE_LIMIT rows a page, and a cursor
+ * chain whose filtered snapshot holds its rows ends after
+ * DISPLAY_ONLY_INPUT_PAGES pages. Cardmarket (whose member-api release is
+ * paused, not absent) and Scryfall (never a derivation input) read exactly as
+ * before, and so does any view that holds no display-only row.
  */
 export const DISPLAY_ONLY_INPUT_PAGE_LIMIT = 50;
 export const DISPLAY_ONLY_INPUT_PAGES = 3;
 export const DISPLAY_ONLY_INPUT_PAGES_END = `CardRush and TCGplayer prices are for looking at, not collecting, so a view that includes them ends after ${DISPLAY_ONLY_INPUT_PAGES} pages. Narrow the search, or choose another source, to see other rows.`;
 /** The API and downloads never carry a display-only source's rows. */
 export const DISPLAY_ONLY_INPUT_NOT_EXPORTED = 'This price source is shown only on Cambridge pages, never through the API or downloads.';
-export const isDisplayOnlyInput = (policy: { uses: readonly MemberPriceUse[]; derivation: object | null }): boolean =>
-  policy.derivation !== null && !policy.uses.includes('member-api');
+export const isDisplayOnlyInput = (policy: { uses: readonly MemberPriceUse[]; paused: { uses: readonly MemberPriceUse[] } | null; derivation: object | null }): boolean =>
+  policy.derivation !== null && !policy.uses.includes('member-api') && !policy.paused?.uses.includes('member-api');
 export const displayOnlyInputsNarrowed = (query: Pick<MemberPriceQuery, 'sku' | 'set' | 'game' | 'q'>): boolean =>
   Boolean(query.sku || (query.set && query.game) || query.q);
 export const displayOnlyInputsOffered = (query: Pick<MemberPriceQuery, 'mode' | 'limit' | 'sku' | 'set' | 'game' | 'q'>): boolean =>
@@ -49,6 +50,8 @@ export interface MemberPricePage {
   count: number;
   complete: boolean;
   reason?: string;
+  /** Set when this use of the source's rows is paused; `reason` says why. */
+  paused?: { source: MemberPriceSource; uses: readonly MemberPriceUse[]; since: string };
 }
 export class MemberPriceQueryError extends Error {
   constructor(message: string) { super(message); this.name = 'MemberPriceQueryError'; }

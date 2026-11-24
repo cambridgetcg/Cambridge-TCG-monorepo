@@ -31,7 +31,7 @@
 import type { NextResponse } from "next/server";
 import { FRESHNESS, jsonResponse, type FreshnessKey } from "@/lib/data-pantry";
 import { sourcesByStatus, listSourceMeta } from "@cambridge-tcg/data-ingest";
-import { MEMBER_PRICE_POLICIES, type MemberPriceSource, type MemberPriceUse } from "@cambridge-tcg/data-ingest/member-prices";
+import { MEMBER_PRICE_POLICIES, type MemberPriceSource, type MemberPriceUse, type PausedPriceUses } from "@cambridge-tcg/data-ingest/member-prices";
 import { fetchSourceLastRuns, type SourceRunRow } from "@/lib/wholesale/client";
 import { batchCollected, collectionFlag, collectionOn, scheduledCollection, type CollectedSource } from "@/lib/datafeed/collection-flags";
 import { deriveHostHealth, readCollectorHostStates, type CollectorHostsHealth } from "./collector-health";
@@ -78,7 +78,10 @@ interface SourceEntry {
   /** Legacy wholesale ingest_run only; not the separate member-price batches. */
   last_run?: LastRunBlock | { _unavailable: true; reason: "never_run" };
   member_pricing?: {
+    /** The reviewed uses open now. */
     reviewed_uses: readonly MemberPriceUse[];
+    /** Reviewed uses stopped for now, since when and why; null when none are. */
+    paused: PausedPriceUses | null;
     cadence: (typeof MEMBER_PRICE_POLICIES)[MemberPriceSource]["cadence"];
     evidence_url: string;
     methodology: string;
@@ -203,6 +206,7 @@ export async function GET(): Promise<NextResponse> {
       ...(batchCollected(meta.id) ? { collector: deriveHostHealth(meta.id, hostStates, Object.hasOwn(FRESHNESS, meta.freshness) ? FRESHNESS[meta.freshness] : 0) } : {}),
       ...(memberPolicy ? { member_pricing: {
         reviewed_uses: memberPolicy.uses,
+        paused: memberPolicy.paused,
         cadence: memberPolicy.cadence,
         evidence_url: memberPolicy.evidenceUrl,
         methodology: "/methodology/member-pricing",

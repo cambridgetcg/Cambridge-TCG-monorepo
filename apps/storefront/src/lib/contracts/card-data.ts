@@ -3,6 +3,7 @@ import { MONEY_SCHEMA, NATIVE_PRICE_OBSERVATION_SCHEMA, MEMBER_PRICE_OBSERVATION
 import { createImageReference, IMAGE_REFERENCE_CONTRACT, IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/image-reference";
 import { createCardNumberImageReference, CARD_NUMBER_IMAGE_REFERENCE_CONTRACT, CARD_NUMBER_IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/card-number-image-reference";
 import { createSameLanguageImageReference, SAME_LANGUAGE_IMAGE_REFERENCE_CONTRACT, SAME_LANGUAGE_IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/same-language-image-reference";
+import { MEDIA_REASON_MEANINGS } from "@/lib/cards/media-reasons";
 
 /** Describes existing response semantics. No source access or price publication. */
 export const CARD_DATA_CONTRACT = {
@@ -23,7 +24,7 @@ export const CARD_DATA_CONTRACT = {
       example: createImageReference("OP-OP01-001-JP-V11DZ", "OP-OP01-001-EN"),
       example_scope: "Illustrative syntax relationship only; no image row, catalog record or provider was queried.",
       representation: "Eligible English reference images carry image_url, image_attribution and image_reference together in market and universal-card responses. Universal sparse density omits all three fields. A retained catalog fallback has no English-reference claim and leaves image_reference null. A same-language official image travels separately in image_same_language.",
-      missing: "A null reference means this projection establishes no eligible English base-image relationship; it does not prove that card art does not exist.",
+      missing: "A null reference means this projection establishes no eligible English base-image relationship; it does not prove that card art does not exist. The universal card's publication_boundary.image says why.",
     },
     practice_card_number_reference: {
       ...CARD_NUMBER_IMAGE_REFERENCE_CONTRACT,
@@ -39,7 +40,12 @@ export const CARD_DATA_CONTRACT = {
       example: createSameLanguageImageReference("OP-OP01-001-JP-V11DZ", "OP-OP01-001-JA"),
       example_scope: "Illustrative syntax relationship only; no image row, catalog record or provider was queried.",
       representation: "The universal card carries a Japanese request's own-language official image as one unit, image_same_language: url, attribution (the Japanese credit line), language and reference, or null; sparse density omits it. Market responses carry image_language and image_same_language_reference beside image_url and image_attribution; the market catalogue gives the Japanese image only to a request with images=same-language. The English image_url, image_attribution and image_reference keep their v1 meaning.",
-      compatibility: "Additive. ImageReference v1 keeps reason english_base_reference; SameLanguageImageReference is a separate shape. OFFICIAL_IMAGES_JA=off withholds every same-language image.",
+      compatibility: "Additive. ImageReference v1 keeps reason english_base_reference; SameLanguageImageReference is a separate shape. Switched off unless OFFICIAL_IMAGES_JA=show: until then image_same_language is null and market responses keep the English reference.",
+    },
+    publication_reasons: {
+      fields: ["publication_boundary.image", "publication_boundary.text"],
+      endpoint: "/api/v1/universal/card/{sku}",
+      meanings: MEDIA_REASON_MEANINGS,
     },
     rights: "Image identity and publication are separate checks. A valid ImageReference, self-hosted URL or attribution does not establish image rights or permission for downstream reuse.",
     planned_scope: "A complete cross-source ImageRecord, verified printing crosswalk and rights-evidence contract remain planned; this implemented reference shape does not provide them.",

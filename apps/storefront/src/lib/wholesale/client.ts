@@ -34,10 +34,10 @@ const WHOLESALE_KEY = (process.env.WHOLESALE_API_KEY || '').trim();
 import {
   dbFetchAggregatorCoverage,
   dbFetchAggregatorCoverageHistory,
-  dbFetchCard,
   dbFetchGames,
   dbFetchPrices,
   dbFetchSets,
+  dbLookupCard,
 } from './db-source';
 import {
   publicCatalogSort,
@@ -135,6 +135,10 @@ export interface PriceItem {
   art_description?: string | null;
   /** Phase 6 of kingdom-051 — { zh, ko, es, jp_romaji, … } sparse. */
   name_translations?: Record<string, string> | null;
+  /** True when the stored title names the plain printing and nothing else
+   *  (One Piece only; see ./listing-printing). False is not a claim that the
+   *  row is a variant, only that its title does not show it is not. */
+  plain_listing?: boolean;
 }
 
 /**
@@ -267,52 +271,47 @@ export async function fetchPrices(params?: {
   }
 }
 
-export async function fetchCard(sku: string, channel = 'cambridgetcg'): Promise<PriceItem | null> {
-  // HTTP first (unless flipped to direct reads), then the wholesale
-  // Postgres ground route — the same fallback fetchPrices uses. Without
-  // it the retired API's 401/timeout left the card page nameless and
-  // price-less while /market (which reads through the DB) showed both;
-  // now both surfaces resolve from one substrate. A 404 is an honest
-  // "no such card" and short-circuits; other failures fall through.
-  if (!dbDirectOnly()) {
-    try {
-      const res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/prices/' + encodeURIComponent(sku) + '?channel=' + channel, {
-        headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
-        next: { revalidate: 300 },
-      });
-      if (res.status === 404) return null;
-      if (res.ok) {
-        const item = await res.json() as PriceItem;
-        return withholdUnreviewedWholesaleFields(item);
-      }
-      console.error('[wholesale] card error', res.status);
-    } catch (err) {
-      console.error('[wholesale] card fetch error', err);
-    }
-  }
+/** Why a SKU has no card here, when a source did answer. */
+export interface CardAbsence {
+  reason:
+    | 'unknown_sku'          // no row under this SKU in any stored spelling
+    | 'no_listing'           // a plain SKU whose number has no listing in this language
+    | 'none_plain'           // listings exist; none is shown by its title to be the plain printing
+    | 'several_plain'        // more than one is, so none is picked
+    | 'marked_listing'       // its own row is a marked listing, and no other title may be read (not One Piece)
+    | 'titles_not_reviewed'; // a plain SKU of a game whose listing titles were not reviewed
+  /** Stored SKUs of the same number and language a caller may choose from. */
+  listings: string[];
+}
 
+export interface CardLookup {
+  card: PriceItem | null;
+  source: WholesaleSource;
+  absence: CardAbsence | null;
+}
+
+/**
+ * One card by SKU, with provenance (see fetchGamesDetailed). `card.sku` is the
+ * stored key, which differs from the SKU asked for when it was found under
+ * another spelling or is a plain SKU's plain listing. An outage is
+ * source 'unavailable' with no absence: it never reads as a missing card.
+ *
+ * Read from the wholesale Postgres only. The wholesale HTTP route for one card
+ * answers 503 to every caller (apps/wholesale/src/app/api/v1/prices/[sku]),
+ * and only the database read can look for a plain SKU's plain listing.
+ */
+export async function fetchCardDetailed(sku: string): Promise<CardLookup> {
   try {
-    return await dbFetchCard(sku, channel);
+    return { ...(await dbLookupCard(sku)), source: 'wholesale-db' };
   } catch (err) {
     console.error('[wholesale] card db-source error', err);
-    return null;
+    return { card: null, source: 'unavailable', absence: null };
   }
 }
 
-// Uncached variant for revenue-critical checks (price/stock at checkout).
-// Unlike fetchCard it distinguishes "card does not exist" (null) from
-// "wholesale API unavailable" (throws), so callers can fail open on
-// outages instead of treating them as zero stock.
-export async function fetchCardFresh(sku: string, channel = 'cambridgetcg'): Promise<PriceItem | null> {
-  const res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/prices/' + encodeURIComponent(sku) + '?channel=' + channel, {
-    headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
-    cache: 'no-store',
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error('wholesale_unavailable: ' + res.status);
-  const item = await res.json() as PriceItem;
-  return withholdUnreviewedWholesaleFields(item);
-}
+/** The B2B callers also pass a channel. A card read carries no price, so it has no effect. */
+export const fetchCard: (sku: string, channel?: string) => Promise<PriceItem | null> =
+  async (sku) => (await fetchCardDetailed(sku)).card;
 
 export interface GamesResult {
   games: GameItem[];

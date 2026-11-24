@@ -57,7 +57,9 @@ with practical notes about that app.
 8. **Reasons over rules.** When something needs care, write down the reason
    instead of a new rule. If you think something needs a hard guard (a
    blocking test, a CI gate, a "must"), explain the risk to Yu and let Yu
-   choose.
+   choose. A check that only reports may be added without asking
+   ([Yu, 2026-11-24](docs/decisions/2026-11-24-pictures-reports-and-removals.md)):
+   say who reads it, and remove it when nobody does.
    *Why:* rules without reasons keep multiplying until nobody can follow
    them. Reasons can be weighed, and dropped when they stop being true.
 

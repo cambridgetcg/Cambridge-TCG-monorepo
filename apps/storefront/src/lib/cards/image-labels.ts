@@ -20,10 +20,20 @@ export const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
 /** The image fields a market card or identity carries. Older payloads may
  * lack the language fields; absent counts as null. */
 export interface MarketImageFields {
+  image_url?: string | null;
   image_reference?: ImageReference | null;
   image_language?: "en" | "ja" | null;
   image_same_language_reference?: SameLanguageImageReference | null;
 }
+
+/** The catalogue photos under hires/ are copies of CardRush's own listing
+ * photos: every tool in this repository that writes that prefix downloads from
+ * CardRush (apps/wholesale/tools/lib/s3-images.ts and
+ * apps/wholesale/src/lib/cardrush-hires-upload.ts, both locked since, and
+ * scripts/self-host-cardrush.mjs, which refuses to run), and the bucket
+ * register names them so (docs/infra/aws-resources.md). The origin of any
+ * other catalogue photo is not recorded. */
+const CARDRUSH_COPY = /^https:\/\/jp-(?:op|pk|db)-photos\.s3\.us-east-1\.amazonaws\.com\/hires\//;
 
 /** The label for /market, the card page and /mekiki. */
 export function marketImageLabel(card: MarketImageFields): string {
@@ -34,8 +44,9 @@ export function marketImageLabel(card: MarketImageFields): string {
       ? `Official image · this printing (${LANGUAGE_NAMES[same.language]}), matched by SKU, not verified`
       : `Official ${LANGUAGE_NAMES[same.language]} base print · art may differ, not verified`;
   }
-  return card.image_reference
-    ? "English reference image · printing not verified"
+  if (card.image_reference) return "English reference image · printing not verified";
+  return CARDRUSH_COPY.test(card.image_url ?? "")
+    ? "CardRush listing photo · printing not verified"
     : "Catalog image · source and printing unverified";
 }
 

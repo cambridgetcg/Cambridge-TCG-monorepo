@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { Pool } from 'pg';
-import { MEMBER_PRICE_REVIEW_VERSION, type NativePriceObservation } from '@cambridge-tcg/data-ingest/member-prices';
+import { MEMBER_PRICE_POLICIES, MEMBER_PRICE_REVIEW_VERSION, type NativePriceObservation } from '@cambridge-tcg/data-ingest/member-prices';
 
 vi.mock('server-only', () => ({}));
 const state = vi.hoisted(() => ({ pool: null as unknown as import('pg').Pool }));
@@ -26,12 +26,18 @@ function observation(id: string, override: Partial<NativePriceObservation> = {})
 const write = (rows: NativePriceObservation[]) => writeMemberPriceBatch(rows[0]!.source, { observations: rows, quarantine: [], sourceRows: rows.length, missingPrices: 0 });
 const query = (params: Record<string, string> = {}) => parseMemberPriceQuery(new URLSearchParams(params));
 const actor = { userId: 'fixture-member' };
+// Cardmarket's API and download uses are paused in its policy. This suite tests
+// the reader as it is with no pause, and the pause as written in one test.
+const written = { uses: MEMBER_PRICE_POLICIES.cardmarket.uses, paused: MEMBER_PRICE_POLICIES.cardmarket.paused };
+const cardmarketPolicy = (policy: object) => Object.assign(MEMBER_PRICE_POLICIES.cardmarket, policy);
+const reopenExport = () => cardmarketPolicy({ uses: ['member-display', 'member-api', 'member-download'], paused: null });
 
 describe.skipIf(!localUrl)('member prices PostgreSQL integration (explicit loopback DB only)', () => {
   beforeAll(async () => {
     const url = new URL(localUrl!);
     if (!['127.0.0.1', '[::1]'].includes(url.hostname) || !url.pathname.includes('test') || url.search) throw new Error('Explicit disposable local test database required');
     process.env.AUTH_SECRET = 'fixture-only-cursor-secret-not-a-production-key';
+    reopenExport();
     admin = new Pool({ connectionString: localUrl });
     await admin.query(`CREATE SCHEMA ${schema}`);
     state.pool = new Pool({ connectionString: localUrl, options: `-c search_path=${schema}`, max: 8 });
@@ -110,6 +116,23 @@ describe.skipIf(!localUrl)('member prices PostgreSQL integration (explicit loopb
     await expect(state.pool.query(`UPDATE member_price_observations SET amount=1 WHERE source_product_id='1'`)).rejects.toThrow(/append-only/);
     // No source row can arrive after its original batch committed.
     await expect(state.pool.query(`INSERT INTO member_price_observations OVERRIDING SYSTEM VALUE SELECT id+100000,batch_id,observation_key||'-late',source,source_product_id,sku,mapping_status,game,set_code,product_name,granularity,finish,language,condition,metric,amount,currency,underlying_market,source_updated_at,retrieved_at,source_url,parser_version,crosswalk_version,evidence_version,artifact_sha256,catalog_source_url,catalog_updated_at,catalog_artifact_sha256,quality FROM member_price_observations WHERE source_product_id='1'`)).rejects.toThrow(/original uncommitted batch/);
+  });
+  it('stops a paused use whatever the release row allows, and leaves display, the stored rows and collection as they were', async () => {
+    const before = await readMemberPrices(actor, query({ source: 'cardmarket', mode: 'history', limit: '500' }), 'member-display');
+    expect(before.items.length).toBeGreaterThan(0);
+    const open = await readMemberPrices(actor, query({ q: 'cursor', limit: '1' }), 'member-api');
+    cardmarketPolicy(written);
+    try {
+      expect((await state.pool.query(`SELECT member_api, member_download FROM member_price_source_releases WHERE source='cardmarket'`)).rows[0]).toEqual({ member_api: true, member_download: true });
+      const requests: Record<string, string>[] = [{}, { source: 'cardmarket' }, { mode: 'history', limit: '500' }, { q: 'cursor', limit: '1', cursor: open.nextCursor! }];
+      for (const use of ['member-api', 'member-download'] as const) for (const params of requests) {
+        expect(await readMemberPrices(actor, query(params), use)).toMatchObject({ status: 'unavailable', items: [], complete: false, nextCursor: null, paused: { source: 'cardmarket' } });
+      }
+      const during = await readMemberPrices(actor, query({ source: 'cardmarket', mode: 'history', limit: '500' }), 'member-display');
+      expect(during.items.map(row => row.permittedUses)).toEqual(before.items.map(() => ['member-display']));
+      expect(during.items.map(row => ({ ...row, permittedUses: null }))).toEqual(before.items.map(row => ({ ...row, permittedUses: null })));
+      expect((await write([observation('while-paused')])).inserted).toBe(1);
+    } finally { reopenExport(); }
   });
   it('enforces runtime flags, evidence versions and immediate revocation even on existing cursors', async () => {
     const base = query({ q: 'cursor', limit: '1' });

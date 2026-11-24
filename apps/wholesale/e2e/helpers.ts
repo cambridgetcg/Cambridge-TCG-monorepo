@@ -1,16 +1,16 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 
-export const ADMIN_EMAIL =
-  process.env.E2E_ADMIN_EMAIL ?? "admin@cambridgetcg.com";
-export const ADMIN_PASSWORD =
-  process.env.E2E_ADMIN_PASSWORD ?? "admin2026!";
 export const BASE =
   process.env.E2E_BASE_URL ?? "https://wholesaletcgdirect.com";
 export const ADMIN_BASE =
   process.env.E2E_ADMIN_BASE_URL ?? "https://admin.wholesaletcgdirect.com";
 
 export async function adminLogin(page: Page) {
+  const { E2E_ADMIN_EMAIL: email, E2E_ADMIN_PASSWORD: password } = process.env;
+  if (!email || !password) {
+    throw new Error("Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run the admin specs.");
+  }
   const ctx = page.context();
 
   // 1. GET CSRF token (context.request shares cookies with the browser)
@@ -21,7 +21,7 @@ export async function adminLogin(page: Page) {
   const loginRes = await ctx.request.post(
     `${BASE}/api/auth/callback/credentials`,
     {
-      form: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD, csrfToken },
+      form: { email, password, csrfToken },
       maxRedirects: 0,
     },
   );

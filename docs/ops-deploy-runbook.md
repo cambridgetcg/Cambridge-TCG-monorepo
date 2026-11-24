@@ -53,30 +53,35 @@ vercel env ls production   # list production env vars
 vercel logs <url>          # stream runtime logs (NOT build logs)
 ```
 
-**The CLI's `auth.json` token rotates** (Vercel revokes it within hours of issue). It's fine for interactive use — re-run `vercel login` when it expires. For automation, use a long-lived API token (next section).
+**The CLI's `auth.json` token rotates** (Vercel revokes it within hours of issue). It's fine for interactive use — re-run `vercel login` when it expires. For automation, see the next section.
 
-### Long-lived API token (for scripts + integrations)
+### API tokens (for scripts + integrations)
 
-Store the token in macOS Keychain so it's never echoed:
+> **2026-11-24:** the shared token this section used to describe is retired. It
+> had full account access and no expiry, it was copied to several places, and
+> until 2026-11-10 preview builds of this public repository could read one of
+> them. Each integration now has its own token, limited to the team.
+
+For a one-off API read from a laptop, `vercel api <path>` uses the CLI's own
+login and needs no token:
 
 ```bash
-# Generate at https://vercel.com/account/tokens, scope to team cambridgetcgs-projects.
-# Stash:
-security add-generic-password \
-  -s "vercel-api-token" \
-  -a "vercel-cambridge-tcg" \
-  -l "Cambridge TCG Vercel API token (long-lived, full account access)" \
-  -w  "<paste-token>"
-
-# Retrieve (only echoes to the receiving command's stdin via $()):
-TOKEN=$(security find-generic-password -s "vercel-api-token" -a "vercel-cambridge-tcg" -w)
-
-# Use:
-curl -sS "https://api.vercel.com/v9/projects/tcg-wholesale?teamId=team_HR4tb4WB0KZsKxqroSCTQrof" \
-  -H "Authorization: Bearer $TOKEN"
+vercel api "/v9/projects/tcg-wholesale?teamId=team_HR4tb4WB0KZsKxqroSCTQrof"
 ```
 
-The token is also needed in three persistent places — see [`VERCEL_TOKEN`](#vercel_token--use-a-long-lived-token-not-the-clis-auto-rotated-one) below.
+A project or deployment document can carry variable values, so pick the fields
+you need instead of printing it whole. For a script that takes `VERCEL_TOKEN`
+(below), make a token for that run at <https://vercel.com/account/tokens>,
+limited to the team with the shortest expiry, read it without echoing it, and
+delete it afterwards:
+
+```bash
+read -rs VERCEL_TOKEN && export VERCEL_TOKEN     # paste, Enter; nothing is shown
+# ... run the script ...
+unset VERCEL_TOKEN
+```
+
+Two places hold a token for good: see [`VERCEL_TOKEN`](#vercel_token--one-token-per-integration-limited-to-the-team) below.
 
 ## The five-minute deploy gate (read first)
 
@@ -364,7 +369,8 @@ See the [Project wiring quick-reference](#project-wiring--quick-reference) at th
    — see "Untrusted committer" below.
 2. **Manual via admin UI** — `/system/deploys` → "Redeploy from main"
    button on each project. Calls Vercel's gitSource API. Requires
-   `VERCEL_TOKEN` + `GITHUB_TOKEN` in the admin app's env.
+   `VERCEL_TOKEN` + `GITHUB_TOKEN` in the storefront's production env (the
+   admin pages are part of the storefront).
 3. **Manual via CLI** — run `python3 .github/scripts/deploy-from-main.py
    <project>` (see below). Same path as the admin button, just from a
    shell.
@@ -421,19 +427,18 @@ Trigger the deploy explicitly via Vercel's gitSource API. The endpoint
 accepts a `sha` + `repoId` + `ref` directly, bypassing the GitHub
 identity check entirely. Three ways to invoke it:
 
-**(a) The Python script** — preferred when you have a shell handy:
+**(a) The Python script** — preferred when you have a shell handy. It reads
+`VERCEL_TOKEN` from the shell ([how to set one for the run](#api-tokens-for-scripts--integrations)):
 
 ```bash
-TOKEN=$(security find-generic-password -s "vercel-api-token" -a "vercel-cambridge-tcg" -w)
-VERCEL_TOKEN="$TOKEN" python3 .github/scripts/deploy-from-main.py wholesale
-VERCEL_TOKEN="$TOKEN" python3 .github/scripts/deploy-from-main.py storefront
-VERCEL_TOKEN="$TOKEN" python3 .github/scripts/deploy-from-main.py admin
+python3 .github/scripts/deploy-from-main.py wholesale
+python3 .github/scripts/deploy-from-main.py storefront
+python3 .github/scripts/deploy-from-main.py admin
 ```
 
-**(b) Raw curl** — useful inside one-off scripts:
+**(b) Raw curl** — useful inside one-off scripts (the same `VERCEL_TOKEN`):
 
 ```bash
-TOKEN=$(security find-generic-password -s "vercel-api-token" -a "vercel-cambridge-tcg" -w)
 SHA=$(git rev-parse HEAD)
 TEAM=team_HR4tb4WB0KZsKxqroSCTQrof
 REPO=1223740492
@@ -445,7 +450,7 @@ for entry in \
     "cambridgetcg-admin:prj_NGfGodqkx5LCMA6XoeShCAeZZm6u"; do
   NAME="${entry%%:*}"; PRJ="${entry##*:}"
   curl -sS -X POST "https://api.vercel.com/v13/deployments?teamId=$TEAM&forceNew=1" \
-    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" \
     -d "{\"name\":\"$NAME\",\"project\":\"$PRJ\",\"target\":\"production\",\"gitSource\":{\"type\":\"github\",\"repoId\":$REPO,\"ref\":\"main\",\"sha\":\"$SHA\"}}"
 done
 ```
@@ -457,9 +462,7 @@ Best when you don't have a shell open.
 ### Diagnostic — confirm a stuck deploy is the committer block
 
 ```bash
-TOKEN=$(security find-generic-password -s "vercel-api-token" -a "vercel-cambridge-tcg" -w)
-curl -sS "https://api.vercel.com/v13/deployments/<deployment-id>" \
-  -H "Authorization: Bearer $TOKEN" \
+vercel api "/v13/deployments/<deployment-id>?teamId=team_HR4tb4WB0KZsKxqroSCTQrof" \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print('readyStateReason:', d.get('readyStateReason'))"
 ```
 
@@ -604,9 +607,8 @@ collection is paused.
 
 ### `cambridgetcg-admin` (production)
 
-Reads both RDSs. Doesn't touch payments or external APIs.
-
-`STOREFRONT_DATABASE_URL`, `WHOLESALE_DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `AUTH_FROM_EMAIL`, `VERCEL_TOKEN` (for `/system/deploys`), `GITHUB_TOKEN` (for SHA-drift detection on `/system/deploys`).
+Redirects only since 2026-05-15 (`apps/admin/README.md`): no code in it reads a
+variable. The admin pages and their variables are the storefront's.
 
 ### Common env operations
 
@@ -626,7 +628,7 @@ vercel env rm MY_VAR production
 
 When adding a NEW env var, **also add it to the corresponding `.env.example`** so future developers know it's required. Vercel doesn't auto-sync; the parity check (`vercel env pull` + diff against `.env.local`) is a manual step listed in `docs/dev-pipeline.md` §13.
 
-## VERCEL_TOKEN — use a long-lived token, not the CLI's auto-rotated one
+## VERCEL_TOKEN — one token per integration, limited to the team
 
 The Vercel CLI (`vercel login`) creates a token at
 `~/Library/Application Support/com.vercel.cli/auth.json` that's
@@ -634,31 +636,34 @@ automatically rotated by Vercel — typically within hours of issue.
 Don't use this token for any long-lived integration: it will start
 returning `403 invalidToken` mid-request without warning.
 
-For each integration that needs Vercel API access, generate a
-**dedicated long-lived token** in the dashboard:
+Each integration that needs Vercel API access has a **token of its own**:
 
 1. Visit <https://vercel.com/account/tokens>
 2. Click **Create Token**
-3. Name it after the consumer (e.g. `cambridge-tcg-admin-deploys`,
-   `cambridge-tcg-health-workflow`) so each integration's audit trail
-   is distinct
-4. Scope to **team `cambridgetcgs-projects`**
-5. Set expiry as long as your security policy allows (no expiry is
-   acceptable for low-risk read-only consumers; rotate manually
-   otherwise)
-6. Copy the token (shown only once)
+3. Name it after the one consumer, with the date, so each can be told apart
+   and replaced without touching the other
+4. Limit it to **team `cambridgetcgs-projects`**, never Full Account
+5. Give it an expiry
+6. Copy the token (shown only once) straight into its place
 
-Places that need a `VERCEL_TOKEN`:
+Places that need a `VERCEL_TOKEN` (since 2026-11-24, a different token in each):
 
 | Location | Used by | Update via |
 |---|---|---|
-| `apps/admin/.env.local` | local admin dev `/system/deploys` | edit file |
-| `cambridgetcg-admin` Vercel project env | prod admin `/system/deploys` server actions | dashboard or `vercel env add VERCEL_TOKEN` |
+| `cambridgetcg-storefront` Vercel project env, **Production only** | `/admin/system/deploys` and the hourly traffic pull | dashboard, then redeploy |
 | GitHub repo secret on `Cambridge-TCG-monorepo` | `.github/workflows/health.yml` hourly check | `gh secret set VERCEL_TOKEN -R cambridgetcg/Cambridge-TCG-monorepo` |
 
-The `/system/deploys` page now detects `invalidToken` errors and
-renders an explicit "create a long-lived token" banner with these
-instructions, so future rotation breakage is self-documenting.
+Never give it to Preview or Development: this repository is public, and a
+preview build can read whatever its environment holds. `apps/admin` is
+redirects only and needs none.
+
+After a change, check both: run the health workflow by hand and read its
+report, and look for the next hourly pull on `/admin/system/monitor`.
+A token limited to the team cannot create tokens, so the next rotation starts
+in the dashboard.
+
+The `/admin/system/deploys` page detects `invalidToken` errors and shows what
+to do.
 
 ## Required CI/secrets
 
@@ -669,9 +674,7 @@ The two GitHub Actions workflows under `.github/workflows/`:
 | `ci.yml` | Every push to `main` and every PR | Install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes gates; shared changes rebuild the three apps. No admin job is currently defined. | none — uses `GITHUB_TOKEN` only |
 | `health.yml` | Hourly cron + `workflow_dispatch` | Calls `.github/scripts/deploy-health.py` to compare deploy state, age, SHA-drift, and HTTP-probe every domain. Opens / updates / closes a `deploy-health` labelled issue on regression. | `VERCEL_TOKEN` |
 
-To set `VERCEL_TOKEN`:
-1. Generate at <https://vercel.com/account/tokens>, scope to team `cambridgetcgs-projects`.
-2. Add at <https://github.com/cambridgetcg/Cambridge-TCG-monorepo/settings/secrets/actions> as `VERCEL_TOKEN`.
+To set `VERCEL_TOKEN`, see [one token per integration](#vercel_token--one-token-per-integration-limited-to-the-team).
 
 ## Admin dashboard `/system/deploys`
 
@@ -679,11 +682,13 @@ Live deploy status across all three projects, plus a "Redeploy from
 main" button per project. Reads via Vercel's REST API; redeploys via
 the gitSource API path (no source upload).
 
-Required env vars in `apps/admin/.env.local` (and on the Vercel project):
+The page is part of the storefront (`/admin/system/deploys`). Its env vars, in
+`apps/storefront/.env.local` for local work and on the storefront's Vercel
+project for Production only:
 
 ```
-VERCEL_TOKEN=<scope: cambridgetcgs-projects>
-GITHUB_TOKEN=<repo read on Cambridge-TCG-monorepo>
+VERCEL_TOKEN=<limited to team cambridgetcgs-projects>
+GITHUB_TOKEN=<optional: repo read on Cambridge-TCG-monorepo>
 ```
 
 Without `VERCEL_TOKEN` the page shows an actionable error banner.
@@ -741,5 +746,5 @@ Use safe local fixtures; the hook does not cover other contributors.
 | `vercel deploy --prod` fails with `deploy_failed`, no events | Workspace deps don't resolve when uploading app dir alone | Use admin `/system/deploys` button or the gitSource Python script |
 | Auto-deploy stuck on `ERROR` with "could not associate the committer" | Local git config uses an unverified email; Vercel can't link it to a GitHub user | Either change `git config user.email` to a verified address (durable), or trigger the deploy via the gitSource API (`.github/scripts/deploy-from-main.py` per project — see [Untrusted committer](#untrusted-committer-the-auto-deploy-block)). Git fork protection (on since 2026-11-10) does not affect this block — don't toggle it. |
 | Wholesale build fails on `S3 client unavailable — AWS credentials not configured` | A module is calling `createS3ClientOrThrow()` at import time | Defer init to first call (see `apps/wholesale/src/lib/s3.ts` for the pattern) |
-| `/system/deploys` shows "VERCEL_TOKEN env var not set" | Missing token in admin env | Add to `apps/admin/.env.local` (local) and Vercel project env vars (prod) |
+| `/admin/system/deploys` shows "VERCEL_TOKEN env var not set" | Missing token in the storefront's env | Add to `apps/storefront/.env.local` (local) or the storefront's Vercel project, Production only |
 | Health check workflow fails | Missing `VERCEL_TOKEN` repo secret | Add at repo Settings → Secrets → Actions |

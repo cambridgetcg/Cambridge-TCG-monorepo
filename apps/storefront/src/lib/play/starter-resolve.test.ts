@@ -47,6 +47,14 @@ describe("starter media resolution", () => {
     expect(result.cards.every((card) => !card.resolved)).toBe(true);
   });
 
+  it("keeps a card whose listings are all of another printing, under the publisher's base record", async () => {
+    rows([{ ...image, sku: "OP-ST01-001-EN", s3_key: "official/OP-ST01-001-EN.png" }]);
+    expect((await resolveStarter(starterId))!.leader).toMatchObject({ resolved: true, sku: "op-st01-001-en", name: "Monkey.D.Luffy", card_number: number, set_code: null, rarity: null });
+    // Withdrawn or a parallel only: nothing stands for it.
+    rows([{ ...image, sku: "OP-ST01-001-EN", s3_key: "official/OP-ST01-001-EN.png", takedown_status: "removed" }]);
+    expect((await resolveStarter(starterId))!.leader).toMatchObject({ resolved: false, sku: null });
+  });
+
   it("prefers an eligible unsuffixed reference, then numeric reprints, then parallels independently of row order", async () => {
     const base = { ...image, sku: "OP-ST01-001-EN", s3_key: "official/base.png" };
     const r2 = { ...image, sku: "OP-ST01-001-EN-R2", s3_key: "official/r2.png" };
@@ -69,6 +77,27 @@ describe("starter media resolution", () => {
       { ...image, sku: "DBF-ST01-001-EN", s3_key: "official/other-game.png" },
     ]);
     expect((await resolveStarter(starterId))?.leader.image_url).toMatch(/\/official\/new\.png$/);
+  });
+
+  it("reads the production driver's own timestamp text for the image and the rules text", async () => {
+    const stored = { ...image, retrieved_at: "2026-07-13 10:00:00.123+00" };
+    rows([stored], [{ ...stored, sku: "OP-ST01-001-EN", effect_text: "Example rules text" }]);
+    const leader = (await resolveStarter(starterId))!.leader;
+    expect(leader.image_url).toMatch(/\/official\/OP-ST01-001-EN-P1\.png$/);
+    expect(leader).toMatchObject({ effect_text: "Example rules text", text_attribution: image.attribution });
+  });
+
+  it("logs a failed read by name, and held rows that all fail the checks by count", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      rows([{ ...image, retrieved_at: "yesterday" }]);
+      expect((await resolveStarter(starterId))!.leader.image_url).toBeNull();
+      expect(error.mock.calls).toContainEqual(["[starters] none of 1 held images passed the checks"]);
+      vi.mocked(query).mockRejectedValue(new Error("connection to internal-db.example failed"));
+      await resolveStarter(starterId);
+      expect(error.mock.calls).toContainEqual(["[starters] images unavailable", "Error"]);
+      expect(error.mock.calls.flat().join(" ")).not.toContain("internal-db.example");
+    } finally { error.mockRestore(); }
   });
 
   it("keeps an allowed catalogue photo separate from official reference metadata", async () => {

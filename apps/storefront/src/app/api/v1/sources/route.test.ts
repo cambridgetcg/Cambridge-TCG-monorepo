@@ -89,10 +89,11 @@ describe("public source projections", () => {
     const body = await (await getSources()).json();
     expect(body.data.sources[0].member_pricing).toMatchObject({
       cadence: "daily",
-      reviewed_uses: ["member-display", "member-api", "member-download"],
+      reviewed_uses: ["member-display"],
+      paused: { uses: ["member-api", "member-download"], since: "2026-11-24", reason: expect.stringContaining("Cardmarket prices are not in our API or downloads") },
       methodology: "/methodology/member-pricing",
     });
-    expect(body.data.sources[1].member_pricing.reviewed_uses).toEqual(["member-display"]);
+    expect(body.data.sources[1].member_pricing).toMatchObject({ reviewed_uses: ["member-display"], paused: null });
     expect(body.data.sources[0].member_pricing.availability_note).toContain("not activation");
     expect(body.data.sources[0].last_run).toBeUndefined();
     expect(body.data.sources[0]).not.toHaveProperty("prices");

@@ -21,7 +21,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
-import { query } from "@/lib/db";
+import { findCardRow } from "@/lib/universal/card";
+import { cardMissing } from "@/lib/universal/card-missing";
 import { buildLinks } from "@/lib/universal/links";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -59,7 +60,7 @@ export async function GET(
         {
           error: {
             code: "invalid_date",
-            message: "Expected YYYY-MM-DD (e.g. /api/at/2026-05-01/card/OP01-001).",
+            message: "Expected YYYY-MM-DD (e.g. /api/at/2026-05-01/card/op-op01-001-ja).",
           },
         },
         { status: 400 },
@@ -73,30 +74,10 @@ export async function GET(
       );
     }
 
-    // Card row (structural facts; same shape as the universal endpoint).
-    const cardRow = await query(
-      `SELECT
-         csc.set_code, csc.card_number, csc.sku, csc.card_name, csc.rarity,
-         csc.variant,
-         cs.game, cs.set_name, cs.released_at, cs.total_cards
-       FROM card_set_cards csc
-       JOIN card_sets cs ON cs.set_code = csc.set_code
-       WHERE csc.sku = $1
-       LIMIT 1`,
-      [sku],
-    );
-    if (cardRow.rows.length === 0) {
-      return NextResponse.json(
-        {
-          error: {
-            code: "card_not_found",
-            message: `No card with sku "${sku}" in the storefront catalog.`,
-          },
-        },
-        { status: 404 },
-      );
-    }
-    const row = cardRow.rows[0];
+    // Card row (structural facts), through the universal card's own lookup.
+    const lookup = await findCardRow(sku);
+    if (!lookup.row) return cardMissing(sku, lookup.miss);
+    const { row, match } = lookup;
 
     const magnitude = null;
     const capturedOn = null;
@@ -122,15 +103,18 @@ export async function GET(
 
     const _links = buildLinks({
       kind: "card_at_date",
-      id: sku,
+      id: row.sku,
       date,
       parent_id: row.set_code,
-      content_hash: contentHash,
+      // The hash lookup walks the mirror only, so a row it lacks has no link.
+      content_hash: lookup.sources.includes("storefront-rds.card_set_cards") ? contentHash : undefined,
     });
 
     const document: Record<string, unknown> = {
       "@encoding": "cambridge-tcg/universal/v1",
       "@kind": "card",
+      sku: row.sku,
+      card_number: row.card_number,
       "@content_hash": contentHash,
       "@content_hash_contract": {
         basis: ["sku", "card_number", "set_code", "game", "variant"],
@@ -155,11 +139,8 @@ export async function GET(
       },
       // Storage provenance is not ownership. Structural card fields lack
       // field-level upstream rights lineage.
-      "@sources": [
-        "storefront-rds.card_set_cards",
-        "storefront-rds.card_sets",
-      ],
-      "@source_license": ["proprietary", "proprietary"],
+      "@sources": lookup.sources,
+      "@source_license": lookup.sources.map(() => "proprietary"),
       rights: {
         aggregate: "NOASSERTION",
         cambridge_original_structure: "CC0-1.0",
@@ -172,6 +153,7 @@ export async function GET(
         "variant.natural_label",
       ],
       _links,
+      sku_match: match,
 
       rarity: row.rarity
         ? {
@@ -185,7 +167,7 @@ export async function GET(
           }
         : null,
 
-      variant: row.variant
+      variant: row.variant && match?.matched_by !== "plain_listing"
         ? {
             natural_label: row.variant,
             is_default: row.variant === "",
@@ -238,7 +220,8 @@ export async function GET(
       image_url: null,
       publication_boundary: {
         price: "withheld_pending_field_level_source_rights",
-        image: "withheld_pending_field_level_source_rights",
+        // Not a rights decision: Cambridge keeps no dated record of images.
+        image: "not_carried_for_past_dates",
       },
     };
 
