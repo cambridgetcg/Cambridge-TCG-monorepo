@@ -32,8 +32,9 @@ export function webhookFailed(topic: string, what: string, error: unknown): Resp
 
 /**
  * What `authenticate()` (the route's authenticate.webhook) answers. A
- * Response of 500 or more it throws, as when Shopify refuses the store's
- * token refresh, is logged and reported with the `webhook.topic` tag, then
+ * Response of 500 or more it throws, as when the store's token refresh
+ * fails (a refresh token Shopify no longer accepts gives no session instead,
+ * from 4.0.3, and the route answers that itself), is logged and reported with the `webhook.topic` tag, then
  * thrown on, so the delivery is still answered with it: React Router never
  * hands a thrown Response to the server's error handler (M2b-F4). A 4xx (a
  * delivery Shopify did not sign) and a 503 (another renewal of the store's

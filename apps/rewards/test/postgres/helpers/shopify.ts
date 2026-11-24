@@ -93,8 +93,11 @@ export async function seedOfflineSession(shop: string): Promise<void> {
  * expired a minute ago, and Shopify refuses to refresh it, as its token
  * endpoint answers a refresh token it no longer accepts. Returns how many
  * refreshes were asked for, so a test can show a route started none.
+ * `status` is the refusal's: from 4.0.3 the library reads a 401
+ * `invalid_request` as a refresh token that is no longer active, and
+ * authenticate.webhook then gives the route no session instead of a 500.
  */
-export async function seedExpiredSessionWhoseRefreshIsRefused(shop: string): Promise<{ refreshes: number }> {
+export async function seedExpiredSessionWhoseRefreshIsRefused(shop: string, o: { status?: 400 | 401 } = {}): Promise<{ refreshes: number }> {
   const { sessionStorage } = await import("~/shopify.server");
   const now = Date.now();
   await sessionStorage.storeSession(
@@ -114,7 +117,7 @@ export async function seedExpiredSessionWhoseRefreshIsRefused(shop: string): Pro
   server.use(
     http.post(`https://${shop}/admin/oauth/access_token`, () => {
       asked.refreshes++;
-      return HttpResponse.json({ error: "invalid_request", error_description: "The refresh token is no longer valid" }, { status: 400 });
+      return HttpResponse.json({ error: "invalid_request", error_description: "The refresh token is no longer valid" }, { status: o.status ?? 400 });
     }),
   );
   return asked;

@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import prisma from "~/db.server";
 import { ensureMerchant, findConnection, setRunning } from "~/lib/merchant.server";
 import { tierSpend } from "~/lib/tiers.server";
+import { NO_USABLE_SESSION } from "~/lib/webhook-helpers.server";
 import { monitoring } from "~/lib/telemetry.server";
 import { flushWaitUntil } from "~/lib/wait-until.server";
 import { recordOrder } from "~/lib/record-order.server";
@@ -766,6 +767,38 @@ describe.skipIf(!hasTestDatabase)("order webhooks", () => {
       // A thrown Response never reaches the server's error handler, so the route reports it (M2b-F4)
       expect(capture).toHaveBeenCalledTimes(1);
       expect(capture.mock.calls[0][1]).toEqual({ tags: { "webhook.topic": "orders/paid" } });
+    });
+
+    // shopify-app-react-router 4.0.3: a refresh Shopify refuses with 401 invalid_request (a refresh token no
+    // longer active) gives the route no session instead of throwing; the route then answers its own 500
+    it("orders/paid of a store whose refresh token is no longer active still answers 500, reported once as no usable session", async () => {
+      await seedShop({ session: false });
+      const asked = await seedExpiredSessionWhoseRefreshIsRefused(SHOP, { status: 401 });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
+
+      await expect(deliverPaid()).resolves.toMatchObject({ status: 500 });
+
+      expect(asked.refreshes).toBe(1);
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture.mock.calls[0][0]).toMatchObject({ message: NO_USABLE_SESSION });
+      expect(capture.mock.calls[0][1]).toEqual({ tags: { "webhook.topic": "orders/paid" } });
+      await expect(prisma.order.count()).resolves.toBe(0);
+    });
+
+    it("refunds/create of a store whose refresh token is no longer active still answers 500, reported once as no usable session", async () => {
+      await seedShop({ session: false });
+      await seedExpiredSessionWhoseRefreshIsRefused(SHOP, { status: 401 });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const capture = vi.spyOn(monitoring, "captureException").mockImplementation(() => {});
+      capture.mockClear();
+
+      await expect(deliverRefund()).resolves.toMatchObject({ status: 500 });
+
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture.mock.calls[0][0]).toMatchObject({ message: NO_USABLE_SESSION });
+      expect(capture.mock.calls[0][1]).toEqual({ tags: { "webhook.topic": "refunds/create" } });
     });
 
     it("refunds/create reports a refused refresh too, and answers its 500", async () => {

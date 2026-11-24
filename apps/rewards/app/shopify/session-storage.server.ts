@@ -56,7 +56,9 @@
  *   when it resolves (the library renews only within 5 minutes, so it needed
  *   none), and so does one that throws SessionNotFoundError (there was no
  *   session to renew, so no renewal was attempted); one that throws anything
- *   else (its renewal may have failed) leaves its lease to expire;
+ *   else (its renewal may have failed) leaves its lease to expire. A webhook
+ *   whose refresh Shopify refuses as no longer active resolves (4.0.3), so
+ *   its lease is released at once and the next delivery may try again;
  * - a session outside the window takes no lease and costs nothing extra.
  * A lease that can't be had or released (the database refused) never fails
  * the request: the caller goes on as before this rule.

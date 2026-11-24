@@ -26,7 +26,7 @@
     "@react-router/serve": "7.18.2",
     "@sentry/react-router": "^11.10.0",
     "@shopify/app-bridge-react": "^4.2.14",
-    "@shopify/shopify-app-react-router": "^4.0.0",
+    "@shopify/shopify-app-react-router": "^4.0.3",
     "@shopify/shopify-app-session-storage-prisma": "^11.0.1",
     "@vercel/functions": "^3.10.6",
     "@vercel/react-router": "1.3.7",
