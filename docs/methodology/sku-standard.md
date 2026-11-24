@@ -83,6 +83,10 @@ Search distinguishes unavailable sources from successful empty results. Both sea
 
 The card composer also checks game, set and number for sibling candidates. A bounded normalization lookup with multiple possible stored identifiers, or incomplete results, cannot choose an alias automatically. It returns a conflict response. `composition.siblings_truncated` labels a partial sibling list.
 
+### What a plain SKU answers
+
+A plain SKU (no variant) names the base printing. The catalogue's rows are shop listings, so a plain SKU is answered from a listing only when the listing's title shows the plain printing: the card's name, a base rarity and nothing else. A listing marked with a condition, a grade or another printing is not answered under a plain SKU and is left out of lists. One Piece is the only game whose listing titles have been reviewed for this. In other games a row stored under a plain SKU is answered as it is stored unless its title carries a mark, and nothing is said about its printing. `sku_match` on the universal card says how the SKU you sent reached the stored row. With no such listing, the answer is the publisher's own record where one is held, or a 404 that says why and names the listings of that number.
+
 SKU normalization alone never joins a price to a physical printing. Price observations still require their own exact source-product crosswalk, source rights, currency, units and observation time. The shared descriptor is exported as `SKU_IDENTITY_CONTRACT` from the SKU package.
 
 ---

@@ -15,9 +15,9 @@
  * ── Five kinds (substrate-honest about the unknown) ──────────────────
  *
  *   self            — this row IS the queried SKU.
- *   language        — same card, different language print (JP-text vs EN-text).
- *                     OPTCG quirk: both printed in JP set + JP lang segment,
- *                     distinguished only by card-name script.
+ *   language        — same card, another language: its SKU says so. A name's
+ *                     alphabet says nothing: an English name is shown over
+ *                     many Japanese listings.
  *   alt-art         — same set+number, different art ("hit" parallel
  *                     released alongside the base card in the booster).
  *   parallel        — foil/holo finish (same art, different print process).
@@ -36,9 +36,9 @@
  *   2. set_code === "PROMO" or starts with "P-" → promo.
  *   3. set_code !== self.set_code → super-parallel (different set).
  *   4. Name contains promo markers → promo.
- *   5. Name contains parallel/finish markers → parallel.
+ *   5. Name contains parallel/finish markers, or the rarity ends in /P → parallel.
  *   6. Name contains alt-art markers → alt-art.
- *   7. Effective language differs from self's → language.
+ *   7. The SKU's language differs from self's → language.
  *   8. Default (same set, same lang, no markers) → alt-art (catch-all).
  *
  * Each classification carries a `reason` string for substrate-honesty —
@@ -56,6 +56,7 @@
  * `packages/data-ingest/src/classifier.ts`.
  */
 
+import { skuIdentity } from "@cambridge-tcg/sku";
 import type { PriceItem } from "@/lib/wholesale/client";
 
 export type VariantKind =
@@ -71,13 +72,7 @@ export interface SiblingClassification {
   variant_kind: VariantKind;
   /** Why this classification — surfaces in UI for substrate-honesty. */
   variant_kind_reason: string;
-  /**
-   * Card-name script inference: "ja" if the name is CJK-only,
-   * "en" if Latin-only, "unknown" if mixed or empty.
-   * Distinct from the SKU's lang segment because OPTCG prints BOTH
-   * JP-text and EN-text cards inside the same JP-set, both encoded
-   * with lang=jp in our SKU canonical.
-   */
+  /** The SKU's own language, when it is ja or en. Never read from the name. */
   effective_language: "ja" | "en" | "unknown";
 }
 
@@ -127,22 +122,9 @@ const ALT_ART_NAME_MARKERS = [
 
 // ── Pure helpers ────────────────────────────────────────────────────
 
-/**
- * Infer the card-name's script. Strips parenthetical content first
- * (variant markers go inside parens; the core name is what matters).
- * Returns "ja" if CJK-only, "en" if Latin-only, "unknown" otherwise.
- */
-export function effectiveLanguage(name: string | null): "ja" | "en" | "unknown" {
-  if (!name) return "unknown";
-  // Strip parenthesised content — that's where variant markers live;
-  // the core name is the card's actual title.
-  const core = name.replace(/[（(].*?[）)]/g, "").trim();
-  if (!core) return "unknown";
-  const cjk = (core.match(/[　-ヿ㐀-䶿一-鿿]/g) ?? []).length;
-  const latin = (core.match(/[a-zA-Z]/g) ?? []).length;
-  if (cjk > 0 && latin === 0) return "ja";
-  if (latin > 0 && cjk === 0) return "en";
-  return "unknown";
+function skuLanguage(sku: string): "ja" | "en" | "unknown" {
+  const lang = skuIdentity(sku)?.lang;
+  return lang === "ja" || lang === "en" ? lang : "unknown";
 }
 
 function containsAny(haystack: string, needles: readonly string[]): boolean {
@@ -183,8 +165,8 @@ export function classifySibling(input: ClassifyInput): SiblingClassification {
   const sib_name = sibling.name ?? sibling.name_en ?? "";
   const sib_set = (sibling.set_code ?? "").toUpperCase();
   const self_set = (self.set_code ?? "").toUpperCase();
-  const sib_lang = effectiveLanguage(sib_name);
-  const self_lang = effectiveLanguage(self.name ?? self.name_en ?? "");
+  const sib_lang = skuLanguage(sibling.sku);
+  const self_lang = skuLanguage(self.sku);
 
   const reasonPrefix = (kind: VariantKind) => `${kind}: `;
 
@@ -235,6 +217,14 @@ export function classifySibling(input: ClassifyInput): SiblingClassification {
       effective_language: sib_lang,
     };
   }
+  //    The importer took パラレル out of the name and left it in the rarity (L/P).
+  if (sibling.rarity?.endsWith("/P")) {
+    return {
+      variant_kind: "parallel",
+      variant_kind_reason: reasonPrefix("parallel") + `rarity ${sibling.rarity}`,
+      effective_language: sib_lang,
+    };
+  }
 
   // 6. Name has alt-art markers → alt-art.
   if (containsAny(sib_name, ALT_ART_NAME_MARKERS)) {
@@ -245,9 +235,8 @@ export function classifySibling(input: ClassifyInput): SiblingClassification {
     };
   }
 
-  // 7. Effective language differs → language print.
-  //    Both sides need a determinable language for this to fire — when
-  //    either is "unknown" we don't assert a language relationship.
+  // 7. The SKUs name different languages → language print. When either is
+  //    "unknown" no language relationship is asserted.
   if (
     sib_lang !== "unknown" &&
     self_lang !== "unknown" &&
@@ -256,15 +245,13 @@ export function classifySibling(input: ClassifyInput): SiblingClassification {
     return {
       variant_kind: "language",
       variant_kind_reason:
-        reasonPrefix("language") + `name script ${sib_lang} (≠ self ${self_lang})`,
+        reasonPrefix("language") + `sku language ${sib_lang} (≠ self ${self_lang})`,
       effective_language: sib_lang,
     };
   }
 
   // 8. Default: same set, same lang, no markers → alt-art (catch-all).
-  //    Substrate-honest about the gap: this is the broadest bucket
-  //    that's still plausible; we record "default" in the reason so a
-  //    future audit can spot misclassifications.
+  //    The broadest bucket; "default" in the reason says nothing matched.
   return {
     variant_kind: "alt-art",
     variant_kind_reason: reasonPrefix("alt-art") + "default (no markers)",

@@ -7,7 +7,7 @@
  *
  * Accepts text in the common paper-OPTCG formats:
  *
- *   4x OP01-001 Monkey D. Luffy
+ *   4x OP01-006 Otama
  *   4  OP01-002 Roronoa Zoro
  *   2 x ST15-005 Portgas D. Ace
  *   OP02-001 Edward Newgate    (defaults quantity to 1)
@@ -156,7 +156,7 @@ export async function POST(req: Request): Promise<Response> {
     return errorResponse({
       code: "INVALID_INPUT",
       message:
-        "No card_numbers found. Expected lines like `4x OP01-001 Monkey D. Luffy`.",
+        "No card_numbers found. Expected lines like `4x OP01-006 Otama`.",
     });
   }
 

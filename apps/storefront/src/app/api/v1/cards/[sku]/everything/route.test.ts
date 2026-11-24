@@ -98,6 +98,19 @@ describe("GET /api/v1/cards/[sku]/everything", () => {
     expect(mockFetchPriceSources).toHaveBeenLastCalledWith({ sku: "OP-OP01-001-JP" });
   });
 
+  it("answers a plain SKU with its plain listing, under the stored key, and says how", async () => {
+    const current = await mockFetchCard("op-op01-001-ja");
+    mockFetchCard.mockResolvedValue({ ...current!, sku: "OP-OP01-001-JP-V11L1", plain_listing: true });
+    const response = await compose("op-op01-001-ja");
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.card).toMatchObject({
+      sku: "OP-OP01-001-JP-V11L1", requested_sku: "op-op01-001-ja", matched_by: "plain_listing",
+    });
+    // The same row without the plain mark answers only for its own SKU.
+    mockFetchCard.mockResolvedValue({ ...current!, sku: "OP-OP01-001-JP-V11L2", plain_listing: false });
+    expect((await compose("op-op01-001-ja")).status).toBe(503);
+  });
+
   it("refuses ambiguous normalization aliases and inconsistent primary records", async () => {
     const current = await mockFetchCard("op-op01-001-ja");
     mockFetchCard.mockResolvedValue(null);

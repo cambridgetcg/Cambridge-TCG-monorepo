@@ -197,6 +197,8 @@ export const EDITORIAL_DOORS: Readonly<Record<string, string>> = {
 };
 
 const DISCOVERY_POINTERS = {
+  "one-card": `${PUBLIC_ORIGIN}/api/v1/universal/card/op-op01-001-ja; One Piece OP01-001, the Japanese base printing; no account or key`,
+  "find-a-card": `${PUBLIC_ORIGIN}/api/v1/search/cards?game=op&q=OP01-002; game and q are both required`,
   manifest: `${PUBLIC_ORIGIN}/api/v1/manifest`,
   "well-known-manifest": `${PUBLIC_ORIGIN}/.well-known/cambridge-tcg.json`,
   "openapi-documentation": `${PUBLIC_ORIGIN}/api/openapi.json`,

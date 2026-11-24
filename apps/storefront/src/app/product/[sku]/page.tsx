@@ -17,7 +17,7 @@ import { formatRetailPrice, retailPrice } from "@/lib/pricing";
 import { getUnifiedMarketView } from "@/lib/market/unified";
 import { buildCardEvidence } from "@/lib/evidence/card";
 import { MoneyDisplay } from "@/lib/ui";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import AddToPortfolio from "@/components/product/AddToPortfolio";
@@ -74,6 +74,8 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
   const { sku } = await params;
   const card = await fetchCard(sku);
   if (!card) notFound();
+  // A plain SKU or another spelling: one address per card, as on /market.
+  if (card.sku !== sku) redirect(`/product/${encodeURIComponent(card.sku)}`);
 
   // Independent reads stay independent: a missing market or evidence
   // source must not take the card's reference page down with it.

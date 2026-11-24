@@ -34,6 +34,7 @@
 
 import type { PriceItem } from "@/lib/wholesale/client";
 import { resolveGameToken, skuIdentity, type SkuIdentity } from "@cambridge-tcg/sku";
+import { answersFor } from "@/lib/wholesale/listing-printing";
 
 export type ResolveConfidence =
   /** Exact match: input string normalized maps 1:1 to a canonical SKU or set+number. */
@@ -57,6 +58,9 @@ export interface ResolvedMatch {
   /** Parsed variant tail (foil / alt-art / parallel / ...) when present. */
   variant: string | null;
   confidence: ResolveConfidence;
+  /** True when the row's stored title names the plain printing and nothing
+   * else (One Piece only). False means not shown, not "a variant". */
+  plain_listing: boolean;
   /**
    * Why this match scored this confidence. Stable string for UI display
    * + audit. e.g. "set+number matched", "card_number matched, set ambiguous",
@@ -176,15 +180,21 @@ export function scoreMatches(
       confidence = "exact";
       reason = "canonical SKU exact";
     }
+    // A plain SKU names the base printing: its plain listing answers it.
+    else if (skuShape && answersFor(skuShape, c)) {
+      confidence = "exact";
+      reason = "plain SKU; plain listing";
+    }
     // Tier 2: set+number matches the full publisher form
     //         (covers card_number stored as "OP01-001" with set_code "OP01"
     //         — the common case in wholesale today; verified live
     //         2026-05-14 with 5 SKU variants on op-op01-001).
+    //         A row that prints the full number counts whatever shelf it is
+    //         filed on (PROMO, ST15-20): its SKU and its number both agree.
     else if (
       setNum && matchesSetIdentity &&
-      set_code_norm === setNum.set &&
       (card_number_norm === `${setNum.set}-${setNum.number}` ||
-        card_number_full === `${setNum.set}-${setNum.number}`)
+        (set_code_norm === setNum.set && card_number_full === `${setNum.set}-${setNum.number}`))
     ) {
       confidence = "exact";
       reason = "set+number matched (publisher form)";
@@ -249,6 +259,7 @@ export function scoreMatches(
       lang: parsed.lang,
       variant: parsed.variant,
       confidence,
+      plain_listing: c.plain_listing === true,
       reason,
     });
   }
@@ -284,6 +295,14 @@ export function groupSiblings(
     groups.set(key, arr);
   }
   return groups;
+}
+
+/** The one match to read next: the plain printing among exact matches, or the
+ * only match. Several printings and no plain one is the caller's choice. */
+export function nextMatch(matches: readonly ResolvedMatch[]): ResolvedMatch | null {
+  const plain = matches.filter((m) => m.confidence === "exact" && m.plain_listing);
+  if (plain.length === 1) return plain[0]!;
+  return matches.length === 1 ? matches[0]! : null;
 }
 
 /**

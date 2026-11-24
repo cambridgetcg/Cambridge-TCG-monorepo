@@ -33,15 +33,8 @@ export async function GET(
     });
   }
 
-  let card = await fetchCard(rawSku).catch(() => null);
-  let sku = rawSku;
-  if (!card) {
-    const alternate = rawSku === rawSku.toUpperCase() ? rawSku.toLowerCase() : rawSku.toUpperCase();
-    if (alternate !== rawSku) {
-      card = await fetchCard(alternate).catch(() => null);
-      if (card) sku = card.sku;
-    }
-  }
+  // fetchCard finds every stored spelling, and a plain SKU's plain listing.
+  const card = await fetchCard(rawSku).catch(() => null);
   if (!card) {
     return errorResponse({
       code: "NOT_FOUND",
@@ -51,6 +44,7 @@ export async function GET(
     });
   }
 
+  const sku = card.sku;
   const market = await getUnifiedMarketView(sku).catch(() => null);
 
   const model = buildCardEvidence({

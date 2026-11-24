@@ -72,9 +72,12 @@ export const dynamic = "force-dynamic";
 async function resolveOrThrow(skuOrNumber: string): Promise<CatalogIdentity> {
   const resolution = await resolveCardIdentity(skuOrNumber);
   if (resolution.kind === "redirect") {
-    // A card_number was typed where a SKU belongs — send it to the
-    // canonical address so every card has exactly one URL.
-    redirect(`/market/${resolution.sku}`);
+    // A card_number or another spelling was typed where a stored SKU belongs —
+    // send it to the one address the card has.
+    redirect(`/market/${encodeURIComponent(resolution.sku)}`);
+  }
+  if (resolution.kind === "choose") {
+    redirect(`/prices/search?game=${encodeURIComponent(resolution.game)}&q=${encodeURIComponent(resolution.number)}`);
   }
   if (resolution.kind === "notfound") {
     notFound();
