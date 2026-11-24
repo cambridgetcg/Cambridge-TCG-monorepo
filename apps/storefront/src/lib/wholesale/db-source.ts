@@ -169,8 +169,8 @@ async function buildCardFilter(
 
   if (params.q) {
     const n = push(`%${params.q}%`);
-    // sku is included so full-SKU deep links (e.g. /market/list?sku=OP-OP01-024-JP,
-    // the "list yours" affordance) can resolve: a full SKU is not a
+    // sku is included so a full SKU typed or linked as the query
+    // (/market?q=OP-OP01-024-JP) can resolve: a full SKU is not a
     // substring of card_number, so without this the lookup returns nothing.
     clauses.push(`(card_number ILIKE $${n} OR name ILIKE $${n} OR name_en ILIKE $${n} OR sku ILIKE $${n})`);
   }

@@ -1,5 +1,5 @@
 /**
- * Catalog surface types + pure helpers shared by /market and /market/list.
+ * Catalog surface types + pure helpers shared by /market's server page and browser.
  *
  * Mirrors the response shape of GET /api/market/catalog, including its
  * structured-error contract: a source outage arrives as a 503 with

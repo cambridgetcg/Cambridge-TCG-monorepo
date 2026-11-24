@@ -1,23 +1,13 @@
 /**
- * /market/list — list a card in three steps.
+ * /market/list — the listing page, retired 2026-09-23.
  *
- * The P2P sell action used to hide behind a tab on the card page, ~9
- * steps from the market front door. This page is the friction killer:
- * search → confirm the exact printing → price it with the live book in
- * view → posted. Signed-out collectors build the whole listing and only
- * sign in to post; the draft survives the round-trip in localStorage
- * (the magic link opens in a new tab of the same browser).
- *
- * Server half: session check + commission bounds + pre-rendered
- * <Provenance> nodes (server-only) handed to the client wizard.
- * Retired 2026-09-23: the wizard renders only CommercialRetirementNotice.
+ * It keeps its address, says where existing listings and trades are, and has
+ * no form. The listing wizard that stood here was removed on 2026-11-24.
  */
 
 import Link from "next/link";
-import { auth } from "@/lib/auth";
 import { Icon } from "@/lib/ui";
-import ListingWizard from "@/components/market/ListingWizard";
-import { catalogSourceBadges } from "@/components/market/source-provenance";
+import CommercialRetirementNotice from "@/components/CommercialRetirementNotice";
 import { DEFAULT_GAME } from "@/components/market/catalog";
 
 function first(v: string | string[] | undefined): string | undefined {
@@ -31,10 +21,6 @@ export default async function MarketListPage({
 }) {
   const raw = await searchParams;
   const game = (first(raw.game) || DEFAULT_GAME).trim() || DEFAULT_GAME;
-  const initialSku = (first(raw.sku) || "").trim() || null;
-
-  const session = await auth();
-  const isSignedIn = !!session?.user?.id;
 
   const backHref = game !== DEFAULT_GAME ? `/market?game=${encodeURIComponent(game)}` : "/market";
 
@@ -62,12 +48,7 @@ export default async function MarketListPage({
           </p>
         </div>
 
-        <ListingWizard
-          game={game}
-          initialSku={initialSku}
-          isSignedIn={isSignedIn}
-          sourceBadges={catalogSourceBadges()}
-        />
+        <CommercialRetirementNotice />
       </div>
     </div>
   );

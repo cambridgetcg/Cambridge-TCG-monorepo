@@ -6,7 +6,6 @@ import { Badge, Palettes } from "@/lib/ui";
 import { formatRelativeTime } from "@/lib/format";
 
 import { Audience } from "@/lib/ui";
-import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
 interface PricingRule {
   id: string;
   name: string;
@@ -38,7 +37,6 @@ export default function PricingRulesPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showNew, setShowNew] = useState(false);
 
   function load() {
     setLoading(true);
@@ -78,19 +76,6 @@ export default function PricingRulesPage() {
           {error}
         </div>
       )}
-
-      {!NEW_PAID_COMMERCE_RETIRED && (
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={() => setShowNew((s) => !s)}
-            className="px-4 py-2 text-xs font-semibold bg-ink text-page rounded-lg hover:opacity-90 transition"
-          >
-            {showNew ? "Cancel" : "+ New rule"}
-          </button>
-        </div>
-      )}
-
-      {!NEW_PAID_COMMERCE_RETIRED && showNew && <NewRuleForm onCreated={() => { setShowNew(false); load(); }} />}
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -185,15 +170,6 @@ function RuleCard({
             Pause
           </button>
         )}
-        {!NEW_PAID_COMMERCE_RETIRED && rule.status === "paused" && (
-          <button
-            disabled={busy}
-            onClick={() => onAct("resume")}
-            className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
-          >
-            Resume
-          </button>
-        )}
         {rule.status !== "archived" && (
           <button
             disabled={busy}
@@ -207,222 +183,6 @@ function RuleCard({
             Archive
           </button>
         )}
-      </div>
-    </div>
-  );
-}
-
-function NewRuleForm({ onCreated }: { onCreated: () => void }) {
-  const [name, setName] = useState("");
-  const [ruleType, setRuleType] = useState<"auto_decline" | "auto_counter">("auto_decline");
-  const [thresholdPct, setThresholdPct] = useState("80");
-  const [counterPct, setCounterPct] = useState("90");
-  const [skuPattern, setSkuPattern] = useState("");
-  const [setCodes, setSetCodes] = useState("");
-  const [conditions, setConditions] = useState<string[]>([]);
-  const [minAsk, setMinAsk] = useState("");
-  const [maxAsk, setMaxAsk] = useState("");
-  const [responseMessage, setResponseMessage] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  function toggleCondition(c: string) {
-    setConditions((cs) => cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]);
-  }
-
-  async function submit() {
-    setSubmitting(true);
-    setErr(null);
-    try {
-      const filter: Record<string, unknown> = {};
-      if (skuPattern.trim()) filter.sku_pattern = skuPattern.trim();
-      const setList = setCodes.split(",").map((s) => s.trim()).filter(Boolean);
-      if (setList.length > 0) filter.set_codes = setList;
-      if (conditions.length > 0) filter.conditions = conditions;
-      if (minAsk) filter.min_ask = parseFloat(minAsk);
-      if (maxAsk) filter.max_ask = parseFloat(maxAsk);
-
-      const body: Record<string, unknown> = {
-        name,
-        listingFilter: filter,
-        ruleType,
-        thresholdPct: parseFloat(thresholdPct),
-        responseMessage: responseMessage.trim() || undefined,
-      };
-      if (ruleType === "auto_counter") {
-        body.counterPct = parseFloat(counterPct);
-      }
-
-      const res = await fetch("/api/market/pricing-rules", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setErr(data.error || "Failed");
-        return;
-      }
-      onCreated();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="bg-surface rounded-lg border border-accent/30 p-5 mb-4">
-      <h2 className="text-sm font-bold text-accent uppercase tracking-wide mb-3">New rule</h2>
-
-      <label className="block text-xs text-ink-faint mb-1">Name</label>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Charizard floor at 80%"
-        className="w-full px-3 py-2 mb-3 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
-      />
-
-      {/* Rule type radio */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        {([
-          ["auto_decline", "Auto-decline", "Reject below threshold"],
-          ["auto_counter", "Auto-counter", "Send a counter offer back"],
-        ] as const).map(([v, label, hint]) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setRuleType(v)}
-            className={`text-left px-3 py-2 rounded-lg border transition ${
-              ruleType === v
-                ? "border-accent/30 bg-accent-wash"
-                : "border-border-subtle bg-surface-subtle hover:bg-surface-subtle"
-            }`}
-          >
-            <div className={`text-sm font-bold ${ruleType === v ? "text-accent" : "text-ink-muted"}`}>
-              {label}
-            </div>
-            <div className="text-[11px] text-ink-faint">{hint}</div>
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div>
-          <label className="block text-xs text-ink-faint mb-1">
-            Threshold (% of ask) — reject below this
-          </label>
-          <input
-            type="number"
-            min="1"
-            max="100"
-            value={thresholdPct}
-            onChange={(e) => setThresholdPct(e.target.value)}
-            className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
-          />
-        </div>
-        {ruleType === "auto_counter" && (
-          <div>
-            <label className="block text-xs text-ink-faint mb-1">
-              Counter (% of ask) — must be {">"} threshold
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="99"
-              value={counterPct}
-              onChange={(e) => setCounterPct(e.target.value)}
-              className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Filter section */}
-      <h3 className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2 mt-4">
-        Apply to (leave empty for all asks)
-      </h3>
-
-      <label className="block text-xs text-ink-faint mb-1">SKU pattern (% wildcard)</label>
-      <input
-        type="text"
-        value={skuPattern}
-        onChange={(e) => setSkuPattern(e.target.value)}
-        placeholder="OP01-%"
-        className="w-full px-3 py-2 mb-3 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm font-mono uppercase"
-      />
-
-      <label className="block text-xs text-ink-faint mb-1">Set codes (comma-separated)</label>
-      <input
-        type="text"
-        value={setCodes}
-        onChange={(e) => setSetCodes(e.target.value)}
-        placeholder="OP01, OP02"
-        className="w-full px-3 py-2 mb-3 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm font-mono uppercase"
-      />
-
-      <label className="block text-xs text-ink-faint mb-2">Conditions</label>
-      <div className="flex gap-1 mb-3 flex-wrap">
-        {["NM", "M", "LP", "MP", "HP", "DMG"].map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => toggleCondition(c)}
-            className={`text-xs px-2.5 py-1 rounded-full transition ${
-              conditions.includes(c)
-                ? "bg-ink text-page font-semibold"
-                : "bg-surface-subtle text-ink-muted hover:text-ink"
-            }`}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div>
-          <label className="block text-xs text-ink-faint mb-1">Min ask price (£)</label>
-          <input
-            type="number"
-            step="0.01"
-            value={minAsk}
-            onChange={(e) => setMinAsk(e.target.value)}
-            className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-ink-faint mb-1">Max ask price (£)</label>
-          <input
-            type="number"
-            step="0.01"
-            value={maxAsk}
-            onChange={(e) => setMaxAsk(e.target.value)}
-            className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
-          />
-        </div>
-      </div>
-
-      <label className="block text-xs text-ink-faint mb-1">
-        Optional message attached to the auto-response
-      </label>
-      <input
-        type="text"
-        value={responseMessage}
-        onChange={(e) => setResponseMessage(e.target.value)}
-        placeholder="Sorry, can't go lower than 80% on this card."
-        maxLength={200}
-        className="w-full px-3 py-2 mb-4 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
-      />
-
-      {err && <p className="text-xs text-danger mb-3">{err}</p>}
-
-      <div className="flex justify-end gap-2">
-        <button
-          disabled={submitting || !name.trim()}
-          onClick={submit}
-          className="px-4 py-2 text-xs font-semibold bg-ink text-page rounded-lg hover:opacity-90 transition disabled:opacity-50"
-        >
-          {submitting ? "Saving..." : "Save rule"}
-        </button>
       </div>
     </div>
   );
