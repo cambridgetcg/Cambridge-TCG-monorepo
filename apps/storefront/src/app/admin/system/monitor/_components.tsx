@@ -29,9 +29,9 @@ export function Panel({
         <span id={`${id}-title`}>{title}</span>
       </SectionHeading>
       <dl className="grid gap-1 text-xs text-neutral-400 sm:grid-cols-[6rem_1fr]">
-        <dt className="text-neutral-500 uppercase tracking-wide">Source</dt>
+        <dt className="text-neutral-400 uppercase tracking-wide">Source</dt>
         <dd>{source}</dd>
-        <dt className="text-neutral-500 uppercase tracking-wide">Covers</dt>
+        <dt className="text-neutral-400 uppercase tracking-wide">Covers</dt>
         <dd>{covers}</dd>
       </dl>
       {children}
@@ -70,7 +70,7 @@ export function Outcome({ outcome }: { outcome: string }) {
 }
 
 export function When({ at }: { at: string | null }) {
-  if (!at) return <span className="text-neutral-600">never</span>;
+  if (!at) return <span className="text-neutral-400">never</span>;
   return <span title={fmtDateTime(at)}>{fmtRelative(at)}</span>;
 }
 
@@ -80,7 +80,7 @@ export const pct = (part: number, whole: number) => (whole > 0 ? `${((100 * part
 /** A flat object of counts as "key value" pairs, for small cells. */
 export function Pairs({ value }: { value: Record<string, unknown> | undefined }) {
   const entries = Object.entries(value ?? {});
-  if (!entries.length) return <span className="text-neutral-600">—</span>;
+  if (!entries.length) return <span className="text-neutral-400">—</span>;
   return (
     <span className="font-mono text-xs text-neutral-300">
       {entries.map(([key, inner]) => `${key} ${typeof inner === "object" && inner !== null ? JSON.stringify(inner) : String(inner)}`).join(" · ")}

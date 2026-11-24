@@ -104,7 +104,7 @@ function Monitor({ data }: { data: MonitorData }) {
             { key: "state", header: "State", render: (row) => <span title={row.hostsReason}><StatusBadge status={row.state} palette={HOST_TONE} /></span> },
             { key: "refusals", header: "Refused in a row", align: "right", render: (row) => n(row.consecutive_refusals) },
             { key: "served", header: "Last served", render: (row) => <When at={row.last_success_at} /> },
-            { key: "refused", header: "Last refused", render: (row) => row.last_refusal_at ? <><When at={row.last_refusal_at} /> <code className="text-xs text-neutral-500">{row.last_refusal_reason}</code></> : <When at={null} /> },
+            { key: "refused", header: "Last refused", render: (row) => row.last_refusal_at ? <><When at={row.last_refusal_at} /> <code className="text-xs text-neutral-400">{row.last_refusal_reason}</code></> : <When at={null} /> },
             { key: "notBefore", header: "Not before", render: (row) => row.not_before ? fmtDateTime(row.not_before) : "—" },
             { key: "suspended", header: "Suspended", render: (row) => row.suspended_at ? <><When at={row.suspended_at} /> <code className="text-xs text-red-400">{row.suspended_reason}</code></> : "—" },
           ] satisfies Column<CollectorHostHealth & { source: string; hostsReason?: string }>[]}
@@ -126,7 +126,7 @@ function Monitor({ data }: { data: MonitorData }) {
               empty="No batch in the last 7 days."
               columns={[
                 { key: "source", header: "Source", render: (row) => row.source },
-                { key: "host", header: "Host", render: (row) => row.host ? <span className="font-mono text-xs">{row.host}</span> : <span className="text-neutral-600">all</span> },
+                { key: "host", header: "Host", render: (row) => row.host ? <span className="font-mono text-xs">{row.host}</span> : <span className="text-neutral-400">all</span> },
                 { key: "batches", header: "Batches (7 d)", align: "right", render: (row) => n(row.batches) },
                 { key: "rows", header: "Source rows", align: "right", render: (row) => n(row.sourceRows) },
                 { key: "missing", header: "Missing prices", align: "right", render: (row) => n(row.missingPrices) },
@@ -195,7 +195,7 @@ function Monitor({ data }: { data: MonitorData }) {
                   { key: "rows", header: "Rows", align: "right", render: (row) => n(row.rows) },
                 ]}
               />
-            ) : <p className="text-sm text-neutral-500">No derivation run exists.</p>}
+            ) : <p className="text-sm text-neutral-400">No derivation run exists.</p>}
           </>
         )}
         <JobOutcomes jobs={collectors.jobs} filter={(job) => job === "derive/market"} />
@@ -239,7 +239,7 @@ function Monitor({ data }: { data: MonitorData }) {
                 { key: "requests", header: "Requests (35 d)", align: "right", render: (row) => n(row.requests) },
               ]}
             />
-            {routes.withheld && <p className="text-xs text-neutral-500">{routes.withheld}</p>}
+            {routes.withheld && <p className="text-xs text-neutral-400">{routes.withheld}</p>}
           </>
         )}
       </Panel>
@@ -266,7 +266,7 @@ function Monitor({ data }: { data: MonitorData }) {
                 { key: "requests", header: "Requests (30 d)", align: "right", render: (row) => n(row.requests) },
               ]}
             />
-            {mcp.withheld && <p className="text-xs text-neutral-500">{mcp.withheld}</p>}
+            {mcp.withheld && <p className="text-xs text-neutral-400">{mcp.withheld}</p>}
           </>
         )}
         {agents.keys.state === "unknown" ? <Unknown reason={agents.keys.reason} /> : (
@@ -548,7 +548,7 @@ function SignedActNonces({ signedActs, jobs }: {
           <Flag name={SIGNED_ACTS_FLAG} on />
           <SettingState name={SIGNED_ACTS_AUDIENCE_ENV} state="missing" tone="amber" />
         </div>
-        <p className="text-sm text-neutral-500">{SIGNED_ACTS_FLAG} is on, but {SIGNED_ACTS_AUDIENCE_ENV} is not set to this deployment&apos;s origin, so signed acts stay closed and agent_act_nonces is not read.</p>
+        <p className="text-sm text-neutral-400">{SIGNED_ACTS_FLAG} is on, but {SIGNED_ACTS_AUDIENCE_ENV} is not set to this deployment&apos;s origin, so signed acts stay closed and agent_act_nonces is not read.</p>
       </div>
     );
   }
@@ -556,7 +556,7 @@ function SignedActNonces({ signedActs, jobs }: {
     return (
       <div className="space-y-2">
         <div className="flex flex-wrap gap-4"><Flag name={SIGNED_ACTS_FLAG} on={false} /></div>
-        <p className="text-sm text-neutral-500">Signed acts are closed here, so agent_act_nonces is not read: while closed, no code path reads the held-keys tables.</p>
+        <p className="text-sm text-neutral-400">Signed acts are closed here, so agent_act_nonces is not read: while closed, no code path reads the held-keys tables.</p>
       </div>
     );
   }
