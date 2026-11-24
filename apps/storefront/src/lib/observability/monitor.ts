@@ -2,9 +2,9 @@
  * What /admin/system/monitor reads (docs/operations/monitoring.md). Each
  * reader returns its data, or "unknown" with the reason: a table that is not
  * provisioned, or a read that failed, is never shown as zero. Readers count;
- * none returns a price, a source's value, a key or agent id, a user agent or
- * a path. Server-side only, behind the admin gate; nothing here runs in a
- * visitor's browser.
+ * none returns a price, a source's value, a key or agent id, a user agent, a
+ * path or anything a sender wrote. Server-side only, behind the admin gate;
+ * nothing here runs in a visitor's browser.
  */
 
 import "server-only";
@@ -15,6 +15,8 @@ import { dataApiCheckoutIntake, dataApiPlansPublished, dataApiReadsPublished, da
 import { deriveHostHealth, readCollectorHostStates, type CollectorHostsHealth } from "@/app/api/v1/sources/collector-health";
 import { liveAgentKeySql } from "@/lib/agents/key-expiry";
 import { SIGNED_ACTS_FLAG, signedActsOpen } from "@/lib/agents/signed-act-config";
+import { feedbackDoorOpen } from "@/lib/feedback/door";
+import { readFeedbackWaiting, type FeedbackWaiting } from "@/lib/feedback/waiting";
 import { mcpDailyOn } from "./mcp-daily";
 import { OBSERVABILITY_TABLES, RETENTION_BY_TABLE, expiredRowsSql, retentionLabel, type ObservabilityTable } from "./retention";
 import type { TrafficPullStatus } from "./vocabulary";
@@ -509,6 +511,15 @@ export function readErrors(run: RunQuery, now: Date): Promise<Known<ErrorCount[]
   )).rows.map(row => ({ day: text(row.day), tag: text(row.tag), status: num(row.status), count: num(row.count) })));
 }
 
+// ── 7. Feedback ──────────────────────────────────────────────────────────
+
+/** public_feedback (0149): how many messages the door holds and how many
+ * wait, as counts and whole hours. No message, id, reply address or time of
+ * arrival. */
+export function readFeedback(run: RunQuery): Promise<Known<FeedbackWaiting>> {
+  return known("public_feedback", "0149", () => readFeedbackWaiting(run));
+}
+
 // ── Retention ────────────────────────────────────────────────────────────
 
 export interface RetentionState { table: ObservabilityTable; keeps: string; rows: number; oldest: string | null; expired: number }
@@ -538,17 +549,19 @@ export interface MonitorData {
   };
   traffic: { coverage: Known<TrafficCoverage>; counts: Known<Traffic> };
   errors: Known<ErrorCount[]>;
+  /** Whether the feedback door takes messages here, and what it holds. */
+  feedback: { open: boolean; waiting: Known<FeedbackWaiting> };
   retention: Known<RetentionState[]>;
 }
 
 export async function loadMonitor(run: RunQuery, now: Date = new Date()): Promise<MonitorData> {
   const signedState = signedActsState();
   const signedOpen = signedState === "open";
-  const [sources, batches, leases, jobs, derivation, usage, routes, mcp, keys, buckets, trafficCoverage, counts, errors, retention, nonces] = await Promise.all([
+  const [sources, batches, leases, jobs, derivation, usage, routes, mcp, keys, buckets, trafficCoverage, counts, errors, waiting, retention, nonces] = await Promise.all([
     readCollectorSources(run, now), readCollectorBatches(run), readCollectorLeases(run), readJobOutcomes(run),
     readDerivation(run, now), readDataApiUsage(run), readApiRouteHits(run),
     readMcpDaily(run, now), readAgentKeys(run), readAgentRateBuckets(run),
-    readTrafficCoverage(run, now), readTraffic(run, now), readErrors(run, now), readRetention(run),
+    readTrafficCoverage(run, now), readTraffic(run, now), readErrors(run, now), readFeedback(run), readRetention(run),
     signedOpen ? readSignedActNonces(run, now) : Promise.resolve(null),
   ]);
   return {
@@ -559,6 +572,7 @@ export async function loadMonitor(run: RunQuery, now: Date = new Date()): Promis
     agents: { mcp, keys, buckets, signedActs: { open: signedOpen, state: signedState, nonces } },
     traffic: { coverage: trafficCoverage, counts },
     errors,
+    feedback: { open: feedbackDoorOpen(), waiting },
     retention,
   };
 }

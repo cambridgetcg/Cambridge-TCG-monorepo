@@ -10,6 +10,7 @@ import {
   listFeedbackForOperator, readFeedbackForHolder, storeFeedback, validateFeedback,
 } from "./door";
 import { runDoorRetentionSweep } from "./retention";
+import { readFeedbackWaiting } from "./waiting";
 import { countPeerHello } from "@/lib/peers";
 
 // Explicit opt-in, like the other storefront integration tests: one
@@ -21,6 +22,25 @@ const migration = () => readFile(new URL("../../../drizzle/0149_agent_doors.sql"
 type RunQuery = (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
 let admin: Pool, pool: Pool, compat: ReturnType<typeof createCompatDb> | null = null;
 const run: RunQuery = (sql, params) => pool.query(sql, params) as never;
+/** postgres.js, the driver production uses, on the same schema. */
+const viaPostgresJs: RunQuery = (sql, params) => {
+  if (!compat) {
+    const url = new URL(localUrl!);
+    url.searchParams.set("search_path", schema);
+    compat = createCompatDb({ url: url.toString(), ssl: false, max: 2 });
+  }
+  return compat.query(sql, params) as never;
+};
+const emptied = () => pool.query(`DELETE FROM public_feedback; DELETE FROM feedback_hourly_intake`);
+let messages = 0;
+/** One message as the door would keep it: how long ago it arrived, its status, and how long it has left. */
+async function message(ago: string, over: { status?: string; left?: string } = {}): Promise<string> {
+  const hex = (++messages).toString(16).padStart(24, "0"), status = over.status ?? "received";
+  await pool.query(`INSERT INTO public_feedback (feedback_id, holder_key_sha256, kind, message, status, answer, answered_at, received_at, expires_at)
+    VALUES ($1, $2, 'question', 'hello', $3, $4, CASE WHEN $4::text IS NULL THEN NULL ELSE now() END, now() - $5::interval, now() + $6::interval)`,
+  [`fb_${hex}`, hex.padStart(64, "e"), status, status === "answered" ? "yes" : null, ago, over.left ?? "100 days"]);
+  return `fb_${hex}`;
+}
 async function apply(target: Pool) {
   const client = await target.connect();
   try { await client.query("BEGIN"); await client.query(await migration()); await client.query("COMMIT"); }
@@ -132,16 +152,58 @@ describe.skipIf(!localUrl)("agent doors PostgreSQL integration, migration 0149 (
   });
 
   it("writes and reads the same through postgres.js, as production does", async () => {
-    const url = new URL(localUrl!);
-    url.searchParams.set("search_path", schema);
-    compat = createCompatDb({ url: url.toString(), ssl: false, max: 2 });
-    const via: RunQuery = (sql, params) => compat!.query(sql, params) as never;
-    const stored = await storeFeedback(submission({ kind: "guide-feedback", guide_slug: "respect-our-limits", step_number: "4", observation: "step 4 404s" }), via);
+    const stored = await storeFeedback(submission({ kind: "guide-feedback", guide_slug: "respect-our-limits", step_number: "4", observation: "step 4 404s" }), viaPostgresJs);
     if (!stored.ok) throw new Error(stored.reason);
-    const read = await readFeedbackForHolder(stored.holderKey, via);
+    const read = await readFeedbackForHolder(stored.holderKey, viaPostgresJs);
     expect(read).toMatchObject({ ok: true, view: { held: { message: null, details: { guide_slug: "respect-our-limits", step_number: 4, observation: "step 4 404s" } } } });
     expect((await pool.query(`SELECT jsonb_typeof(details) AS t FROM public_feedback`)).rows).toEqual([{ t: "object" }]);
     await pool.query(`DELETE FROM public_feedback; DELETE FROM feedback_hourly_intake`);
+  });
+
+  it("counts what waits: messages not expired, by status, with whole-hour ages, the same through both drivers", async () => {
+    // Ages in hours: a day's length changes where the session's zone changes its clocks.
+    await message("30 hours"); await message("120 hours"); await message("30 seconds");
+    await message("4080 hours", { left: "9 days" });
+    await message("216 hours", { status: "read", left: "13 days" });
+    await message("48 hours", { status: "answered", left: "3 days" }); await message("72 hours", { status: "closed", left: "2 days" });
+    // Expired and not yet swept: not counted, whatever their status.
+    await message("4200 hours", { left: "-1 hour" }); await message("960 hours", { status: "read", left: "-1 minute" });
+    const counted = { held: 7, unread: 4, unanswered: 1, expiring: 2, oldestUnreadHours: 4080, oldestUnansweredHours: 216 };
+    for (const [driver, read] of [["pg", run], ["postgres.js", viaPostgresJs]] as const) expect(await readFeedbackWaiting(read), driver).toEqual(counted);
+
+    // Reading, answering and erasing one moves it from one count to the next.
+    const first = await storeFeedback(submission({ kind: "question", message: "hi" }), run);
+    if (!first.ok) throw new Error(first.reason);
+    const then = async () => { const { held, unread, unanswered } = await readFeedbackWaiting(run); return { held, unread, unanswered }; };
+    expect(await then()).toEqual({ held: 8, unread: 5, unanswered: 1 });
+    await changeFeedback(FEEDBACK_STATUS_SQL, [first.feedbackId, "read"], run);
+    expect(await then()).toEqual({ held: 8, unread: 4, unanswered: 2 });
+    await changeFeedback(FEEDBACK_ANSWER_SQL, [first.feedbackId, "Yes."], run);
+    expect(await then()).toEqual({ held: 8, unread: 4, unanswered: 1 });
+    await eraseFeedbackForHolder(first.holderKey, run);
+    expect(await then()).toEqual({ held: 7, unread: 4, unanswered: 1 });
+    await emptied();
+  });
+
+  it("counts an age down to the whole hour, and 14 days to deletion as soon", async () => {
+    for (const [ago, hours] of [["47 hours 59 minutes", 47], ["48 hours", 48], ["59 minutes", 0]] as const) {
+      await message(ago);
+      for (const read of [run, viaPostgresJs]) expect((await readFeedbackWaiting(read)).oldestUnreadHours, ago).toBe(hours);
+      await emptied();
+    }
+    await message("1 hour", { left: "14 days" }); await message("1 hour", { status: "read", left: "14 days 1 hour" });
+    expect(await readFeedbackWaiting(run)).toMatchObject({ unread: 1, unanswered: 1, expiring: 1 });
+    await emptied();
+  });
+
+  it("counts nothing held as zero, and throws when the table is not there", async () => {
+    for (const read of [run, viaPostgresJs]) {
+      expect(await readFeedbackWaiting(read)).toEqual({ held: 0, unread: 0, unanswered: 0, expiring: 0, oldestUnreadHours: null, oldestUnansweredHours: null });
+    }
+    const bare = new Pool({ connectionString: localUrl, options: `-c search_path=public`, max: 1 });
+    try {
+      await expect(readFeedbackWaiting((sql, params) => bare.query(sql, params) as never)).rejects.toMatchObject({ code: "42P01" });
+    } finally { await bare.end(); }
   });
 
   it("counts hellos by declared kind up to the cap, and nothing else", async () => {

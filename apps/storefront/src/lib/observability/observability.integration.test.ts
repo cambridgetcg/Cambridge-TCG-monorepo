@@ -48,7 +48,7 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
     await pool.query("CREATE TABLE users (id uuid PRIMARY KEY)");
     for (const name of ["0090_agents.sql", "0137_member_price_observations.sql", "0138_member_data_keys.sql", "0139_widen_price_sources.sql", "0140_price_source_crosswalks.sql",
       "0141_market_derived.sql", "0142_data_api_plans.sql", "0143_price_collector_leases.sql", "0146_price_collector_hosts.sql", "0148_ops_observability.sql",
-      "0150_mcp_daily_agent_revoke_key.sql", "0151_agent_key_expiry.sql"]) await apply(pool, name);
+      "0149_agent_doors.sql", "0150_mcp_daily_agent_revoke_key.sql", "0151_agent_key_expiry.sql"]) await apply(pool, name);
   });
   afterAll(async () => {
     if (postgresJs) await postgresJs.close();
@@ -228,6 +228,10 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
       ($1, 'apex', '/market/[sku]', false, 'ai-training-crawler', 'ctcg.actor-class/v1', '404', 'miss', 'none', 15),
       ($1, 'prod-alias', '/api/v1/member-prices', false, 'library', 'ctcg.actor-class/v1', '401', 'none', 'none', 5)`, [hourAgo(3)]);
     await pool.query(`INSERT INTO error_daily VALUES (current_date, 'fairness-audit', 200, 60)`);
+    await pool.query(`INSERT INTO public_feedback (feedback_id, holder_key_sha256, kind, message, reply_to, status, received_at, expires_at) VALUES
+      ('fb_${"1".repeat(24)}', '${"a".repeat(64)}', 'question', 'PRIVATE-MESSAGE-SENTINEL', 'sender-sentinel@example.test', 'received', now() - interval '50 hours', now() + interval '100 days'),
+      ('fb_${"2".repeat(24)}', '${"b".repeat(64)}', 'question', 'PRIVATE-MESSAGE-SENTINEL', NULL, 'read', now() - interval '4100 hours', now() + interval '9 days'),
+      ('fb_${"3".repeat(24)}', '${"c".repeat(64)}', 'question', 'PRIVATE-MESSAGE-SENTINEL', NULL, 'received', now() - interval '4300 hours', now() - interval '1 minute')`);
     // collect/cardrush reads one host a run: the latest row is kept per host, so a One Piece
     // run's re-read counts stay in view after another host's run. A run that failed before
     // naming its host (counts {}) gives way to any later run, as it did before.
@@ -278,11 +282,15 @@ describe.skipIf(!localUrl)("ops observability PostgreSQL integration, migration 
         notFound: [{ pathGroup: "/market/[sku]", notFound: 15, requests: 15 }],
       } });
       expect(data.errors, label).toMatchObject({ state: "known", data: [{ tag: "fairness-audit", status: 200, count: 60 }] });
+      expect(data.feedback.waiting, label).toEqual({ state: "known", data: { held: 2, unread: 1, unanswered: 1, expiring: 1, oldestUnreadHours: 50, oldestUnansweredHours: 4100 } });
       // Nothing that names a key, an agent, an account or a price leaves the readers.
       const text = JSON.stringify(data);
-      for (const leak of [...keys, agentId, userId, "scout-one", "ctcg_agt_", "187.419280442804", "unparseable price text"]) expect(text, `${label}${leak}`).not.toContain(leak);
+      for (const leak of [...keys, agentId, userId, "scout-one", "ctcg_agt_", "187.419280442804", "unparseable price text", "PRIVATE-MESSAGE-SENTINEL", "sender-sentinel", "fb_"]) expect(text, `${label}${leak}`).not.toContain(leak);
       expect(text, label).not.toMatch(/"(amount|level|ratio_[a-z0-9]+|rate|key_id|holder)":/);
     }
+    // Before 0149 the panel is unknown and the rest is read as before.
+    await pool.query(`ALTER TABLE public_feedback RENAME TO hidden`);
+    expect((await loadMonitor(run, now)).feedback.waiting).toEqual({ state: "unknown", reason: "public_feedback is not provisioned here (migration 0149)" });
     // A run that failed before naming its host, newer than every host's latest, stays in view beside them.
     await pool.query(`INSERT INTO ops_job_outcomes (job, started_at, finished_at, http_status, outcome, counts) VALUES
       ('collect/cardrush', now() - interval '1 hour', now() - interval '1 hour' + interval '5 seconds', 500, 'unavailable:collector-failed', '{}')`);

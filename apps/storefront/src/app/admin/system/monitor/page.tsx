@@ -3,7 +3,7 @@
  * the site's traffic are doing, from counts the storefront keeps
  * (docs/operations/monitoring.md).
  *
- * Six panels, each naming its source and what it covers, each showing
+ * Seven panels, each naming its source and what it covers, each showing
  * "unknown" with the reason when its source cannot be read: a table not yet
  * provisioned, or a read that failed, is never shown as zero.
  *   1. Collectors   member_price_batches, price_collector_hosts, _leases, ops_job_outcomes
@@ -13,11 +13,12 @@
  *                   while signed acts are open
  *   5. Traffic      traffic_hourly and traffic_pulls (what reached Vercel)
  *   6. Errors       error_daily
+ *   7. Feedback     public_feedback, counted; the door's switch
  *
  * Server-rendered behind the admin gate (the admin layout, and again here
  * before any read). Counts only: no price, source value, key or agent id,
- * user agent or path is read. Nothing on the page reports back what an admin
- * looks at.
+ * user agent, path or sender's message is read. Nothing on the page reports
+ * back what an admin looks at.
  */
 
 import * as React from "react";
@@ -33,6 +34,9 @@ import { MCP_DAILY_FLAG } from "@/lib/observability/mcp-daily";
 import { SIGNED_ACTS_AUDIENCE_ENV, SIGNED_ACTS_FLAG } from "@/lib/agents/signed-act-config";
 import { SIGNED_ACT_SWEEP_JOB } from "@/lib/agents/signed-act-sweep";
 import { TRAFFIC_PULL_FLAG, trafficPullOn } from "@/lib/traffic/pull";
+import { FEEDBACK_DOOR_FLAG, FEEDBACK_RETENTION_DAYS } from "@/lib/feedback/door";
+import { FEEDBACK_READ_AIM_HOURS } from "@/lib/feedback/promise";
+import { FEEDBACK_EXPIRING_DAYS, ageWords } from "@/lib/feedback/waiting";
 import {
   MIN_HOLDERS, NONCE_PURGE_OVERDUE_MINUTES, apiRouteView, loadMonitor, mcpView,
   type BatchGroup, type ClassGroup, type CollectorLease, type CoverageDay, type DerivationDay, type DerivedCount, type ErrorCount,
@@ -51,7 +55,7 @@ const HOST_TONE: Record<string, Tone> = { ok: "emerald", refused: "amber", stale
 export default async function Page() {
   await requireAdminPage();
   const data = await loadMonitor(sfQuery);
-  const { collectors, derivation, api, agents, traffic, errors, retention } = data;
+  const { collectors, derivation, api, agents, traffic, errors, feedback, retention } = data;
   const routes = api.routes.state === "known" ? apiRouteView(api.routes.data, api.usage, new Date(data.readAt)) : null;
   const mcp = agents.mcp.state === "known" ? mcpView(agents.mcp.data, agents.keys) : null;
   const coverageDays = traffic.coverage.state === "known" ? new Map(traffic.coverage.data.days.map((day) => [day.day, day])) : null;
@@ -65,7 +69,7 @@ export default async function Page() {
       />
 
       <nav aria-label="Panels" className="flex flex-wrap gap-2 text-xs">
-        {[["collectors", "Collectors"], ["derivation", "Derivation"], ["api", "API"], ["agents", "Agents"], ["traffic", "Traffic"], ["errors", "Errors"], ["retention", "Retention"]].map(([id, label]) => (
+        {[["collectors", "Collectors"], ["derivation", "Derivation"], ["api", "API"], ["agents", "Agents"], ["traffic", "Traffic"], ["errors", "Errors"], ["feedback", "Feedback"], ["retention", "Retention"]].map(([id, label]) => (
           <a key={id} href={`#${id}`} className="px-2.5 py-1 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-900">{label}</a>
         ))}
       </nav>
@@ -385,6 +389,40 @@ export default async function Page() {
               { key: "count", header: "Lines", align: "right", render: (row) => n(row.count) },
             ]}
           />
+        )}
+      </Panel>
+
+      {/* 7 ── Feedback */}
+      <Panel
+        id="feedback"
+        title="7. Feedback"
+        source={<>public_feedback (0149); <code>{FEEDBACK_DOOR_FLAG}</code> in this deployment.</>}
+        covers={<>Messages that have not expired, counted by status, with ages in whole hours on the database&apos;s clock. No message, id, reply address or time of arrival is read out. A message its holder erased is gone and not counted.</>}
+      >
+        <div className="flex flex-wrap gap-4"><Flag name={FEEDBACK_DOOR_FLAG} on={feedback.open} /></div>
+        {feedback.waiting.state === "unknown" ? <Unknown reason={feedback.waiting.reason} /> : (
+          <KpiGrid cols={4}>
+            <KpiCard
+              label="Not read"
+              value={n(feedback.waiting.data.unread)}
+              urgency={feedback.waiting.data.oldestUnreadHours === null ? "neutral" : feedback.waiting.data.oldestUnreadHours >= FEEDBACK_READ_AIM_HOURS ? "warning" : "info"}
+              sub={feedback.waiting.data.oldestUnreadHours === null ? "none waiting" : `oldest ${ageWords(feedback.waiting.data.oldestUnreadHours)}; the aim is ${FEEDBACK_READ_AIM_HOURS} hours`}
+              href="/admin/feedback"
+            />
+            <KpiCard
+              label="Read, not answered"
+              value={n(feedback.waiting.data.unanswered)}
+              sub={feedback.waiting.data.oldestUnansweredHours === null ? "none waiting" : `oldest ${ageWords(feedback.waiting.data.oldestUnansweredHours)}`}
+              href="/admin/feedback"
+            />
+            <KpiCard
+              label={`Deleted within ${FEEDBACK_EXPIRING_DAYS} days`}
+              value={n(feedback.waiting.data.expiring)}
+              urgency={feedback.waiting.data.expiring ? "warning" : "neutral"}
+              sub="of those not answered or closed"
+            />
+            <KpiCard label="Held in all" value={n(feedback.waiting.data.held)} sub={`each kept ${FEEDBACK_RETENTION_DAYS} days from arrival`} />
+          </KpiGrid>
         )}
       </Panel>
 

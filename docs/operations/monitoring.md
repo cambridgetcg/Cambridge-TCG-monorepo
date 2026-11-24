@@ -21,7 +21,10 @@ analytics library. The readers are `src/lib/observability/monitor.ts`.
 
 ## What it will never hold
 
-Every table it reads holds counts and Cambridge's own words. None holds an IP
+Every table it reads holds counts and Cambridge's own words, except
+`public_feedback` (panel 7), which holds what senders chose to send: from that
+one the page reads counts and whole-hour ages, and nothing a sender wrote.
+None of the others holds an IP
 address (hashed or not), a user agent, a query string, a referrer, a request
 or response body, a raw path, log text, a price or source value, or a
 visitor, session, device, account or key id. No two requests can be joined,
@@ -49,6 +52,7 @@ why. It never shows that as zero.
 | 4. Agents | `mcp_daily` for 30 days by method, tool, authenticated or not, and outcome; `agent_keys` counted, and active keys by when they were last used (under an hour, a day, a week, a month, older, never); `agent_rate_buckets` per day (its own 7 days): requests, keys, busiest key-minute; while signed acts are open (`AGENT_SIGNED_ACTS`), `agent_act_nonces` (0152) counted, with the rows past their time and when the oldest of those expired (a warning only once that is over 90 minutes ago, since expired rows are normal between hourly sweeps), and the held-keys sweep's last run from `ops_job_outcomes` | Which key or agent did anything; authenticated MCP rows while fewer than five active keys were used in the 30 days (`mcpView`); MCP requests while `OPS_MCP_DAILY` is off (read as not counting, not zero); the other agent doors, which appear in traffic by route group; any held-keys table while signed acts are closed (not read); each act's own small nonce purge, which is not recorded |
 | 5. Traffic | `traffic_pulls` for which of the last 35 days' hours were counted (ok, partly, failed, skipped at a start, unknown), in total and for each of the last 7 days; `traffic_hourly` for 7 days: requests per day beside that day's counted hours, RSC page-data share, share reaching Vercel directly (the `*.vercel.app` hosts), status mix, declared class by day (each day's header gives its counted hours), class by route group, 404 hot spots | Anything Cloudflare answered from its own cache (cookie-less HTML is cached there, so page views are undercounted); IP addresses, so no user agent's claim is verified and no class is "human"; query strings, referrers and bodies; requests older than Vercel keeps logs (about 24 h on the current plan), if a pull is missed. A partly counted day shows only its counted hours, so read its total beside its hours |
 | 6. Errors | `error_daily` for 30 days by tag (a fixed list) and status, each line beside its day's counted hours | The line's text; invocations that printed nothing (runtime logs hold only those that did); hours no pull counted |
+| 7. Feedback | `public_feedback` (0149), counted: not read, read and not answered, how many of those are deleted within 14 days, and held in all; how long the oldest not read and the oldest not answered have waited, in whole hours on the database's clock (a warning once one not read has waited the 48 hours senders are told we aim for); `PUBLIC_FEEDBACK` in this deployment | Any message, reference, reply address, id or time of arrival; a message erased, or expired (not counted, swept yet or not); a message someone looked at and did not mark |
 | Retention | Each 0148 table's rows, oldest row and rows past its period | |
 
 ## The tables (migration 0148)
@@ -385,5 +389,6 @@ serve the API around Cloudflare. The monitor counts their requests as
   and on a disposable loopback database
   `DOORS_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/<a name containing test> pnpm --filter cambridgetcg-storefront exec vitest run src/lib/feedback/door.integration.test.ts`,
   which applies 0149 alone, checks its refusals, fills and caps the hour,
-  reads and erases as a holder through pg and postgres.js, counts hellos to
-  the cap and sweeps past each period.
+  reads and erases as a holder through pg and postgres.js, counts what waits
+  for the monitor and the operator's list, counts hellos to the cap and
+  sweeps past each period.
