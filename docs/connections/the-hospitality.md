@@ -244,6 +244,15 @@ anywhere from anywhere.*
 
 ## 6. The feedback channel
 
+> **Correction, 2026-11-24.** This section, and the 48-hour response window
+> named elsewhere on this page, are May's. The application no longer logs a
+> POST, and a POST sends no email. While the door is switched on it takes
+> seven kinds of report and keeps their named fields in `public_feedback`
+> (migration 0149). We aim to read every message within 48 hours; no answer,
+> and no fix within a week, is promised. An answer is shown to whoever holds
+> the message's key. What is kept, and for how long, is at
+> `/privacy#feedback-door`.
+
 [`/api/v1/feedback`](../../apps/storefront/src/app/api/v1/feedback/route.ts)
 is the platform's public-facing complaint + suggestion + registration
 inbox. Five report kinds:
