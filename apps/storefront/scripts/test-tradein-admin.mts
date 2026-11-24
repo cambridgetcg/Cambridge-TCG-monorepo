@@ -12,7 +12,9 @@
 // The admin PATCH route is a thin wrapper around these helpers + the
 // email fan-out, which the email preference suite already covers.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
+
+const pool = requireLocalTestDatabase();
 
 const {
   createSubmission,
@@ -23,9 +25,6 @@ const {
   payTradeinCashIfDue,
 } = await import("../src/lib/tradein/db");
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
-
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
   if (cond) { passed++; console.log(`  ✓ ${msg}`); }
@@ -34,11 +33,15 @@ function assert(cond: unknown, msg: string): void {
 
 process.env.EMAIL_UNSUBSCRIBE_SECRET = "testsecret-for-e2e";
 
+const users: string[] = [];
+const references: string[] = [];
+
 async function makeUser(email: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, 'Tradein Admin Test') RETURNING id`,
     [email],
   );
+  users.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -52,6 +55,7 @@ async function makeSubmission(opts: {
   // reference column is VARCHAR(20) — keep short. refSuffix is a single
   // letter; the 8-char slice of Date.now is plenty unique per test run.
   const reference = `TI-T${opts.refSuffix}`.slice(0, 20);
+  references.push(reference);
   const sub = await createSubmission({
     reference,
     customerName: "Admin Test",
@@ -222,11 +226,13 @@ try {
 
   await cleanup(ref4, userId);
 
-  // ─── Cleanup user ───
-  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, async () => {
+    for (const userId of users) {
+      for (const reference of references) await cleanup(reference, userId);
+      await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+    }
+  });
 }

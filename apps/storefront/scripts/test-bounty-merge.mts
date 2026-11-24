@@ -1,9 +1,8 @@
-// E2E test of mergeTokens against the live DB.
-import pg from "pg";
-const merge = await import("../src/lib/bounty/merge");
+// E2E test of mergeTokens against a local test database.
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
+const merge = await import("../src/lib/bounty/merge");
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -11,12 +10,15 @@ function assert(cond: unknown, msg: string): void {
   else { failed++; console.log(`  ✗ ${msg}`); }
 }
 
+const users: string[] = [];
+
 try {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, 'Merge Test') RETURNING id`,
     [`merge-test-${Date.now()}@test.invalid`],
   );
   const userId: string = u.rows[0].id;
+  users.push(userId);
 
   // 1) Fresh user → insufficient tokens
   const r1 = await merge.mergeTokens(userId, "common");
@@ -87,13 +89,12 @@ try {
   const stats = await merge.getMergeStats(userId);
   assert(stats.total === 2, `merge stats: total = 2 (got ${stats.total})`);
 
-  // Cleanup
-  await pool.query(`DELETE FROM bounty_merges WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM bounty_pull_tokens WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, async () => {
+    await pool.query(`DELETE FROM bounty_merges WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM bounty_pull_tokens WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
+  });
 }

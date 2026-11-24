@@ -14,10 +14,9 @@
 // Direct-lib pattern, matching test-notifications.mts and
 // test-market-notifications.mts.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -32,11 +31,14 @@ const { recordTradePayout } = await import("../src/lib/market/db");
 const { recordAuctionPayout } = await import("../src/lib/auction/db");
 const { listNotifications } = await import("../src/lib/notifications/db");
 
+const allUsers: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -111,13 +113,11 @@ async function cleanup(userIds: string[]) {
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
 
   // ── Suite 1: trade availableAt = completed_at + payout_hold_days ──
   console.log("\n— Suite 1: per-trade hold computation");
   const buyer1 = await makeUser(`pay-b1-${t}`);
   const seller1 = await makeUser(`pay-s1-${t}`);
-  allUsers.push(buyer1, seller1);
 
   // Trade completed 2 days ago with a 5-day hold → 3 days remaining.
   await makeTrade({
@@ -160,7 +160,6 @@ try {
   console.log("\n— Suite 3: trade payout notification + idempotency");
   const buyer3 = await makeUser(`pay-b3-${t}`);
   const seller3 = await makeUser(`pay-s3-${t}`);
-  allUsers.push(buyer3, seller3);
 
   const tradeId3 = await makeTrade({
     buyerId: buyer3, sellerId: seller3, sku: `PAY-${t}`,
@@ -197,7 +196,6 @@ try {
   // ── Suite 4: recordAuctionPayout fires payout.released ──
   console.log("\n— Suite 4: auction payout notification");
   const seller4 = await makeUser(`pay-s4-${t}`);
-  allUsers.push(seller4);
   // Mark seller's Stripe Connect enabled so canPay logic isn't a hurdle
   // (recordAuctionPayout doesn't check that field for non-stripe methods).
 
@@ -241,11 +239,8 @@ try {
     `seller3 has 0 pending trades after payout (got ${bundle6.trades.length})`);
   assert(bundle6.totalOwed === 0, "totalOwed is 0 after sole trade paid out");
 
-  // ── Cleanup ──
-  await cleanup(allUsers);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers));
 }

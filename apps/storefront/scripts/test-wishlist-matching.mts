@@ -2,11 +2,10 @@
 // matching + non-matching P2P asks, runs the sweep, verifies the right
 // emails queued.
 
-import pg from "pg";
-const { runWishlistMatchSweep } = await import("../src/lib/wishlist/matching");
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
+const { runWishlistMatchSweep } = await import("../src/lib/wishlist/matching");
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -16,11 +15,14 @@ function assert(cond: unknown, msg: string): void {
 
 process.env.EMAIL_UNSUBSCRIBE_SECRET = "testsecret-for-e2e";
 
+const users: string[] = [];
+
 async function makeUser(email: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, 'Wish Test') RETURNING id`,
     [email],
   );
+  users.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -104,14 +106,13 @@ try {
   assert(mine3.rows[0].n === 1, `fulfilled wish not re-matched (still 1 email)`);
   void r3;
 
-  // Cleanup
-  await pool.query(`DELETE FROM email_queue WHERE user_id = $1`, [wisher]);
-  await pool.query(`DELETE FROM market_orders WHERE user_id = $1`, [seller]);
-  await pool.query(`DELETE FROM wishlists WHERE user_id = $1`, [wisher]);
-  await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [[wisher, seller]]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, async () => {
+    await pool.query(`DELETE FROM email_queue WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM market_orders WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM wishlists WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
+  });
 }

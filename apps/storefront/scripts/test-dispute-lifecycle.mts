@@ -6,10 +6,9 @@
 // Uses the lib helpers directly where possible; calls route handlers
 // for paths that need the auth gate (security regression tests).
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -37,11 +36,15 @@ const {
 
 process.env.EMAIL_UNSUBSCRIBE_SECRET = "testsecret-for-e2e";
 
+const users: string[] = [];
+const trades: string[] = [];
+
 async function makeUser(email: string, verified = true): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name, is_verified) VALUES ($1, $2, $3) RETURNING id`,
     [email, email.split("@")[0], verified],
   );
+  users.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -67,6 +70,7 @@ async function makeTrade(buyerId: string, sellerId: string, sku: string): Promis
      RETURNING id`,
     [buyerId, sellerId, bid.rows[0].id, ask.rows[0].id, sku],
   );
+  trades.push(t.rows[0].id);
   return t.rows[0].id;
 }
 
@@ -245,14 +249,8 @@ try {
   assert(columnsCheck.rows.length === 3,
     `all 3 lifecycle columns exist on trade_disputes (got ${columnsCheck.rows.length})`);
 
-  // ── Cleanup ──
-  await cleanup(
-    [buyer1, seller1, stranger, buyer6, seller6],
-    [trade1, trade6],
-  );
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(users, trades));
 }

@@ -2,10 +2,9 @@
 // module test of the session: pricing rules → offers → counter
 // offers → notifications all in one chain.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -23,11 +22,14 @@ const {
 const { makeOffer, getOffer } = await import("../src/lib/market/offers");
 const { listNotifications } = await import("../src/lib/notifications/db");
 
+const allUsers: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name, trust_score) VALUES ($1, $2, 80) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   await pool.query(
     `INSERT INTO trust_profiles (user_id, trust_score, trade_limit, daily_limit)
      VALUES ($1, 80, 2000, 10000) ON CONFLICT (user_id) DO NOTHING`,
@@ -76,12 +78,10 @@ async function cleanup(userIds: string[]) {
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
 
   // ── Suite 1: createRule validation ──
   console.log("\n— Suite 1: createRule validation");
   const seller1 = await makeUser(`pr-s1-${t}`);
-  allUsers.push(seller1);
 
   // Blank name
   const noName = await createRule({
@@ -132,7 +132,6 @@ try {
   if (!okRule.ok) throw new Error("setup");
 
   const buyer2 = await makeUser(`pr-b2-${t}`);
-  allUsers.push(buyer2);
   // Prices kept under the £50 NEW-tier trade limit so canTrade gate
   // doesn't block fresh test users.
   const ask2 = await makeAsk({ sellerId: seller1, sku: `PR2-${t}`, price: 40.00 });
@@ -184,7 +183,6 @@ try {
   console.log("\n— Suite 4: auto_counter triggered + price computed correctly");
   const seller4 = await makeUser(`pr-s4-${t}`);
   const buyer4 = await makeUser(`pr-b4-${t}`);
-  allUsers.push(seller4, buyer4);
 
   const counterRule = await createRule({
     userId: seller4, name: "Counter at 90%",
@@ -214,7 +212,6 @@ try {
   console.log("\n— Suite 5: listing_filter scopes the rule to matching asks");
   const seller5 = await makeUser(`pr-s5-${t}`);
   const buyer5 = await makeUser(`pr-b5-${t}`);
-  allUsers.push(seller5, buyer5);
 
   // Rule that only applies to OP01 set
   const scopedRule = await createRule({
@@ -328,7 +325,6 @@ try {
   // ── Suite 8: ownership / list filters ──
   console.log("\n— Suite 8: ownership + listRules");
   const buyer8 = await makeUser(`pr-b8-${t}`);
-  allUsers.push(buyer8);
 
   const otherPause = await pauseRule(okRule.value.id, buyer8);
   assert(!otherPause.ok && otherPause.status === 403, "non-owner pause rejected");
@@ -342,11 +338,8 @@ try {
   assert(list.every((r) => r.status !== "archived"),
     "archived rules hidden from listRules");
 
-  // Cleanup
-  await cleanup(allUsers);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers));
 }

@@ -1,10 +1,9 @@
 // E2E for the direct-messaging arc. Eight suites against the lib.
 // Direct-lib pattern matching offers/returns/saved-searches.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -23,11 +22,14 @@ const {
 
 const { listNotifications } = await import("../src/lib/notifications/db");
 
+const allUsers: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name, accepts_messages) VALUES ($1, $2, true) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -57,13 +59,11 @@ async function cleanup(userIds: string[]) {
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
 
   // ── Suite 1: sendMessage happy path + canonical conversation ──
   console.log("\n— Suite 1: sendMessage creates canonical conversation");
   const alice = await makeUser(`dm-a-${t}`);
   const bob = await makeUser(`dm-b-${t}`);
-  allUsers.push(alice, bob);
 
   const r1 = await sendMessage({
     senderId: alice, recipientId: bob,
@@ -139,7 +139,6 @@ try {
   console.log("\n— Suite 3: rate limit");
   const charlie = await makeUser(`dm-c-${t}`);
   const dave = await makeUser(`dm-d-${t}`);
-  allUsers.push(charlie, dave);
 
   // Burst of 6 within a minute — 6th should be rejected (cap=5/min)
   for (let i = 0; i < 5; i++) {
@@ -156,7 +155,6 @@ try {
   // ── Suite 4: accepts_messages opt-out ──
   console.log("\n— Suite 4: accepts_messages=false blocks unsolicited");
   const eve = await makeUser(`dm-e-${t}`);
-  allUsers.push(eve);
   await pool.query(
     `UPDATE users SET accepts_messages = false WHERE id = $1`, [eve],
   );
@@ -170,7 +168,6 @@ try {
   // ── Suite 5: bidirectional block ──
   console.log("\n— Suite 5: block list (bidirectional)");
   const frank = await makeUser(`dm-f-${t}`);
-  allUsers.push(frank);
 
   // alice blocks frank
   const br = await blockUser(alice, frank);
@@ -287,11 +284,8 @@ try {
   const c2 = await findOrCreateConversation(bob, alice);  // reversed args
   assert(c1.id === c2.id, "find-or-create returns same row regardless of arg order");
 
-  // Cleanup
-  await cleanup(allUsers);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers));
 }

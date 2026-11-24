@@ -1,10 +1,9 @@
 // E2E for the saved-searches arc. Eight suites against the lib +
 // matcher + cron sweep. Direct-lib pattern matching offers/returns.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -21,11 +20,14 @@ const {
 
 const { listNotifications } = await import("../src/lib/notifications/db");
 
+const allUsers: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -63,12 +65,10 @@ async function cleanup(userIds: string[]) {
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
 
   // ── Suite 1: createSearch validation ──
   console.log("\n— Suite 1: createSearch validation");
   const buyer1 = await makeUser(`ss-b1-${t}`);
-  allUsers.push(buyer1);
 
   // Empty query
   const empty = await createSearch({
@@ -113,7 +113,6 @@ try {
   // ── Suite 2: sweep matches new asks + fires notification ──
   console.log("\n— Suite 2: runSavedSearchSweep matches + notifies");
   const seller1 = await makeUser(`ss-s1-${t}`);
-  allUsers.push(seller1);
 
   // Two asks: one matching ('Charizard'), one not ('Pikachu')
   const matchingAsk = await makeAsk({
@@ -234,7 +233,6 @@ try {
   // ── Suite 7: ownership / authorization ──
   console.log("\n— Suite 7: ownership checks");
   const buyer2 = await makeUser(`ss-b2-${t}`);
-  allUsers.push(buyer2);
 
   const otherPause = await pauseSearch(search1!.id, buyer2);
   assert(!otherPause.ok && otherPause.status === 403,
@@ -249,11 +247,8 @@ try {
   assert(list.every((s) => s.status !== "archived"),
     "archived rows hidden from listSearches");
 
-  // ── Cleanup ──
-  await cleanup(allUsers);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers));
 }

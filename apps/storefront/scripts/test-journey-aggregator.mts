@@ -9,15 +9,9 @@
 //
 // Usage: DATABASE_URL=... pnpm exec tsx scripts/test-journey-aggregator.mts
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = (process.env.DATABASE_URL ?? "")
-  .replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-if (!url) {
-  console.error("DATABASE_URL required");
-  process.exit(1);
-}
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let asserted = 0;
 let failed = 0;
@@ -31,6 +25,8 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
+const users: string[] = [];
+
 async function main() {
   // Seed user
   const u = await pool.query(
@@ -38,6 +34,7 @@ async function main() {
     [`journey-test-${Date.now()}@test.invalid`, "Journey Test User"],
   );
   const userId: string = u.rows[0].id;
+  users.push(userId);
   console.log(`seeded user: ${userId}`);
 
   // Seed a vault item + lifecycle log entry (the SHIPPED event)
@@ -123,17 +120,12 @@ async function main() {
   assert(stats.payment_health.chargebacks === 1, `chargebacks = ${stats.payment_health.chargebacks} (expected 1)`);
   assert(!stats.is_suspended, "is_suspended = false for fresh user");
 
-  // ── Cleanup ──
-  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
-  console.log(`\ncleaned up user ${userId}`);
-
   console.log(`\n${asserted - failed}/${asserted} assertions passed${failed > 0 ? ` (${failed} FAILED)` : ""}`);
-  await pool.end();
-  process.exit(failed > 0 ? 1 : 0);
+  if (failed > 0) process.exitCode = 1;
 }
 
-main().catch(async (err) => {
-  console.error("test failed with exception:", err);
-  await pool.end();
-  process.exit(1);
-});
+try {
+  await main();
+} finally {
+  await cleanUp(pool, () => pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]));
+}

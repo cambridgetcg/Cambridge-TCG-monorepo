@@ -1,10 +1,9 @@
 // E2E for the no-fault returns arc. Nine suites against the lib +
 // timeline. Same direct-lib pattern as test-offer-lifecycle.mts.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -25,11 +24,14 @@ const {
   getReturnStep, isReturnTerminal, getReturnActor, getReturnClosedCopy,
 } = await import("../src/lib/market/return-timeline");
 
+const allUsers: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -86,7 +88,6 @@ async function cleanup(userIds: string[]) {
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
 
   // ── Suite 0: timeline invariants ──
   console.log("\n— Suite 0: return-timeline.ts invariants");
@@ -113,7 +114,6 @@ try {
   console.log("\n— Suite 1: requestReturn fires return.requested");
   const seller1 = await makeUser(`ret-s1-${t}`);
   const buyer1 = await makeUser(`ret-b1-${t}`);
-  allUsers.push(seller1, buyer1);
   const trade1 = await makeCompletedTrade({
     buyerId: buyer1, sellerId: seller1, sku: `RET-${t}`,
   });
@@ -165,7 +165,6 @@ try {
   // Trade that doesn't accept returns
   const seller2 = await makeUser(`ret-s2-${t}`);
   const buyer2 = await makeUser(`ret-b2-${t}`);
-  allUsers.push(seller2, buyer2);
   const noReturnsTrade = await makeCompletedTrade({
     buyerId: buyer2, sellerId: seller2, sku: `NORET-${t}`,
     acceptsReturns: false,
@@ -190,7 +189,6 @@ try {
   // ── Suite 3: declineReturn ──
   console.log("\n— Suite 3: declineReturn");
   const buyer3 = await makeUser(`ret-b3-${t}`);
-  allUsers.push(buyer3);
   const trade3 = await makeCompletedTrade({
     buyerId: buyer3, sellerId: seller1, sku: `RET3-${t}`,
   });
@@ -215,7 +213,6 @@ try {
   // ── Suite 4: full success chain (accept → ship → receive → refund) ──
   console.log("\n— Suite 4: accept → ship → receive → refund");
   const buyer4 = await makeUser(`ret-b4-${t}`);
-  allUsers.push(buyer4);
   const trade4 = await makeCompletedTrade({
     buyerId: buyer4, sellerId: seller1, sku: `RET4-${t}`,
   });
@@ -288,7 +285,6 @@ try {
   // ── Suite 5: out-of-order refund attempts rejected ──
   console.log("\n— Suite 5: refund requires status='received'");
   const buyer5 = await makeUser(`ret-b5-${t}`);
-  allUsers.push(buyer5);
   const trade5 = await makeCompletedTrade({
     buyerId: buyer5, sellerId: seller1, sku: `RET5-${t}`,
   });
@@ -307,7 +303,6 @@ try {
   // ── Suite 6: cancel before refund ──
   console.log("\n— Suite 6: cancelReturn");
   const buyer6 = await makeUser(`ret-b6-${t}`);
-  allUsers.push(buyer6);
   const trade6 = await makeCompletedTrade({
     buyerId: buyer6, sellerId: seller1, sku: `RET6-${t}`,
   });
@@ -328,7 +323,6 @@ try {
   // Non-buyer can't cancel — set up a fresh return on a fresh trade,
   // then try to cancel it as a stranger.
   const buyer6b = await makeUser(`ret-b6b-${t}`);
-  allUsers.push(buyer6b);
   const trade6b = await makeCompletedTrade({
     buyerId: buyer6b, sellerId: seller1, sku: `RET6B-${t}`,
   });
@@ -342,7 +336,6 @@ try {
   // ── Suite 7: expireReturnRequests sweep ──
   console.log("\n— Suite 7: expireReturnRequests sweep");
   const buyer7 = await makeUser(`ret-b7-${t}`);
-  allUsers.push(buyer7);
   const trade7 = await makeCompletedTrade({
     buyerId: buyer7, sellerId: seller1, sku: `RET7-${t}`,
   });
@@ -386,7 +379,6 @@ try {
 
   // Eligible trade (fresh, accepts_returns=true, no active return)
   const buyer8 = await makeUser(`ret-b8-${t}`);
-  allUsers.push(buyer8);
   const trade8 = await makeCompletedTrade({
     buyerId: buyer8, sellerId: seller1, sku: `RET8-${t}`,
   });
@@ -409,11 +401,8 @@ try {
   assert(seller1Active.every((r) => !isReturnTerminal(r.status)),
     "activeOnly filter excludes terminal states");
 
-  // ── Cleanup ──
-  await cleanup(allUsers);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers));
 }

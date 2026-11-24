@@ -1,11 +1,13 @@
 // E2E test: seed an expired vault item, hit /api/cron/maintenance,
 // verify the item flipped to 'expired' and credit was awarded.
 // Usage: pnpm dev & ; sleep 5 ; node scripts/test-bounty-expiry-e2e.js
+// The server it calls uses its own database, which the guard below does not check.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
+
+const users = [];
 
 async function main() {
   const u = await pool.query(
@@ -13,6 +15,7 @@ async function main() {
     [`cron-test-${Date.now()}@test.invalid`, "Cron Test User"],
   );
   const userId = u.rows[0].id;
+  users.push(userId);
   console.log("seeded user:", userId);
 
   const v = await pool.query(
@@ -57,13 +60,12 @@ async function main() {
   if (parseFloat(bal.rows[0].store_credit_balance) !== 7.70) { console.error("FAIL: balance not 7.70"); ok = false; }
   if (ledger.rows.length !== 1) { console.error("FAIL: ledger row count"); ok = false; }
 
-  // Cleanup
-  await pool.query(`DELETE FROM store_credit_ledger WHERE user_id=$1`, [userId]);
-  await pool.query(`DELETE FROM vault_items WHERE user_id=$1`, [userId]);
-  await pool.query(`DELETE FROM users WHERE id=$1`, [userId]);
-
   console.log(ok ? "\nPASS" : "\nFAIL");
-  process.exit(ok ? 0 : 1);
+  if (!ok) process.exitCode = 1;
 }
 
-main().finally(() => pool.end());
+main().finally(() => cleanUp(pool, async () => {
+  await pool.query(`DELETE FROM store_credit_ledger WHERE user_id = ANY($1::uuid[])`, [users]);
+  await pool.query(`DELETE FROM vault_items WHERE user_id = ANY($1::uuid[])`, [users]);
+  await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
+}));

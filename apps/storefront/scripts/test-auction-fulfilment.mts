@@ -3,10 +3,9 @@
 // shared @/lib/auction/fulfilment helpers the route handlers delegate
 // to, and guards every security rule.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -22,11 +21,15 @@ const {
   CONSIGNED_TIMELINE, DIRECT_TIMELINE,
 } = await import("../src/lib/auction/fulfilment-timeline");
 
+const users: string[] = [];
+const auctions: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  users.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -50,6 +53,7 @@ async function makeAuction(opts: {
      RETURNING id`,
     [`Test auction ${Date.now()}`, opts.paid ? "paid" : "ended", opts.winnerId, opts.sellerId, opts.consigned],
   );
+  auctions.push(a.rows[0].id);
   return a.rows[0].id;
 }
 
@@ -230,14 +234,8 @@ try {
   assert(!isFulfilmentTerminal({ status: "paid", escrow_status: "shipped_to_buyer" }),
     "shipped_to_buyer is NOT terminal");
 
-  // ── Cleanup ──
-  await cleanup(
-    [seller1, buyer1, seller2, buyer2, seller3, buyer3, stranger, seller4, buyer4],
-    [a1, a2, a3, a4, a4b],
-  );
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(users, auctions));
 }

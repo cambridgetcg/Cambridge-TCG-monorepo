@@ -5,10 +5,9 @@
 // Exercises the lib helpers directly; the route handlers are thin
 // auth + delegate wrappers (same pattern used across the session).
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -27,11 +26,14 @@ const {
   markAllRead,
 } = await import("../src/lib/notifications/db");
 
+const users: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  users.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -225,11 +227,8 @@ try {
   assert(idx.rows.length === 3,
     `all 3 indexes exist (got ${idx.rows.length})`);
 
-  // ── Cleanup ──
-  await cleanup([u1, u2]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(users));
 }
