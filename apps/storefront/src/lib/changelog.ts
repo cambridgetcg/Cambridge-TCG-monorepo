@@ -97,6 +97,18 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-11-24 ─────────────────────────────────────────────────────────
   {
+    id: "feedback-one-reading-aim",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "/api/v1/welcome feedback + /api/v1/budget feedback",
+    summary:
+      "feedback.response_window_hours (48) is replaced by feedback.response_aim, in the feedback receipt's words: we aim to read every message within 48 hours. No answer, and no time for one, is promised.",
+    detail:
+      "welcome's feedback.kinds now lists all seven kinds the door takes. The older promises (a 48-hour response, a fix within a week, an emailed reply) are gone from the guides, /api/v1, /api/v1/diagnostic, /api/v1/rate-limits, /api/v1/adopters, /scrapers and /contact. An answer is shown to whoever holds the message's key; nothing is emailed automatically. The door's fields, limits and retention are unchanged, and GET /api/v1/feedback says whether it is taking messages.",
+    related_urls: ["/api/v1/feedback", "/api/v1/welcome", "/api/v1/budget"],
+  },
+  {
     id: "cardmarket-member-export-paused",
     date: "2026-11-24",
     kind: "endpoint-modified",
