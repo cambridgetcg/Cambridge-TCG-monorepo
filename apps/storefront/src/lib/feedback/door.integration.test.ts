@@ -6,7 +6,7 @@ import { createCompatDb } from "@cambridge-tcg/db/compat";
 
 vi.mock("@/lib/db", () => ({ query: vi.fn() }));
 import {
-  FEEDBACK_ANSWER_SQL, FEEDBACK_HOURLY_CAP, FEEDBACK_OPERATOR_DELETE_SQL, FEEDBACK_STATUS_SQL, changeFeedback, eraseFeedbackForHolder,
+  FEEDBACK_ANSWER_SQL, FEEDBACK_HOURLY_CAP, FEEDBACK_OPERATOR_DELETE_SQL, FEEDBACK_OPERATOR_LIST_MAX, FEEDBACK_STATUS_SQL, changeFeedback, eraseFeedbackForHolder,
   listFeedbackForOperator, readFeedbackForHolder, storeFeedback, validateFeedback,
 } from "./door";
 import { runDoorRetentionSweep } from "./retention";
@@ -199,11 +199,37 @@ describe.skipIf(!localUrl)("agent doors PostgreSQL integration, migration 0149 (
   it("counts nothing held as zero, and throws when the table is not there", async () => {
     for (const read of [run, viaPostgresJs]) {
       expect(await readFeedbackWaiting(read)).toEqual({ held: 0, unread: 0, unanswered: 0, expiring: 0, oldestUnreadHours: null, oldestUnansweredHours: null });
+      expect(await listFeedbackForOperator(read)).toEqual({ ok: true, rows: [], total: 0, open: 0 });
     }
     const bare = new Pool({ connectionString: localUrl, options: `-c search_path=public`, max: 1 });
     try {
       await expect(readFeedbackWaiting((sql, params) => bare.query(sql, params) as never)).rejects.toMatchObject({ code: "42P01" });
+      expect(await listFeedbackForOperator((sql, params) => bare.query(sql, params) as never)).toEqual({ ok: false, reason: "not-provisioned" });
     } finally { await bare.end(); }
+  });
+
+  it("tells the operator how many messages are held, and how many are open, when the list stops short", async () => {
+    // The oldest open ones are the ones left out; an expired one is in no count.
+    for (let n = 0; n < 130; n++) await message(`${n + 1} minutes`, { status: n % 13 ? "received" : "read" });
+    for (let n = 0; n < 20; n++) await message(`${n + 1} minutes`, { status: n % 2 ? "closed" : "answered" });
+    await message("2 hours", { left: "-1 second" });
+    for (const [driver, read] of [["pg", run], ["postgres.js", viaPostgresJs]] as const) {
+      const listed = await listFeedbackForOperator(read);
+      if (!listed.ok) throw new Error(listed.reason);
+      expect({ shown: listed.rows.length, total: listed.total, open: listed.open }, driver).toEqual({ shown: FEEDBACK_OPERATOR_LIST_MAX, total: 150, open: 130 });
+      expect(listed.rows.every((row) => row.status === "received" || row.status === "read"), driver).toBe(true);
+      expect(listed.rows.map((row) => row.received_at), driver).toEqual(listed.rows.map((row) => row.received_at).sort().reverse());
+      expect(Object.keys(listed.rows[0]!), driver).not.toContain("total");
+    }
+    // Closing some brings the others up: the 30 left out are now listed.
+    const before = await listFeedbackForOperator(run);
+    if (!before.ok) throw new Error(before.reason);
+    for (const row of before.rows.slice(0, 40)) await changeFeedback(FEEDBACK_STATUS_SQL, [row.feedback_id, "closed"], run);
+    const after = await listFeedbackForOperator(run);
+    if (!after.ok) throw new Error(after.reason);
+    expect({ shown: after.rows.length, total: after.total, open: after.open }).toEqual({ shown: 100, total: 150, open: 90 });
+    expect(after.rows.filter((row) => row.status === "received" || row.status === "read")).toHaveLength(90);
+    await emptied();
   });
 
   it("counts hellos by declared kind up to the cap, and nothing else", async () => {

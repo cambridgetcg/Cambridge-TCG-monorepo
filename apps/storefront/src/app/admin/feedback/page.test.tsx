@@ -26,7 +26,14 @@ const ID = "fb_0123456789abcdef01234567";
 const MESSAGE = "PRIVATE-MESSAGE-SENTINEL";
 const session = (role: string | null) => mocks.auth.mockResolvedValue(role ? { user: { id: "u-1", email: "someone@example.test", role } } : null);
 const row = { feedback_id: ID, kind: "general", topic: "order", message: MESSAGE, details: { endpoint: "/api/v1/prices" }, reply_to: "ada@example.com", reply_name: "Ada",
-  status: "received", answer: null, answered_at: null, received_at: new Date("2026-11-06T10:00:00Z"), expires_at: new Date("2027-05-05T10:00:00Z") };
+  status: "received", answer: null, answered_at: null, received_at: new Date("2026-11-06T10:00:00Z"), expires_at: new Date("2027-05-05T10:00:00Z"), total: 1, open: 1 };
+const rows = (count: number, over: Record<string, unknown> = {}) => Array.from({ length: count }, (_, index) => ({ ...row, feedback_id: `fb_${String(index).padStart(24, "0")}`, ...over }));
+const page = async (...answer: Record<string, unknown>[]) => {
+  session("admin");
+  mocks.sfQuery.mockResolvedValueOnce({ rows: answer });
+  const markup = renderToStaticMarkup(await FeedbackPage());
+  return { markup, text: markup.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ") };
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -50,6 +57,41 @@ describe("/admin/feedback, the operator's half of the door", () => {
 
     mocks.sfQuery.mockRejectedValueOnce(Object.assign(new Error("relation does not exist"), { code: "42P01" }));
     expect(renderToStaticMarkup(await FeedbackPage())).toContain("migration 0149");
+  });
+
+  it("brings its own dark ground, so its light text is readable whatever theme the visitor wears", async () => {
+    for (const { markup } of [await page(row), await page()]) {
+      expect(markup).toMatch(/^<main class="min-h-screen bg-neutral-950 text-white">/);
+      expect(markup).toMatch(/<\/main>$/);
+    }
+    // AdminShell's ground, without its wait for a fetch.
+    expect(readFileSync(new URL("../../../components/admin/AdminShell.tsx", import.meta.url), "utf8")).toContain('<main className="min-h-screen bg-neutral-950 text-white">');
+  });
+
+  it("says that saving an answer sends nothing, and that an address left is not checked", async () => {
+    const left = await page(row);
+    for (const words of [
+      "Your answer is shown to whoever holds the message's key; nothing is emailed from here.",
+      "They left ada@example.com (Ada), which nobody has checked is theirs. Nothing is sent to it from here; a person may write to it.",
+      "Saving sends nothing, to anyone. The sender sees the answer only by coming back with their key.",
+    ]) expect(left.text).toContain(words);
+    // The sentence sits between the answer and its button, and is read with the box.
+    expect(left.markup).toMatch(new RegExp(`aria-describedby="saving-${ID}"[\\s\\S]*id="saving-${ID}"[\\s\\S]*Save answer`));
+    expect((await page({ ...row, reply_to: null, reply_name: null })).text).toContain("No reply address: the holder reads the answer with their key.");
+  });
+
+  it("says how many messages its list leaves out, from a count, and says nothing when it shows them all", async () => {
+    const short = await page(...rows(100, { total: 1150, open: 1130 }));
+    expect(short.text).toContain("Showing 100 of 1,150 messages");
+    expect(short.text).toContain("Left out: 1,030 not answered or closed, the oldest of those, and 20 answered or closed. Answer, close or delete some below and they appear here.");
+    const openOnly = await page(...rows(100, { total: 101, open: 101 }));
+    expect(openOnly.text).toContain("Left out: 1 not answered or closed, the oldest of those. Answer, close or delete some below and they appear here.");
+    const done = await page(...rows(50, { total: 130, open: 60 }), ...rows(10, { status: "read", total: 130, open: 60 }), ...rows(40, { status: "closed", total: 130, open: 60 }));
+    expect(done.text).toContain("Showing 100 of 130 messages");
+    expect(done.text).toContain("Left out: 30 answered or closed, the oldest of those.");
+    for (const all of [await page(...rows(100, { total: 100, open: 100 })), await page(row), await page()]) expect(all.text).not.toMatch(/Showing|Left out/);
+    // A count that did not come is not guessed at.
+    expect((await page({ ...row, total: null })).text).toContain("The storefront database could not be read.");
   });
 
   it("writes the answer, marks and deletes by id, and logs the verb and id, never the words", async () => {
@@ -76,7 +118,7 @@ describe("/admin/feedback, the operator's half of the door", () => {
 
   it("is in the admin nav, and its page reads only after the admin check", () => {
     expect(ADMIN_NAV).toContainEqual({ href: "/admin/feedback", label: "Feedback", group: "ops" });
-    const page = readFileSync(new URL("./page.tsx", import.meta.url), "utf8");
-    expect(page).toMatch(/await requireAdminPage\(\);\n\s+const open = feedbackDoorOpen\(\);\n\s+const listed = await listFeedbackForOperator/);
+    const source = readFileSync(new URL("./page.tsx", import.meta.url), "utf8");
+    expect(source).toMatch(/await requireAdminPage\(\);\n\s+const open = feedbackDoorOpen\(\);\n\s+const listed = await listFeedbackForOperator/);
   });
 });

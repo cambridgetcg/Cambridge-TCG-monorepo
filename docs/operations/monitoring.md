@@ -339,7 +339,9 @@ one way back to what was kept.
   not 503, since sending it again cannot work. Each message is deleted 180
   days after it arrives. Admins read and
   answer at `/admin/feedback` (in the admin nav under ops): mark read,
-  answer (which the holder reads with the key), close or delete. Each change
+  answer (which the holder reads with the key), close or delete. Saving an
+  answer sends nothing, and no code emails a sender. The page lists 100
+  messages, open ones first, and says how many it leaves out. Each change
   goes through `adminAction`, whose log keeps the verb and the
   `feedback_id`, never the message or the answer, since that log outlives
   the row.

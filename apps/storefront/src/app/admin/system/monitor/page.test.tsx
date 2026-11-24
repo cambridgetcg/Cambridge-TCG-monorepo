@@ -54,6 +54,15 @@ describe("/admin/system/monitor behind the admin gate", () => {
     expect(markup).not.toContain("<script");
   });
 
+  it("brings its own dark ground, so its light text is readable whatever theme the visitor wears", async () => {
+    session("admin");
+    const markup = renderToStaticMarkup(await MonitorPage());
+    expect(markup).toMatch(/^<main class="min-h-screen bg-neutral-950 text-white">/);
+    expect(markup).toMatch(/<\/main>$/);
+    // AdminShell's ground, without its wait for a fetch.
+    expect(source("../../../../components/admin/AdminShell.tsx")).toContain('<main className="min-h-screen bg-neutral-950 text-white">');
+  });
+
   it("renders populated panels as counts, with the source's words and no value", async () => {
     session("admin");
     const now = new Date();

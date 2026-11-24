@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { answerFeedback, deleteFeedback, markFeedback } from "./_actions";
 
 /** Answer, mark or delete one message. The answer is what the holder reads
- * with their key, so it is written for them. */
+ * with their key, so it is written for them. Saving it sends nothing. */
 export function FeedbackActions({ id, status, answer }: { id: string; status: string; answer: string }) {
   const [text, setText] = useState(answer);
   const [error, setError] = useState<string | null>(null);
@@ -18,15 +18,17 @@ export function FeedbackActions({ id, status, answer }: { id: string; status: st
 
   return (
     <div className="space-y-2">
-      <label className="block text-xs text-neutral-500" htmlFor={`answer-${id}`}>Answer (the holder reads this with their key)</label>
+      <label className="block text-xs text-neutral-400" htmlFor={`answer-${id}`}>Answer (shown to whoever holds this message&apos;s key)</label>
       <textarea
         id={`answer-${id}`}
         rows={3}
         maxLength={4000}
         value={text}
         onChange={(e) => setText(e.target.value)}
+        aria-describedby={`saving-${id}`}
         className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100"
       />
+      <p id={`saving-${id}`} className="text-xs text-neutral-300">Saving sends nothing, to anyone. The sender sees the answer only by coming back with their key.</p>
       <div className="flex flex-wrap gap-2 text-xs">
         <button type="button" disabled={pending || !text.trim()} onClick={() => act(() => answerFeedback({ id, answer: text }))} className="min-h-11 px-3 rounded-md bg-neutral-100 text-neutral-900 font-medium disabled:opacity-50">
           Save answer

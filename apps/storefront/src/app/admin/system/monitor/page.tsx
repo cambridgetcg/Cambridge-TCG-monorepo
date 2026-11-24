@@ -18,7 +18,9 @@
  * Server-rendered behind the admin gate (the admin layout, and again here
  * before any read). Counts only: no price, source value, key or agent id,
  * user agent, path or sender's message is read. Nothing on the page reports
- * back what an admin looks at.
+ * back what an admin looks at. The page brings AdminShell's dark ground,
+ * without its wait for a fetch: the admin colours do not follow the appearance
+ * themes.
  */
 
 import * as React from "react";
@@ -40,7 +42,7 @@ import { FEEDBACK_EXPIRING_DAYS, ageWords } from "@/lib/feedback/waiting";
 import {
   MIN_HOLDERS, NONCE_PURGE_OVERDUE_MINUTES, apiRouteView, loadMonitor, mcpView,
   type BatchGroup, type ClassGroup, type CollectorLease, type CoverageDay, type DerivationDay, type DerivedCount, type ErrorCount,
-  type JobOutcomeRow, type JobOutcomeTally, type McpTally, type NotFoundSpot, type RateBucketDay, type RetentionState,
+  type JobOutcomeRow, type JobOutcomeTally, type McpTally, type MonitorData, type NotFoundSpot, type RateBucketDay, type RetentionState,
   type RouteHits, type TrafficDay, type UsageMonth,
 } from "@/lib/observability/monitor";
 import type { CollectorHostHealth } from "@/app/api/v1/sources/collector-health";
@@ -55,13 +57,21 @@ const HOST_TONE: Record<string, Tone> = { ok: "emerald", refused: "amber", stale
 export default async function Page() {
   await requireAdminPage();
   const data = await loadMonitor(sfQuery);
+  return (
+    <main className="min-h-screen bg-neutral-950 text-white">
+      <Monitor data={data} />
+    </main>
+  );
+}
+
+function Monitor({ data }: { data: MonitorData }) {
   const { collectors, derivation, api, agents, traffic, errors, feedback, retention } = data;
   const routes = api.routes.state === "known" ? apiRouteView(api.routes.data, api.usage, new Date(data.readAt)) : null;
   const mcp = agents.mcp.state === "known" ? mcpView(agents.mcp.data, agents.keys) : null;
   const coverageDays = traffic.coverage.state === "known" ? new Map(traffic.coverage.data.days.map((day) => [day.day, day])) : null;
 
   return (
-    <div className="max-w-6xl space-y-10">
+    <div className="max-w-6xl mx-auto px-4 py-8 space-y-10">
       <PageHeader
         title="Monitor"
         provenance={<Provenance kind="live" />}
