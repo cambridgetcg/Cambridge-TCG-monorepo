@@ -31,7 +31,6 @@ health. Coding-agent instructions live in [AGENTS.md](AGENTS.md).
 | [`apps/admin`](apps/admin/README.md) | Retired standalone app; redirect shell and retained review documentation, with no dev/build/test scripts |
 | [`apps/wholesale`](apps/wholesale/README.md) | Price research and existing order operations; new orders and quote requests retired |
 | [`apps/rewardspro`](apps/rewardspro/README.md) | Existing loyalty and rewards platform; new paid subscriptions and plan changes retired |
-| [`apps/rewardspro-api`](apps/rewardspro-api/README.md) | Separate v2 ingestion foundation; does not claim legacy feature, data or business-rule parity |
 | [`packages/`](packages/) | Shared database, pricing, stock, data, lifecycle and other domain libraries |
 | [`docs/`](docs/README.md) | Architecture, decisions, runbooks, principles and dated verification records |
 
@@ -43,8 +42,7 @@ same inventory.
 
 Use the pnpm workspace from this repository root. [`package.json`](package.json)
 pins pnpm 9.15.0. Use Node 24 LTS for workspace development: the root accepts
-Node >=20, while [RewardsPro API](apps/rewardspro-api/package.json) requires
-Node >=24 <25.
+Node >=20, while [RewardsPro](apps/rewards/package.json) requires Node 24.x.
 
 ```sh
 pnpm install --frozen-lockfile

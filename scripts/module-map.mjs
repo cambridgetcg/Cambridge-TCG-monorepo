@@ -214,7 +214,7 @@ for (const [group, title] of Object.entries(groups)) {
     + catalog.modules.filter((module) => module.group === group).map((module) => `| ${link(index, cardPath(module), module.label)} | ${escapeCell(module.purpose)} |`).join('\n') + '\n\n';
 }
 indexContent += '## How the pieces connect\n\n'
-  + 'The storefront is the main visitor and operator application. Wholesale retains its research and existing-order responsibilities. RewardsPro owns its current loyalty platform and extensions; RewardsPro API is a separate backend foundation. Shared packages hold reusable contracts and domain logic. Nested tools support their owning app.\n\n'
+  + 'The storefront is the main visitor and operator application. Wholesale retains its research and existing-order responsibilities. RewardsPro owns its current loyalty platform and extensions. Shared packages hold reusable contracts and domain logic. Nested tools support their owning app.\n\n'
   + 'Each module card derives declared dependency and consumer links from package.json. The storefront domain guide links the existing runtime registries. Those two views cover different questions: package composition and public interfaces. Neither is a claim that every listed path executes in production.\n\n'
   + '## Record progress and keep the map current\n\n'
   + `1. Edit the relevant record in ${link(index, `${outputRoot}/catalog.json`, 'catalog.json')}: purpose, scope, evidence, progress and next review. Update reviewedOn for a full inventory review; use explicit dates in progress for individual changes. Record completed checks and remaining work with evidence, without completion percentages.\n`

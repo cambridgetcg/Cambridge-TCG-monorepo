@@ -35,14 +35,6 @@
       "evidence": ["apps/rewards/package.json", "apps/rewards/prisma/schema.prisma", "apps/rewards/prisma/migrations/20261105000000_init/migration.sql", "apps/rewards/scripts/test-db.sh", "apps/rewards/app/lib/money.ts", "apps/rewards/app/lib/order-facts.ts", "apps/rewards/app/shopify/session-storage.server.ts", "apps/rewards/app/shopify/store-credit-rail.server.ts", "apps/rewards/app/shopify/order-source.server.ts", "apps/rewards/app/shopify/graphql.ts", "apps/rewards/app/routes", "apps/rewards/extensions/rewards-widget", "apps/rewards/test/postgres", "apps/rewards/test/unit", "apps/rewards/vercel.json", "apps/rewards/scripts/vercel-ignore-build.sh", "apps/rewards/docs/staging-run.md", "apps/rewards/docs/switch.md"]
     },
     {
-      "path": "apps/rewardspro-api", "group": "apps", "label": "RewardsPro API foundation",
-      "purpose": "Receive verified Shopify commerce events, persist an idempotent inbox and project supported orders through a worker.",
-      "scope": "Backend foundation; does not claim legacy RewardsPro feature, data or business-rule parity, and does not mutate a financial ledger.",
-      "progress": "Fastify routes, PostgreSQL repositories, migrations, webhook normalization and worker code are present. The README specifies event retention, immutable metadata and optional SQS delivery. Dormant since 2026-11-03: never deployed, kept for the engine design; its unused AWS deploy job was removed from CI.",
-      "next": "Extend only the supported event contract with matching repository and worker tests; validate migrations against the documented local PostgreSQL fixture before any separately authorized deployment.",
-      "evidence": ["apps/rewardspro-api/README.md", "apps/rewardspro-api/src/routes", "apps/rewardspro-api/src/repositories", "apps/rewardspro-api/src/domain", "apps/rewardspro-api/src/webhooks"]
-    },
-    {
       "path": "apps/admin", "group": "apps", "label": "Admin redirect shell",
       "purpose": "Preserve old admin bookmarks by redirecting to the storefront operator console.",
       "scope": "Retired standalone application, retained as a redirect shell since 2026-05-15.",

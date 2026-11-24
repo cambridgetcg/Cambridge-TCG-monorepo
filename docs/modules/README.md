@@ -4,7 +4,7 @@
 
 [Project entry](../../README.md) · [Documentation](../README.md) · [Agent guide](../agents/README.md)
 
-Find a module's purpose, source, scope, recorded progress and next review. This map covers **28 module roots**: 24 pnpm workspace packages, 2 extensions without package.json, and 2 nested support packages. Source review: **2026-09-28**.
+Find a module's purpose, source, scope, recorded progress and next review. This map covers **27 module roots**: 23 pnpm workspace packages, 2 extensions without package.json, and 2 nested support packages. Source review: **2026-09-28**.
 
 **Start with the website:** [Storefront domains](storefront/README.md) groups 75 library directories and 77 route families by purpose.
 
@@ -18,7 +18,6 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 | [Wholesale records and research](apps/wholesale.md) | Price and stock research plus the lifecycle of existing wholesale orders. |
 | [RewardsPro loyalty platform](apps/rewardspro.md) | Loyalty tiers, credit, points and reward records, with Shopify integration and merchant-facing administration. |
 | [RewardsPro rebuild](apps/rewards.md) | The new RewardsPro: one embedded Shopify app where a paid order earns cashback as Shopify store credit, tiers raise the rate, a widget shows tier and credit, and refunds take the cashback back. |
-| [RewardsPro API foundation](apps/rewardspro-api.md) | Receive verified Shopify commerce events, persist an idempotent inbox and project supported orders through a worker. |
 | [Admin redirect shell](apps/admin.md) | Preserve old admin bookmarks by redirecting to the storefront operator console. |
 
 ## Shared packages
@@ -60,7 +59,7 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 
 ## How the pieces connect
 
-The storefront is the main visitor and operator application. Wholesale retains its research and existing-order responsibilities. RewardsPro owns its current loyalty platform and extensions; RewardsPro API is a separate backend foundation. Shared packages hold reusable contracts and domain logic. Nested tools support their owning app.
+The storefront is the main visitor and operator application. Wholesale retains its research and existing-order responsibilities. RewardsPro owns its current loyalty platform and extensions. Shared packages hold reusable contracts and domain logic. Nested tools support their owning app.
 
 Each module card derives declared dependency and consumer links from package.json. The storefront domain guide links the existing runtime registries. Those two views cover different questions: package composition and public interfaces. Neither is a claim that every listed path executes in production.
 

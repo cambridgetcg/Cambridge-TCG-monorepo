@@ -662,12 +662,11 @@ instructions, so future rotation breakage is self-documenting.
 
 ## Required CI/secrets
 
-The three GitHub Actions workflows under `.github/workflows/`:
+The two GitHub Actions workflows under `.github/workflows/`:
 
 | Workflow | When | What it does | Required secrets |
 |---|---|---|---|
 | `ci.yml` | Every push to `main` and every PR | Install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes gates; shared changes rebuild the three apps. No admin job is currently defined. | none — uses `GITHUB_TOKEN` only |
-| `rewardspro-v2.yml` | Every PR; relevant pushes to `main` | Validates RewardsPro API typecheck/build, migrations, database-role boundaries, tests, and image | none |
 | `health.yml` | Hourly cron + `workflow_dispatch` | Calls `.github/scripts/deploy-health.py` to compare deploy state, age, SHA-drift, and HTTP-probe every domain. Opens / updates / closes a `deploy-health` labelled issue on regression. | `VERCEL_TOKEN` |
 
 To set `VERCEL_TOKEN`:

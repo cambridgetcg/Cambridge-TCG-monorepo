@@ -103,7 +103,7 @@ pnpm verify:fast   # typecheck only — for quick sanity checks
 
 - The workspace typecheck set, excluding `@cambridge-tcg/admin` and `rewardspro`
 - The registered project audit chain (`pnpm run audit`) and strict CardRush coverage
-- The named Answering Rhymes, Opportunity Signal, PRISM Signals Core, Product Flow, Product Flow Runtime, and RewardsPro API tests
+- The named Answering Rhymes, Opportunity Signal, PRISM Signals Core, Product Flow, and Product Flow Runtime tests
 - Storefront Vitest, including migrated admin tests; there is no separate `pnpm test:admin` script
 
 The audit chain can connect to databases. Inspect the scripts and use an explicitly safe fixture environment; do not inherit production credentials. If that setup is unavailable, report `verify` as blocked rather than substituting a smaller check and calling it complete.
@@ -188,12 +188,11 @@ The PR template at [`.github/pull_request_template.md`](../.github/pull_request_
 
 ## 5. CI gates
 
-Three workflows in [`.github/workflows/`](../.github/workflows/):
+Two workflows in [`.github/workflows/`](../.github/workflows/):
 
 | Workflow | When | Does | Blocks merge? |
 |---|---|---|---|
 | `ci.yml` | every push + PR | install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes typecheck-test-build jobs; `ci-status` is the final gate. There is currently no admin job. | yes (red X is the merge gate — branch protection isn't enabled, see runbook §Branch protection) |
-| `rewardspro-v2.yml` | every PR; relevant `main` pushes | Validates the RewardsPro API, migrations, runtime database roles, tests, and image | yes when triggered |
 | `health.yml` | hourly + manual; changes to the workflow itself | Probes deploys + domains, opens/updates/closes one `deploy-health` issue | n/a (post-deploy) |
 
 **CI builds use mock env vars** (`postgres://x:x@localhost:5432/x`, `ci-fake-secret-not-used`). Next.js requires the env vars to *exist* at build time but doesn't run DB pages. Do not add real secrets to CI.
