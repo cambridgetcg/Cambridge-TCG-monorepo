@@ -6,7 +6,6 @@ import { runPayoutSweep } from "@/lib/payouts/sweep";
 import { runAlertSweep } from "@/lib/market/watches";
 import { drainEmailQueue } from "@/lib/email/queue";
 import { runStreakAtRiskSweep } from "@/lib/email/streak-sweep";
-import { sendAdminWeeklyDigest } from "@/lib/email/admin-digest";
 import { runSellerRestockDigest, runBuyerWatchlistDigest } from "@/lib/market/digests";
 import { runRetailObservationTick } from "@/lib/portfolio/price-history";
 import { runPriceAlertSweep } from "@/lib/portfolio/alerts";
@@ -36,6 +35,7 @@ import { runVacationSweep } from "@/lib/market/vacation";
 import { runValuationSnapshotSweep } from "@/lib/portfolio/valuation";
 import { releaseExpiredReservations } from "@/lib/stock/reservations";
 import { runDoorRetentionSweep } from "@/lib/feedback/retention";
+import { recordMaintenance } from "@/lib/observability/job-outcomes";
 import { runObservabilityRetentionSweep } from "@/lib/observability/retention";
 import { runSignedActSweep } from "@/lib/agents/signed-act-sweep";
 import { requireCronAuth } from "@/lib/cron-auth";
@@ -74,10 +74,6 @@ export async function GET(request: Request) {
   const now = new Date();
   const runStreakSweep =
     now.getUTCHours() === 20 && now.getUTCMinutes() < 2;
-  // Admin digest — Monday 09:00 UTC, one 2-minute window. Doesn't use the
-  // email_queue; sends synchronously via SES.
-  const runDigest =
-    now.getUTCDay() === 1 && now.getUTCHours() === 9 && now.getUTCMinutes() < 2;
   // Price history tick — once per UTC day (03:00), avoids hitting the
   // wholesale API more than needed. runRetailObservationTick is internally
   // idempotent-per-day so over-triggering is harmless.
@@ -95,7 +91,6 @@ export async function GET(request: Request) {
     // Weekly digests — self-gate to Monday 09:00 UTC + atomic digest_runs claim.
     runSellerRestockDigest(),
     runBuyerWatchlistDigest(),
-    runDigest ? sendAdminWeeklyDigest() : Promise.resolve(null),
     // Liquidity mining ran here until 2026-07-06 — paused with the
     // collectors-first decision (rewards paid store credit, which no
     // longer has a spending door). See lib/market/liquidity.ts.
@@ -211,7 +206,7 @@ export async function GET(request: Request) {
     runSignedActSweep(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, verificationStorageSweep, doorRetentionSweep, observabilityRetentionSweep, signedActSweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, verificationStorageSweep, doorRetentionSweep, observabilityRetentionSweep, signedActSweep] = results;
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {
@@ -256,12 +251,6 @@ export async function GET(request: Request) {
       watchlistDigest.status === "fulfilled"
         ? (watchlistDigest.value.skipped ? { status: "skipped" } : { status: "fulfilled", sent: watchlistDigest.value.sent })
         : { status: "rejected" },
-    adminDigest:
-      adminDigest.status === "fulfilled" && adminDigest.value != null
-        ? { status: "fulfilled", sent: adminDigest.value.ok, error: adminDigest.value.ok ? null : adminDigest.value.error }
-        : adminDigest.status === "rejected"
-          ? { status: "rejected" }
-          : { status: "skipped" },
     priceTick:
       priceTick.status === "fulfilled" && priceTick.value != null
         ? { status: "fulfilled", ...priceTick.value }
@@ -410,6 +399,7 @@ export async function GET(request: Request) {
             ? { status: "fulfilled", ...signedActSweep.value }
             : { status: "skipped" })
         : { status: "rejected" },
+    stockReservations: stockReservationSweep.status,
     durationMs: Date.now() - start,
   };
 
@@ -607,7 +597,11 @@ export async function GET(request: Request) {
       `support-required ${verificationStorageSweep.value.supportRequired}, failures ${verificationStorageSweep.value.failures}`,
     );
   }
-  // Touch unused destructure to satisfy noUnusedLocals if enabled.
 
-  return NextResponse.json(status);
+  // A rejected sweep is a failed run: say so, and leave a record of it.
+  const rejected = Object.entries(status)
+    .filter(([, value]) => value === "rejected" || (typeof value === "object" && value.status === "rejected"))
+    .map(([name]) => name);
+  await recordMaintenance(now, rejected);
+  return NextResponse.json(status, { status: rejected.length ? 500 : 200 });
 }

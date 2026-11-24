@@ -32,7 +32,10 @@ import { pruneObservability } from "./retention";
 /** sweep/held-keys is the maintenance cron's signed-act sweep
  *  (lib/agents/signed-act-sweep.ts), recorded only while signed acts are
  *  open; the monitor reads its latest row as the nonce table's last purge. */
-export const OPS_JOBS = ["collect/cardmarket", "collect/cardrush", "collect/tcgplayer", "derive/market", "sweep/held-keys"] as const;
+export const OPS_JOBS = [
+  "collect/cardmarket", "collect/cardrush", "collect/tcgplayer", "derive/market", "sweep/held-keys",
+  "reconcile/stripe", "retention/prism-beta", "sweep/maintenance", "check/daily",
+] as const;
 export type OpsJob = (typeof OPS_JOBS)[number];
 
 type OpsScalar = number | boolean | string | null;
@@ -187,6 +190,9 @@ export function derivationJobOutcome(result: MarketDerivationResult | null): Job
   };
 }
 
+/** A job that reports only whether it did its work. null: it threw. */
+export const workedOutcome = (worked: boolean | null): JobOutcome => ({ outcome: worked ? "ran" : "unavailable:failed", counts: {} });
+
 /** The storefront database, imported on first use: it needs DATABASE_URL,
  * which a route's own tests and a disabled run never reach for. */
 async function storefrontQuery(): Promise<RunQuery> {
@@ -257,4 +263,20 @@ export async function recordedRun<T, R extends Response>(
     }
     await recordJobOutcome({ job, startedAt, httpStatus, ...outcome }, runQuery);
   }
+}
+
+let failureHour = "";
+/** sweep/maintenance. The minute cron leaves one row an hour, at minute 23,
+ * and one for the first run of an hour (per instance) that had a sweep
+ * rejected. It names the rejected sweeps and nothing else. */
+export async function recordMaintenance(startedAt: Date, rejected: readonly string[], runQuery?: RunQuery): Promise<void> {
+  const hour = startedAt.toISOString().slice(0, 13);
+  const firstFailure = rejected.length > 0 && failureHour !== hour;
+  if (!firstFailure && startedAt.getUTCMinutes() !== 23) return;
+  if (firstFailure) failureHour = hour;
+  await recordJobOutcome({
+    job: "sweep/maintenance", startedAt, httpStatus: rejected.length ? 500 : 200,
+    outcome: rejected.length ? "unavailable:sweep-rejected" : "ran",
+    counts: { rejected: Object.fromEntries(rejected.map(name => [name, true])) },
+  }, runQuery);
 }
