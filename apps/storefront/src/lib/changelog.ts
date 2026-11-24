@@ -105,7 +105,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     summary:
       "Official English card images and rules text show again. From 29 September a date check refused every stored row, and publication_boundary then gave a rights reason that was not true.",
     detail:
-      "publication_boundary.image and .text now say why a field is null: no source rights recorded, Japanese images switched off, none available, or could_not_be_read, which is a fault and never a rights decision. Japanese official images are off unless OFFICIAL_IMAGES_JA=show, so image_same_language is null. density=saturated answers again for sets with a release date. Field shapes are unchanged.",
+      "publication_boundary.image and .text now say why a field is null: no source rights recorded, Japanese images switched off, none available, or could_not_be_read, which is a fault and never a rights decision. Japanese official images are off unless OFFICIAL_IMAGES_JA=show, so image_same_language is null. On /api/at/{date}/card/{sku}, publication_boundary.image is not_carried_for_past_dates, since that document never reads a picture. density=saturated answers again for sets with a release date. Field shapes are unchanged.",
     related_urls: ["/standards/card-data", "/legal/card-images"],
   },
   {

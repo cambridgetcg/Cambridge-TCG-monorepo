@@ -5,7 +5,7 @@ import { ImageCredits } from "./ImageCredits";
 describe("ImageCredits", () => {
   it("prints each credit line once, with the label the pictures are shown under", () => {
     const markup = renderToStaticMarkup(<ImageCredits credits={["© One", null, "© Two", "© One", undefined, " "]} />);
-    expect(markup).toContain("English reference images · printing not verified · © One · © Two");
+    expect(markup).toContain("English reference images · printing not verified · © One · © Two</p>");
   });
 
   it("prints nothing when no picture on screen is an official one", () => {

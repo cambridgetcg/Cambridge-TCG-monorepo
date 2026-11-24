@@ -25,7 +25,7 @@ planned migration.
 |---|---|---|
 | `ctcg-card-images` | **Official publisher card images**, self-hosted + attributed (rights-cleared). Served publicly with the copyright line. Source: publisher official card databases (Bandai OP/DBF). | live |
 | `cambridgetcg-auction-images` | User-uploaded auction + verification photos (presigned uploads). | live |
-| `jp-op-photos`, `jp-db-photos`, `jp-bs-photos`, `jp-pk-photos`, `jp-pkmn-photos`, `jp-vg-photos` | **Cardrush hi-res card scans.** Superseded by official images where one exists, but since 2026-07-16 (`3934a13e`) still the market pages' fallback picture, labelled "CardRush listing photo". Not decommission candidates while that stands. Note `jp-pk-photos` + `jp-pkmn-photos` are a Pokémon duplicate. | fallback |
+| `jp-op-photos`, `jp-db-photos`, `jp-bs-photos`, `jp-pk-photos`, `jp-pkmn-photos`, `jp-vg-photos` | **Cardrush hi-res card scans.** Superseded by official images where one exists. Three of them (`jp-op-photos`, `jp-pk-photos`, `jp-db-photos`; `CATALOG_HOSTS` in `apps/storefront/src/lib/cards/image-publication.ts`) are since 2026-07-16 (`3934a13e`) still the market pages' fallback picture, labelled "CardRush listing photo", so do not decommission those three. The other three were not checked. Note `jp-pk-photos` + `jp-pkmn-photos` are a Pokémon duplicate. | fallback |
 
 ## Principle
 

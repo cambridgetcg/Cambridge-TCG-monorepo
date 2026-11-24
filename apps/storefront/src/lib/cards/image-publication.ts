@@ -121,6 +121,8 @@ export function officialMediaProvenance(requestedSku: string, row: StoredProvena
 
 function projectImage<T extends OfficialImageReference>(reference: T | null, row: StoredOfficialImage, cdn: string, lane: OfficialImageLane) {
   if (row.kind !== "official_sample" || row.takedown_status !== "clear") return null;
+  // The Japanese lane has its own switch, so no English row may name one of its objects.
+  if (lane.lang === "en" && /-ja(?=[.-]|$)/i.test(String(row.s3_key))) return null;
   const provenance = provenanceForReference(reference, row, lane);
   const url = officialImageUrl(row.s3_key, cdn);
   return provenance && url ? { url, ...provenance, kind: "official_sample" as const } : null;
