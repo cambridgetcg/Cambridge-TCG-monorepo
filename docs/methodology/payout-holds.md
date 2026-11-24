@@ -6,7 +6,8 @@ When you sell something on Cambridge TCG, the buyer's payment is held briefly be
 > - Trust tier table: `apps/storefront/src/lib/escrow/types.ts:101-106` (`TRUST_TIERS`).
 > - Trade hold-days column: `market_trades.payout_hold_days`, stamped at trade-creation time from the seller's then-current tier.
 > - Auction hold: flat 3 days, applied by the maintenance cron sweep at `apps/storefront/src/app/api/cron/maintenance` (auction payout sweep).
-> - The "available_at" calculation rendered on `admin.cambridgetcg.com/money/payouts` is `seller_paid_at + payout_hold_days` (trades) or `paid_at + 3 days` (auctions).
+> - The "available_at" calculation rendered on `admin.cambridgetcg.com/money/payouts` is `completed_at + payout_hold_days` (trades) or `paid_at + 3 days` (auctions).
+> - Which sales are owed a payout at all: `apps/storefront/src/lib/payouts/owed.ts`.
 >
 > Last verified against code: **2026-05-09**.
 
@@ -16,7 +17,7 @@ When you sell something on Cambridge TCG, the buyer's payment is held briefly be
 
 A hold is the gap between two events:
 
-1. The buyer pays. (For trades: when the escrow flow reaches `completed`. For auctions: when `auction.status = 'paid'`.)
+1. The buyer pays. (For trades: when the escrow flow reaches `completed`, and only if the buyer's payment is recorded in `buyer_paid_at`. For auctions: when the winner's payment is recorded, `auction.status = 'paid'` with a `paid_at`.)
 2. The seller's payout becomes eligible to send.
 
 During the hold, the seller's payout is *recorded* on the platform (you can see it on `/account/payouts` as "scheduled"), but is not yet sent. After the hold elapses, the operator (or a cron sweep) can release it via Stripe Connect or record a manual payout.
@@ -100,6 +101,7 @@ There is no "reduce my hold" appeal for a single trade — the hold is a propert
 
 | Date | Change | Code path |
 |---|---|---|
+| 2026-11-24 | A completed trade is owed a payout only if the buyer's payment is recorded (`buyer_paid_at`), and an auction only if the winner's is (`paid_at`). One rule now decides this for the admin list, the seller's page, the trader dashboard, the payout sweep, and the check made before any payout. Before, a trade was never checked for it, and an auction only in the admin list and the sweep. On this date there were no trades and no auction was affected, so no payout changed. Also corrected here: a trade's available date counts from `completed_at`, not `seller_paid_at`. | `apps/storefront/src/lib/payouts/owed.ts` |
 | 2026-05-09 | Methodology page first published. Reflects formula as of the kingdom-023 admin migration. | `apps/storefront/src/lib/escrow/types.ts:101-106`; `apps/storefront/src/app/api/cron/maintenance` (auction payout sweep) |
 
 When the formula changes, append here. The same PR must update both the code and this page — see `docs/principles/transparency.md` rule 3.

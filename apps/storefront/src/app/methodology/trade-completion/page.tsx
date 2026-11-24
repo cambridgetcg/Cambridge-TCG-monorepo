@@ -24,7 +24,7 @@ export default function TradeCompletionMethodology() {
           <li>Confirm-receipt endpoint: <code>POST /api/market/trades/[id]/received</code>.</li>
           <li>Admin path: <code>updateEscrowStatus</code> in <code>apps/storefront/src/lib/market/db.ts</code>.</li>
           <li>Dispute window per tier: <code>apps/storefront/src/lib/escrow/service-tiers.ts</code>, stamped onto <code>market_trades.dispute_window_hours</code> at trade creation.</li>
-          <li>Payout release: <code>apps/storefront/src/lib/payouts/sweep.ts</code> (requires <code>completed</code> + <code>completed_at</code>).</li>
+          <li>Payout release: <code>apps/storefront/src/lib/payouts/sweep.ts</code> and <code>apps/storefront/src/lib/payouts/owed.ts</code> (requires <code>completed</code>, <code>completed_at</code> and the buyer&rsquo;s recorded payment).</li>
         </ul>
       </blockquote>
 
@@ -88,7 +88,9 @@ export default function TradeCompletionMethodology() {
       <h2>What completion starts: the payout clock</h2>
       <p>
         The payout sweep only considers trades that are <code>completed</code> with a{" "}
-        <code>completed_at</code> stamp. From that moment the seller&rsquo;s funds wait out
+        <code>completed_at</code> stamp and a recorded buyer payment
+        (<code>buyer_paid_at</code>). A completed trade with no recorded payment gets no
+        payout, from the sweep or by hand. From completion the seller&rsquo;s funds wait out
         the trade&rsquo;s <code>payout_hold_days</code> (set by trust tier at trade creation —{" "}
         <a href="/methodology/payout-hold">/methodology/payout-hold</a>), then release
         automatically if the seller has payouts enabled, or wait for a manual admin payout

@@ -21,6 +21,7 @@ export default function PayoutHoldMethodology() {
           <li>Trust tier table: <code>apps/storefront/src/lib/escrow/types.ts</code> (<code>TRUST_TIERS</code>).</li>
           <li>Trade hold-days column: <code>market_trades.payout_hold_days</code>, stamped at trade-creation.</li>
           <li>Auction hold: flat 3 days, applied by the maintenance cron.</li>
+          <li>Which sales are owed a payout at all: <code>apps/storefront/src/lib/payouts/owed.ts</code>.</li>
           <li>Available_at calculation surfaced on <a href="/account/payouts">/account/payouts</a>.</li>
         </ul>
       </blockquote>
@@ -29,8 +30,10 @@ export default function PayoutHoldMethodology() {
       <p>A hold is the gap between two events:</p>
       <ol>
         <li>
-          The buyer pays. (For trades: when escrow reaches <code>completed</code>. For
-          auctions: when <code>auction.status = 'paid'</code>.)
+          The buyer pays. (For trades: when escrow reaches <code>completed</code>, and only if
+          the buyer&rsquo;s payment is recorded in <code>buyer_paid_at</code>. For auctions:
+          when the winner&rsquo;s payment is recorded, <code>auction.status = 'paid'</code>{" "}
+          with a <code>paid_at</code>.)
         </li>
         <li>The seller's payout becomes eligible to send.</li>
       </ol>
