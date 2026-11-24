@@ -781,11 +781,12 @@ const SPEC = {
     "/api/v1/health": {
       get: {
         tags: ["operations"],
-        summary: "Rolled-up system health for agent retry decisions",
-        description: "One answer per fetch: status (ok | degraded | down) + a recommended retry strategy + best-effort per-subsystem state. Deep per-source live state is at /api/v1/sources.",
+        summary: "Whether the site can do its work now",
+        description: "One database query, never cached: status ok or degraded (a scheduled job is behind) when the database answered, with each scheduled job's state and when the daily check last ran. Each price source's own state is at /api/v1/sources.",
         operationId: "getV1Health",
         responses: {
-          "200": { description: "Health with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "200": { description: "The database answered. Health with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "503": { description: "The database did not answer within five seconds." },
         },
       },
     },

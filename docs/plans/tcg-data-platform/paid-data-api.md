@@ -787,7 +787,8 @@ would have written:
 
 The run row shows the hour (`created_at`) and the ceiling
 (`input_batch_ceiling` 4520). Nothing else marks a run as late or manual, and
-nothing alerts when a scheduled run is missed: the monitor shows such a day
+nothing alerted when a scheduled run was missed (since the daily check it is
+mailed the same morning, `docs/operations/monitoring.md`): the monitor shows such a day
 as "unknown", the same as a day whose run is not yet due.
 
 **Limits of the series found on 2026-11-10.** Each one still open needs a
