@@ -389,7 +389,7 @@ async function main() {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     await login(page);
-    console.log(`  Logged in as ${REMAMBO_EMAIL}`);
+    console.log(`  Logged in as ${process.env.REMAMBO_EMAIL}`);
 
     // Step 3: Submit each item
     console.log("\n[3/3] Submitting to Remambo cart...");

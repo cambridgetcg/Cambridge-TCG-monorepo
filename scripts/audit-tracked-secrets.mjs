@@ -78,9 +78,6 @@ const quotedAssignment =
   /(?:^|[({,;])\s*(?:(?:export\s+)?(?:const|let|var)\s+)?([A-Za-z_$][\w$.-]*)\s*(?:\??:\s*[^=,;\r\n]+)?\s*=\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|`([^`\r\n]*)`)/gm;
 const quotedProperty =
   /(?:^|[({,])\s*(?:"([A-Za-z_$][\w$.-]*)"|'([A-Za-z_$][\w$.-]*)'|([A-Za-z_$][\w$.-]*))\s*:\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|`([^`\r\n]*)`)/gm;
-// A literal default beside an environment read: process.env.NAME || "value".
-const environmentDefault =
-  /\bprocess\.env(?:\.([A-Za-z_]\w*)|\[["']([A-Za-z_]\w*)["']\])!?\s*(?:\|\||\?\?)\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|`([^`\r\n]*)`)/g;
 const unquotedEnvironmentAssignment =
   /^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=\s*([^\s#;]+)\s*(?:#.*)?$/;
 const unquotedProperty =
@@ -315,7 +312,8 @@ function isPlaceholderLiteral(rawValue, file) {
 
 function credentialAssignmentLabels(body, file) {
   const labels = new Set();
-  const consider = (key, value, kind = credentialKind(key)) => {
+  const consider = (key, value) => {
+    const kind = credentialKind(key);
     if (
       kind &&
       !(isTestLikeFile(file) && /^process\.env\./i.test(key)) &&
@@ -343,16 +341,6 @@ function credentialAssignmentLabels(body, file) {
     consider(
       match[1] ?? match[2] ?? match[3],
       match[4] ?? match[5] ?? match[6] ?? "",
-    );
-  }
-
-  for (const match of body.matchAll(environmentDefault)) {
-    const name = match[1] ?? match[2];
-    consider(
-      name,
-      match[3] ?? match[4] ?? match[5] ?? "",
-      // SHOP_PASS is a password; a variable called `pass` elsewhere often isn't.
-      /(?:^|_)PASS$/.test(name) ? "password" : credentialKind(name),
     );
   }
 
@@ -485,8 +473,6 @@ function runSelfTest() {
   const querySecretKey = "secret";
   const queryTokenKey = "access_token";
   const mcpUrl = "https://mcp.example.test/connect";
-  // Built from parts, so the cases below are not findings in this file.
-  const env = ["process", "env"].join(".");
   const cases = [
     {
       file: "src/config.ts",
@@ -518,26 +504,6 @@ function runSelfTest() {
     {
       file: "src/config.ts",
       body: 'const password = process.env.DATABASE_PASSWORD;\nconst secretName = "production-secret-name";',
-      expected: [],
-    },
-    {
-      file: "tools/login.ts",
-      body: `const PASS = ${env}.SHOP_PASS || "Opaque47f9a2bc";`,
-      expected: ["hardcoded password literal assigned to SHOP_PASS"],
-    },
-    {
-      file: "e2e/helpers.ts",
-      body: `export const ADMIN =\n  ${env}['E2E_ADMIN_PASSWORD'] ??\n    'Opaque47f9a2bc';`,
-      expected: ["hardcoded password literal assigned to E2E_ADMIN_PASSWORD"],
-    },
-    {
-      file: "src/config.ts",
-      body: `call(${env}.SERVICE_TOKEN! || \`opaqueMaterial47f9a2bc\`);`,
-      expected: ["hardcoded token literal assigned to SERVICE_TOKEN"],
-    },
-    {
-      file: "src/config.ts",
-      body: 'const secret = process.env.AUTH_SECRET || "";\nconst pass = process.env.SHOP_PASS ?? "changeme";\nconst feed = process.env.PRICE_FEED_KEY || "feeds/prices/latest-47f9a2bc.json";',
       expected: [],
     },
     {

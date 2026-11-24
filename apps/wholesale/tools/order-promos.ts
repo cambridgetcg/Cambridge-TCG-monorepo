@@ -392,7 +392,7 @@ async function main() {
     console.log("\n[2/3] Logging in to Remambo...");
     browser = await chromium.launch({ headless: false });
     let page = await newPage(browser);
-    console.log(`  Logged in as ${REMAMBO_EMAIL}`);
+    console.log(`  Logged in as ${process.env.REMAMBO_EMAIL}`);
 
     // Step 3: Submit
     console.log(`\n[3/3] Submitting ${cards.length} cards to Remambo cart...`);
