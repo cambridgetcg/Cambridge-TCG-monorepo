@@ -9,26 +9,11 @@ This is the runbook the switch follows (Ruling 87). The plan's Part B (B1 to B5)
 
 Ai never types a password or a sign-in code, and never prints a secret value. This file holds no secret values, only placeholders.
 
+The switch is done, and most of this file is its record. For an ordinary deploy read [DEPLOY.md](../DEPLOY.md); for the database, [DATABASE.md](DATABASE.md). Still in force below: [A pull request with a migration](#a-pull-request-with-a-migration); what is left of [B5](#b5-retire-phase-5-at-least-a-week-after-b4); B4's paragraph on data requests; the proxy path rule (WIDGET-6); and the Owner rows of the [spec 9.2 checklist](#spec-92-checklist).
+
 ## Connection strings
 
-The database is the Supabase project `rewardspro-prod` (London, eu-west-2), the one in `apps/rewardspro/docs/DATABASE.md`. The tables live in schema `rewards`, owned by role `rewards_app`.
-
-| Name | Used by | Points at | Where it lives |
-|---|---|---|---|
-| `REWARDS_DIRECT_URL` | migrations (`migrate:deploy`, `migrate:drift`) | Supavisor **session** pooler, port 5432 | Yu's own shell, for B2 step 1 only. Never in Vercel. |
-| `REWARDS_DATABASE_URL` | the app at runtime | Supavisor **transaction** pooler, port 6543 | Vercel, Production only, typed sensitive. |
-
-```
-REWARDS_DIRECT_URL=postgresql://rewards_app.<ref>:<pw>@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?schema=rewards
-REWARDS_DATABASE_URL=postgresql://rewards_app.<ref>:<pw>@aws-0-eu-west-2.pooler.supabase.com:6543/postgres?schema=rewards&connection_limit=3
-```
-
-- `<ref>` is the Supabase project ref of `rewardspro-prod`.
-- `<pw>` is the `rewards_app` password Yu chooses in B2 step 1, URL-encoded (a hex password from `openssl rand -hex 24` needs no encoding). Only Yu holds it. It is never committed or written to a file. (It is written `<pw>`, not `<password>`, because this device's commit hook reads any longer placeholder in a URL as a real password.)
-- `schema=rewards` is required on both. The migrations create their tables in the schema the URL names. The dashboard's ready-made `postgres` connection string has no `?schema=`, so it would put every table in `public`, which Supabase's Data API serves to the project's anon key. `scripts/prisma-tls.ts` refuses a remote URL unless its schema is `rewards` and its user is `rewards_app` or `rewards_app.<ref>`, and prints the session-pooler shape expected (READINESS-1).
-- `connection_limit=3` is the app's pool size per instance (Fluid compute). The transaction pooler shares the database's connections between instances.
-- `pgbouncer=true` does not go on `REWARDS_DIRECT_URL`: Prisma's migration engine needs a session, and `prisma-tls.ts` refuses it.
-- TLS is set in code and verified against the bundled Supabase root CA; `sslmode` is ignored.
+The database is the Supabase project `rewardspro-prod` (London, eu-west-2). [DATABASE.md](DATABASE.md) has the two URLs' shapes, what each part means and where each one lives.
 
 ## Before the sitting
 
@@ -91,6 +76,8 @@ What happened, with evidence, so a later session or reviewer can trust each step
 
 ## B1: the production toml and the old-app guard (a PR, deploys nothing)
 
+Done (the switch record). The old toml and the guard that items 1 and 2 name left main with the old app's code (B5).
+
 As the plan says, plus two changes:
 
 1. **Ai on Yu's yes:** write `apps/rewards/shopify.app.toml` and its test (`test/unit/config/production-toml.test.ts`) with the identity values from the plan's Global Constraints. The subscriptions are `orders/paid`, `refunds/create` (uri `/webhooks/orders/refunded`), `orders/cancelled`, `app/uninstalled`, `app/scopes_update` and compliance (`/webhooks/compliance`), on `api_version = "2026-10"`. `[auth] redirect_urls` and `[app_proxy]` equal `apps/rewardspro/shopify.app.toml`'s.
@@ -142,7 +129,7 @@ Then Ai sends Yu one message with steps 1 to 6 and the rollback, and waits for h
 
 ### Step 2 (Yu): add the runtime variables in Vercel Production
 
-- `REWARDS_DATABASE_URL`, with the transaction-pooler shape above, Production only, typed sensitive.
+- `REWARDS_DATABASE_URL`, with the transaction-pooler shape in [DATABASE.md](DATABASE.md), Production only, typed sensitive.
 - `REWARDS_SENTRY_CRON_MONITORS=true`, if Yu said yes to Sentry Crons (before the sitting, row 4).
 - `SHOPIFY_API_SECRET`, if it is not yet typed sensitive: delete it and add it again, Production only, typed sensitive (Vercel can't change an existing variable's type). The value is **Rewards Pro's** client secret: the Dev Dashboard's app with client id `026ce3bf…`, Settings, Credentials. The draft app named "rewardspro-production", like the Vercel project, is the staging app; its secret makes every webhook and the admin answer 401.
 
@@ -213,7 +200,7 @@ Expected: one merchant, one connection, the import `running` or `done`, and the 
 
 ### Rollback
 
-This rollback is for phase 2, before B3's release. Since `rewardspromembership-217` was released (2026-11-07), the stores hold the trimmed scopes and 2026-10 webhooks, so going back to the old app would also need a Shopify release of the old config, which the old directory's guard refuses: that is a new plan, not these steps.
+This rollback is for phase 2, before B3's release. Since `rewardspromembership-217` was released (2026-11-07), the stores hold the trimmed scopes and 2026-10 webhooks, so going back to the old app would also need a Shopify release of the old config, which the old directory's guard refuses: that is a new plan, not these steps. And since the old app's code left main (B5), step 2's Root Directory holds no app to build.
 
 1. **Yu:** Vercel Instant Rollback to the last old-app deployment (683e30b9 today).
 2. **Yu:** in the project settings, Root Directory back to `apps/rewardspro`, and the Output Directory (`build`), the Framework, Node and the default region (`iad1`) as they were.
@@ -272,14 +259,32 @@ Add to the gates what staging left open. Each line says who does what; **Ai on Y
 
 ## B5: retire (phase 5, at least a week after B4)
 
-As the plan says, plus:
+As the plan says, except that the folder stays: the plan deletes `apps/rewardspro` whole, and rewardspro.io (`landing/`), the brand kit (`marketing/`) and the old schema's map (`prisma/`) are still needed there.
 
-- B3 step 5 is done, so no `apps/rewards` test reads the old toml. `apps/rewardspro`'s own tests still do, and the `rewardspro` CI job runs them under `CI status`, which main's ruleset requires: delete the old toml only together with that job (below);
-- **Ai on Yu's yes:** remove the root scripts (`dev:`, `build:` and `test:rewardspro`, the `rewardspro-api` scripts) and the `--filter '!rewardspro'` in `typecheck`;
-- **Ai on Yu's yes:** remove the `rewardspro` CI job, its `detect` filter and its `ci-status` needs, and `rewardspro-v2.yml`;
-- **Ai on Yu's yes:** write `apps/rewards`'s own DEPLOY.md and DATABASE.md (the connection strings above) before the old ones are deleted;
-- **Yu:** delete the old app's own env names (`DATABASE_URL` ×2, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_REGION` ×3 each, `GITBOOK_API_KEY`, `GITBOOK_ORG_ID`, `GITBOOK_SITE_ID`, `SENDGRID_API_KEY`) and revoke those keys at their providers;
-- **Yu:** dump, then drop, schema `rewardspro` and its role, within 30 days of the switch. Both are irreversible.
+**The code steps.** On 2026-11-24 the owner gave a go to remove modules and code that are no longer needed ([record](../../../docs/decisions/2026-11-24-pictures-reports-and-removals.md)). The lead agent session of that day read it as covering these steps, and none of the owner's below. The pull request that adds this paragraph does them:
+
+- the old app's code, tests, tools, docs and extension are deleted, its toml among them (since B3 step 5 no `apps/rewards` test reads it);
+- `apps/rewardspro-api` and `rewardspro-v2.yml` are deleted;
+- the root scripts (`dev:`, `build:` and `test:rewardspro`, the `rewardspro-api` scripts) go. `typecheck` leaves out `rewardspro-site`, the small package that stays in the folder with the site's tests;
+- the `rewardspro` CI job keeps its key, its `detect` filter and its place in `ci-status`, and runs only the site's tests;
+- `apps/rewards` has its own [DEPLOY.md](../DEPLOY.md) and [DATABASE.md](DATABASE.md);
+- the module catalog loses the old entries.
+
+**Yu's steps, still to do:**
+
+- delete the old app's own env names (`DATABASE_URL` ×2, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_REGION` ×3 each, `GITBOOK_API_KEY`, `GITBOOK_ORG_ID`, `GITBOOK_SITE_ID`, `SENDGRID_API_KEY`) and revoke those keys at their providers;
+- dump, then drop, schema `rewardspro` and its role, within 30 days of the switch (by 2026-12-06). Both are irreversible. Neither needs the old code;
+- cancel the two frozen paid charges (B4);
+- name a folder for rewardspro.io and the brand kit (RP-17, #177);
+- delete the GitHub environment `rewardspro-v2-production` (empty on 2026-11-24): only the old API's deploy named it.
+
+After the drop, one more pull request removes `prisma/` and the site's sentences about the previous version's records: the privacy page's `#previous-version` section with its contents entry and the mention above it, the end of the subprocessors page's Supabase row, and the site test that pins the privacy paragraph. The site is then deployed by hand.
+
+**Where the old code is.** Git keeps all of it. Read it at `493cd14e` (17 November 2026), the last commit to change either folder when this was written. Until the drop, the privacy page promises a copy or an erasure, by email, of the previous version's records. Nothing serves either now, and no list of tables or delete order is written down: the old code works them out from its Prisma schema when it runs (`shopErasureOrder()`; 91 tables hold a shop's rows). So run it rather than writing SQL: in a checkout of `493cd14e`, `pnpm install --frozen-lockfile`, `pnpm --filter rewardspro exec prisma generate`, then a short `tsx` script in `apps/rewardspro` that calls the function, with the old `DATABASE_URL` in the owner's shell (its shape is in that tree's `docs/DATABASE.md`). Its Postgres tests of these (`compliance.integration.test.ts`) passed from that tree on 2026-11-24. Three files under its `apps/rewardspro/app/`:
+
+- `services/shop-data-cleanup.server.ts`: `collectCustomerData` reads one customer's rows; `eraseCustomerData` and `cleanupShopData` erase a customer's or a shop's, each in one transaction;
+- `services/customer-data-request.server.ts`: what a customer's copy held;
+- `routes/webhooks.compliance.tsx`: which Shopify request called which.
 
 ## A pull request with a migration
 

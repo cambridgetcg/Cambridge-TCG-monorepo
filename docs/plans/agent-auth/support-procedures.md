@@ -991,7 +991,7 @@ the data holder downstream. The nearest Cambridge TCG cases:
   does not delete copies the agent already holds.
 - **Cambridge TCG as someone else's developer.** RewardsPro handles
   Shopify's three compliance topics
-  ([`webhooks.compliance.tsx`](../../../apps/rewardspro/app/routes/webhooks.compliance.tsx);
+  ([`webhooks.compliance.tsx`](../../../apps/rewards/app/routes/webhooks.compliance.tsx);
   separate Prisma database). Whether the storefront stores eBay or Amazon
   user data through their APIs, which would bring their deletion duties,
   was not checked.

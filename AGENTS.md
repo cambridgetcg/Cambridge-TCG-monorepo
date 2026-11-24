@@ -77,8 +77,7 @@ These aren't principles, just facts that will bite if you don't know them.
   `apps/storefront/node_modules/next/dist/docs/` before framework work.
 - In the storefront and wholesale apps, database access goes through
   `@cambridge-tcg/db` and pricing maths through `@cambridge-tcg/pricing`. A
-  second copy drifts. RewardsPro (Prisma) and RewardsPro API (its own `pg`
-  pool) keep their own databases.
+  second copy drifts. RewardsPro (Prisma) keeps its own database.
 - Useful checks: `pnpm audit:tracked-secrets`,
   `pnpm --filter cambridgetcg-storefront typecheck`, and
   `pnpm --filter cambridgetcg-storefront exec vitest run <file>`.

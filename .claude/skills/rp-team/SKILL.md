@@ -63,7 +63,8 @@ public (his wish of 13 Nov 2026, because this repository is public). Standing ye
 - **Public repo:** no personal data, prospect data, secrets, shop names or shop domains in git, issues or logs.
   Write "the owner". Private notes and ad data stay outside every repo, on the Air.
 - **Main deploys.** Never push to main or force-push. Migrations go before the merge; Shopify config ships only via
-  `shopify app deploy`. B5 retires `apps/rewardspro/` on his yes, not before 14 Nov; RP-17 (#177) moves the kit out first.
+  `shopify app deploy`. B5's code steps are done: `apps/rewardspro/` holds only the site, the kit and the old schema.
+  RP-17 (#177) moves the site and the kit; the rest of B5 is the owner's (`apps/rewards/docs/switch.md`).
 - **Shopify's contract and the law:** no false claims ("free" only beside "you fund the cashback"); no fake, paid,
   gated or friends' reviews, nothing offered for one; no Shopify marks in our names, URLs, ad keywords or ad text,
   `shopify` as a negative (pages may say it works with Shopify); no cold email to a shop that hasn't asked for it
