@@ -120,6 +120,18 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
       "Cardmarket was the only source open to either, so with a valid key or session every request that names Cardmarket or no source now gets status unavailable, complete false, items [], a reason in plain words and a paused object (source, uses, since). It is not an empty result: a client that mirrors the feed should not read it as removals, and should stop polling (Retry-After is a day). A request without a key or session is still refused first (401), source=scryfall still reads as empty, and cardrush and tcgplayer are still refused (400). On /api/v1/sources, member_pricing.reviewed_uses lists the uses open now (Cardmarket: member-display) and a new field, member_pricing.paused, lists any stopped ones with the date and reason. Display on /prices, collection and derived data are unchanged. This is an AI agent's careful reading, for the owner to confirm or undo.",
     related_urls: ["/methodology/member-pricing", "/api/v1/sources"],
   },
+  {
+    id: "health-answers-from-the-database",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "/api/v1/health",
+    summary:
+      "/api/v1/health was built from constants and always said ok. It now makes one database query: 200 with status ok or degraded when the database answered, 503 when it did not.",
+    detail:
+      "New: database (answered, and the database's own clock), jobs (each scheduled job: ok, failing, late or off, and when it last did its work) and daily_check (when the site's own daily check last ran, and whether it could: ran or unavailable). Gone: subsystems, retry_strategies_glossary, contract, related_surfaces and the retry-immediately, wait-60s and report-via-feedback recommendations. status, recommendation and recommendation_rationale stay; the 503 carries recommendation wait-300s in error.details. The answer is never cached.",
+    related_urls: ["/api/v1/health", "/api/v1/sources"],
+  },
   // ── 2026-11-16 ─────────────────────────────────────────────────────────
   {
     id: "cardrush-one-piece-reread-basket",
