@@ -64,6 +64,12 @@ docs/sisters/
 .mcp.json
 .mcp.json.*
 
+# Left in older checkouts by code that left main on 2026-11-24. Its own ignore
+# files went with it, and Terraform state, variables and debug dumps hold secrets.
+/apps/rewardspro-api/
+/apps/rewardspro/debug-sessions/
+/apps/rewardspro/scripts/claude-design-bridge/outputs/
+
 # Local doorways — symlinks or files placed by the operator to reach
 # adjacent substrates on this machine. Invisible to git, to deploys, to
 # crawlers. Convention: `.local/elsewhere` → the partnership-substrate.

@@ -9,7 +9,7 @@ This is the runbook the switch follows (Ruling 87). The plan's Part B (B1 to B5)
 
 Ai never types a password or a sign-in code, and never prints a secret value. This file holds no secret values, only placeholders.
 
-The switch is done, and most of this file is its record. For an ordinary deploy read [DEPLOY.md](../DEPLOY.md); for the database, [DATABASE.md](DATABASE.md). Two parts below still apply: [A pull request with a migration](#a-pull-request-with-a-migration) and what is left of [B5](#b5-retire-phase-5-at-least-a-week-after-b4).
+The switch is done, and most of this file is its record. For an ordinary deploy read [DEPLOY.md](../DEPLOY.md); for the database, [DATABASE.md](DATABASE.md). Still in force below: [A pull request with a migration](#a-pull-request-with-a-migration); what is left of [B5](#b5-retire-phase-5-at-least-a-week-after-b4); B4's paragraph on data requests; the proxy path rule (WIDGET-6); and the Owner rows of the [spec 9.2 checklist](#spec-92-checklist).
 
 ## Connection strings
 
@@ -261,7 +261,7 @@ Add to the gates what staging left open. Each line says who does what; **Ai on Y
 
 As the plan says, except that the folder stays: the plan deletes `apps/rewardspro` whole, and rewardspro.io (`landing/`), the brand kit (`marketing/`) and the old schema's map (`prisma/`) are still needed there.
 
-**The code steps.** On 2026-11-24 the owner gave a go to remove modules and code that are no longer needed. The lead agent session of that day read it as covering these steps, and none of the owner's below. The pull request that adds this paragraph does them:
+**The code steps.** On 2026-11-24 the owner gave a go to remove modules and code that are no longer needed ([record](../../../docs/decisions/2026-11-24-pictures-reports-and-removals.md)). The lead agent session of that day read it as covering these steps, and none of the owner's below. The pull request that adds this paragraph does them:
 
 - the old app's code, tests, tools, docs and extension are deleted, its toml among them (since B3 step 5 no `apps/rewards` test reads it);
 - `apps/rewardspro-api` and `rewardspro-v2.yml` are deleted;
@@ -276,13 +276,13 @@ As the plan says, except that the folder stays: the plan deletes `apps/rewardspr
 - dump, then drop, schema `rewardspro` and its role, within 30 days of the switch (by 2026-12-06). Both are irreversible. Neither needs the old code;
 - cancel the two frozen paid charges (B4);
 - name a folder for rewardspro.io and the brand kit (RP-17, #177);
-- delete the GitHub environment `rewardspro-v2-production`, if it exists: only the old API's deploy named it.
+- delete the GitHub environment `rewardspro-v2-production` (empty on 2026-11-24): only the old API's deploy named it.
 
-After the drop, one more pull request removes `prisma/` and the site's sentences about the previous version's records: the privacy page's `#previous-version` section with its contents entry and the mention above it, the end of the subprocessors page's Supabase row, and the site test that pins them. The site is then deployed by hand.
+After the drop, one more pull request removes `prisma/` and the site's sentences about the previous version's records: the privacy page's `#previous-version` section with its contents entry and the mention above it, the end of the subprocessors page's Supabase row, and the site test that pins the privacy paragraph. The site is then deployed by hand.
 
-**Where the old code is.** Git keeps all of it. Read it at `493cd14e` (17 November 2026), the last commit to change either folder when this was written. Until the drop, the privacy page promises a copy or an erasure, by email, of the previous version's records. Both are SQL by hand now. `apps/rewardspro/prisma/schema.prisma` names the tables, and three files under `apps/rewardspro/app/` at `493cd14e` show what the old app did:
+**Where the old code is.** Git keeps all of it. Read it at `493cd14e` (17 November 2026), the last commit to change either folder when this was written. Until the drop, the privacy page promises a copy or an erasure, by email, of the previous version's records. Nothing serves either now, and no list of tables or delete order is written down: the old code works them out from its Prisma schema when it runs (`shopErasureOrder()`; 91 tables hold a shop's rows). So run it rather than writing SQL: in a checkout of `493cd14e`, `pnpm install --frozen-lockfile`, `pnpm --filter rewardspro exec prisma generate`, then a short `tsx` script in `apps/rewardspro` that calls the function, with the old `DATABASE_URL` in the owner's shell (its shape is in that tree's `docs/DATABASE.md`). Its Postgres tests of these (`compliance.integration.test.ts`) passed from that tree on 2026-11-24. Three files under its `apps/rewardspro/app/`:
 
-- `services/shop-data-cleanup.server.ts`: which rows are one customer's (`collectCustomerData`), and the order in which a customer's or a shop's rows can be erased (`eraseCustomerData`, `cleanupShopData`);
+- `services/shop-data-cleanup.server.ts`: `collectCustomerData` reads one customer's rows; `eraseCustomerData` and `cleanupShopData` erase a customer's or a shop's, each in one transaction;
 - `services/customer-data-request.server.ts`: what a customer's copy held;
 - `routes/webhooks.compliance.tsx`: which Shopify request called which.
 

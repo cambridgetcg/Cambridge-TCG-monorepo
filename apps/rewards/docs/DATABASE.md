@@ -61,6 +61,6 @@ The app queries through `@prisma/adapter-pg` (node-postgres).
 
 ## Before Supabase
 
-The previous version used Aurora until 2026-10-13, when its AWS account was deleted. The IAM keys, the Aurora password and the Lambda secrets visible in this repository's history (and in the `rewardspro-production` and `rewardspro-shopify` repositories) died with that account, so they need no rotation (recorded that day).
+The previous version used Aurora until 2026-10-13, when its AWS account was deleted. The keys of that account in this repository's history died with it, so they need no rotation (recorded that day).
 
 The previous version's migrations from before its 2026-10-18 baseline are in git, at `ab3877e7` (`apps/rewardspro/prisma/migrations`).
