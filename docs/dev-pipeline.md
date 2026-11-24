@@ -74,7 +74,7 @@ For flows that cross storefront → wholesale (e.g. a bounty pull resolving agai
 |---|---|
 | `apps/storefront/.env.local` | `DATABASE_URL`, `NEXTAUTH_*`, `STRIPE_*`, `AWS_*`, `WHOLESALE_API_URL`, `WHOLESALE_API_KEY`, `CRON_SECRET`, `ADMIN_PASSWORD` |
 | `apps/wholesale/.env.local` | `DATABASE_URL`, `NEXTAUTH_*`, `RESEND_API_KEY`, `AWS_*`, `CF_*`, `SHOPIFY_*`, `CRON_SECRET` |
-| `apps/admin/.env.local` | `STOREFRONT_DATABASE_URL`, `WHOLESALE_DATABASE_URL`, `NEXTAUTH_*`, `AUTH_FROM_EMAIL`, `VERCEL_TOKEN`, `GITHUB_TOKEN` |
+| `apps/admin/.env.local` | none: the app is redirects only since 2026-05-15 |
 
 `apps/wholesale/.env.example` is the only checked-in template — copy it as a starting point.
 
@@ -228,7 +228,7 @@ Four paths, full mechanics in [`ops-deploy-runbook.md`](./ops-deploy-runbook.md)
 ### Four blockers worth knowing cold
 
 1. **Committer email must be GitHub-verified.** Auto-deploy fails with "could not associate the committer with a GitHub user" otherwise. Git fork protection does not affect this check: it was off when this was verified on 2026-05-14, and it has been on since 2026-11-10. The reliable workaround is the gitSource API trigger — `python3 .github/scripts/deploy-from-main.py <project>` after each push. Durable fix: `git config user.email` to a verified address. See [runbook §Untrusted committer](./ops-deploy-runbook.md#untrusted-committer-the-auto-deploy-block).
-2. **`VERCEL_TOKEN` must be long-lived.** The CLI's auto-rotated `vca_…` token returns `403 invalidToken` mid-request without warning. Generate a dedicated token at <https://vercel.com/account/tokens>, scope to team `cambridgetcgs-projects`. Three places need it: admin `.env.local`, Vercel project env, GitHub repo secret. The admin `/system/deploys` page detects rotated-CLI-token rejection and renders an actionable banner.
+2. **`VERCEL_TOKEN` is one token per integration, limited to the team.** The CLI's auto-rotated `vca_…` token returns `403 invalidToken` mid-request without warning. Two places hold one, each its own: the storefront's Vercel project (Production only) and the GitHub repo secret. The `/admin/system/deploys` page detects a rejected token and says what to do. See [runbook §VERCEL_TOKEN](./ops-deploy-runbook.md#vercel_token--one-token-per-integration-limited-to-the-team).
 3. **`vercel deploy` workspace bug.** Fixed by using the gitSource API path (`POST /v13/deployments` with `gitSource.repoId=1223740492`); never by uploading from local.
 4. **Build-time AWS init.** Modules calling `createS3ClientOrThrow()` at import time crash CI/Vercel build. Defer to first call (precedent: `apps/wholesale/src/lib/s3.ts` after commit `53dd11f`).
 
