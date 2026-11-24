@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { recordedRun, workedOutcome } from "@/lib/observability/job-outcomes";
 import { purgeInactiveProductBetaInterests } from "@/lib/prism-signals/beta-interest.server";
 
 export const dynamic = "force-dynamic";
@@ -13,9 +14,13 @@ const NO_STORE = {
 export async function GET(request: Request) {
   const denied = requireCronAuth(request);
   if (denied) return denied;
+  return recordedRun("retention/prism-beta", purge, workedOutcome);
+}
 
+async function purge(observe: (worked: boolean) => void) {
   try {
     const deleted = await purgeInactiveProductBetaInterests();
+    observe(true);
     return NextResponse.json(
       { ok: true, deleted },
       { headers: NO_STORE },
