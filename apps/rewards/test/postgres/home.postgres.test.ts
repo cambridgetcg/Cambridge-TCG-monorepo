@@ -1,7 +1,7 @@
 import { Prisma, type LedgerEntryKind, type LookReason, type PayoutDirection, type PayoutState } from "@prisma/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
-import { homeBanners, importOutcomeLines } from "~/admin/home-rules";
+import { homeBanner, homeBanners, importOutcomeLines } from "~/admin/home-rules";
 import { type ConnectionContext, ensureMerchant, findConnection } from "~/lib/merchant.server";
 import { customerRows, homeState, homeStats, orderRows } from "~/lib/stats.server";
 import { monitoring } from "~/lib/telemetry.server";
@@ -440,7 +440,7 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       ]);
       // Ruling 56: three payouts need a look, on two orders, as the Orders page counts them
       expect(data.bannerFacts.needsLook).toBe(2);
-      expect(homeBanners(data.bannerFacts, true).map((b) => b.text)).toEqual(["2 orders need a look."]);
+      expect(homeBanners(data.bannerFacts).map((b) => b.text)).toEqual(["2 orders need a look."]);
       // DESIGN-12: two orders, so the banner opens Orders showing only those
       expect(data.bannerFacts.needsLookOrderId).toBeNull();
     });
@@ -459,7 +459,7 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       const data = await load();
 
       expect(data.bannerFacts).toMatchObject({ needsLook: 1, needsLookOrderId: order.id });
-      expect(homeBanners(data.bannerFacts, true)[0].link).toEqual({ label: "Open the order", href: `/app/orders/${order.id}` });
+      expect(homeBanners(data.bannerFacts)[0].link).toEqual({ label: "Open the order", href: `/app/orders/${order.id}` });
     });
 
     it("names an erased buyer as every page does", async () => {
@@ -632,7 +632,7 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
     });
   });
 
-  it("shows the banners most urgent first: data request, store credit, needs a look, widget", async () => {
+  it("orders the banners most urgent first: data request, store credit, needs a look; Home shows the first", async () => {
     const conn = await seedShop();
     const buyer = await seedBuyer(conn, "7001");
     for (const [i, key] of ["a", "b"].entries()) {
@@ -666,20 +666,22 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
     });
 
     const data = await load(admin);
-    // The widget check runs in the browser; here it found the embed off
-    const banners = homeBanners(data.bannerFacts, false);
+    const banners = homeBanners(data.bannerFacts);
 
     expect(banners.map((b) => b.text)).toEqual([
       "A customer asked for their data. Download it by December 5, 2026.",
       "Buyers can't spend their store credit yet: your store uses legacy customer accounts; store credit is turned off in Settings > Customer accounts.",
       "2 orders need a look.",
-      "The rewards widget is off in your theme.",
     ]);
     expect(banners[2].link).toEqual({ label: "Open orders", href: "/app/orders?look=1" });
-    expect(banners[3].link?.href).toBe(`https://${SHOP}/admin/themes/current/editor?context=apps&activateAppId=test-api-key/membership_widget`);
+    // Built for Shopify 4.3.4: one banner at a time, the most urgent
+    expect(homeBanner(data.bannerFacts)).toEqual(banners[0]);
+    // The widget is the setup card's and the cashback status card's to say, not a banner's, and the theme editor's link is the page's
+    expect(data.bannerFacts).not.toHaveProperty("themeEditorUrl");
+    expect(data.themeEditorUrl).toBe(`https://${SHOP}/admin/themes/current/editor?context=apps&activateAppId=test-api-key/membership_widget`);
     // With nothing to act on, no banner
-    expect(homeBanners({ ...data.bannerFacts, privacyDueAt: null, spendProblems: [], needsLook: 0 }, true)).toEqual([]);
-    expect(homeBanners({ ...data.bannerFacts, privacyDueAt: null, spendProblems: [], needsLook: 0 }, null)).toEqual([]);
+    expect(homeBanners({ ...data.bannerFacts, privacyDueAt: null, spendProblems: [], needsLook: 0 })).toEqual([]);
+    expect(homeBanner({ ...data.bannerFacts, privacyDueAt: null, spendProblems: [], needsLook: 0 })).toBeNull();
   });
 
   describe("the switch", () => {
@@ -1004,6 +1006,32 @@ describe.skipIf(!hasTestDatabase)("Home", () => {
       expect(await completedAt()).toEqual(first);
       await act({ intent: "running", running: "off" });
       expect((await load()).setup.completed).toBe(true);
+    });
+
+    // Built for Shopify 4.2.2 reason 6: the merchant who leaves the widget off can be rid of the steps
+    it("is recorded when the merchant dismisses the steps, on the same check, and leaves the import's outcome as it is", async () => {
+      const conn = await seedShop();
+      const completedAt = async () => (await merchantOf(conn)).setupCompletedAt;
+      await prisma.connection.update({ where: { id: conn.connectionId }, data: { importState: "failed", importError: "refused" } });
+
+      // No tier, then a tier with cashback off: the steps can't be dismissed yet
+      await expect(act({ intent: "setup-dismissed" })).resolves.toEqual({ ok: true });
+      expect(await completedAt()).toBeNull();
+      await seedTier(conn, "Everyone", "0", "5", 0);
+      await expect(act({ intent: "setup-dismissed" })).resolves.toEqual({ ok: true });
+      expect(await completedAt()).toBeNull();
+
+      await act({ intent: "running", running: "on" });
+      await expect(act({ intent: "setup-dismissed" })).resolves.toEqual({ ok: true });
+      const first = await completedAt();
+      expect(first).toBeInstanceOf(Date);
+      // The outcome keeps its own Dismiss
+      expect((await load()).setup).toMatchObject({ completed: true, importState: "failed", importDismissed: false });
+
+      // A second dismissal, or the widget seen on later, keeps the first time
+      await act({ intent: "setup-dismissed" });
+      await act({ intent: "setup-done" });
+      expect(await completedAt()).toEqual(first);
     });
   });
 

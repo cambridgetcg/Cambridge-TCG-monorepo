@@ -6,8 +6,10 @@ import { Chart } from "~/admin/Chart";
 import { formatMoney } from "~/admin/format";
 import { privatePageHeaders } from "~/admin/headers";
 import {
+  CUSTOMER_ACCOUNT_SETTINGS,
   type RunningChecks,
-  homeBanners,
+  homeBanner,
+  importOutcomeFailed,
   importOutcomeLines,
   importOutcomeShown,
   importPlacing,
@@ -15,8 +17,11 @@ import {
   runningSentence,
   runningSummary,
   setupCardShown,
+  setupDismissible,
   setupJustCompleted,
+  storeCreditUnderStatusLine,
   themeEditorUrl,
+  WIDGET_CHECK_MS,
   widgetEmbedOn,
 } from "~/admin/home-rules";
 import { PASS_FOLLOW_MS, usePolling } from "~/admin/polling";
@@ -34,20 +39,25 @@ import { storeCreditSpendProblems } from "~/shopify/shop-checks.server";
 import { syncWidgetConfig } from "~/shopify/widget-config.server";
 
 /**
- * Home (spec 4.3, layout B: main + side). Banners when the merchant has to
- * act, the setup card until setup is done, this month's numbers, the chart
- * and recent rewards in the main column; Running and Tiers in the aside.
- * The widget embed is checked in the browser (shopify.app.extensions()),
+ * Home (spec 4.3, layout B: main + side). One banner when the merchant has
+ * to act, the setup card until setup is done, this month's numbers, the chart
+ * and recent rewards in the main column; the cashback status and Tiers in the
+ * aside. The widget embed is checked in the browser (shopify.app.extensions()),
  * and the past-orders import, and the tier pass a base rate asks for, are
  * followed while they run (plan Decision 13, Ruling 76).
+ *
+ * The page paints once and stays put (Built for Shopify 2.1.2, 4.1.1 reason
+ * 1): every banner, card and row is placed from the loader's facts, and the
+ * widget check's answer only changes the words and icons of rows already
+ * there. Things leave the page only when the merchant dismisses them.
  *
  * Two widths decide the layout (Ruling 70), each measured on Polaris 2's own
  * page in both admin appearances (the milestone 3 review's Chromium harness):
  * - Whether the side column sits beside the main one: Polaris puts it there
  *   once the page is 784 px wide. The page sits in its own query container
- *   ("home"), so the main column's one-line Running (with the switch) and
- *   the side column's Running card each show on one side of that width, and
- *   the switch is on the page exactly once at every width.
+ *   ("home"), so the main column's one-line cashback status (with the switch)
+ *   and the side column's Cashback status card each show on one side of that
+ *   width, and the switch is on the page exactly once at every width.
  * - How much the main column holds: wider than 415 px it shows three numbers
  *   to a row, the chart and every recent reward with its tier and status; at
  *   or below, two numbers to a row, no chart and the newest two rewards,
@@ -99,16 +109,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, conn } = await requireMerchant(request);
   const now = new Date();
 
-  const [stats, spend] = await Promise.all([homeStats(conn, now), storeCreditSpendProblems(admin, conn.shop)]);
-  let state = await homeState(conn, now);
+  // The reads that don't wait on each other run together (Built for Shopify
+  // 2.1.1): the recent buyers' names as soon as the numbers have named them
+  const [[stats, names], spend, opened] = await Promise.all([
+    homeStats(conn, now).then(async (read) => {
+      const buyers = read.recent.map((r) => r.customerId).filter((id) => id !== "");
+      return [read, await customerNames(admin, buyers)] as const;
+    }),
+    storeCreditSpendProblems(admin, conn.shop),
+    homeState(conn, now),
+  ]);
+  // The import is moved on only after every read has answered, the names included
+  let state = opened;
   if (state.importState === "running") {
     await followImport(admin, conn);
     state = await homeState(conn, new Date());
   }
-  const names = await customerNames(
-    admin,
-    stats.recent.map((r) => r.customerId).filter((id) => id !== ""),
-  );
   const editorUrl = themeEditorUrl(conn.shop, process.env.SHOPIFY_API_KEY);
 
   return {
@@ -137,7 +153,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       needsLook: stats.needsLook,
       needsLookOrderId: stats.needsLookOrderId,
       timezone: conn.timezone,
-      themeEditorUrl: editorUrl,
     },
     // The import's raw error stays in the log and the database (Ruling 74)
     setup: {
@@ -186,6 +201,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // The browser saw the widget on; the tier and the switch are checked here (Ruling 60)
       await markSetupCompleted(conn.merchantId);
       return { ok: true } satisfies ActionResult;
+    case "setup-dismissed":
+      // The merchant leaves the widget step: setup counts as completed, on the same check (Built for Shopify 4.2.2)
+      await markSetupCompleted(conn.merchantId);
+      return { ok: true } satisfies ActionResult;
     case "import-dismissed":
       await dismissImportOutcome(conn.connectionId);
       return { ok: true } satisfies ActionResult;
@@ -203,24 +222,48 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 };
 
-/** Whether the widget embed is on, once App Bridge says; null until then or when it can't. */
-function useWidgetEmbed(): boolean | null {
-  const [on, setOn] = useState<boolean | null>(null);
+/** The widget check as the page shows it. */
+interface WidgetCheck {
+  /** Whether the widget embed is on, once App Bridge says; null until then or when it can't */
+  on: boolean | null;
+  /** Still waiting on App Bridge's first answer, for at most WIDGET_CHECK_MS */
+  checking: boolean;
+}
+
+/**
+ * Ask App Bridge once whether the widget embed is on. With no App Bridge to
+ * ask, a refusal, an answer with no embed in it, or no answer within
+ * WIDGET_CHECK_MS, it stops checking and says it can't tell; an answer that
+ * comes later still counts.
+ */
+function useWidgetEmbed(): WidgetCheck {
+  const [check, setCheck] = useState<WidgetCheck>({ on: null, checking: true });
   useEffect(() => {
-    if (typeof shopify === "undefined" || typeof shopify.app?.extensions !== "function") return;
     let live = true;
-    shopify.app.extensions().then(
-      (extensions) => live && setOn(widgetEmbedOn(extensions)),
-      () => live && setOn(null),
-    );
+    const settle = (on: boolean | null) => live && setCheck({ on, checking: false });
+    if (typeof shopify === "undefined" || typeof shopify.app?.extensions !== "function") {
+      settle(null);
+      return;
+    }
+    const timer = setTimeout(() => live && setCheck((current) => (current.checking ? { on: null, checking: false } : current)), WIDGET_CHECK_MS);
+    // Inside the chain, so a throw from App Bridge, or from reading its answer, is "can't tell" too
+    Promise.resolve()
+      .then(() => shopify.app.extensions())
+      .then((extensions) => widgetEmbedOn(extensions))
+      .then(settle, () => settle(null))
+      .finally(() => clearTimeout(timer));
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, []);
-  return on;
+  return check;
 }
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** Shopify's own pages (the admin's settings, the theme editor) open in the admin, not in the app's frame (docs Q2, Q3). */
+const targetOf = (href: string) => (/^(https|shopify):/.test(href) ? "_top" : "auto");
 
 /** One of this month's numbers: its label, then the figure, emphasised as Polaris's number docs show a total (DESIGN-10). */
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -235,11 +278,33 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
   );
 }
 
-function Check({ ok, yes, no, unknown }: { ok: boolean | null; yes: string; no: string; unknown?: string }) {
+/**
+ * One status check: its icon and words, and where to fix it when it fails.
+ * The fix link's `accessibilityLabel` names what it does where its words alone
+ * don't, as in a screen reader's list of links.
+ */
+function Check({
+  ok,
+  yes,
+  no,
+  unknown,
+  fix,
+}: {
+  ok: boolean | null;
+  yes: string;
+  no: string;
+  unknown?: string;
+  fix?: { label: string; href: string; accessibilityLabel?: string };
+}) {
   return (
     <s-stack direction="inline" gap="small-200" alignItems="center">
       <s-icon type={ok ? "check-circle" : ok === null ? "circle-dashed" : "alert-circle"} tone={ok ? "success" : ok === null ? "neutral" : "warning"} />
       <s-text>{ok ? yes : ok === null ? (unknown ?? no) : no}</s-text>
+      {ok === false && fix ? (
+        <s-link href={fix.href} target={targetOf(fix.href)} accessibilityLabel={fix.accessibilityLabel}>
+          {fix.label}
+        </s-link>
+      ) : null}
     </s-stack>
   );
 }
@@ -261,18 +326,24 @@ export default function Home() {
   const reviewDismissFetcher = useFetcher<typeof action>();
   const importFetcher = useFetcher<typeof action>();
   const setupFetcher = useFetcher<typeof action>();
-  const widgetOn = useWidgetEmbed();
+  // Its own, so a Dismiss never aborts the setup-done post in flight
+  const setupDismissFetcher = useFetcher<typeof action>();
+  const widget = useWidgetEmbed();
+  const widgetOn = widget.on;
   const [rate, setRate] = useState("");
+  // Setup as the page opened: a completion recorded during this visit leaves the card as it is until the next one
+  const [completedAtOpen] = useState(d.setup.completed);
 
   const hasTiers = d.stats.tiers.length > 0;
-  // Hidden at once on Dismiss, before the action answers
+  // Each Dismiss hides its part at once, before the action answers
   const importDismissed = d.setup.importDismissed || importFetcher.formData?.get("intent") === "import-dismissed";
-  const setupFacts = { completed: d.setup.completed, hasTiers, running: d.running, widgetOn, importState: d.setup.importState, importDismissed };
+  const setupDismissed = setupDismissFetcher.state !== "idle" || setupDismissFetcher.data?.ok === true;
+  const stepsShown = !completedAtOpen && !setupDismissed;
 
   // Setup is recorded as completed the first time every step is seen done (Ruling 60)
   const recorded = useRef(false);
   const submitSetup = setupFetcher.submit;
-  const justCompleted = setupJustCompleted(setupFacts);
+  const justCompleted = setupJustCompleted({ completed: d.setup.completed, hasTiers, running: d.running, widgetOn });
   useEffect(() => {
     if (!justCompleted || recorded.current) return;
     recorded.current = true;
@@ -282,9 +353,9 @@ export default function Home() {
   const pending = switchFetcher.formData?.get("intent") === "running" ? switchFetcher.formData.get("running") === "on" : null;
   const running = pending ?? d.running;
   const checks: RunningChecks = { storeCredit: d.storeCreditReady, widget: widgetOn, tiers: hasTiers };
-  const banners = homeBanners(d.bannerFacts, widgetOn);
+  const banner = homeBanner(d.bannerFacts);
   const showImportOutcome = importOutcomeShown(d.setup.importState, importDismissed);
-  const showSetup = setupCardShown(setupFacts);
+  const showSetup = setupCardShown({ completed: !stepsShown, importState: d.setup.importState, importDismissed });
   const reviewDismissed = reviewDismissFetcher.state !== "idle" || reviewDismissFetcher.data?.ok === true;
   // The review request follows a save that worked: here, cashback switched on (#173). "Don't ask again" counts at
   // once, so a save answered before its post is done never asks
@@ -305,6 +376,7 @@ export default function Home() {
         }
       : null;
   const outcome = outcomeFacts ? importOutcomeLines(outcomeFacts) : [];
+  const outcomeFailed = outcomeFacts !== null && importOutcomeFailed(outcomeFacts);
   // The import for as long as it runs (Decision 13); the tier pass only
   // while the shown outcome says buyers are being placed, for two minutes
   // from the load, from when it began saying so, or from the import's end
@@ -329,32 +401,65 @@ export default function Home() {
       onChange={(event) => switchTo(event.currentTarget.checked)}
     />
   );
+  // The widget's row: its words and icon change when App Bridge answers, never where it sits
+  const widgetCheck = (
+    <Check
+      ok={widgetOn}
+      yes="Widget is on"
+      no="Widget is off"
+      unknown={widget.checking ? "Widget: checking" : "Widget: can't check here"}
+      fix={{ label: "Turn it on", href: d.themeEditorUrl, accessibilityLabel: "Turn on the widget in your theme" }}
+    />
+  );
+  // The store credit row, from the loader's facts, with where to fix it
+  const storeCreditCheck = (
+    <Check
+      ok={checks.storeCredit}
+      yes="Store credit can be spent"
+      no="Store credit can't be spent yet"
+      unknown="Store credit: Shopify didn't say"
+      fix={CUSTOMER_ACCOUNT_SETTINGS}
+    />
+  );
 
   return (
     <s-query-container containerName="home">
       <s-page heading="Home" inlineSize="base">
-        {banners.length > 0 ? (
-          <s-stack slot="supplemental-start" gap="base">
-            {banners.map((banner) => (
-              <s-banner key={banner.kind} tone={banner.tone}>
-                {banner.text}{" "}
-                {banner.link ? (
-                  <s-link href={banner.link.href} target={/^(https|shopify):/.test(banner.link.href) ? "_top" : "auto"}>
-                    {banner.link.label}
-                  </s-link>
-                ) : null}
-              </s-banner>
-            ))}
-          </s-stack>
+        {/* One banner, the most urgent, from the loader's facts (Built for Shopify 4.3.4) */}
+        {banner ? (
+          <s-banner slot="supplemental-start" tone={banner.tone}>
+            {banner.text}{" "}
+            {banner.link ? (
+              <s-link href={banner.link.href} target={targetOf(banner.link.href)}>
+                {banner.link.label}
+              </s-link>
+            ) : null}
+          </s-banner>
         ) : null}
 
         <s-query-container containerName="main">
           <s-stack gap="base">
             {showSetup ? (
-              <s-section heading={d.setup.completed ? "Your past orders" : "Set up cashback"} data-setup-card="">
+              <s-section heading={stepsShown ? "Set up cashback" : "Your past orders"} data-setup-card="">
+                {/* Shopify's setup guide is dismissed from its header (Built for Shopify 4.2.2 reason 6), with the
+                    setup guide composition's icon-only "x": the import's outcome below has its own Dismiss, and two
+                    buttons with the same words in one card wouldn't say which hides what */}
+                {stepsShown && setupDismissible({ hasTiers, running: d.running }) ? (
+                  <s-button
+                    slot="secondary-actions"
+                    variant="tertiary"
+                    tone="neutral"
+                    icon="x"
+                    accessibilityLabel="Dismiss setup"
+                    onClick={() => setupDismissFetcher.submit({ intent: "setup-dismissed" }, { method: "post" })}
+                  />
+                ) : null}
                 <s-stack gap="base">
-                  {d.setup.completed ? null : (
+                  {!stepsShown ? null : (
                     <>
+                      {/* The step's own Save, not the save bar (Built for Shopify 4.1.5): each step of a setup guide
+                          completes with its own button, as Shopify's setup guide composition does, and the field
+                          leaves the page once the rate is saved. Later changes are made on Tiers. */}
                       <Step done={hasTiers}>
                         {hasTiers ? (
                           <s-text>Your base cashback rate: {d.stats.tiers[0].percent}%</s-text>
@@ -410,8 +515,9 @@ export default function Home() {
                   {showImportOutcome ? (
                     <s-stack direction="inline" justifyContent="space-between" alignItems="start" gap="small-200" data-import-outcome="">
                       <s-stack gap="small-200">
-                        {outcome.map((line) => (
-                          <s-text key={line} color="subdued">
+                        {/* What couldn't be brought in is an error, in red (Built for Shopify 4.2.4) */}
+                        {outcome.map((line, i) => (
+                          <s-text key={line} tone={i === 0 && outcomeFailed ? "critical" : undefined} color={i === 0 && outcomeFailed ? undefined : "subdued"}>
                             {line}
                           </s-text>
                         ))}
@@ -425,14 +531,18 @@ export default function Home() {
               </s-section>
             ) : null}
 
-            {/* Running in one line, with the switch, while the side column is below (Ruling 70) */}
+            {/* The cashback status in one line, with the switch, while the side column is below (Ruling 70). Under it,
+                the card's checks that nothing else on a phone says: store credit that can't be spent when the one
+                banner is another (4.3.4), and the widget's row once the setup steps no longer say it (4.2.3) */}
             <s-box display={`${BESIDE} none, auto`}>
-              <s-section>
+              <s-section accessibilityLabel="Cashback status">
                 <s-stack gap="small-200">
                   <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="base">
                     <s-text>{runningSummary(running, checks)}</s-text>
                     {cashbackSwitch({ labelHidden: true })}
                   </s-stack>
+                  {storeCreditUnderStatusLine(checks.storeCredit, banner) ? storeCreditCheck : null}
+                  {stepsShown ? null : widgetCheck}
                   {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
                 </s-stack>
               </s-section>
@@ -521,16 +631,16 @@ export default function Home() {
           </s-stack>
         </s-query-container>
 
-        {/* The Running card, while the side column is beside the main one (Ruling 70) */}
+        {/* The cashback status card, while the side column is beside the main one (Ruling 70) */}
         <s-box slot="aside" display={`${BESIDE} auto, none`}>
-          <s-section heading="Running">
+          <s-section heading="Cashback status">
             <s-stack gap="base">
               {cashbackSwitch({ labelHidden: false })}
               <s-paragraph>{runningSentence(running)}</s-paragraph>
               {switchError ? <s-text tone="critical">{switchError}</s-text> : null}
               <s-stack gap="small-200">
-                <Check ok={checks.storeCredit} yes="Store credit can be spent" no="Store credit can't be spent yet" unknown="Store credit: Shopify didn't say" />
-                <Check ok={checks.widget} yes="Widget is on" no="Widget is off" unknown="Widget: checking" />
+                {storeCreditCheck}
+                {widgetCheck}
                 <Check ok={checks.tiers} yes="Tiers are set" no="No tiers yet" />
               </s-stack>
             </s-stack>

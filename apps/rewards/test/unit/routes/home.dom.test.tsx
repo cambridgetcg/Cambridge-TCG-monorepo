@@ -17,6 +17,7 @@ vi.mock("~/admin/polling", async (original) => ({
 }));
 
 const { default: Home } = await import("~/routes/app._index");
+const { WIDGET_CHECK_MS } = await import("~/admin/home-rules");
 
 type HomeData = Record<string, unknown>;
 
@@ -93,18 +94,52 @@ function homeData(
   };
 }
 
+/** What App Bridge's `app.extensions()` answers with the widget embed in the given state. */
+const extensionsWith = (embed: "active" | "available") => [
+  {
+    handle: "rewardspro-theme-extension",
+    type: "theme_app_extension",
+    activations: [{ handle: "membership_widget", name: "Rewards widget", target: "body", status: embed, activations: [] }],
+  },
+];
+
 /** App Bridge's `shopify` global, with the widget embed in the given state. */
 function stubAppBridge(embed: "active" | "available", review: () => Promise<{ code: string }> = vi.fn()) {
-  const extensions = vi.fn(async () => [
-    {
-      handle: "rewardspro-theme-extension",
-      type: "theme_app_extension",
-      activations: [{ handle: "membership_widget", name: "Rewards widget", target: "body", status: embed, activations: [] }],
-    },
-  ]);
+  const extensions = vi.fn(async () => extensionsWith(embed));
   vi.stubGlobal("shopify", { app: { extensions }, reviews: { request: review } });
   return extensions;
 }
+
+/** App Bridge's `shopify` global, whose widget answer waits for `answer()`: the embed's state, or a refusal. */
+function stubAppBridgeLater() {
+  let settle: (embed: "active" | "available" | "refused") => void = () => {};
+  const answered = new Promise<ReturnType<typeof extensionsWith>>((resolve, reject) => {
+    settle = (embed) => (embed === "refused" ? reject(new Error("App Bridge refused")) : resolve(extensionsWith(embed)));
+  });
+  vi.stubGlobal("shopify", { app: { extensions: vi.fn(() => answered) }, reviews: { request: vi.fn() } });
+  return {
+    answer: async (embed: "active" | "available" | "refused") => {
+      await act(async () => settle(embed));
+    },
+  };
+}
+
+/**
+ * What the page holds, block by block: each banner and card, by its heading,
+ * and how many rows its body has. Words, icons and what sits inside a row
+ * (a link, or the text that takes its place) are left out: those may change
+ * when App Bridge answers; nothing here may (Built for Shopify 2.1.2, 4.1.1).
+ */
+const layout = () =>
+  [...document.querySelectorAll("s-banner, s-section")].map((block) => {
+    const body = [...block.children].find((child) => child.tagName.toLowerCase() === "s-stack");
+    const name = block.getAttribute("heading") ?? block.getAttribute("accessibilityLabel") ?? "";
+    return `${block.tagName.toLowerCase()} "${name}": ${body?.children.length ?? 0} rows`;
+  });
+
+/** The widget's row in the cashback status card. */
+const widgetRow = () =>
+  [...document.querySelectorAll('s-section[heading="Cashback status"] s-stack[direction="inline"]')].find((row) => row.textContent?.includes("Widget"));
 
 /** Each post Home makes, with its request. */
 type Posted = { fields: Record<string, string>; request: Request };
@@ -149,7 +184,7 @@ afterEach(() => {
 });
 
 describe("Home", () => {
-  it("shows the setup card while a step is left, and hides it once every step is done", async () => {
+  it("shows the setup card until setup is completed, ticking each step as it is done", async () => {
     const extensions = stubAppBridge("active");
     await renderHome(homeData({ running: false }));
     expect(extensions).toHaveBeenCalledTimes(1);
@@ -164,10 +199,65 @@ describe("Home", () => {
     expect(screen.getByText("Turn on the widget in your theme")).toBeTruthy();
     cleanup();
 
-    // Every step done, and the import's outcome already dismissed
+    // Every step done but not yet recorded: the card was there at the first paint, so it stays for this visit, every
+    // step ticked (it used to be left out until App Bridge answered, then never shown)
     stubAppBridge("active");
     await renderHome(homeData({ running: true, importDismissed: true }));
+    expect(card()?.textContent).toContain("Your base cashback rate: 5%");
+    expect(card()?.textContent).toContain("Cashback is on");
+    expect(card()?.textContent).toContain("The widget is on in your theme");
+    expect([...(card()?.querySelectorAll("s-icon") ?? [])].map((icon) => icon.getAttribute("type"))).toEqual(Array(3).fill("check-circle"));
+    cleanup();
+
+    // Recorded: the next visit has no card
+    await renderHome(homeData({ running: true, importDismissed: true, setupCompleted: true }));
     expect(card()).toBeNull();
+  });
+
+  // Built for Shopify 2.1.2 and 4.1.1 reason 1: nothing is added above, or taken from, what is already on screen
+  it("paints its layout once: App Bridge's answer about the widget, or its refusal, moves nothing", async () => {
+    for (const [why, data] of [
+      ["setup not completed, every other step done", homeData({ running: true, importDismissed: true })],
+      ["setup not completed, no step done", homeData({ running: false, hasTiers: false, importDismissed: true })],
+      ["setup completed", homeData({ running: true, setupCompleted: true, importDismissed: true })],
+      ["setup completed, paused, with a store credit banner", { ...homeData({ running: false, setupCompleted: true, importDismissed: true, storeCreditReady: false }), bannerFacts: { ...(homeData().bannerFacts as object), spendProblems: ["store-credit-off"] } }],
+      ["a data request's banner, store credit not spendable", { ...homeData({ setupCompleted: true, importDismissed: true, storeCreditReady: false }), bannerFacts: { ...(homeData().bannerFacts as object), privacyDueAt: "2026-12-05T10:00:00Z", spendProblems: ["store-credit-off"] } }],
+    ] as const) {
+      for (const embed of ["active", "available", "refused"] as const) {
+        const appBridge = stubAppBridgeLater();
+        await renderHome(data);
+        const first = layout();
+        expect(document.body.textContent).toContain("Widget: checking");
+
+        await appBridge.answer(embed);
+
+        expect(layout(), `${why}, App Bridge ${embed}`).toEqual(first);
+        expect(document.body.textContent).not.toContain("Widget: checking");
+        cleanup();
+      }
+    }
+  });
+
+  // The same rule after the reload: App Bridge says the widget is on, Home records setup as completed by itself, and
+  // the page reloads saying so. The card stays where it is, every step ticked, until the next visit; taking it away
+  // would move the page with no click from the merchant
+  it("keeps the card, every step ticked, when setup is recorded during the visit and the page reloads", async () => {
+    const appBridge = stubAppBridgeLater();
+    const posted: Posted[] = [];
+    const reloaded = homeData({ running: true, importDismissed: true, setupCompleted: true });
+    // A figure that changed meanwhile shows the reload has landed
+    reloaded.stats = { ...(reloaded.stats as Record<string, unknown>), cashbackGiven: "30.00" };
+    await renderHome(homeData({ running: true, importDismissed: true }), posted, { answer: async () => ({ ok: true }), next: () => reloaded });
+    const first = layout();
+
+    await appBridge.answer("active");
+    await screen.findByText("£30.00");
+    await act(async () => {});
+
+    expect(posted.map((post) => post.fields)).toEqual([{ intent: "setup-done" }]);
+    expect(layout()).toEqual(first);
+    expect(card()?.getAttribute("heading")).toBe("Set up cashback");
+    expect([...(card()?.querySelectorAll("s-icon") ?? [])].map((icon) => icon.getAttribute("type"))).toEqual(Array(3).fill("check-circle"));
   });
 
   // Ruling 60
@@ -195,9 +285,84 @@ describe("Home", () => {
     stubAppBridge("available");
     await renderHome(homeData({ setupCompleted: true, running: false, importDismissed: true }));
     expect(card()).toBeNull();
-    // The pause and the embed are the Running checks' and the banners' to say
-    expect(document.querySelector('[slot="supplemental-start"]')?.textContent).toContain("The rewards widget is off in your theme.");
+    // The pause and the embed are the cashback status checks' to say, never a banner's (Built for Shopify 4.3.4)
+    expect(document.querySelector("s-banner")).toBeNull();
+    expect(widgetRow()?.textContent).toBe("Widget is offTurn it on");
     expect(screen.getByText("Cashback is off. 1 check needs you.")).toBeTruthy();
+  });
+
+  // Built for Shopify 4.2.2 reason 6: a merchant who won't use the widget can be rid of the steps
+  describe("the setup card's Dismiss", () => {
+    const dismiss = () => card()?.querySelector(':scope > s-button[slot="secondary-actions"]');
+    /** The card's buttons whose visible words are "Dismiss". */
+    const dismissWords = () => [...(card()?.querySelectorAll("s-button") ?? [])].filter((button) => button.textContent === "Dismiss");
+
+    it("dismisses the steps once the base rate is set and cashback is on, and records setup as completed", async () => {
+      stubAppBridge("available");
+      const posted: Posted[] = [];
+      await renderHome(homeData({ running: true, importDismissed: true }), posted);
+      // The setup guide composition's icon-only "x", named for assistive technology
+      expect(["variant", "tone", "icon", "accessibilityLabel"].map((name) => dismiss()?.getAttribute(name))).toEqual(["tertiary", "neutral", "x", "Dismiss setup"]);
+      expect(dismiss()?.textContent).toBe("");
+
+      await act(async () => {
+        fireEvent.click(dismiss()!);
+      });
+
+      expect(posted.map((post) => post.fields)).toEqual([{ intent: "setup-dismissed" }]);
+      // Gone at once, and the widget's row, which the steps said, now sits under the phone's status line
+      expect(card()).toBeNull();
+      expect(boxShown(BELOW).textContent).toContain("Widget is off");
+    });
+
+    // Without the post's answer kept, the card, with its steps, would come back the moment the reload lands
+    it("stays dismissed once the post is answered and the page reloads", async () => {
+      stubAppBridge("available");
+      const posted: Posted[] = [];
+      const reloaded = homeData({ running: true, importDismissed: true, setupCompleted: true });
+      reloaded.stats = { ...(reloaded.stats as Record<string, unknown>), cashbackGiven: "30.00" };
+      await renderHome(homeData({ running: true, importDismissed: true }), posted, { answer: async () => ({ ok: true }), next: () => reloaded });
+
+      await act(async () => {
+        fireEvent.click(dismiss()!);
+      });
+      await screen.findByText("£30.00");
+      await act(async () => {});
+
+      expect(posted.map((post) => post.fields)).toEqual([{ intent: "setup-dismissed" }]);
+      expect(card()).toBeNull();
+    });
+
+    // Built for Shopify 4.2.1 reason 2: two buttons with the same words in one card wouldn't say which hides what
+    it("leaves the import's outcome, with its own Dismiss, when it is still shown", async () => {
+      stubAppBridge("available");
+      await renderHome(homeData({ running: true, importState: "failed", importedOrders: 0 }));
+      // Both on the card: one button reads Dismiss, the import's; the setup's is the "x"
+      expect(dismissWords()).toHaveLength(1);
+      expect(dismissWords()[0].closest("[data-import-outcome]")).not.toBeNull();
+      expect(dismiss()?.textContent).toBe("");
+
+      await act(async () => {
+        fireEvent.click(dismiss()!);
+      });
+      expect(card()?.getAttribute("heading")).toBe("Your past orders");
+      expect(card()?.textContent).not.toContain("Turn on the widget");
+      expect(card()?.querySelector("[data-import-outcome]")?.textContent).toContain("Dismiss");
+    });
+
+    it("isn't offered before the base rate is set and cashback is on, nor once setup is completed", async () => {
+      for (const data of [
+        homeData({ running: false }),
+        homeData({ running: false, hasTiers: false }),
+        homeData({ running: true, setupCompleted: true, importState: "done" }),
+      ]) {
+        stubAppBridge("available");
+        await renderHome(data);
+        expect(card()).not.toBeNull();
+        expect(dismiss()).toBeNull();
+        cleanup();
+      }
+    });
   });
 
   it("keeps the card for the import's outcome after setup was completed, showing only that", async () => {
@@ -224,8 +389,8 @@ describe("Home", () => {
       expect([...(outcome?.querySelectorAll("s-button") ?? [])].map((button) => button.textContent)).toEqual(["Dismiss"]);
       cleanup();
 
-      // Dismissed: every step is done, so the card goes
-      await renderHome(homeData({ running: true, importState: "done", importDismissed: true }));
+      // Dismissed, and setup completed: the card goes
+      await renderHome(homeData({ running: true, importState: "done", importDismissed: true, setupCompleted: true }));
       expect(card()).toBeNull();
     });
 
@@ -271,6 +436,26 @@ describe("Home", () => {
       expect(card()?.querySelector("[data-import-outcome]")?.textContent).toBe("Brought in 120 of your past orders; the rest couldn't be read.Dismiss");
     });
 
+    // Built for Shopify 4.2.4 reason 2: errors are red
+    it("shows what couldn't be brought in in red, and the rest of the outcome as before", async () => {
+      const lines = () =>
+        [...(card()?.querySelectorAll("[data-import-outcome] s-text") ?? [])].map((line) => [line.textContent, line.getAttribute("tone"), line.getAttribute("color")]);
+      stubAppBridge("active");
+      await renderHome(homeData({ importState: "failed", importedOrders: 0 }));
+      expect(lines()).toEqual([["Your past orders couldn't be brought in, so buyers start in the lowest tier.", "critical", null]]);
+      cleanup();
+
+      await renderHome(homeData({ importState: "done", unreadable: true, importedOrders: 1200 }));
+      expect(lines()).toEqual([
+        ["Brought in 1,200 of your past orders; the rest couldn't be read.", "critical", null],
+        ["Done: 14 buyers placed in tiers", null, "subdued"],
+      ]);
+      cleanup();
+
+      await renderHome(homeData({ importState: "done" }));
+      expect(lines()).toEqual([["Done: 14 buyers placed in tiers", null, "subdued"]]);
+    });
+
     it("shows its progress while it runs, and follows it", async () => {
       stubAppBridge("active");
       await renderHome(homeData({ importState: "running" }));
@@ -282,7 +467,7 @@ describe("Home", () => {
     });
   });
 
-  describe("Running", () => {
+  describe("Cashback status", () => {
     // Ruling 70 (DESIGN-1, DESIGN-5): one switch on every width
     it("puts the switch in one line above the numbers when the side column is below, and in the side column when it is beside", async () => {
       stubAppBridge("active");
@@ -297,11 +482,14 @@ describe("Home", () => {
       expect(line.querySelector("s-switch")?.getAttribute("label")).toBe("Cashback");
       expect(line.compareDocumentPosition(document.querySelector('s-section[heading="This month"]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
+      // Named for what it is about (Built for Shopify 4.2.1), for assistive technology too where it has no heading
+      expect(line.querySelector("s-section")?.getAttribute("accessibilityLabel")).toBe("Cashback status");
+
       // The side column's card, only when it is beside the main one
       const aside = document.querySelector('s-page > [slot="aside"]')!;
       expect(aside.tagName.toLowerCase()).toBe("s-box");
       expect(aside.getAttribute("display")).toBe(BESIDE);
-      expect(aside.querySelector("s-section")?.getAttribute("heading")).toBe("Running");
+      expect(aside.querySelector("s-section")?.getAttribute("heading")).toBe("Cashback status");
       expect(aside.querySelectorAll("s-switch")).toHaveLength(1);
       expect(document.querySelectorAll("s-switch")).toHaveLength(2);
       // Tiers stays in the side column at every width, last on a phone
@@ -336,6 +524,111 @@ describe("Home", () => {
       await renderHome(homeData({ storeCreditReady: true }));
       expect(screen.getByText("Cashback is on. All checks pass.")).toBeTruthy();
     });
+
+    // Built for Shopify 4.2.3: the widget's status where App Bridge can't give it (the Shopify app on a phone, Ruling 59)
+    it("says it can't check the widget where App Bridge can't answer, and is checking only while it waits", async () => {
+      const completed = homeData({ setupCompleted: true, importDismissed: true });
+      // No App Bridge to ask
+      vi.stubGlobal("shopify", undefined);
+      await renderHome(completed);
+      expect(widgetRow()?.textContent).toBe("Widget: can't check here");
+      expect(widgetRow()?.querySelector("s-icon")?.getAttribute("type")).toBe("circle-dashed");
+      // On a phone too, under the one line
+      expect(boxShown(BELOW).textContent).toContain("Widget: can't check here");
+      cleanup();
+
+      // A refusal
+      const refused = stubAppBridgeLater();
+      await renderHome(completed);
+      expect(widgetRow()?.textContent).toBe("Widget: checking");
+      await refused.answer("refused");
+      expect(widgetRow()?.textContent).toBe("Widget: can't check here");
+      cleanup();
+
+      // No answer in time, then a late one, which still counts. The clock also runs on by itself, so the page's own
+      // short waits (the router's, the test library's) pass as they would
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+      try {
+        const late = stubAppBridgeLater();
+        await renderHome(completed);
+        expect(widgetRow()?.textContent).toBe("Widget: checking");
+        // A second short of the wait (the clock's own running adds a few milliseconds), then past it
+        await act(async () => {
+          vi.advanceTimersByTime(WIDGET_CHECK_MS - 1_000);
+        });
+        expect(widgetRow()?.textContent).toBe("Widget: checking");
+        await act(async () => {
+          vi.advanceTimersByTime(1_000);
+        });
+        expect(widgetRow()?.textContent).toBe("Widget: can't check here");
+        await late.answer("active");
+        expect(widgetRow()?.textContent).toBe("Widget is on");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("links a widget that is off to the theme editor, in the admin, wherever it says so", async () => {
+      stubAppBridge("available");
+      await renderHome(homeData({ setupCompleted: true, importDismissed: true }));
+      for (const row of [widgetRow(), boxShown(BELOW)]) {
+        const link = row?.querySelector("s-link");
+        // Named in full for a screen reader's list of links, where "Turn it on" alone says nothing
+        expect([link?.textContent, link?.getAttribute("href"), link?.getAttribute("target"), link?.getAttribute("accessibilityLabel")]).toEqual([
+          "Turn it on",
+          "https://home-dom.myshopify.com/admin/themes/current/editor",
+          "_top",
+          "Turn on the widget in your theme",
+        ]);
+      }
+      cleanup();
+
+      stubAppBridge("active");
+      await renderHome(homeData({ setupCompleted: true, importDismissed: true }));
+      expect(widgetRow()?.textContent).toBe("Widget is on");
+      expect(widgetRow()?.querySelector("s-link")).toBeNull();
+    });
+
+    // One banner at a time (4.3.4) must not hide a problem on a phone, where the card beside is hidden
+    it("names store credit that can't be spent under the phone's status line when the one banner is another, with where to fix it", async () => {
+      const storeCreditRow = (scope: ParentNode) =>
+        [...scope.querySelectorAll('s-stack[direction="inline"]')].find((row) => row.querySelector(":scope > s-text")?.textContent?.startsWith("Store credit"));
+      const aside = () => document.querySelector('s-section[heading="Cashback status"]')!;
+      const fix = (row: Element | undefined) => {
+        const link = row?.querySelector("s-link");
+        return [link?.textContent, link?.getAttribute("href"), link?.getAttribute("target")];
+      };
+      const settings = ["Open customer account settings", "shopify://admin/settings/customer_accounts", "_top"];
+      stubAppBridge("active");
+      const data = homeData({ setupCompleted: true, importDismissed: true, storeCreditReady: false });
+      data.bannerFacts = { ...(data.bannerFacts as Record<string, unknown>), privacyDueAt: "2026-12-05T10:00:00Z", spendProblems: ["store-credit-off"] };
+      await renderHome(data);
+      // The data request has the one banner
+      expect([...document.querySelectorAll("s-banner")].map((banner) => banner.textContent)).toEqual([
+        "A customer asked for their data. Download it by December 5, 2026. Open customer data requests",
+      ]);
+      expect(boxShown(BELOW).textContent).toContain("Cashback is on. 1 check needs you.");
+      expect(storeCreditRow(boxShown(BELOW))?.textContent).toBe("Store credit can't be spent yetOpen customer account settings");
+      expect(fix(storeCreditRow(boxShown(BELOW)))).toEqual(settings);
+      expect(fix(storeCreditRow(aside()))).toEqual(settings);
+      cleanup();
+
+      // The banner names it, with its cause: the phone's line doesn't repeat it; the card beside keeps its row and link
+      data.bannerFacts = { ...(data.bannerFacts as Record<string, unknown>), privacyDueAt: null };
+      await renderHome(data);
+      expect(document.querySelector("s-banner")?.textContent).toContain("Buyers can't spend their store credit yet");
+      expect(storeCreditRow(boxShown(BELOW))).toBeUndefined();
+      expect(fix(storeCreditRow(aside()))).toEqual(settings);
+      cleanup();
+
+      // Store credit that can be spent, or that Shopify didn't answer for, has no row under the line and no link
+      for (const ready of [true, null]) {
+        await renderHome(homeData({ setupCompleted: true, importDismissed: true, storeCreditReady: ready }));
+        expect(storeCreditRow(boxShown(BELOW))).toBeUndefined();
+        expect(storeCreditRow(aside())?.querySelector("s-link")).toBeNull();
+        cleanup();
+      }
+    });
   });
 
   describe("This month", () => {
@@ -355,12 +648,18 @@ describe("Home", () => {
         "Set up cashback",
         "This month",
         "Recent rewards",
-        "Running",
+        "Cashback status",
         "Tiers",
       ]);
       expect(
-        [...document.querySelectorAll('s-section > s-button[slot="secondary-actions"]')].map((link) => [link.closest("s-section")?.getAttribute("heading"), link.textContent, link.getAttribute("href")]),
+        [...document.querySelectorAll('s-section > s-button[slot="secondary-actions"]')].map((link) => [
+          link.closest("s-section")?.getAttribute("heading"),
+          link.textContent || link.getAttribute("accessibilityLabel"),
+          link.getAttribute("href"),
+        ]),
       ).toEqual([
+        // The setup card's own Dismiss, an icon-only button with no link, named for assistive technology
+        ["Set up cashback", "Dismiss setup", null],
         ["Recent rewards", "All orders", "/app/orders"],
         ["Tiers", "Edit", "/app/tiers"],
       ]);
@@ -419,7 +718,26 @@ describe("Home", () => {
     data.bannerFacts = { ...(data.bannerFacts as Record<string, unknown>), spendProblems: ["store-credit-off"] };
     await renderHome(data);
     expect(document.querySelector('s-banner s-link[href="shopify://admin/settings/customer_accounts"]')?.getAttribute("target")).toBe("_top");
-    expect(document.querySelector('s-banner s-link[href^="https://home-dom.myshopify.com/admin/themes"]')?.getAttribute("target")).toBe("_top");
+    // The page's slot for it, the banner itself
+    expect(document.querySelector('s-page > s-banner[slot="supplemental-start"]')).not.toBeNull();
+  });
+
+  // Built for Shopify 4.3.4 reason 2: never two banners together
+  it("shows one banner, the most urgent, however many apply", async () => {
+    stubAppBridge("available");
+    const data = homeData({ needsLook: 2 });
+    data.bannerFacts = { ...(data.bannerFacts as Record<string, unknown>), privacyDueAt: "2026-12-05T10:00:00Z", spendProblems: ["store-credit-off"] };
+    await renderHome(data);
+    expect([...document.querySelectorAll("s-banner")].map((banner) => banner.textContent)).toEqual([
+      "A customer asked for their data. Download it by December 5, 2026. Open customer data requests",
+    ]);
+    cleanup();
+
+    data.bannerFacts = { ...(data.bannerFacts as Record<string, unknown>), privacyDueAt: null };
+    await renderHome(data);
+    expect([...document.querySelectorAll("s-banner")].map((banner) => banner.textContent)).toEqual([
+      "Buyers can't spend their store credit yet: store credit is turned off in Settings > Customer accounts. Open customer account settings",
+    ]);
   });
 
   // DESIGN-12
@@ -433,10 +751,15 @@ describe("Home", () => {
     expect(document.querySelector('s-banner s-link[href="/app/orders?look=1"]')?.textContent).toBe("Open orders");
   });
 
-  it("warns when the widget embed is off", async () => {
+  // The setup card's step and the cashback status card say it, so a banner would only repeat them (4.3.4), late (2.1.2)
+  it("says the widget embed is off in the setup step and the status card, never in a banner", async () => {
     stubAppBridge("available");
     await renderHome(homeData());
-    expect(document.querySelector('[slot="supplemental-start"]')?.textContent).toContain("The rewards widget is off in your theme.");
+    expect(document.querySelector("s-banner")).toBeNull();
+    expect(card()?.querySelector('s-link[target="_top"]')?.textContent).toBe("Turn on the widget in your theme");
+    expect(widgetRow()?.textContent).toBe("Widget is offTurn it on");
+    // While the steps say it, the phone's status line doesn't repeat it
+    expect(boxShown(BELOW).textContent).not.toContain("Widget");
   });
 });
 
