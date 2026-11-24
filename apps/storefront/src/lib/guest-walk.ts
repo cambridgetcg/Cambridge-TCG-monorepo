@@ -4,9 +4,8 @@
  * GET only. Nothing is sent but a name in the User-Agent and a `walk`
  * parameter, so no edge copy answers for the site.
  *
- * One implementation, three callers:
- *   node apps/storefront/scripts/guest-walk.mts   by hand
- *   .github/workflows/health.yml                  from outside the site
+ * One implementation:
+ *   node apps/storefront/scripts/guest-walk.mts   by hand, or from outside the site
  *   /api/cron/daily-check                         from the site itself
  * So this file imports nothing and uses only what Node and the site share.
  *
@@ -28,14 +27,14 @@ export interface WalkOptions {
   fetch?: typeof fetch;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
-  passes?: 1 | 2;
 }
 
 const HOUR = 3_600_000;
 const ANSWER_MS = 12_000;
 const WALK_MS = 75_000;
 const PAUSE_MS = 5_000;
-const USER_AGENT = "cambridgetcg-guest-walk/1 (https://cambridgetcg.com/contact)";
+/** kingdom-door-check is counted as own-monitor (lib/traffic/classify.ts), not as a declared agent. */
+const USER_AGENT = "kingdom-door-check/1 (guest walk; https://cambridgetcg.com/contact)";
 
 const SEARCH = "/api/v1/search/cards?game=op&q=OP01-001";
 const EXAMPLE = "/api/v1/universal/card/op-op01-001-ja";
@@ -69,17 +68,13 @@ const STEPS: readonly Step[] = [
     need(/op-op01-001-(ja|jp|en)/i.test((await get("/prices/search?game=op&q=OP01-001")).text), "no card is listed");
     return "it is listed";
   } },
-  { id: "search", asks: "a program asking for OP01-001 gets the plain printing first", run: async get => {
-    const first = (await get(SEARCH)).json.data?.matches?.[0];
-    need(first, "no match");
-    need(PLAIN.test(first.name) || PLAIN.test(first.name_en ?? ""), `the first match is ${first.name}`);
-    return first.sku;
-  } },
-  { id: "card", asks: "its next step is that card, with a reason where a price is missing", run: async get => {
+  // The next step is what search promises; the matches before it are in SKU order.
+  { id: "card", asks: "a program asking for OP01-001 is sent to the plain Leader, with a reason where a price is missing", run: async get => {
     const next = (await get(SEARCH)).json.data?.next_step;
-    need(typeof next === "string" && next.startsWith("/"), "search names no next step");
+    need(typeof next === "string" && next.startsWith("/api/v1/cards/"), "search names no next step");
     const { card, prices_today: prices } = (await get(next)).json.data ?? {};
     need(card?.card_number === "OP01-001", `it answers for ${card?.card_number}`);
+    need(PLAIN.test(card.name), `it is sent to ${card.name}`);
     need(card.rarity === "L", `its rarity is ${card.rarity}, and the plain Leader's is L`);
     need(prices?.rows?.length > 0 || words(prices?.note), "no price and no reason");
     return card.sku;
@@ -102,13 +97,17 @@ const STEPS: readonly Step[] = [
     const late: string[] = [];
     for (const [source, hours] of Object.entries(COLLECTED)) {
       const collector = (await get(`/api/v1/sources/${source}`)).json.data?.collector;
+      need(typeof collector?.collection?.scheduled === "boolean", `${source} does not say whether it is collected`, [source]);
+      // Switched off on purpose is not a fault; /api/v1/health says off.
+      if (!collector.collection.scheduled) continue;
       // The newest success among its hosts: one host can stay suspended, and a
       // run's last batch can be one set that could not be read.
-      const hosts: Json[] = collector?.hosts ?? [];
+      const hosts: Json[] = collector.hosts ?? [];
       const ages = hosts.map(host => hoursAgo(host.last_success_at, now())).filter(Number.isFinite);
-      if (collector?.collection?.scheduled !== true || !(Math.min(...ages) <= hours)) late.push(source);
-      // A suspended host waits for a person, so say so for two days.
-      late.push(...hosts.filter(host => hoursAgo(host.suspended_at, now()) < 48).map(host => host.host));
+      if (!(Math.min(...ages) <= hours)) late.push(source);
+      // A suspended host waits for a person, so say so for eight days: past a
+      // few days without mail, and into one weekly reminder.
+      late.push(...hosts.filter(host => hoursAgo(host.suspended_at, now()) < 192).map(host => host.host));
     }
     need(!late.length, `not collected, or newly suspended: ${late.join(", ")}`, late);
     return "they were";
@@ -117,7 +116,7 @@ const STEPS: readonly Step[] = [
     const { database, jobs } = (await get("/api/v1/health")).json.data ?? {};
     need(database?.answered === true && Math.abs(now() - Date.parse(database.clock)) < 300_000, "health does not show the database's own clock");
     const bad = (jobs as Json[]).filter(job => job.state === "late" || job.state === "failing");
-    need(!bad.length, bad.map(job => `${job.job} is ${job.state}`).join(", "), bad.map(job => job.job));
+    need(!bad.length, bad.map(job => `${job.job} is ${job.state}`).join(", "), bad.map(job => `${job.job}.${job.state}`));
     return "they did";
   } },
   { id: "daily", asks: "the site's own daily check ran and could send its message", outside: true, run: async (get, now) => {
@@ -160,10 +159,10 @@ function visitor(base: string, tag: string, deadline: number, options: WalkOptio
     const url = new URL(path, base);
     if (url.origin === new URL(base).origin) url.searchParams.set("walk", tag);
     const left = deadline - now();
-    need(left > 0, "the walk ran out of time");
+    need(left > 0, "not looked at, the walk ran out of time", ["unanswered"]);
     const response = await request(url, { headers: { "User-Agent": USER_AGENT }, cache: "no-store", signal: AbortSignal.timeout(Math.min(ANSWER_MS, left)) });
     need(!response.headers.has("cf-mitigated"), `Cloudflare asked for a browser check (HTTP ${response.status})`);
-    need(response.status === 200, `HTTP ${response.status} from ${path}`);
+    need(response.status === 200, `HTTP ${response.status} from ${path}`, ["unanswered"]);
     const copy = [response.headers.get("cf-cache-status"), response.headers.get("x-vercel-cache")].find(state => /^(HIT|STALE|UPDATING|REVALIDATED|PRERENDER)$/i.test(state ?? ""));
     need(!copy || url.origin !== new URL(base).origin, `an edge copy answered for ${path} (${copy})`);
     const bytes = new Uint8Array(await response.arrayBuffer());
@@ -181,16 +180,18 @@ export async function guestWalk(options: WalkOptions = {}): Promise<Walk> {
   const steps = STEPS.filter(step => options.outside || !step.outside);
   const results = new Map<string, StepResult>();
   let left = steps;
-  for (let pass = 1; pass <= (options.passes ?? 2) && left.length; pass++) {
+  for (let pass = 1; pass <= 2 && left.length; pass++) {
     if (pass > 1) await sleep(PAUSE_MS);
     const get = visitor(base, `${started.toString(36)}-${pass}`, started + WALK_MS, options);
     for (const step of left) {
       const { id, asks } = step;
+      // Out of time: what the first pass saw stands.
+      if (pass > 1 && now() >= started + WALK_MS) break;
       try {
         results.set(id, { id, asks, ok: true, says: await step.run(get, now), parts: [] });
       } catch (error) {
         const says = error instanceof Broken ? error.message : error instanceof Error && error.name === "TimeoutError" ? "no answer in time" : "it could not be reached or read";
-        results.set(id, { id, asks, ok: false, says: says.replace(/[\s`]+/g, " ").slice(0, 200), parts: error instanceof Broken ? error.parts : [] });
+        results.set(id, { id, asks, ok: false, says: says.replace(/[\s`]+/g, " ").slice(0, 200), parts: error instanceof Broken ? error.parts : ["unanswered"] });
       }
     }
     left = steps.filter(step => !results.get(step.id)!.ok);
@@ -200,7 +201,7 @@ export async function guestWalk(options: WalkOptions = {}): Promise<Walk> {
 
 /** What failed, by name: the step, or each part of it that it could tell apart. */
 export const walkFailures = (walk: Walk): string[] =>
-  walk.steps.filter(step => !step.ok).flatMap(step => step.parts.length ? step.parts.map(part => `${step.id}.${part.replace(/[^A-Za-z0-9_.-]/g, ".")}`) : [step.id]);
+  walk.steps.filter(step => !step.ok).flatMap(step => step.parts.length ? step.parts.map(part => `${step.id}.${String(part).replace(/[^A-Za-z0-9_.-]/g, ".")}`) : [step.id]);
 
 /** The walk as plain text; its last line names what failed, for a script to read. */
 export function walkReport(walk: Walk): string {

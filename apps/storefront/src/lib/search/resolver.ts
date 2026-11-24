@@ -302,7 +302,7 @@ export function groupSiblings(
 export function nextMatch(matches: readonly ResolvedMatch[]): ResolvedMatch | null {
   const plain = matches.filter((m) => m.confidence === "exact" && m.plain_listing);
   if (plain.length === 1) return plain[0]!;
-  return matches.length === 1 ? matches[0]! : null;
+  return matches.length === 1 && matches[0]!.confidence === "exact" ? matches[0]! : null;
 }
 
 /**

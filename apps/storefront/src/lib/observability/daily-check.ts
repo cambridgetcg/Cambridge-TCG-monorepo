@@ -37,18 +37,38 @@ const HOUR = 3_600_000;
 /** Seven days, less an hour for when the schedule fires. */
 const WEEK = 167 * HOUR;
 
-/** The latest check, and the latest whose message went out. */
-export const CHECKS_SQL = `(SELECT started_at, counts FROM ops_job_outcomes WHERE job = 'check/daily' ORDER BY started_at DESC LIMIT 1)
-  UNION ALL (SELECT started_at, counts FROM ops_job_outcomes WHERE job = 'check/daily' AND counts @> '{"mailed": true}' ORDER BY started_at DESC LIMIT 1)`;
+// A row dated ahead of the database's clock is not believed.
+const CHECKS = `SELECT started_at, counts FROM ops_job_outcomes WHERE job = 'check/daily' AND started_at < now() + interval '10 minutes'`;
+/** The latest check, the latest whose message went out, and the latest whose message could count what waits. */
+export const CHECKS_SQL = `(${CHECKS} ORDER BY started_at DESC LIMIT 1)
+  UNION ALL (${CHECKS} AND counts @> '{"mailed": true}' ORDER BY started_at DESC LIMIT 1)
+  UNION ALL (${CHECKS} AND counts @> '{"mailed": true}' AND NOT counts->'findings' ? 'database' ORDER BY started_at DESC LIMIT 1)`;
 /** Messages at the feedback door: how many, never what they say. */
-export const WAITING_SQL = `SELECT (count(*) FILTER (WHERE received_at > $1::timestamptz))::int AS arrived,
+export const WAITING_SQL = `SELECT (count(*) FILTER (WHERE status = 'received' AND received_at > $1::timestamptz))::int AS arrived,
     (count(*) FILTER (WHERE status = 'received'))::int AS unread, (count(*) FILTER (WHERE status = 'read'))::int AS unanswered
   FROM public_feedback WHERE expires_at > now()`;
-/** Maintenance sweeps rejected in two or more recorded hours of the last fifty. */
+/** Maintenance sweeps rejected in two or more recorded hours of the last fifty, and still in the last day. */
 export const SWEEPS_SQL = `SELECT sweep FROM ops_job_outcomes, jsonb_object_keys(counts->'rejected') AS sweep
-  WHERE job = 'sweep/maintenance' AND started_at > now() - interval '50 hours' GROUP BY sweep HAVING count(*) >= 2 ORDER BY sweep`;
+  WHERE job = 'sweep/maintenance' AND started_at > now() - interval '50 hours' GROUP BY sweep HAVING count(DISTINCT date_trunc('hour', started_at)) >= 2 AND max(started_at) > now() - interval '26 hours' ORDER BY sweep`;
+/** Emails the queue gave up on in the last day: how many, never to whom. */
+export const DEAD_MAIL_SQL = `SELECT count(*)::int AS dead FROM email_queue WHERE status = 'dead' AND last_attempt_at > now() - interval '26 hours'`;
+
+/** What else is read, each with what is said when it cannot be, and what its rows mean. */
+const ALSO: readonly [sql: string, id: string, line: string, findings: (rows: Record<string, unknown>[]) => Finding[]][] = [
+  [SWEEPS_SQL, "sweeps", "the maintenance record could not be read",
+    rows => rows.map(({ sweep }) => ({ id: token(`sweep.${sweep}`), line: `the maintenance sweep ${sweep} keeps failing` }))],
+  [DEAD_MAIL_SQL, "mail", "the mail queue could not be read",
+    rows => Number(rows[0]?.dead ?? 0) ? [{ id: "mail.dead", line: `${plural(Number(rows[0]!.dead), "email")} to members could not be delivered` }] : []],
+];
+/** The UTC day's one message. Vercel can deliver a run twice; the first to take
+ * this row (0041) sends. It is given back when the message did not go. */
+export const CLAIM_SQL = `INSERT INTO digest_runs (kind, last_run_at) VALUES ('check/daily', now())
+  ON CONFLICT (kind) DO UPDATE SET last_run_at = now(), updated_at = now()
+    WHERE digest_runs.last_run_at IS NULL OR (digest_runs.last_run_at AT TIME ZONE 'UTC')::date <> (now() AT TIME ZONE 'UTC')::date RETURNING kind`;
+export const UNCLAIM_SQL = `UPDATE digest_runs SET last_run_at = NULL, updated_at = now() WHERE kind = 'check/daily'`;
 
 const token = (value: string) => value.replace(/[^A-Za-z0-9_.:-]/g, ".").slice(0, 40);
+const day = (at: number) => new Date(at).toISOString().slice(0, 10);
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 function check(row: Record<string, unknown> | undefined): Check | null {
@@ -66,7 +86,9 @@ const walkFindings = (walk: Walk): Finding[] => walk.steps.filter(step => !step.
 async function sendToOperator(mail: Mail): Promise<string | null> {
   const to = process.env.ADMIN_DIGEST_EMAIL?.trim() || process.env.STORE_NOTIFICATION_EMAIL?.trim();
   if (!to) return "no-address";
-  const { sendMail } = await import("@cambridge-tcg/email");
+  const { resolveTransportName, sendMail } = await import("@cambridge-tcg/email");
+  // The console transport prints the address and the message where it runs.
+  if (process.env.NODE_ENV === "production" && resolveTransportName("noreply") === "console") return "console-only";
   const from = `Cambridge TCG <${(process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim()}>`;
   const sent = await sendMail({ from, to, ...mail }, { stream: "noreply" });
   if (sent.ok) return sent.transport === "console" ? "console-only" : null;
@@ -93,38 +115,59 @@ export function composeMail(at: Date, first: boolean, found: readonly Finding[],
 
 export async function runDailyCheck(deps: DailyCheckDeps = {}): Promise<DailyCheckReport> {
   const startedAt = deps.now?.() ?? new Date();
-  const found = walkFindings(await (deps.walk ?? guestWalk)());
+  const found = await Promise.resolve().then(deps.walk ?? (() => guestWalk())).then(walkFindings)
+    .catch((): Finding[] => [{ id: "walk", line: "the walk itself failed" }]);
 
+  const database = async () => deps.query ?? ((await import("@/lib/db")).query as RunQuery);
+  /** The database, once it has answered. */
+  let run: RunQuery | null = null;
   let previous: Check | null = null, mailed: Check | null = null, waiting: Waiting | null = null;
   try {
-    const run = deps.query ?? ((await import("@/lib/db")).query as RunQuery);
-    const rows = (await within(10_000, run(CHECKS_SQL))).rows.map(check);
+    const query = await database();
+    const rows = (await within(10_000, query(CHECKS_SQL))).rows.map(check);
+    run = query;
     previous = rows[0] ?? null;
     mailed = rows.find(row => row?.mailed) ?? null;
-    const counted = (await within(10_000, run(WAITING_SQL, [new Date(mailed?.at ?? 0).toISOString()]))).rows[0] ?? {};
+    // A message is new until a mail that could count it has gone out.
+    const told = rows.find(row => row?.mailed && !row.findings.has("database"));
+    const counted = (await within(10_000, query(WAITING_SQL, [new Date(told?.at ?? 0).toISOString()]))).rows[0] ?? {};
     waiting = { arrived: Number(counted.arrived ?? 0), unread: Number(counted.unread ?? 0), unanswered: Number(counted.unanswered ?? 0) };
-    for (const row of (await within(10_000, run(SWEEPS_SQL))).rows) found.push({ id: token(`sweep.${row.sweep}`), line: `the maintenance sweep ${row.sweep} keeps failing` });
   } catch (error) {
     console.error("[ops/daily-check] the database did not answer:", error instanceof Error ? error.name : "UnknownError");
     found.push({ id: "database", line: "the database did not answer the daily check" });
   }
+  // On their own, so that a count that fails hides neither.
+  for (const [sql, id, line, findings] of run ? ALSO : []) {
+    try { found.push(...findings((await within(10_000, run!(sql))).rows)); }
+    catch { found.push({ id, line }); }
+  }
 
   const first = waiting !== null && !mailed;
-  const fresh = found.some(finding => !previous?.findings.has(finding.id));
+  // One list decides what is new and what is remembered, or a 26th finding is new every day.
+  const kept = [...new Map(found.map(finding => [finding.id, finding])).values()].slice(0, 25);
+  const fresh = kept.some(finding => !previous?.findings.has(finding.id));
   const stays = found.length > 0 || (waiting?.unread ?? 0) + (waiting?.unanswered ?? 0) > 0;
   const due = first || fresh || (waiting?.arrived ?? 0) > 0 || (stays && (previous?.owed === true || startedAt.getTime() - (mailed?.at ?? 0) >= WEEK));
-  // At most one a day, however often this runs; what is held back is owed to the next run.
-  const tooSoon = mailed !== null && startedAt.getTime() - mailed.at < 20 * HOUR;
+  // At most one a day; what is held back is owed to the next run.
+  const tooSoon = mailed !== null && day(mailed.at) === day(startedAt.getTime());
 
   let failure: string | null = null, sent = false;
   if (due && !tooSoon) {
+    // The message needs no database: while that is away it goes out unclaimed,
+    // and a second delivery can send a second copy.
+    const claimed = !run || await within(10_000, run(CLAIM_SQL)).then(({ rows }) => rows.length > 0, () => true);
+    // The other delivery of this run has it, and records for both.
+    if (!claimed) return { ok: true, mailed: false, outcome: "ran", found: [...new Set(found.map(finding => finding.line))] };
     try { failure = await within(20_000, (deps.send ?? sendToOperator)(composeMail(startedAt, first, found, waiting))); }
     catch { failure = "no-answer"; }
     sent = failure === null;
-    if (failure) console.error("[ops/daily-check] the message could not be sent:", failure);
+    if (failure) {
+      console.error("[ops/daily-check] the message could not be sent:", failure);
+      if (run) await within(5_000, run(UNCLAIM_SQL)).catch(() => undefined);
+    }
   }
   const outcome = failure ? `unavailable:mail-${failure}` : "ran";
-  const findings = Object.fromEntries(found.slice(0, 25).map(finding => [finding.id, true]));
+  const findings = Object.fromEntries(kept.map(finding => [finding.id, true]));
   await within(10_000, recordJobOutcome(
     { job: "check/daily", startedAt, httpStatus: failure ? 503 : 200, outcome, counts: { mailed: sent, owed: due && !sent, findings } },
     deps.query,

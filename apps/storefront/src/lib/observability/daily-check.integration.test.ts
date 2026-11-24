@@ -16,13 +16,14 @@ const schema = `daily_check_test_${randomUUID().replaceAll("-", "")}`;
 const walk: Walk = { base: "x", startedAt: "x", ms: 1, steps: [{ id: "example", asks: "it answers", ok: false, says: "HTTP 404", parts: [] }], failed: ["example"] };
 let pool: Pool, site: ReturnType<typeof createCompatDb>;
 
-describe.skipIf(!localUrl)("the daily check on migrations 0148 and 0149 (explicit loopback DB only)", () => {
+describe.skipIf(!localUrl)("the daily check on migrations 0039, 0041, 0148 and 0149 (explicit loopback DB only)", () => {
   beforeAll(async () => {
     const url = new URL(localUrl!);
     if (!["127.0.0.1", "[::1]"].includes(url.hostname) || !url.pathname.includes("test") || url.search) throw new Error("Explicit disposable local test database required");
     pool = new Pool({ connectionString: localUrl, options: `-c search_path=${schema}`, max: 2 });
     await pool.query(`CREATE SCHEMA ${schema}`);
-    for (const name of ["0148_ops_observability.sql", "0149_agent_doors.sql"]) await pool.query(await readFile(new URL(`../../../drizzle/${name}`, import.meta.url), "utf8"));
+    await pool.query("CREATE TABLE users (id UUID PRIMARY KEY)"); // what 0039 refers to
+    for (const name of ["0039_email_queue.sql", "0041_digest_runs.sql", "0148_ops_observability.sql", "0149_agent_doors.sql"]) await pool.query(await readFile(new URL(`../../../drizzle/${name}`, import.meta.url), "utf8"));
     url.searchParams.set("search_path", schema);
     // The site's own database layer: one connection, and dates as Postgres text.
     site = createCompatDb({ url: url.toString(), ssl: false, max: 1 });
@@ -33,6 +34,10 @@ describe.skipIf(!localUrl)("the daily check on migrations 0148 and 0149 (explici
   });
 
   const check = async (send: (mail: Mail) => Promise<string | null>, at = new Date()) => runDailyCheck({ query: site.query, walk: async () => walk, send, now: () => at });
+  const aDayLater = async () => {
+    await pool.query(`UPDATE ops_job_outcomes SET started_at = started_at - interval '24 hours', finished_at = finished_at - interval '24 hours'`);
+    await pool.query(`UPDATE digest_runs SET last_run_at = last_run_at - interval '24 hours'`);
+  };
   const rows = async () => (await pool.query(`SELECT outcome, http_status, counts FROM ops_job_outcomes WHERE job = 'check/daily' ORDER BY id`)).rows;
 
   it("records, remembers and counts in the tables as they are, with no migration of its own", async () => {
@@ -46,7 +51,7 @@ describe.skipIf(!localUrl)("the daily check on migrations 0148 and 0149 (explici
     expect((await readHealth(site.query)).daily_check).toMatchObject({ outcome: "ran" });
 
     // The next day, the same fault and no message: silence. Then someone writes.
-    await pool.query(`UPDATE ops_job_outcomes SET started_at = started_at - interval '24 hours', finished_at = finished_at - interval '24 hours'`);
+    await aDayLater();
     expect(await check(send)).toMatchObject({ mailed: false });
     expect(mails).toHaveLength(1);
     await pool.query(`INSERT INTO public_feedback (feedback_id, holder_key_sha256, kind, message, reply_to, expires_at)
@@ -56,6 +61,52 @@ describe.skipIf(!localUrl)("the daily check on migrations 0148 and 0149 (explici
     expect(mails[1]!.text).toContain("Messages: 1 new, 1 not marked read, 0 read but not answered.");
     expect(JSON.stringify(mails)).not.toMatch(/SECRET WORDS|person@example/);
     expect(JSON.stringify(await rows())).not.toMatch(/SECRET WORDS|person@example/);
+  });
+
+  it("tells of a message that came before a mail that could not count", async () => {
+    await pool.query("TRUNCATE ops_job_outcomes, public_feedback, digest_runs");
+    const mails: Mail[] = [];
+    const run = (query: typeof site.query) => runDailyCheck({ query, walk: async () => ({ ...walk, steps: [], failed: [] }), send: async mail => { mails.push(mail); return null; } });
+    await run(site.query);
+    await aDayLater();
+    await pool.query(`INSERT INTO public_feedback (feedback_id, holder_key_sha256, kind, message, received_at, expires_at)
+      VALUES ('fb_' || repeat('c', 24), repeat('d', 64), 'general', 'SECRET WORDS', now() - interval '20 hours', now() + interval '150 days')`);
+    await run(async (sql, params) => { if (sql.includes("public_feedback")) throw new Error("no answer in time"); return site.query(sql, params); });
+    expect(mails[1]!.text).toContain("Messages: unknown");
+    await aDayLater();
+    await run(site.query);
+    expect(mails[2]!.subject).toBe("Cambridge TCG: 1 new message");
+    await pool.query("TRUNCATE ops_job_outcomes, public_feedback, digest_runs");
+  });
+
+  it("sends one message when a run is delivered twice, and gives the day back when it could not send", async () => {
+    const url = new URL(localUrl!);
+    url.searchParams.set("search_path", schema);
+    const other = createCompatDb({ url: url.toString(), ssl: false, max: 1 });
+    try {
+      await pool.query(`INSERT INTO ops_job_outcomes (job, started_at, finished_at, http_status, outcome, counts)
+        VALUES ('check/daily', now() - interval '24 hours', now() - interval '24 hours', 200, 'ran', '{"mailed": true, "owed": false, "findings": {}}')`);
+      let mails = 0, refuse = true;
+      const go = (db: typeof site, ms: number) => runDailyCheck({
+        query: db.query, walk: async () => { await new Promise(done => setTimeout(done, ms)); return walk; },
+        send: async () => { if (refuse) return "refused"; await new Promise(done => setTimeout(done, 150)); mails++; return null; },
+      });
+      await other.query("SELECT 1");
+      // It could not be sent: owed, and the day's message is free again.
+      expect(await go(site, 0)).toMatchObject({ ok: false, outcome: "unavailable:mail-refused" });
+      expect((await pool.query(`SELECT last_run_at FROM digest_runs WHERE kind = 'check/daily'`)).rows).toEqual([{ last_run_at: null }]);
+      refuse = false;
+      await Promise.all([go(site, 120), go(other, 120)]);
+      expect(mails).toBe(1);
+      // The other either left the record to it, or read it and had nothing more to say.
+      expect((await rows()).slice(2).map(row => [row.counts.mailed, row.counts.owed]).filter(([mailed]) => mailed)).toEqual([[true, false]]);
+      expect((await rows()).slice(2).some(row => row.counts.owed)).toBe(false);
+      // The same fault the next day: nothing is owed by the delivery that did not send.
+      await aDayLater();
+      expect(await go(site, 0)).toMatchObject({ mailed: false });
+      expect(mails).toBe(1);
+    } finally { await other.close(); }
+    await pool.query("TRUNCATE ops_job_outcomes, digest_runs");
   });
 
   it("sees a maintenance sweep that keeps failing, and a cron that stopped", async () => {

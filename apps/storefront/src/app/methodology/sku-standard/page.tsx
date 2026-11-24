@@ -208,9 +208,10 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
         A plain SKU (no variant) names the base printing. The catalogue&apos;s
         rows are shop listings, so a plain SKU is answered from a listing only
         when its title shows the plain printing: the card&apos;s name, a base
-        rarity and nothing else. A listing marked with a condition, a grade or
-        another printing is not answered under a plain SKU and is left out of
-        lists. One Piece is the only game whose listing titles have been
+        rarity and nothing else, and it is filed under that set. A listing that was stored under a plain SKU but
+        is marked with a condition, a grade or another printing is not answered
+        under it and is left out of lists; listings with their own SKU are
+        listed as before. One Piece is the only game whose listing titles have been
         reviewed for this. In other games a row stored under a plain SKU is
         answered as it is stored unless its title carries a mark, and nothing
         is said about its printing. With no such listing, the answer is the

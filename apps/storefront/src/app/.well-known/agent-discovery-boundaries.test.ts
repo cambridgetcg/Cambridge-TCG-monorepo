@@ -33,6 +33,7 @@ import {
 
 // Keep the real audience helper without importing unrelated UI/database modules.
 vi.mock("@/lib/ui", () => import("@/lib/ui/Audience"));
+vi.mock("@/lib/db", () => ({ query: async () => { throw new Error("no database in a unit test"); } }));
 vi.mock("@/lib/joy", () => ({
   joyIndexSync: () => 0,
   warmJoyCache: () => {},

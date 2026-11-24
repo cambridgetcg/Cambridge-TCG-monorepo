@@ -132,9 +132,10 @@ describe("rows as the production driver returns them", () => {
   });
 
   it("orders rows by the moment they name, whichever way it is written", async () => {
-    const newer = { ...imageRow, s3_key: "official/new.png", retrieved_at: "2026-09-29 00:00:00+00" };
+    // Named to lose the key tie-break, so only the moment can choose it.
+    const newer = { ...imageRow, s3_key: "official/zz-newer.png", retrieved_at: "2026-09-29 00:00:00+00" };
     mockQuery.mockResolvedValueOnce({ rows: [imageRow, newer] } as never);
-    expect((await getEnCardImages(["op-op01-001-en"])).get("op-op01-001-en")?.url).toMatch(/\/official\/new\.png$/);
+    expect((await getEnCardImages(["op-op01-001-en"])).get("op-op01-001-en")?.url).toMatch(/\/official\/zz-newer\.png$/);
   });
 });
 
@@ -200,8 +201,8 @@ describe("Japanese same-language read boundary", () => {
   });
 
   it("is off unless OFFICIAL_IMAGES_JA is show, before any key or query", async () => {
-    for (const value of ["show", " SHOW ", "Show"]) expect(officialImagesJaOn({ OFFICIAL_IMAGES_JA: value })).toBe(true);
-    for (const value of [undefined, "", "off", "on", "true", "1", "shown"]) expect(officialImagesJaOn({ OFFICIAL_IMAGES_JA: value })).toBe(false);
+    for (const value of ["show", " show\n"]) expect(officialImagesJaOn({ OFFICIAL_IMAGES_JA: value })).toBe(true);
+    for (const value of [undefined, "", "off", "on", "true", "1", "shown", "SHOW", "Show", "ｓｈｏｗ"]) expect(officialImagesJaOn({ OFFICIAL_IMAGES_JA: value })).toBe(false);
     mockQuery.mockImplementation(bySql({ en: [imageRow], ja: [jaRow] }) as never);
     expect((await getSameLanguageImages(["OP-OP01-001-JP"], {})).size).toBe(0);
     expect(mockQuery).not.toHaveBeenCalled();

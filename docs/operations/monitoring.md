@@ -57,8 +57,8 @@ why. It never shows that as zero.
   `collect/cardrush`, `collect/tcgplayer` and `derive/market`; of
   `reconcile/stripe` and `retention/prism-beta` (whether they worked, none of
   their counts); of `check/daily`; one an hour of the minute cron
-  (`sweep/maintenance`, and one for an hour's first rejected sweep, naming the
-  rejected sweeps); and, while
+  (`sweep/maintenance`, and one whenever a sweep is first rejected in an hour,
+  naming the rejected sweeps); and, while
   signed acts are open, of the maintenance cron's held-keys sweep
   (`sweep/held-keys`, counting the nonces and pending signing keys it
   deleted; `src/lib/agents/signed-act-sweep.ts`): start, finish,
@@ -261,9 +261,8 @@ change without notice; a change shows on the monitor as failed hours.
   request logs require Observability Plus" beyond a day), 400 mentioning
   retention or the time range (outside what Vercel keeps), 403, 429.
 - Retention measured on 2026-11-05: about 24 hours for both kinds on the Pro
-  plan. Whether the token in `VERCEL_TOKEN` (made for the deploys page) may
-  read logs is unknown until the first run; a refusal shows as
-  `token-refused`.
+  plan. A token limited to the team reads both kinds (checked 2026-11-24);
+  a refusal shows as `token-refused`.
 
 ## Retention
 
@@ -289,7 +288,7 @@ no raw log is ever stored.
 | `PEER_HELLO_COUNT` | off | Counts each valid POST `/api/v1/peers` into `peer_hello_daily`; see Doors. |
 | `AGENT_SIGNED_ACTS` | off | Exactly `on` opens agent-held signing keys (`docs/plans/agent-auth/held-keys.md`): the MCP tool `agent.act`, POST `/api/v1/agents/act` and binding a public key at `/account/agents`. Off, or with no audience below, both doors answer `signed_acts_closed` before reading the act, binding is refused, and nothing reads or writes `agent_signing_keys`, `agent_act_nonces`, `agent_act_events` or `agent_keys.minted_by_event`; bearer keys are untouched. The hourly held-keys sweep (expired nonces, signing keys never confirmed 7 days after binding) and panel 4's nonce row run only while it is open. Needs migration 0152 applied first, flag on or off; production has had it since 2026-11-10. Turning it on in production is Yu's call and has not been made; /privacy has described these records since 2026-11-10, in an AI agent's wording. |
 | `AGENT_SIGNED_ACTS_AUDIENCE` | unset | The `aud` every signed act must carry: this deployment's origin, exactly (`https://cambridgetcg.com` in production; each preview deployment its own). Never taken from the request's Host. Unset or not an `http(s)` origin with nothing after it, the path stays closed, and panel 4 shows it as missing when `AGENT_SIGNED_ACTS` is on. |
-| `VERCEL_TOKEN` | set for the deploys page | Read by the pull from the environment only; never logged or returned. |
+| `VERCEL_TOKEN` | set, Production only | Read by the pull and the deploys page from the environment only; never logged or returned. |
 | `DATA_COLLECT_*`, `DATA_DERIVE_MARKET`, `DATA_API_*` | as set | Read and shown, never changed, by the page. |
 
 Turning a counting flag on is Yu's call, and waits for the /privacy update
@@ -377,24 +376,24 @@ Two halves, so that neither has to report its own death.
 - **From the site, once a day.** `/api/cron/daily-check` (08:40 UTC,
   `src/lib/observability/daily-check.ts`) walks one card as a guest, counts
   the messages waiting at the feedback door, and sends at most one plain
-  email, to `ADMIN_DIGEST_EMAIL` or else `STORE_NOTIFICATION_EMAIL`, from
-  `AUTH_FROM_EMAIL`, over the site's own mail seam (AWS SES): when something
-  is newly wrong, when someone wrote, once a week while either waits, and a
-  first one that proves the path. It holds counts, links and what the walk
-  found, never a message's words. It needs no database to go out. A message
-  that could not be sent is recorded (`unavailable:mail-…`) and owed to the
-  next day. SES accepting a message is not a person reading it: only the
-  reader can say that it arrived.
+  email a day, to `ADMIN_DIGEST_EMAIL` or else `STORE_NOTIFICATION_EMAIL`,
+  from `AUTH_FROM_EMAIL`, over the site's own mail seam (AWS SES): when
+  something is newly wrong, when someone wrote, once a week while either
+  waits, and a first one that proves the path. It also names a maintenance
+  sweep that keeps failing, and how many emails to members the queue gave up
+  on that day. A row in `digest_runs` keeps two deliveries of one run to one
+  message; only while the database is away can a second go out. It holds
+  counts, links and what the walk found, never a message's words. It needs
+  no database to go out. A message that could not be sent is recorded
+  (`unavailable:mail-…`) and owed to the next day. SES accepting a message is
+  not a person reading it: only the reader can say that it arrived.
 - **From outside, several times a day.** `.github/workflows/health.yml` runs
-  the same walk from GitHub, whose last step reads at `/api/v1/health` when
-  the daily check last ran and whether it could send, and
-  `.github/scripts/deploy-health.py` for the Vercel deployments. Each keeps
-  one issue (labels `guest-walk`, `deploy-health`): opened and assigned to
-  the repository's account, edited while it stays, commented on when something
-  more fails, closed by the first clean run. A run ends red only when it has
-  such news. GitHub starts about three or four of the hourly runs a day
-  (62 in the 18 days to 2026-11-24, up to twelve hours apart), so this
-  half notices within hours, not minutes.
+  `.github/scripts/deploy-health.py` for the Vercel deployments and keeps one
+  issue (label `deploy-health`). It does not run the walk yet: until it does,
+  nothing notices a daily check that stopped or could not send. GitHub starts
+  about three or four of the hourly runs a day (62 in the 18 days to
+  2026-11-24, up to twelve hours apart), so this half notices within hours,
+  not minutes.
 
 The walk (`src/lib/guest-walk.ts`; by hand, `node
 apps/storefront/scripts/guest-walk.mts`) is GET only: the front page, a

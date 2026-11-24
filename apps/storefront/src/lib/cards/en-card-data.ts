@@ -75,7 +75,7 @@ export function enCardKey(catalogSku: string): string | null {
  * shows one; it deletes no object, purges no cache and does not touch the
  * manual tools. */
 export function officialImagesJaOn(env: Env = process.env): boolean {
-  return env.OFFICIAL_IMAGES_JA?.trim().toLowerCase() === "show";
+  return env.OFFICIAL_IMAGES_JA?.trim() === "show";
 }
 
 const cardImageCdn = () => process.env.CTCG_CARD_IMAGE_CDN || DEFAULT_CARD_IMAGE_CDN;

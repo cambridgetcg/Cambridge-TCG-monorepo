@@ -3,7 +3,7 @@
  * does the database answer, and did each scheduled job run when it should.
  *
  * 200 with status ok or degraded when the database answered; 503 when it did
- * not within five seconds. Nothing here is a constant and nothing is cached.
+ * not within five seconds. Never cached.
  * Read by programs deciding whether to try again, by the guest walk
  * (lib/guest-walk.ts) and by .github/scripts/deploy-health.py.
  */

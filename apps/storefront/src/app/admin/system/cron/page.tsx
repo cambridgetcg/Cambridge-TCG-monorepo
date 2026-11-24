@@ -24,7 +24,8 @@ function ran(health: Health | null, path: string): { state: keyof typeof JOB_TON
   if (!health) return { state: "unknown", at: null };
   if (path === DAILY_CHECK.path) {
     const last = health.daily_check;
-    return { state: !last ? "late" : last.outcome === "ran" ? "ok" : "failing", at: last?.at ?? null };
+    const late = !last || Date.parse(health.clock) - Date.parse(last.at) > 26 * 3_600_000;
+    return { state: late ? "late" : last.outcome === "ran" ? "ok" : "failing", at: last?.at ?? null };
   }
   const name = SCHEDULED_JOBS.find((entry) => entry.path === path)?.job;
   const job = health.jobs.find((entry) => entry.job === name);
@@ -65,7 +66,8 @@ export default async function Page() {
 
       <ActionBanner tone="info" title="Late means no record within the job's time; failing means it ran and did not do its work">
         Records are in <code className="text-xs">ops_job_outcomes</code> (and{" "}
-        <code className="text-xs">traffic_pulls</code> for the traffic pull); the last week&apos;s are on the{" "}
+        <code className="text-xs">traffic_pulls</code> for the traffic pull); the last week&apos;s for the
+        collectors and the derivation are on the{" "}
         <a href="/admin/system/monitor" className="underline">monitor</a>. The daily check mails about a
         job that is late or failing. The frozen wholesale app runs one cron of its own, which nothing here sees.
       </ActionBanner>

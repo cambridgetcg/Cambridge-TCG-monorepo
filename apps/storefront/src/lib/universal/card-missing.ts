@@ -6,7 +6,7 @@ import type { CardMiss } from "./card";
 const WHY: Record<CardAbsence["reason"], string> = {
   unknown_sku: "No catalogue row is stored under this SKU in any spelling.",
   no_listing: "The catalogue has no listing of this card number in this language.",
-  none_plain: "The catalogue has listings of this card number, but none whose title shows it is the plain printing: each carries a condition, a grade or a variant mark, or a title that could not be read. None is put in its place.",
+  none_plain: "The catalogue has listings of this card number, but none filed under this set whose title shows it is the plain printing: each carries a condition, a grade, a variant mark or a rarity that is not a base one, is filed elsewhere, or has a title that could not be read. None is put in its place.",
   several_plain: "More than one listing of this card number reads as the plain printing, so none is picked.",
   marked_listing: "The listing stored under this SKU is marked as a condition, a grade or a variant, so it does not answer for the plain printing.",
   titles_not_reviewed: "This SKU names a plain printing, and listing titles of this game have not been reviewed, so no listing can be named as the plain one.",

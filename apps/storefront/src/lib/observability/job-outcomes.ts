@@ -208,7 +208,8 @@ export async function recordJobOutcome(
   entry: { job: OpsJob; startedAt: Date; finishedAt?: Date; httpStatus: number } & JobOutcome,
   runQuery?: RunQuery,
 ): Promise<JobOutcomeWrite> {
-  const finishedAt = entry.finishedAt ?? new Date();
+  // A clock that stepped back during the run must not lose the row (0148 wants finished_at >= started_at).
+  const finishedAt = new Date(Math.max(entry.startedAt.getTime(), (entry.finishedAt ?? new Date()).getTime()));
   const outcome = /^(ran|already-derived|disabled|(refused|unavailable):[a-z0-9][a-z0-9-]{0,63})$/.test(entry.outcome) ? entry.outcome : "unavailable:unexpected";
   let run: RunQuery;
   try {
@@ -265,18 +266,18 @@ export async function recordedRun<T, R extends Response>(
   }
 }
 
-let failureHour = "";
+let named = { hour: "", sweeps: new Set<string>() };
 /** sweep/maintenance. The minute cron leaves one row an hour, at minute 23,
- * and one for the first run of an hour (per instance) that had a sweep
- * rejected. It names the rejected sweeps and nothing else. */
+ * and one whenever a sweep is rejected that this instance has not yet named
+ * this hour. It names the rejected sweeps and nothing else. */
 export async function recordMaintenance(startedAt: Date, rejected: readonly string[], runQuery?: RunQuery): Promise<void> {
   const hour = startedAt.toISOString().slice(0, 13);
-  const firstFailure = rejected.length > 0 && failureHour !== hour;
-  if (!firstFailure && startedAt.getUTCMinutes() !== 23) return;
-  if (firstFailure) failureHour = hour;
-  await recordJobOutcome({
+  if (named.hour !== hour) named = { hour, sweeps: new Set() };
+  if (startedAt.getUTCMinutes() !== 23 && rejected.every(name => named.sweeps.has(name))) return;
+  const written = await recordJobOutcome({
     job: "sweep/maintenance", startedAt, httpStatus: rejected.length ? 500 : 200,
     outcome: rejected.length ? "unavailable:sweep-rejected" : "ran",
     counts: { rejected: Object.fromEntries(rejected.map(name => [name, true])) },
   }, runQuery);
+  if (written.recorded) for (const name of rejected) named.sweeps.add(name);
 }

@@ -157,7 +157,7 @@ export async function GET(req: NextRequest) {
       lookup: { limit, truncated: wholesaleResp.truncated },
       matches,
       summary,
-      // The plain printing, or the only match; null when it is the caller's choice.
+      // The plain printing, or the only exact match; null when it is the caller's choice.
       next_step: next ? `/api/v1/cards/${encodeURIComponent(next.sku)}/everything` : null,
     },
     sources: ["wholesale-rds.cards"],

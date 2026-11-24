@@ -106,12 +106,15 @@ export async function GET(
       id: row.sku,
       date,
       parent_id: row.set_code,
-      content_hash: contentHash,
+      // The hash lookup walks the mirror only, so a row it lacks has no link.
+      content_hash: lookup.sources.includes("storefront-rds.card_set_cards") ? contentHash : undefined,
     });
 
     const document: Record<string, unknown> = {
       "@encoding": "cambridge-tcg/universal/v1",
       "@kind": "card",
+      sku: row.sku,
+      card_number: row.card_number,
       "@content_hash": contentHash,
       "@content_hash_contract": {
         basis: ["sku", "card_number", "set_code", "game", "variant"],

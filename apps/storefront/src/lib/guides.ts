@@ -298,9 +298,10 @@ export const GUIDES: Guide[] = [
           "not walk keyed endpoints to recreate a bulk dump.",
         curl: "curl 'https://cambridgetcg.com/api/v1/search/cards?game=op&q=OP01-001'",
         what_to_do_with_it:
-          "`next_step` is the plain printing when one listing is shown to be it; " +
-          "otherwise choose a returned SKU. Fetch /api/v1/universal/card/[sku] " +
-          "only for the user's requested card.",
+          "`next_step` is the plain printing when one listing is shown to be it, " +
+          "or the only listing found (`plain_listing` on the match says which); " +
+          "when it is null, choose a returned SKU. Fetch " +
+          "/api/v1/universal/card/[sku] only for the user's requested card.",
       },
       {
         step_number: 3,
