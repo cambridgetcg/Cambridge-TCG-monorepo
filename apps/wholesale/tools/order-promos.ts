@@ -58,8 +58,6 @@ if (!dryRun && !headed) {
   process.exit(1);
 }
 
-const REMAMBO_EMAIL = process.env.REMAMBO_EMAIL || "aaasiadog@gmail.com";
-const REMAMBO_PASS  = process.env.REMAMBO_PASS  || "17171514Alex";
 const ITEM_DELAY_MS = 1500;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -240,6 +238,8 @@ function writeManifest(
 // ---------------------------------------------------------------------------
 
 async function login(page: Page): Promise<void> {
+  const { REMAMBO_EMAIL, REMAMBO_PASS } = process.env;
+  if (!REMAMBO_EMAIL || !REMAMBO_PASS) throw new Error("Set REMAMBO_EMAIL and REMAMBO_PASS.");
   await page.goto("https://www.remambo.jp/login", { waitUntil: "networkidle" });
   await page.fill('input[placeholder="Email"]', REMAMBO_EMAIL);
   await page.fill('input[placeholder="Password"]', REMAMBO_PASS);
@@ -392,7 +392,7 @@ async function main() {
     console.log("\n[2/3] Logging in to Remambo...");
     browser = await chromium.launch({ headless: false });
     let page = await newPage(browser);
-    console.log(`  Logged in as ${REMAMBO_EMAIL}`);
+    console.log(`  Logged in as ${process.env.REMAMBO_EMAIL}`);
 
     // Step 3: Submit
     console.log(`\n[3/3] Submitting ${cards.length} cards to Remambo cart...`);

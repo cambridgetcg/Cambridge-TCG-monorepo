@@ -124,7 +124,7 @@ const SPEC = {
       get: {
         tags: ["prices"],
         summary: "Free account-owned member price feed",
-        description: "Requires a read-only member data key minted after Cambridge TCG login at /account/data. Agent and wholesale keys are not accepted. Observations in native currency from the sources whose policy opens them to this feed: /api/v1/sources names each source's open uses, and any paused ones with the reason (member_pricing.reviewed_uses, member_pricing.paused). While none is open, an authenticated request answers 503 with the reason. No billing tier. Private, no-store. Follow nextCursor with unchanged filters to finish the permitted result; empty/unavailable does not claim ingestion has run.",
+        description: "Requires a read-only member data key minted after Cambridge TCG login at /account/data. Agent and wholesale keys are not accepted. Observations in native currency from the sources whose policy opens them to this feed: /api/v1/sources names each source's open uses, and any paused ones with the reason (member_pricing.reviewed_uses, member_pricing.paused). While none is open, an authenticated request that names no source, or a paused one, answers 503 with the reason. No billing tier. Private, no-store. Follow nextCursor with unchanged filters to finish the permitted result; empty/unavailable does not claim ingestion has run.",
         operationId: "getMemberPrices",
         security: [{ MemberDataKey: [] }],
         parameters: [
