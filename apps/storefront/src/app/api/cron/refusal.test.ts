@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Every scheduled route, called for real without the bearer. The database, the
+// Every scheduled route, called for real without the bearer. Both databases, the
 // network, Stripe and the mail seam are stand-ins that count being touched and
 // then fail, so a route that forgets the check, calls requireCronAuth and
 // ignores its answer, or works first and refuses afterwards fails here, and
@@ -14,6 +14,9 @@ const touched = vi.hoisted(() => vi.fn((): never => {
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ query: touched, transaction: touched, db: {}, close: touched }));
+// The wholesale database: lib/stock and lib/admin open it through createDb, lib/wholesale through pg.
+vi.mock("@cambridge-tcg/db", () => ({ createDb: touched }));
+vi.mock("pg", () => ({ Pool: touched, default: { Pool: touched } }));
 vi.mock("@/lib/stripe", () => ({ getStripe: touched }));
 vi.mock("@cambridge-tcg/email", () => ({ sendMail: touched, isMailConfigured: touched }));
 
@@ -32,6 +35,7 @@ type Route = Partial<Record<(typeof METHODS)[number], Handler>>;
 beforeEach(() => {
   touched.mockClear();
   vi.stubEnv("CRON_SECRET", "test-cron-secret");
+  vi.stubEnv("WHOLESALE_DATABASE_URL", "postgres://nobody@127.0.0.1:9/none"); // unset, its clients stop before the stand-in
   vi.stubGlobal("fetch", touched);
 });
 afterEach(() => {
