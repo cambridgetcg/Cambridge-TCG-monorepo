@@ -18,7 +18,7 @@ export async function GET(request: Request): Promise<Response> {
     params.delete("format");
     const query = parseMemberPriceQuery(params);
     const page = await readMemberPrices(actor, query, "member-download");
-    if (page.status === "unavailable") return memberJson(page, 503);
+    if (page.status === "unavailable") return memberJson(page, 503, page.paused && { "Retry-After": "86400" });
     const headers = memberPageHeaders(page);
     headers.set("Content-Type", format === "csv" ? "text/csv; charset=utf-8" : "application/x-ndjson; charset=utf-8");
     headers.set("Content-Disposition", `attachment; filename="member-prices.${format}"`);

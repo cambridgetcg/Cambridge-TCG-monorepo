@@ -13,7 +13,6 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx src/lib/db/seed.ts",
     "scrape:cardrush": "tsx tools/scrape-cardrush.ts",
     "tcgplayer:seed-set": "tsx tools/tcgplayer-seed-set.ts",
     "test:e2e": "playwright test"

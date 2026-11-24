@@ -239,7 +239,7 @@ Four paths, full mechanics in [`ops-deploy-runbook.md`](./ops-deploy-runbook.md)
 | App | Migration mechanism | Apply via |
 |---|---|---|
 | Storefront | Plain SQL DDL files in `apps/storefront/drizzle/*.sql` (87+ files; no Drizzle ORM despite the name) | `psql $DATABASE_URL -f drizzle/00NN_xxx.sql` (manual) |
-| Wholesale | Drizzle Kit | `pnpm --filter tcg-wholesale db:generate` → review → `db:migrate` |
+| Wholesale | Plain SQL files in `apps/wholesale/drizzle/*.sql`. Not Drizzle Kit: `drizzle/meta/_journal.json` lists only the first 4 of the 27, so `db:migrate` never sees the rest and `db:generate` would compare against an old snapshot | `node apps/wholesale/scripts/migrate.mjs` (ledger `schema_migrations`) |
 | Admin | None — admin reads, doesn't migrate | n/a |
 
 ### Critical convention: lifecycle logs

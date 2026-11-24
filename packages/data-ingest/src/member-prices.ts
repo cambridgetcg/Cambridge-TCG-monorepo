@@ -16,13 +16,26 @@ export const CARDMARKET_DERIVATION_EVIDENCE_VERSION = 'cardmarket-derivation/202
 /** Yu's record of the 2026-10-28 email grants. The emails themselves stay with Yu. */
 const PERMISSIONS_RECORD = 'repo:docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md';
 
+/** Uses a source's evidence records that Cambridge has stopped for now. Its
+ * rows stay stored, shown and derived from as `uses` and `derivation` say.
+ */
+export interface PausedPriceUses {
+  uses: readonly MemberPriceUse[];
+  /** UTC date the pause began. */
+  since: string;
+  /** Why, in plain words: shown as written to members and API callers. */
+  reason: string;
+}
 export interface MemberPricePolicy {
   evidenceVersion: string;
   evidenceUrl: string;
   basis: string;
   /** Shown beside every value: names the source and says what the number is. */
   attribution: string;
+  /** The uses open now. Every reader and the writer ask this. */
   uses: readonly MemberPriceUse[];
+  /** Null when none of the uses the evidence records is paused. */
+  paused: PausedPriceUses | null;
   /** Permission to use this source's values as input to Cambridge-derived
    * data, with its own evidence. Display or API permission is not this. Null
    * means the source never enters a derivation.
@@ -43,7 +56,15 @@ export const MEMBER_PRICE_POLICIES = {
     evidenceUrl: 'https://www.cardmarket.com/en/Insight/Articles/the-state-of-cardmarket-2024',
     basis: 'Official downloadable Product Catalog / Price Guide statement: “use them however you see fit”. Normalized member display/API/download only; not a CC0 claim or permission for restricted API/site scraping.',
     attribution: 'Cardmarket official daily Price Guide; EUR product-level market aggregates, not individual sales.',
-    uses: ['member-display', 'member-api', 'member-download'] as readonly MemberPriceUse[],
+    uses: ['member-display'] as readonly MemberPriceUse[],
+    // docs/decisions/2026-11-24-cardmarket-export-pause.md. To restore: move
+    // the two uses back and set paused to null. The release row keeps
+    // member_api and member_download: the derivation reads them as values that
+    // went out, so Cardmarket never counts toward a reference's two sources.
+    paused: {
+      uses: ['member-api', 'member-download'] as readonly MemberPriceUse[], since: '2026-11-24',
+      reason: 'Since 24 November 2026 Cardmarket prices are not in our API or downloads. Cardmarket’s new terms take effect on 26 November 2026; until we know that they allow it, we show these prices only on our pages, to signed-in members, with Cardmarket named.',
+    },
     derivation: { evidenceVersion: CARDMARKET_DERIVATION_EVIDENCE_VERSION, evidenceUrl: `${PERMISSIONS_RECORD}#cardmarket` },
     acquisition: 'official-daily-files', storage: 'normalized-history', cadence: 'daily',
   },
@@ -52,7 +73,7 @@ export const MEMBER_PRICE_POLICIES = {
     evidenceUrl: 'https://scryfall.com/docs/api#use-of-scryfall-data-and-images',
     basis: 'Free accounts and value-added Magic views allowed. No simple republishing, raw mirror, proxy, or price API/download export. Underlying vendor fields retain their market identity.',
     attribution: 'Scryfall daily bulk prices (USD: TCGplayer; EUR: Cardmarket). Magic material belongs to Wizards of the Coast.',
-    uses: ['member-display'] as readonly MemberPriceUse[],
+    uses: ['member-display'] as readonly MemberPriceUse[], paused: null,
     // Its basis covers free accounts and value-added views, not resale.
     derivation: null,
     acquisition: 'official-daily-bulk', storage: 'normalized-history', cadence: 'daily',
@@ -62,7 +83,7 @@ export const MEMBER_PRICE_POLICIES = {
     evidenceUrl: `${PERMISSIONS_RECORD}#cardrush`,
     basis: 'Written permission by email, held by Yu and recorded 2026-10-28 without a copy: collection from CardRush product pages, attributed member display, input to Cambridge-derived data. Raw values are display-only: no member API, download or bulk copy. Prices gathered before 2026-10-28 are not covered.',
     attribution: 'CardRush product page: the shop’s listed JPY sell price for this printing when Cambridge read the page. An asking price, not a sale.',
-    uses: ['member-display'] as readonly MemberPriceUse[],
+    uses: ['member-display'] as readonly MemberPriceUse[], paused: null,
     derivation: { evidenceVersion: CARDRUSH_EVIDENCE_VERSION, evidenceUrl: `${PERMISSIONS_RECORD}#cardrush` },
     acquisition: 'identified-page-collector', storage: 'normalized-history', cadence: 'live-page',
   },
@@ -71,7 +92,7 @@ export const MEMBER_PRICE_POLICIES = {
     evidenceUrl: `${PERMISSIONS_RECORD}#tcgplayer`,
     basis: 'Written permission by email, held by Yu and recorded 2026-10-28 without a copy: collection from TCGplayer product pages, attributed member display, input to Cambridge-derived data. Raw values are display-only: no member API, download or bulk copy. Not TCGplayer\'s partner API. The permission covers the data TCGplayer\'s public price-guide pages load (Yu confirmed 2026-10-29), which the collector reads only while it is scheduled (see /api/v1/sources).',
     attribution: 'TCGplayer price guide: TCGplayer’s USD Market Price (its figure from recent sales) for this printing and condition when Cambridge read the guide. Not an individual sale.',
-    uses: ['member-display'] as readonly MemberPriceUse[],
+    uses: ['member-display'] as readonly MemberPriceUse[], paused: null,
     derivation: { evidenceVersion: TCGPLAYER_EVIDENCE_VERSION, evidenceUrl: `${PERMISSIONS_RECORD}#tcgplayer` },
     acquisition: 'identified-page-collector', storage: 'normalized-history', cadence: 'live-page',
   },
@@ -80,6 +101,15 @@ export function priceUseAllowed(source: string, use: MemberPriceUse, evidenceVer
   if (!Object.hasOwn(MEMBER_PRICE_POLICIES, source)) return false;
   const policy = MEMBER_PRICE_POLICIES[source as MemberPriceSource];
   return policy.evidenceVersion === evidenceVersion && policy.uses.includes(use);
+}
+/** The pause that stops this use now: the named source's or, with none named,
+ * the one that leaves no source open to it. Null when no pause does.
+ */
+export function pausedPriceUse(use: MemberPriceUse, source?: MemberPriceSource): ({ source: MemberPriceSource } & PausedPriceUses) | null {
+  const policies = Object.entries(MEMBER_PRICE_POLICIES) as [MemberPriceSource, MemberPricePolicy][];
+  if (!source && policies.some(([, policy]) => policy.uses.includes(use))) return null;
+  const stopped = policies.find(([id, policy]) => (!source || id === source) && policy.paused?.uses.includes(use));
+  return stopped ? { source: stopped[0], ...stopped[1].paused! } : null;
 }
 /** Whether a source may feed Cambridge-derived data under this derivation
  * evidence version (a release row's derivation_evidence_version). The release

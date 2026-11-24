@@ -40,6 +40,7 @@ describe("dated card compatibility boundary", () => {
 
     expect(body.price).toBeNull();
     expect(body.image_url).toBeNull();
+    expect(body.publication_boundary.image).toBe("not_carried_for_past_dates");
     expect(body.as_of_scope).toMatchObject({
       requested_date_only: true,
       historical_price_reconstruction: false,

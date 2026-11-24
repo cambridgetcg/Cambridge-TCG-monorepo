@@ -18,6 +18,8 @@ sovereign.log
 .sovereign-state.json
 
 .DS_Store
+__pycache__/
+*.py[co]
 *.tsbuildinfo
 tsconfig.tsbuildinfo
 
@@ -35,6 +37,8 @@ test-results/
 
 # Loose screenshots written by ad-hoc Playwright sessions at the repo root
 *.png
+/*.jpeg
+/*.jpg
 .vercel
 
 # CLI / agent state — local to each clone. Exception: the wake wiring

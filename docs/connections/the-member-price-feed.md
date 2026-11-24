@@ -65,4 +65,6 @@ The preceding no-production statement records the implementation turn. The user 
 
 **Remaining boundaries:** this is an initial Cardmarket One Piece activation, not activation of every source or game. No daily Cambridge ingestion job is installed. Scryfall bulk acquisition remains deferred pending a memory-safe operator; CardRush, direct TCGplayer and other unresolved source permissions remain blocked. Registration admission is still paused. Vercel runtime logs are available; external log drains are absent.
 
+**2026-11-24:** Cardmarket's rows left the member API and downloads ahead of its new terms; member display, collection and derived data are unchanged ([record](../decisions/2026-11-24-cardmarket-export-pause.md)). The rest of this entry is kept as written.
+
 **Recursion:** [The license propagation](./the-license-propagation.md), especially its July correction; [the public methodology](../../apps/storefront/src/app/methodology/member-pricing/page.tsx).

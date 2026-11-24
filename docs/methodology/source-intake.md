@@ -254,7 +254,7 @@ Cardmarket's official daily files were reviewed on 2026-09-07 (`member-prices/20
 - *A.1, added:* Cardmarket's robots.txt (fetched 2026-10-28) carries `Content-Signal: search=yes, ai-train=no, use=reference` with an EU DSM Art. 4 reservation. Derived data with Cardmarket inputs is therefore not CC0, and its terms do not cover AI training.
 - *A.2:* unchanged — product-level aggregates, no personal data.
 - *Gate B:* the `SourceMeta` tiers stay (`public-file` / `proprietary` / `redistribute: false` / `partial`). `tos_notes` gains one sentence: "robots.txt (2026-10-28): Content-Signal search=yes, ai-train=no, use=reference, with an EU DSM Art. 4 reservation; Cambridge-derived data from these prices is not CC0 and excludes AI training." The policy gains `derivation: { evidenceVersion: "cardmarket-derivation/2026-10-28.1", evidenceUrl: "repo:docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#cardmarket" }`. Its `evidenceVersion` (`member-prices/2026-09-07.1`) and `evidenceUrl` stay as they are: the free feed matches the release row on both `evidence_version` and `evidence_url`, and stored rows on `evidence_version`, so changing either would hide every stored row.
-- *Gate D:* unchanged, plus derivation input. The free member feed keeps serving Cardmarket rows as today; no paid route returns a Cardmarket value.
+- *Gate D:* unchanged, plus derivation input. The free member feed keeps serving Cardmarket rows as today; no paid route returns a Cardmarket value. *Since 2026-11-24* the member API and downloads no longer serve them, ahead of Cardmarket's General Terms dated 2026-11-26; member display is unchanged ([record](../decisions/2026-11-24-cardmarket-export-pause.md)).
 
 ---
 
@@ -311,7 +311,7 @@ the JSON behind the market pages (`/api/market/catalog?images=same-language`);
 never member API, downloads or `/api/v1/market/*`.
 
 **Carried rules:** credit is the footer's own line verbatim; a takedown is per
-card, every language; `OFFICIAL_IMAGES_JA=off` hides the lane;
+card, every language; the lane is off unless `OFFICIAL_IMAGES_JA=show`;
 `ImageReference` v1 is unchanged.
 
 **Needs Yu:** each collection run, the upload (with D6 lifted for it and the

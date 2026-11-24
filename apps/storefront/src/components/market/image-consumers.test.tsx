@@ -77,6 +77,14 @@ describe.each(["table", "grid"] as const)("market %s image presentation", (view)
     expect(markup).not.toContain(referenceLabel);
   });
 
+  it("names CardRush beside a catalogue photo copied from its listing, and invents no copyright line", () => {
+    const copied = "https://jp-op-photos.s3.us-east-1.amazonaws.com/hires/OP01/OP-OP01-001-JP-V11L2.jpg";
+    const markup = renderBrowser(view, { image_url: copied, image_attribution: null, image_reference: null });
+    expect(markup).toContain('alt="Leader: CardRush listing photo · printing not verified"');
+    expect(markup).not.toContain(catalogLabel);
+    expect(markup).not.toContain("©");
+  });
+
   it("labels a Japanese card's own-language image as Japanese, matched by SKU, with its credit marked Japanese", () => {
     const base = renderBrowser(view, jaFields("OP-OP01-001-JP"));
     expect(base).toContain('alt="Leader: Official image · this printing (Japanese), matched by SKU, not verified"');

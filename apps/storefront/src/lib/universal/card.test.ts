@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { getEnCardData, type EnCardImage, type SameLanguageCardImage } from "@/lib/cards/en-card-data";
 import { createSameLanguageImageReference } from "@/lib/cards/same-language-image-reference";
 import type { ImageReference } from "@/lib/cards/image-reference";
+import { MEDIA_REASON_MEANINGS } from "@/lib/cards/media-reasons";
 import { buildUniversalCard, resolveContentHash } from "./card";
 
 vi.mock("@/lib/db", () => ({ query: vi.fn() }));
@@ -14,7 +15,7 @@ const mockEnCardData = vi.mocked(getEnCardData);
 beforeEach(() => {
   mockQuery.mockReset();
   mockEnCardData.mockReset();
-  mockEnCardData.mockResolvedValue({ en_image: null, effect_text: null, attributes: null, same_language_image: null });
+  mockEnCardData.mockResolvedValue({ en_image: null, effect_text: null, attributes: null, same_language_image: null, image_state: "none", text_state: "none" });
   mockQuery.mockResolvedValue({ rows: [] } as never);
 });
 
@@ -31,7 +32,7 @@ describe("universal card legacy snapshot boundary", () => {
       variant: "",
       game: "one-piece",
       set_name: "Romance Dawn",
-      released_at: new Date("2022-12-02T00:00:00Z"),
+      released_at: "2022-12-02",
       total_cards: 121,
       image_url: "https://legacy-upstream.example/card.jpg",
       cover_image_url: "https://legacy-upstream.example/set.jpg",
@@ -46,7 +47,7 @@ describe("universal card legacy snapshot boundary", () => {
     );
     const document = result?.document as Record<string, unknown>;
     const neighbours = document.neighbours as {
-      set: { cover_image_url: string | null };
+      set: { cover_image_url: string | null; released_at: string | null };
     };
     const serialized = JSON.stringify(document);
 
@@ -60,6 +61,10 @@ describe("universal card legacy snapshot boundary", () => {
       changed_on: "2026-07-12",
     });
     expect(neighbours.set.cover_image_url).toBeNull();
+    // The driver gives a DATE column as text; the query asks for text, so the
+    // saturated document carries the date as it is stored.
+    expect(neighbours.set.released_at).toBe("2022-12-02");
+    expect(String(mockQuery.mock.calls[0]?.[0])).toContain("cs.released_at::text AS released_at");
     expect(serialized).not.toContain("legacy-upstream.example");
     expect(serialized).not.toContain("9876.54");
     expect(serialized).not.toContain("2026-07-01");
@@ -112,7 +117,7 @@ describe("universal card image-reference projections", () => {
 
   beforeEach(() => {
     mockQuery.mockResolvedValue({ rows: [row] } as never);
-    mockEnCardData.mockResolvedValue({ en_image: image, effect_text: effect, attributes, same_language_image: null });
+    mockEnCardData.mockResolvedValue({ en_image: image, effect_text: effect, attributes, same_language_image: null, image_state: "shown", text_state: "shown" });
   });
 
   it.each(["normal", "saturated"] as const)("keeps reference, URL and attribution together at %s density", async (density) => {
@@ -133,9 +138,22 @@ describe("universal card image-reference projections", () => {
   });
 
   it.each(["url", "attribution", "reference"])("withholds the whole official image when %s is missing", async (field) => {
-    mockEnCardData.mockResolvedValue({ en_image: { ...image, [field]: undefined }, effect_text: effect, attributes: null } as Awaited<ReturnType<typeof getEnCardData>>);
+    mockEnCardData.mockResolvedValue({ en_image: { ...image, [field]: undefined }, effect_text: effect, attributes: null, image_state: "shown", text_state: "shown" } as Awaited<ReturnType<typeof getEnCardData>>);
     const result = await buildUniversalCard(row.sku);
     expect(result?.document).toMatchObject({ image_url: null, image_attribution: null, image_reference: null, effect });
+    expect(result?.document.publication_boundary).toMatchObject({ image: "could_not_be_read", text: "cleared_official_text_attributed" });
+  });
+
+  it.each([
+    ["no_lane", "no_lane", "withheld_pending_field_level_source_rights", "withheld_pending_field_level_source_rights"],
+    ["switched_off", "none", "japanese_images_switched_off", "no_official_text_available"],
+    ["none", "none", "no_official_image_available", "no_official_text_available"],
+    ["unreadable", "unreadable", "could_not_be_read", "could_not_be_read"],
+  ] as const)("says why nothing is shown (%s, %s), each reason with its own words", async (image_state, text_state, imageReason, textReason) => {
+    mockEnCardData.mockResolvedValue({ en_image: null, effect_text: null, attributes: null, same_language_image: null, image_state, text_state });
+    const document = (await buildUniversalCard(row.sku))!.document;
+    expect(document.publication_boundary).toEqual({ price: "withheld_pending_field_level_source_rights", image: imageReason, text: textReason });
+    for (const reason of [imageReason, textReason]) expect(MEDIA_REASON_MEANINGS[reason]).toBeTruthy();
   });
 });
 
@@ -167,7 +185,7 @@ describe("universal card same-language image [C6]", () => {
   beforeEach(() => { mockQuery.mockResolvedValue({ rows: [row] } as never); });
 
   it("keeps the v1 trio English and carries the Japanese image as its own unit", async () => {
-    mockEnCardData.mockResolvedValue({ en_image: english, effect_text: null, attributes: null, same_language_image: japanese });
+    mockEnCardData.mockResolvedValue({ en_image: english, effect_text: null, attributes: null, same_language_image: japanese, image_state: "shown", text_state: "none" });
     const document = (await buildUniversalCard(row.sku, "normal"))!.document;
     expect(document).toMatchObject({ image_url: english.url, image_attribution: english.attribution, image_reference: reference });
     expect(document.image_same_language).toEqual({ url: japanese.url, attribution: japanese.attribution, language: "ja", reference: japanese.reference });
@@ -175,7 +193,7 @@ describe("universal card same-language image [C6]", () => {
   });
 
   it("publishes the Japanese unit with a null v1 trio when there is no English image", async () => {
-    mockEnCardData.mockResolvedValue({ en_image: null, effect_text: null, attributes: null, same_language_image: japanese });
+    mockEnCardData.mockResolvedValue({ en_image: null, effect_text: null, attributes: null, same_language_image: japanese, image_state: "shown", text_state: "none" });
     const document = (await buildUniversalCard(row.sku, "saturated"))!.document;
     expect(document).toMatchObject({ image_url: null, image_attribution: null, image_reference: null });
     expect((document.image_same_language as { url: string }).url).toBe(japanese.url);
@@ -183,7 +201,7 @@ describe("universal card same-language image [C6]", () => {
   });
 
   it("omits all four image fields at sparse density, and gives null for an old reader result", async () => {
-    mockEnCardData.mockResolvedValue({ en_image: english, effect_text: null, attributes: null, same_language_image: japanese });
+    mockEnCardData.mockResolvedValue({ en_image: english, effect_text: null, attributes: null, same_language_image: japanese, image_state: "shown", text_state: "none" });
     const sparse = (await buildUniversalCard(row.sku, "sparse"))!.document;
     for (const field of ["image_url", "image_attribution", "image_reference", "image_same_language"]) expect(sparse).not.toHaveProperty(field);
     mockEnCardData.mockResolvedValue({ en_image: null, effect_text: null, attributes: null } as Awaited<ReturnType<typeof getEnCardData>>);

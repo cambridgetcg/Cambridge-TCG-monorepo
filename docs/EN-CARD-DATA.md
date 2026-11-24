@@ -37,6 +37,15 @@ URL comes from the Cambridge image host, never from the publisher provenance URL
 Malformed or unsupported requests and rows that fail the checks produce no
 official image. Single and batch reads select eligible records deterministically.
 
+From 2026-09-29 (`5d5ee05e`) to 2026-11-24 the retrieval-time check accepted
+ISO 8601 text only, and the production driver returns Postgres text, so every
+row was refused: no official image and no rules text reached a shared reader,
+and the universal card gave a rights reason for it. `dbTimestamp`
+(`@cambridge-tcg/db/timestamp`) now reads both forms. A held row that fails the
+checks, or a failed read, is `could_not_be_read` in the universal card's
+`publication_boundary` and is logged by count; the other reasons are in
+[`media-reasons.ts`](../apps/storefront/src/lib/cards/media-reasons.ts).
+
 Existing `image_url` and `image_attribution` fields remain for compatibility;
 `image_reference` carries the relationship where those consumers expose it.
 Official English effect text and structured attributes retain the later July
@@ -97,14 +106,16 @@ holds Yu's decision, not Bandai's permission.
   card. `getOfficialCardImages()` picks it before the English reference;
   `getEnCardData()` carries it as `same_language_image`. The reference is the
   additive `SameLanguageImageReference`; `ImageReference` v1 is unchanged, and
-  text stays English. `OFFICIAL_IMAGES_JA=off` hides the lane.
+  text stays English. Since 2026-11-24 the lane is off unless
+  `OFFICIAL_IMAGES_JA=show`: no reader shows a Japanese image until the owner
+  decides that separately.
 - **Acquisition.** Two manual tools, never scheduled, both dry runs by
   default: [`ingest-official-ja.mjs`](../apps/storefront/scripts/ingest-official-ja.mjs)
   reads Bandai's Japanese card lists (every run is the collection act, which
   needs Yu's word) and records rows, and `upload-official-images.mjs` copies
   a reviewed selection to the bucket (`--apply` is the upload and needs Yu's
-  word, D6 lifted for it, and the AWS profile they name at run time). Neither
-  has run.
+  word, D6 lifted for it, and the AWS profile they name at run time). Both
+  have run; the decision record lists the runs.
 - **Removal is per card**: one statement sets every `official_sample` row of
   the card, every language and variant, to `disputed` or `removed`; the
   decision record has it.

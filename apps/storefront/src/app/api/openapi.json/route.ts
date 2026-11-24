@@ -124,7 +124,7 @@ const SPEC = {
       get: {
         tags: ["prices"],
         summary: "Free account-owned member price feed",
-        description: "Requires a read-only member data key minted after Cambridge TCG login at /account/data. Agent and wholesale keys are not accepted. Source/use-filtered observations in native currency; Cardmarket official-file projections are eligible, Scryfall is view-only and excluded. No billing tier. Private, no-store. Follow nextCursor with unchanged filters to finish the permitted result; empty/unavailable does not claim ingestion has run.",
+        description: "Requires a read-only member data key minted after Cambridge TCG login at /account/data. Agent and wholesale keys are not accepted. Observations in native currency from the sources whose policy opens them to this feed: /api/v1/sources names each source's open uses, and any paused ones with the reason (member_pricing.reviewed_uses, member_pricing.paused). While none is open, an authenticated request that names no source, or a paused one, answers 503 with the reason. No billing tier. Private, no-store. Follow nextCursor with unchanged filters to finish the permitted result; empty/unavailable does not claim ingestion has run.",
         operationId: "getMemberPrices",
         security: [{ MemberDataKey: [] }],
         parameters: [
@@ -143,7 +143,7 @@ const SPEC = {
           "400": { description: "Invalid query or continuation cursor." },
           "401": { description: "Missing, invalid, expired or revoked member data key; no price query performed." },
           "429": { description: "Free per-key request limit exceeded; Retry-After supplied." },
-          "503": { description: "Authentication storage or price observations unavailable; not an empty catalog." },
+          "503": { description: "Authentication storage or price observations unavailable, or the use is paused (data.paused names the source and date; data.reason says why); not an empty catalog." },
         },
       },
     },
@@ -222,7 +222,7 @@ const SPEC = {
       get: {
         tags: ["universal"],
         summary: "Math-mirror card representation",
-        description: "Returns a mixed card document with cryptographic hashes, ISO 8601 + Unix epoch time and typed graph edges. Legacy catalog prices and images stay withheld. Normal/saturated density can include eligible self-hosted English reference images with attribution and syntax-only image_reference, a Japanese request's own-language official image in image_same_language, independently attributed effect text and structured details. Sparse omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. See /standards/card-data and /methodology/universal-representation.",
+        description: "Returns a mixed card document with cryptographic hashes, ISO 8601 + Unix epoch time and typed graph edges. Legacy catalog prices and images stay withheld. Normal/saturated density can include eligible self-hosted English reference images with attribution and syntax-only image_reference, a Japanese request's own-language official image in image_same_language (null while Japanese images are switched off), independently attributed effect text and structured details. Sparse omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. See /standards/card-data and /methodology/universal-representation.",
         operationId: "getUniversalCard",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU (e.g. OP01-001)." },
@@ -1538,9 +1538,13 @@ const SPEC = {
                   },
                   { type: "null" },
                 ],
-                description: "Additive: a Japanese request's own-language official base image, as one unit, or null; omitted at sparse density. The English image_url, image_attribution and image_reference are unchanged by it.",
+                description: "Additive: a Japanese request's own-language official base image, as one unit, or null (always null while Japanese images are switched off); omitted at sparse density. The English image_url, image_attribution and image_reference are unchanged by it.",
               },
-              publication_boundary: { type: "object" },
+              publication_boundary: {
+                type: "object",
+                description: "Why the price, image and text fields are present or null, one value each. The image and text values and their meanings are in /api/v1/contracts/card-data (images.publication_reasons). could_not_be_read is a fault, never a rights decision.",
+                properties: { price: { type: "string" }, image: { type: "string" }, text: { type: "string" } },
+              },
             },
           },
         ],

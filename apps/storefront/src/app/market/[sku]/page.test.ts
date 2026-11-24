@@ -23,13 +23,13 @@ const metadataFor = async (identity: CatalogIdentity) => {
 beforeEach(() => { mocks.resolveCardIdentity.mockReset(); });
 
 describe("/market/[sku] share image [C7]", () => {
-  it("never offers a Japanese official image as og:image: the share card instead", async () => {
-    const metadata = await metadataFor({ ...card, image_url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-001-JA.png", image_language: "ja" });
-    expect(metadata.openGraph?.images).toEqual([SHARE_CARD]);
-  });
-
-  it("keeps the English image and the catalogue fallback as before (a recorded gap)", async () => {
-    expect((await metadataFor(card)).openGraph?.images).toEqual([{ url: card.image_url }]);
-    expect((await metadataFor({ ...card, image_url: null, image_language: null })).openGraph?.images).toEqual([SHARE_CARD]);
+  // A social platform would show and cache the picture without its credit.
+  it.each([
+    ["an English official image", card.image_url, "en"],
+    ["a Japanese official image", "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-001-JA.png", "ja"],
+    ["a catalogue photo", "https://jp-op-photos.s3.us-east-1.amazonaws.com/hires/OP01/OP-OP01-001-JP-V11L2.jpg", null],
+    ["no image", null, null],
+  ] as const)("never offers %s as og:image: the share card instead", async (_what, image_url, image_language) => {
+    expect((await metadataFor({ ...card, image_url, image_language })).openGraph?.images).toEqual([SHARE_CARD]);
   });
 });
