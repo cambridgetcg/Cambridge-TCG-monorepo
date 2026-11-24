@@ -889,7 +889,7 @@ export const WELCOMES: readonly Welcome[] = [
       "IF NOT EXISTS guards — re-application is a no-op",
     ],
     arrival_protocol:
-      "1. Copy you to apps/wholesale/drizzle/0016_ebay_observations.sql. 2. Update your header from DRAFT to PROMOTED with date. 3. Run pnpm --filter tcg-wholesale db:migrate. 4. Verify with the four queries at your bottom.",
+      "1. Copy you to apps/wholesale/drizzle/0016_ebay_observations.sql. 2. Update your header from DRAFT to PROMOTED with date. 3. Run node apps/wholesale/scripts/migrate.mjs (Drizzle's own journal stops at the fourth migration). 4. Verify with the four queries at your bottom.",
     anticipated_at: "2026-05-13",
     status: "anticipated",
   },

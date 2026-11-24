@@ -17,17 +17,19 @@ unchanged.
 The switch is one entry, `MEMBER_PRICE_POLICIES.cardmarket` in
 `packages/data-ingest/src/member-prices.ts`. `uses` holds what is open;
 `paused` holds what is stopped, since when and why. The reader, `/prices`,
-`/account/data`, `/methodology/member-pricing`, `/api/v1/sources` and the card
-evidence all read it there.
+`/account/data`, `/methodology/member-pricing` and `/api/v1/sources` all read
+it there.
 
 ## Why
 
 - Cardmarket's [General Terms](https://help.cardmarket.com/en/general-terms-and-conditions)
-  dated 2026-11-26 ask, in the English text's section on API use, for prior
+  dated 2026-11-26, in the English text's section on API use, ask for prior
   written agreement before cards and their prices are presented on external
-  websites. An agent read the English text on 2026-11-24. The German text
-  binds and has not been read. Whether that section reaches the public daily
-  files is not known.
+  websites, and say that the use of the API and the transfer and use of data
+  for any other purpose is prohibited. Of those two sentences only the words
+  "on external websites" are marked as changing. An agent read the English
+  text on 2026-11-24. The German text binds and has not been read. Whether
+  that section reaches the public daily files is not known.
 - Our API and downloads rested on a 2024 announcement that the files may be
   used “however you see fit” (`member-prices/2026-09-07.1`).
 - The scope recorded on [2026-10-28](2026-10-28-tcg-data-permissions-and-paid-data-api.md)
@@ -38,8 +40,8 @@ evidence all read it there.
 
 ## What stays as it was
 
-- Display to signed-in members, history and 500-row pages included. The limits
-  on CardRush and TCGplayer views do not apply to Cardmarket.
+- Display to signed-in members, as it was. The limits on CardRush and
+  TCGplayer views do not apply to Cardmarket.
 - The daily collector, its User-Agent and its evidence version. Stored rows
   match on that version, so it must not change.
 - Derived data. Cardmarket is still an input, and still never counts toward a
@@ -53,9 +55,11 @@ evidence all read it there.
 ## To restore
 
 One line from the owner, for example that the email covers the API and
-downloads. Then revert the commit that added this file; or move the two uses
-back in `MEMBER_PRICE_POLICIES.cardmarket`, set `paused` to `null`, change the
-tests that pin the pause, and add a dated line here.
+downloads. Then one commit: move the two uses back in
+`MEMBER_PRICE_POLICIES.cardmarket`, set `paused` to `null`, change the tests
+that pin the pause, add a changelog entry that the export is open again, and
+add a dated line here. A plain revert would also delete this record and the
+changelog entry, which stay.
 
 ## If showing them is not covered either
 

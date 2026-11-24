@@ -111,8 +111,10 @@ describe("a paused use at the routes", () => {
     expect(api.status).toBe(503); privateResponse(api);
     expect((await api.json()).data).toEqual(paused);
     expect(api.headers.get("x-price-complete")).toBe("false");
+    expect(api.headers.get("retry-after")).toBe("86400");
     const csv = await download.GET(request("/api/account/prices/export?format=csv"));
     expect(csv.status).toBe(503); privateResponse(csv);
+    expect(csv.headers.get("retry-after")).toBe("86400");
     expect(csv.headers.has("content-disposition")).toBe(false);
     expect(await csv.json()).toEqual(paused);
   });
