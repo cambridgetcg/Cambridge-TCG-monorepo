@@ -114,7 +114,9 @@ export default function ContactForm({ open }: { open: boolean }) {
             </p>
           )}
         </Card>
-        {status.holderKey && <MessageKey initialKey={status.holderKey} />}
+        {/* Its own key: at this place in the tree React would otherwise keep
+            the form's empty MessageKey, and neither button would work. */}
+        {status.holderKey && <MessageKey key={status.holderKey} initialKey={status.holderKey} />}
       </div>
     );
   }
