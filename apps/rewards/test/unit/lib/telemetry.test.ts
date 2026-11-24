@@ -1,6 +1,6 @@
 import type { ErrorEvent } from "@sentry/react-router";
 import { describe, expect, it } from "vitest";
-import { redactSensitiveTelemetryValue, redactSensitiveUrlText, scrubEvent } from "~/lib/telemetry.server";
+import { redactSensitiveTelemetryValue, redactSensitiveUrlText, scrubEvent, sentryOptions } from "~/lib/telemetry.server";
 
 /**
  * What reaches Sentry: carried from apps/rewardspro's telemetry-redaction
@@ -46,6 +46,41 @@ describe("telemetry redaction", () => {
   });
 });
 
+// Headers that locate or identify the person making the request (Vercel's
+// geolocation, client addresses) or carry their credentials.
+const ADDRESS_HEADER_NAMES = [
+  "x-vercel-ip-city",
+  "x-vercel-ip-country",
+  "x-vercel-ip-country-region",
+  "x-vercel-ip-postal-code",
+  "x-vercel-ip-latitude",
+  "x-vercel-ip-longitude",
+  "x-vercel-ip-timezone",
+  "x-vercel-ip-continent",
+  "x-vercel-ip-as-number",
+  "x-vercel-forwarded-for",
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-real-ip",
+  "forwarded",
+  "cf-connecting-ip",
+  "true-client-ip",
+  "authorization",
+  "cookie",
+  "x-shopify-hmac-sha256",
+  "x-shopify-access-token",
+];
+const titleCase = (name: string) => name.replace(/(^|-)([a-z])/g, (_, dash: string, letter: string) => dash + letter.toUpperCase());
+// Each name in lower, UPPER and Title case, each value marked so a leak shows.
+function withEveryAddressHeader(): Record<string, string> {
+  return Object.fromEntries(
+    ADDRESS_HEADER_NAMES.flatMap((name, index) =>
+      [name, name.toUpperCase(), titleCase(name)].map((variant, letterCase) => [variant, `leak-${index}-${letterCase} 203.0.113.7`]),
+    ),
+  );
+}
+const ADDRESS_VALUES = /leak-|203\.0\.113\.7/;
+
 describe("scrubEvent (Sentry's beforeSend)", () => {
   it("removes the request's query string, cookies and body, and the query from its URL", () => {
     const event = {
@@ -67,14 +102,110 @@ describe("scrubEvent (Sentry's beforeSend)", () => {
     expect(scrubbed.request).toEqual({
       url: "https://rewards.example/api/proxy/widget",
       method: "GET",
-      headers: { "user-agent": "Shopify", Authorization: "[REDACTED]" },
+      headers: { "user-agent": "Shopify" },
     });
     expect(scrubbed.message).toBe("Proxy request failed for [REDACTED_EMAIL]");
     expect(JSON.stringify(scrubbed)).not.toMatch(/7001|code=abc|secret/);
   });
 
+  it("keeps only the request headers that identify no one (#237)", () => {
+    const event = {
+      type: undefined,
+      request: {
+        url: "https://rewards.example/app",
+        headers: {
+          ...withEveryAddressHeader(),
+          "User-Agent": "Mozilla/5.0 (test)",
+          "X-Shopify-Webhook-Id": "webhook-test-1",
+          "x-vercel-id": "lhr1::test-1",
+          "Sec-Fetch-Mode": "navigate",
+          "x-new-provider-header": "unknown-test-value",
+          referer: "https://admin.shopify.com/store/example/apps/rewards?shop=example.myshopify.com",
+        },
+      },
+    } as unknown as ErrorEvent;
+
+    const scrubbed = scrubEvent(event)!;
+
+    expect(scrubbed.request?.headers).toEqual({
+      "User-Agent": "Mozilla/5.0 (test)",
+      "X-Shopify-Webhook-Id": "webhook-test-1",
+      "x-vercel-id": "lhr1::test-1",
+      "Sec-Fetch-Mode": "navigate",
+    });
+    expect(JSON.stringify(scrubbed)).not.toMatch(ADDRESS_VALUES);
+  });
+
   it("passes an event without a request through, redacted", () => {
     const scrubbed = scrubEvent({ type: undefined, message: "token=abc failed" } as ErrorEvent);
     expect(scrubbed).toEqual({ type: undefined, message: "token=[REDACTED] failed" });
+  });
+});
+
+describe("sentryOptions (how entry.server.tsx starts Sentry)", () => {
+  const options = sentryOptions("https://public@example.invalid/0", "test");
+
+  it("runs error events through the header allow-list (beforeSend)", () => {
+    const event = { type: undefined, request: { headers: { ...withEveryAddressHeader(), "user-agent": "Mozilla/5.0 (test)" } } } as unknown as ErrorEvent;
+
+    expect(options.beforeSend(event)?.request?.headers).toEqual({ "user-agent": "Mozilla/5.0 (test)" });
+  });
+
+  it("sends transactions through beforeSendTransaction, which gives them the same allow-list on the request and on span header attributes", () => {
+    // The SDK's default "stream" lifecycle skips beforeSendTransaction.
+    expect(options.traceLifecycle).toBe("static");
+
+    const headerAttributes = (headers: Record<string, string>) =>
+      Object.fromEntries(Object.entries(headers).map(([name, value]) => [`http.request.header.${name.toLowerCase()}`, [value]]));
+    const headers = { ...withEveryAddressHeader(), "user-agent": "Mozilla/5.0 (test)", "x-shopify-topic": "orders/paid" };
+    const event = {
+      type: "transaction",
+      transaction: "GET /app",
+      request: { url: "https://rewards.example/app", headers },
+      contexts: { trace: { trace_id: "t", span_id: "s", data: { "http.request.method": "GET", ...headerAttributes(headers) } } },
+      spans: [{ span_id: "c", trace_id: "t", start_timestamp: 0, data: { "url.full": "https://rewards.example/app", ...headerAttributes(headers) } }],
+    } as unknown as Parameters<typeof options.beforeSendTransaction>[0];
+
+    const scrubbed = options.beforeSendTransaction(event)!;
+
+    expect(scrubbed.request?.headers).toEqual({ "user-agent": "Mozilla/5.0 (test)", "x-shopify-topic": "orders/paid" });
+    expect(scrubbed.contexts?.trace?.data).toEqual({
+      "http.request.method": "GET",
+      "http.request.header.user-agent": ["Mozilla/5.0 (test)"],
+      "http.request.header.x-shopify-topic": ["orders/paid"],
+    });
+    expect(scrubbed.spans?.[0].data).toEqual({
+      "url.full": "https://rewards.example/app",
+      "http.request.header.user-agent": ["Mozilla/5.0 (test)"],
+      "http.request.header.x-shopify-topic": ["orders/paid"],
+    });
+    expect(JSON.stringify(scrubbed)).not.toMatch(ADDRESS_VALUES);
+  });
+
+  // The app needs no response header to debug an error; a redirect's
+  // location or a frame-ancestors policy names the store
+  it("drops every response-header attribute, and filters an error event's own trace data", () => {
+    // A fresh object each time: the redaction pass reads a shared reference as a cycle
+    const data = () => ({
+      "http.request.method": "GET",
+      "http.request.header.user-agent": ["Mozilla/5.0 (test)"],
+      "http.request.header.x-vercel-ip-city": ["Cambridge"],
+      "http.response.header.location": ["https://rewards.example/auth?shop=example.myshopify.com"],
+      "http.response.header.content-security-policy": ["frame-ancestors https://example.myshopify.com"],
+      "http.response.status_code": 302,
+    });
+    const kept = { "http.request.method": "GET", "http.request.header.user-agent": ["Mozilla/5.0 (test)"], "http.response.status_code": 302 };
+
+    const error = { type: undefined, contexts: { trace: { trace_id: "t", span_id: "s", data: data() } } } as unknown as ErrorEvent;
+    expect(options.beforeSend(error)?.contexts?.trace?.data).toEqual(kept);
+
+    const transaction = {
+      type: "transaction",
+      contexts: { trace: { trace_id: "t", span_id: "s", data: data() } },
+      spans: [{ span_id: "c", trace_id: "t", start_timestamp: 0, data: data() }],
+    } as unknown as Parameters<typeof options.beforeSendTransaction>[0];
+    const scrubbed = options.beforeSendTransaction(transaction)!;
+    expect(scrubbed.contexts?.trace?.data).toEqual(kept);
+    expect(scrubbed.spans?.[0].data).toEqual(kept);
   });
 });
