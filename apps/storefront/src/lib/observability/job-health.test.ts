@@ -32,11 +32,11 @@ describe("job health", () => {
     expect(await state(rows(), "derive/market")).toBe("off");
   });
 
-  it("reads times as Postgres text and as dates, and says when the daily check last ran and how it ended", async () => {
+  it("reads times as Postgres text and as dates, and says when the daily check last ran and whether it could", async () => {
     const run = rows({ job: "check/daily", last_ran: null, last_seen: "2026-11-24 08:40:21+00", last_outcome: "unavailable:mail-refused" }, { job: "pull/traffic", last_ran: new Date(ago(1)), last_seen: new Date(ago(1)), last_outcome: null });
     const health = await readHealth(run);
     expect(health.clock).toBe("2026-11-25T08:40:00.123Z");
-    expect(health.daily_check).toEqual({ at: "2026-11-24T08:40:21.000Z", outcome: "unavailable:mail-refused" });
+    expect(health.daily_check).toEqual({ at: "2026-11-24T08:40:21.000Z", outcome: "unavailable" });
     expect(health.jobs.find(job => job.job === "pull/traffic")).toEqual({ job: "pull/traffic", state: "ok", last_ran_at: ago(1), last_seen_at: ago(1) });
     expect((await readHealth(rows())).daily_check).toBeNull();
   });

@@ -23,8 +23,8 @@ export const SCHEDULED_JOBS: readonly { job: string; path: string; hours: number
   { job: "collect/cardmarket", path: "/api/cron/collect/cardmarket", hours: 25, on: () => collectionOn("cardmarket") },
   // One host a run; a suspended host's turns pass without one.
   { job: "collect/cardrush", path: "/api/cron/collect/cardrush", hours: 8, on: () => collectionOn("cardrush") },
-  // Hourly, and left alone for six hours after one refusal.
-  { job: "collect/tcgplayer", path: "/api/cron/collect/tcgplayer", hours: 8, on: () => collectionOn("tcgplayer") },
+  // Hourly, and left alone for six hours after one refusal: eight between two that worked, and the run.
+  { job: "collect/tcgplayer", path: "/api/cron/collect/tcgplayer", hours: 9, on: () => collectionOn("tcgplayer") },
   { job: "derive/market", path: "/api/cron/derive/market", hours: 25, on: () => process.env.DATA_DERIVE_MARKET === "on" },
   { job: "pull/traffic", path: "/api/cron/traffic-pull", hours: 4, on: () => trafficPullOn() },
   { job: "reconcile/stripe", path: "/api/cron/reconcile-stripe", hours: 4 },
@@ -81,6 +81,7 @@ export async function readHealth(run: RunQuery): Promise<Health> {
       const state = on && !on() ? "off" : within(ran) ? "ok" : within(last) ? "failing" : "late";
       return { job, state, last_ran_at: iso(ran), last_seen_at: iso(last) };
     }),
-    daily_check: check ? { at: iso(time(check.last_seen))!, outcome: String(check.last_outcome) } : null,
+    // Whether it could, not why not: the reason stays in the record.
+    daily_check: check ? { at: iso(time(check.last_seen))!, outcome: check.last_outcome === "ran" ? "ran" : "unavailable" } : null,
   };
 }

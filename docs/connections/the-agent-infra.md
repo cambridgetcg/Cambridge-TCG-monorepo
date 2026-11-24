@@ -78,7 +78,7 @@ Substrate-honest about scope: the echo does not show raw IP (only daily-salted h
 Until 2026-11 every part of this answer was a constant, so it said `ok` whatever was wrong. Now it is one database query, never cached:
 - `200`, `status: ok` or `degraded`, when the database answered, with the database's own clock; `503` when it did not within five seconds
 - `jobs`: each scheduled job's state (`ok`, `failing`, `late`, `off`) and when it last did its work
-- `daily_check`: when the site's own daily check last ran, and how it ended
+- `daily_check`: when the site's own daily check last ran, and whether it could (`ran` or `unavailable`)
 - `recommendation` (`retry-with-backoff`, or `wait-300s` in the 503) and one sentence why
 
 Not a service guarantee. Each price source's own state is at `/api/v1/sources`.

@@ -65,7 +65,8 @@ export default async function Page() {
 
       <ActionBanner tone="info" title="Late means no record within the job's time; failing means it ran and did not do its work">
         Records are in <code className="text-xs">ops_job_outcomes</code> (and{" "}
-        <code className="text-xs">traffic_pulls</code> for the traffic pull); the last week&apos;s are on the{" "}
+        <code className="text-xs">traffic_pulls</code> for the traffic pull); the last week&apos;s for the
+        collectors and the derivation are on the{" "}
         <a href="/admin/system/monitor" className="underline">monitor</a>. The daily check mails about a
         job that is late or failing. The frozen wholesale app runs one cron of its own, which nothing here sees.
       </ActionBanner>

@@ -57,8 +57,8 @@ why. It never shows that as zero.
   `collect/cardrush`, `collect/tcgplayer` and `derive/market`; of
   `reconcile/stripe` and `retention/prism-beta` (whether they worked, none of
   their counts); of `check/daily`; one an hour of the minute cron
-  (`sweep/maintenance`, and one for an hour's first rejected sweep, naming the
-  rejected sweeps); and, while
+  (`sweep/maintenance`, and one whenever a sweep is first rejected in an hour,
+  naming the rejected sweeps); and, while
   signed acts are open, of the maintenance cron's held-keys sweep
   (`sweep/held-keys`, counting the nonces and pending signing keys it
   deleted; `src/lib/agents/signed-act-sweep.ts`): start, finish,
@@ -377,24 +377,23 @@ Two halves, so that neither has to report its own death.
 - **From the site, once a day.** `/api/cron/daily-check` (08:40 UTC,
   `src/lib/observability/daily-check.ts`) walks one card as a guest, counts
   the messages waiting at the feedback door, and sends at most one plain
-  email, to `ADMIN_DIGEST_EMAIL` or else `STORE_NOTIFICATION_EMAIL`, from
-  `AUTH_FROM_EMAIL`, over the site's own mail seam (AWS SES): when something
-  is newly wrong, when someone wrote, once a week while either waits, and a
-  first one that proves the path. It holds counts, links and what the walk
+  email a day, to `ADMIN_DIGEST_EMAIL` or else `STORE_NOTIFICATION_EMAIL`,
+  from `AUTH_FROM_EMAIL`, over the site's own mail seam (AWS SES): when
+  something is newly wrong, when someone wrote, once a week while either
+  waits, and a first one that proves the path. A row in `digest_runs` keeps
+  two deliveries of one run to one message; only while the database is away
+  can a second go out. It holds counts, links and what the walk
   found, never a message's words. It needs no database to go out. A message
   that could not be sent is recorded (`unavailable:mail-…`) and owed to the
   next day. SES accepting a message is not a person reading it: only the
   reader can say that it arrived.
 - **From outside, several times a day.** `.github/workflows/health.yml` runs
-  the same walk from GitHub, whose last step reads at `/api/v1/health` when
-  the daily check last ran and whether it could send, and
-  `.github/scripts/deploy-health.py` for the Vercel deployments. Each keeps
-  one issue (labels `guest-walk`, `deploy-health`): opened and assigned to
-  the repository's account, edited while it stays, commented on when something
-  more fails, closed by the first clean run. A run ends red only when it has
-  such news. GitHub starts about three or four of the hourly runs a day
-  (62 in the 18 days to 2026-11-24, up to twelve hours apart), so this
-  half notices within hours, not minutes.
+  `.github/scripts/deploy-health.py` for the Vercel deployments and keeps one
+  issue (label `deploy-health`). It does not run the walk yet: until it does,
+  nothing notices a daily check that stopped or could not send. GitHub starts
+  about three or four of the hourly runs a day (62 in the 18 days to
+  2026-11-24, up to twelve hours apart), so this half notices within hours,
+  not minutes.
 
 The walk (`src/lib/guest-walk.ts`; by hand, `node
 apps/storefront/scripts/guest-walk.mts`) is GET only: the front page, a

@@ -11,7 +11,7 @@ const good = (): Record<string, unknown> => ({
   "/": '<form action="/prices/search" method="get">',
   "/prices/search": "<code>OP-OP01-001-JP</code>",
   "/api/v1/search/cards": { data: { matches: [{ sku: "op-op01-001-ja", name: "ロロノア・ゾロ", confidence: "exact" }], next_step: "/api/v1/cards/op-op01-001-ja/everything" } },
-  "/api/v1/cards/op-op01-001-ja/everything": { data: { card: { sku: "op-op01-001-ja", card_number: "OP01-001", rarity: "L" }, prices_today: { rows: [], note: "No stored source row is currently cleared for publication." } } },
+  "/api/v1/cards/op-op01-001-ja/everything": { data: { card: { sku: "op-op01-001-ja", card_number: "OP01-001", name: "ロロノア・ゾロ", rarity: "L" }, prices_today: { rows: [], note: "No stored source row is currently cleared for publication." } } },
   "/api/v1/universal/card/op-op01-001-ja": { "@kind": "card", "@content_hash": "sha256:00", name: { natural_token: "Roronoa Zoro" }, image_url: "https://images.example/op01-001.png", image_attribution: "Bandai" },
   "/op01-001.png": PNG,
   "/api/v1/sources/cardmarket": collector(3), "/api/v1/sources/cardrush": collector(2), "/api/v1/sources/tcgplayer": collector(1),
@@ -44,7 +44,7 @@ describe("the guest walk", () => {
   it("passes every step on a good day, with GETs that no edge copy can answer", async () => {
     const done = await walk();
     expect(done.failed).toEqual([]);
-    expect(done.steps).toHaveLength(12);
+    expect(done.steps).toHaveLength(11);
     expect(done.asked).toHaveLength(14);
     expect(done.asked.filter(path => !path.startsWith("/op01")).every(path => path.includes("walk="))).toBe(true);
     expect(walkReport(done).split("\n").at(-1)).toBe("failing: none");
@@ -53,13 +53,15 @@ describe("the guest walk", () => {
   it("asks about the daily check only from outside", async () => {
     expect((await walk(undefined, { outside: false })).steps.map(step => step.id)).not.toContain("daily");
     expect((await walk(answers => { (answers["/api/v1/health"] as { data: { daily_check: unknown } }).data.daily_check = { at: ago(31), outcome: "ran" }; })).failed).toEqual(["daily"]);
-    expect((await walk(answers => { (answers["/api/v1/health"] as { data: { daily_check: unknown } }).data.daily_check = { at: ago(2), outcome: "unavailable:mail-refused" }; })).failed).toEqual(["daily"]);
+    expect((await walk(answers => { (answers["/api/v1/health"] as { data: { daily_check: unknown } }).data.daily_check = { at: ago(2), outcome: "unavailable" }; })).failed).toEqual(["daily"]);
   });
 
   it.each<[string, (answers: Record<string, unknown>) => void]>([
     ["home", answers => { answers["/"] = "<p>hello</p>"; }],
     ["find", answers => { answers["/prices/search"] = "Card search is unavailable right now."; }],
-    ["search", answers => { answers["/api/v1/search/cards"] = { data: { matches: [{ name: "〔状態A-〕ロロノア・ゾロ(パラレル/漫画絵)【L/P】" }], next_step: "/api/v1/cards/op-op01-001-ja/everything" } }; }],
+    ["card", answers => { answers["/api/v1/search/cards"] = { data: { matches: [{ name: "ロロノア・ゾロ" }], next_step: null } }; }],
+    ["card", answers => { (answers["/api/v1/cards/op-op01-001-ja/everything"] as { data: { card: { name: string } } }).data.card.name = "ロロノア・ゾロ(漫画背景/漫画絵)"; }],
+    ["card", answers => { (answers["/api/v1/cards/op-op01-001-ja/everything"] as { data: { card: { rarity: string } } }).data.card.rarity = "L/P"; }],
     ["card", answers => { (answers["/api/v1/cards/op-op01-001-ja/everything"] as { data: { prices_today: { note: string } } }).data.prices_today.note = ""; }],
     ["prices", answers => { answers["/api/v1/sources/cardrush"] = collector(9); }],
     ["pulls", answers => { answers["/api/v1/pulls"] = { data: { games: [{ slug: "one-piece", sections: [{ rates: [{ basis: "a box count", sourceUrl: null }] }] }] } }; }],
@@ -76,11 +78,12 @@ describe("the guest walk", () => {
     expect((await walk(answers => { delete answers[doc]; })).failed).toEqual(["example", "picture"]);
   });
 
-  it("lives with a host suspended long ago, and names one suspended lately or a source switched off", async () => {
+  it("lives with a host suspended long ago and a source switched off on purpose, and names one suspended lately or one that says nothing", async () => {
     const lately = await walk(answers => { answers["/api/v1/sources/cardrush"] = collector(2, ago(20)); });
     expect(lately.steps.find(step => step.id === "prices")).toMatchObject({ ok: false, parts: ["two.example"] });
     expect(walkReport(lately).split("\n").at(-1)).toBe("failing: prices.two.example");
-    expect((await walk(answers => { (answers["/api/v1/sources/tcgplayer"] as { data: { collector: { collection: { scheduled: boolean } } } }).data.collector.collection.scheduled = false; })).failed).toEqual(["prices"]);
+    expect((await walk(answers => { (answers["/api/v1/sources/tcgplayer"] as { data: { collector: { collection: { scheduled: boolean } } } }).data.collector.collection.scheduled = false; })).failed).toEqual([]);
+    expect((await walk(answers => { answers["/api/v1/sources/tcgplayer"] = { data: {} }; })).steps.find(step => step.id === "prices")).toMatchObject({ ok: false, parts: ["tcgplayer"] });
   });
 
   it("names each job that is behind", async () => {
