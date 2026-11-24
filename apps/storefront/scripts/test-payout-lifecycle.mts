@@ -58,6 +58,10 @@ async function makeTrade(args: {
   const completedAt = args.completedAgoDays !== undefined
     ? `NOW() - INTERVAL '${args.completedAgoDays} days'`
     : "NULL";
+  // A paid trade: the buyer paid the day before it completed.
+  const buyerPaidAt = args.completedAgoDays !== undefined
+    ? `NOW() - INTERVAL '${args.completedAgoDays + 1} days'`
+    : "NULL";
 
   const bid = await pool.query(
     `INSERT INTO market_orders (user_id, sku, side, price, quantity, condition, status)
@@ -73,8 +77,8 @@ async function makeTrade(args: {
     `INSERT INTO market_trades
        (buyer_id, seller_id, bid_order_id, ask_order_id, sku, price, quantity,
         escrow_status, commission_amount, seller_payout, payout_hold_days,
-        completed_at)
-     VALUES ($1, $2, $3, $4, $5, 10.00, 1, $6, 0.80, $7, $8, ${completedAt})
+        completed_at, buyer_paid_at)
+     VALUES ($1, $2, $3, $4, $5, 10.00, 1, $6, 0.80, $7, $8, ${completedAt}, ${buyerPaidAt})
      RETURNING id`,
     [args.buyerId, args.sellerId, bid.rows[0].id, ask.rows[0].id,
      args.sku, status, payout, holdDays],
