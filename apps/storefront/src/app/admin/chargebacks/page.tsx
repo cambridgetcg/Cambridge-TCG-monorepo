@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
-import { Audience, Verifiability, WhyLink } from "@/lib/ui";
+import { Audience, WhyLink } from "@/lib/ui";
+import { Verifiability } from "@/lib/admin/ui";
 interface Chargeback {
   stripe_dispute_id: string;
   stripe_payment_intent: string;

@@ -113,12 +113,20 @@ body.text-mode * {
 }
 
 /* Text only: pictures leave the page, and their alt text stays for screen
- * readers. They are still downloaded, so this is not a lighter page. */
-body.text-mode img {
+ * readers. A picture that is all a button or a link shows (a card on the
+ * practice board) stays, small. */
+body.text-mode img:not(:is(button, a) img) {
   position: absolute !important;
   width: 1px !important;
   height: 1px !important;
   clip-path: inset(50%);
+}
+body.text-mode :is(button, a) img {
+  max-width: 200px;
+  height: auto;
+  display: block;
+  margin: 0.5rem 0;
+  border: 1px solid #ccc;
 }
 
 body.text-mode a {

@@ -154,7 +154,7 @@ export const EDITORIAL_DOORS: Readonly<Record<string, string>> = {
   "wall-commission": "agreements made since 2026-07-21 carry no platform commission, including those still settling; earlier agreements keep the fee recorded when they were matched; new paid commerce was retired on 2026-09-23, so no new sales are admitted",
   "wall-free": "free is not anonymous access: sessions, member data keys, agent keys and source-rights limits remain distinct; existing registration-admission rules still apply",
   "wall-tracking": "no third-party tracking, advertising or analytics; ordinary infrastructure logs may exist",
-  "wall-rewards": "reward points are free, have no cash value and cannot be bought; spins, raffles and mystery boxes spend points only, never money",
+  "wall-rewards": "nothing here is a game of chance dressed as a purchase; reward points are free, have no cash value and cannot be bought; spins, raffles and mystery boxes spend points only, never money",
   "wall-care": "protect, do not discipline; disputes need protection and repair, not a verdict on a being",
   "wall-odds": "published odds state basis and confidence; an unknown stays an unknown",
   "wall-artists": "card-art credit names the source of the credit, not an implication that the publisher supplied it",

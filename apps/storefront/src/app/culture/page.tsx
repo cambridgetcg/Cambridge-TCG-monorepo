@@ -101,7 +101,7 @@ const HALLS: readonly Hall[] = [
         href: "/artists",
         title_i18n: { ja: "絵師たち", es: "Las manos con nombre", "zh-Hans": "画师们", "zh-Hant": "繪師們" },
         line_i18n: {
-          ja: "うちの目録にクレジットの残る絵師を、ひとりずつたどれます。ならぶのは、所蔵する作品だけ。", es: "Cada mano con crédito en nuestro propio catálogo, una por una, con las obras que esta casa posee.", "zh-Hans": "这家店名录里署了名的画师，一位一位，都逛得到。挂出来的，只有持有的作品。", "zh-Hant": "小店目錄裡留下名字的繪師，一位一位看下去。掛出來的，只有持有的作品。",
+          ja: "うちの目録にクレジットの残る絵師を、ひとりずつたどれます。ならぶのは、所蔵する作品だけ。", es: "Cada mano con crédito en nuestro propio catálogo, una por una, con las obras que esta casa guarda.", "zh-Hans": "这家店名录里署了名的画师，一位一位，都逛得到。挂出来的，只有这家店持有的作品。", "zh-Hant": "小店目錄裡留下名字的繪師，一位一位看下去。掛出來的，只有小店持有的作品。",
           },
         en: "The Named Hands",
         jp: "絵師たち",

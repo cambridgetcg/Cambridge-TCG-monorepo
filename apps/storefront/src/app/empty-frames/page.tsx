@@ -390,7 +390,7 @@ export default function EmptyFramesPage() {
           ))}
         </ul>
         <p className="mt-6 text-xs text-ink-faint leading-relaxed">
-          The cards we <span className="italic">can</span> show hang on{" "}
+          Some of the cards we <span className="italic">can</span> show hang on{" "}
           <Link
             href="/artists"
             className="text-accent hover:text-accent-strong underline underline-offset-2"

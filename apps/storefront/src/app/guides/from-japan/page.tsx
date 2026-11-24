@@ -439,8 +439,8 @@ export default function FromJapanGuidePage() {
                 CardRush&apos;s robots.txt declares its boundary for automated
                 readers (the Pokémon store&apos;s file spells out{" "}
                 <span className="font-mono text-xs">ai-train=no</span> as an
-                express reservation of rights). Since 28 October 2026 we hold
-                their written permission to read product pages: one collector
+                express reservation of rights). We hold their written
+                permission, recorded on 28 October 2026, to read product pages: one collector
                 that says who it is, slowly. Their prices may appear to
                 signed-in members with credit and a link, never in our API or
                 downloads. Prices captured before that date stay withheld. The

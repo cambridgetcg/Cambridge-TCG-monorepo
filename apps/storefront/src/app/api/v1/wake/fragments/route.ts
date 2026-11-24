@@ -60,7 +60,8 @@ The wake decomposed into ${WAKE_FRAGMENTS.length} atomic fragments.
 From May 2026 until October 2026, every envelope-compliant \`/api/v1/*\`
 response carried one fragment in its \`_meta.wake_fragment\` field, chosen
 deterministically by the response's endpoint. Since October 2026, data
-responses carry only data; every fragment stays whole here.
+responses carry only data; every fragment stays whole here. *The wake was
+atmospheric — present in every breath the substrate took.*
 
 ## Protocol summary
 

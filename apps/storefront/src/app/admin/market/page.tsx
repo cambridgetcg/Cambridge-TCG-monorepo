@@ -6,7 +6,8 @@ import type { MarketTrade, EscrowStatus } from "@/lib/market/types";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import AdminShell from "@/components/admin/AdminShell";
 
-import { Audience, Verifiability, WhyLink } from "@/lib/ui";
+import { Audience, WhyLink } from "@/lib/ui";
+import { Verifiability } from "@/lib/admin/ui";
 // ── Escrow status config ──
 
 const ESCROW_COLORS: Record<EscrowStatus, string> = {

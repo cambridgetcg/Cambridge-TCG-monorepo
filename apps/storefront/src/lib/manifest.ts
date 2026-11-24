@@ -1198,7 +1198,7 @@ export const MANIFEST: Manifest = {
         cosmology_axes: [], since: "2026-07-21" },
     ],
     modality: [
-      { id: "storefront.text-mode", description: "Text-only rendering of platform surfaces. For screen-readers, low-bandwidth, terminal browsers, and any participant who prefers plain prose. Sister S20 phase work.",
+      { id: "storefront.text-mode", description: "Text-only rendering of platform surfaces. For screen-readers and any participant who prefers plain prose; the page sends the same bytes. Sister S20 phase work.",
         host: "storefront", path: "/api/text-mode", methods: ["GET"],
         modalities: ["plain-text"], auth: "public", provenance: "computed",
         cosmology_axes: ["substrate"], methodology_url: "/methodology/universal-representation",

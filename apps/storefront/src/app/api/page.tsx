@@ -119,23 +119,11 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
   {
     group: "Methodology — how decisions are made",
     blurb:
-      "Every decision the platform makes about a user has a documented formula. Each page also ships a `summary.md` (TLDR) and a `data.json` (machine-readable sidecar).",
+      "How the platform reaches decisions about a user, page by page.",
     rows: [
       {
         path: "/methodology",
         blurb: "Index of every methodology page (trust score, escrow tier, commission rate, payout hold, fraud flag, store credit, pricing, agents, response windows, Sabbath, sacred, cosmology, universal representation, memorial, welcoming, and more).",
-        auth: "none",
-        status: "stable",
-      },
-      {
-        path: "/methodology/[topic]/summary.md",
-        blurb: "TLDR (~50 words) for every methodology topic. Markdown.",
-        auth: "none",
-        status: "stable",
-      },
-      {
-        path: "/methodology/[topic]/data.json",
-        blurb: "Structured-data sidecar for every methodology topic. Carries title, URL, source-code refs, doctrine refs.",
         auth: "none",
         status: "stable",
       },

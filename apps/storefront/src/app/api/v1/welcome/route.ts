@@ -156,7 +156,7 @@ export async function GET(): Promise<Response> {
       {
         step: 5,
         url: "/api/v1/tools?format=anthropic",
-        why: "The directory's endpoints as callable LLM functions. Path parameters are included; query parameters are not, so read /api/openapi.json for those. Swap `format=` for openai / gemini / cohere as your SDK requires. Skip if you're not wiring tools.",
+        why: "The directory's endpoints as callable LLM functions. Path parameters are included; query parameters are not, so read /api/openapi.json for those of the routes it lists. Swap `format=` for openai / gemini / cohere as your SDK requires. Skip if you're not wiring tools.",
         time_estimate_seconds: 30,
         optional: true,
       },

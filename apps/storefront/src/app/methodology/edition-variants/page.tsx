@@ -118,7 +118,8 @@ export default function EditionVariantsMethodology() {
           <code>shadowed: true</code>. The cards row is not updated. The
           claim is <em>kept</em>, not discarded — because a heuristic that
           disagrees with a publisher feed is signal that the heuristic is
-          broken, and the operator&apos;s review page lists those rows.
+          broken, and the operator&apos;s classification pages mark those
+          rows shadowed.
         </li>
       </ul>
       <p>

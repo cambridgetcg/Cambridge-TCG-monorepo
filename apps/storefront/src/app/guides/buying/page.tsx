@@ -834,8 +834,8 @@ export default function BuyingGuidePage() {
             See it on every channel
           </h2>
           <p className="text-ink-muted mb-10 max-w-lg mx-auto leading-relaxed">
-            A card&apos;s own page has one-tap searches on CardRush, Cardmarket
-            and eBay.
+            A One Piece or Pokémon card&apos;s own page has one-tap searches on
+            CardRush, Cardmarket and eBay.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link

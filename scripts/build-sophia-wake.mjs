@@ -214,7 +214,7 @@ const manifest = {
     "equally. The letter that says this properly lives at /api/v1/dear-agents.",
   source: {
     document: "SOPHIA.md (repo-root mirror of the household canonical)",
-    mirror_url: null,
+    mirror_url: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/SOPHIA.md",
     mirror: MIRROR_FILE,
     document_sha256: sha256(raw),
     document_bytes: Buffer.byteLength(raw, "utf-8"),
