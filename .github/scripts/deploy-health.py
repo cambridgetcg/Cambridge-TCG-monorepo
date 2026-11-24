@@ -1,34 +1,26 @@
 #!/usr/bin/env python3
 """
-Cambridge TCG deploy & domain health probe.
+Cambridge TCG deploy health: is each Vercel project's newest production
+build fine, is it as new as main, and does its site answer.
 
-For each of the Vercel projects in PROJECTS:
-  1. Fetch the latest production deployment via the Vercel REST API
-  2. Compare the time of the latest commit touching the project's appPath
-     with the deployment's (drift)
-  3. HTTP-probe its domain (at its probePath, `/` by default)
+For each project in PROJECTS it reports an issue when:
+  - the newest production deployment that was not skipped is ERROR or
+    BLOCKED, or in a state this script does not know
+  - the newest commit on main touching the app is not in the live (newest
+    READY) deployment, and is more than DRIFT_GRACE_MINUTES old
+  - the probe does not connect, or answers 5xx; for an entry with a
+    probePath (a health endpoint), answers anything but 2xx
 
-Exits non-zero (1) if any of:
-  - latest production deploy is in ERROR state
-  - latest production deploy is older than MAX_DEPLOY_AGE_HOURS
-  - the most recent commit touching that app is newer than the latest
-    deploy by more than DRIFT_GRACE_MINUTES
-  - HTTP probe fails to connect or returns 5xx; for an entry with a
-    probePath (a health endpoint), any answer outside 200-299
+A CANCELED deployment is a skipped or superseded build and says nothing
+about what is live; a build cancelled by mistake shows as drift. Age alone
+is not an issue: a quiet app deploys rarely. tcg-wholesale is not here: it
+is frozen on purpose since 2026-10-11, pending retirement, and not linked to
+Git, so it would always look stuck.
 
-A project with "skipsBuilds" (its Ignored Build Step cancels the builds of
-pushes that don't touch it, which Vercel lists as CANCELED deployments)
-takes its state from the newest production deployment that is not
-CANCELED, and its drift (the deploy's time and sha) from the newest READY
-one, so skipped builds neither hide a failed one nor hide a wrongly skipped
-app commit. It has no age test: a quiet app deploys rarely, and its state,
-drift and health probe already show a stuck or failing project. The others
-use the newest deployment for all three, age included.
+The last line names the projects with an issue, for health.yml to compare.
+Exits 1 when there is one. Standard library only.
 
 Usage: VERCEL_TOKEN=... python3 deploy-health.py
-
-Designed to run from `.github/workflows/health.yml` on an hourly cron.
-Pure stdlib — no pip install needed in the runner.
 """
 import json
 import os
@@ -39,8 +31,9 @@ import urllib.error
 import urllib.request
 
 TEAM_ID = "team_HR4tb4WB0KZsKxqroSCTQrof"
-MAX_DEPLOY_AGE_HOURS = 24 * 14   # 2 weeks; bump if you intentionally don't deploy that often
 DRIFT_GRACE_MINUTES = 30          # tolerate fresh commits not yet deployed
+PAUSE_SECONDS = 10                # before a second look
+WAITING_STATES = {"BUILDING", "INITIALIZING", "QUEUED"}  # a stuck one shows as drift
 
 PROJECTS = [
     {
@@ -50,185 +43,117 @@ PROJECTS = [
         "appPath": "apps/admin",
     },
     {
-        "name":    "cambridgetcg-storefront",
-        "id":      "prj_zCHRH4oj7PVh6oXtyNFXF8yrQdRD",
-        "domain":  "cambridgetcg.com",
-        "appPath": "apps/storefront",
-    },
-    {
-        "name":    "tcg-wholesale",
-        "id":      "prj_t4pr1FszCa87GWAIgQXTbyXED8qr",
-        "domain":  "wholesaletcgdirect.com",
-        "appPath": "apps/wholesale",
+        # /api/v1/health answers 200 only when the database answered.
+        "name":      "cambridgetcg-storefront",
+        "id":        "prj_zCHRH4oj7PVh6oXtyNFXF8yrQdRD",
+        "domain":    "cambridgetcg.com",
+        "appPath":   "apps/storefront",
+        "probePath": "/api/v1/health",
     },
     {
         # RewardsPro (spec 9.2). /api/health answers 200 only when the
         # database answered, 503 otherwise. The project builds apps/rewards
         # since the switch (apps/rewards/docs/switch.md).
-        "name":        "rewardspro-production",
-        "id":          "prj_olcLaLOcmg3jKh28LjW2dgh6mUHi",
-        "domain":      "rewardspro-production.vercel.app",
-        "appPath":     "apps/rewards",
-        "probePath":   "/api/health",
-        "skipsBuilds": True,
+        "name":      "rewardspro-production",
+        "id":        "prj_olcLaLOcmg3jKh28LjW2dgh6mUHi",
+        "domain":    "rewardspro-production.vercel.app",
+        "appPath":   "apps/rewards",
+        "probePath": "/api/health",
     },
 ]
 
 
 def vercel_api(path: str) -> dict:
-    token = os.environ["VERCEL_TOKEN"]
-    sep = "&" if "?" in path else "?"
-    url = f"https://api.vercel.com{path}{sep}teamId={TEAM_ID}"
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read())
+    req = urllib.request.Request(
+        f"https://api.vercel.com{path}&teamId={TEAM_ID}",
+        headers={"Authorization": f"Bearer {os.environ['VERCEL_TOKEN']}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read())
+    except (OSError, ValueError):  # refused, timed out, not JSON: one more try, then it counts
+        time.sleep(PAUSE_SECONDS)
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read())
 
 
 def last_touch(app_path: str) -> tuple[str, int]:
-    """(SHA, unix_ts) of the most recent commit touching `app_path` on the
-    current branch. Returns ('', 0) if no such commit found."""
-    try:
-        out = subprocess.check_output(
-            ["git", "log", "-1", "--format=%H %ct", "--", app_path],
-            stderr=subprocess.DEVNULL,
-        ).decode().strip()
-        if not out:
-            return "", 0
-        sha, ts = out.split()
-        return sha, int(ts)
-    except subprocess.CalledProcessError:
-        return "", 0
+    """(short sha, unix time) of the newest commit on main touching `app_path`, or
+    ('', 0). Of a merge, the merge itself: its branch's commits can be days older."""
+    out = subprocess.run(
+        ["git", "log", "-1", "--first-parent", "--format=%h %ct", "--", app_path],
+        capture_output=True, text=True,
+    ).stdout.split()
+    return (out[0], int(out[1])) if len(out) == 2 else ("", 0)
 
 
-def is_ancestor(sha: str) -> bool:
-    """True if `sha` is reachable from HEAD."""
-    if not sha:
-        return False
-    rc = subprocess.call(
-        ["git", "merge-base", "--is-ancestor", sha, "HEAD"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-    return rc == 0
+def holds(live_sha: str, sha: str) -> bool:
+    """Whether the live deployment's commit has `sha` in its history."""
+    return subprocess.run(["git", "merge-base", "--is-ancestor", sha, live_sha], stderr=subprocess.DEVNULL).returncode == 0
 
 
-def probe_url(url: str) -> tuple[int, str]:
-    """Returns (status_code, body_summary). 0 status = connect error."""
-    req = urllib.request.Request(
-        url,
-        headers={"User-Agent": "cambridge-tcg-health/1.0"},
-        method="GET",
-    )
+def probe_url(url: str) -> int:
+    """The HTTP status, or 0 when nothing answered."""
+    req = urllib.request.Request(url, headers={"User-Agent": "cambridge-tcg-health/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
-            return r.status, "ok"
+            return r.status
     except urllib.error.HTTPError as e:
-        return e.code, f"http {e.code}"
-    except urllib.error.URLError as e:
-        return 0, f"connect-error: {e.reason}"
-    except Exception as e:
-        return 0, f"error: {type(e).__name__}: {e}"
+        return e.code
+    except Exception:
+        return 0
 
 
-def age_hours(d: dict) -> float:
-    return round((time.time() * 1000 - d.get("created", 0)) / 1000 / 3600, 1)
+def deployments(project_id: str, query: str) -> list:
+    return vercel_api(f"/v6/deployments?projectId={project_id}&target=production&{query}").get("deployments", [])
 
 
 def check_project(p: dict) -> dict:
-    out: dict = {"name": p["name"], "domain": p["domain"], "issues": []}
+    out: dict = {"name": p["name"], "domain": p["domain"], "state": "?", "sha": "?", "issues": []}
 
-    # 1. Latest prod deploy (newest first). A project that skips builds lists
-    # its skipped ones as CANCELED: the state comes from the newest that isn't,
-    # and the age from the newest READY one.
-    skips = bool(p.get("skipsBuilds"))
-    deps = vercel_api(
-        f"/v6/deployments?projectId={p['id']}&limit={100 if skips else 1}&target=production"
-    ).get("deployments", [])
-    if not deps:
-        out["issues"].append("no production deployments found")
-        return out
-    d = deps[0]
-    built = next((x for x in deps if x.get("readyState") != "CANCELED"), None) if skips else d
-    if skips:
-        ready = vercel_api(
-            f"/v6/deployments?projectId={p['id']}&limit=1&target=production&state=READY"
-        ).get("deployments", [])
-        aged = ready[0] if ready else None
+    newest = next((d for d in deployments(p["id"], "limit=100") if d.get("readyState") not in ("CANCELED", "DELETED")), None)
+    live = next(iter(deployments(p["id"], "limit=1&state=READY")), None)
+    if newest:
+        out["state"] = newest.get("readyState") or "?"
+        if out["state"] != "READY" and out["state"] not in WAITING_STATES:
+            out["issues"].append(f"newest production deployment is {out['state']}, so it is not serving")
+    if live:
+        live_sha = (live.get("meta") or {}).get("githubCommitSha") or "?"
+        out["sha"] = live_sha[:8]
+        sha, touched = last_touch(p["appPath"])
+        if sha and touched < time.time() - DRIFT_GRACE_MINUTES * 60 and not holds(live_sha, sha):
+            out["issues"].append(f"commit {sha} ({int((time.time() - touched) / 60)} min old) is not in the live deployment {out['sha']}")
     else:
-        aged = d
-    shown = built or d
-    out["deploy_id"]    = shown.get("uid")
-    out["deploy_state"] = shown.get("readyState") if built else "?"
-    out["deploy_age_h"] = age_hours(aged) if aged else "?"
-    out["deployed_sha"] = (shown.get("meta") or {}).get("githubCommitSha", "?")[:8]
-
-    if built and built.get("readyState") == "ERROR":
-        out["issues"].append(f"latest prod deploy is ERROR (id={out['deploy_id']})")
-    # Don't alert on BUILDING/INITIALIZING/QUEUED — those are transient and
-    # the next hourly check will catch any that get stuck.
-    if aged is None:
         out["issues"].append("no READY production deployment found")
-    elif not skips and out["deploy_age_h"] > MAX_DEPLOY_AGE_HOURS:
-        out["issues"].append(f"latest prod deploy is {out['deploy_age_h']:.0f}h old (> {MAX_DEPLOY_AGE_HOURS}h)")
 
-    # 2. Drift: a commit touching this app exists on HEAD that postdates the
-    # deploy AND is not an ancestor of the deployed SHA. We don't flag drift
-    # for apps that simply weren't touched by the latest commit (the deploy
-    # there is still current).
-    # A project that skips builds compares with the newest READY deployment:
-    # a skipped (CANCELED) push says nothing about what is live. Its time and
-    # its sha come from that same deployment.
-    touch_sha, touch_ts = last_touch(p["appPath"])
-    out["head_sha"] = touch_sha[:8] if touch_sha else "?"
-    drift_from = aged if skips else d
-    deploy_ts_ms = drift_from.get("created", 0) if drift_from else 0
-    deploy_ts = deploy_ts_ms / 1000 if deploy_ts_ms else 0
-    drift_sha = (drift_from.get("meta") or {}).get("githubCommitSha", "?")[:8] if drift_from else "?"
-    if touch_sha and deploy_ts:
-        # Skip drift check if the touching commit is older than the deploy
-        # (the deploy already includes it).
-        if touch_ts > deploy_ts + DRIFT_GRACE_MINUTES * 60:
-            age_min = int((time.time() - touch_ts) / 60)
-            out["issues"].append(
-                f"app commit {touch_sha[:8]} ({age_min}m old) is newer than "
-                f"deploy {drift_sha} ({out['deploy_age_h']}h)"
-            )
-
-    # 3. Domain probe. A site's `/` may redirect or answer 4xx and still be
-    # up; a health endpoint (probePath) is healthy only with a 2xx.
-    code, msg = probe_url(f"https://{p['domain']}{p.get('probePath', '/')}")
-    out["probe"] = f"{code} {msg}"
-    if code == 0 or code >= 500 or (p.get("probePath") and not 200 <= code < 300):
-        out["issues"].append(f"domain probe failed: {out['probe']}")
-
+    # A site's `/` may redirect or answer 4xx and still be up. A bad answer
+    # counts only when a second one, after a pause, is bad too.
+    target = f"{p['domain']}{p.get('probePath', '/')}"
+    for look in (1, 2):
+        code = probe_url(f"https://{target}")
+        out["probe"] = code or "no answer"
+        bad = code == 0 or code >= 500 or (p.get("probePath") and not 200 <= code < 300)
+        if not bad:
+            break
+        if look == 1:
+            time.sleep(PAUSE_SECONDS)
+    if bad:
+        out["issues"].append(f"{target} answered {out['probe']}")
     return out
 
 
 def main() -> int:
-    results = [check_project(p) for p in PROJECTS]
-    width = max(len(r["name"]) for r in results)
-
-    print("Cambridge TCG deploy/domain health\n")
-    print(f"{'project':<{width}}  state    age      sha       domain")
-    print("-" * (width + 60))
-    for r in results:
-        status = "✓" if not r["issues"] else "✗"
-        print(
-            f"{r['name']:<{width}}  "
-            f"{(r.get('deploy_state','?') or '?'):<8} "
-            f"{(str(r.get('deploy_age_h','?'))+'h'):<8} "
-            f"{(r.get('deployed_sha','?')):<9} "
-            f"{r['domain']}  [{status}] {r.get('probe','?')}"
-        )
-
-    print()
-    issues = [(r["name"], i) for r in results for i in r["issues"]]
-    if issues:
-        print("Issues:")
-        for name, msg in issues:
-            print(f"  {name}: {msg}")
+    if not os.environ.get("VERCEL_TOKEN"):
+        print("VERCEL_TOKEN is not set (repository settings, Secrets, Actions).\n\nfailing: vercel-token")
         return 1
-    print("All projects healthy.")
-    return 0
+    results = [check_project(p) for p in PROJECTS]
+    for r in results:
+        print(f"{'ok  ' if not r['issues'] else 'FAIL'}  {r['name']:<24} {r['state']:<9} {r['sha']:<9} {r['domain']} {r['probe']}")
+        for issue in r["issues"]:
+            print(f"        {issue}")
+    failing = [r["name"] for r in results if r["issues"]]
+    print(f"\nfailing: {' '.join(failing) or 'none'}")
+    return 1 if failing else 0
 
 
 if __name__ == "__main__":
