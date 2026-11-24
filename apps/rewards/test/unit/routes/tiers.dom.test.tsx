@@ -25,10 +25,8 @@ vi.mock("~/admin/polling", async (original) => {
 });
 
 const { default: Tiers } = await import("~/routes/app.tiers");
-
-// jsdom lays nothing out, so it has no scrollIntoView; Edit calls it
-const scrollIntoView = vi.fn();
-Element.prototype.scrollIntoView = scrollIntoView;
+// The action's own words, so the page is fed only refusals saveTier can give
+const { TIER_ERRORS } = await import("~/lib/tiers.server");
 
 const TIERS = [
   { id: "t0", name: "Bronze", minSpend: "0", percent: "5", members: 14, lowest: true, version: "2026-11-01T10:00:00.000Z" },
@@ -93,6 +91,33 @@ const rows = () =>
     [...row.querySelectorAll("s-table-cell")].map((cell) => cell.textContent?.trim()),
   );
 
+/** The add and edit form's modal, its Save (primary action) and the button that opens it to add. */
+const tierModal = () => document.querySelector('s-modal[id="tier-form"]') as HTMLElement & { hideOverlay?: () => void };
+const modalSave = () => tierModal().querySelector('s-button[slot="primary-action"]') as HTMLElement;
+const addTierButton = () => screen.getByText("Add tier", { selector: "s-section s-button" });
+
+/** App Bridge's save bar API, recording each call as [method, id]. */
+function stubSaveBar() {
+  const calls: Array<[string, string]> = [];
+  const saveBar = {
+    show: vi.fn(async (id: string) => void calls.push(["show", id])),
+    hide: vi.fn(async (id: string) => void calls.push(["hide", id])),
+  };
+  vi.stubGlobal("shopify", { saveBar });
+  return { calls, shown: () => calls.filter(([, id]) => id === "tier-window-save-bar").at(-1)?.[0] === "show" };
+}
+const saveBarButton = (primary: boolean) =>
+  document.querySelector(`ui-save-bar[id="tier-window-save-bar"] > button${primary ? '[variant="primary"]' : ":not([variant])"}`) as HTMLButtonElement;
+
+/** Pick `value` in the "Spend counted over" choice, as Polaris's change event reports it. */
+const chooseWindow = (value: string) =>
+  act(async () => {
+    const list = document.querySelector("s-choice-list")!;
+    Object.defineProperty(list, "values", { value: [value], configurable: true });
+    fireEvent.change(list);
+  });
+const selectedWindow = () => [...document.querySelectorAll("s-choice")].filter((c) => c.hasAttribute("selected")).map((c) => c.getAttribute("value"));
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -118,6 +143,8 @@ describe("Tiers page", () => {
     await renderTiers(page({ tierWindow: "lifetime" }));
     const list = document.querySelector("s-choice-list");
     expect(list?.getAttribute("label")).toBe("Spend counted over");
+    // Built for Shopify 4.2.1: the line says what the choice decides
+    expect(list?.getAttribute("details")).toBe("Which of a buyer's orders count toward their tier.");
     const choices = [...(list?.querySelectorAll("s-choice") ?? [])];
     expect(choices.map((c) => [c.getAttribute("value"), c.textContent, c.hasAttribute("selected")])).toEqual([
       ["rolling_12_months", "Last 12 months", false],
@@ -131,13 +158,154 @@ describe("Tiers page", () => {
 
     fireEvent.click(screen.getAllByText("Edit")[0]);
     await act(async () => {});
-    expect(document.querySelector('s-section[heading="Edit Bronze"]')).not.toBeNull();
+    expect(tierModal().getAttribute("heading")).toBe("Edit Bronze");
     expect(document.querySelector('s-money-field[name="minSpend"]')).toBeNull();
     expect(document.body.textContent).toContain("Minimum spend: £0.00");
 
-    fireEvent.click(screen.getByText("Cancel", { selector: "s-section s-button" }));
+    // Each opening starts afresh: Add tier opens it empty, whatever was edited before
+    fireEvent.click(addTierButton());
     await act(async () => {});
-    expect(document.querySelector('s-section[heading="Add a tier"]')).not.toBeNull();
+    expect(tierModal().getAttribute("heading")).toBe("Add a tier");
+    expect(document.querySelector('s-text-field[name="name"]')?.getAttribute("value")).toBe("");
+  });
+
+  // Built for Shopify 4.1.5 and 4.1.6: the form is a modal's, its Save and
+  // Cancel in the modal's slots, and the page has no Save of its own
+  it("adds and edits a tier in a modal whose Save and Cancel are in its slots", async () => {
+    await renderTiers();
+    const opener = addTierButton();
+    expect([opener.getAttribute("commandFor"), opener.getAttribute("command")]).toEqual(["tier-form", "--show"]);
+    const edit = screen.getAllByText("Edit")[1];
+    expect([edit.getAttribute("commandFor"), edit.getAttribute("command")]).toEqual(["tier-form", "--show"]);
+
+    // The fields are the modal's
+    for (const name of ["name", "minSpend", "percent"]) expect(tierModal().querySelector(`[name="${name}"]`), name).not.toBeNull();
+    expect(modalSave().getAttribute("variant")).toBe("primary");
+    expect(modalSave().textContent).toBe("Add tier");
+    const cancel = tierModal().querySelector('s-button[slot="secondary-actions"]')!;
+    expect([cancel.textContent, cancel.getAttribute("commandFor"), cancel.getAttribute("command")]).toEqual(["Cancel", "tier-form", "--hide"]);
+    // Nothing in the page's cards saves or cancels
+    expect([...document.querySelectorAll("s-section s-button")].map((b) => b.textContent)).toEqual(["Edit", "Edit", "Delete", "Add tier"]);
+
+    fireEvent.click(edit);
+    await act(async () => {});
+    expect(tierModal().getAttribute("heading")).toBe("Edit Gold");
+    expect(modalSave().textContent).toBe("Save");
+  });
+
+  // Built for Shopify 4.2.1: what the percent is of, in Home's words
+  it("says what the tier's cashback percent is of", async () => {
+    await renderTiers();
+    expect(document.querySelector('s-number-field[name="percent"]')?.getAttribute("details")).toBe(
+      "Cashback is paid on the product price after discounts, less anything paid with store credit or gift cards. Shipping, duties, tips and gift cards bought earn nothing.",
+    );
+  });
+
+  // Built for Shopify 4.2.4: a refused save keeps the form, its errors beside their fields
+  it("keeps the modal open with the action's errors beside their fields, and closes it once the save is taken", async () => {
+    letFetchersPost();
+    let answers = 0;
+    await renderTiers(page(), {
+      // What saveTier answers for a tier with no name at Gold's minimum spend
+      answer: async () =>
+        answers++ === 0 ? { ok: false, errors: { name: TIER_ERRORS.nameMissing, minSpend: TIER_ERRORS.minSpendTaken } } : { ok: true },
+    });
+    const hideOverlay = vi.fn();
+    tierModal().hideOverlay = hideOverlay;
+    const name = () => tierModal().querySelector('s-text-field[name="name"]')!;
+    const minSpend = () => tierModal().querySelector('s-money-field[name="minSpend"]')!;
+
+    fireEvent.click(addTierButton());
+    await type(minSpend(), "500");
+    await type(document.querySelector('s-number-field[name="percent"]')!, "7");
+    await act(async () => {
+      fireEvent.click(modalSave());
+    });
+    await waitFor(() => expect(modalSave().hasAttribute("loading")).toBe(false));
+    expect([name().getAttribute("error"), minSpend().getAttribute("error")]).toEqual(["Enter a name.", "Another tier has this minimum spend."]);
+    expect(hideOverlay).not.toHaveBeenCalled();
+
+    await type(name(), "Silver");
+    await type(minSpend(), "250");
+    await act(async () => {
+      fireEvent.click(modalSave());
+    });
+    await waitFor(() => expect(hideOverlay).toHaveBeenCalledTimes(1));
+    expect([name().hasAttribute("error"), minSpend().hasAttribute("error")]).toEqual([false, false]);
+  });
+
+  // CONCURRENCY-3's refusal is about the whole form: said in red inside the modal, which stays open
+  it("says in the modal, in red, that the tier changed since it was opened", async () => {
+    letFetchersPost();
+    await renderTiers(page(), { answer: async () => ({ ok: false, errors: { form: TIER_ERRORS.changed } }) });
+    const hideOverlay = vi.fn();
+    tierModal().hideOverlay = hideOverlay;
+
+    fireEvent.click(screen.getAllByText("Edit")[1]);
+    await act(async () => {});
+    await act(async () => {
+      fireEvent.click(modalSave());
+    });
+
+    const said = await screen.findByText("This tier changed since you opened it. Reload the page.");
+    expect([said.closest("s-modal"), said.getAttribute("tone")]).toEqual([tierModal(), "critical"]);
+    expect(hideOverlay).not.toHaveBeenCalled();
+  });
+
+  // Built for Shopify 4.2.4: a save answered after the merchant closed the
+  // modal and opened it again is not shown against the new opening
+  it("keeps a save's answer to the opening it was posted from", async () => {
+    letFetchersPost();
+    pollingCalls.length = 0;
+    const answers: Array<(answer: unknown) => void> = [];
+    await renderTiers(page(), { answer: () => new Promise((resolve) => answers.push(resolve)) });
+    const hideOverlay = vi.fn();
+    tierModal().hideOverlay = hideOverlay;
+    // The action answers the save it was posted
+    const answer = async (value: unknown) => {
+      await waitFor(() => expect(answers).toHaveLength(1));
+      await act(async () => {
+        answers.shift()!(value);
+      });
+    };
+
+    // Gold's edit is saved at Bronze's minimum; before the answer the merchant
+    // closes it and opens Add tier
+    fireEvent.click(screen.getAllByText("Edit")[1]);
+    await act(async () => {});
+    await type(document.querySelector('s-money-field[name="minSpend"]')!, "0");
+    await act(async () => {
+      fireEvent.click(modalSave());
+    });
+    fireEvent.click(addTierButton());
+    await act(async () => {});
+    await answer({ ok: false, errors: { minSpend: TIER_ERRORS.minSpendTaken } });
+    await waitFor(() => expect(modalSave().hasAttribute("loading")).toBe(false));
+    expect(tierModal().getAttribute("heading")).toBe("Add a tier");
+    expect(document.querySelector('s-money-field[name="minSpend"]')?.hasAttribute("error")).toBe(false);
+    expect(hideOverlay).not.toHaveBeenCalled();
+
+    // The new tier's save is taken after the merchant opened Bronze: Bronze's
+    // form stays open, and the change still counts (Ruling 82)
+    await type(document.querySelector('s-text-field[name="name"]')!, "Silver");
+    await type(document.querySelector('s-money-field[name="minSpend"]')!, "250");
+    await type(document.querySelector('s-number-field[name="percent"]')!, "7");
+    await act(async () => {
+      fireEvent.click(modalSave());
+    });
+    fireEvent.click(screen.getAllByText("Edit")[0]);
+    await act(async () => {});
+    await answer({ ok: true });
+    await waitFor(() => expect(pollingCalls.at(-1)?.[2]).toEqual({ forMs: 120_000, restartKey: 1 }));
+    expect(hideOverlay).not.toHaveBeenCalled();
+    expect(tierModal().getAttribute("heading")).toBe("Edit Bronze");
+
+    // The open form's own save closes it
+    await act(async () => {
+      fireEvent.click(modalSave());
+    });
+    await answer({ ok: true });
+    await waitFor(() => expect(hideOverlay).toHaveBeenCalledTimes(1));
   });
 
   // DESIGN-18: Polaris's money field, in the shop's currency, whole amounts from 0
@@ -149,9 +317,7 @@ describe("Tiers page", () => {
   });
 
   // DESIGN-14
-  it("brings the form into view on Edit with Name focused, and keeps the actions beside each tier on a phone", async () => {
-    const scrolled = scrollIntoView;
-    scrolled.mockClear();
+  it("opens the form with Name focused, and keeps the actions beside each tier on a phone", async () => {
     await renderTiers();
     expect([...document.querySelectorAll("s-table-header")].at(-1)?.getAttribute("listSlot")).toBe("inline");
     const name = document.querySelector('s-text-field[name="name"]') as HTMLElement;
@@ -159,22 +325,21 @@ describe("Tiers page", () => {
 
     fireEvent.click(screen.getAllByText("Edit")[1]);
     await act(async () => {});
+    expect(focus).not.toHaveBeenCalled();
+    // Once the modal is open, as Polaris's says
+    await act(async () => {
+      tierModal().dispatchEvent(new Event("aftershow"));
+    });
 
-    expect(document.querySelector('s-section[heading="Edit Gold"]')).not.toBeNull();
-    expect(scrolled).toHaveBeenCalledTimes(1);
-    expect(scrolled.mock.contexts[0]).toBe(document.querySelector('s-section[heading="Edit Gold"]'));
+    expect(tierModal().getAttribute("heading")).toBe("Edit Gold");
     expect(focus).toHaveBeenCalledTimes(1);
-    // M3d-F9: a focus that scrolled would cancel a smooth scroll, so the scroll is instant and the focus doesn't scroll
-    expect(scrolled.mock.calls[0]).toEqual([{ block: "start" }]);
-    expect(focus.mock.calls[0]).toEqual([{ preventScroll: true }]);
   });
 
-  it("moves focus to the form's Name once a delete is done and the modal has closed", async () => {
+  it("moves focus to Add tier once a delete is done and the modal has closed", async () => {
     letFetchersPost();
     await renderTiers(page(), { next: () => page({ tiers: [TIERS[0]] }) });
-    const name = document.querySelector('s-text-field[name="name"]') as HTMLElement;
-    const focus = vi.spyOn(name, "focus");
-    const modal = document.querySelector("s-modal") as HTMLElement & { hideOverlay?: () => void };
+    const focus = vi.spyOn(addTierButton(), "focus");
+    const modal = document.querySelector('s-modal[id="delete-tier"]') as HTMLElement & { hideOverlay?: () => void };
     // The modal closes, then says so, as Polaris's does
     modal.hideOverlay = () => modal.dispatchEvent(new Event("afterhide"));
 
@@ -204,32 +369,96 @@ describe("Tiers page", () => {
     await renderTiers();
     fireEvent.click(screen.getByText("Delete", { selector: "s-table-cell s-button" }));
     await act(async () => {});
-    const modal = document.querySelector("s-modal");
+    const modal = document.querySelector('s-modal[id="delete-tier"]');
     expect(modal?.getAttribute("heading")).toBe("Delete Gold?");
     expect(modal?.textContent).toContain(
       "1 member moves to the tier their spend qualifies for. Buyers locked to Gold go back to automatic.",
     );
   });
 
-  // CONCURRENCY-2: one window change at a time
-  it("disables the window choice while its change is posted, and posts one change", async () => {
+  // Built for Shopify 4.1.5: a new window waits for the save bar's Save
+  it("holds a new window under App Bridge's save bar, and posts it only from the bar's Save", async () => {
     letFetchersPost();
+    const bar = stubSaveBar();
+    const posted: Array<Record<string, string>> = [];
+    let data = page();
+    await renderTiers(data, { posted, next: () => data });
+    expect(bar.shown()).toBe(false);
+
+    await chooseWindow("lifetime");
+    expect(posted).toEqual([]);
+    expect(bar.shown()).toBe(true);
+    expect(selectedWindow()).toEqual(["lifetime"]);
+
+    data = page({ tierWindow: "lifetime" });
+    await act(async () => {
+      fireEvent.click(saveBarButton(true));
+    });
+    expect(posted).toEqual([{ intent: "window", tierWindow: "lifetime" }]);
+    // Saved and reloaded: the bar goes, and the saved window shows
+    await waitFor(() => expect(bar.shown()).toBe(false));
+    expect(selectedWindow()).toEqual(["lifetime"]);
+  });
+
+  it("puts the saved window back on the save bar's Discard, posting nothing", async () => {
+    letFetchersPost();
+    const bar = stubSaveBar();
+    const posted: Array<Record<string, string>> = [];
+    await renderTiers(page(), { posted });
+
+    await chooseWindow("lifetime");
+    expect(bar.shown()).toBe(true);
+    await act(async () => {
+      fireEvent.click(saveBarButton(false));
+    });
+
+    expect(bar.shown()).toBe(false);
+    expect(selectedWindow()).toEqual(["rolling_12_months"]);
+    expect(posted).toEqual([]);
+
+    // Choosing the saved window again is no change either
+    await chooseWindow("lifetime");
+    await chooseWindow("rolling_12_months");
+    expect(bar.shown()).toBe(false);
+  });
+
+  // Built for Shopify 4.1.5 reason 2: a refused save leaves the bar up, so the change can't be left behind
+  it("keeps the save bar up after a refused window save, with the error under the choice", async () => {
+    letFetchersPost();
+    const bar = stubSaveBar();
+    await renderTiers(page(), { answer: async () => ({ ok: false, errors: { form: "Unknown window." } }) });
+
+    await chooseWindow("lifetime");
+    await act(async () => {
+      fireEvent.click(saveBarButton(true));
+    });
+    await waitFor(() => expect(document.querySelector("s-choice-list")?.getAttribute("error")).toBe("Unknown window."));
+    expect(bar.shown()).toBe(true);
+    expect(bar.calls.filter(([method]) => method === "show")).toHaveLength(1);
+    expect(selectedWindow()).toEqual(["lifetime"]);
+  });
+
+  // CONCURRENCY-2: one window change at a time
+  it("disables the window choice and the bar's buttons while its change is posted, and posts one change", async () => {
+    letFetchersPost();
+    stubSaveBar();
     const posted: Array<Record<string, string>> = [];
     await renderTiers(page(), { posted, answer: () => new Promise(() => {}) });
     const list = document.querySelector("s-choice-list")!;
     expect(list.hasAttribute("disabled")).toBe(false);
 
-    const choose = async (value: string) => {
-      await act(async () => {
-        Object.defineProperty(list, "values", { value: [value], configurable: true });
-        fireEvent.change(list);
-      });
-    };
-    await choose("lifetime");
-    await choose("rolling_12_months");
+    await chooseWindow("lifetime");
+    await act(async () => {
+      fireEvent.click(saveBarButton(true));
+    });
+    await chooseWindow("rolling_12_months");
+    await act(async () => {
+      fireEvent.click(saveBarButton(true));
+    });
 
     expect(posted).toEqual([{ intent: "window", tierWindow: "lifetime" }]);
     expect(list.hasAttribute("disabled")).toBe(true);
+    expect([saveBarButton(true).disabled, saveBarButton(true).hasAttribute("loading"), saveBarButton(false).disabled]).toEqual([true, true, true]);
   });
 
   // OPERATIONS-9: the fields as typed, under the names the action reads
@@ -242,7 +471,7 @@ describe("Tiers page", () => {
     await type(document.querySelector('s-money-field[name="minSpend"]')!, "250");
     await type(document.querySelector('s-number-field[name="percent"]')!, "7");
     await act(async () => {
-      fireEvent.click(screen.getByText("Add tier", { selector: "s-section s-button" }));
+      fireEvent.click(modalSave());
     });
 
     expect(posted).toEqual([{ intent: "save", id: "", name: "Silver", percent: "7", minSpend: "250" }]);
@@ -258,7 +487,7 @@ describe("Tiers page", () => {
     await act(async () => {});
     await type(document.querySelector('s-number-field[name="percent"]')!, "6");
     await act(async () => {
-      fireEvent.click(screen.getByText("Save", { selector: "s-section s-button" }));
+      fireEvent.click(modalSave());
     });
 
     expect(posted).toEqual([{ intent: "save", id: "t0", name: "Bronze", percent: "6", version: "2026-11-01T10:00:00.000Z" }]);
@@ -273,7 +502,7 @@ describe("Tiers page", () => {
     fireEvent.click(screen.getAllByText("Edit")[1]);
     await act(async () => {});
     await act(async () => {
-      fireEvent.click(screen.getByText("Save", { selector: "s-section s-button" }));
+      fireEvent.click(modalSave());
     });
 
     expect(posted).toEqual([{ intent: "save", id: "t1", name: "Gold", percent: "10", minSpend: "500", version: "2026-11-02T10:00:00.000Z" }]);
@@ -299,14 +528,14 @@ describe("Tiers page", () => {
     // Another tab saves Gold at 12%; this tab's refused save reloads it
     data = page({ tiers: [TIERS[0], { ...TIERS[1], percent: "12", version: "2026-11-03T10:00:00.000Z" }] });
     await act(async () => {
-      fireEvent.click(screen.getByText("Save", { selector: "s-section s-button" }));
+      fireEvent.click(modalSave());
     });
     expect(document.querySelector('s-number-field[name="percent"]')?.getAttribute("error")).toBe("Enter a whole number from 0 to 100.");
     // The edit still shows the fields it was opened on
     expect(document.querySelector('s-number-field[name="percent"]')?.getAttribute("value")).toBe("10");
 
     await act(async () => {
-      fireEvent.click(screen.getByText("Save", { selector: "s-section s-button" }));
+      fireEvent.click(modalSave());
     });
 
     expect(posted.map((p) => p.version)).toEqual(["2026-11-02T10:00:00.000Z", "2026-11-02T10:00:00.000Z"]);
@@ -324,15 +553,15 @@ describe("Tiers page", () => {
     await type(document.querySelector('s-money-field[name="minSpend"]')!, "200");
     await type(document.querySelector('s-number-field[name="percent"]')!, "7");
     await act(async () => {
-      fireEvent.click(screen.getByText("Add tier", { selector: "s-section s-button" }));
+      fireEvent.click(modalSave());
     });
     expect(pollingCalls.at(-1)).toEqual([true, 10_000, { forMs: 120_000, restartKey: 1 }]);
 
-    // A window change
-    const list = document.querySelector("s-choice-list")!;
-    Object.defineProperty(list, "values", { value: ["lifetime"], configurable: true });
+    // A window change, saved from the save bar
+    await chooseWindow("lifetime");
+    expect(pollingCalls.at(-1)).toEqual([true, 10_000, { forMs: 120_000, restartKey: 1 }]);
     await act(async () => {
-      fireEvent.change(list);
+      fireEvent.click(saveBarButton(true));
     });
     expect(pollingCalls.at(-1)).toEqual([true, 10_000, { forMs: 120_000, restartKey: 2 }]);
   });
@@ -345,18 +574,18 @@ describe("Tiers page", () => {
 
     fireEvent.click(screen.getAllByText("Edit")[1]);
     await act(async () => {});
-    expect(document.querySelector('s-section[heading="Edit Gold"]')).not.toBeNull();
+    expect(tierModal().getAttribute("heading")).toBe("Edit Gold");
 
     // Another tab deletes Gold; this tab's next save reloads the page's data
     data = page({ tiers: [TIERS[0]] });
     await act(async () => {
-      fireEvent.click(screen.getByText("Save", { selector: "s-section s-button" }));
+      fireEvent.click(modalSave());
     });
 
-    expect(document.querySelector('s-section[heading="Add a tier"]')).not.toBeNull();
+    expect(tierModal().getAttribute("heading")).toBe("Add a tier");
     expect(document.querySelector('s-text-field[name="name"]')?.getAttribute("value")).toBe("");
     expect(document.body.textContent).toContain("This tier is no longer there. Reload the page.");
-    expect(screen.getByText("Add tier", { selector: "s-section s-button" })).toBeTruthy();
+    expect(modalSave().textContent).toBe("Add tier");
   });
 
   // Ruling 76 (TRUTH-10)
@@ -375,14 +604,17 @@ describe("Tiers page", () => {
   // #173: the review request follows a save that worked, never the page's load
   describe("the review request", () => {
     const addTier = async (name: string) => {
+      fireEvent.click(addTierButton());
       await type(document.querySelector('s-text-field[name="name"]')!, name);
       await type(document.querySelector('s-money-field[name="minSpend"]')!, "250");
       await type(document.querySelector('s-number-field[name="percent"]')!, "7");
+      const hideOverlay = vi.fn();
+      tierModal().hideOverlay = hideOverlay;
       await act(async () => {
-        fireEvent.click(screen.getByText("Add tier", { selector: "s-section s-button" }));
+        fireEvent.click(modalSave());
       });
-      // The form clears once the save is answered and the page reloaded
-      await waitFor(() => expect(document.querySelector('s-text-field[name="name"]')?.getAttribute("value")).toBe(""));
+      // The modal closes once the save is answered and the page reloaded
+      await waitFor(() => expect(hideOverlay).toHaveBeenCalled());
     };
 
     it("asks once a visit, right after a tier is saved while it is due, and records what Shopify showed", async () => {
@@ -416,9 +648,9 @@ describe("Tiers page", () => {
         await type(document.querySelector('s-text-field[name="name"]')!, "Silver");
         await type(document.querySelector('s-number-field[name="percent"]')!, "7");
         await act(async () => {
-          fireEvent.click(screen.getByText("Add tier", { selector: "s-section s-button" }));
+          fireEvent.click(modalSave());
         });
-        await waitFor(() => expect(screen.getByText("Add tier", { selector: "s-section s-button" }).hasAttribute("loading")).toBe(false));
+        await waitFor(() => expect(modalSave().hasAttribute("loading")).toBe(false));
 
         expect(posted).toHaveLength(1);
         expect(request).not.toHaveBeenCalled();
