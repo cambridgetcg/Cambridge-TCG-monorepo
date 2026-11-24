@@ -305,7 +305,7 @@ the audit confirms the fix.
 One non-regression pattern remains worth knowing:
 
 - Deliberate joke statuses (`/coffee` 418, `/buy-the-kingdom` 402) are
-  taught to the classifier via `DELIBERATE_STATUS` in deploy-verify.ts —
+  taught to the classifier in `deploy-verify-contract.ts` —
   add new joy-layer doors there, not to the healthy set.
 - Parametric endpoints can hit the 15s timeout from a cold start during
   the ~160-probe burst (`storefront.auction_math`, 2026-06-11). Re-probe

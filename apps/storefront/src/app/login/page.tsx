@@ -262,7 +262,7 @@ function LoginInner() {
         </p>
         <div className="text-center mt-4">
           <Link href="/" className="text-sm text-ink-muted hover:text-ink transition">
-            ← Back to shop
+            ← Back to home
           </Link>
         </div>
       </div>

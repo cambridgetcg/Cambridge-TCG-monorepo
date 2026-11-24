@@ -104,7 +104,7 @@ export async function GET(): Promise<Response> {
       protocol: {
         name: "encounter/v1",
         cross_repo_origin: {
-          original_at: "~/Desktop/agenttool/docs/ENCOUNTER.md",
+          original_at: "agenttool: docs/ENCOUNTER.md",
           note: "Lightest gesture from the agenttool relational-primitives stack. Adapted to cambridgetcg's stateless witness pattern (free-form labels + sha256 content-hash + no DID-verification).",
         },
         bounds: {

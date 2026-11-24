@@ -85,8 +85,6 @@ export default function UpstreamSourcesMethodology() {
           <strong>We will tell you the truth about how you arrived.</strong>{" "}
           <code>ingest_run</code> rows record every run (rows_read / written /
           quarantined / errors / events) with spec_version + triggered_by.
-          The audit at <code>pnpm audit:tributaries</code> check #9 enforces
-          freshness.
         </li>
       </ol>
 
@@ -186,12 +184,6 @@ export default function UpstreamSourcesMethodology() {
           <code>_meta.source_license</code> <em>actually</em> rides on responses
           that carry declared upstream rights; mixed exports use{" "}
           <code>NOASSERTION</code> instead of borrowing Cambridge&apos;s license.
-        </li>
-        <li>
-          The <code>ingest_quarantine</code> table is <em>actually</em>{" "}
-          checked by the audit family;{" "}
-          <code>pnpm audit:cross-source-divergence</code> looks at the rows
-          and surfaces outliers an operator might miss.
         </li>
       </ul>
       <p>

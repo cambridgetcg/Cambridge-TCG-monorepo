@@ -24,7 +24,6 @@ export async function GET(): Promise<Response> {
       ],
       safe_alternatives: {
         organisation_directory: "/api/v1/directory/organisations",
-        community_coverage: "/api/v1/directory/coverage",
         methodology: "/methodology/bridges",
       },
       historical_formulas:

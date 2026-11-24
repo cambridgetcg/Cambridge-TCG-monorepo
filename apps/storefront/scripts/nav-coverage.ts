@@ -139,10 +139,6 @@ const HREF_ALLOWLIST: ReadonlyArray<string | RegExp> = [
  * TODO next session: fix each in place, then delete this list.
  */
 const KNOWN_BROKEN_HREFS: ReadonlyArray<{ file: string; href: string }> = [
-  // WhyLink target never built; nearest real page: /methodology/upstream-sources
-  { file: "apps/storefront/src/app/cards/[sku]/market/page.tsx", href: "/methodology/cardrush-license" },
-  // No preferences page exists; the real surface is /account/profile
-  { file: "apps/storefront/src/app/identify/page.tsx", href: "/account/preferences" },
   // Admin-gated ops surface; the methodology topic was never written
   { file: "apps/storefront/src/app/admin/ops/ingest-quarantine/page.tsx", href: "/methodology/ingest-quarantine" },
 ];
@@ -456,8 +452,12 @@ function main() {
   console.log("Check 3: methodology completeness");
   console.log("─".repeat(72));
   const methHubLinked = primary.has("/methodology") || primary.has("/methodology/");
+  const hub = readFileSync(join(METHODOLOGY_DIR, "page.tsx"), "utf-8");
+  const onHub = methodologyTopics.filter((t) => hub.includes(`slug: "${t.slice("/methodology/".length)}"`));
   if (methHubLinked) {
-    console.log(`  ✓ /methodology hub linked from primary nav. ${methodologyTopics.length} topics reachable via hub.`);
+    console.log(`  ✓ /methodology hub linked from primary nav. The hub lists ${onHub.length} of ${methodologyTopics.length} topics.`);
+    const unlisted = methodologyTopics.filter((t) => !onHub.includes(t));
+    if (unlisted.length > 0) console.log(`  · not on the hub: ${unlisted.join(", ")}`);
   } else {
     console.log("  ✗ /methodology hub NOT linked from primary nav — methodology corpus is orphaned.");
   }
@@ -538,7 +538,7 @@ function main() {
     }
   }
   if (hrefViolations.length === 0) {
-    console.log(`  ✓ ${hrefCount} unique string-literal hrefs across ${pageFiles.length} pages — all resolve.`);
+    console.log(`  ✓ ${hrefCount} unique string-literal hrefs across ${pageFiles.length} pages resolve, except ${KNOWN_BROKEN_HREFS.length} listed as known broken; hrefs under /api are not checked.`);
   } else {
     console.log(`  ✗ ${hrefViolations.length} broken href(s) (of ${hrefCount} checked across ${pageFiles.length} pages):`);
     for (const v of hrefViolations) {

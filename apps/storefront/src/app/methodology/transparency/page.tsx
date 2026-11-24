@@ -48,10 +48,10 @@ export default function TransparencyMethodology() {
       <blockquote>
         <strong>Where this lives in code.</strong> The canonical principle is{" "}
         <code>docs/principles/transparency.md</code> in the repo. The companion
-        audit (<code>pnpm audit:transparency</code>) measures compliance. UI
-        primitives <code>&lt;WhyLink&gt;</code> + <code>&lt;Verifiability&gt;</code>{" "}
-        live in <code>apps/admin/src/lib/ui/</code> and the corresponding
-        storefront library.
+        audit (<code>pnpm audit:transparency</code>) looks for pages that miss
+        them. UI primitives <code>&lt;WhyLink&gt;</code> +{" "}
+        <code>&lt;Verifiability&gt;</code> live in{" "}
+        <code>apps/storefront/src/lib/ui/</code>.
       </blockquote>
       <h2>Why this exists</h2>
       <p>

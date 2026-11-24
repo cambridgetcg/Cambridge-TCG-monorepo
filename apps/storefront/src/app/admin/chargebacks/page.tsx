@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Audience, WhyLink } from "@/lib/ui";
+import { Verifiability } from "@/lib/admin/ui";
 interface Chargeback {
   stripe_dispute_id: string;
   stripe_payment_intent: string;
@@ -145,7 +146,7 @@ export default function AdminChargebacksPage() {
                       {c.trust_score != null && <span className="ml-2">· trust {c.trust_score}</span>}
                     </div>
                     <div className="font-mono text-[11px] text-neutral-600 truncate">
-                      {c.stripe_dispute_id}
+                      <Verifiability source="Stripe" id={c.stripe_dispute_id} cite />
                     </div>
                   </div>
 

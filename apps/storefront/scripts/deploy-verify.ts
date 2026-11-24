@@ -12,16 +12,17 @@
  *
  * ── What's a successful probe ────────────────────────────────────────
  *
- *   - public + GET: must return 200
+ *   - public + GET: 200; 307, 400, 401 or 405 also count as the route
+ *     answering. A 404 counts only for a path with a [parameter], where it
+ *     can mean "no such record".
  *   - public + POST: must return 4xx (no payload) — confirms route
  *     exists; 405/400/422 all acceptable
  *   - user-auth or agent-auth: 200 OR 307 (redirect to login) OR
  *     401 are all healthy
  *   - wholesale-key auth: 401 healthy (we're not sending the key)
  *
- * Substrate-honest about absence: a 404 on a resource declared in the
- * manifest is a fail — the manifest declares it, the site must serve
- * it. Discovering 404 mismatches is the whole point.
+ * A 404 on a fixed path the manifest lists is a fail: the manifest
+ * declares it, so the site must serve it.
  *
  * ── Usage ────────────────────────────────────────────────────────────
  *

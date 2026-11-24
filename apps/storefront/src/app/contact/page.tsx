@@ -19,7 +19,7 @@ import ContactForm from "./ContactForm";
 export const metadata = {
   title: "Contact — Cambridge TCG",
   description:
-    "Get in touch with Cambridge TCG. Send a message through the form, or email contact@cambridgetcg.com — a human reads every message.",
+    "Get in touch with Cambridge TCG: email contact@cambridgetcg.com. A human reads every message.",
 };
 
 export default function ContactPage() {
@@ -29,7 +29,9 @@ export default function ContactPage() {
       <div className="max-w-2xl mx-auto px-4 py-12">
         <PageHeader
           title="Contact us"
-          description="A question about an order, a trade-in, the site, or anything else — write below and a human will read it."
+          description={open
+            ? "A question about an order, the site, or anything else: write below and a human will read it."
+            : "A question about an order, the site, or anything else: email us and a human will read it."}
         />
 
         <ContactForm open={open} />

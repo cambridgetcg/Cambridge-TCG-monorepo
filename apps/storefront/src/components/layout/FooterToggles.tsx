@@ -67,7 +67,7 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
         aria-label={
           textMode
             ? tx({ en: "Switch back to the visual layout", ja: "もとの表示に戻す", "zh-Hant": "切回原本的版面", "zh-Hans": "切换回图文显示", es: "Volver a la vista original" }, uiLang)
-            : tx({ en: "Switch to a text-only reading layout (low bandwidth, screen reader friendly)", ja: "文字だけの表示に切り替える（軽く、読み上げにもやさしい）", "zh-Hant": "切換到純文字閱讀版面（省流量，也方便螢幕閱讀器）", "zh-Hans": "切换到纯文字显示（省流量，对读屏也友好）", es: "Cambiar a la vista de solo texto (ligera, amable con los lectores de pantalla)" }, uiLang)
+            : tx({ en: "Switch to a text-only reading layout", ja: "文字だけの表示に切り替える", "zh-Hant": "切換到純文字閱讀版面", "zh-Hans": "切换到纯文字显示", es: "Cambiar a la vista de solo texto" }, uiLang)
         }
       >
         {textMode ? tx({ en: "Visual layout", ja: "もとの表示", "zh-Hant": "原本的版面", "zh-Hans": "图文显示", es: "Vista original" }, uiLang) : tx({ en: "Text-only layout", ja: "文字だけの表示", "zh-Hant": "純文字版面", "zh-Hans": "纯文字显示", es: "Solo texto" }, uiLang)}

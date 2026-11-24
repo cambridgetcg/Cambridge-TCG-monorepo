@@ -70,8 +70,9 @@ export type ToolAuthority =
   | "key-holder"
   | "signing-key-holder";
 /** closed-by-default: the dispatcher refuses it (agent.act:
- *  signed_acts_closed) unless the deployment opens it; production has not. */
-export type ToolAvailability = "available" | "paused" | "closed-by-default";
+ *  signed_acts_closed) unless the deployment opens it; production has not.
+ *  status-only: it answers, with a publication status and no rows. */
+export type ToolAvailability = "available" | "status-only" | "paused" | "closed-by-default";
 
 /** Category groupings for the catalog. Matches the kingdom's domain split. */
 export type ToolCategory =
@@ -491,7 +492,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     },
     gating: "bearer-key",
     authority: "self-serve-read",
-    availability: "available",
+    availability: "status-only",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -578,7 +579,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     },
     gating: "bearer-key",
     authority: "self-serve-read",
-    availability: "available",
+    availability: "status-only",
     freshness: "static",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -605,7 +606,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     },
     gating: "bearer-key",
     authority: "self-serve-read",
-    availability: "available",
+    availability: "status-only",
     freshness: "static",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",

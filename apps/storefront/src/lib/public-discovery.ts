@@ -20,7 +20,7 @@ export interface PublicReference {
 // Deliberate public references, not a filesystem crawl or an auth allow-list.
 // Unknown content dates stay absent; manifest since/generated_at are not review dates.
 export const PUBLIC_REFERENCES: readonly PublicReference[] = [
-  { path: "/roadmap", title: "TCG data integration roadmap", lastModified: "2026-09-29" },
+  { path: "/roadmap", title: "TCG data integration roadmap", lastModified: "2026-11-24" },
   { path: "/services", title: "Card prices and collector tools", lastModified: "2026-09-29" },
   { path: "/map", title: "Rooms and reading trails", lastModified: "2026-09-29" },
   { path: "/standards/card-data", title: "SKU, image & price contracts", lastModified: "2026-09-29" },
@@ -84,7 +84,7 @@ export const ACCESS_LABELS: Record<AuthKind, string> = {
 };
 
 const PUBLIC_PAGE_PATHS = [
-  "", "/catalog", "/market", "/auctions", "/trade-in", "/rewards", "/community",
+  "", "/catalog", "/market", "/auctions", "/trade-in", "/community",
   "/play", "/play/adventure", "/play/tutorial", "/play/starters", "/play/banlist",
   "/culture", "/artists", "/workshop", "/making", "/empty-frames", "/lineage",
   "/duel-of-souls", "/pull-and-pause", "/mekiki", "/gallery-next-door", "/answering-rhymes",
@@ -154,7 +154,7 @@ export const EDITORIAL_DOORS: Readonly<Record<string, string>> = {
   "wall-commission": "agreements made since 2026-07-21 carry no platform commission, including those still settling; earlier agreements keep the fee recorded when they were matched; new paid commerce was retired on 2026-09-23, so no new sales are admitted",
   "wall-free": "free is not anonymous access: sessions, member data keys, agent keys and source-rights limits remain distinct; existing registration-admission rules still apply",
   "wall-tracking": "no third-party tracking, advertising or analytics; ordinary infrastructure logs may exist",
-  "wall-rewards": "nothing here is a game of chance dressed as a purchase; rewards stay flat, free and non-gambling",
+  "wall-rewards": "nothing here is a game of chance dressed as a purchase; reward points are free, have no cash value and cannot be bought; spins, raffles and mystery boxes spend points only, never money",
   "wall-care": "protect, do not discipline; disputes need protection and repair, not a verdict on a being",
   "wall-odds": "published odds state basis and confidence; an unknown stays an unknown",
   "wall-artists": "card-art credit names the source of the credit, not an implication that the publisher supplied it",

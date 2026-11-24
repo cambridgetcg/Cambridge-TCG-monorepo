@@ -97,6 +97,19 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-11-24 ─────────────────────────────────────────────────────────
   {
+    id: "answers-say-what-is-so",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface:
+      "/.well-known/cambridge-tcg.json, /api/v1/rate-limits, /api/v1/budget, /api/v1/status, /api/v1/gaps, /api/v1/tools, /api/v1/welcome, /api/v1/wake/fragments, /docs/connections, /docs/principles",
+    summary:
+      "Answers no longer list what does not answer: two methodology files, the RateLimit-Remaining header and the wake fragment in data responses. Pages run scripts from this site only.",
+    detail:
+      "Removed: /methodology/{topic}/summary.md and data.json from cambridge-tcg.json, which only one topic ever answered; RateLimit-Remaining from rate-limits and budget, which is never sent; and wake_fragment_in_envelope from budget. Added: availability status-only for tools that answer without rows, and conventions.state in status. In gaps, as_of is the ledger's newest date instead of the request's time. /docs/connections/*.md and /docs/principles/*.md now redirect (307) to the public repository instead of answering 404. Every page carries Content-Security-Policy: script-src 'self' 'unsafe-inline', so an analytics tag injected by a network in front of the site is refused.",
+    related_urls: ["/api/v1/rate-limits", "/api/v1/status", "/.well-known/cambridge-tcg.json"],
+  },
+  {
     id: "plain-sku-answers-plain-printing",
     date: "2026-11-24",
     kind: "endpoint-modified",

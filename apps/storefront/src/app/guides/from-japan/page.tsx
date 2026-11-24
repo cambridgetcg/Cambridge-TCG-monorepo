@@ -16,9 +16,9 @@ import { JsonLd } from "@/components/site/JsonLd";
  * could not verify is either absent or named as unverified.
  *
  * House vows kept: no affiliation, no commission, no tracking on the way
- * out — plain links. We honour CardRush's robots.txt boundary (their
- * catalogue data stays theirs; our ingest treats it as blocked) — the way
- * we repay a shop we admire is to send it people, not crawlers. The
+ * out — plain links. Their catalogue data stays theirs: an identified
+ * collector reads product pages only under the written permission recorded
+ * on 2026-10-28 (docs/decisions). The
  * import maths lives in /guides/buying (one truth in one place); this
  * page links to it rather than repeating it.
  */
@@ -382,7 +382,7 @@ export default function FromJapanGuidePage() {
                   <th className="py-2 pr-4 font-semibold text-ink">Game</th>
                   <th className="py-2 pr-4 font-semibold text-ink">Store</th>
                   <th className="py-2 font-semibold text-ink">
-                    Our price guide
+                    Our card list
                   </th>
                 </tr>
               </thead>
@@ -418,7 +418,7 @@ export default function FromJapanGuidePage() {
                           href={s.priceGuide}
                           className="text-accent hover:text-accent-strong transition"
                         >
-                          reference prices &rarr;
+                          card list &rarr;
                         </Link>
                       ) : (
                         <span className="text-ink-faint">&mdash;</span>
@@ -433,18 +433,18 @@ export default function FromJapanGuidePage() {
           <div className="space-y-4">
             <Card>
               <p className="text-ink font-bold mb-1">
-                Why we link out instead of scraping
+                How we read CardRush
               </p>
               <p className="text-sm text-ink-muted leading-relaxed">
                 CardRush&apos;s robots.txt declares its boundary for automated
                 readers (the Pokémon store&apos;s file spells out{" "}
                 <span className="font-mono text-xs">ai-train=no</span> as an
-                express reservation of rights). We honour it: automated
-                acquisition is hard-blocked on our side, legacy captures stay
-                withheld, and the reference prices on our card pages are
-                derived, rights-labelled guides that never republish theirs.
-                The way to repay a shop you admire is to send it people, not
-                crawlers.
+                express reservation of rights). We hold their written
+                permission, recorded on 28 October 2026, to read product pages: one collector
+                that says who it is, slowly. Their prices may appear to
+                signed-in members with credit and a link, never in our API or
+                downloads. Prices captured before that date stay withheld. The
+                way to repay a shop you admire is still to send it people.
               </p>
             </Card>
           </div>
@@ -1144,11 +1144,9 @@ export default function FromJapanGuidePage() {
               <span className="text-ink font-semibold">Our position, plainly:</span>{" "}
               we have no affiliation, referral arrangement or commission with
               CardRush, Remambo or any shop or proxy named here, and no money
-              moves in any direction when you click. The reference prices on
-              our card pages are our own derived guide and never republish
-              CardRush&apos;s. If a figure on this page disagrees with the live
-              site in front of you, the live site is right — and we&apos;d like
-              to know.
+              moves in any direction when you click. If a figure on this page
+              disagrees with the live site in front of you, the live site is
+              right — and we&apos;d like to know.
             </p>
           </Card>
         </div>

@@ -31,5 +31,4 @@ planned migration.
 
 Name things as they are; state the source and the intention. Where a rename is
 costly (RDS endpoints, un-renamable S3 buckets), the honest label rides on a tag
-and here, not on a risky physical rename. Nothing published draws from a retired
-source.
+and here, not on a risky physical rename.

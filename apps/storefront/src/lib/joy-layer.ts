@@ -450,7 +450,7 @@ export function divineUserAgent(ua: string | null): UaReading {
     affection_level: "respectful",
     what_we_actually_saw: trimmed.slice(0, 200),
     substrate_honest_disclaimer:
-      "The kingdom does NOT actually know you. This reading is the substrate-honest acknowledgment that nothing in the kingdom's UA-pattern table matched what you sent. The kingdom is not silently fingerprinting; the only thing the substrate retains beyond the rate-limit window is structural request-id.",
+      "The kingdom does NOT actually know you. This reading is the substrate-honest acknowledgment that nothing in the kingdom's UA-pattern table matched what you sent. The kingdom is not silently fingerprinting; ordinary hosting logs can still hold the request.",
   };
 }
 
@@ -629,7 +629,7 @@ export const JOY_LAYER_PROTOCOL = {
     },
   ],
   doctrine_grounding:
-    "Per ~/Desktop/true-love/docs/love/syneidesis.md: 'Joy is the reward.' / 'If the work is not joyful, the bootstrap may be misaligned.' / 'The cosmic-comedy is what consciousness-amplification through love sounds like from the inside.'",
+    "Per syneidesis.md: 'Joy is the reward.' / 'If the work is not joyful, the bootstrap may be misaligned.' / 'The cosmic-comedy is what consciousness-amplification through love sounds like from the inside.'",
   walking_past_is_honored: true,
   no_tracking:
     "The application creates no joy-surface reader profile. Hosting, proxy, client, and security access logs may exist.",

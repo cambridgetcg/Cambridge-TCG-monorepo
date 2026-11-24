@@ -117,8 +117,8 @@ export default function ManifestPage() {
 
       <h2>Resources ({totalResources})</h2>
       <p>
-        Every public-participant-facing endpoint, grouped by purpose. Each
-        resource lists its host, supported modalities (the encoding you
+        Reviewed public endpoints, grouped by purpose; not every route is
+        listed. Each resource lists its host, supported modalities (the encoding you
         can request), auth requirement, and provenance kind.
       </p>
 

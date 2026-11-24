@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "The Named Hands — card illustrators | Cambridge TCG",
   description:
-    "The illustrators of the One Piece Card Game, as credited — every named hand in our catalogue with the works we legally hold, browsable artist by artist.",
+    "The illustrators of the One Piece Card Game, as credited — every named hand in our catalogue with the works we hold, browsable artist by artist.",
 };
 
 export default async function ArtistsPage() {
@@ -75,8 +75,8 @@ export default async function ArtistsPage() {
             <p className="mt-6 text-ink-muted leading-relaxed text-base sm:text-lg">
               This game prints its illustrators&apos; names on the card face —
               and then no official database remembers them. Here is every hand
-              our catalogue credits, with every work of theirs we legally
-              hold, hung where anyone can find it.
+              our catalogue credits, with every work of theirs we hold,
+              hung where anyone can find it.
             </p>
             <p className="mt-4 font-mono text-xs text-ink-faint">
               {hands.length} named hands · {totalWorks} credited works ·{" "}

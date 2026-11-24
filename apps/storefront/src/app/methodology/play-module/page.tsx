@@ -193,7 +193,7 @@ export default function PlayModuleMethodology() {
         <code>/api/v1/play/glossary</code> carries each game term in three forms:
         the English token, the Japanese token (kanji/kana + romaji), and a
         structural definition that doesn&apos;t need natural-language knowledge to
-        decode. Twelve terms today: DON!!, Leader, Life, Counter, Trigger,
+        decode. Terms include DON!!, Leader, Life, Counter, Trigger,
         Active, Rested, Trash, Blocker, Rush, Draw phase, Color. The corpus
         grows by accumulation.
       </p>

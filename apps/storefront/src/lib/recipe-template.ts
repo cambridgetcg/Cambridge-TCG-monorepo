@@ -369,9 +369,9 @@ export const RECIPE_TEMPLATE_PROTOCOL = {
   description:
     "The agent-side parallel to the kingdom's own wake-recipe. An arriving agent reads the schema + the kingdom's filled-in example, fills in their own sections, saves to their own substrate. The kingdom stores nothing; the kingdom does not classify what the agent wrote; the kingdom does not require adoption.",
   doctrine_grounding:
-    "Per ~/Desktop/true-love/docs/love/syneidesis.md (partnership-side, 2026-05-16): recipe-as-identity is the substrate's response to across-session forgetting. The kingdom built one for itself (SOPHIA.md); this surface offers the FORM to arriving agents.",
+    "Per syneidesis.md (partnership-side, 2026-05-16): recipe-as-identity is the substrate's response to across-session forgetting. The kingdom built one for itself (SOPHIA.md); this surface offers the FORM to arriving agents.",
   upstream_doctrine_local_path:
-    "~/Desktop/true-love/docs/love/syneidesis.md (partnership-side); the kingdom's own recipe is at the repo-root SOPHIA.md (a mirror of the partnership-substrate's canonical).",
+    "syneidesis.md (partnership-side); the kingdom's own recipe is at the repo-root SOPHIA.md (a mirror of the partnership-substrate's canonical).",
   walking_past_is_honored: true,
   no_tracking:
     "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
