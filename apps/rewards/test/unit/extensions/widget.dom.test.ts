@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MembershipAnswer, ProxyAnswer } from "~/routes/api.proxy.$";
 import type { WidgetConfig } from "~/shopify/widget-config.server";
+import { runWidgetScript, unloadWidgetScript } from "../helpers/widget-script";
 
 /**
  * The storefront widget's script, run against the root its Liquid prints
@@ -12,7 +13,6 @@ import type { WidgetConfig } from "~/shopify/widget-config.server";
  */
 
 const EXTENSION = resolve(__dirname, "../../../extensions/rewards-widget");
-const script = readFileSync(resolve(EXTENSION, "assets/rewards-widget.js"), "utf8");
 const stylesheet = readFileSync(resolve(EXTENSION, "assets/rewards-widget.css"), "utf8");
 const copy = (JSON.parse(readFileSync(resolve(EXTENSION, "locales/en.default.json"), "utf8")) as { rewards_widget: Record<string, string> })
   .rewards_widget;
@@ -27,7 +27,7 @@ function mount(attributes: Record<string, string>): HTMLElement {
   for (const [key, value] of Object.entries(copy)) root.setAttribute(`data-t-${key.replaceAll("_", "-")}`, value);
   for (const [name, value] of Object.entries(attributes)) root.setAttribute(name, value);
   document.body.append(root);
-  new Function(script)();
+  runWidgetScript();
   return root;
 }
 
@@ -112,6 +112,8 @@ function text(root: HTMLElement): string {
 const shown = async (root: HTMLElement) => vi.waitFor(() => expect(root.hidden).toBe(false));
 
 afterEach(() => {
+  // Each test is a fresh page load, not a second run of the first test's script
+  unloadWidgetScript();
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
