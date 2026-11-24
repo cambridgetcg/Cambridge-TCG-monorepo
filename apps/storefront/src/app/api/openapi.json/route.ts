@@ -222,7 +222,7 @@ const SPEC = {
       get: {
         tags: ["universal"],
         summary: "Math-mirror card representation",
-        description: "Returns a mixed card document with cryptographic hashes, ISO 8601 + Unix epoch time and typed graph edges. Legacy catalog prices and images stay withheld. Normal/saturated density can include eligible self-hosted English reference images with attribution and syntax-only image_reference, a Japanese request's own-language official image in image_same_language, independently attributed effect text and structured details. Sparse omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. See /standards/card-data and /methodology/universal-representation.",
+        description: "Returns a mixed card document with cryptographic hashes, ISO 8601 + Unix epoch time and typed graph edges. Legacy catalog prices and images stay withheld. Normal/saturated density can include eligible self-hosted English reference images with attribution and syntax-only image_reference, a Japanese request's own-language official image in image_same_language (null while Japanese images are switched off), independently attributed effect text and structured details. Sparse omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. See /standards/card-data and /methodology/universal-representation.",
         operationId: "getUniversalCard",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU (e.g. OP01-001)." },
@@ -1538,9 +1538,13 @@ const SPEC = {
                   },
                   { type: "null" },
                 ],
-                description: "Additive: a Japanese request's own-language official base image, as one unit, or null; omitted at sparse density. The English image_url, image_attribution and image_reference are unchanged by it.",
+                description: "Additive: a Japanese request's own-language official base image, as one unit, or null (always null while Japanese images are switched off); omitted at sparse density. The English image_url, image_attribution and image_reference are unchanged by it.",
               },
-              publication_boundary: { type: "object" },
+              publication_boundary: {
+                type: "object",
+                description: "Why the price, image and text fields are present or null, one value each. The image and text values and their meanings are in /api/v1/contracts/card-data (images.publication_reasons). could_not_be_read is a fault, never a rights decision.",
+                properties: { price: { type: "string" }, image: { type: "string" }, text: { type: "string" } },
+              },
             },
           },
         ],

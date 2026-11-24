@@ -71,6 +71,27 @@ describe("starter media resolution", () => {
     expect((await resolveStarter(starterId))?.leader.image_url).toMatch(/\/official\/new\.png$/);
   });
 
+  it("reads the production driver's own timestamp text for the image and the rules text", async () => {
+    const stored = { ...image, retrieved_at: "2026-07-13 10:00:00.123+00" };
+    rows([stored], [{ ...stored, sku: "OP-ST01-001-EN", effect_text: "Example rules text" }]);
+    const leader = (await resolveStarter(starterId))!.leader;
+    expect(leader.image_url).toMatch(/\/official\/OP-ST01-001-EN-P1\.png$/);
+    expect(leader).toMatchObject({ effect_text: "Example rules text", text_attribution: image.attribution });
+  });
+
+  it("logs a failed read by name, and held rows that all fail the checks by count", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      rows([{ ...image, retrieved_at: "yesterday" }]);
+      expect((await resolveStarter(starterId))!.leader.image_url).toBeNull();
+      expect(error.mock.calls).toContainEqual(["[starters] none of 1 held images passed the checks"]);
+      vi.mocked(query).mockRejectedValue(new Error("connection to internal-db.example failed"));
+      await resolveStarter(starterId);
+      expect(error.mock.calls).toContainEqual(["[starters] images unavailable", "Error"]);
+      expect(error.mock.calls.flat().join(" ")).not.toContain("internal-db.example");
+    } finally { error.mockRestore(); }
+  });
+
   it("keeps an allowed catalogue photo separate from official reference metadata", async () => {
     vi.mocked(fetchPrices).mockResolvedValue({ items: [catalog], total: 1 } as never);
     rows([image]);
