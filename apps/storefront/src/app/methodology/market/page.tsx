@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -14,9 +13,8 @@ export default function MarketMethodology() {
     <>
       <h1>Market</h1>
       <p>
-        The interactive <Link href="/market/x">/market/[sku]</Link> and the
-        read-only <Link href="/cards/x/market">/cards/[sku]/market</Link>{" "}
-        share one public boundary. Open bid and ask terms are deliberate market
+        The interactive <code>/market/[sku]</code> and the read-only{" "}
+        <code>/cards/[sku]/market</code> share one public boundary. Open bid and ask terms are deliberate market
         intent. Completed trades, watches, alerts, and co-watch relationships
         are private activity unless people make a separate, informed choice to
         publish them for that purpose.

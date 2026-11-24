@@ -12,7 +12,7 @@ const cachedCatalogSitemap = unstable_cache(
   () => loadCatalogSitemap({
     games: fetchGamesDetailed, sets: fetchSetsDetailed, prices: fetchPrices, artists: getNamedHands,
   }),
-  ["catalog-sitemap-v1"],
+  ["catalog-sitemap-v2"],
   { revalidate: 3600 },
 );
 

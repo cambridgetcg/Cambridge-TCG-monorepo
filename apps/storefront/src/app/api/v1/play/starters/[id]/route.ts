@@ -2,7 +2,8 @@
  * /api/v1/play/starters/[id] — per-starter detail with resolved cards.
  *
  * Returns the starter's metadata + the full card list with each entry
- * resolved against the wholesale catalog (SKU, name, image, rarity).
+ * resolved against the wholesale catalog (SKU, name, image, rarity), or by
+ * the publisher's English record where no listing is its plain printing.
  * Composes with /api/play/load-starter (GET) for the game-ready deck
  * payload — this endpoint is the read view; that one is the action.
  * Resolution logic is shared via @/lib/play/starter-resolve.

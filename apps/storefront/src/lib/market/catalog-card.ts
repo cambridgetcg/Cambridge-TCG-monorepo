@@ -36,6 +36,9 @@ import {
 import type { ImageReference } from "@/lib/cards/image-reference";
 import type { SameLanguageImageReference } from "@/lib/cards/same-language-image-reference";
 import { catalogImageUrl } from "@/lib/cards/image-publication";
+import { fetchCardDetailed } from "@/lib/wholesale/client";
+import { mayStandForSku } from "@/lib/wholesale/listing-printing";
+import { skuIdentity } from "@cambridge-tcg/sku";
 
 export interface CatalogIdentity {
   sku: string;
@@ -74,9 +77,11 @@ export interface CatalogIdentity {
 
 export type IdentityResolution =
   | { kind: "ok"; card: CatalogIdentity }
-  // The URL was a card_number (or a differently-cased SKU); redirect to
-  // the canonical SKU so every card has one address.
+  // The URL was a card_number, another spelling of a SKU, or a plain SKU;
+  // redirect to the stored SKU so every card has one address.
   | { kind: "redirect"; sku: string }
+  // A card_number with several printings and no plain one: the caller chooses.
+  | { kind: "choose"; game: string; number: string }
   // No catalogue row for this SKU or card_number.
   | { kind: "notfound" };
 
@@ -145,43 +150,69 @@ async function _resolveCardIdentity(
     `${SELECT_IDENTITY} WHERE csc.sku = $1 LIMIT 1`,
     [raw],
   );
-  if (bySku.rows[0]) {
-    const card = rowToIdentity(bySku.rows[0]);
-    // Publish the reference URL, copyright and relationship as one unit.
-    // An incomplete official candidate leaves the catalogue fallback intact;
-    // it does not confer a source, printing or rights claim on that fallback.
-    const en = await getEnCardData(card.sku);
-    const sameLanguage = en.same_language_image;
-    if (sameLanguage?.url && sameLanguage.attribution && sameLanguage.reference) {
-      card.image_url = sameLanguage.url;
-      card.image_attribution = sameLanguage.attribution;
-      card.image_language = "ja";
-      card.image_same_language_reference = sameLanguage.reference;
-    } else if (en.en_image?.url && en.en_image.attribution && en.en_image.reference) {
-      card.image_url = en.en_image.url;
-      card.image_attribution = en.en_image.attribution;
-      card.image_reference = en.en_image.reference;
-      card.image_language = "en";
-    }
-    // Effect text + game facts ride in from the SAME result (no second
-    // fetch). Each stays null when unpublished; the effect text carries its
-    // own copyright line for co-located rendering.
-    card.effect_text = en.effect_text;
-    card.attributes = en.attributes;
-    return { kind: "ok", card };
+  const stored = bySku.rows[0];
+  if (stored && mayStandForSku({ sku: stored.sku, name: stored.card_name, rarity: stored.rarity })) {
+    return { kind: "ok", card: await withOfficialMedia(rowToIdentity(stored)) };
   }
 
-  // Card-number-shaped URL (case-insensitive) → canonical SKU. Order by
-  // the base variant first so the plain printing wins over parallels.
+  // Card-number-shaped URL (case-insensitive) → the plain printing's SKU, or
+  // the list of printings when none is shown to be plain.
   const byNumber = await query(
-    `${SELECT_IDENTITY} WHERE UPPER(csc.card_number) = UPPER($1)
-      ORDER BY csc.variant ASC LIMIT 1`,
+    `${SELECT_IDENTITY} WHERE UPPER(csc.card_number) = UPPER($1) ORDER BY csc.sku LIMIT 1`,
     [raw],
   );
   const numberRow = byNumber.rows[0];
-  if (numberRow) return { kind: "redirect", sku: numberRow.sku };
+  if (numberRow) {
+    const found = skuIdentity(numberRow.sku);
+    if (!found) return { kind: "redirect", sku: numberRow.sku };
+    const plain = await fetchCardDetailed(`${found.game}-${found.set}-${found.number}-${found.lang}`);
+    return plain.card ? { kind: "redirect", sku: plain.card.sku } : { kind: "choose", game: found.game, number: numberRow.card_number };
+  }
 
-  return { kind: "notfound" };
+  // Not in the mirror (a copy of 5 July 2026, three games of six): ask the
+  // catalogue the product page and the sitemap read. Only for the shape of a
+  // stored SKU, so a guessed path costs no second database.
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+){2,}$/i.test(raw)) return { kind: "notfound" };
+  const { card, source } = await fetchCardDetailed(raw);
+  if (!card) {
+    // An outage must not read as a card that does not exist.
+    if (source === "unavailable") throw new Error("Card catalogue temporarily unavailable");
+    return { kind: "notfound" };
+  }
+  if (card.sku !== raw) return { kind: "redirect", sku: card.sku };
+  return {
+    kind: "ok",
+    card: await withOfficialMedia(rowToIdentity({
+      sku: card.sku, card_number: card.card_number, card_name: card.name ?? card.card_number,
+      set_code: card.set_code ?? "", set_name: card.set_name, rarity: card.rarity, image_url: null,
+    })),
+  };
+}
+
+/** Attach the official picture, text and facts published for this SKU. */
+async function withOfficialMedia(card: CatalogIdentity): Promise<CatalogIdentity> {
+  // Publish the reference URL, copyright and relationship as one unit.
+  // An incomplete official candidate leaves the catalogue fallback intact;
+  // it does not confer a source, printing or rights claim on that fallback.
+  const en = await getEnCardData(card.sku);
+  const sameLanguage = en.same_language_image;
+  if (sameLanguage?.url && sameLanguage.attribution && sameLanguage.reference) {
+    card.image_url = sameLanguage.url;
+    card.image_attribution = sameLanguage.attribution;
+    card.image_language = "ja";
+    card.image_same_language_reference = sameLanguage.reference;
+  } else if (en.en_image?.url && en.en_image.attribution && en.en_image.reference) {
+    card.image_url = en.en_image.url;
+    card.image_attribution = en.en_image.attribution;
+    card.image_reference = en.en_image.reference;
+    card.image_language = "en";
+  }
+  // Effect text + game facts ride in from the SAME result (no second
+  // fetch). Each stays null when unpublished; the effect text carries its
+  // own copyright line for co-located rendering.
+  card.effect_text = en.effect_text;
+  card.attributes = en.attributes;
+  return card;
 }
 
 /** Bare identity lookup used by generateMetadata (no redirect semantics). */

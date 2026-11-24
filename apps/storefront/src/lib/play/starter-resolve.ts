@@ -4,6 +4,7 @@
 // (the PvE/PvP-ready deck payload).
 
 import { getStarterDeck, type StarterDeck } from "@/lib/play/starter-decks";
+import { statsFor } from "@/lib/play/card-stats";
 import { fetchPrices } from "@/lib/wholesale/client";
 import { query } from "@/lib/db";
 import { SQL_ILLUST_PATTERN } from "@/lib/cards/illust-annotation";
@@ -192,9 +193,10 @@ async function cardTextFallbacks(
   }
 }
 
-/** Resolve a starter's full card list against the wholesale catalog.
- *  Returns null when the starter id is unknown. Unresolvable cards come
- *  back with resolved:false rather than being dropped. */
+/** Resolve a starter's full card list against the wholesale catalog, and
+ *  where no listing is a card's plain printing, the publisher's English
+ *  record. Returns null when the starter id is unknown. Unresolvable cards
+ *  come back with resolved:false rather than being dropped. */
 export async function resolveStarter(id: string): Promise<ResolvedStarter | null> {
   const deck = getStarterDeck(id);
   if (!deck) return null;
@@ -305,6 +307,13 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
       c.image_url = image.url;
       c.image_attribution = image.attribution;
       c.image_reference = image.reference;
+    }
+    // The deck asks for a number. Where no listing is its plain printing, the
+    // publisher's base record keeps the card in the deck, under its own SKU.
+    if (!c.resolved && image && skuIdentity(image.reference.depicted_sku)?.variant === null) {
+      c.resolved = true;
+      c.sku = image.reference.depicted_canonical_sku;
+      c.name = statsFor(c.card_number)?.name ?? null;
     }
     const t = texts.get(c.card_number);
     if (t) {

@@ -14,7 +14,6 @@ import { describe, it, expect } from "vitest";
 
 import type { PriceItem } from "@/lib/wholesale/client";
 import {
-  effectiveLanguage,
   classifySibling,
   compareVariantKinds,
   VARIANT_KIND_ORDER,
@@ -56,13 +55,14 @@ const V11L1 = makeItem({
   rarity: "SR",
 });
 
+// The manga-art parallel. Its Japanese title sits under an English name.
 const V11L2 = makeItem({
   sku: "OP-OP01-001-JP-V11L2",
   card_number: "OP01-001",
   set_code: "OP01",
   name: "Roronoa Zoro",
   name_en: "Roronoa Zoro",
-  rarity: "SR",
+  rarity: "L/P",
 });
 
 const VY12 = makeItem({
@@ -79,48 +79,6 @@ const VY13 = makeItem({
   set_code: "OP01",
   name: "ロロノア・ゾロ(金文字/漫画絵)",
   rarity: "SR",
-});
-
-// ── effectiveLanguage ──────────────────────────────────────────────────
-
-describe("effectiveLanguage", () => {
-  it("CJK-only name returns 'ja'", () => {
-    expect(effectiveLanguage("ロロノア・ゾロ")).toBe("ja");
-  });
-
-  it("Latin-only name returns 'en'", () => {
-    expect(effectiveLanguage("Roronoa Zoro")).toBe("en");
-  });
-
-  it("strips parenthesised markers before classifying the core script", () => {
-    expect(effectiveLanguage("ロロノア・ゾロ(Promo)")).toBe("ja");
-  });
-
-  it("empty string returns 'unknown'", () => {
-    expect(effectiveLanguage("")).toBe("unknown");
-  });
-
-  it("null returns 'unknown'", () => {
-    expect(effectiveLanguage(null)).toBe("unknown");
-  });
-
-  it("mixed CJK + Latin (after stripping parens) returns 'unknown'", () => {
-    expect(effectiveLanguage("Zoro ゾロ")).toBe("unknown");
-  });
-
-  it("strips full-width parens too", () => {
-    // The regex matches both `(` and `（` open brackets.
-    expect(effectiveLanguage("ロロノア・ゾロ(漫画背景/漫画絵)")).toBe("ja");
-  });
-
-  it("a name that is ONLY parens returns 'unknown'", () => {
-    // After stripping parens, the core is empty → unknown.
-    expect(effectiveLanguage("(Promo)")).toBe("unknown");
-  });
-
-  it("handles single-language English name with a parenthesised marker", () => {
-    expect(effectiveLanguage("Roronoa Zoro (Foil)")).toBe("en");
-  });
 });
 
 // ── classifySibling — the 8-tier waterfall ─────────────────────────────
@@ -276,32 +234,15 @@ describe("classifySibling — Tier 6: alt-art name marker", () => {
 });
 
 describe("classifySibling — Tier 7: language differs", () => {
-  it("V11L2 (Latin 'Roronoa Zoro') against V11L1 self (CJK) classifies as 'language'", () => {
-    const result = classifySibling({ sibling: V11L2, self: V11L1 });
-    expect(result.variant_kind).toBe("language");
-    expect(result.variant_kind_reason).toMatch(/script en/);
-    expect(result.variant_kind_reason).toMatch(/self ja/);
-    expect(result.effective_language).toBe("en");
+  it("reads the language from the SKU, never from the alphabet of the name shown", () => {
+    expect(classifySibling({ sibling: V11L2, self: V11L1 })).toMatchObject({ variant_kind: "parallel", variant_kind_reason: "parallel: rarity L/P", effective_language: "ja" });
+    const english = makeItem({ sku: "op-op01-001-en", card_number: "OP01-001", set_code: "OP01", name: "ロロノア・ゾロ", rarity: "L" });
+    expect(classifySibling({ sibling: english, self: V11L1 })).toMatchObject({ variant_kind: "language", variant_kind_reason: "language: sku language en (≠ self ja)", effective_language: "en" });
   });
 
-  it("does NOT classify language when either side is 'unknown'", () => {
-    // Self has mixed name → effective_language 'unknown'. Sibling has
-    // CJK name → 'ja'. Since self is unknown, Tier 7's both-known guard
-    // bypasses → falls through to default 'alt-art'.
-    const unknownSelf = makeItem({
-      sku: "OP-OP01-001-JP-VUNK0",
-      card_number: "OP01-001",
-      set_code: "OP01",
-      name: "Zoro ゾロ", // mixed
-    });
-    const cjkSibling = makeItem({
-      sku: "OP-OP01-001-JP-VCJK0",
-      card_number: "OP01-001",
-      set_code: "OP01",
-      name: "ロロノア・ゾロ",
-    });
-    const result = classifySibling({ sibling: cjkSibling, self: unknownSelf });
-    expect(result.variant_kind).not.toBe("language");
+  it("asserts no language when a SKU's language cannot be read", () => {
+    const sealed = makeItem({ sku: "SEALED-V103-JP", card_number: "OP01-001", set_code: "OP01", name: "Box" });
+    expect(classifySibling({ sibling: sealed, self: V11L1 })).toMatchObject({ variant_kind: "alt-art", effective_language: "unknown" });
   });
 });
 
@@ -319,15 +260,6 @@ describe("classifySibling — Tier 8: default catch-all (alt-art)", () => {
     const result = classifySibling({ sibling: cleanSibling, self: V11L1 });
     expect(result.variant_kind).toBe("alt-art");
     expect(result.variant_kind_reason).toContain("default");
-  });
-});
-
-describe("classifySibling — effective_language is always populated", () => {
-  it("carries the sibling's inferred language alongside the kind", () => {
-    expect(classifySibling({ sibling: V11L1, self: V11L1 }).effective_language).toBe("ja");
-    expect(classifySibling({ sibling: V11L2, self: V11L1 }).effective_language).toBe("en");
-    // VY12 has parens stripped → core "ロロノア・ゾロ" → "ja"
-    expect(classifySibling({ sibling: VY12, self: V11L1 }).effective_language).toBe("ja");
   });
 });
 

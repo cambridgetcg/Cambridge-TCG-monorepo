@@ -51,6 +51,8 @@ export async function GET(): Promise<Response> {
       "list of orientation surfaces is below.",
 
     start_here: "/api/v1/welcome",
+    one_card: "/api/v1/universal/card/op-op01-001-ja",
+    find_a_card: "/api/v1/search/cards?game=op&q=OP01-002",
     directory: "/api/v1/manifest",
     contract: "/api/openapi.json",
 

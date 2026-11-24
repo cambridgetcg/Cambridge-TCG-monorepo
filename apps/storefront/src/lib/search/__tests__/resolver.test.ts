@@ -4,6 +4,7 @@ import { describe, it, expect } from "vitest";
 
 import type { PriceItem } from "@/lib/wholesale/client";
 import {
+  nextMatch,
   normalizeQuery,
   parseSetNumberShape,
   parseSkuShape,
@@ -54,7 +55,7 @@ const OP01_001_FIXTURES: PriceItem[] = [
     name: "ロロノア・ゾロ",
     rarity: "SR",
   }),
-  // V11L2 — EN-text print (Latin name in JP set)
+  // V11L2 — the manga-art parallel; an English name is shown over its Japanese title
   makeItem({
     sku: "OP-OP01-001-JP-V11L2",
     card_number: "OP01-001",
@@ -520,5 +521,30 @@ describe("canonical search identity and relevance", () => {
     const matches = scoreMatches({ game: "op", q: "OP01-001" }, rows);
     expect(groupSiblings(matches).size).toBe(1);
     expect(matches).toHaveLength(2);
+  });
+});
+
+describe("the plain printing", () => {
+  const rows = OP01_001_FIXTURES.map((row) => ({ ...row, plain_listing: row.sku === "OP-OP01-001-JP-V11L1" }));
+
+  it("answers a plain SKU exactly with its plain listing, and leaves the other printings fuzzy", () => {
+    const matches = scoreMatches({ game: "op", q: "op-op01-001-ja" }, rows);
+    expect(matches.filter((m) => m.confidence === "exact").map((m) => [m.sku, m.reason])).toEqual([["OP-OP01-001-JP-V11L1", "plain SKU; plain listing"]]);
+    expect(matches).toHaveLength(5);
+    expect(scoreMatches({ game: "op", q: "op-op01-001-en" }, rows).some((m) => m.confidence === "exact")).toBe(false);
+  });
+
+  it("is the next step; several printings and no plain one is the caller's choice", () => {
+    expect(nextMatch(scoreMatches({ game: "op", q: "OP01-001" }, rows))?.sku).toBe("OP-OP01-001-JP-V11L1");
+    expect(nextMatch(scoreMatches({ game: "op", q: "OP01-001" }, OP01_001_FIXTURES))).toBeNull();
+    expect(nextMatch(scoreMatches({ game: "op", q: "OP01-001" }, [OP01_001_FIXTURES[0]!]))?.sku).toBe("OP-OP01-001-JP-V11DZ");
+    expect(nextMatch([])).toBeNull();
+  });
+
+  it("finds a number filed on another shelf when the row's own SKU and number agree", () => {
+    const promo = makeItem({ sku: "P-P-001-JP-V11DH", card_number: "P-001", set_code: "PROMO", name: "Monkey.D.Luffy" });
+    const shelf = makeItem({ sku: "ST-ST15-002-JP-VA", card_number: "ST15-002", set_code: "ST15-20", name: "Example" });
+    expect(scoreMatches({ game: "op", q: "P-001" }, [promo])).toHaveLength(1);
+    expect(scoreMatches({ game: "op", q: "ST15-002" }, [shelf])[0]).toMatchObject({ confidence: "exact", sku: "ST-ST15-002-JP-VA" });
   });
 });

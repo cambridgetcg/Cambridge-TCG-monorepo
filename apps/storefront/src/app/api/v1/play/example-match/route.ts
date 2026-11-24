@@ -80,7 +80,7 @@ const EVENT_SEQUENCE: MatchEvent[] = [
     kind: "deck_declared",
     match_id: MATCH_ID,
     player_id: ALICE,
-    leader_id: "OP01-001", // Monkey D. Luffy (Red Leader, example)
+    leader_id: "OP01-001", // Roronoa Zoro (Red Leader, example)
     main_deck_card_ids: Array(50).fill("OP01-002"),
   },
   {

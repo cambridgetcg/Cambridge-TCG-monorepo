@@ -47,6 +47,14 @@ describe("starter media resolution", () => {
     expect(result.cards.every((card) => !card.resolved)).toBe(true);
   });
 
+  it("keeps a card whose listings are all of another printing, under the publisher's base record", async () => {
+    rows([{ ...image, sku: "OP-ST01-001-EN", s3_key: "official/OP-ST01-001-EN.png" }]);
+    expect((await resolveStarter(starterId))!.leader).toMatchObject({ resolved: true, sku: "op-st01-001-en", name: "Monkey.D.Luffy", card_number: number, set_code: null, rarity: null });
+    // Withdrawn or a parallel only: nothing stands for it.
+    rows([{ ...image, sku: "OP-ST01-001-EN", s3_key: "official/OP-ST01-001-EN.png", takedown_status: "removed" }]);
+    expect((await resolveStarter(starterId))!.leader).toMatchObject({ resolved: false, sku: null });
+  });
+
   it("prefers an eligible unsuffixed reference, then numeric reprints, then parallels independently of row order", async () => {
     const base = { ...image, sku: "OP-ST01-001-EN", s3_key: "official/base.png" };
     const r2 = { ...image, sku: "OP-ST01-001-EN-R2", s3_key: "official/r2.png" };

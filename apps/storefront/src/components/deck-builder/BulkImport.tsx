@@ -3,10 +3,10 @@
 import { useState } from "react";
 
 // Parser tolerates the common OPTCG / MTGA-style decklist formats:
-//   4 OP01-001
-//   4x OP01-001 Monkey D. Luffy
-//   4 OP01-001 Monkey D. Luffy
-//   OP01-001 x4
+//   4 OP01-006
+//   4x OP01-006 Otama
+//   4 OP01-006 Otama
+//   OP01-006 x4
 //   2 OP01-002
 // Lines starting with "//" or "#" are treated as comments.
 // An optional "Leader:" prefix on a line designates that entry as the leader.
@@ -35,7 +35,7 @@ export function parseDeckList(raw: string): ParseResult {
     if (!line) continue;
     if (line.startsWith("//") || line.startsWith("#")) continue;
 
-    // "Leader: OP01-001 Luffy" / "// Leader: OP01-001"
+    // "Leader: OP01-001 Zoro" / "// Leader: OP01-001"
     const leaderMatch = /^leader\s*[:]?\s*/i.exec(line);
     const working = leaderMatch ? line.slice(leaderMatch[0].length) : line;
     const isLeader = !!leaderMatch;
@@ -153,7 +153,7 @@ export default function BulkImport({ onClose, onImport }: BulkImportProps) {
             setParsed(null);
             setResult(null);
           }}
-          placeholder={`Leader: OP01-001 Monkey D. Luffy\n4x OP01-006 Nami\n4x OP01-007 Usopp\n2 OP01-013 Portgas D. Ace\n...`}
+          placeholder={`Leader: OP01-001 Roronoa Zoro\n4x OP01-006 Otama\n4x OP01-007 Caribou\n2 OP01-013 Sanji\n...`}
           rows={10}
           className="w-full bg-surface-subtle border border-border-subtle rounded-lg px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 resize-y"
         />

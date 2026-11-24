@@ -3,9 +3,10 @@ import type { ImageReference } from "@/lib/cards/image-reference";
 import { createSameLanguageImageReference } from "@/lib/cards/same-language-image-reference";
 import { resolveCardIdentity } from "./catalog-card";
 
-const mocks = vi.hoisted(() => ({ query: vi.fn(), getEnCardData: vi.fn() }));
+const mocks = vi.hoisted(() => ({ query: vi.fn(), getEnCardData: vi.fn(), fetchCardDetailed: vi.fn() }));
 vi.mock("@/lib/db", () => ({ query: mocks.query }));
 vi.mock("@/lib/cards/en-card-data", () => ({ getEnCardData: mocks.getEnCardData }));
+vi.mock("@/lib/wholesale/client", () => ({ fetchCardDetailed: mocks.fetchCardDetailed }));
 
 const reference: ImageReference = {
   requested_sku: "OP-OP01-001-JP-V1",
@@ -90,5 +91,49 @@ describe("market card identity same-language images", () => {
   it("does not use an incomplete Japanese image", async () => {
     mocks.getEnCardData.mockResolvedValue({ en_image: official, same_language_image: { ...japanese, attribution: "" }, effect_text: null, attributes: null });
     expect(await resolveCardIdentity(row.sku)).toMatchObject({ kind: "ok", card: { image_url: official.url, image_language: "en" } });
+  });
+});
+
+describe("market addresses the mirror does not hold", () => {
+  const none = { card: null, source: "wholesale-db", absence: { reason: "unknown_sku", listings: [] } };
+  const held = (sku: string, over = {}) => ({ source: "wholesale-db", absence: null, card: {
+    sku, card_number: "BT10-001", name: "コロモン", set_code: "BT10", set_name: null, rarity: "U", ...over,
+  } });
+  const numbered = { ...row, sku: "OP-OP01-001-JP-V11DZ" };
+  beforeEach(() => { mocks.query.mockResolvedValue({ rows: [] }); mocks.fetchCardDetailed.mockResolvedValue(none); });
+
+  it("answers a card only the catalogue holds, from the catalogue", async () => {
+    mocks.fetchCardDetailed.mockResolvedValue(held("dmw-bt10-001-ja"));
+    expect(await resolveCardIdentity("dmw-bt10-001-ja")).toMatchObject({ kind: "ok", card: {
+      sku: "dmw-bt10-001-ja", card_name: "コロモン", set_code: "BT10", image_url: null, image_attribution: null,
+    } });
+  });
+
+  it("sends a plain SKU and another spelling to the stored SKU", async () => {
+    mocks.fetchCardDetailed.mockResolvedValue(held("OP-OP01-001-JP-V11L1", { plain_listing: true }));
+    expect(await resolveCardIdentity("op-op01-001-ja")).toEqual({ kind: "redirect", sku: "OP-OP01-001-JP-V11L1" });
+    expect(await resolveCardIdentity("op-op01-001-ja-v11l1")).toEqual({ kind: "redirect", sku: "OP-OP01-001-JP-V11L1" });
+  });
+
+  it("sends a card number to its plain printing, and to the list of printings when there is none", async () => {
+    mocks.query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [numbered] });
+    mocks.fetchCardDetailed.mockResolvedValue(held("OP-OP01-001-JP-V11L1", { plain_listing: true }));
+    expect(await resolveCardIdentity("OP01-001")).toEqual({ kind: "redirect", sku: "OP-OP01-001-JP-V11L1" });
+    expect(mocks.fetchCardDetailed).toHaveBeenCalledWith("op-op01-001-ja");
+    mocks.query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [numbered] });
+    mocks.fetchCardDetailed.mockResolvedValue(none);
+    expect(await resolveCardIdentity("OP01-001 ")).toEqual({ kind: "choose", game: "op", number: "OP01-001" });
+  });
+
+  it("is not found when neither holds it, without asking the catalogue for a path that is no SKU", async () => {
+    expect(await resolveCardIdentity("OP-ST11-001-EN-P1")).toEqual({ kind: "notfound" });
+    expect(mocks.fetchCardDetailed).toHaveBeenCalledTimes(1);
+    for (const path of ["x", "wp-login.php", "OP01-999", "a b-c-d"]) expect(await resolveCardIdentity(path)).toEqual({ kind: "notfound" });
+    expect(mocks.fetchCardDetailed).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws on an outage instead of answering not found", async () => {
+    mocks.fetchCardDetailed.mockResolvedValue({ card: null, source: "unavailable", absence: null });
+    await expect(resolveCardIdentity("dmw-bt10-001-ja")).rejects.toThrow("temporarily unavailable");
   });
 });
