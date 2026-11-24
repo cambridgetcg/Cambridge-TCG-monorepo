@@ -1174,7 +1174,9 @@ export default function TradeDetailPage() {
           <InkRule accent className="mt-2 mb-1 max-w-xs" />
           <p className="text-sm text-ink-muted mt-2">
             {viewerIsSeller ? (
-              trade.payout_hold_days != null && trade.payout_hold_days > 0 ? (
+              !trade.buyer_paid_at ? (
+                <>No buyer payment is recorded for this trade, so no payout is due. If the buyer has paid, contact support.</>
+              ) : trade.payout_hold_days != null && trade.payout_hold_days > 0 ? (
                 <>
                   Your payout of{" "}
                   <span className="font-mono text-ink">&pound;{Number(trade.seller_payout ?? trade.price).toFixed(2)}</span>{" "}

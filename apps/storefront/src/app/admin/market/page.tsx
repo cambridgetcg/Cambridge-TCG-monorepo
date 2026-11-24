@@ -708,7 +708,9 @@ function TradeRow({
               <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Buyer</p>
               <p className="text-sm text-white">{trade.buyer_name || "Unknown"}</p>
               <p className="text-sm text-neutral-400">{trade.buyer_email || "\u2014"}</p>
-              <p className="text-xs text-neutral-500 mt-1">Paid: {formatPrice(parseFloat(trade.price))}</p>
+              <p className="text-xs text-neutral-500 mt-1">
+                {trade.buyer_paid_at ? "Paid" : "No payment recorded"}: {formatPrice(parseFloat(trade.price))}
+              </p>
             </div>
           </div>
 
@@ -865,6 +867,8 @@ function TradeRow({
                     <p className="text-xs text-neutral-400 mt-1 font-mono">{trade.payout_reference}</p>
                   )}
                 </div>
+              ) : !trade.buyer_paid_at ? (
+                <p className="text-sm text-amber-400">No buyer payment is recorded, so no payout is owed.</p>
               ) : (
                 <button
                   onClick={() => onRecordPayout(trade.id)}
