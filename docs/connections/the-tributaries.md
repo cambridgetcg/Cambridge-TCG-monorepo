@@ -114,7 +114,7 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | Freshness | daily files. Module freshness `daily_file` (26 h) is a budget for the collector's latest batch: a day, and two hours for a late run. |
 | Canonical-form effort | **medium-high** — Cardmarket uses `idProduct` per printing per language; cross-language same-card has multiple ids. Mapping table required per game. |
 | Status | **partial** — the official-file reader and member-price writer are wired. One One Piece batch was imported by hand on 2026-09-08 UTC. A daily collector of the configured games (One Piece) runs only while `DATA_COLLECT_CARDMARKET` is `on`; `/api/v1/sources` says whether it is. The legacy OAuth reader stays locked. |
-| Intake record | [`source-intake.md` — Cardmarket as a derivation input, 2026-10-28](../methodology/source-intake.md#addendum--cardmarket-as-a-derivation-input-2026-10-28). The 2026-09-07 member grant is unchanged. |
+| Intake record | [`source-intake.md` — Cardmarket as a derivation input, 2026-10-28](../methodology/source-intake.md#addendum--cardmarket-as-a-derivation-input-2026-10-28). The 2026-09-07 member grant is unchanged; its API and download uses are paused since 2026-11-24 ([record](../decisions/2026-11-24-cardmarket-export-pause.md)). |
 
 ### 2.3 CardRush (JP — page collector; legacy archive frozen)
 

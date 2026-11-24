@@ -35,8 +35,8 @@ export const COLLECTION_SERVICES = [
   },
   {
     id: "downloads",
-    title: "Download price data",
-    description: "Export permitted source prices for your spreadsheet.",
+    title: "Data keys and downloads",
+    description: "Manage your data keys and see which source prices can be downloaded.",
     href: "/account/data",
     accessLabel: "Existing account",
     featured: true,

@@ -238,7 +238,8 @@ export async function GET(
       image_url: null,
       publication_boundary: {
         price: "withheld_pending_field_level_source_rights",
-        image: "withheld_pending_field_level_source_rights",
+        // Not a rights decision: Cambridge keeps no dated record of images.
+        image: "not_carried_for_past_dates",
       },
     };
 

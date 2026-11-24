@@ -97,6 +97,30 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-11-24 ─────────────────────────────────────────────────────────
   {
+    id: "official-images-and-text-return",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/universal/card/[sku], /api/market/catalog, /api/v1/play/starters/[id], /market",
+    summary:
+      "Official English card images and rules text show again. From 29 September a date check refused every stored row, and publication_boundary then gave a rights reason that was not true.",
+    detail:
+      "publication_boundary.image and .text now say why a field is null: no source rights recorded, Japanese images switched off, none available, or could_not_be_read, which is a fault and never a rights decision. Japanese official images are off unless OFFICIAL_IMAGES_JA=show, so image_same_language is null. On /api/at/{date}/card/{sku}, publication_boundary.image is not_carried_for_past_dates, since that document never reads a picture. density=saturated answers again for sets with a release date. Field shapes are unchanged.",
+    related_urls: ["/standards/card-data", "/legal/card-images"],
+  },
+  {
+    id: "cardmarket-member-export-paused",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "/api/v1/member-prices, /api/account/prices/export, /api/v1/sources",
+    summary:
+      "Cardmarket's raw prices left the member price API and the member downloads, ahead of Cardmarket's terms of 26 November 2026. Both answer 503 with the reason; signed-in members still see these prices on /prices.",
+    detail:
+      "Cardmarket was the only source open to either, so with a valid key or session every request that names Cardmarket or no source now gets status unavailable, complete false, items [], a reason in plain words and a paused object (source, uses, since). It is not an empty result: a client that mirrors the feed should not read it as removals, and should stop polling (Retry-After is a day). A request without a key or session is still refused first (401), source=scryfall still reads as empty, and cardrush and tcgplayer are still refused (400). On /api/v1/sources, member_pricing.reviewed_uses lists the uses open now (Cardmarket: member-display) and a new field, member_pricing.paused, lists any stopped ones with the date and reason. Display on /prices, collection and derived data are unchanged. This is an AI agent's careful reading, for the owner to confirm or undo.",
+    related_urls: ["/methodology/member-pricing", "/api/v1/sources"],
+  },
+  {
     id: "health-answers-from-the-database",
     date: "2026-11-24",
     kind: "endpoint-modified",

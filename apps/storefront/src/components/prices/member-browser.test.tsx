@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MEMBER_PRICE_POLICIES } from "@cambridge-tcg/data-ingest/member-prices";
 import { GAMES } from "@cambridge-tcg/sku";
 import type { MemberPriceItem, MemberPricePage } from "@/lib/prices/member-feed-types";
 import type { MemberPriceImage } from "@/lib/prices/member-images";
@@ -62,6 +63,9 @@ describe("member price server gate", () => {
     expect(html).toMatch(/<details[^>]*><summary[^>]*>Sources and downloads<\/summary>/);
     expect(html).not.toMatch(/<details[^>]*\bopen[= >]/);
     expect(html).toContain("Scryfall is view-only");
+    // The guest note says what the policy says about downloads.
+    expect(html).toContain(MEMBER_PRICE_POLICIES.cardmarket.paused!.reason);
+    expect(html).not.toContain("support member downloads");
     expect(html).toContain("/methodology/member-pricing");
   });
 
@@ -250,6 +254,37 @@ describe("member price rendering", () => {
     const downloads = renderToStaticMarkup(<MemberPriceDownloads params={new URLSearchParams({ source })} />);
     expect(downloads).toContain(`Downloads are unavailable for the ${name}-only filter.`);
     expect(downloads).not.toContain("href=\"/api/account/prices/export");
+  });
+
+  // Cardmarket's API and download uses are paused in its policy
+  // (docs/decisions/2026-11-24-cardmarket-export-pause.md).
+  it("offers no download while Cardmarket's is paused, says why, and keeps its rows view-only", () => {
+    const { reason } = MEMBER_PRICE_POLICIES.cardmarket.paused!;
+    for (const params of [{}, { source: "cardmarket" }, { source: "scryfall" }] as Record<string, string>[]) {
+      const downloads = renderToStaticMarkup(<MemberPriceDownloads params={new URLSearchParams(params)} />);
+      expect(downloads).toContain(reason);
+      expect(downloads).toContain("Downloads are unavailable");
+      expect(downloads).not.toContain("/api/account/prices/export");
+      expect(downloads).not.toContain("can be exported");
+    }
+    const filters = renderToStaticMarkup(<MemberPriceFilters params={new URLSearchParams()} displayOnly={[]} />);
+    expect(filters).toContain("Cardmarket · display only");
+    // Once, in its own option: not also as a display-only input.
+    expect(filters.match(/value="cardmarket"/g)).toHaveLength(1);
+    const row = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [{ ...item, permittedUses: ["member-display"] }] }} params={new URLSearchParams()} />);
+    expect(row).toContain("View only · not in API or downloads");
+  });
+
+  it("offers Cardmarket downloads again when no use is paused", () => {
+    const policy = MEMBER_PRICE_POLICIES.cardmarket;
+    const written = { uses: policy.uses, paused: policy.paused };
+    Object.assign(policy, { uses: ["member-display", "member-api", "member-download"], paused: null });
+    try {
+      const downloads = renderToStaticMarkup(<MemberPriceDownloads params={new URLSearchParams()} />);
+      expect(downloads).toContain("Cardmarket official-file observations can be exported.");
+      expect(downloads).toContain('href="/api/account/prices/export?format=csv"');
+      expect(renderToStaticMarkup(<MemberPriceFilters params={new URLSearchParams()} displayOnly={[]} />)).toContain("Cardmarket · display and export");
+    } finally { Object.assign(policy, written); }
   });
 
   it("never echoes an unknown source filter into the downloads note", () => {

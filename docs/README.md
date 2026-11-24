@@ -68,8 +68,5 @@ These explain how the project arrived here. A proposal, snapshot or completed ch
 | [Pricing consolidation snapshot](./pricing-current-state.md) | Pricing architecture and consolidation plan recorded on May 9, 2026 |
 | [Wholesale DB merge](./wholesale-db-merge-runbook.md) | Phase 6 draft; requires staging rehearsal before promotion |
 | [Wholesale app retirement](./wholesale-app-retirement-runbook.md) | Phase 7 plan, dependent on Phase 6 completion and seven days without rollback |
-| [Storefront verification](./verification-storefront.md) | Verification matrix from April 27, 2026 |
-| [Wholesale verification](./verification-wholesale.md) | Verification matrix from April 27, 2026 |
-| [Monorepo smoke test](./smoke-test-2026-04-27.md) | Smoke-test record from April 27, 2026 |
 | [Fee methodology](./methodology/fees.md) | Fee model last verified June 4, 2026; read with the current commerce boundary |
 | [Prize fulfilment methodology](./methodology/prize-fulfillment.md) | Prize sourcing and fulfilment model last verified May 10, 2026 |

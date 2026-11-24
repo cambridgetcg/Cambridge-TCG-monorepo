@@ -8,11 +8,13 @@
  * Two image lanes, each read by its own function with its own fixed SQL pair
  * and projector (official-image-lanes.ts): the English base reference
  * (getEnCardImages) and, since Yu's decision of 2026-10-30, a Japanese
- * request's own-language base image (getSameLanguageImages), which
- * OFFICIAL_IMAGES_JA=off turns off. ImageReference v1 is unchanged.
+ * request's own-language base image (getSameLanguageImages), which stays off
+ * unless OFFICIAL_IMAGES_JA=show. ImageReference v1 is unchanged.
  */
 import { query } from "@/lib/db";
+import { dbTimestamp } from "@cambridge-tcg/db/timestamp";
 import { englishBaseImageKey } from "./image-reference";
+import type { OfficialMediaState } from "./media-reasons";
 import { sameLanguageBaseImageKey } from "./same-language-image-reference";
 import {
   DEFAULT_CARD_IMAGE_CDN, officialMediaProvenance, projectOfficialImage, projectSameLanguageImage,
@@ -49,6 +51,9 @@ export interface EnCardData {
   en_image: EnCardImage | null;
   /** A Japanese request's own-language base image, or null. */
   same_language_image: SameLanguageCardImage | null;
+  /** Whether an official image, and the rules text, is here; if not, why. */
+  image_state: OfficialMediaState;
+  text_state: Exclude<OfficialMediaState, "switched_off">;
 }
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -64,11 +69,13 @@ export function enCardKey(catalogSku: string): string | null {
 }
 
 /** The one switch for the Japanese lane, read on every call (on Vercel a
- * changed value reaches only a new deployment). On unless set to "off". It
- * hides Japanese images from every reader; it deletes no object, purges no
- * cache and does not touch the manual tools. */
+ * changed value reaches only a new deployment). Off unless set to "show":
+ * showing Japanese images waits for the owner's separate word, and no value
+ * that meant anything before 2026-11-24 turns them on. While off, no reader
+ * shows one; it deletes no object, purges no cache and does not touch the
+ * manual tools. */
 export function officialImagesJaOn(env: Env = process.env): boolean {
-  return env.OFFICIAL_IMAGES_JA?.trim().toLowerCase() !== "off";
+  return env.OFFICIAL_IMAGES_JA?.trim() === "show";
 }
 
 const cardImageCdn = () => process.env.CTCG_CARD_IMAGE_CDN || DEFAULT_CARD_IMAGE_CDN;
@@ -78,7 +85,7 @@ const cardImageCdn = () => process.env.CTCG_CARD_IMAGE_CDN || DEFAULT_CARD_IMAGE
 function rowsByKey(rows: readonly StoredOfficialImage[]): Map<string, StoredOfficialImage[]> {
   const ordered = [...rows].sort((a, b) =>
     String(a.sku).localeCompare(String(b.sku))
-      || ((new Date(b.retrieved_at as string).getTime() || 0) - (new Date(a.retrieved_at as string).getTime() || 0))
+      || ((dbTimestamp(b.retrieved_at)?.getTime() ?? 0) - (dbTimestamp(a.retrieved_at)?.getTime() ?? 0))
       || String(a.s3_key).localeCompare(String(b.s3_key))
       || String(a.source_url).localeCompare(String(b.source_url)));
   const byKey = new Map<string, StoredOfficialImage[]>();
@@ -90,15 +97,23 @@ function rowsByKey(rows: readonly StoredOfficialImage[]): Map<string, StoredOffi
   return byKey;
 }
 
-/** A lane's failure is logged by error name only and answers no images, so
- * it never takes the other lane down. */
-const laneUnavailable = (lane: string) => (error: unknown) => {
-  console.error(`[official-images] ${lane} images unavailable`, error instanceof Error ? error.name : "unknown");
-  return new Map<string, never>();
+/** A failed read is logged by error name only and gives null, so it never
+ * takes the other lane down and never reads as "no image". */
+const unavailable = (what: string) => (error: unknown): null => {
+  console.error(`[official-images] ${what} unavailable`, error instanceof Error ? error.name : "unknown");
+  return null;
 };
 
-/** One projection for single and batch reads. No hotlink or catalog fallback. */
-export async function getEnCardImages(catalogSkus: readonly string[]): Promise<Map<string, EnCardImage>> {
+/** Held pictures whose rows all failed our own checks: a fault to look at, so
+ * it is logged, by count only. From 2026-09-29 to 2026-11 every row failed. */
+function logRefused(lane: string, images: ReadonlyMap<string, unknown>): void {
+  const refused = [...images.values()].filter((image) => image === null).length;
+  if (refused) console.error(`[official-images] ${lane}: ${refused} of ${images.size} held pictures failed the checks`);
+}
+
+/** One projection for single and batch reads. No hotlink or catalog fallback.
+ * A SKU with no row is absent; a SKU whose rows all failed the checks is null. */
+export async function getEnCardImages(catalogSkus: readonly string[]): Promise<Map<string, EnCardImage | null>> {
   const keyBySku = new Map<string, string>();
   for (const sku of catalogSkus) {
     const key = enCardKey(sku);
@@ -116,13 +131,15 @@ export async function getEnCardImages(catalogSkus: readonly string[]): Promise<M
   );
   const byKey = rowsByKey(rows as StoredOfficialImage[]);
   const cdn = cardImageCdn();
-  const out = new Map<string, EnCardImage>();
+  const out = new Map<string, EnCardImage | null>();
   for (const [sku, key] of keyBySku) {
     for (const row of byKey.get(key) ?? []) {
       const image = projectOfficialImage(sku, row, cdn);
-      if (image) { out.set(sku, image); break; }
+      out.set(sku, image);
+      if (image) break;
     }
   }
+  logRefused("en", out);
   return out;
 }
 
@@ -130,7 +147,7 @@ export async function getEnCardImages(catalogSkus: readonly string[]): Promise<M
  * clear, self-hosted bandai-jp row for the same card's base print. A
  * requested variant is shown its base print (the reference keeps both SKUs).
  * The switch is read before any key or query. */
-export async function getSameLanguageImages(catalogSkus: readonly string[], env: Env = process.env): Promise<Map<string, SameLanguageCardImage>> {
+export async function getSameLanguageImages(catalogSkus: readonly string[], env: Env = process.env): Promise<Map<string, SameLanguageCardImage | null>> {
   if (!officialImagesJaOn(env)) return new Map();
   const keyBySku = new Map<string, string>();
   for (const sku of catalogSkus) {
@@ -149,13 +166,15 @@ export async function getSameLanguageImages(catalogSkus: readonly string[], env:
   );
   const byKey = rowsByKey(rows as StoredOfficialImage[]);
   const cdn = cardImageCdn();
-  const out = new Map<string, SameLanguageCardImage>();
+  const out = new Map<string, SameLanguageCardImage | null>();
   for (const [sku, key] of keyBySku) {
     for (const row of byKey.get(key) ?? []) {
       const image = projectSameLanguageImage(sku, row, cdn);
-      if (image) { out.set(sku, image); break; }
+      out.set(sku, image);
+      if (image) break;
     }
   }
+  logRefused("ja", out);
   return out;
 }
 
@@ -172,30 +191,31 @@ export function chooseOfficialImage(en: EnCardImage | null | undefined, sameLang
  * leaves the English images, and the reverse. */
 export async function getOfficialCardImages(catalogSkus: readonly string[], env: Env = process.env): Promise<Map<string, OfficialImageChoice>> {
   const [en, sameLanguage] = await Promise.all([
-    getEnCardImages(catalogSkus).catch(laneUnavailable("en")),
-    getSameLanguageImages(catalogSkus, env).catch(laneUnavailable("ja")),
+    getEnCardImages(catalogSkus).catch(unavailable("en images")),
+    getSameLanguageImages(catalogSkus, env).catch(unavailable("ja images")),
   ]);
   const out = new Map<string, OfficialImageChoice>();
   for (const sku of catalogSkus) {
-    const choice = chooseOfficialImage(en.get(sku), sameLanguage.get(sku));
+    const choice = chooseOfficialImage(en?.get(sku), sameLanguage?.get(sku));
     if (choice) out.set(sku, choice);
   }
   return out;
 }
 
 /** Existing attributed text/stats remain available under their recorded rule.
- * Text stays English (card_texts, bandai-en); only the image has a Japanese lane. */
+ * Text stays English (card_texts, bandai-en); only the image has a Japanese
+ * lane. Each read is caught on its own, and a failed one is its own state. */
 export async function getEnCardData(catalogSku: string, env: Env = process.env): Promise<EnCardData> {
   const key = enCardKey(catalogSku);
-  if (!key) return { effect_text: null, attributes: null, en_image: null, same_language_image: null };
-  const images = await getEnCardImages([catalogSku]);
-  const sameLanguage = await getSameLanguageImages([catalogSku], env).catch(laneUnavailable("ja"));
-  const textRes = await query(
+  if (!key) return { effect_text: null, attributes: null, en_image: null, same_language_image: null, image_state: "no_lane", text_state: "no_lane" };
+  const images = await getEnCardImages([catalogSku]).catch(unavailable("en images"));
+  const sameLanguage = await getSameLanguageImages([catalogSku], env).catch(unavailable("ja images"));
+  const text = await query(
     `SELECT sku, lang, source, effect_text, card_type, attributes, attribution, source_url, retrieved_at
        FROM card_texts WHERE sku = $1 AND lang = 'en' AND source = 'bandai-en' LIMIT 1`,
     [key],
-  );
-  const row = textRes.rows[0] as (Pick<StoredOfficialImage, "sku" | "lang" | "source" | "attribution" | "source_url" | "retrieved_at"> & {
+  ).catch(unavailable("en text"));
+  const row = text?.rows[0] as (Pick<StoredOfficialImage, "sku" | "lang" | "source" | "attribution" | "source_url" | "retrieved_at"> & {
     effect_text: string | null; card_type: string | null; attributes: CardAttributes | null;
   }) | undefined;
   const provenance = row ? officialMediaProvenance(catalogSku, row) : null;
@@ -204,10 +224,16 @@ export async function getEnCardData(catalogSku: string, env: Env = process.env):
         text: row.effect_text, card_type: row.card_type, attribution: provenance.attribution,
         source_url: provenance.source_url, retrieved_at: provenance.retrieved_at,
       } : null;
+  const enImage = images?.get(catalogSku), jaImage = sameLanguage?.get(catalogSku);
   return {
     effect_text,
     attributes: row && provenance ? row.attributes ?? null : null,
-    en_image: images.get(catalogSku) ?? null,
-    same_language_image: sameLanguage.get(catalogSku) ?? null,
+    en_image: enImage ?? null,
+    same_language_image: jaImage ?? null,
+    image_state: enImage || jaImage ? "shown"
+      : !images || !sameLanguage || enImage === null || jaImage === null ? "unreadable"
+      : sameLanguageBaseImageKey(catalogSku) && !officialImagesJaOn(env) ? "switched_off"
+      : "none",
+    text_state: effect_text ? "shown" : !text || (row && !provenance) ? "unreadable" : "none",
   };
 }

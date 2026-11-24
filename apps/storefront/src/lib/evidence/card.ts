@@ -67,11 +67,13 @@ export interface CardEvidenceModel {
  * Of the three rivers this ledger names, CardRush and TCGplayer, since
  * 2026-10-28. Their values are on Cambridge's price pages with their names
  * beside them and never in an API, this one included. They used to read
- * "blocked" (TCGplayer) and "internal lineage" (CardRush). */
+ * "blocked" (TCGplayer) and "internal lineage" (CardRush). A source whose
+ * export is paused is not one of them: its permission is its own. */
 function displayOnly(id: string): boolean {
   if (!Object.hasOwn(MEMBER_PRICE_POLICIES, id)) return false;
-  const uses: readonly string[] = MEMBER_PRICE_POLICIES[id as MemberPriceSource].uses;
-  return uses.includes("member-display") && !uses.includes("member-api") && !uses.includes("member-download");
+  const policy = MEMBER_PRICE_POLICIES[id as MemberPriceSource];
+  const uses: readonly string[] = policy.uses;
+  return !policy.paused && uses.includes("member-display") && !uses.includes("member-api") && !uses.includes("member-download");
 }
 
 function sourceState(source: SourceMeta): EvidenceSourceState | null {

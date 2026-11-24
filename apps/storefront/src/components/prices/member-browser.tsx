@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSource } from "@cambridge-tcg/data-ingest";
+import { pausedPriceUse } from "@cambridge-tcg/data-ingest/member-prices";
 import { scheduledCollection } from "@/lib/datafeed/collection-flags";
 import { getMemberSessionActor } from "@/lib/prices/member-access";
 import { displayOnlySourcesWithRows, MemberPriceQueryError, parseMemberPriceQuery, readMemberPrices } from "@/lib/prices/member-feed";
@@ -33,7 +34,7 @@ export async function MemberPriceBrowser({ search }: { search: MemberPriceSearch
         <p className="mt-3 text-sm text-ink-muted">Availability depends on imported data.</p>
         <details className="mt-3 text-sm leading-6 text-ink-muted">
           <summary className="cursor-pointer py-1 font-medium text-ink">Sources and downloads</summary>
-          <p className="mt-2 max-w-3xl">Cardmarket official-file observations support member downloads; Scryfall is view-only, and its bulk activation is deferred. CardRush and TCGplayer page prices, once collected, are view-only too.</p>
+          <p className="mt-2 max-w-3xl">{pausedPriceUse("member-download")?.reason ?? "Cardmarket official-file observations support member downloads."} Scryfall is view-only, and its bulk activation is deferred. CardRush and TCGplayer page prices, once collected, are view-only too.</p>
           <p className="mt-2 max-w-3xl">{getSource("cardmarket")?.meta.description ?? "The Cardmarket registry entry is unavailable."}</p>
           <Link href="/methodology/member-pricing" className="mt-2 inline-block text-accent underline underline-offset-4">Source permissions and price meanings</Link>
         </details>
