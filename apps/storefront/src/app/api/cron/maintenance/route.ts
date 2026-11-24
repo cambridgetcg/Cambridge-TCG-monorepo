@@ -399,7 +399,8 @@ export async function GET(request: Request) {
             ? { status: "fulfilled", ...signedActSweep.value }
             : { status: "skipped" })
         : { status: "rejected" },
-    stockReservations: stockReservationSweep.status,
+    // It answers a failure as a value, so its status alone would hide one.
+    stockReservations: stockReservationSweep.status === "fulfilled" && stockReservationSweep.value.ok ? "fulfilled" : "rejected",
     durationMs: Date.now() - start,
   };
 
