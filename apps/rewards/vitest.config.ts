@@ -10,15 +10,6 @@ export default defineConfig({
     // Node by default; each *.dom.test.ts(x) starts with `// @vitest-environment jsdom`.
     environment: "node",
     setupFiles: ["./test/setup.ts"],
-    // The library's React half (AppProvider) is run through Vite like the
-    // test itself, so both use one copy of react-router: loaded natively, it
-    // would get its own, and its useNavigate would find no router in a
-    // *.dom.test. The server half stays external.
-    server: {
-      deps: {
-        inline: [/@shopify\/shopify-app-react-router\/dist\/esm\/react\//],
-      },
-    },
     pool: "threads",
     poolOptions: {
       threads: { singleThread: true },

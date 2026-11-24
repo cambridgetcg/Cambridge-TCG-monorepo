@@ -13,49 +13,57 @@ const NOT_HERE = "This page isn't here.";
  * library throws (a sign-in bounce) renders as its own boundary renders it;
  * one React Router makes itself (`internal`: a URL no route matches) gets
  * the app's words, never the router's message.
- * Inside the admin the sentence is Polaris, as the pages are (M3c-F1); at
- * the root, where Polaris may not be loaded, it is a plain paragraph.
+ * Every document loads Polaris in its head (root.tsx), so these are Polaris
+ * at the root too. If Polaris can't load, its tags stay unknown elements and
+ * their text still reads as plain text, so each sentence is a tag's text,
+ * never an attribute.
  * A page whose thing isn't there (a buyer, an order) says so inside the
  * admin, menu and all, with the way back to its list. No boundary here
  * rethrows: on the server a throw from a boundary would fail the whole page.
  */
 
-/** One sentence: in an s-page inside the admin, plain HTML at the root. */
-function Sentence({ text, polaris }: { text: string; polaris: boolean }) {
-  if (!polaris) return <p>{text}</p>;
+/** A URL no route matches: one sentence in an s-page. */
+function NotHere() {
   return (
     <s-page inlineSize="base">
       <s-section>
-        <s-paragraph>{text}</s-paragraph>
+        <s-paragraph>{NOT_HERE}</s-paragraph>
       </s-section>
+    </s-page>
+  );
+}
+
+/** Something broke: the sentence in a critical (red) banner, as errors are (Built for Shopify 4.2.4). */
+function Crashed() {
+  return (
+    <s-page inlineSize="base">
+      <s-banner tone="critical">{SOMETHING_WRONG}</s-banner>
     </s-page>
   );
 }
 
 /**
  * A thrown response as Shopify's boundary renders it; a URL no route
- * matches, and anything else, in plain words: Polaris inside the admin
- * (`polaris`), plain HTML at the root.
+ * matches, and anything else, in plain words.
  */
-export function adminError(error: unknown, o: { polaris?: boolean } = {}) {
-  const polaris = o.polaris ?? false;
+export function adminError(error: unknown) {
   if (isRouteErrorResponse(error)) {
     // isRouteErrorResponse checks `internal` too; React Router's public type leaves it out
     if (!(error as { internal?: boolean }).internal) return boundary.error(error);
-    if (error.status === 404) return <Sentence text={NOT_HERE} polaris={polaris} />;
+    if (error.status === 404) return <NotHere />;
   }
-  return <Sentence text={SOMETHING_WRONG} polaris={polaris} />;
+  return <Crashed />;
 }
 
 /**
  * The ErrorBoundary of a page that shows one thing: a 404 says `sentence`
  * in an s-page inside the admin, with links back to `list`; any other error
- * as adminError, in Polaris.
+ * as adminError.
  */
 export function notFoundBoundary(sentence: string, list: { href: string; label: string }) {
   return function ErrorBoundary() {
     const error = useRouteError();
-    if (!isRouteErrorResponse(error) || error.status !== 404) return adminError(error, { polaris: true });
+    if (!isRouteErrorResponse(error) || error.status !== 404) return adminError(error);
     return (
       <s-page heading="Not found" inlineSize="base">
         <s-link slot="breadcrumb-actions" href={list.href}>
