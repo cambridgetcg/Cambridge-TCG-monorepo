@@ -9,8 +9,11 @@ import {
   fallbackStarts,
   minEarningBase,
   niceStep,
+  onGrid,
+  pictureBins,
   snap,
   suggestStarts,
+  tierOfBin,
   validStarts,
 } from "~/lib/ladder";
 import { Money } from "~/lib/money";
@@ -122,10 +125,67 @@ describe("the ladder", () => {
     expect([3, 14, 15, 205].map((v) => snap(v, 10))).toEqual([10, 10, 20, 210]);
   });
 
-  it("picks a round example order", () => {
-    expect(exampleOrder(new Money("87.40"), "GBP")?.toFixed()).toBe("100");
+  it("counts a typed start from the start of its bin, and at least one bin", () => {
+    expect(onGrid(200, 10)).toBe(200); // on the grid
+    expect([201, 205, 209].map((v) => onGrid(v, 10))).toEqual([200, 200, 200]); // between bins: down, not to the nearest
+    expect([0, 7].map((v) => onGrid(v, 10))).toEqual([10, 10]); // bin 0 is the buyers who spent nothing
+    expect(onGrid(2505, 10)).toBe(2500); // beyond the last bin: still its own bin's start, not the last bin's
+  });
+
+  it("picks a round example order, the 1, 2 or 5 step nearest the median", () => {
+    const example = (median: string, currency = "GBP") => exampleOrder(new Money(median), currency)?.toFixed();
+    expect(["101", "210", "45", "87.40"].map((median) => example(median))).toEqual(["100", "200", "50", "100"]);
+    expect(example("4300", "JPY")).toBe("5000");
+    // Halfway between two steps it rounds up: 15 between 10 and 20, 3.5 between 2 and 5
+    expect(["15", "3.5", "150"].map((median) => example(median))).toEqual(["20", "5", "200"]);
+    // No smaller than 1, as before; just above 1, the nearer step is 1, not 2 (R27: "tiny" is a median <= 1)
+    expect(["0", "0.3", "1"].map((median) => example(median))).toEqual(["1", "1", "1"]);
+    expect(example("1.2")).toBe("1");
     expect(exampleOrder(null, "GBP")?.toFixed()).toBe("100");
-    expect(exampleOrder(new Money("4300"), "JPY")?.toFixed()).toBe("5000");
     expect(exampleOrder(null, "JPY")).toBeNull();
+  });
+
+  it("puts a bin in the tier its start falls in", () => {
+    expect([0, 19, 20, 49, 50, 199].map((bin) => tierOfBin(bin, 10, [0, 200, 500]))).toEqual([0, 0, 1, 1, 2, 2]);
+    // A start off the grid: the bin it falls in starts below it, so stays in the tier before
+    expect([20, 21].map((bin) => tierOfBin(bin, 10, [0, 205, 500]))).toEqual([0, 1]);
+  });
+});
+
+describe("the picture's bins", () => {
+  const total = (bins: number[]) => bins.reduce((sum, count) => sum + count, 0);
+  const grid = (filled: Record<number, number>) => Array.from({ length: MAX_BINS }, (_, bin) => filled[bin] ?? 0);
+
+  it("leaves the bins as they are when no buyer has spent", () => {
+    expect(pictureBins(grid({}))).toEqual(grid({}));
+    expect(pictureBins([])).toEqual([]);
+  });
+
+  it("shows at least 20 bins", () => {
+    // Every buyer in bin 0: 99% of them in 1 bin, a quarter more is 2, at least 20
+    expect(pictureBins(grid({ 0: 50 }))).toEqual([50, ...Array(19).fill(0)]);
+  });
+
+  it("shows where 99% of buyers spend and a quarter more, folding the rest into its last bin", () => {
+    // 990 of 1,000 buyers in bins 0-39: 99% are in the first 40 bins, so 50 are shown
+    const buyers = grid({ 5: 500, 39: 490, 60: 4, 120: 3, [MAX_BINS - 1]: 3 });
+    const shown = pictureBins(buyers);
+    expect(shown).toHaveLength(50);
+    expect(shown.slice(0, 49)).toEqual(buyers.slice(0, 49));
+    // 49 through the last bin: the 10 buyers above the 99%
+    expect(shown[49]).toBe(10);
+    expect(total(shown)).toBe(total(buyers));
+  });
+
+  it("keeps every buyer, whatever the spread", () => {
+    for (const buyers of [grid({ 0: 1 }), grid({ 3: 7, 150: 2 }), grid({ [MAX_BINS - 1]: 9 }), grid({ 10: 1, 11: 1, 12: 98 }), [4, 0, 2]]) {
+      expect(total(pictureBins(buyers))).toBe(total(buyers));
+    }
+    // Everyone above the picture: all of it is shown
+    expect(pictureBins(grid({ [MAX_BINS - 1]: 9 }))).toHaveLength(MAX_BINS);
+  });
+
+  it("leaves a picture of fewer than 20 bins as it is", () => {
+    expect(pictureBins([4, 0, 2, 1])).toEqual([4, 0, 2, 1]);
   });
 });

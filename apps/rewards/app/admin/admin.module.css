@@ -1,5 +1,6 @@
 /*
- * The admin's only custom CSS: the tier chip and the chart (spec 4.1).
+ * The admin's only custom CSS: the tier chip, the chart (spec 4.1) and the
+ * guide's picture of a store's buyers (RP-24).
  * Everything else is Polaris web components.
  *
  * The app's own tokens (Ruling 73). Polaris 2 keeps its tokens internal,
@@ -10,7 +11,7 @@
  * border grey, a darker secondary text and a 500 medium weight, measured
  * with the review harness in both appearances). They are revisited if the
  * admin's look changes. Declared on
- * the two components themselves, since a module's rules stay local.
+ * the components themselves, since a module's rules stay local.
  *
  * Brand colours only here, on tier and money visuals: navy #1A3E5C and teal
  * #17BEBB. Never teal text, never white text on teal; navy text on teal is
@@ -19,7 +20,8 @@
 
 .tierChip,
 .chart,
-.legend {
+.legend,
+.ladder {
   --rp-navy: #1a3e5c;
   --rp-teal: #17bebb;
   --rp-color-border: #e3e3e3;
@@ -39,6 +41,13 @@
   /* The edge's dashes 1px longer at each end, so every teal dash keeps its navy edge */
   --rp-dash-edge: 8px 2px;
   --rp-dash-edge-offset: 1px;
+  /* The buyer picture: tier 1's shape teal at a fifth on white, in its navy edge */
+  --rp-teal-light: #d1f2f1;
+  --rp-ladder-height: 10rem;
+  --rp-bar-edge: 1px;
+  /* A tier line's grip, and the width a finger can take it by */
+  --rp-grip: 10px;
+  --rp-grip-target: 24px;
 }
 
 /* Wraps inside its cell rather than overflowing it: names may be 40 characters (DESIGN-15) */
@@ -124,4 +133,65 @@
   inline-size: calc(var(--rp-space-400) * 1.5);
   block-size: var(--rp-space-300);
   overflow: visible;
+}
+
+/*
+ * The buyer picture: stretched to the width at a fixed height, like the
+ * chart. A finger may still scroll the page up and down over it; sideways
+ * is the lines' (none at all on the lines themselves)
+ */
+.ladder {
+  display: block;
+  inline-size: 100%;
+  block-size: var(--rp-ladder-height);
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+/* One shape per tier, each in one navy edge (every teal mark keeps its navy edge): the tiers are
+   told apart by their fills' lightness, light teal, teal and navy, and by the lines between them */
+.tier1Shape,
+.tier2Shape,
+.tier3Shape {
+  stroke: var(--rp-navy);
+  stroke-width: var(--rp-bar-edge);
+  vector-effect: non-scaling-stroke;
+}
+
+.tier1Shape {
+  fill: var(--rp-teal-light);
+}
+
+.tier2Shape {
+  fill: var(--rp-teal);
+}
+
+.tier3Shape {
+  fill: var(--rp-navy);
+}
+
+/* Where tier 2 or 3 starts: a navy line with a grip, dragged sideways by mouse, pen or touch.
+   A vertical swipe that starts on a line still scrolls the page (the browser cancels the
+   pointer), so only a sideways drag is the chart's */
+.threshold {
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+
+.threshold line {
+  stroke: var(--rp-navy);
+  stroke-width: var(--rp-stroke);
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Unpainted but hit: the whole line can be taken, a finger's width wide */
+.threshold .thresholdHit {
+  stroke: transparent;
+  stroke-width: var(--rp-grip-target);
+  pointer-events: stroke;
+}
+
+.threshold .thresholdGrip {
+  stroke-width: var(--rp-grip);
 }
