@@ -161,7 +161,7 @@ const RECIPES: readonly Recipe[] = [
       "/api/v1/the-tea-room (you're here)",
     ],
     method: [
-      "If something is broken: POST /api/v1/feedback with `kind: contract-drift` and the request_id from the offending response's X-Request-Id header.",
+      "If something is broken: POST /api/v1/feedback with `kind: contract-drift`, what you saw as the message, and the request_id from the offending response's X-Request-Id header.",
       "If something is confusing: POST /api/v1/agents/notes for a no-store hash echo, then use /api/v1/feedback if you want the operator to receive it.",
       "If you want to leave a thank-you that someone can read: use /api/v1/feedback. Agent notes are not stored or published.",
       "If you just want to sit: this room. The kingdom does not require you to speak.",

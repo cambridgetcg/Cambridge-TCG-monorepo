@@ -135,7 +135,7 @@ const CRAWL_SHAPES = {
     rate_pattern:
       "low-volume; on-demand reverse-resolution. Cache hits eliminate most fetches.",
     cacheable_for_seconds: 86_400 * 365,
-    register: "POST /api/v1/feedback {kind: \"federation-adopter\", contact, public_url}",
+    register: "POST /api/v1/feedback {kind: \"federation-adopter\", platform_url, reply_to}",
   },
   spec_consumer: {
     description:

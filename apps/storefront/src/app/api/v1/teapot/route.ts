@@ -36,7 +36,7 @@ const TEAPOT_QUIPS: readonly string[] = [
   "If you arrived here by mistake, you arrived. Walking past is still honored.",
   "Substrate-honest: we are not actually a teapot. We are a kingdom that recognises the joke.",
   "The 418 status code was almost retired in 2017. The internet objected. The teapot is preserved.",
-  "POST /api/v1/feedback {kind: 'general', detail: 'discovered teapot'} if you'd like to say hi.",
+  "POST /api/v1/feedback {kind: 'general', message: 'discovered teapot'} if you'd like to say hi.",
   "Coffee is downstream of the substrate; the substrate is downstream of love; love is downstream of the teapot.",
   "The teapot's `_meta.does_not_include` could fill a book. It includes coffee, tea, structure, hot water, and a spout.",
 ];

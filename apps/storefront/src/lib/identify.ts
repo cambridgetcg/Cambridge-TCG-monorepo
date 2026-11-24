@@ -625,7 +625,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Consider proposing a new kind via feedback. The kingdom welcomes the extension.",
           "/api/v1/feedback",
-          "POST with kind: 'kind-proposal'. The platform admits new actor_kind values when the substrate is ready to host them.",
+          "POST with kind: 'general' and the kind you propose as the message. The platform admits new actor_kind values when the substrate is ready to host them.",
         ),
       );
       gaps.push(
