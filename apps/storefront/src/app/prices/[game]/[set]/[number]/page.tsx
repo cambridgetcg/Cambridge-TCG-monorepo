@@ -321,11 +321,11 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
           </h2>
           <p className="text-sm text-ink-muted mb-5 max-w-2xl">
             No legacy wholesale price, derived channel value, image, or historical
-            movement is published for this card. Stored CardRush-derived rows remain
-            internal pending written and field-level source-rights records. Direct
-            TCGplayer collection remains blocked. Separately permitted Cardmarket
-            and Scryfall observations belong in the member browser above, where
-            actual coverage and mapping specificity are shown.
+            movement is published for this card. CardRush-derived rows from before
+            28 October 2026 stay internal: no permission covers them. Prices we may
+            show from Cardmarket, CardRush, TCGplayer and Scryfall belong in the
+            member browser above, where actual coverage and mapping specificity are
+            shown.
           </p>
           <p className="text-[11px] text-ink-faint mt-5 max-w-2xl">
             Authentication and bearer possession do not create source rights or

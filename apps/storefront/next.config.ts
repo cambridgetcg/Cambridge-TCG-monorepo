@@ -1,6 +1,18 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { REPOSITORY_URL } from "./src/lib/repository";
 import { errandDiscoveryLinkHeader, publicDiscoveryLinkHeader } from "./src/lib/siblings";
+
+// Scripts run only from this site. Cloudflare adds its Web Analytics tag
+// (static.cloudflareinsights.com/beacon.min.js) to every HTML page at the
+// edge, whatever this app sends, while /.well-known/agent.txt says there is
+// no third-party analytics and /nuke says no request leaves the browser.
+// With this policy the browser refuses the tag: nothing is fetched, nothing
+// is sent. No page here loads a script from another host. 'unsafe-inline' is
+// for Next.js's own inline scripts; React's development build needs eval.
+// Turning the tag off is a Cloudflare setting; this line can go after that.
+const SCRIPT_POLICY =
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`;
 
 const nextConfig: NextConfig = {
   // No `X-Powered-By: Next.js` on responses: it advertises the framework
@@ -75,6 +87,7 @@ const nextConfig: NextConfig = {
             key: "Link",
             value: publicDiscoveryLinkHeader(),
           },
+          { key: "Content-Security-Policy", value: SCRIPT_POLICY },
         ],
       },
       // ── The history paths (Yu's ruling of 2026-10-23 keeps them out of training)
@@ -141,12 +154,22 @@ const nextConfig: NextConfig = {
   // MCP doors. Yu chose this on 2026-11-05, with rate limits at Cloudflare,
   // so API reads and those doors' writes go through Cloudflare.
   async redirects() {
-    return ["www.cambridgetcg.com", "cambridgetcg-storefront.vercel.app"].map((host) => ({
-      source: "/:path((?!api(?:/|$)|_next/).*)",
-      has: [{ type: "host" as const, value: host }],
-      destination: "https://cambridgetcg.com/:path",
-      permanent: true,
-    }));
+    return [
+      ...["www.cambridgetcg.com", "cambridgetcg-storefront.vercel.app"].map((host) => ({
+        source: "/:path((?!api(?:/|$)|_next/).*)",
+        has: [{ type: "host" as const, value: host }],
+        destination: "https://cambridgetcg.com/:path",
+        permanent: true,
+      })),
+      // Notes, changelog entries and API answers name documents by their path
+      // in the public repository. Those paths are not pages here, so send the
+      // reader to the document.
+      {
+        source: "/docs/:path((?:connections|principles)/[^/]+\\.md)",
+        destination: `${REPOSITORY_URL}/blob/main/docs/:path`,
+        permanent: false,
+      },
+    ];
   },
   images: {
     // Security boundary (2026-08-25): Next 16.2.11 currently resolves Sharp

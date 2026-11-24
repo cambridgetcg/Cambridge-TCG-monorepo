@@ -603,6 +603,18 @@ describe("deploy verifier response contracts", () => {
     });
   });
 
+  it("fails a 404 on a fixed path the manifest lists", async () => {
+    const result = await assessResponse(
+      resource("/api/v1/examples"),
+      new Response("Not found", { status: 404 }),
+    );
+
+    expect(result).toEqual({
+      passed: false,
+      detail: "expected 200 / 307 / 400 / 401 / 405, got 404",
+    });
+  });
+
   it("retains the 400/404 fallback for ordinary parametric probes", async () => {
     const result = await assessResponse(
       resource("/api/v1/examples/[id]"),

@@ -139,7 +139,7 @@ const TOPICS: Topic[] = [
   {
     slug: "bridges",
     title: "Bridges",
-    blurb: "Math as the universal language. Given any two public beings (users or collectives), compute the typed bridge between them — card overlap, language overlap, region match, cadence ratio, trade potential, composite bridge_score. Pure compute over existing substrate; every formula carries an anchor link. The mathematical handshake between asymmetric beings.",
+    blurb: "The scorer is paused: being public is not consent to infer affinity. Math as the universal language, kept as history: how the typed bridge between two public beings was computed — card overlap, language overlap, region match, cadence ratio, trade potential, composite bridge_score. The mathematical handshake between asymmetric beings.",
     status: "published",
   },
   {
@@ -239,10 +239,8 @@ export default function MethodologyIndex() {
     <>
       <h1>Methodology</h1>
       <p>
-        Cambridge TCG decides about its customers constantly — trust scores, escrow routing,
-        commission rates, payout holds, fraud flags. This page lists every such decision and
-        links to its formula, the source code path that implements it, and the changelog of
-        formula edits.
+        How Cambridge TCG works things out: trust scores, escrow routing, commission rates,
+        payout holds, fraud flags and more. Most pages name the source code behind them.
       </p>
       <p>
         Each topic page is public and no-auth. If a number on your account dashboard isn't

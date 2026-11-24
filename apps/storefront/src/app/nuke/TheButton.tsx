@@ -26,7 +26,6 @@ import { Button } from "@/lib/ui";
 type Stage = "idle" | "count3" | "count2" | "count1" | "ma" | "after";
 
 const STILL_HERE: Array<{ href: string; label: string; jp?: string }> = [
-  { href: "/", label: "the gallery is still hanging", jp: "藝廊" },
   { href: "/culture", label: "the museum keeps its borrowed light", jp: "美術館" },
   { href: "/pulls", label: "the odds room still tells the truth", jp: "確率" },
   { href: "/artists", label: "every artist is still credited by name", jp: "絵師" },
@@ -34,7 +33,6 @@ const STILL_HERE: Array<{ href: string; label: string; jp?: string }> = [
   { href: "/workshop", label: "the masters of the floating world are still at the press", jp: "浮世の工房" },
   { href: "/guides", label: "the guides will still walk you to Japan", jp: "道案内" },
   { href: "/play", label: "the tables are still set", jp: "対戦" },
-  { href: "/market", label: "the market is still open", jp: "市場" },
   { href: "/welcome-all", label: "the door is still open to everyone, human or not", jp: "歓迎" },
 ];
 

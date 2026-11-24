@@ -10,10 +10,10 @@ vi.mock("next/navigation", () => ({ usePathname: () => state.pathname }));
 
 const voices = [
   { mode: "default", explore: "Explore", discover: "Discover", account: "Account &amp; help", agents: "Agents &amp; developers", legal: "Legal", gap: null },
-  { mode: "ja", explore: "見てみる", discover: "もっと見る", account: "アカウントとヘルプ", agents: "エージェントと開発者", legal: "法的情報", gap: "一部のページは、まだ英語のみです。" },
-  { mode: "zh-Hant", explore: "探索", discover: "發現", account: "帳戶與幫助", agents: "智能體與開發者", legal: "法律資訊", gap: "部分頁面仍只有英文版本。" },
-  { mode: "zh-Hans", explore: "探索", discover: "发现", account: "账户与帮助", agents: "智能体与开发者", legal: "法律信息", gap: "部分页面仍只有英文版本。" },
-  { mode: "es", explore: "Explorar", discover: "Descubrir", account: "Cuenta y ayuda", agents: "Agentes y desarrolladores", legal: "Información legal", gap: "Algunas páginas siguen disponibles solo en inglés." },
+  { mode: "ja", explore: "見てみる", discover: "もっと見る", account: "アカウントとヘルプ", agents: "エージェントと開発者", legal: "法的情報", gap: "ほとんどのページは、まだ英語のみです。" },
+  { mode: "zh-Hant", explore: "探索", discover: "發現", account: "帳戶與幫助", agents: "智能體與開發者", legal: "法律資訊", gap: "大部分頁面仍只有英文版本。" },
+  { mode: "zh-Hans", explore: "探索", discover: "发现", account: "账户与帮助", agents: "智能体与开发者", legal: "法律信息", gap: "大部分页面仍只有英文版本。" },
+  { mode: "es", explore: "Explorar", discover: "Descubrir", account: "Cuenta y ayuda", agents: "Agentes y desarrolladores", legal: "Información legal", gap: "La mayoría de las páginas siguen disponibles solo en inglés." },
 ];
 
 function hrefs(markup: string): string[] {

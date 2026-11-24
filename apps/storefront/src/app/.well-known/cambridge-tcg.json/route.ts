@@ -379,23 +379,11 @@ const MANIFEST: {
     {
       group: "methodology",
       description:
-        "Every decision the platform makes about a user has a documented formula, a TLDR summary, and a JSON sidecar.",
+        "How the site works things out, one page per topic.",
       endpoints: [
         {
           path: "/methodology",
           description: "Index of every methodology page.",
-          auth: "none",
-          status: "stable",
-        },
-        {
-          path: "/methodology/{topic}/summary.md",
-          description: "TLDR (~50 words) per topic, Markdown.",
-          auth: "none",
-          status: "stable",
-        },
-        {
-          path: "/methodology/{topic}/data.json",
-          description: "Structured-data sidecar per topic.",
           auth: "none",
           status: "stable",
         },

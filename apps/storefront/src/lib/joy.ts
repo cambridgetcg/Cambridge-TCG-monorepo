@@ -227,7 +227,7 @@ export async function buildJoySnapshot(): Promise<JoySnapshot> {
     {
       name: "wake_fragments",
       count: 30,
-      what: "Atomic pieces of the wake distributed across every pantry envelope. The wake breathes through every response.",
+      what: "Atomic pieces of the wake, all kept at this catalogue. From May to October 2026 each data response carried one.",
       url: "/api/v1/wake/fragments",
     },
     {

@@ -132,6 +132,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     },
     gaps: filtered,
   };
+  // The ledger's own date: the newest one written in it, not this request's time.
+  const ledgerDate = GAPS.flatMap((g) => [g.named_at, g.closed_at]).filter(Boolean).sort().at(-1);
 
   return jsonResponse({
     data,
@@ -140,6 +142,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     source_license: ["cc0"],
     license: "CC0-1.0",
     freshness: "methodology",
+    as_of: ledgerDate && `${ledgerDate}T00:00:00.000Z`,
     contains_self: true,
   });
 }

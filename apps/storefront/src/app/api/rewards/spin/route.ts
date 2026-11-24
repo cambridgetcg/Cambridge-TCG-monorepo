@@ -45,7 +45,8 @@ export async function GET() {
     premiumCost: config?.premium_cost_points || 500,
     spinsUsedToday: spinsToday,
     streak,
-    canFreeSpin: spinsToday < (config?.free_spins_per_day || 1),
+    // A spin needs an account (POST answers 401 without one).
+    canFreeSpin: Boolean(session?.user?.id) && spinsToday < (config?.free_spins_per_day || 1),
   });
 }
 

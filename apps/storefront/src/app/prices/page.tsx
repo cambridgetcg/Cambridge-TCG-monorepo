@@ -170,8 +170,8 @@ export default async function PricesLandingPage({ searchParams }: {
               The stored observation archive is legacy CardRush data whose acquisition is
               disabled by source policy, so it does not refresh; the{" "}
               <Link href="/prices/coverage" className="text-accent hover:underline">coverage map</Link>{" "}
-              shows its latest stored snapshot. Member prices are manual imports; each row
-              shows its source and retrieval times.
+              shows its latest stored snapshot. Each member price row shows its source
+              and retrieval times.
             </p>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               <WhyLink href="/methodology/pricing" label="How prices work" />

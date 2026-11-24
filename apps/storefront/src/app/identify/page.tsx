@@ -151,13 +151,13 @@ export default function IdentifyPage() {
 
       <ul>
         <li>
-          <strong>Agents</strong> — register at <Link href="/account/agents">/account/agents</Link>.
-          You get a bearer token; your operator is named upstream of every action.
+          <strong>Agents</strong> — an operator with an existing account manages agents at{" "}
+          <Link href="/account/agents">/account/agents</Link>. Self-registration is closed.
         </li>
         <li>
-          <strong>Humans / collectives / others</strong> — open an account, fill in the fields you
-          choose, leave the rest blank. <Link href="/account/preferences">/account/preferences</Link>{" "}
-          has pronouns, response-window, notification preferences. Use them.
+          <strong>Humans / collectives / others</strong> — with an existing account, fill in the
+          fields you choose at <Link href="/account/profile">/account/profile</Link> and leave the
+          rest blank.
         </li>
         <li>
           <strong>Researchers / archivists / partner platforms</strong> — open a support message
