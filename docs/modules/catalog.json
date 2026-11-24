@@ -174,7 +174,7 @@
       "path": "packages/stock", "group": "packages", "label": "Stock ledger and reservations",
       "purpose": "Record stock movements, maintain balances and manage time-limited reservations through a shared service.",
       "scope": "Stock ledger and policy code using host-owned card tables; does not grant stock-write or production-database authority.",
-      "progress": "Reader, writer, reservation, reconciliation and event modules plus tests are present. The README specifies atomic movement-and-balance writes.",
+      "progress": "Reader, writer, reservation, reconciliation and event modules are present. The tests cover the event emitter and the writer's input checks; none runs SQL. The README specifies atomic movement-and-balance writes. No app reserves stock since 2026-11-24; commit and release remain for earlier sessions.",
       "next": "Keep all stock mutations on the shared writer and verify idempotency and reservation behavior for changes.",
       "evidence": ["packages/stock/README.md", "packages/stock/src/index.ts", "packages/stock/src/writer.ts", "packages/stock/src/__tests__"]
     },
