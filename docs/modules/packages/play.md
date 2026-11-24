@@ -12,16 +12,15 @@ Define the shared engine protocol and registry used to initialize, act, run AI t
 
 ## Progress
 
-Source review recorded **2026-09-28**. Typed engine interfaces and registry code are present. Game implementations and registry bootstrap live in storefront.
+Source review recorded **2026-09-28**. Typed engine interfaces and registry code are present. Game implementations live in storefront and run without the registry: the bootstrap that registered one engine had no caller and was removed on 2026-11-24.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
-**Next review:** Register additional games through the existing protocol; verify both engine behavior and storefront registry coverage.
+**Next review:** Decide whether a host should register engines through this protocol; until one does, nothing dispatches through it.
 
 ## Evidence and entry points
 
 - [packages/play/src/index.ts](../../../packages/play/src/index.ts)
-- [apps/storefront/src/lib/game/registry-bootstrap.ts](../../../apps/storefront/src/lib/game/registry-bootstrap.ts)
 - [apps/storefront/scripts/play-game-registry.ts](../../../apps/storefront/scripts/play-game-registry.ts)
 
 ## Declared package relationships

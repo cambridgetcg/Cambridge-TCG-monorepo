@@ -607,7 +607,3 @@ export async function getReturnEligibility(
   }
   return { eligible: true };
 }
-
-export async function getReturn(returnId: string): Promise<MarketReturn | null> {
-  return loadReturn(returnId);
-}

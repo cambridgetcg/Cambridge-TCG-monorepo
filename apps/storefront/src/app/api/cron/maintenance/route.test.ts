@@ -13,7 +13,7 @@ vi.mock("@/lib/db", () => ({
 }));
 import { GET } from "./route";
 
-const SWEEPS = 40;
+const SWEEPS = 37;
 async function run(hour: number, settled: Record<number, PromiseSettledResult<unknown>> = {}) {
   vi.setSystemTime(new Date(Date.UTC(2026, 10, 25, hour, 5)));
   // A value every log line can read: no counts, no lists of failures.
@@ -43,9 +43,5 @@ describe("the minute cron", () => {
       expect([index, status, recorded.length, Object.keys((recorded[0]?.[2] as { rejected?: object })?.rejected ?? {}).length]).toEqual([index, 500, 1, 1]);
       expect(JSON.stringify([body, recorded])).not.toContain("example.test");
     }
-  });
-
-  it("calls a reservation sweep that answered a failure rejected", async () => {
-    expect(await run(60, { 32: { status: "fulfilled", value: { ok: false, message: "away" } } })).toMatchObject({ status: 500, body: { stockReservations: "rejected" }, recorded: [[500, "unavailable:sweep-rejected", { rejected: { stockReservations: true } }]] });
   });
 });

@@ -187,21 +187,6 @@ export async function storeWalletLinkChallenge(
   });
 }
 
-export async function getWalletLinkChallenge(
-  args: { id: string; user_id: string; session_binding_digest: string },
-  dependencies?: WalletDbDependencies,
-): Promise<WalletChallengeRecord | null> {
-  const result = await rootQuery(dependencies)(
-    `SELECT *
-       FROM evm_wallet_link_challenges
-      WHERE id = $1
-        AND user_id = $2
-        AND session_binding_digest = $3`,
-    [args.id, args.user_id, args.session_binding_digest],
-  );
-  return result.rows[0] ? challengeFromRow(result.rows[0]) : null;
-}
-
 export type ReserveWalletVerificationAttemptResult =
   | {
       status: "reserved";

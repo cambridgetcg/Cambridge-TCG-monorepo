@@ -11,19 +11,16 @@
 export { Badge, type Tone } from "./Badge";
 export { Button, LinkButton } from "./Button";
 export { Callout, type CalloutTone } from "./Callout";
-export { Endpoint } from "./Endpoint";
 export {
   KingdomLayers,
   KINGDOM_LAYERS,
   type KingdomLayer,
   type KingdomLayerId,
 } from "./KingdomLayers";
-export { Term } from "./Term";
 export { Card } from "./Card";
 export { DataTable, type Column, type Align } from "./DataTable";
 export { EmptyState } from "./EmptyState";
 export { ErrorAlert } from "./ErrorAlert";
-export { FilterPills, type FilterPill } from "./FilterPills";
 export { Field, Input, Select, Textarea } from "./Input";
 export { Skeleton, ListSkeleton, DetailSkeleton } from "./LoadingSkeleton";
 export { PageHeader } from "./PageHeader";
@@ -35,8 +32,6 @@ export { Tabs, LinkedTabs, type Tab } from "./Tabs";
 export { Provenance, type ProvenanceKind } from "./Provenance";
 export { Actor, type ActorKind } from "./Actor";
 export { Audience, audienceMetadata, type AudienceKind } from "./Audience";
-export { SearchForm } from "./SearchForm";
-export { UserChip } from "./UserChip";
 export { UserMention, type MentionableUser } from "./UserMention";
 export { MessageButton, type MessageReferenceType } from "./MessageButton";
 export { Verifiability } from "./Verifiability";

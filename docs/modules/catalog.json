@@ -126,9 +126,9 @@
       "path": "packages/play", "group": "packages", "label": "Game engine contracts",
       "purpose": "Define the shared engine protocol and registry used to initialize, act, run AI turns and inspect game results.",
       "scope": "Common protocol; each game's mechanics, action vocabulary and UI stay with its implementation.",
-      "progress": "Typed engine interfaces and registry code are present. Game implementations and registry bootstrap live in storefront.",
-      "next": "Register additional games through the existing protocol; verify both engine behavior and storefront registry coverage.",
-      "evidence": ["packages/play/src/index.ts", "apps/storefront/src/lib/game/registry-bootstrap.ts", "apps/storefront/scripts/play-game-registry.ts"]
+      "progress": "Typed engine interfaces and registry code are present. Game implementations live in storefront and run without the registry: the bootstrap that registered one engine had no caller and was removed on 2026-11-24.",
+      "next": "Decide whether a host should register engines through this protocol; until one does, nothing dispatches through it.",
+      "evidence": ["packages/play/src/index.ts", "apps/storefront/scripts/play-game-registry.ts"]
     },
     {
       "path": "packages/pricing", "group": "packages", "label": "Shared pricing calculations",
@@ -174,7 +174,7 @@
       "path": "packages/stock", "group": "packages", "label": "Stock ledger and reservations",
       "purpose": "Record stock movements, maintain balances and manage time-limited reservations through a shared service.",
       "scope": "Stock ledger and policy code using host-owned card tables; does not grant stock-write or production-database authority.",
-      "progress": "Reader, writer, reservation, reconciliation and event modules plus tests are present. The README specifies atomic movement-and-balance writes.",
+      "progress": "Reader, writer, reservation, reconciliation and event modules are present. The tests cover the event emitter and the writer's input checks; none runs SQL. The README specifies atomic movement-and-balance writes. No app reserves stock since 2026-11-24; commit and release remain for earlier sessions.",
       "next": "Keep all stock mutations on the shared writer and verify idempotency and reservation behavior for changes.",
       "evidence": ["packages/stock/README.md", "packages/stock/src/index.ts", "packages/stock/src/writer.ts", "packages/stock/src/__tests__"]
     },

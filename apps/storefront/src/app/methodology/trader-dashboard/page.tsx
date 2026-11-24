@@ -142,9 +142,9 @@ export default function TraderDashboardMethodology() {
         </li>
         <li>
           <strong>Does not show market intelligence.</strong> Demand
-          signals (under <code>/api/market/demand-signals</code> + the
-          liquidity module) exist as substrate but aren't surfaced here
-          yet — they're a separate page worth its own design.
+          signals (under <code>/api/market/demand-signals</code>) exist as
+          substrate but aren't surfaced here yet — they're a separate page
+          worth its own design.
         </li>
         <li>
           <strong>Does not show platform-wide rankings.</strong> No

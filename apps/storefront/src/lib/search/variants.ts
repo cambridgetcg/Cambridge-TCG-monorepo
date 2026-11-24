@@ -278,28 +278,3 @@ export const VARIANT_KIND_ORDER: VariantKind[] = [
 export function compareVariantKinds(a: VariantKind, b: VariantKind): number {
   return VARIANT_KIND_ORDER.indexOf(a) - VARIANT_KIND_ORDER.indexOf(b);
 }
-
-/** Human-readable label per kind for UI badges. */
-export const VARIANT_KIND_LABEL: Record<VariantKind, string> = {
-  self: "this print",
-  language: "language variant",
-  "alt-art": "alt art",
-  parallel: "parallel",
-  "super-parallel": "super parallel",
-  promo: "promo",
-  unknown: "variant",
-};
-
-/** Tone for UI Pill component per kind. */
-export const VARIANT_KIND_TONE: Record<
-  VariantKind,
-  "amber" | "blue" | "emerald" | "neutral" | "sky" | "red"
-> = {
-  self: "emerald",
-  language: "blue",
-  "alt-art": "amber",
-  parallel: "sky",
-  "super-parallel": "blue",
-  promo: "amber",
-  unknown: "neutral",
-};

@@ -20,8 +20,7 @@ import {
   isValidCoverageHistoryWindow,
   isValidCoverageToken,
 } from "../db-source";
-import { stripSslMode, isLocalDbHost, channelPriceForRow } from "../db-source";
-import type { ChannelConfig } from "@cambridge-tcg/pricing";
+import { stripSslMode, isLocalDbHost } from "../db-source";
 import { CatalogSitemapUnavailableError, loadCatalogSitemap } from "../../catalog-sitemap";
 
 vi.mock("../db-source", async () => {
@@ -641,42 +640,6 @@ describe("db-source pure helpers", () => {
     expect(isLocalDbHost("postgres://127.0.0.1/db")).toBe(true);
     expect(isLocalDbHost("postgres://prod.rds.amazonaws.com:5432/db")).toBe(false);
     expect(isLocalDbHost("not a url")).toBe(false);
-  });
-
-  it("channelPriceForRow computes from the JPY observation when present", () => {
-    const config: ChannelConfig = {
-      channel: "tradein-credit",
-      marginMultiplier: 0.77,
-      flatFeeSingles: 0,
-      flatFeeSealed: 0,
-      vatMultiplier: 1.0,
-      retailMultiplier: 1.0,
-      roundTo: 0.01,
-    };
-    const price = channelPriceForRow(
-      { cardrush_jpy: 1000, gbp_jpy_rate: 200, category: "singles", price_gbp: 99 },
-      config,
-    );
-    // 1000/200 = £5 base × 0.77 = £3.85
-    expect(price).toBe(3.85);
-  });
-
-  it("channelPriceForRow falls back to price_gbp when the card has no JPY observation", () => {
-    const config: ChannelConfig = {
-      channel: "cambridgetcg",
-      marginMultiplier: 1.08,
-      flatFeeSingles: 0.22,
-      flatFeeSealed: 2.2,
-      vatMultiplier: 1.2,
-      retailMultiplier: 1.15,
-      roundTo: 0.1,
-    };
-    expect(
-      channelPriceForRow({ cardrush_jpy: null, gbp_jpy_rate: null, category: "singles", price_gbp: 4.2 }, config),
-    ).toBe(4.2);
-    expect(
-      channelPriceForRow({ cardrush_jpy: null, gbp_jpy_rate: null, category: "singles", price_gbp: null }, config),
-    ).toBeNull();
   });
 
   it("composeAggregatorCoverage derives stable game and source rollups", () => {

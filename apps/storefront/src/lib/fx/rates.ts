@@ -312,16 +312,3 @@ export function formatMoney(
   const space = currency === "HKD" || currency === "CHF" ? " " : "";
   return meta.symbol + space + formatted;
 }
-
-/**
- * One-shot: convert GBP → target → display string. The page-level
- * convenience wrapper most callers want.
- */
-export function formatGbpAs(
-  valueGbp: number | null | undefined,
-  target: Currency,
-  table: RateTable,
-): string {
-  const converted = convertFromGbp(valueGbp, target, table);
-  return formatMoney(converted, target);
-}

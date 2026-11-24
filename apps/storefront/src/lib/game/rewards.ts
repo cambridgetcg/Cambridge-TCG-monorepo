@@ -7,8 +7,8 @@
 //
 // This helper centralises the grant logic and uses ledger lookups by
 // reference_id (the game's UUID) to detect "already granted" — so it's
-// safe to run from both the live victory handler AND the reconciliation
-// sweep cron without double-paying.
+// safe to run twice without double-paying. The reconciliation sweep that
+// called it was a constant no-op and was removed on 2026-11-24.
 //
 // The availability guard is the first operation. The historical grant logic
 // remains below it for later review and cannot currently read or write.
@@ -115,7 +115,7 @@ export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<P
   void isFirstClear;
   void alreadyGranted.credit;
 
-  // Stamp awarded_at so the sweep skips this game next tick. Even if every
+  // Stamp awarded_at so this game is not granted again. Even if every
   // leg was a no-op (alreadyGranted), stamping closes the door.
   await query(
     `UPDATE pve_games SET awarded_at = NOW() WHERE id = $1 AND awarded_at IS NULL`,
