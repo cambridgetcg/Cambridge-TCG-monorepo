@@ -19,7 +19,8 @@
  * (the store is installed and its import not started or running, Ruling 53;
  * CONCURRENCY-5), so Shopify brings it again once the import has written
  * that buyer's orders; a failed or done import, or an uninstalled store,
- * answers 200. Any failure answers 500 and reaches monitoring, so the
+ * answers 200 (a failed import may still be tried again: importStillWriting
+ * says what that can bring back). Any failure answers 500 and reaches monitoring, so the
  * obligation isn't lost: Shopify delivers it again. Logs carry the shop and
  * counts only, never the buyer's ids or details.
  */
