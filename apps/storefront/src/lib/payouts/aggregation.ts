@@ -9,6 +9,7 @@
 
 import { query } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
+import { owedAuctionSql, owedTradeSql } from "./owed";
 
 // Auctions don't carry a per-row hold; the sweep uses a platform default.
 // Mirrored here so the UI can show the same "available on" date that the
@@ -23,9 +24,8 @@ export interface PendingTradeOrAuctionRow {
   // `when` is the trigger event (trade completed_at or auction paid_at) —
   // the moment the hold timer started.
   when: string;
-  // `availableAt` = when the hold elapses and the sweep can pay out.
-  // null means we're still waiting for the trigger event (e.g., trade
-  // not yet completed, auction not yet paid).
+  // `availableAt` = when the hold elapses and the sweep can pay out. Every
+  // owed row has its trigger event, so null is not expected.
   availableAt: string | null;
   // `isReady` collapses the date math for the UI: true once availableAt
   // is in the past.
@@ -53,9 +53,8 @@ export interface PendingBundle {
 
 export async function getPendingPayouts(userId: string): Promise<PendingBundle> {
   // `available_at = completed_at + payout_hold_days` is computed in SQL
-  // so the cron and the UI use exactly the same date. Falls back to
-  // created_at when completed_at is NULL (trade still in flight) which
-  // produces a far-future availableAt and isReady=false.
+  // so the cron and the UI use exactly the same date. Which rows are owed at
+  // all is decided by ./owed, as it is for the cron and the admin list.
   const trades = await query(
     `SELECT t.id, t.seller_payout, t.created_at, t.completed_at,
             t.payout_hold_days,
@@ -64,8 +63,7 @@ export async function getPendingPayouts(userId: string): Promise<PendingBundle> 
        FROM market_trades t
        LEFT JOIN market_orders o ON o.id = t.bid_order_id
       WHERE t.seller_id = $1
-        AND t.escrow_status = 'completed'
-        AND t.seller_paid_at IS NULL
+        AND ${owedTradeSql("t")}
       ORDER BY available_at ASC`,
     [userId],
   );
@@ -75,9 +73,7 @@ export async function getPendingPayouts(userId: string): Promise<PendingBundle> 
             paid_at + make_interval(days => $2) AS available_at
        FROM auctions
       WHERE seller_user_id = $1
-        AND status = 'paid'
-        AND seller_paid_at IS NULL
-        AND seller_payout IS NOT NULL
+        AND ${owedAuctionSql("")}
       ORDER BY available_at ASC NULLS LAST`,
     [userId, AUCTION_HOLD_DAYS],
   );

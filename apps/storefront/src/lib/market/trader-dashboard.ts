@@ -47,6 +47,7 @@
 
 import { query } from "@/lib/db";
 import { loadUserTrustState } from "@/lib/trust/state";
+import { owedTradeSql } from "@/lib/payouts/owed";
 
 // ── Shape ────────────────────────────────────────────────────────────────
 
@@ -172,8 +173,8 @@ async function loadExposure(userId: string): Promise<TraderExposure> {
     { c: null as string | null, v: null as string | null },
   );
 
-  // Pending payout: trades completed but the hold window has not elapsed
-  // (or payout hasn't been disbursed yet). We use a loose definition:
+  // Pending payout: trades owed (lib/payouts/owed.ts: completed, the buyer
+  // paid, not paid out yet). We use a loose definition of the hold:
   // `completed_at` set but no `completed_at < NOW() - hold_days` cut. Since
   // hold days depend on trust tier, we approximate as "completed in last
   // 14 days" — a strict upper bound. Substrate-honest about the
@@ -184,7 +185,7 @@ async function loadExposure(userId: string): Promise<TraderExposure> {
         `SELECT COUNT(*)::text AS c, COALESCE(SUM(seller_payout), 0)::text AS v
          FROM market_trades
          WHERE seller_id = $1
-           AND escrow_status = 'completed'
+           AND ${owedTradeSql("")}
            AND completed_at > NOW() - INTERVAL '14 days'`,
         [userId],
       );

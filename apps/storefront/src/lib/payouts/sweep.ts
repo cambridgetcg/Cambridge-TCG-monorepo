@@ -1,8 +1,8 @@
 // Automated payout cron.
 //
 // Runs from /api/cron/maintenance. Finds trades and auctions that are
-// (a) in a payout-eligible state, (b) past their hold period, and
-// (c) owned by a seller with stripe_connect_payouts_enabled = true —
+// (a) owed to the seller (lib/payouts/owed.ts), (b) past their hold period,
+// and (c) owned by a seller with stripe_connect_payouts_enabled = true —
 // then calls the existing recordTradePayout / recordAuctionPayout with
 // method='stripe_connect'. Those paths already handle the Stripe Transfer
 // (with idempotency keys), the DB stamp, and the seller email.
@@ -17,6 +17,7 @@
 // exposure bounded even in pathological backlogs.
 
 import { query } from "@/lib/db";
+import { owedAuctionSql, owedTradeSql } from "./owed";
 
 const MAX_PAYOUTS_PER_RUN = 50;
 // Auctions don't carry a per-auction hold; use a platform default.
@@ -42,7 +43,7 @@ export async function runPayoutSweep(): Promise<PayoutSweepResult> {
   let budget = MAX_PAYOUTS_PER_RUN;
 
   // ── Trades ──
-  // completed_at + payout_hold_days < NOW() AND seller's Connect is live.
+  // Owed AND completed_at + payout_hold_days < NOW() AND seller's Connect is live.
   // The graduated payout hold (payout_hold_days) is the protective delay;
   // the legacy is_suspended skip is kept as a harmless no-op (nothing
   // sets is_suspended any more). Earned money is not withheld by fraud
@@ -52,9 +53,7 @@ export async function runPayoutSweep(): Promise<PayoutSweepResult> {
        FROM market_trades t
        JOIN users u ON u.id = t.seller_id
        LEFT JOIN trust_profiles tp ON tp.user_id = t.seller_id
-      WHERE t.escrow_status = 'completed'
-        AND t.seller_paid_at IS NULL
-        AND t.completed_at IS NOT NULL
+      WHERE ${owedTradeSql("t")}
         AND t.completed_at + make_interval(days => COALESCE(t.payout_hold_days, 0)) < NOW()
         AND u.stripe_connect_payouts_enabled = true
         AND COALESCE(tp.is_suspended, false) = false
@@ -82,17 +81,14 @@ export async function runPayoutSweep(): Promise<PayoutSweepResult> {
   if (budget <= 0) return result;
 
   // ── Auctions ──
-  // status='paid' AND paid_at + AUCTION_HOLD_DAYS < NOW() AND seller Connect live.
+  // Owed AND paid_at + AUCTION_HOLD_DAYS < NOW() AND seller Connect live.
   // Same protective hold + legacy is_suspended skip as the trades sweep above.
   const auctionRows = await query(
     `SELECT a.id
        FROM auctions a
        JOIN users u ON u.id = a.seller_user_id
        LEFT JOIN trust_profiles tp ON tp.user_id = a.seller_user_id
-      WHERE a.status = 'paid'
-        AND a.seller_paid_at IS NULL
-        AND a.seller_payout IS NOT NULL
-        AND a.paid_at IS NOT NULL
+      WHERE ${owedAuctionSql("a")}
         AND a.paid_at + make_interval(days => $1) < NOW()
         AND u.stripe_connect_payouts_enabled = true
         AND COALESCE(tp.is_suspended, false) = false
