@@ -97,6 +97,19 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-11-24 ─────────────────────────────────────────────────────────
   {
+    id: "plain-sku-answers-plain-printing",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface:
+      "/api/v1/universal/card/[sku], /api/at/[date]/card/[sku], /api/v1/cards/[sku]/everything, /api/v1/cards/[sku]/evidence, /api/v1/search/cards, /api/v1/search/everything, /api/market/catalog, /api/v1/prices/games, /api/v1/artists, /api/v1/play/starters/[id], /product, /market, /catalog/sitemap.xml",
+    summary:
+      "A plain SKU (no variant) now answers only with the plain printing. Listings stored under a plain SKU but marked as worn, graded or another printing left every list and no longer answer for it; a miss says why.",
+    detail:
+      "The universal card and its dated twin add sku, card_number and sku_match (null when the row is stored under exactly the SKU you sent; otherwise canonical_alias, plain_listing or publisher_record), and @sources can name wholesale-rds.cards. A miss is a 404 whose error.details has a reason and the stored SKUs of that number; when the catalogue cannot be read the answer is a 503. everything adds card.requested_sku and card.matched_by, its 404 names the number's stored SKUs, and effective_language is the SKU's own language. search/cards adds plain_listing to each match; next_step is the plain printing or the only exact match, and null when the choice is yours. In /api/v1/artists, print.market_page (which answered 404) is replaced by print.printings_page. /product and /market send another spelling or a plain SKU to the stored SKU with a 307. Lists and counts leave out the marked rows: 216 One Piece and 95 Fusion World rows as far as they were read on 2026-11-24. A starter deck's card that had only such a listing is named by the publisher's English record instead (op-st03-005-en, op-op02-108-en), with rarity and set_code null. One Piece is the one game whose listing titles were reviewed. No row was changed or deleted.",
+    related_urls: ["/methodology/sku-standard", "/api/v1/universal/card/op-op01-001-ja"],
+  },
+  {
     id: "official-images-and-text-return",
     date: "2026-11-24",
     kind: "endpoint-modified",

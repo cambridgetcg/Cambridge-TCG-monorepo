@@ -33,3 +33,16 @@ describe("/market/[sku] share image [C7]", () => {
     expect((await metadataFor({ ...card, image_url, image_language })).openGraph?.images).toEqual([SHARE_CARD]);
   });
 });
+
+describe("/market/[sku] addresses", () => {
+  const address = async (resolution: object) => {
+    mocks.resolveCardIdentity.mockResolvedValue(resolution);
+    return generateMetadata({ params: Promise.resolve({ sku: "asked" }) }).then(() => null, (error: { digest?: string }) => error.digest);
+  };
+
+  it("sends another spelling to the card's one address, a choice to the list, and an unknown card to 404", async () => {
+    expect(await address({ kind: "redirect", sku: "OP-OP01-001-JP-V11L1" })).toContain(";/market/OP-OP01-001-JP-V11L1;307;");
+    expect(await address({ kind: "choose", game: "one-piece", number: "OP02-001" })).toContain(";/prices/search?game=one-piece&q=OP02-001;307;");
+    expect(await address({ kind: "notfound" })).toContain("404");
+  });
+});

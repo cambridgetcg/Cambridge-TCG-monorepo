@@ -683,6 +683,7 @@ const SPEC = {
           "200": { description: "Claim-separated evidence in a pantry envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
           "400": { description: "The path is not a full SKU.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "The card catalogue could not be read; not a missing card." },
         },
       },
     },
@@ -895,7 +896,8 @@ const SPEC = {
             content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalCardTemporal" } } },
           },
           "400": { description: "Invalid date.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "No card is answered for this SKU; error.details as on the universal card.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "The card catalogue could not be read; not a missing card." },
         },
       },
     },
@@ -1516,7 +1518,7 @@ const SPEC = {
           {
             type: "object",
             properties: {
-              sku: { type: "string", description: "The stored SKU this document describes." },
+              sku: { type: "string", description: "The SKU this document describes: the stored key, or for publisher_record the plain SKU itself." },
               card_number: { type: "string" },
               sku_match: {
                 type: ["object", "null"],

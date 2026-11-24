@@ -26,10 +26,13 @@ export interface StoredListing {
 
 const NEVER_IN_A_NAME = ["パラレル", ...CARD_NAME_MARKERS.cardrush_language].join("|");
 /** `name【rarity】`: the base rarities cardrush-title/2 reads as plain, and no
- * bracket in the name. Stricter than it in one way: an (illust:…) credit is
+ * bracket in the name. Stricter than it in three ways: an (illust:…) credit is
  * not plain, because the shop lists a credited art beside the uncredited base
- * card (OP01-006, OP01-025). */
-export const PLAIN_TITLE = `^(?!.*(?:${NEVER_IN_A_NAME}))[^()（）\\[\\]［］【】{}〔〕]+【(?:C|UC|R|SR|SEC|L)】$`;
+ * card (OP01-006, OP01-025); nor is ☆, the shop's ☆SALE☆ tag on cards it also
+ * lists without one; nor any other kind of bracket. The shop importer had
+ * already taken 【】, 〔〕 and パラレル out of its names, so for its rows the
+ * rarity column and the set a row is filed under do the protecting. */
+export const PLAIN_TITLE = `^(?!.*(?:${NEVER_IN_A_NAME}))[^()（）\\[\\]［］【】{}｛｝〔〕〈〉《》「」『』＜＞☆]+【(?:C|UC|R|SR|SEC|L)】$`;
 /** Marks that need no reviewed grammar: a leading 〔…〕, パラレル, a starred rarity. */
 export const MARKED_TITLE = "^〔|パラレル|【[^】]*☆";
 /** A canonical SKU with no variant segment. */
@@ -37,15 +40,15 @@ export const PLAIN_SKU = "^[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-[a-z]{2}$";
 /** A One Piece SKU in any stored spelling; read case-insensitively. */
 export const ONE_PIECE_SKU = `^(?:${[...new Set(["op", ...(GAMES.op.legacyPrefixes ?? [])].map((prefix) => prefix.toLowerCase()))].join("|")})-`;
 
-const plainTitle = new RegExp(PLAIN_TITLE);
+const plainTitle = new RegExp(PLAIN_TITLE, "s");
 const markedTitle = new RegExp(MARKED_TITLE);
-const plainSku = new RegExp(PLAIN_SKU);
+const plainSku = new RegExp(PLAIN_SKU, "i");
 const onePieceSku = new RegExp(ONE_PIECE_SKU, "i");
 
 /** One title for both stored shapes: the shop importer moved 【rarity】 into
  * its own column, the July import left it in the name. */
 export function listingTitle({ name, rarity }: Pick<StoredListing, "name" | "rarity">): string {
-  const stored = (name ?? "").trim();
+  const stored = (name ?? "").replace(/^ +| +$/g, "");
   return stored.includes("【") || !rarity ? stored : `${stored}【${rarity}】`;
 }
 
@@ -77,4 +80,4 @@ const titleSql = (c: string) =>
 export const plainListingSql = (c = "") => `(${c}sku ~* '${ONE_PIECE_SKU}' AND ${titleSql(c)} ~ '${PLAIN_TITLE}')`;
 
 export const mayStandSql = (c = "") =>
-  `(${c}sku !~ '${PLAIN_SKU}' OR CASE WHEN ${c}sku ~* '${ONE_PIECE_SKU}' THEN ${titleSql(c)} ~ '${PLAIN_TITLE}' ELSE ${titleSql(c)} !~ '${MARKED_TITLE}' END)`;
+  `(${c}sku !~* '${PLAIN_SKU}' OR CASE WHEN ${c}sku ~* '${ONE_PIECE_SKU}' THEN ${titleSql(c)} ~ '${PLAIN_TITLE}' ELSE ${titleSql(c)} !~ '${MARKED_TITLE}' END)`;

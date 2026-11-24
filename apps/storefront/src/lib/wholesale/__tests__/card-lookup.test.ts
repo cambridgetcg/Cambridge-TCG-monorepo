@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { poolQuery } = vi.hoisted(() => ({ poolQuery: vi.fn() }));
 vi.mock("pg", () => ({ Pool: class { query = poolQuery; on() {} } }));
-import { fetchCardDetailed, fetchPrices } from "../client";
+import { fetchCardDetailed, fetchGames, fetchPrices, fetchSets } from "../client";
 import { mayStandSql, plainListingSql } from "../listing-printing";
 
 interface Row { sku: string; card_number: string; name: string; rarity: string | null; set_code: string; name_en?: string | null }
@@ -77,6 +77,12 @@ describe("lists", () => {
     expect(statements).toHaveLength(2);
     for (const sql of statements) expect(sql).toContain(mayStandSql());
     expect(statements[1]).toContain(`ORDER BY card_number ASC, ${plainListingSql()} DESC, sku ASC`);
+    poolQuery.mockClear();
+    await fetchGames();
+    await fetchSets("one-piece");
+    const counts = poolQuery.mock.calls.map(([sql]) => String(sql)).filter((sql) => /JOIN cards c/.test(sql));
+    expect(counts).toHaveLength(2);
+    for (const sql of counts) expect(sql).toContain(mayStandSql("c."));
     poolQuery.mockClear();
     await fetchPrices({ limit: 48 });
     expect(String(poolQuery.mock.calls[1]![0])).toContain("ORDER BY card_number ASC, sku ASC");

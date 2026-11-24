@@ -360,7 +360,7 @@ function toItem(r: CardRow): PriceItem {
     rarity: r.rarity ?? (title && title[2] !== "-" ? title[2]! : null),
     category: r.category,
     updated_at: r.last_synced_at ? new Date(r.last_synced_at).toISOString() : null,
-    plain_listing: isPlainListing(r),
+    plain_listing: isPlainListing(r) && onShelf(r.set_code, skuIdentity(r.sku)?.set ?? ""),
   };
 }
 

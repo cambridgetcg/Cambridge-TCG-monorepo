@@ -15,7 +15,7 @@ import { buildCardEvidence } from "@/lib/evidence/card";
 import { getUnifiedMarketView } from "@/lib/market/unified";
 import { retailPrice } from "@/lib/pricing";
 import { parseSkuShape } from "@/lib/search/resolver";
-import { fetchCard } from "@/lib/wholesale/client";
+import { fetchCardDetailed } from "@/lib/wholesale/client";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +33,15 @@ export async function GET(
     });
   }
 
-  // fetchCard finds every stored spelling, and a plain SKU's plain listing.
-  const card = await fetchCard(rawSku).catch(() => null);
+  // Finds every stored spelling, and a plain SKU's plain listing.
+  const { card, source } = await fetchCardDetailed(rawSku);
+  if (!card && source === "unavailable") {
+    return errorResponse({
+      code: "SOURCE_UNAVAILABLE",
+      message: "The card catalogue could not be read. This is an outage, not a missing card; try again later.",
+      endpoint: "/api/v1/cards/[sku]/evidence",
+    });
+  }
   if (!card) {
     return errorResponse({
       code: "NOT_FOUND",

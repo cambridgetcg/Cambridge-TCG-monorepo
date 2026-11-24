@@ -12,7 +12,7 @@
 
 import type { Metadata } from "next";
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
-import { fetchCard, fetchPrices, cardAltText } from "@/lib/wholesale/client";
+import { fetchCard, fetchCardDetailed, fetchPrices, cardAltText } from "@/lib/wholesale/client";
 import { formatRetailPrice, retailPrice } from "@/lib/pricing";
 import { getUnifiedMarketView } from "@/lib/market/unified";
 import { buildCardEvidence } from "@/lib/evidence/card";
@@ -72,7 +72,9 @@ function rarityBadgeClasses(rarity: string | null): string | null {
 
 export default async function ProductPage({ params }: { params: Promise<{ sku: string }> }) {
   const { sku } = await params;
-  const card = await fetchCard(sku);
+  const { card, source } = await fetchCardDetailed(sku);
+  // An outage must not read as a card that does not exist.
+  if (source === "unavailable") throw new Error("Card catalogue temporarily unavailable");
   if (!card) notFound();
   // A plain SKU or another spelling: one address per card, as on /market.
   if (card.sku !== sku) redirect(`/product/${encodeURIComponent(card.sku)}`);

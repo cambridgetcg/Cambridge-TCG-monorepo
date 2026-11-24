@@ -42,7 +42,9 @@ export default async function B2BCartPage() {
   // not select or emit legacy price/image fields.
   const lines: CartLine[] = await Promise.all(
     rows.map(async (r): Promise<CartLine> => {
-      const card = await fetchCard(r.sku, "wholesale");
+      const found = await fetchCard(r.sku, "wholesale");
+      // A plain SKU may be answered by its plain listing; a stored row is not renamed after it.
+      const card = found?.sku === r.sku ? found : null;
       return {
         sku: r.sku,
         quantity: r.quantity,
