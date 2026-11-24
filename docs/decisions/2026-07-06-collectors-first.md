@@ -28,7 +28,11 @@ collectors; the data belongs to everyone (CC0).
   survives strictly as a **labelled reference price** (open data), never as an offer.
 - **Liquidity-mining credit rewards**: paused honestly (they paid store credit, which no
   longer has a spending door). Money comes later — a future incentive can be designed when money
-  is designed.
+  is designed. The code went on 2026-11-24; `liquidity_rewards` rows and the ledger entries they
+  point at stay. Its rules, for those rows and for anyone who designs the next one: £0.10 of store
+  credit per resting ask per UTC day (one reward per order and day); the seller has 10 or more
+  completed trades; the ask has rested 6 hours; its price is within 5% of the SKU's 30-day VWAP;
+  at most 10 orders per seller a day and 200 awards a run.
 - **The eBay sales-channel push** (wholesale cron): the pivot doc kept it "until the
   wind-down word". This is the word.
 
