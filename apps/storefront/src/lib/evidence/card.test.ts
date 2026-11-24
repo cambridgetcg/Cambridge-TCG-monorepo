@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MEMBER_PRICE_POLICIES } from "@cambridge-tcg/data-ingest/member-prices";
 import { buildCardEvidence, evidenceSourcesForGame } from "./card";
 
@@ -50,6 +50,11 @@ const sources = [
     tos_notes: "",
   },
 ] as const;
+
+// Cardmarket's policy as written, and as it is when no use is paused.
+const written = { uses: MEMBER_PRICE_POLICIES.cardmarket.uses, paused: MEMBER_PRICE_POLICIES.cardmarket.paused };
+const reopenExport = () => Object.assign(MEMBER_PRICE_POLICIES.cardmarket, { uses: ["member-display", "member-api", "member-download"], paused: null });
+afterEach(() => { Object.assign(MEMBER_PRICE_POLICIES.cardmarket, written); });
 
 describe("card evidence", () => {
   it("keeps reference, offers, and paused completed-sale publication as different claims", () => {
@@ -109,12 +114,16 @@ describe("card evidence", () => {
     expect(model.aggregate_rights).toBe("NOASSERTION");
   });
 
-  it("names display-only and planned sources without unlocking them", () => {
+  it("names display-only sources, Cardmarket's paused export among them, without unlocking them", () => {
     expect(evidenceSourcesForGame("op", sources)).toEqual([
       expect.objectContaining({ id: "cardrush", state: "display_only", license: "internal-only" }),
       expect.objectContaining({ id: "tcgplayer", state: "display_only", license: "internal-only" }),
-      expect.objectContaining({ id: "cardmarket", state: "planned" }),
+      expect.objectContaining({ id: "cardmarket", state: "display_only", license: "proprietary" }),
     ]);
+    const { reason } = evidenceSourcesForGame("op", sources)[2]!;
+    expect(reason).toContain(MEMBER_PRICE_POLICIES.cardmarket.paused!.reason);
+    // Cardmarket's display rests on the 2026-09-07 review, and its earlier rows are shown.
+    expect(reason).not.toMatch(/written permission recorded|stay withheld/);
   });
 
   // CardRush and TCGplayer have been display-only since 2026-10-28: on
@@ -136,7 +145,7 @@ describe("card evidence", () => {
   it("reads display-only from the release policy", async () => {
     expect(MEMBER_PRICE_POLICIES.cardrush.uses).toEqual(["member-display"]);
     expect(MEMBER_PRICE_POLICIES.tcgplayer.uses).toEqual(["member-display"]);
-    expect(MEMBER_PRICE_POLICIES.cardmarket.uses).toContain("member-api");
+    reopenExport();
     const cardmarket = sources.map((source) => source.id === "cardmarket" ? { ...source, status: "partial" as const } : source);
     expect(evidenceSourcesForGame("op", cardmarket).map((source) => source.id)).toEqual(["cardrush", "tcgplayer"]);
 
@@ -164,6 +173,7 @@ describe("card evidence", () => {
   });
 
   it("still names a blocked river as blocked", () => {
+    reopenExport();
     const blocked = sources.map((source) => source.id === "cardmarket" ? { ...source, status: "blocked" as const } : source);
     expect(evidenceSourcesForGame("op", blocked)[2]).toMatchObject({
       id: "cardmarket",

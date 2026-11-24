@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { artifactDigest, CARDMARKET_DERIVATION_EVIDENCE_VERSION, CARDRUSH_EVIDENCE_VERSION, derivationAllowed, MEMBER_PRICE_POLICIES, MEMBER_PRICE_REVIEW_VERSION, nativeAmount, priceUseAllowed, resolvePriceCrosswalk, sourceTimestamp, TCGPLAYER_EVIDENCE_VERSION, WITHHELD_PRICE_SOURCES, type ExactPriceCrosswalk } from '../member-prices';
+import { artifactDigest, CARDMARKET_DERIVATION_EVIDENCE_VERSION, CARDRUSH_EVIDENCE_VERSION, derivationAllowed, MEMBER_PRICE_POLICIES, MEMBER_PRICE_REVIEW_VERSION, nativeAmount, pausedPriceUse, priceUseAllowed, resolvePriceCrosswalk, sourceTimestamp, TCGPLAYER_EVIDENCE_VERSION, WITHHELD_PRICE_SOURCES, type ExactPriceCrosswalk } from '../member-prices';
 import { cardrush, CARDRUSH_ACQUISITION_ENABLED } from '../cardrush';
 import { tcgplayer } from '../tcgplayer';
 import { acquireCardmarketMemberPrices, cardmarketObservationSource, parseCardmarketMemberPrices } from '../cardmarket/member-prices';
@@ -20,13 +20,35 @@ function parse(row: Record<string, unknown> = { idProduct: 690368, trend: 2.95 }
   return parseCardmarketMemberPrices({ gameId: 18, priceGuide: artifact('price-guide', [row]), catalogs: [artifact('product-list', [product], '2026-08-01T12:11:44+0200')], crosswalk });
 }
 describe('operation-specific member price permissions', () => {
-  it('allows only official Cardmarket normalized use and Scryfall display', () => {
-    for (const use of ['member-display', 'member-api', 'member-download'] as const) expect(priceUseAllowed('cardmarket', use, MEMBER_PRICE_REVIEW_VERSION)).toBe(true);
+  it('allows only Cardmarket and Scryfall display under the 2026-09-07 review', () => {
+    expect(priceUseAllowed('cardmarket', 'member-display', MEMBER_PRICE_REVIEW_VERSION)).toBe(true);
+    for (const use of ['member-api', 'member-download'] as const) expect(priceUseAllowed('cardmarket', use, MEMBER_PRICE_REVIEW_VERSION)).toBe(false);
     expect(priceUseAllowed('scryfall', 'member-display', MEMBER_PRICE_REVIEW_VERSION)).toBe(true);
     expect(priceUseAllowed('scryfall', 'member-api', MEMBER_PRICE_REVIEW_VERSION)).toBe(false);
     expect(priceUseAllowed('scryfall', 'member-download', MEMBER_PRICE_REVIEW_VERSION)).toBe(false);
     expect(priceUseAllowed('cardmarket', 'member-api', 'old')).toBe(false);
     for (const source of ['pokemon-tcg-api','ygoprodeck','ebay','vinted','__proto__']) expect(priceUseAllowed(source, 'member-display', MEMBER_PRICE_REVIEW_VERSION)).toBe(false);
+  });
+  // Cardmarket's raw rows left the member API and downloads ahead of its terms
+  // of 2026-11-26 (docs/decisions/2026-11-24-cardmarket-export-pause.md).
+  it('pauses Cardmarket export with a date and a plain reason, and no other source', () => {
+    const { uses, paused } = MEMBER_PRICE_POLICIES.cardmarket;
+    expect(paused).toMatchObject({ uses: ['member-api', 'member-download'], since: expect.stringMatching(/^2026-11-\d{2}$/) });
+    expect(paused!.reason).toMatch(/Cardmarket prices are not in our API or downloads/);
+    // A use is open or paused, never both.
+    for (const use of paused!.uses) expect(uses).not.toContain(use);
+    for (const source of ['scryfall', 'cardrush', 'tcgplayer'] as const) expect(MEMBER_PRICE_POLICIES[source].paused).toBeNull();
+    // Display and derivation are as they were.
+    expect(pausedPriceUse('member-display')).toBeNull();
+    expect(pausedPriceUse('member-display', 'cardmarket')).toBeNull();
+    expect(derivationAllowed('cardmarket', CARDMARKET_DERIVATION_EVIDENCE_VERSION)).toBe(true);
+    for (const use of ['member-api', 'member-download'] as const) {
+      expect(pausedPriceUse(use, 'cardmarket')).toEqual({ source: 'cardmarket', ...paused });
+      // No source is open to it, so a request that names none meets the same pause.
+      expect(pausedPriceUse(use)).toEqual({ source: 'cardmarket', ...paused });
+      // A use a source never had is not a pause.
+      for (const source of ['scryfall', 'cardrush', 'tcgplayer'] as const) expect(pausedPriceUse(use, source)).toBeNull();
+    }
   });
   // Yu, 2026-10-28: written permission for CardRush and TCGplayer pages, raw
   // values display-only. The earlier withheld pin is replaced by this one.

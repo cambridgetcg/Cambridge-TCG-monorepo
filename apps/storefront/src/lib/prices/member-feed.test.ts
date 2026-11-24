@@ -4,10 +4,45 @@ vi.mock('server-only', () => ({}));
 const { database } = vi.hoisted(() => ({ database: vi.fn() }));
 vi.mock('@/lib/db', () => ({ query: database }));
 import { DISPLAY_ONLY_INPUT_NOT_EXPORTED, DISPLAY_ONLY_INPUT_PAGES_END, MemberPriceQueryError, displayOnlySourcesWithRows, parseMemberPriceQuery, readMemberPrices } from './member-feed';
+import { MEMBER_PRICE_POLICIES } from '@cambridge-tcg/data-ingest/member-prices';
 import { MEMBER_PRICE_OBSERVATION_SCHEMA } from '@cambridge-tcg/data-spec';
 import { MEMBER_CSV_COLUMNS, serializeMemberExport } from './member-export';
 const parse = (value = '') => parseMemberPriceQuery(new URLSearchParams(value));
-beforeEach(() => { database.mockReset(); });
+// Cardmarket's API and download uses are paused in its policy. The reader's own
+// rules for an exported source are tested here as they are with no pause; the
+// pause, as written, has its own block at the end.
+const written = { uses: MEMBER_PRICE_POLICIES.cardmarket.uses, paused: MEMBER_PRICE_POLICIES.cardmarket.paused };
+const cardmarketPolicy = (policy: object) => Object.assign(MEMBER_PRICE_POLICIES.cardmarket, policy);
+beforeEach(() => { database.mockReset(); cardmarketPolicy({ uses: ['member-display', 'member-api', 'member-download'], paused: null }); });
+describe('a paused Cardmarket export, as the policy is written', () => {
+  beforeEach(() => { cardmarketPolicy(written); });
+  it('refuses the API and downloads with the date and reason before any read, and never as an empty success', async () => {
+    for (const use of ['member-api', 'member-download'] as const) for (const value of ['', 'source=cardmarket', 'mode=history&limit=500', 'source=cardmarket&sku=op-op01-001-en', 'source=cardmarket&cursor=a.b']) {
+      expect(await readMemberPrices({ userId: 'test' }, parse(value), use)).toEqual({
+        status: 'unavailable', items: [], nextCursor: null, watermark: null, asOf: null, total: 0, count: 0, complete: false,
+        reason: written.paused!.reason, paused: { source: 'cardmarket', uses: written.paused!.uses, since: written.paused!.since },
+      });
+    }
+    expect(database).not.toHaveBeenCalled();
+    // Sources that never had the use answer as before.
+    expect(await readMemberPrices({ userId: 'test' }, parse('source=scryfall'), 'member-api')).toMatchObject({ status: 'empty', complete: true });
+    await expect(readMemberPrices({ userId: 'test' }, parse('source=cardrush'), 'member-download')).rejects.toThrow(new MemberPriceQueryError(DISPLAY_ONLY_INPUT_NOT_EXPORTED));
+  });
+  it('leaves member display exactly as it was: every view, history and 500 rows a page', async () => {
+    database.mockResolvedValue({ rows: [{ watermark: '0', total: '0', items: [] }] });
+    for (const value of ['', 'mode=history', 'limit=500', 'source=cardmarket&mode=history&limit=500', 'limit=50&game=one-piece']) {
+      database.mockClear();
+      await readMemberPrices({ userId: 'test' }, parse(value), 'member-display');
+      const offered = JSON.parse(database.mock.calls[0]![1][1]) as { source: string; displayOnly?: true }[];
+      // Offered unnarrowed, and not marked as a display-only input (no page limit).
+      expect(offered[0]).toEqual({ source: 'cardmarket', version: 'member-prices/2026-09-07.1', evidenceUrl: 'https://www.cardmarket.com/en/Insight/Articles/the-state-of-cardmarket-2024' });
+    }
+    database.mockResolvedValueOnce({ rows: [{ source: 'cardmarket' }] });
+    // /prices names no new display-only source in its filter and note.
+    expect(await displayOnlySourcesWithRows()).toEqual([]);
+    expect(JSON.parse(database.mock.calls.at(-1)![1][0]).map((policy: { source: string }) => policy.source)).toEqual(['cardrush', 'tcgplayer']);
+  });
+});
 describe('private member reader query boundary', () => {
   it('uses bounded current defaults and literal named search', () => {
     expect(parse()).toEqual({ mode: 'current', limit: 100 });

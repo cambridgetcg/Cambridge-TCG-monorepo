@@ -74,6 +74,12 @@ function displayOnly(id: string): boolean {
   return uses.includes("member-display") && !uses.includes("member-api") && !uses.includes("member-download");
 }
 
+function displayOnlyReason(id: string): string {
+  const paused = MEMBER_PRICE_POLICIES[id as MemberPriceSource].paused;
+  if (paused) return `Display-only for now. ${paused.reason} Raw values and source URLs are never served by this response.`;
+  return "Display-only (written permission recorded 2026-10-28): prices collected only while its collector is scheduled (see /api/v1/sources) appear with the source named on Cambridge price pages. Raw values and source URLs are never served by an API, a download or this response; rows stored before that date stay withheld.";
+}
+
 function sourceState(source: SourceMeta): EvidenceSourceState | null {
   if (displayOnly(source.id)) return "display_only";
   if (source.status === "blocked") return "blocked";
@@ -104,7 +110,7 @@ export function evidenceSourcesForGame(
       if (state === null) return [];
       const reason =
         state === "display_only"
-          ? "Display-only (written permission recorded 2026-10-28): prices collected only while its collector is scheduled (see /api/v1/sources) appear with the source named on Cambridge price pages. Raw values and source URLs are never served by an API, a download or this response; rows stored before that date stay withheld."
+          ? displayOnlyReason(source.id)
           : state === "blocked"
             ? "No collection or display: the required permission or access is not available."
             : "A source slot exists, but no live collection path is being claimed.";
