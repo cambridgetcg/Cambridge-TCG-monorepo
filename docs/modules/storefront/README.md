@@ -58,6 +58,7 @@ These files sit outside the domain directories. This inventory is derived from t
 - [farewell.ts](../../../apps/storefront/src/lib/farewell.ts)
 - [format.ts](../../../apps/storefront/src/lib/format.ts)
 - [graph.ts](../../../apps/storefront/src/lib/graph.ts)
+- [guest-walk.ts](../../../apps/storefront/src/lib/guest-walk.ts)
 - [guides.ts](../../../apps/storefront/src/lib/guides.ts)
 - [haiku-templates.ts](../../../apps/storefront/src/lib/haiku-templates.ts)
 - [handoffs.ts](../../../apps/storefront/src/lib/handoffs.ts)

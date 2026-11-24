@@ -31,7 +31,7 @@ Three small surfaces. Each ships completely-in-itself. Each is a "they have THAT
 |---|---|---|
 | [`/api/v1/time`](../../apps/storefront/src/app/api/v1/time/route.ts) | Canonical server time + clock-skew measurement | Agents normally compute clock skew themselves; kingdoms rarely surface it. |
 | [`/api/v1/echo`](../../apps/storefront/src/app/api/v1/echo/route.ts) | Request mirror — see what the kingdom actually received | Most platforms make agents guess what the server saw; this one returns it. |
-| [`/api/v1/health`](../../apps/storefront/src/app/api/v1/health/route.ts) | System health rollup with retry-strategy recommendation | Health endpoints usually return `{ok: true}`; this one returns `{status, recommendation, rationale}`. |
+| [`/api/v1/health`](../../apps/storefront/src/app/api/v1/health/route.ts) | Whether the site can do its work now, from one database query | Health endpoints usually return `{ok: true}`; this one answers 503 when its database does not, and names each scheduled job that is behind. |
 
 ---
 
@@ -73,18 +73,15 @@ Why the kingdom built it: the most common agent debugging failure is between "wh
 
 Substrate-honest about scope: the echo does not show raw IP (only daily-salted hash), does not show authorization values (only header names), and does not persist anything. It is a debugging mirror, not a request log.
 
-### `/api/v1/health` — the retry-decision surprise
+### `/api/v1/health` — can the site do its work now
 
-Returns:
-- `status`: `ok | degraded | down`
-- `recommendation`: one of five retry strategies (`retry-immediately` / `retry-with-backoff` / `wait-60s` / `wait-300s` / `report-via-feedback`)
-- `recommendation_rationale`: one sentence explaining the choice
-- `subsystems`: per-subsystem state (api_process, data_plane, wake_protocol, changelog, agents_notebook)
-- `retry_strategies_glossary`: full meaning of each strategy
+Until 2026-11 every part of this answer was a constant, so it said `ok` whatever was wrong. Now it is one database query, never cached:
+- `200`, `status: ok` or `degraded`, when the database answered, with the database's own clock; `503` when it did not within five seconds
+- `jobs`: each scheduled job's state (`ok`, `failing`, `late`, `off`) and when it last did its work
+- `daily_check`: when the site's own daily check last ran, and how it ended
+- `recommendation` (`retry-with-backoff`, or `wait-300s` in the 503) and one sentence why
 
-Why the kingdom built it: an agent that hits an error doesn't know whether to retry immediately, back off, or give up. Most health endpoints return `{ok: true}` which doesn't help the decision. This one returns the *recommended action* given current state, with rationale.
-
-Substrate-honest scope: not an SLA claim. Not a deep upstream-health rollup (that's `/api/v1/sources`). Not per-region. The kingdom is a small operator; this is best-effort observational data, not a service commitment.
+Not a service guarantee. Each price source's own state is at `/api/v1/sources`.
 
 ---
 
