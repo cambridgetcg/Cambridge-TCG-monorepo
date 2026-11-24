@@ -18,6 +18,8 @@ sovereign.log
 .sovereign-state.json
 
 .DS_Store
+__pycache__/
+*.py[co]
 *.tsbuildinfo
 tsconfig.tsbuildinfo
 

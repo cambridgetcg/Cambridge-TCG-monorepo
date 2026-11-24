@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
 const tokenPatterns = [
   [
@@ -67,6 +67,7 @@ const forbiddenTrackedArtifactPatterns = [
     /(?:^|\/)(?:tfplan(?:\..*)?|[^/]+\.tfplan(?:\..*)?)$/,
   ],
   ["Terraform working directory artifact", /(?:^|\/)\.terraform(?:\/|$)/],
+  ["Compiled Python cache", /(?:^|\/)__pycache__\/|\.py[co]$/],
 ];
 
 const databaseUrl =
@@ -387,7 +388,9 @@ function urlCredentialLabels(body, file) {
   return labels;
 }
 
-function labelsInBody(body, file) {
+// Token prefixes and database URLs: shapes that are unlikely by accident, so
+// they can be looked for in any file, binary or text.
+function distinctiveLabels(body) {
   const labels = new Set();
 
   for (const [label, pattern, isConcrete] of tokenPatterns) {
@@ -419,10 +422,33 @@ function labelsInBody(body, file) {
       break;
     }
   }
+  return labels;
+}
 
+function labelsInBody(body, file) {
+  const labels = distinctiveLabels(body);
   for (const label of credentialAssignmentLabels(body, file)) labels.add(label);
   for (const label of urlCredentialLabels(body, file)) labels.add(label);
   return labels;
+}
+
+// A compiled or packed file can hold a credential as plain bytes. Each run of
+// printable ASCII becomes a line, so the bytes beside a match cannot join it.
+// Text stored as UTF-16, or compressed, is not seen.
+function printableText(bytes) {
+  return bytes.toString("latin1").replace(/[^\x20-\x7e]+/g, "\n");
+}
+
+const assignmentCheckLimit = 2_000_000;
+
+function labelsInFile(bytes, file) {
+  if (bytes.includes(0)) {
+    return { depth: "binary", labels: distinctiveLabels(printableText(bytes)) };
+  }
+  const body = bytes.toString("utf8");
+  return bytes.length > assignmentCheckLimit
+    ? { depth: "large", labels: distinctiveLabels(body) }
+    : { depth: "text", labels: labelsInBody(body, file) };
 }
 
 function labelsForTrackedPath(file) {
@@ -629,6 +655,40 @@ function runSelfTest() {
     "Terraform working directory artifact",
   ]);
   assert.deepEqual(labelsForTrackedPath("infra/terraform/.terraform.lock.hcl"), []);
+  assert.deepEqual(labelsForTrackedPath("tools/__pycache__/job.cpython-314.pyc"), [
+    "Compiled Python cache",
+  ]);
+  assert.deepEqual(labelsForTrackedPath("tools/job.py"), []);
+
+  // Built from parts, so this file holds no literal of the shape it looks for.
+  const databaseUrlIn = (password) =>
+    ["postgresql", "://reader:", password, "@db.internal.test"].join("");
+  const withBytes = (text) =>
+    Buffer.concat([
+      Buffer.from([0x0b, 0x0e, 0x00, 0xe3]),
+      Buffer.from(text, "latin1"),
+      Buffer.from([0x00, 0xff, 0x3e, 0x01]),
+    ]);
+  const found = (bytes) => {
+    const { depth, labels } = labelsInFile(bytes, "tools/packed.bin");
+    return [depth, ...labels];
+  };
+  const opaque = "Opaque47f9a2bcMaterial";
+  assert.deepEqual(found(withBytes(databaseUrlIn(opaque))), [
+    "binary",
+    "database URL with embedded password",
+  ]);
+  assert.deepEqual(found(withBytes(`ghp_${"aB3dE6gH9j".repeat(3)}`)), [
+    "binary",
+    "GitHub access token",
+  ]);
+  assert.deepEqual(found(withBytes(databaseUrlIn("placeholder"))), ["binary"]);
+  // The assignment heuristics stay out of binary files.
+  assert.deepEqual(found(withBytes(`password = "${opaque}"`)), ["binary"]);
+  assert.deepEqual(
+    found(Buffer.from(`${" ".repeat(assignmentCheckLimit)}${databaseUrlIn(opaque)}`)),
+    ["large", "database URL with embedded password"],
+  );
 }
 
 runSelfTest();
@@ -643,20 +703,22 @@ const files = execFileSync("git", ["ls-files", "-z"], {
   .split("\0")
   .filter(Boolean);
 const findings = [];
+const checked = { text: 0, binary: 0, large: 0 };
+const unread = [];
 
 for (const file of files) {
   for (const label of labelsForTrackedPath(file)) findings.push({ file, label });
 
-  let body;
+  let bytes;
   try {
-    if (statSync(file).size > 2_000_000) continue;
-    body = readFileSync(file, "utf8");
+    bytes = readFileSync(file);
   } catch {
+    unread.push(file);
     continue;
   }
-  if (body.includes("\0")) continue;
-
-  for (const label of labelsInBody(body, file)) findings.push({ file, label });
+  const { depth, labels } = labelsInFile(bytes, file);
+  checked[depth] += 1;
+  for (const label of labels) findings.push({ file, label });
 }
 
 if (findings.length > 0) {
@@ -670,4 +732,10 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-console.log(`Tracked-secret audit passed (${files.length} files checked).`);
+console.log(
+  `Tracked-secret audit passed: ${checked.text} text files checked in full; ` +
+    `${checked.binary} binary and ${checked.large} large files checked for token shapes and database URLs only` +
+    (unread.length > 0
+      ? `; ${unread.length} could not be read: ${unread.join(", ")}.`
+      : "."),
+);
