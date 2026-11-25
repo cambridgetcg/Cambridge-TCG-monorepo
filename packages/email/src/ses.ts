@@ -53,7 +53,8 @@ export function sesTransport(): MailTransport {
         return { ok: true, messageId: result.MessageId ?? "", transport: "ses" };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        return { ok: false, error: message, transport: "ses" };
+        // The AWS SDK gives an error the service's own code as its name.
+        return { ok: false, error: message, code: err instanceof Error ? err.name : undefined, transport: "ses" };
       }
     },
   };
