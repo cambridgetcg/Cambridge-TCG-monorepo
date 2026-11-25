@@ -100,10 +100,13 @@ export default function AdminShell({
   );
 }
 
-function AdminTopBar() {
+/** The admin links. A page that draws its own frame, without AdminShell's wait
+ * for a fetch, brings them with sticky off: on a phone the bar is tall enough
+ * to cover the headings such a page links to. */
+export function AdminTopBar({ sticky = true }: { sticky?: boolean }) {
   const pathname = usePathname();
   return (
-    <nav className="sticky top-0 z-30 bg-neutral-950/80 backdrop-blur border-b border-neutral-900">
+    <nav className={`${sticky ? "sticky top-0 z-30 " : ""}bg-neutral-950/80 backdrop-blur border-b border-neutral-900 [--color-accent:var(--color-neutral-200)]`}>
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4 flex-wrap">
         <Link href="/admin" className="text-sm font-bold text-white hover:text-amber-400 transition whitespace-nowrap">
           <span className="text-amber-400">⚑</span> Admin
@@ -118,7 +121,7 @@ function AdminTopBar() {
                 className={`px-2.5 py-1 rounded-full transition whitespace-nowrap ${
                   active
                     ? "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40"
-                    : "text-neutral-500 hover:text-white hover:bg-neutral-900"
+                    : "text-neutral-400 hover:text-white hover:bg-neutral-900"
                 }`}
               >
                 {item.label}
@@ -127,7 +130,7 @@ function AdminTopBar() {
           })}
         </div>
         <div className="ml-auto">
-          <Link href="/" className="text-xs text-neutral-600 hover:text-neutral-400 transition">
+          <Link href="/" className="text-xs text-neutral-400 hover:text-white transition">
             ← Site
           </Link>
         </div>

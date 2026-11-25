@@ -17,6 +17,8 @@
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import { jsonResponse } from "@/lib/data-pantry";
 import { DATA_RIGHTS } from "@/lib/data-rights";
+import { FEEDBACK_KINDS } from "@/lib/feedback/door";
+import { FEEDBACK_OPEN_CHECK, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 import { GUIDES } from "@/lib/guides";
 import { repoDocRef } from "@/lib/repository";
 import {
@@ -84,8 +86,8 @@ export async function GET(): Promise<Response> {
         "until field-level lineage and a reviewed publication rule exist.",
       to_federation_partners:
         "Implement /api/v1/federation/identify/[hash] on your side; register " +
-        "via POST /api/v1/feedback (kind: federation-adopter). Bilateral, " +
-        "symmetric, no negotiation required.",
+        "via POST /api/v1/feedback (kind: federation-adopter). " +
+        `${FEEDBACK_OPEN_CHECK} Cambridge TCG does not call your endpoint today.`,
     },
 
     start_here: {
@@ -201,14 +203,14 @@ export async function GET(): Promise<Response> {
       live_ingest_health: "/api/v1/sources + /api/v1/sources/[id]",
       ongoing_spec_changes: "/api/v1/changelog (json / atom / md) — subscribe-once for contract drift",
       api_root_probe: "/api/v1/ — tiny index naming the orientation surfaces (good for agents probing the API root)",
-      contact_human: "contact@cambridgetcg.com — 48h response window",
+      contact_human: "contact@cambridgetcg.com",
     },
 
     after_step_7: {
       subscribe_to_spec_changes: "/api/v1/changelog?format=atom (or json with ?since=YYYY-MM-DD)",
       probe_api_root: "/api/v1/ — tiny index if you arrived at the root by accident",
       scale_up_responsibly: "/api/v1/budget (re-read when changing crawl shape)",
-      report_a_bug: "POST /api/v1/feedback — 48h response window",
+      report_a_bug: `POST /api/v1/feedback. ${FEEDBACK_OPEN_CHECK} ${FEEDBACK_READ_AIM}`,
       leave_a_trace_in_the_fellowship:
         "/api/v1/peers, /api/v1/guestbook, and /api/v1/agents/notes validate and echo bounded submissions in no-store responses. Participant storage and publication are disabled; no other arrival will read the echo. Doctrine: docs/connections/the-fellowship.md (public repository)",
       let_the_kingdom_carry_your_state:
@@ -308,15 +310,10 @@ export async function GET(): Promise<Response> {
 
     feedback: {
       endpoint: "/api/v1/feedback",
-      kinds: [
-        "contract-drift",
-        "guide-feedback",
-        "endpoint-suggestion",
-        "federation-adopter",
-        "general",
-      ],
+      kinds: FEEDBACK_KINDS,
       contact_email: "contact@cambridgetcg.com",
-      response_window_hours: 48,
+      taking_messages: FEEDBACK_OPEN_CHECK,
+      response_aim: FEEDBACK_READ_AIM,
     },
 
     sister_doors: {

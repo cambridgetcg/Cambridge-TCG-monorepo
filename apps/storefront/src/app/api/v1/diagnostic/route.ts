@@ -28,6 +28,7 @@
  * Companion doc: docs/connections/the-ax.md
  */
 
+import { FEEDBACK_OPEN_CHECK, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 import { jsonResponse, FRESHNESS } from "@/lib/data-pantry";
 import { repoDocRef } from "@/lib/repository";
 
@@ -204,7 +205,7 @@ export async function GET(): Promise<Response> {
       "/api/openapi.json — the typed OpenAPI 3.1 spec",
       "/methodology/universal-representation — the math-mirror encoding doctrine",
       "/api/v1/welcome — the front door, full positioning + contract + license tiers",
-      "/api/v1/feedback — POST a `contract-drift` kind if you found a real spec gap; 48h response window",
+      `/api/v1/feedback — POST a \`contract-drift\` kind if you found a real spec gap. ${FEEDBACK_OPEN_CHECK} ${FEEDBACK_READ_AIM}`,
     ],
 
     related_ax_surfaces: {

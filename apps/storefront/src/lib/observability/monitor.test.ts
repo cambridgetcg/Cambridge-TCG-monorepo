@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 import {
-  apiRouteView, coverage, loadMonitor, mcpView, readApiRouteHits, readDerivation, readJobOutcomes, readTraffic, utcDays,
+  apiRouteView, coverage, loadMonitor, mcpView, readApiRouteHits, readDerivation, readFeedback, readJobOutcomes, readTraffic, utcDays,
   type AgentKeyUse, type McpCounts, type RunQuery,
 } from "./monitor";
 
@@ -21,7 +21,7 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("monitor readers", () => {
   it("shows unknown with the migration a missing table needs, and a failed read as unknown, never as zero", async () => {
-    const data = await loadMonitor(database({}, ["ops_job_outcomes", "mcp_daily", "traffic_hourly", "traffic_pulls", "error_daily", "market_derivation_runs"]), NOW);
+    const data = await loadMonitor(database({}, ["ops_job_outcomes", "mcp_daily", "traffic_hourly", "traffic_pulls", "error_daily", "market_derivation_runs", "public_feedback"]), NOW);
     expect(data.collectors.jobs).toEqual({ state: "unknown", reason: "ops_job_outcomes is not provisioned here (migration 0148)" });
     expect(data.agents.mcp).toEqual({ state: "unknown", reason: "mcp_daily is not provisioned here (migration 0148)" });
     expect(data.traffic.coverage).toEqual({ state: "unknown", reason: "traffic_pulls is not provisioned here (migration 0148)" });
@@ -29,12 +29,14 @@ describe("monitor readers", () => {
     expect(data.errors.state).toBe("unknown");
     expect(data.derivation).toEqual({ state: "unknown", reason: "market_derivation_runs is not provisioned here (migration 0141)" });
     expect(data.retention.state).toBe("unknown");
+    expect(data.feedback.waiting).toEqual({ state: "unknown", reason: "public_feedback is not provisioned here (migration 0149)" });
     // Tables that exist and hold nothing read as known and empty.
     expect(data.collectors.batches).toEqual({ state: "known", data: { window: [], latest: [] } });
 
     const failing = vi.fn<RunQuery>(async () => { throw new Error("connect ECONNREFUSED 10.0.0.1:5432"); });
     const failed = await loadMonitor(failing, NOW);
     expect(failed.collectors.batches).toEqual({ state: "unknown", reason: "member_price_batches could not be read" });
+    expect(failed.feedback.waiting).toEqual({ state: "unknown", reason: "public_feedback could not be read" });
     expect(failed.collectors.sources.every((source) => source.hosts.hosts.every((host) => host.state === "unknown"))).toBe(true);
     expect(JSON.stringify(failed)).not.toContain("10.0.0.1");
   });
@@ -93,6 +95,33 @@ describe("monitor readers", () => {
     const read = await readTraffic(run, NOW);
     expect(read).toMatchObject({ state: "known", data: { days: [{ day: "2026-11-06", requests: 1000, rsc: 450, direct: 60, statuses: { "2xx": 900, "404": 100 } }] } });
     expect(run.mock.calls[0]![1]).toEqual(["2026-10-31"]);
+  });
+});
+
+describe("what waits at the feedback door", () => {
+  const row = { held: 9, unread: 3, unanswered: 1, expiring: 2, oldest_unread_hours: 98, oldest_unanswered_hours: 5 };
+  it("is read as counts and whole hours, and an answer with no counts in it is unknown, never zero", async () => {
+    expect(await readFeedback(database({ "FROM public_feedback": () => [row] }))).toEqual({
+      state: "known", data: { held: 9, unread: 3, unanswered: 1, expiring: 2, oldestUnreadHours: 98, oldestUnansweredHours: 5 },
+    });
+    const unread = { state: "unknown", reason: "public_feedback could not be read" };
+    expect(await readFeedback(database({}))).toEqual(unread);
+    for (const gone of [{ unread: null }, { oldest_unread_hours: null }]) expect(await readFeedback(database({ "FROM public_feedback": () => [{ ...row, ...gone }] }))).toEqual(unread);
+  });
+
+  it("comes with whether the door takes messages here", async () => {
+    vi.stubEnv("PUBLIC_FEEDBACK", "on");
+    expect((await loadMonitor(database({}), NOW)).feedback.open).toBe(true);
+    vi.stubEnv("PUBLIC_FEEDBACK", "true");
+    expect((await loadMonitor(database({}), NOW)).feedback.open).toBe(false);
+  });
+
+  it("costs the page one statement, which names nothing a sender wrote", async () => {
+    const run = database({});
+    await loadMonitor(run, NOW);
+    const statements = run.mock.calls.map(([sql]) => sql).filter((sql) => sql.includes("public_feedback"));
+    expect(statements).toHaveLength(1);
+    expect(statements[0]).not.toMatch(/\b(?:message|details|reply_to|reply_name|feedback_id|holder_key_sha256|answer|kind|topic)\b/);
   });
 });
 

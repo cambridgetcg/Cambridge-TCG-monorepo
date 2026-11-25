@@ -30,6 +30,7 @@
 
 import { jsonResponse, FRESHNESS } from "@/lib/data-pantry";
 import { scheduledCollection } from "@/lib/datafeed/collection-flags";
+import { FEEDBACK_OPEN_CHECK, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 import { trafficPullOn } from "@/lib/traffic/pull";
 
 export const dynamic = "force-static";
@@ -135,7 +136,7 @@ const CRAWL_SHAPES = {
     rate_pattern:
       "low-volume; on-demand reverse-resolution. Cache hits eliminate most fetches.",
     cacheable_for_seconds: 86_400 * 365,
-    register: "POST /api/v1/feedback {kind: \"federation-adopter\", contact, public_url}",
+    register: `POST /api/v1/feedback {kind: "federation-adopter", platform_url, reply_to}. ${FEEDBACK_OPEN_CHECK}`,
   },
   spec_consumer: {
     description:
@@ -244,7 +245,8 @@ export async function GET(): Promise<Response> {
     feedback: {
       endpoint: "/api/v1/feedback",
       kinds_relevant_here: ["contract-drift", "endpoint-suggestion", "federation-adopter", "general"],
-      response_window_hours: 48,
+      taking_messages: FEEDBACK_OPEN_CHECK,
+      response_aim: FEEDBACK_READ_AIM,
       contact_email: "contact@cambridgetcg.com",
     },
 

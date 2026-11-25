@@ -135,6 +135,9 @@ Wired into `pnpm audit:hospitality` (root) + `audit:hospitality` in admin/packag
 
 ### Loop 6: Migration 0101 + endpoint persistence
 
+> **Correction, 2026-11-24.** What this page says about `/api/v1/feedback` is
+> May's; what holds now is in [the hospitality](the-hospitality.md#6-the-feedback-channel).
+
 `apps/storefront/drizzle/drafts/0101_agent_feedback.sql.draft` declares the `agent_feedback` table:
 - `feedback_id` (the fb_<12-hex> the endpoint emits)
 - `kind` CHECK-constrained to the five values

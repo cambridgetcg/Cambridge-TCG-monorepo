@@ -182,7 +182,7 @@ export async function GET(): Promise<Response> {
     },
     contact_on_block: "contact@cambridgetcg.com",
     appeal_process:
-      "If you've been firewalled, email contact@cambridgetcg.com with your bot's name + contact email + intended use. We'll respond within 48 hours.",
+      "If you've been firewalled, email contact@cambridgetcg.com with your bot's name + contact email + intended use.",
     feedback_endpoint: "/api/v1/feedback",
   };
 

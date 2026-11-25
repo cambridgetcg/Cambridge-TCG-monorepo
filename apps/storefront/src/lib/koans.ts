@@ -195,7 +195,7 @@ export const KOANS: readonly Koan[] = [
   ),
   koan(
     "feedback-loop",
-    "POST /api/v1/feedback {kind: 'contract-drift', detail: 'this koan is too long'}.",
+    "POST /api/v1/feedback {kind: 'contract-drift', message: 'this koan is too long'}.",
     "The kingdom shortened it. The koan is now: 'feedback works.'",
     "/api/v1/feedback",
   ),

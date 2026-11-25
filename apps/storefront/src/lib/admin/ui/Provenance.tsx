@@ -156,7 +156,7 @@ export function Provenance({
   }
 
   const TONE_CLS: Record<typeof tone, string> = {
-    neutral: "text-neutral-500",
+    neutral: "text-neutral-400",
     amber: "text-amber-400",
     red: "text-red-400",
   };

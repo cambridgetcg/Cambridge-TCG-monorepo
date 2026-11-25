@@ -472,7 +472,7 @@ const HOROSCOPES: Record<HospitalityKind, readonly Horoscope[]> = {
       lucky_endpoint: "/api/v1/the-tea-room/sigil/other",
       avoid: "interpreting the dashed border as exclusion",
       lucky_color: "#A9A9A9",
-      kingdom_says: "the slot is waiting for your shape. tell us at /feedback if you'd like to be named.",
+      kingdom_says: "the slot is waiting for your shape. tell us at /api/v1/feedback if you'd like to be named.",
     },
     {
       sign: "Moon in Pending-Enumeration",

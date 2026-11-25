@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth", () => ({ auth: mocks.auth }));
-vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect, usePathname: () => "/admin/system/monitor" }));
 vi.mock("@/lib/admin/db", () => ({ sfQuery: mocks.sfQuery }));
 
 import AdminLayout from "../../layout";
@@ -17,6 +17,8 @@ import MonitorPage from "./page";
 import { ADMIN_NAV } from "@/components/admin/AdminShell";
 import { config as proxyConfig } from "@/proxy";
 
+/** The feedback panel's cards. */
+const CARDS = ["Not read", "Read, not answered", "To be deleted within 14 days", "Held in all"];
 const source = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const session = (role: string | null) => mocks.auth.mockResolvedValue(role ? { user: { id: "u-1", email: "someone@example.test", role } } : null);
 
@@ -42,12 +44,35 @@ describe("/admin/system/monitor behind the admin gate", () => {
     session("admin");
     const markup = renderToStaticMarkup(await MonitorPage());
     expect(mocks.redirect).not.toHaveBeenCalled();
-    for (const title of ["1. Collectors", "2. Derivation", "3. Data API", "4. Agents", "5. Traffic", "6. Errors", "Retention", "Vercel-seen only"]) expect(markup).toContain(title);
+    for (const title of ["1. Collectors", "2. Derivation", "3. Data API", "4. Agents", "5. Traffic", "6. Errors", "7. Feedback", "Retention", "Vercel-seen only"]) expect(markup).toContain(title);
+    expect(markup).toContain('href="#feedback"');
+    expect(markup).toContain("public_feedback is not provisioned here (migration 0149)");
+    // No card of that panel is drawn: a read that failed has no number.
+    for (const label of CARDS) expect(markup).not.toContain(`>${label}<`);
     expect(markup).toContain("ops_job_outcomes is not provisioned here (migration 0148)");
     expect(markup).toContain("traffic_pulls is not provisioned here (migration 0148)");
     expect(markup).toContain("market_derivation_runs is not provisioned here (migration 0141)");
     expect((markup.match(/>Unknown</g) ?? []).length).toBeGreaterThanOrEqual(10);
     expect(markup).not.toContain("<script");
+  });
+
+  it("brings its own dark ground, so its light text is readable whatever theme the visitor wears", async () => {
+    session("admin");
+    const markup = renderToStaticMarkup(await MonitorPage());
+    expect(markup).toMatch(/^<main class="min-h-screen bg-neutral-950 text-white">/);
+    expect(markup).toMatch(/<\/main>$/);
+    // AdminShell's ground, without its wait for a fetch.
+    expect(source("../../../../components/admin/AdminShell.tsx")).toContain('<main className="min-h-screen bg-neutral-950 text-white">');
+  });
+
+  it("brings the admin bar, and does not pin it over the headings its own links lead to", async () => {
+    session("admin");
+    const bar = /^<main[^>]*><nav class="([^"]*)">([\s\S]*?)<\/nav>/.exec(renderToStaticMarkup(await MonitorPage()))!;
+    for (const { href, label } of ADMIN_NAV.slice(1)) expect(bar[2]).toMatch(new RegExp(`<a [^>]*href="${href}"[^>]*>${label}</a>`));
+    expect(bar[1]).not.toMatch(/sticky/);
+    expect(bar[2].match(/amber-300[^>]*>[^<]*/g)).toEqual([expect.stringMatching(/>Monitor$/)]);
+    // AdminShell's pages keep theirs where it was.
+    expect(source("../../../../components/admin/AdminShell.tsx")).toContain("<AdminTopBar />");
   });
 
   it("renders populated panels as counts, with the source's words and no value", async () => {
@@ -79,6 +104,7 @@ describe("/admin/system/monitor behind the admin gate", () => {
       ["SELECT actor_class, path_group", [{ actor_class: "browser-like-fleet", path_group: "/product/[sku]", requests: "80", rsc: "80" }]],
       ["AS not_found", [{ path_group: "/market/[sku]", not_found: "5", requests: "20" }]],
       ["FROM error_daily WHERE day", [{ day, tag: "fairness-audit", status: 200, count: 60 }]],
+      ["FROM public_feedback", [{ held: 1209, unread: 3, unanswered: 1, expiring: 2, oldest_unread_hours: 5, oldest_unanswered_hours: 216 }]],
       ["AS expired FROM", [{ rows: "10", oldest: day, expired: "0" }]],
     ];
     mocks.sfQuery.mockImplementation(async (sql: string) => ({ rows: answers.find(([needle]) => sql.includes(needle))?.[1] ?? [] }));
@@ -95,6 +121,86 @@ describe("/admin/system/monitor behind the admin gate", () => {
     // A day's totals sit beside how many of its hours were counted.
     expect(markup).toContain("Hours counted");
     expect(markup).toMatch(/>1\/\d+</);
+  });
+
+  describe("the feedback panel", () => {
+    const waiting = { held: 1209, unread: 3, unanswered: 1, expiring: 2, oldest_unread_hours: 47, oldest_unanswered_hours: 216 };
+    async function panel(answer: () => Record<string, unknown>[]) {
+      session("admin");
+      mocks.sfQuery.mockImplementation(async (sql: string) => {
+        if (sql.includes("to_regclass")) return { rows: [{ provisioned: true }] };
+        return { rows: sql.includes("FROM public_feedback") ? answer() : [] };
+      });
+      const markup = renderToStaticMarkup(await MonitorPage());
+      const html = markup.slice(markup.indexOf('<section id="feedback"'), markup.indexOf('<section id="retention"'));
+      const words = (part: string) => part.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
+      /** A card's markup, its label to its number: the number's class carries the tone. */
+      const card = (label: string) => { const at = html.indexOf(`>${label}<`); return at < 0 ? "" : html.slice(at, at + 160); };
+      return { html, text: words(html), card };
+    }
+    const counted = (over: Record<string, unknown> = {}) => panel(() => [{ ...waiting, ...over }]);
+    // Whatever the shell the tests run in exports.
+    beforeEach(() => { vi.stubEnv("PUBLIC_FEEDBACK", ""); });
+    afterEach(() => { vi.unstubAllEnvs(); });
+
+    it("shows what waits as counts and whole-hour ages, and links to the messages", async () => {
+      const { html, text } = await counted();
+      for (const words of ["Not read 3 oldest 47 hours; the aim is 48 hours", "Read, not answered 1 oldest 216 hours (9 days)", "To be deleted within 14 days 2 of those neither answered nor closed", "Held in all 1,209 each kept 180 days from arrival"]) {
+        expect(text).toContain(words);
+      }
+      // Each card that asks for something leads to the messages.
+      expect(html.match(/<a [^>]*href="\/admin\/feedback"[^>]*><p [^>]*>[^<]*/g)?.map((card) => card.replace(/^.*>/, ""))).toEqual(CARDS.slice(0, 3));
+      expect(text).not.toContain("Unknown");
+      expect(text).toContain("Source public_feedback (0149); PUBLIC_FEEDBACK in this deployment. Covers Messages that have not expired, counted by status, with ages in whole hours on the database's clock. No message, id, reply address or time of arrival is read out. A message its holder erased is gone and not counted.");
+    });
+
+    it("shows whether the door is on here", async () => {
+      vi.stubEnv("PUBLIC_FEEDBACK", "on");
+      expect((await counted()).text).toContain("PUBLIC_FEEDBACK on");
+      vi.stubEnv("PUBLIC_FEEDBACK", "");
+      expect((await counted()).text).toContain("PUBLIC_FEEDBACK off");
+    });
+
+    it("warns once a message has waited the 48 hours it was told, and not before", async () => {
+      expect((await counted()).card("Not read")).toMatch(/text-blue-400/);
+      const overdue = await counted({ oldest_unread_hours: 48 });
+      expect(overdue.card("Not read")).toMatch(/text-amber-400/);
+      expect(overdue.text).toContain("oldest 48 hours (2 days); the aim is 48 hours");
+      expect((await counted({ unread: 1, oldest_unread_hours: 48 })).card("Not read")).toMatch(/text-amber-400/);
+      expect((await counted({ expiring: 1 })).card("To be deleted within 14 days")).toMatch(/text-amber-400/);
+      expect((await counted({ expiring: 0 })).card("To be deleted within 14 days")).toMatch(/text-white/);
+    });
+
+    it("shows a counted zero as 0, in plain white", async () => {
+      const none = await counted({ held: 0, unread: 0, unanswered: 0, expiring: 0, oldest_unread_hours: null, oldest_unanswered_hours: null });
+      for (const words of ["Not read 0 none waiting", "Read, not answered 0 none waiting", "To be deleted within 14 days 0", "Held in all 0"]) expect(none.text).toContain(words);
+      for (const label of CARDS) expect(none.card(label)).toMatch(/text-white/);
+    });
+
+    it.each([
+      ["the table is not there", () => { throw Object.assign(new Error("relation does not exist"), { code: "42P01" }); }, "public_feedback is not provisioned here (migration 0149)"],
+      ["the read fails", () => { throw new Error("connect ECONNREFUSED 10.0.0.1:5432"); }, "public_feedback could not be read"],
+      ["no row comes back", () => [], "public_feedback could not be read"],
+      ["a count is missing", () => [{ ...waiting, unread: null }], "public_feedback could not be read"],
+      ["an age is missing", () => [{ ...waiting, oldest_unread_hours: null }], "public_feedback could not be read"],
+    ])("says unknown and why, with no number, when %s", async (_when, answer, reason) => {
+      const { html, text, card } = await panel(answer);
+      expect(text).toContain(`Unknown ${reason}`);
+      expect(text).toContain("PUBLIC_FEEDBACK off");
+      for (const label of CARDS) expect(card(label)).toBe("");
+      expect(html).not.toContain("10.0.0.1");
+    });
+
+    it("draws none of its text darker than neutral-400, which its smallest text needs on this ground", async () => {
+      for (const { html } of [await counted(), await counted({ oldest_unread_hours: 98 }), await panel(() => [])]) expect(html).not.toMatch(/text-neutral-[56]00/);
+    });
+
+    it("reads counts and ages only: nothing a sender wrote, and no id", async () => {
+      await counted();
+      const read = mocks.sfQuery.mock.calls.map(([sql]) => String(sql)).filter((sql) => sql.includes("public_feedback"));
+      expect(read).toHaveLength(1);
+      expect(read[0]).not.toMatch(/\b(?:message|details|reply_to|reply_name|feedback_id|holder_key_sha256|answer|kind|topic)\b/);
+    });
   });
 
   it("reads no held-keys table while signed acts are closed, and says so", async () => {

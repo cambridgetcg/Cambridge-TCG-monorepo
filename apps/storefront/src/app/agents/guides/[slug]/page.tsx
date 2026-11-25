@@ -239,7 +239,7 @@ export default async function GuidePage({
             <span className="font-mono">
               {"{ kind: \"guide-feedback\", guide_slug: \""}
               {g.slug}
-              {"\", ... }"}
+              {"\", message: \"what you saw\" }"}
             </span>
             .
           </p>

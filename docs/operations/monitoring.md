@@ -15,18 +15,29 @@ read "unknown".
 is behind the admin gate: `proxy.ts` sends a visitor without a session
 cookie to sign in, the admin layout's `requireAdminPage()`
 (`src/lib/auth/realms.ts`) sends anyone whose `users.role` is not `admin`
-away, and the page calls it again before it reads anything. It is
-server-rendered and sends nothing back: no client script, cookie, beacon or
-analytics library. The readers are `src/lib/observability/monitor.ts`.
+away, and the page calls it again before it reads anything. Its panels are
+rendered on the server and send nothing back: no client script, cookie, beacon
+or analytics library. The bar above them is the other admin pages' bar, whose
+links are fetched ahead of a click as they are there. The readers are
+`src/lib/observability/monitor.ts`.
 
 ## What it will never hold
 
-Every table it reads holds counts and Cambridge's own words. None holds an IP
+The tables migration 0148 adds (0150 widens one list in them) hold counts and
+Cambridge's own words. None of them holds an IP
 address (hashed or not), a user agent, a query string, a referrer, a request
 or response body, a raw path, log text, a price or source value, or a
-visitor, session, device, account or key id. No two requests can be joined,
-and no row names the key behind a tool call or a key-gated route. While only
-a few keys or accounts are in use, though, such a count can still describe
+visitor, session, device, account or key id. No two requests in them can be
+joined, and no row names the key behind a tool call or a key-gated route.
+
+The other tables the page reads (the collectors' and the derivation's,
+`data_api_usage_months`, `agent_keys`, `agent_rate_buckets`,
+`agent_act_nonces` and `public_feedback`) hold more, such as prices, account
+and key ids and what senders wrote. From those it reads counts, times, states
+and Cambridge's own words (sources, hosts, games, markets, reason codes): no
+price, no account or key id, and nothing a sender wrote.
+
+While only a few keys or accounts are in use, such a count can still describe
 their use, so the page withholds those counts until at least five
 (`MIN_HOLDERS` in `monitor.ts`) are counted: panels 3 and 4 below. Words come from fixed lists in
 `src/lib/observability/vocabulary.ts`; migration 0148's CHECKs hold the same
@@ -49,6 +60,7 @@ why. It never shows that as zero.
 | 4. Agents | `mcp_daily` for 30 days by method, tool, authenticated or not, and outcome; `agent_keys` counted, and active keys by when they were last used (under an hour, a day, a week, a month, older, never); `agent_rate_buckets` per day (its own 7 days): requests, keys, busiest key-minute; while signed acts are open (`AGENT_SIGNED_ACTS`), `agent_act_nonces` (0152) counted, with the rows past their time and when the oldest of those expired (a warning only once that is over 90 minutes ago, since expired rows are normal between hourly sweeps), and the held-keys sweep's last run from `ops_job_outcomes` | Which key or agent did anything; authenticated MCP rows while fewer than five active keys were used in the 30 days (`mcpView`); MCP requests while `OPS_MCP_DAILY` is off (read as not counting, not zero); the other agent doors, which appear in traffic by route group; any held-keys table while signed acts are closed (not read); each act's own small nonce purge, which is not recorded |
 | 5. Traffic | `traffic_pulls` for which of the last 35 days' hours were counted (ok, partly, failed, skipped at a start, unknown), in total and for each of the last 7 days; `traffic_hourly` for 7 days: requests per day beside that day's counted hours, RSC page-data share, share reaching Vercel directly (the `*.vercel.app` hosts), status mix, declared class by day (each day's header gives its counted hours), class by route group, 404 hot spots | Anything Cloudflare answered from its own cache (cookie-less HTML is cached there, so page views are undercounted); IP addresses, so no user agent's claim is verified and no class is "human"; query strings, referrers and bodies; requests older than Vercel keeps logs (about 24 h on the current plan), if a pull is missed. A partly counted day shows only its counted hours, so read its total beside its hours |
 | 6. Errors | `error_daily` for 30 days by tag (a fixed list) and status, each line beside its day's counted hours | The line's text; invocations that printed nothing (runtime logs hold only those that did); hours no pull counted |
+| 7. Feedback | `public_feedback` (0149), counted: not read, read and not answered, how many of those are to be deleted within 14 days, and held in all; how long the oldest not read and the oldest not answered have waited, in whole hours on the database's clock (a warning once one not read has waited the 48 hours senders are told we aim for); `PUBLIC_FEEDBACK` in this deployment | Any message, reference, reply address, id or time of arrival; a message erased, or expired (not counted, swept yet or not); a message someone looked at and did not mark |
 | Retention | Each 0148 table's rows, oldest row and rows past its period | |
 
 ## The tables (migration 0148)
@@ -323,20 +335,25 @@ one way back to what was kept.
   row, open or closed. The one abuse control in the app is a global cap of
   30 accepted messages per UTC hour (`feedback_hourly_intake`, kept 48
   hours, no sender), shared by agents and the /contact form; a per-source
-  rule needs an address, so it belongs at Cloudflare. The production alias
+  rule needs an address, so it would belong at Cloudflare, and none for this
+  door is known to be applied (2026-11-24). The production alias
   sends every method on this door, the hello door and `/api/mcp` to the
   apex (308, or 421 naming the apex URL when the request carries
-  Authorization, which a client would drop on the redirect), so Cloudflare's
-  rule stands in front of the cap. Against a sender spread over many
-  addresses, which a per-source rule does not catch, the cap is the only
-  defence, and it closes the form for everyone for the rest of the hour.
+  Authorization, which a client would drop on the redirect), so those
+  requests pass Cloudflare, where such a rule would stand in front of the
+  cap. Until there is one, the cap is the only defence, against one sender
+  as against many, and once reached it closes the form for everyone for the
+  rest of the hour.
   The references a report carries are bounded by field and by the 16 KiB
   read; 0149's whole-object check (20 KiB) is set above what such a request
   can hold in any script, and a check that still refuses one answers 400,
   not 503, since sending it again cannot work. Each message is deleted 180
   days after it arrives. Admins read and
   answer at `/admin/feedback` (in the admin nav under ops): mark read,
-  answer (which the holder reads with the key), close or delete. Each change
+  answer (which the holder reads with the key), close or delete. Saving an
+  answer sends nothing, and no code emails a sender. The page lists 100
+  messages, open ones first and the oldest of those first, and says how many
+  it leaves out. Only a message not read yet can be marked read. Each change
   goes through `adminAction`, whose log keeps the verb and the
   `feedback_id`, never the message or the answer, since that log outlives
   the row.
@@ -348,9 +365,9 @@ one way back to what was kept.
   caller when someone else said hello. Once an instance has seen a kind
   reach the cap it skips the database for that kind until the UTC day turns,
   so a flood past the cap writes nothing. Below the cap each counted hello is
-  one statement; Cloudflare's per-source rule, and the switch, are what
-  bound a faster flood. The content hash is echoed, never written. Kept 13
-  months.
+  one statement; the switch is what bounds a faster flood. A per-source rule
+  at Cloudflare would too, and none is known to be applied (2026-11-24). The
+  content hash is echoed, never written. Kept 13 months.
 - **What you record about me**, MCP `agent.self`
   (`src/lib/agents/self-record.ts`): the calling key's own minute buckets
   (summed per UTC day), `last_used_at`, tier limit and how long each is
@@ -432,5 +449,6 @@ failed runs.
   and on a disposable loopback database
   `DOORS_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/<a name containing test> pnpm --filter cambridgetcg-storefront exec vitest run src/lib/feedback/door.integration.test.ts`,
   which applies 0149 alone, checks its refusals, fills and caps the hour,
-  reads and erases as a holder through pg and postgres.js, counts hellos to
-  the cap and sweeps past each period.
+  reads and erases as a holder through pg and postgres.js, counts what waits
+  for the monitor and the operator's list, counts hellos to the cap and
+  sweeps past each period.

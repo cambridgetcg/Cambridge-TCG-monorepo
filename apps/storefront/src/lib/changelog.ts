@@ -95,6 +95,19 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-11-25 ─────────────────────────────────────────────────────────
+  {
+    id: "feedback-one-reading-aim",
+    date: "2026-11-25",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "/api/v1/welcome feedback + /api/v1/budget feedback + /api/v1/identify responder",
+    summary:
+      "feedback.response_window_hours (48) is replaced by feedback.response_aim, in the feedback receipt's words: we aim to read every message sent to /api/v1/feedback within 48 hours. No answer, and no time for one, is promised.",
+    detail:
+      "The aim is for messages sent to the door. Where only contact@cambridgetcg.com is offered, the address stands alone. The responder block of POST /api/v1/identify no longer carries response_window_hours (48), which read as Cambridge's own response time. welcome and budget gain feedback.taking_messages, which points at GET /api/v1/feedback to see whether the door is taking messages, and welcome's feedback.kinds lists all seven kinds it takes. The older promises (a 48-hour response, a fix within a week, an emailed reply) are gone from the guides, /api/v1, /api/v1/diagnostic, /api/v1/rate-limits, /scrapers and /contact. /api/v1/adopters no longer promises a smoke test or a listing, the federate-bilateral guide no longer says that Cambridge TCG resolves your hashes, and welcome says that it does not call your endpoint today. An answer, if one is written, is shown to whoever holds the message's key; no answer is emailed automatically. No rate rule at Cloudflare is known to stand in front of the door. Its fields, limits and retention are unchanged.",
+    related_urls: ["/api/v1/feedback", "/api/v1/welcome", "/api/v1/budget", "/api/v1/identify"],
+  },
   // ── 2026-11-24 ─────────────────────────────────────────────────────────
   {
     id: "answers-say-what-is-so",

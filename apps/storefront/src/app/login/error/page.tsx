@@ -74,8 +74,8 @@ export default async function LoginErrorPage({
           Still stuck?{" "}
           <Link href="/contact" className="text-accent hover:underline">
             Contact us
-          </Link>{" "}
-          and we&apos;ll sort it out.
+          </Link>
+          .
         </p>
       </div>
     </main>

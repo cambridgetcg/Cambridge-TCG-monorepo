@@ -60,7 +60,7 @@ export function KpiCard({
   const isLink = Boolean(href);
   const content = (
     <>
-      <p className="text-xs text-neutral-500 uppercase tracking-wide">{label}</p>
+      <p className="text-xs text-neutral-400 uppercase tracking-wide">{label}</p>
       <p
         className={[
           "text-2xl font-bold mt-1 tabular-nums",
@@ -69,7 +69,7 @@ export function KpiCard({
       >
         {unavailable ? "—" : value}
       </p>
-      {sub && <p className="text-xs text-neutral-500 mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-neutral-400 mt-1">{sub}</p>}
     </>
   );
 

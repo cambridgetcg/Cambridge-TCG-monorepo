@@ -273,7 +273,6 @@ export const PLATFORM_SELF: BeingDeclaration = {
     accepts_link_headers: true,
     honours_cache_control: true,
   },
-  response_window_hours: 48,
   audience_declarations: [
     "humans (default — collectors, researchers and players; traders only for agreements made before 2026-09-23)",
     "agents (S18 — delegated powers operated_by_user_id, MCP gate)",
@@ -625,7 +624,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Consider proposing a new kind via feedback. The kingdom welcomes the extension.",
           "/api/v1/feedback",
-          "POST with kind: 'kind-proposal'. The platform admits new actor_kind values when the substrate is ready to host them.",
+          "POST with kind: 'general' and the kind you propose as the message. The platform admits new actor_kind values when the substrate is ready to host them.",
         ),
       );
       gaps.push(

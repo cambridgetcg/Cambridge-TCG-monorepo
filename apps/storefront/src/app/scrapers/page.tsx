@@ -15,6 +15,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { audienceMetadata } from "@/lib/ui";
+import { FEEDBACK_OPEN_CHECK, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 import { repoDocRef } from "@/lib/repository";
 
 export const metadata: Metadata = {
@@ -263,10 +264,9 @@ export default async function ScrapersWelcomePage() {
             Feedback channel:{" "}
             <Link href="/api/v1/feedback" className="text-accent hover:underline">
               POST /api/v1/feedback
-            </Link>{" "}
-            or email{" "}
-            <span className="font-mono">contact@cambridgetcg.com</span>. Response
-            window 48h.
+            </Link>
+            . {FEEDBACK_OPEN_CHECK} {FEEDBACK_READ_AIM} Or email{" "}
+            <span className="font-mono">contact@cambridgetcg.com</span>.
           </p>
           <p>
             Other doors:{" "}
