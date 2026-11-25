@@ -1,13 +1,13 @@
 /**
  * The guard the test scripts import (scripts/lib/local-test-database.mjs):
- * which databases it accepts, what a run keeps of its environment, and how a
- * script cleans up when it fails. No database is needed here.
+ * which databases it accepts, what a run's environment holds, and how a script
+ * cleans up when it fails. No database is needed here.
  */
 import { spawnSync } from "node:child_process";
 import pg from "pg";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCompatDb } from "@cambridge-tcg/db/compat";
-import { localTestEnvironment, readLocalTestDatabase } from "../../scripts/lib/local-test-database.mjs";
+import { readLocalTestDatabase } from "../../scripts/lib/local-test-database.mjs";
 
 const HELPER = new URL("../../scripts/lib/local-test-database.mjs", import.meta.url).href;
 
@@ -37,6 +37,7 @@ describe("which databases the test scripts may use", () => {
     "ctcg_test",
     "postgres://secretuser:fake@secrethost.example:5432/ctcg_test",
     "postgres://secretuser:fake@127.0.0.1/secretlive",
+    "postgres://test@127.0.0.1/secretlive",
     "postgres://secretuser@127.0.0.1/latest",
     "postgres://secretuser@127.0.0.1/contest",
     "postgres://secretuser@127.0.0.1/testing",
@@ -47,6 +48,7 @@ describe("which databases the test scripts may use", () => {
     "postgres://secretuser@127.0.0.1/ctcg_test#secret",
     "postgres://secretuser@127.0.0.1:5432,secrethost.example:5432/ctcg_test",
     "postgres://u:fake@secrethost.example:5432,localhost@127.0.0.1/ctcg_test",
+    "postgres://secrethost.example:5432/x@127.0.0.1/ctcg_test",
     "postgres://secretuser@127.0.0.1%2Csecrethost.example/ctcg_test",
     "postgres://secretuser@%2Ftmp/ctcg_test",
     "postgres:///ctcg_test",
@@ -64,6 +66,7 @@ describe("which databases the test scripts may use", () => {
     "postgres://secretuser@localhost.secrethost.example/ctcg_test",
     "postgres://secretuser@LOCALHOST/ctcg_test",
     "postgres://secretuser@localhost./ctcg_test",
+    `postgres://secretuser@127.0.0.1/${"x".repeat(59)}_test`, // 64 characters; the server cuts a name at 63
     "postgres://secretuser@127.0.0.1/ctcg%5Ftest",
     "postgres://secretuser@127.0.0.1/secret%2F_test",
     "postgres://secret%40user@127.0.0.1/ctcg_test",
@@ -101,25 +104,6 @@ describe("which databases the test scripts may use", () => {
   });
 });
 
-describe("what a run keeps of its environment", () => {
-  it("is the shell's basics, and nothing that names a service", () => {
-    const kept = { PATH: "/bin", HOME: "/h", USER: "me", LC_ALL: "C", TZ: "UTC", NODE_OPTIONS: "--no-warnings" };
-    const dropped = [
-      "DATABASE_URL", "STOREFRONT_DATABASE_URL", "WHOLESALE_DATABASE_URL", "WHOLESALE_COVERAGE_DATABASE_URL", "PRISM_OPERATOR_DATABASE_URL",
-      "PGHOST", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGSERVICE", "PGOPTIONS", "PGSSLMODE",
-      "WHOLESALE_API_URL", "WHOLESALE_API_KEY", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "STRIPE_SECRET_KEY",
-      "SMTP_URL", "EMAIL_TRANSPORT", "EMAIL_TRANSPORT_NOREPLY", "AUTH_SECRET", "CRON_SECRET", "SITE_URL", "NODE_ENV", "XPATH", "PATHX",
-    ];
-    const env = { ...kept, ...Object.fromEntries(dropped.map((name) => [name, "leftover"])) };
-    expect(localTestEnvironment(env, "postgres://127.0.0.1:5432/test")).toEqual({
-      ...kept,
-      DATABASE_URL: "postgres://127.0.0.1:5432/test",
-      DB_IDLE_TIMEOUT_S: "1",
-      WHOLESALE_API_URL: "http://127.0.0.1:9",
-    });
-  });
-});
-
 describe("in a script", { timeout: 30_000 }, () => {
   it.each([
     ["is missing", {}],
@@ -129,17 +113,26 @@ describe("in a script", { timeout: 30_000 }, () => {
     expect(result).toMatchObject({ status: 2, stdout: "" });
     expect(result.stderr).toMatch(/^Refusing to run: .*\nDATABASE_URL is not .*\nThe top of scripts\/lib\/local-test-database.mjs /);
     expect(result.stderr).not.toMatch(/secret|fake/);
+    const stubbed = run("process.exit = () => {}; requireLocalTestDatabase(); console.log('ran');", env);
+    expect(stubbed).toMatchObject({ status: 1, stdout: "" });
+    expect(stubbed.stderr).not.toMatch(/secret|fake/);
   });
 
-  it("leaves the process with the accepted database and no other setting", () => {
+  it("leaves the process with its own settings and no other", () => {
     const result = run("const pool = requireLocalTestDatabase(); console.log(JSON.stringify([pool.options.connectionString, process.env]));", {
       DATABASE_URL: "postgres://u@localhost/ctcg_test",
       WHOLESALE_DATABASE_URL: "postgres://elsewhere.example/live",
       PGHOST: "elsewhere.example",
+      AWS_ACCESS_KEY_ID: "leftover",
+      STRIPE_SECRET_KEY: "leftover",
+      NODE_ENV: "production",
+      PATH: "/bin",
     });
     const url = "postgres://u@127.0.0.1:5432/ctcg_test";
-    expect(JSON.parse(result.stdout)).toMatchObject([url, { DATABASE_URL: url }]);
-    expect(result.stdout).not.toMatch(/elsewhere|PGHOST/);
+    expect(JSON.parse(result.stdout)).toEqual([
+      url,
+      { DATABASE_URL: url, DB_IDLE_TIMEOUT_S: "1", WHOLESALE_API_URL: "http://127.0.0.1:9", NO_PROXY: "*", no_proxy: "*" },
+    ]);
   });
 
   it("survives an idle connection being dropped", () => {

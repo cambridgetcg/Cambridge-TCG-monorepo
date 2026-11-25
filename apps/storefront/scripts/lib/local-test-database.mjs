@@ -21,7 +21,13 @@
  *   }
  *
  * Add an id to its list on the line after its INSERT. End a failed run with
- * process.exitCode = 1, because process.exit() skips `finally`.
+ * process.exitCode = 1, because process.exit() skips `finally`. The run gets
+ * none of the shell's other settings: a script sets what it needs after the
+ * call, and a password has to be in the URL.
+ *
+ * Use a database that holds nothing else. Ctrl-C skips the cleanup, and so do
+ * an error in code that nobody awaits and an await that never ends. After one
+ * of those, drop the database and make it again.
  *
  * To run one, with PostgreSQL 16 on the PATH, in apps/storefront:
  *
@@ -30,7 +36,7 @@
  *   initdb -D $D -U tester -A trust -E UTF8 --locale=C
  *   openssl req -new -x509 -days 30 -nodes -subj /CN=localhost -out $D/server.crt -keyout $D/server.key
  *   chmod 600 $D/server.key
- *   pg_ctl -D $D -l $D/log -w -o "-p $P -c listen_addresses=127.0.0.1 -c unix_socket_directories='' -c ssl=on" start
+ *   LC_ALL=C pg_ctl -D $D -l $D/log -w -o "-p $P -c listen_addresses=127.0.0.1 -c unix_socket_directories='' -c ssl=on" start
  *   createdb -h 127.0.0.1 -p $P -U tester ctcg_test
  *   node scripts/migrate.mjs --no-ssl
  *   psql $DATABASE_URL -c "ALTER TYPE dispute_status ADD VALUE 'escalated'"
@@ -38,8 +44,10 @@
  *   pnpm exec tsx scripts/test-notifications.mts
  *   pg_ctl -D $D -m fast stop
  *
- * The certificate is there because packages/db always asks for TLS. The first
- * migrate stops at 0106, which needs that enum value; the second finishes.
+ * The folder $D stays; delete it when you are done. The first migrate stops at
+ * 0106, which needs that enum value; the second finishes. The certificate is
+ * there because packages/db always asks for TLS. Without it, app code fails with
+ * "Client network socket disconnected before secure TLS connection was established".
  */
 import pg from "pg";
 
@@ -61,7 +69,8 @@ export function readLocalTestDatabase(raw) {
     return {
       refusal:
         "DATABASE_URL is not a plain local URL, like postgres://user:password@127.0.0.1:5432/name. " +
-        "The host must be 127.0.0.1 or localhost, with no query string, socket or encoded character.",
+        "The host must be 127.0.0.1 or localhost, with no query string, socket or encoded character. " +
+        "The user name and password may hold only letters, digits and . _ - (and ~ in the password).",
     };
   }
   if (!TEST_WORD.test(name)) {
@@ -69,22 +78,6 @@ export function readLocalTestDatabase(raw) {
   }
   // The address and port are spelled out, so neither a name lookup nor PGPORT decides them.
   return { url: `postgres://${login}127.0.0.1:${port}/${name}` };
-}
-
-// What a run keeps of the shell's environment. The app would read the rest:
-// another database URL, PG*, AWS_*, STRIPE_*, WHOLESALE_* or a mail setting
-// left over from .env.local reaches a real service.
-const KEPT =
-  /^(?:PATH|HOME|USER|LOGNAME|SHELL|PWD|TMPDIR|TZ|LANG|LC_\w+|TERM|COLORTERM|NO_COLOR|FORCE_COLOR|NODE_OPTIONS|TSX_\w+)$/;
-
-/** The environment of a run that passed the guard. */
-export function localTestEnvironment(env, url) {
-  return {
-    ...Object.fromEntries(Object.entries(env).filter(([name]) => KEPT.test(name))),
-    DATABASE_URL: url,
-    DB_IDLE_TIMEOUT_S: "1", // the app's idle connections close, so the run ends
-    WHOLESALE_API_URL: "http://127.0.0.1:9", // unset means the live site; nothing answers here
-  };
 }
 
 /** Refuses (exit 2, nothing run) unless DATABASE_URL names a local test database. Returns a pool on it. */
@@ -96,10 +89,18 @@ export function requireLocalTestDatabase() {
       "The top of scripts/lib/local-test-database.mjs says how to make one.",
     );
     process.exit(2);
+    throw new Error(refusal); // where process.exit is stubbed
   }
-  const env = localTestEnvironment(process.env, url);
+  // Another database URL, PG*, AWS_*, STRIPE_* or a mail setting left over from
+  // .env.local would reach a real service, so nothing of the shell's is kept.
   for (const name of Object.keys(process.env)) delete process.env[name];
-  Object.assign(process.env, env);
+  Object.assign(process.env, {
+    DATABASE_URL: url,
+    DB_IDLE_TIMEOUT_S: "1", // the app's idle connections close, so the run ends 20 seconds sooner
+    WHOLESALE_API_URL: "http://127.0.0.1:9", // unset means the live site; nothing answers here
+    NO_PROXY: "*", // Node keeps the proxy it started with, and asks this before each call
+    no_proxy: "*",
+  });
   const pool = new pg.Pool({ connectionString: url });
   pool.on("error", () => {}); // an idle connection dropped; the next query reports it
   return pool;
