@@ -8,6 +8,8 @@
 
 export const FEEDBACK_READ_AIM_HOURS = 48;
 export const FEEDBACK_READ_AIM = `We aim to read every message within ${FEEDBACK_READ_AIM_HOURS} hours.`;
+/** The same aim for people, on /contact. */
+export const CONTACT_FORM_READ_AIM = `We aim to read every message sent with this form within ${FEEDBACK_READ_AIM_HOURS} hours.`;
 
 /** Where an answer to a message sent through the door is, and is not. */
 export const FEEDBACK_ANSWER_PLACE = "The answer is shown to whoever holds the message's key. Nothing is emailed automatically.";
