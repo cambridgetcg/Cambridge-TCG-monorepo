@@ -33,7 +33,7 @@ describe("the completion message", () => {
   it("promises the seller the payout when the buyer paid", async () => {
     await notifyTradeStatusChange(trade("2026-11-01 00:00:00+00"));
     const mail = mailTo("s@example.test");
-    expect([mail.subject, mail.heading]).toEqual(["Trade complete: Card", "Trade complete — payout released"]);
+    expect([mail.subject, mail.heading]).toEqual(["Trade complete: Card", "Trade complete"]);
     expect(mail.body).toBe(
       "Trade for <strong>Card</strong> is complete. Your payout of <strong>£9.20</strong> will be released after the payout-hold window.",
     );
@@ -118,7 +118,7 @@ describe("every path that completes a trade tells the seller by the row it updat
         await complete(paid);
         await vi.waitFor(() => expect(mocks.sendStatusEmail.mock.calls.map(([m]) => m.email)).toContain("s@example.test"));
         const { heading, body } = mocks.sendStatusEmail.mock.calls.map(([m]) => m).find((m) => m.email === "s@example.test");
-        expect([heading.includes("payout"), body.includes("£9.20"), body.includes("No buyer payment")]).toEqual([paid !== null, paid !== null, paid === null]);
+        expect([heading, body.includes("£9.20"), body.includes("No buyer payment")]).toEqual(["Trade complete", paid !== null, paid === null]);
       }
     });
   }

@@ -59,30 +59,77 @@ const trade = (over: Record<string, unknown> = {}) => ({
 });
 
 describe("the trade page", () => {
-  const as = (viewer: "b" | "s", over: Record<string, unknown>) => {
+  const NO_PAYOUT = "No buyer payment is recorded for this trade, so no payout is due. If the buyer has paid, contact support.";
+  const RESOLVED = {
+    id: "d1", trade_id: "t1", raised_by: "b", reason: "other", description: "Not as described.", status: "resolved_seller",
+    resolution_notes: "Released.", resolved_at: "2026-11-01 00:00:00+00", created_at: "2026-10-20 00:00:00+00",
+  };
+  const as = (viewer: "b" | "s", over: Record<string, unknown>, dispute: object | null = null) => {
     serve({
       "/api/auth/session": { user: { id: viewer, email: `${viewer}@example.test` } },
       "/api/market/trades/t1": { trade: trade(over) },
-      "/api/trust/disputes?trade_id=t1": { disputes: [] },
+      "/api/trust/disputes?trade_id=t1": { dispute },
     });
     return show(TradePage);
   };
+  /** The escrow timeline: each step, and whether it is done, current or to come. */
+  const timeline = () => [...container.querySelectorAll("div.w-3.rounded-full")].map((dot) =>
+    `${dot.nextElementSibling!.textContent}: ${dot.classList.contains("bg-ok") ? "done" : dot.classList.contains("bg-ink") ? "current" : "to come"}`);
 
-  it("tells the seller that no payout is due when no payment is recorded", async () => {
-    const seen = await as("s", { buyer_paid_at: null });
-    expect(seen).toContain("No buyer payment is recorded for this trade, so no payout is due. If the buyer has paid, contact support.");
-    expect(seen).not.toContain("Your payout of");
+  it("tells the seller once that no payout is due, and promises none, when no payment is recorded", async () => {
+    for (const dispute of [null, RESOLVED]) {
+      for (const payout_hold_days of [5, 0]) {
+        const seen = await as("s", { buyer_paid_at: null, payout_hold_days }, dispute);
+        expect(seen.split(NO_PAYOUT)).toHaveLength(2);
+        expect(seen).not.toMatch(/your payout|payout is released/i);
+        expect(seen.includes("Resolved (Seller)")).toBe(dispute !== null);
+      }
+    }
   });
   it("tells the seller of the payout when the buyer paid, held or not", async () => {
     const held = await as("s", { buyer_paid_at: PAID_AT });
+    expect(held).toContain("Your payout is released 5 days after the trade completes.");
     expect(held).toContain("Your payout of £9.20 is released 5 days after completion.");
     expect(held).not.toContain("No buyer payment is recorded");
     expect(await as("s", { buyer_paid_at: PAID_AT, payout_hold_days: 0 })).toContain("Your payout of £9.20 is eligible for release.");
+    expect(await as("s", { buyer_paid_at: PAID_AT }, RESOLVED)).not.toContain("No buyer payment is recorded");
   });
-  it("tells the buyer nothing about it", async () => {
-    const seen = await as("b", { buyer_paid_at: null });
-    expect(seen).toContain("This trade is complete.");
-    expect(seen).not.toContain("No buyer payment is recorded");
+  it("does not say that no payout is due before the trade completes, or once one was sent", async () => {
+    for (const dispute of [null, RESOLVED]) {
+      for (const over of [{ seller_paid_at: "2026-11-03 00:00:00+00" }, { escrow_status: "disputed", completed_at: null }]) {
+        expect(await as("s", { buyer_paid_at: null, ...over }, dispute)).not.toContain("no payout is due");
+      }
+    }
+  });
+  it("tells the buyer nothing about it, and promises the seller nothing", async () => {
+    for (const dispute of [null, RESOLVED]) {
+      const seen = await as("b", { buyer_paid_at: null }, dispute);
+      expect(seen).not.toContain("No buyer payment is recorded");
+      expect(seen).not.toContain("The seller's payout");
+      expect(seen.includes("This trade is complete.")).toBe(dispute === null);
+    }
+    expect(await as("b", { buyer_paid_at: PAID_AT })).toContain("The seller's payout is held 5 days after the trade completes.");
+  });
+  it("ticks Paid, and reaches Payout, only on a recorded payment", async () => {
+    for (const escrow_tier of ["direct", "verified", "full_escrow"]) {
+      for (const viewer of ["s", "b"] as const) {
+        await as(viewer, { escrow_tier, buyer_paid_at: PAID_AT });
+        const paid = timeline();
+        expect([paid[0], paid.at(-1)], escrow_tier).toEqual(["Paid: done", "Payout: current"]);
+        await as(viewer, { escrow_tier, buyer_paid_at: null });
+        expect(timeline(), escrow_tier).toEqual(["Paid: to come", ...paid.slice(1, -1), "Payout: to come"]);
+      }
+    }
+    // Before any payment, Paid is the step the trade waits for.
+    await as("s", { escrow_status: "awaiting_payment", completed_at: null });
+    expect(timeline().slice(0, 2)).toEqual(["Paid: current", "Seller Ships to CTCG: to come"]);
+  });
+  it("tells the buyer that confirming starts the seller's payout clock only when the payment is recorded", async () => {
+    const shipped = { escrow_status: "shipped_to_buyer", completed_at: null };
+    expect(await as("b", { ...shipped, buyer_paid_at: PAID_AT })).toContain("Seller payout clock:starts — released after a 5-day hold");
+    const unpaid = await as("b", { ...shipped, buyer_paid_at: null });
+    expect(unpaid).toContain("Card arrived?");
+    expect(unpaid).not.toContain("payout clock");
   });
 });
 

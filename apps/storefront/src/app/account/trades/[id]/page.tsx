@@ -37,7 +37,10 @@ const TIER_BADGE: Record<EscrowTier, { bg: string; text: string; border: string;
   },
 };
 
-function EscrowTimeline({ tier, escrowStatus }: { tier: EscrowTier; escrowStatus?: string }) {
+// The status says how far the trade went, not that anyone paid: an admin can
+// set it by hand. With no recorded payment, "Paid" (the first step of every
+// tier) is not done and "Payout" (the last) is not reached.
+function EscrowTimeline({ tier, escrowStatus, paid }: { tier: EscrowTier; escrowStatus?: string; paid: boolean }) {
   const steps = TIMELINE_STEPS[tier];
   const activeIdx = getActiveStep(tier, escrowStatus);
   const style = TIER_BADGE[tier];
@@ -46,8 +49,8 @@ function EscrowTimeline({ tier, escrowStatus }: { tier: EscrowTier; escrowStatus
     <div className="flex items-center gap-0 overflow-x-auto py-2">
       <Audience kind="consumer" />
       {steps.map((step, i) => {
-        const isDone = i < activeIdx;
-        const isCurrent = i === activeIdx;
+        const isDone = i < activeIdx && (paid || i > 0);
+        const isCurrent = i === activeIdx && (paid || i < steps.length - 1);
         const lineColor = isDone ? "bg-ok/40" : "bg-border-subtle";
         const textColor = isDone ? "text-ok" : isCurrent ? style.text : "text-ink-faint";
 
@@ -162,7 +165,7 @@ function EscrowTermsSection({ trade, role }: { trade: any; role: TradeRole }) {
         <span className="text-sm text-ink-muted">{tierHeadline(trade, role)}</span>
       </div>
 
-      <EscrowTimeline tier={tier} escrowStatus={trade.escrow_status ?? trade.status} />
+      <EscrowTimeline tier={tier} escrowStatus={trade.escrow_status ?? trade.status} paid={!!trade.buyer_paid_at} />
 
       <ul className="space-y-1 pt-1 border-t border-border-subtle">
         {bullets.map((point, i) => (
@@ -757,6 +760,13 @@ export default function TradeDetailPage() {
     ? (viewerIsBuyer ? trade.seller_username : trade.buyer_username)
     : null;
 
+  // Completed, but no payment by the buyer is recorded, so no payout is due
+  // (lib/payouts/owed.ts) and none was sent.
+  const noPayoutDue =
+    trade?.escrow_status === "completed" && !trade.buyer_paid_at && !trade.seller_paid_at;
+  const noPayoutDueText =
+    "No buyer payment is recorded for this trade, so no payout is due. If the buyer has paid, contact support.";
+
   // Mirrors isBuyerConfirmableState in lib/market/completion.ts (a server
   // module this client bundle can't import): shipped_to_buyer in any tier,
   // plus direct-tier 'verified' (the admin-set post-delivery hold state).
@@ -1107,15 +1117,16 @@ export default function TradeDetailPage() {
                 tone: "emerald",
                 methodology: "/methodology/trade-completion",
               },
-              {
+              // With no recorded payment, confirming starts no payout clock.
+              ...(trade.buyer_paid_at ? [{
                 label: "Seller payout clock",
                 delta:
                   trade.payout_hold_days != null && trade.payout_hold_days > 0
                     ? `starts — released after a ${trade.payout_hold_days}-day hold`
                     : "starts — eligible for release right away",
-                tone: "amber",
+                tone: "amber" as const,
                 methodology: "/methodology/payout-hold",
-              },
+              }] : []),
               {
                 label: "Dispute window",
                 delta: "closes — open any dispute before confirming",
@@ -1159,9 +1170,10 @@ export default function TradeDetailPage() {
       )}
 
       {/* Completed banner — replaces the dispute form once escrow is done.
-          The seller gets the payout ETA (stored hold days); the buyer gets a
-          plain done state. The Raise-Dispute form no longer renders here (the
-          window has closed), matching the confirm panel's promise. */}
+          The seller gets the payout ETA (stored hold days), or that no payout
+          is due; the buyer gets a plain done state. The Raise-Dispute form no
+          longer renders here (the window has closed), matching the confirm
+          panel's promise. */}
       {trade && trade.escrow_status === "completed" && !dispute && (
         <div className="bg-surface border border-ok/30 rounded-lg p-6">
           <div className="flex items-center gap-2">
@@ -1174,8 +1186,8 @@ export default function TradeDetailPage() {
           <InkRule accent className="mt-2 mb-1 max-w-xs" />
           <p className="text-sm text-ink-muted mt-2">
             {viewerIsSeller ? (
-              !trade.buyer_paid_at ? (
-                <>No buyer payment is recorded for this trade, so no payout is due. If the buyer has paid, contact support.</>
+              noPayoutDue ? (
+                <>{noPayoutDueText}</>
               ) : trade.payout_hold_days != null && trade.payout_hold_days > 0 ? (
                 <>
                   Your payout of{" "}
@@ -1195,6 +1207,16 @@ export default function TradeDetailPage() {
             ) : (
               <>This trade is complete. Thanks for confirming — leave a review below to build the seller&apos;s reputation.</>
             )}
+            <WhyLink href="/methodology/payout-hold" tooltip="How the payout hold works" />
+          </p>
+        </div>
+      )}
+
+      {/* A trade with a dispute has no banner, so the seller reads it here. */}
+      {noPayoutDue && viewerIsSeller && dispute && (
+        <div className="bg-surface border border-border-subtle rounded-lg p-4">
+          <p className="text-sm text-ink-muted">
+            {noPayoutDueText}
             <WhyLink href="/methodology/payout-hold" tooltip="How the payout hold works" />
           </p>
         </div>

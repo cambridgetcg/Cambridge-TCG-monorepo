@@ -1140,8 +1140,8 @@ export async function notifyTradeStatusChange(trade: MarketTrade): Promise<void>
         { to: buyer_email, subject: `Trade complete: ${card_name}`,
           heading: "Trade complete", body: `Your trade for <strong>${card_name}</strong> is complete. Thanks for trading on Cambridge TCG.` },
         { to: seller_email, subject: `Trade complete: ${card_name}`,
+          heading: "Trade complete",
           // A payout is due only if the buyer's payment is recorded (lib/payouts/owed.ts).
-          heading: trade.buyer_paid_at ? "Trade complete — payout released" : "Trade complete",
           body: trade.buyer_paid_at
             ? `Trade for <strong>${card_name}</strong> is complete. Your payout of <strong>£${trade.seller_payout}</strong> will be released after the payout-hold window.`
             : `Trade for <strong>${card_name}</strong> is complete. No buyer payment is recorded for it, so no payout is due. If the buyer has paid, contact support.` }
