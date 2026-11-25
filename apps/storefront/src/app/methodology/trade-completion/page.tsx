@@ -35,7 +35,7 @@ export default function TradeCompletionMethodology() {
       </p>
       <ol>
         <li>Marks the escrow <code>completed</code> and stamps <code>completed_at</code> and <code>delivered_at</code>.</li>
-        <li>Starts the seller&rsquo;s payout clock (see <a href="/methodology/payout-hold">/methodology/payout-hold</a>).</li>
+        <li>Starts the seller&rsquo;s payout clock, if your payment is recorded (see <a href="/methodology/payout-hold">/methodology/payout-hold</a>).</li>
         <li>Closes the dispute window — if something is wrong with the card, open a dispute <em>before</em> confirming.</li>
         <li>Recomputes both parties&rsquo; trust scores (<a href="/methodology/trust-score">/methodology/trust-score</a>).</li>
       </ol>
