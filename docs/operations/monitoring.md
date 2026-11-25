@@ -402,8 +402,15 @@ Two halves, so that neither has to report its own death.
   message; only while the database is away can a second go out. It holds
   counts, links and what the walk found, never a message's words. It needs
   no database to go out. A message that could not be sent is recorded
-  (`unavailable:mail-…`) and owed to the next day. SES accepting a message is
-  not a person reading it: only the reader can say that it arrived.
+  (`unavailable:mail-…`) and owed to the next day. The word is ours
+  (`no-address`, `console-only`, `not-configured`, `not-verified`,
+  `no-answer`, `refused`) or the provider's own name for the error, and when
+  AWS denies the send it says on which kind of resource, never an address.
+  The first runs on production (2026-11-25) were
+  `mail-access-denied-on-configuration-set`; what that needs is in
+  [the storefront key's policy](../infra/verification-storage-production-gate.md).
+  SES accepting a message is not a person reading it: only the reader can say
+  that it arrived.
 - **From outside, several times a day.** `.github/workflows/health.yml` runs
   `.github/scripts/deploy-health.py` for the Vercel deployments and keeps one
   issue (label `deploy-health`). It does not run the walk yet: until it does,

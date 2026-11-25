@@ -318,6 +318,27 @@ separate hardening step after this release gate.
 There is deliberately no `s3:ListBucket`, IAM, bucket-policy, KMS, RDS or admin
 permission. `HeadObject` is authorized by `s3:GetObject`.
 
+**The email statement is not enough to send (2026-11-25).** The daily check's
+first sends on production were denied on a configuration set
+(`unavailable:mail-access-denied-on-configuration-set` in `ops_job_outcomes`).
+The app names no configuration set, so SES applies a default one, and a send
+that uses one needs the right on it too. The simulation below asks only about
+the identity, so it passes either way. This would correct it, with the action
+and the sender condition as they are; it is the owner's to apply, and had not
+been applied when this was written:
+
+```json
+"Resource": [
+  "arn:aws:ses:us-east-1:034362054546:identity/cambridgetcg.com",
+  "arn:aws:ses:us-east-1:034362054546:configuration-set/*"
+]
+```
+
+Until then the storefront's mail (sign-in links, order and trade mail, the
+daily check's message) is denied the same way, as far as the code can tell:
+it all goes out with this key. Since when is not known. What a send meets
+after this right is not known either.
+
 These are the reviewed principal-creation and simulation commands. Creation has
 already occurred; retain them for audit and do not create a second user/key:
 
