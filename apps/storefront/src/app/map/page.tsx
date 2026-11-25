@@ -13,7 +13,7 @@ export default function MapPage() {
   return (
     <PageLayout width="wide">
       <div lang="en">
-        <PageHeader size="large" title="The map" description="Every room, at a glance." />
+        <PageHeader size="large" title="The map" description="Eight rooms and their reading trails." />
         <p className="mb-6 text-sm text-ink-muted">Looking for prices or collection tools? <Link href="/services" className="text-accent underline underline-offset-4">Start with services →</Link></p>
         <RoomDirectory />
         <details className="mt-8 border-t border-border-subtle pt-5">

@@ -43,24 +43,3 @@ export async function logReviewTransition(args: LogReviewArgs): Promise<void> {
     );
   });
 }
-
-export interface ReviewLifecycleEntry {
-  id: number;
-  action: ReviewAction;
-  actor_id: string | null;
-  actor_label: string | null;
-  reason: string | null;
-  metadata: Record<string, unknown> | null;
-  created_at: string;
-}
-
-export async function getReviewLifecycle(reviewId: string): Promise<ReviewLifecycleEntry[]> {
-  const r = await query(
-    `SELECT id, action, actor_id, actor_label, reason, metadata, created_at
-       FROM review_lifecycle_log
-      WHERE review_id = $1
-      ORDER BY created_at ASC`,
-    [reviewId],
-  );
-  return r.rows;
-}

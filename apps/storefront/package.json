@@ -40,7 +40,6 @@
     "cardrush-discovery-health": "tsx scripts/cardrush-discovery-health.ts",
     "classifier-disagreement": "tsx scripts/classifier-disagreement.ts",
     "seed-classifications-from-cards": "tsx scripts/seed-classifications-from-cards.ts",
-    "seed-rarity-map": "tsx scripts/seed-rarity-map.ts",
     "nav-coverage": "tsx scripts/nav-coverage.ts",
     "cross-language-coherence": "tsx scripts/cross-language-coherence.ts",
     "known-gaps": "tsx scripts/known-gaps.ts",
@@ -58,9 +57,7 @@
     "missions:claim": "tsx scripts/missions-claim.ts",
     "missions:done": "tsx scripts/missions-done.ts",
     "trace": "tsx scripts/trace.ts",
-    "agent-readiness": "tsx scripts/agent-readiness.ts",
-    "audience-sweep": "tsx scripts/audience-sweep.ts",
-    "typesig-sweep": "tsx scripts/typesig-sweep.ts"
+    "agent-readiness": "tsx scripts/agent-readiness.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1029.0",

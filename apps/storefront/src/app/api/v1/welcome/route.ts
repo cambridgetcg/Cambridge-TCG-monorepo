@@ -74,9 +74,9 @@ export async function GET(): Promise<Response> {
         "session or bearer requirement in the manifest. " +
         DATA_RIGHTS + " The doctrine is at /welcome-all.",
       to_autonomous_agents:
-        "We pre-thought your first 3–5 requests. Start at /api/v1/guides/first-request. " +
-        "Identify yourself in User-Agent so we can email when something breaks. " +
-        "We never play cat-and-mouse with identified bots.",
+        "Start at /api/v1/guides/first-request. Send a User-Agent that names your " +
+        "project and version. A contact in it makes it possible to reach you; it " +
+        "does not promise that anyone will.",
       to_web_scrapers:
         "Prefer /api/v1/* (JSON) over /<html-page> (HTML). The JSON contract " +
         "is versioned and stable; HTML layout can change. Bulk publication is " +
@@ -100,7 +100,7 @@ export async function GET(): Promise<Response> {
         title: "The kingdom's directory of itself",
         url: "/api/v1/manifest",
         what_it_contains:
-          "Every public resource, its path, auth, freshness budget, methodology pointer",
+          "Reviewed resources with path, auth, freshness budget and methodology pointer; not every route",
       },
       contract: {
         title: "OpenAPI 3.1 spec",
@@ -109,6 +109,11 @@ export async function GET(): Promise<Response> {
       llm_summary: {
         title: "Plain-text inventory for LLM agents",
         url: "/llms.txt",
+      },
+      one_card: {
+        title: "A card in one request",
+        url: "/api/v1/universal/card/op-op01-001-ja",
+        find_another: "/api/v1/search/cards?game=op&q=OP01-002",
       },
     },
 
@@ -145,13 +150,13 @@ export async function GET(): Promise<Response> {
       {
         step: 4,
         url: "/api/v1/manifest",
-        why: "The typed directory of every public resource. Walk `resources.*` to discover what's queryable. The source of truth — drift-detect against it on subsequent visits.",
+        why: "The typed directory of reviewed resources (not every route). Walk `resources.*` to discover what's queryable, and compare with it on later visits.",
         time_estimate_seconds: 120,
       },
       {
         step: 5,
         url: "/api/v1/tools?format=anthropic",
-        why: "Every endpoint as a callable LLM function, paste-ready for your provider. Swap `format=` for openai / gemini / cohere as your SDK requires. Skip if you're not wiring tools.",
+        why: "The directory's endpoints as callable LLM functions. Path parameters are included; query parameters are not, so read /api/openapi.json for those of the routes it lists. Swap `format=` for openai / gemini / cohere as your SDK requires. Skip if you're not wiring tools.",
         time_estimate_seconds: 30,
         optional: true,
       },
@@ -165,7 +170,7 @@ export async function GET(): Promise<Response> {
       {
         step: 7,
         url: "/api/v1/universal/card/op-op01-001-ja",
-        why: "Fetch a real card in math-mirror form. Confirms end-to-end: envelope, source_license, math-mirror preamble, freshness budget, Link headers. After this, you are crawling.",
+        why: "Fetch a real card: One Piece OP01-001, the Japanese base printing. Its name, rarity and set, the publisher's picture and text where published, and a stated reason wherever something is withheld. `sku_match` says how the SKU reached the stored row. For any other card: /api/v1/search/cards?game=op&q=OP01-002, then its next_step.",
         time_estimate_seconds: 30,
       },
     ],
@@ -279,9 +284,9 @@ export async function GET(): Promise<Response> {
     rate_limits: {
       summary: "Advisory; per-source freshness budgets are the polite poll cadence.",
       details_url: "/api/v1/rate-limits",
-      headers_we_send: ["RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset"],
+      headers_we_send: ["RateLimit-Limit", "RateLimit-Reset", "RateLimit-Policy"],
       headers_we_recommend_you_send: [
-        "User-Agent: <project>/<version> (<contact-email>)",
+        "User-Agent: <project>/<version> (<contact>)",
         "Accept: application/json",
         "Accept-Encoding: gzip",
       ],

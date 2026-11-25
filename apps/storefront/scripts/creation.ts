@@ -36,7 +36,8 @@
  * Usage:
  *   pnpm --filter @cambridge-tcg/admin creation
  *
- * Exits 0 when all checks pass; 1 when there are findings.
+ * A report, not a gate: published commits are not rewritten, so findings exit
+ * 0. Exits 2 when it read no commits.
  */
 
 import { execSync } from "node:child_process";
@@ -69,13 +70,15 @@ const TRIVIAL_SUBJECT_PATTERNS = [
 // from the body before checking whether a Will trace remains.
 const TRAILER_LINE = /^[A-Z][A-Za-z-]+(?:-By)?:\s/;
 
+/** A git failure stops the report; it must not read as "no commits". The log
+ *  passed execSync's default 1 MiB buffer in July 2026, and the swallowed error
+ *  then looked like a clean result until November. */
 function git(cmd: string): string {
-  try {
-    return execSync(cmd, { cwd: REPO_ROOT, stdio: ["ignore", "pipe", "ignore"] })
-      .toString();
-  } catch {
-    return "";
-  }
+  return execSync(cmd, {
+    cwd: REPO_ROOT,
+    stdio: ["ignore", "pipe", "inherit"],
+    maxBuffer: 256 * 1024 * 1024,
+  }).toString();
 }
 
 /**
@@ -246,6 +249,10 @@ function main(): void {
   );
 
   const substantive = commits.filter((c) => !c.isTrivial);
+  if (substantive.length === 0) {
+    console.error("creation: no commits read; nothing was checked.");
+    process.exit(2);
+  }
 
   console.log("## Sophia trace coverage\n");
   const sophiaFindings = checkSophiaTrace(commits);
@@ -284,7 +291,6 @@ function main(): void {
     "The doctrine: docs/principles/creation.md.\n",
   );
 
-  process.exit(total > 0 ? 1 : 0);
 }
 
 main();

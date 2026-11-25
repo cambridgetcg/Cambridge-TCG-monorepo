@@ -1,3 +1,4 @@
+import { dbTimestamp } from "@cambridge-tcg/db/timestamp";
 import { createImageReference, type ImageReference } from "./image-reference";
 import { createCardNumberImageReference, type CardNumberImageReference } from "./card-number-image-reference";
 import { createSameLanguageImageReference, type SameLanguageImageReference } from "./same-language-image-reference";
@@ -13,8 +14,8 @@ export const OFFICIAL_MEDIA_POLICY = {
 } as const;
 
 export const DEFAULT_CARD_IMAGE_CDN = "https://ctcg-card-images.s3.us-east-1.amazonaws.com";
-/** The site's own official-image bucket, under both S3 endpoint forms; share-card.ts allows it too. */
-export const OFFICIAL_HOSTS: ReadonlySet<string> = new Set(["ctcg-card-images.s3.us-east-1.amazonaws.com", "ctcg-card-images.s3.amazonaws.com"]);
+/** The site's own official-image bucket, under both S3 endpoint forms. */
+const OFFICIAL_HOSTS: ReadonlySet<string> = new Set(["ctcg-card-images.s3.us-east-1.amazonaws.com", "ctcg-card-images.s3.amazonaws.com"]);
 const CATALOG_HOSTS = new Set(["jp-op-photos.s3.us-east-1.amazonaws.com", "jp-pk-photos.s3.us-east-1.amazonaws.com", "jp-db-photos.s3.us-east-1.amazonaws.com"]);
 
 export interface StoredOfficialImage {
@@ -95,32 +96,6 @@ export function officialImageUrl(key: unknown, cdn: string = DEFAULT_CARD_IMAGE_
   return `${base.origin}/${key}`;
 }
 
-/** Check local calendar fields before parsing: Date.parse can roll invalid days
- * into the next month. Keep the existing UTC millisecond wire representation. */
-function retrievalTimestamp(value: unknown): number | null {
-  if (value instanceof Date) {
-    const timestamp = value.getTime();
-    return Number.isFinite(timestamp) ? timestamp : null;
-  }
-  if (typeof value !== "string") return null;
-  const parts = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/.exec(value);
-  if (!parts) return null;
-  const year = Number(parts[1]);
-  const month = Number(parts[2]);
-  const day = Number(parts[3]);
-  const hour = Number(parts[4]);
-  const minute = Number(parts[5]);
-  const second = Number(parts[6]);
-  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]!
-    || hour > 23 || minute > 59 || second > 59) return null;
-  const offset = parts[7]!;
-  if (offset !== "Z" && (Number(offset.slice(1, 3)) > 23 || Number(offset.slice(4, 6)) > 59)) return null;
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) ? timestamp : null;
-}
-
 /** Every relationship kind shares one stored source-evidence boundary, in
  * the lane its caller binds. A row from another lane is refused whatever its
  * own lang or source says. */
@@ -133,9 +108,9 @@ function provenanceForReference<T extends OfficialImageReference>(reference: T |
   if (sourceUrl.hostname !== expected.host || !(expected.paths === null || expected.paths.some((prefix) => sourceUrl.pathname.startsWith(prefix)))) return null;
   if ([...sourceUrl.searchParams.keys()].some((key) => /token|secret|password|credential|authorization|api[_-]?key|signature/i.test(key))) return null;
   if (typeof row.attribution !== "string" || !row.attribution.trim()) return null;
-  const timestamp = retrievalTimestamp(row.retrieved_at);
-  if (timestamp === null) return null;
-  return { reference, attribution: row.attribution, source_url: sourceUrl.href, retrieved_at: new Date(timestamp).toISOString() };
+  const retrievedAt = dbTimestamp(row.retrieved_at);
+  if (!retrievedAt) return null;
+  return { reference, attribution: row.attribution, source_url: sourceUrl.href, retrieved_at: retrievedAt.toISOString() };
 }
 
 /** Stored source evidence is checked for coherence, not independently verified.
@@ -146,6 +121,8 @@ export function officialMediaProvenance(requestedSku: string, row: StoredProvena
 
 function projectImage<T extends OfficialImageReference>(reference: T | null, row: StoredOfficialImage, cdn: string, lane: OfficialImageLane) {
   if (row.kind !== "official_sample" || row.takedown_status !== "clear") return null;
+  // The Japanese lane has its own switch, so no English row may name one of its objects.
+  if (lane.lang === "en" && /-ja(?=[.-]|$)/i.test(String(row.s3_key))) return null;
   const provenance = provenanceForReference(reference, row, lane);
   const url = officialImageUrl(row.s3_key, cdn);
   return provenance && url ? { url, ...provenance, kind: "official_sample" as const } : null;

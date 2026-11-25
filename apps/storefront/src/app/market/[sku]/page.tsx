@@ -21,7 +21,7 @@ import {
 import { resolveReferencePrice } from "@/lib/market/reference-price";
 import { query } from "@/lib/db";
 import CardMarketClient, { type AlsoAtAuction } from "./CardMarketClient";
-import { SHARE_CARD, shareableImageUrl } from "@/lib/share-card";
+import { SHARE_CARD } from "@/lib/share-card";
 
 /**
  * Live auctions for this exact card (auctions.sku, migration 0113) — a
@@ -72,9 +72,12 @@ export const dynamic = "force-dynamic";
 async function resolveOrThrow(skuOrNumber: string): Promise<CatalogIdentity> {
   const resolution = await resolveCardIdentity(skuOrNumber);
   if (resolution.kind === "redirect") {
-    // A card_number was typed where a SKU belongs — send it to the
-    // canonical address so every card has exactly one URL.
-    redirect(`/market/${resolution.sku}`);
+    // A card_number or another spelling was typed where a stored SKU belongs —
+    // send it to the one address the card has.
+    redirect(`/market/${encodeURIComponent(resolution.sku)}`);
+  }
+  if (resolution.kind === "choose") {
+    redirect(`/prices/search?game=${encodeURIComponent(resolution.game)}&q=${encodeURIComponent(resolution.number)}`);
   }
   if (resolution.kind === "notfound") {
     notFound();
@@ -93,20 +96,12 @@ export async function generateMetadata({
   const description = card.set_name
     ? `Order-book record for ${card.card_name} (${card.card_number}, ${card.set_name}). New paid orders were retired on 23 September 2026; reference data and existing records remain.`
     : `Order-book record for ${card.card_name} (${card.card_number}). New paid orders were retired on 23 September 2026.`;
-  // A Japanese official image is not offered as the share image: a social
-  // platform would fetch and cache it without its credit, beyond any takedown
-  // (docs/decisions/2026-10-30-japanese-official-images.md). Nor is the
-  // catalogue fallback (shareableImageUrl). The English og:image is
-  // unchanged, a gap recorded there.
-  const image = card.image_language === "ja" ? null : shareableImageUrl(card.image_url);
+  // No card picture is offered as the share image: a social platform would
+  // fetch and cache it without its credit, beyond any takedown.
   return {
     title,
     description,
-    openGraph: {
-      title,
-      description,
-      images: image ? [{ url: image }] : [SHARE_CARD],
-    },
+    openGraph: { title, description, images: [SHARE_CARD] },
   };
 }
 

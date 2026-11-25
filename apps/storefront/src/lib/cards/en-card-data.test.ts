@@ -21,13 +21,13 @@ const jaRow: StoredOfficialImage = {
   source_url: "https://www.onepiece-cardgame.com/images/cardlist/card/OP01-001.png?261016",
   retrieved_at: "2026-10-30T10:27:20.000Z", license_note: "cambridge.official-ja-media/2026-10-30",
 };
-const bySql = (answers: { en?: StoredOfficialImage[]; ja?: StoredOfficialImage[] | Error; text?: unknown[] }) => async (sql: string) => {
-  if (sql.includes("FROM card_texts")) return { rows: answers.text ?? [] };
-  if (sql.includes("lang = 'ja' AND source = 'bandai-jp'")) {
-    if (answers.ja instanceof Error) throw answers.ja;
-    return { rows: answers.ja ?? [] };
-  }
-  return { rows: answers.en ?? [] };
+/** The Japanese lane is off unless the environment says "show". */
+const jaOn = { OFFICIAL_IMAGES_JA: "show" };
+type Answer<T> = T[] | Error;
+const bySql = (answers: { en?: Answer<StoredOfficialImage>; ja?: Answer<StoredOfficialImage>; text?: Answer<unknown> }) => async (sql: string) => {
+  const answer = sql.includes("FROM card_texts") ? answers.text : sql.includes("lang = 'ja' AND source = 'bandai-jp'") ? answers.ja : answers.en;
+  if (answer instanceof Error) throw answer;
+  return { rows: answer ?? [] };
 };
 beforeEach(() => { mockQuery.mockReset(); });
 
@@ -40,14 +40,14 @@ describe("English media read boundary", () => {
   });
 
   it.each(["SEALED-OP01-BOX-JP", "op-op01-001-", "op-op01-001-en-foo/", "pkm-sv1-001-en"])("does not read storage for invalid or unreviewed reference scope: %s", async (sku) => {
-    await expect(getEnCardData(sku)).resolves.toEqual({ effect_text: null, attributes: null, en_image: null, same_language_image: null });
+    await expect(getEnCardData(sku)).resolves.toEqual({ effect_text: null, attributes: null, en_image: null, same_language_image: null, image_state: "no_lane", text_state: "no_lane" });
     expect(mockQuery).not.toHaveBeenCalled();
   });
 
   it("shares the image projection between single and batch requests", async () => {
     // A Japanese request reads the English lane, then the Japanese lane, then text.
     mockQuery.mockResolvedValueOnce({ rows: [imageRow] } as never).mockResolvedValueOnce({ rows: [] } as never).mockResolvedValueOnce({ rows: [] } as never);
-    const single = await getEnCardData("OP-OP01-001-JP-V11DZ");
+    const single = await getEnCardData("OP-OP01-001-JP-V11DZ", jaOn);
     mockQuery.mockResolvedValueOnce({ rows: [imageRow] } as never);
     const batch = await getEnCardImages(["OP-OP01-001-JP-V11DZ"]);
     expect(single.en_image).toEqual(batch.get("OP-OP01-001-JP-V11DZ"));
@@ -84,15 +84,22 @@ describe("English media read boundary", () => {
   });
 
   it("rechecks projection guards after SQL and never substitutes a publisher hotlink", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ ...imageRow, attribution: "" }, { ...imageRow, takedown_status: "removed" }] } as never);
-    expect((await getEnCardImages(["op-op01-001-ja"])).size).toBe(0);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...imageRow, attribution: "" }, { ...imageRow, takedown_status: "removed" }] } as never);
+      const images = await getEnCardImages(["op-op01-001-ja", "op-op01-002-ja"]);
+      // Held but refused is null and logged by count; no row at all is absent.
+      expect(images.get("op-op01-001-ja")).toBeNull();
+      expect(images.has("op-op01-002-ja")).toBe(false);
+      expect(error.mock.calls).toEqual([["[official-images] en: 1 of 1 held pictures failed the checks"]]);
+    } finally { error.mockRestore(); }
   });
 
   it("preserves attributed effect text and stats from the later recorded decision", async () => {
     mockQuery.mockResolvedValueOnce({ rows: [] } as never).mockResolvedValueOnce({ rows: [] } as never).mockResolvedValueOnce({ rows: [{
       ...imageRow, effect_text: "Example rules text", card_type: "CHARACTER", attributes: { cost: "2", power: "3000" },
     }] } as never);
-    const data = await getEnCardData("OP-OP01-001-JP-V11DZ");
+    const data = await getEnCardData("OP-OP01-001-JP-V11DZ", jaOn);
     expect(data.effect_text).toMatchObject({ text: "Example rules text", attribution: imageRow.attribution, source_url: imageRow.source_url });
     expect(data.attributes).toEqual({ cost: "2", power: "3000" });
     expect(data.en_image).toBeNull();
@@ -105,17 +112,75 @@ describe("English media read boundary", () => {
     mockQuery.mockResolvedValueOnce({ rows: [imageRow] } as never).mockResolvedValueOnce({ rows: [] } as never).mockResolvedValueOnce({ rows: [{
       ...imageRow, attribution: " ", effect_text: "Unattributed text", attributes: { cost: "2" },
     }] } as never);
-    const data = await getEnCardData("op-op01-001-ja");
+    const data = await getEnCardData("op-op01-001-ja", jaOn);
     expect(data.effect_text).toBeNull();
     expect(data.attributes).toBeNull();
     expect(data.en_image).not.toBeNull();
   });
 });
 
+describe("rows as the production driver returns them", () => {
+  // createCompatDb gives timestamps as Postgres text (@cambridge-tcg/db/timestamp).
+  const driver = "2026-07-13 09:00:00.123+00";
+
+  it("shows the image and the text, with the same UTC millisecond times on the wire", async () => {
+    mockQuery.mockImplementation(bySql({ en: [{ ...imageRow, retrieved_at: driver }], text: [{ ...imageRow, retrieved_at: driver, effect_text: "Example rules text", card_type: "CHARACTER", attributes: { cost: "2" } }] }) as never);
+    const data = await getEnCardData("OP-OP01-001-JP-V11DZ");
+    expect(data.en_image?.retrieved_at).toBe("2026-07-13T09:00:00.123Z");
+    expect(data.effect_text?.retrieved_at).toBe("2026-07-13T09:00:00.123Z");
+    expect(data).toMatchObject({ attributes: { cost: "2" }, image_state: "shown", text_state: "shown" });
+  });
+
+  it("orders rows by the moment they name, whichever way it is written", async () => {
+    // Named to lose the key tie-break, so only the moment can choose it.
+    const newer = { ...imageRow, s3_key: "official/zz-newer.png", retrieved_at: "2026-09-29 00:00:00+00" };
+    mockQuery.mockResolvedValueOnce({ rows: [imageRow, newer] } as never);
+    expect((await getEnCardImages(["op-op01-001-en"])).get("op-op01-001-en")?.url).toMatch(/\/official\/zz-newer\.png$/);
+  });
+});
+
+describe("why nothing is shown", () => {
+  const quiet = async (run: () => Promise<void>) => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try { await run(); } finally { error.mockRestore(); }
+  };
+  const row = { ...imageRow, effect_text: "Example rules text", card_type: "CHARACTER", attributes: null };
+
+  it("says nothing is held when the store answers with no row", async () => {
+    mockQuery.mockImplementation(bySql({}) as never);
+    expect(await getEnCardData("op-op01-001-en")).toMatchObject({ image_state: "none", text_state: "none" });
+  });
+
+  it("says the Japanese lane is off for a Japanese card with no English image, and only then", async () => {
+    mockQuery.mockImplementation(bySql({}) as never);
+    expect((await getEnCardData("OP-OP01-001-JP")).image_state).toBe("switched_off");
+    expect((await getEnCardData("OP-OP01-001-JP", jaOn)).image_state).toBe("none");
+    mockQuery.mockImplementation(bySql({ en: [imageRow] }) as never);
+    expect((await getEnCardData("OP-OP01-001-JP")).image_state).toBe("shown");
+  });
+
+  it("calls a card with a row but no rules text none, not unreadable", async () => {
+    mockQuery.mockImplementation(bySql({ text: [{ ...row, effect_text: null }] }) as never);
+    expect((await getEnCardData("op-op01-001-en")).text_state).toBe("none");
+  });
+
+  it("never calls a failed read, or a held record that fails the checks, anything but unreadable", () => quiet(async () => {
+    const down = new Error("connection to internal-db.example failed");
+    mockQuery.mockImplementation(bySql({ en: down, text: down }) as never);
+    expect(await getEnCardData("op-op01-001-en")).toMatchObject({ en_image: null, effect_text: null, image_state: "unreadable", text_state: "unreadable" });
+    mockQuery.mockImplementation(bySql({ en: [], ja: down }) as never);
+    expect((await getEnCardData("OP-OP01-001-JP", jaOn)).image_state).toBe("unreadable");
+    for (const change of [{ retrieved_at: "yesterday" }, { source_url: null }, { attribution: " " }]) {
+      mockQuery.mockImplementation(bySql({ en: [{ ...imageRow, ...change }], text: [{ ...row, ...change }] }) as never);
+      expect(await getEnCardData("OP-OP01-001-JP")).toMatchObject({ image_state: "unreadable", text_state: "unreadable" });
+    }
+  }));
+});
+
 describe("Japanese same-language read boundary", () => {
   it("reads only the Japanese lane's pair and projects a Japanese request's own-language base image", async () => {
     mockQuery.mockImplementation(bySql({ ja: [jaRow] }) as never);
-    const images = await getSameLanguageImages(["OP-OP01-001-JP", "OP-OP01-001-JP-V11DZ", "op-op01-001-en"]);
+    const images = await getSameLanguageImages(["OP-OP01-001-JP", "OP-OP01-001-JP-V11DZ", "op-op01-001-en"], jaOn);
     expect(mockQuery).toHaveBeenCalledOnce();
     const [sql, params] = mockQuery.mock.calls[0]!;
     expect(params).toEqual([["OP-OP01-001-JA"]]);
@@ -131,23 +196,24 @@ describe("Japanese same-language read boundary", () => {
   });
 
   it("makes no query for a request with no Japanese key", async () => {
-    expect((await getSameLanguageImages(["op-op01-001-en", "pkm-sv1-001-ja", "SEALED-OP01-BOX-JP"])).size).toBe(0);
+    expect((await getSameLanguageImages(["op-op01-001-en", "pkm-sv1-001-ja", "SEALED-OP01-BOX-JP"], jaOn)).size).toBe(0);
     expect(mockQuery).not.toHaveBeenCalled();
   });
 
-  it("is switched off by OFFICIAL_IMAGES_JA=off, before any key or query", async () => {
-    for (const value of ["off", " OFF ", "Off"]) expect(officialImagesJaOn({ OFFICIAL_IMAGES_JA: value })).toBe(false);
-    for (const value of [undefined, "", "on", "of"]) expect(officialImagesJaOn({ OFFICIAL_IMAGES_JA: value })).toBe(true);
+  it("is off unless OFFICIAL_IMAGES_JA is show, before any key or query", async () => {
+    for (const value of ["show", " show\n"]) expect(officialImagesJaOn({ OFFICIAL_IMAGES_JA: value })).toBe(true);
+    for (const value of [undefined, "", "off", "on", "true", "1", "shown", "SHOW", "Show", "ｓｈｏｗ"]) expect(officialImagesJaOn({ OFFICIAL_IMAGES_JA: value })).toBe(false);
     mockQuery.mockImplementation(bySql({ en: [imageRow], ja: [jaRow] }) as never);
-    expect((await getSameLanguageImages(["OP-OP01-001-JP"], { OFFICIAL_IMAGES_JA: "off" })).size).toBe(0);
+    expect((await getSameLanguageImages(["OP-OP01-001-JP"], {})).size).toBe(0);
     expect(mockQuery).not.toHaveBeenCalled();
-    const data = await getEnCardData("OP-OP01-001-JP", { OFFICIAL_IMAGES_JA: "off" });
+    const data = await getEnCardData("OP-OP01-001-JP", {});
     expect(data.same_language_image).toBeNull();
     expect(data.en_image).not.toBeNull();
     expect(mockQuery.mock.calls.some(([sql]) => String(sql).includes("bandai-jp"))).toBe(false);
   });
 
   it("rechecks the Japanese lane's own evidence after SQL", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     for (const change of [
       { lang: "en" }, { source: "bandai-en" }, { takedown_status: "removed" },
       { attribution: "©Eiichiro Oda/Shueisha" }, { license_note: null }, { s3_key: "official/OP-OP01-001-EN.png" },
@@ -155,13 +221,14 @@ describe("Japanese same-language read boundary", () => {
     ]) {
       mockQuery.mockReset();
       mockQuery.mockImplementation(bySql({ ja: [{ ...jaRow, ...change } as StoredOfficialImage] }) as never);
-      expect((await getSameLanguageImages(["OP-OP01-001-JP"])).size, JSON.stringify(change)).toBe(0);
+      expect((await getSameLanguageImages(["OP-OP01-001-JP"], jaOn)).get("OP-OP01-001-JP"), JSON.stringify(change)).toBeNull();
     }
+    error.mockRestore();
   });
 
   it("chooses the same-language image first, else the English base reference, and says which", async () => {
     mockQuery.mockImplementation(bySql({ en: [imageRow], ja: [jaRow] }) as never);
-    const images = await getOfficialCardImages(["OP-OP01-001-JP", "op-op01-001-en", "pkm-sv1-001-ja"]);
+    const images = await getOfficialCardImages(["OP-OP01-001-JP", "op-op01-001-en", "pkm-sv1-001-ja"], jaOn);
     expect(images.get("OP-OP01-001-JP")).toMatchObject({ language: "ja", url: `${DEFAULT_CARD_IMAGE_CDN}/official/OP-OP01-001-JA.png` });
     expect(images.get("op-op01-001-en")).toMatchObject({ language: "en", url: `${DEFAULT_CARD_IMAGE_CDN}/${imageRow.s3_key}` });
     expect(images.has("pkm-sv1-001-ja")).toBe(false);
@@ -172,10 +239,10 @@ describe("Japanese same-language read boundary", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       mockQuery.mockImplementation(bySql({ en: [imageRow], ja: new Error("connection to internal-db.example failed") }) as never);
-      const images = await getOfficialCardImages(["OP-OP01-001-JP"]);
+      const images = await getOfficialCardImages(["OP-OP01-001-JP"], jaOn);
       expect(images.get("OP-OP01-001-JP")).toMatchObject({ language: "en" });
       expect(error.mock.calls.flat().join(" ")).not.toContain("internal-db.example");
-      const data = await getEnCardData("OP-OP01-001-JP");
+      const data = await getEnCardData("OP-OP01-001-JP", jaOn);
       expect(data.en_image).not.toBeNull();
       expect(data.same_language_image).toBeNull();
     } finally { error.mockRestore(); }
@@ -183,7 +250,7 @@ describe("Japanese same-language read boundary", () => {
 
   it("gives a Japanese request both images in getEnCardData, from separate lanes", async () => {
     mockQuery.mockImplementation(bySql({ en: [imageRow], ja: [jaRow] }) as never);
-    const data = await getEnCardData("OP-OP01-001-JP");
+    const data = await getEnCardData("OP-OP01-001-JP", jaOn);
     expect(data.en_image?.reference.reason).toBe("english_base_reference");
     expect(data.same_language_image?.reference.reason).toBe("same_language_base_reference");
   });

@@ -83,31 +83,3 @@ export async function checkPrizeUndoEligibility(
   }
   return { eligible: true, shippedAt, ageSeconds };
 }
-
-export interface LifecycleEntry {
-  id: number;
-  action: PrizeLifecycleAction;
-  notes: string | null;
-  metadata: Record<string, unknown> | null;
-  createdAt: Date;
-}
-
-export async function getPrizeLifecycle(
-  prizeKind: PrizeKind,
-  prizeId: string,
-): Promise<LifecycleEntry[]> {
-  const r = await query(
-    `SELECT id, action, notes, metadata, created_at
-       FROM prize_fulfilment_log
-      WHERE prize_kind = $1 AND prize_id = $2
-      ORDER BY created_at ASC`,
-    [prizeKind, prizeId],
-  );
-  return r.rows.map((row) => ({
-    id: row.id,
-    action: row.action,
-    notes: row.notes,
-    metadata: row.metadata,
-    createdAt: new Date(row.created_at),
-  }));
-}

@@ -63,8 +63,7 @@ export default function AdoptersRegistry() {
           <h2>No adopters yet</h2>
 
           <p>
-            That&apos;s honest. The standards shipped <em>this week</em>; the
-            registry is fresh ground.
+            That&apos;s honest: no one has declared yet.
           </p>
 
           <p>

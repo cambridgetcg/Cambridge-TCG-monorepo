@@ -155,8 +155,8 @@ export default async function ScrapersWelcomePage() {
                 /.well-known/cambridge-tcg.json
               </Link>
               <p className="text-sm text-ink-muted mt-1">
-                Machine-readable manifest of every public surface with status, auth,
-                methodology links.
+                Machine-readable manifest of reviewed public surfaces with status,
+                auth, methodology links.
               </p>
             </div>
             <div className="p-4 bg-surface border border-border-subtle rounded">

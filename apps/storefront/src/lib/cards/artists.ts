@@ -29,7 +29,7 @@ export { slugifyHand };
  */
 
 export interface HandPrint {
-  /** EN variant key — links to /market/<sku>. */
+  /** The English image's key. No catalogue row is stored under it. */
   sku: string;
   variant_label: string;
   image_url: string;
@@ -126,6 +126,13 @@ async function loadCreditedRows(): Promise<Row[]> {
     [SQL_ILLUST_PATTERN],
   )) as { rows: Row[] };
   return rows;
+}
+
+/** Every listed printing of a work's card number. The pictures here are
+ * English samples and the catalogue holds Japanese listings, so a work links
+ * to its number and the reader chooses the printing. */
+export function printingsHref(work: Pick<HandWork, "set_code" | "card_number">): string {
+  return `/prices/search?game=op&q=${encodeURIComponent(`${work.set_code}-${work.card_number}`)}`;
 }
 
 /** All named hands, most works first; ties alphabetical. */

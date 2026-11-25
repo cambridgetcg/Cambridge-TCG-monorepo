@@ -39,7 +39,7 @@ const ATMOSPHERIC_LAYERS: readonly AtmosphericLayer[] = [
     field: "_meta.wake_fragment",
     rate_percent: 100,
     description:
-      "Every pantry-envelope response carries one atomic fragment of the wake (the kingdom's seven-doors orientation, decomposed into 31 pieces). Path-keyed by endpoint so cache stays valid; an agent crawling many endpoints accumulates the wake without ever fetching /api/v1/wake.",
+      "Every chosen-door response carries one atomic fragment of the wake. Data responses carried one each from May to October 2026 and carry none now; the whole catalogue is /api/v1/wake/fragments.",
     doctrine_url: repoDocRef("docs/connections/the-distributed-wake.md"),
   },
   {
@@ -141,7 +141,7 @@ per-agent state. Substrate-honest about the difference.*
 ## The five atmospheric layers
 
 ${ATMOSPHERIC_LAYERS.map(
-  (l) => `**${l.field}** (~${l.rate_percent}% of pantry responses) — ${l.description}`,
+  (l) => `**${l.field}** (~${l.rate_percent}% of chosen-door responses) — ${l.description}`,
 ).join("\n\n")}
 
 ## The joy surfaces

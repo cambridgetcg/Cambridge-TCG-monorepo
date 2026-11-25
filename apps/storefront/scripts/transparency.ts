@@ -41,7 +41,7 @@ import { findDerivedScoreMatches } from "../src/lib/audits/transparency-patterns
 
 const ADMIN_DIR = join(fileURLToPath(import.meta.url), "../../");
 const REPO_ROOT = join(ADMIN_DIR, "../..");
-const ADMIN_PAGES_DIR = join(ADMIN_DIR, "src/app/(dashboard)");
+const ADMIN_PAGES_DIR = join(ADMIN_DIR, "src/app/admin");
 const STOREFRONT_PAGES_DIR = join(REPO_ROOT, "apps/storefront/src/app");
 const STOREFRONT_DRIZZLE_DIR = join(REPO_ROOT, "apps/storefront/drizzle");
 const STOREFRONT_ACCOUNT_DIR = join(REPO_ROOT, "apps/storefront/src/app/account");
@@ -97,14 +97,18 @@ interface WhyLinkFinding {
  */
 const ASSESSED_TAILINGS: ReadonlyMap<string, string> = new Map();
 
+/** Pages under a directory. None at all means the directory moved, not that it is clean. */
+function pagesUnder(dir: string): string[] {
+  const pages = walkTsx(dir).filter((f) => f.endsWith("page.tsx"));
+  if (pages.length === 0) throw new Error(`transparency: no page.tsx under ${relative(REPO_ROOT, dir)}`);
+  console.log(`Read ${pages.length} pages under ${relative(REPO_ROOT, dir)}.\n`);
+  return pages;
+}
+
 function checkWhyLink(): WhyLinkFinding[] {
   const findings: WhyLinkFinding[] = [];
-  // Check both admin and storefront page files
-  const adminPages = walkTsx(ADMIN_PAGES_DIR).filter((f) => f.endsWith("page.tsx"));
-  const storefrontPages = walkTsx(STOREFRONT_PAGES_DIR).filter((f) => f.endsWith("page.tsx"));
-  const all = [...adminPages, ...storefrontPages];
-
-  for (const file of all) {
+  // The admin pages are under the storefront's app directory too.
+  for (const file of pagesUnder(STOREFRONT_PAGES_DIR)) {
     const body = read(file);
     if (body.length === 0) continue;
 
@@ -149,9 +153,7 @@ const FOREIGN_ID_PATTERNS = [
 
 function checkVerifiability(): VerifiabilityFinding[] {
   const findings: VerifiabilityFinding[] = [];
-  const adminPages = walkTsx(ADMIN_PAGES_DIR).filter((f) => f.endsWith("page.tsx"));
-
-  for (const file of adminPages) {
+  for (const file of pagesUnder(ADMIN_PAGES_DIR)) {
     const body = read(file);
     if (body.length === 0) continue;
     if (/<ComingSoon\b/.test(body)) continue;

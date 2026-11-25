@@ -136,7 +136,8 @@ describe("card evidence", () => {
   it("reads display-only from the release policy", async () => {
     expect(MEMBER_PRICE_POLICIES.cardrush.uses).toEqual(["member-display"]);
     expect(MEMBER_PRICE_POLICIES.tcgplayer.uses).toEqual(["member-display"]);
-    expect(MEMBER_PRICE_POLICIES.cardmarket.uses).toContain("member-api");
+    // Its export is paused, not absent, so it is left out as it was before.
+    expect(MEMBER_PRICE_POLICIES.cardmarket.paused!.uses).toContain("member-api");
     const cardmarket = sources.map((source) => source.id === "cardmarket" ? { ...source, status: "partial" as const } : source);
     expect(evidenceSourcesForGame("op", cardmarket).map((source) => source.id)).toEqual(["cardrush", "tcgplayer"]);
 

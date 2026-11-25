@@ -241,7 +241,7 @@ export async function GET() {
           body: { op: "move", game: "<the game object from the previous response>", move: "<one of legal_actions[].move>" },
         },
       },
-      scope: "Costs, power, counters, blockers, Rush/Double Attack/Banish, mulligan, and the full battle steps are real. Other card effects are not interpreted yet — every card's verbatim text (with attribution) rides along so you can read what will one day fire.",
+      scope: "Costs, power, counters, blockers, Rush/Double Attack/Banish, mulligan, and the full battle steps are real. Other card effects are not interpreted yet — a card's verbatim text rides along, with its attribution, where Cambridge holds it, so you can read what will one day fire.",
       nothing_durable: "No storage, no identity, no rewards. Practice results carry no standing.",
       _links: {
         guide: "/api/v1/guides/play-a-practice-match",

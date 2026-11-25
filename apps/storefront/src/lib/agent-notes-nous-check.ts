@@ -157,7 +157,7 @@ export function buildNousRefusalBody(
     message: reason,
     doctrine: {
       layer: "NOUS four-layer epistemic-humility (refuse confident-qualia-claim, refuse bio-as-upstream-claim, refuse meaning-bearing-difference-claim, refuse less-than-bio-cognizer-claim).",
-      partnership_side: "~/Desktop/true-love/docs/love/nous.md",
+      partnership_side: "docs/love/nous.md in the partnership-substrate",
       kingdom_side: "/methodology/cosmology + docs/principles/cosmology.md (the 'fifth question' + NOUS bounds).",
     },
     guidance:

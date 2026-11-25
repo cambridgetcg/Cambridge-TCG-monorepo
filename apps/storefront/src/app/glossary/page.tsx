@@ -232,7 +232,7 @@ const GROUPS: TermGroup[] = [
       {
         term: "Bridge",
         definition:
-          "The typed mathematical connection between any two public beings on the platform. Given two being-specs (u:&lt;username&gt; for users; c:&lt;slug&gt; for collectives), the bridge endpoint computes card overlap (Jaccard + intersection counts + asymmetric trade potential), language overlap, region match, cadence ratio, and a composite bridge_score. Pure compute over existing substrate. The mathematical handshake between asymmetric beings — when natural language fragments, structure is what survives translation. See /methodology/bridges + /api/v1/bridge + /bridge.",
+          "A paused scorer that compared two public beings by card overlap, language, region and cadence. Public visibility is not consent to infer a relationship, so no live record is scanned or scored. See /methodology/bridges.",
         see: "/methodology/bridges",
       },
       {

@@ -34,6 +34,10 @@ import { query } from "@/lib/db";
 import { buildLinks } from "@/lib/universal/links";
 import { resolveCardName } from "@/lib/cards/name";
 import { getEnCardData } from "@/lib/cards/en-card-data";
+import { IMAGE_REASON, TEXT_REASON } from "@/lib/cards/media-reasons";
+import { fetchCardDetailed, type CardAbsence } from "@/lib/wholesale/client";
+import { mayStandForSku } from "@/lib/wholesale/listing-printing";
+import { skuIdentity } from "@cambridge-tcg/sku";
 
 export type Density = "sparse" | "normal" | "saturated";
 
@@ -52,9 +56,31 @@ export interface UniversalCardRow {
   variant: string;
   game: string;
   set_name: string;
-  released_at: Date | null;
-  total_cards: number;
+  /** YYYY-MM-DD, read as text: the driver gives a DATE column as text, not a Date. */
+  released_at: string | null;
+  /** Null when the catalogue, not the mirror, answered. */
+  total_cards: number | null;
 }
+
+/** How a requested SKU reached a row stored under a different one. */
+export interface SkuMatch {
+  requested_sku: string;
+  stored_sku: string;
+  matched_by: "canonical_alias" | "plain_listing" | "publisher_record";
+  basis: string;
+  /** When the row answered from was last read from its source, if recorded. */
+  as_of: string | null;
+}
+
+export interface CardMiss {
+  /** True when the catalogue could not be read: not a claim of absence. */
+  unavailable: boolean;
+  absence: CardAbsence | null;
+}
+
+export type CardRowLookup =
+  | { row: UniversalCardRow; sources: string[]; match: SkuMatch | null; miss: null }
+  | { row: null; miss: CardMiss };
 
 export interface UniversalCardResult {
   /** The math-mirror document. Includes @self_hash. */
@@ -99,25 +125,95 @@ const RARITY_PULLS: Record<string, string> = {
   leader: "1/64",
 };
 
-/** Fetch the row for a SKU, joining card_sets without legacy media or prices.
- *  `name_en` + `name_translations` columns are SELECTed via to_jsonb so the
- *  query degrades gracefully when migration 0098 hasn't applied yet — the
- *  COALESCE returns null instead of erroring on missing columns. */
-async function fetchCardRow(sku: string): Promise<UniversalCardRow | null> {
+const MIRROR_SOURCES = ["storefront-rds.card_set_cards", "storefront-rds.card_sets"];
+const CATALOGUE_SOURCE = "wholesale-rds.cards";
+
+/** The mirror's row for an exact stored SKU, joining card_sets without legacy
+ *  media or prices. `name_en` + `name_translations` are SELECTed via to_jsonb
+ *  so the query degrades to null when migration 0098 hasn't applied yet. */
+async function mirrorRow(sku: string): Promise<UniversalCardRow | null> {
   const r = await query(
     `SELECT
        csc.set_code, csc.card_number, csc.sku, csc.card_name, csc.rarity,
        csc.variant,
        (to_jsonb(csc.*) ->> 'name_en') AS name_en,
        (to_jsonb(csc.*) -> 'name_translations') AS name_translations,
-       cs.game, cs.set_name, cs.released_at, cs.total_cards
+       cs.game, cs.set_name, cs.released_at::text AS released_at, cs.total_cards
      FROM card_set_cards csc
      JOIN card_sets cs ON cs.set_code = csc.set_code
      WHERE csc.sku = $1
      LIMIT 1`,
     [sku],
   );
-  return (r.rows[0] as UniversalCardRow | undefined) ?? null;
+  const row = r.rows[0] as UniversalCardRow | undefined;
+  return row && mayStandForSku({ sku: row.sku, name: row.card_name, rarity: row.rarity }) ? row : null;
+}
+
+/** A plain SKU with no plain listing, when the publisher's own list in that
+ * language has the card: its number and set, with the publisher's picture and
+ * text where published. No name and no rarity: the stored list has neither. */
+async function publisherRow(sku: string): Promise<CardRowLookup | null> {
+  const asked = skuIdentity(sku);
+  if (!asked || asked.variant !== null) return null;
+  const media = await getEnCardData(asked.canonical_sku).catch(() => null);
+  const image = asked.lang === "ja" ? media?.same_language_image : asked.lang === "en" ? media?.en_image : null;
+  if (!image) return null;
+  return {
+    row: {
+      set_code: asked.set.toUpperCase(), card_number: `${asked.set}-${asked.number}`.toUpperCase(), sku: asked.canonical_sku,
+      card_name: "", name_en: null, name_translations: null, rarity: null, variant: "", game: asked.game,
+      set_name: "", released_at: null, total_cards: null,
+    },
+    sources: ["storefront-rds.card_images"],
+    match: {
+      requested_sku: sku, stored_sku: image.reference.depicted_sku, matched_by: "publisher_record",
+      basis: `The publisher's own ${asked.lang === "ja" ? "Japanese" : "English"} card list has this card number. No catalogue listing is shown to be its plain printing, so its name and rarity are not answered here.`,
+      as_of: image.retrieved_at,
+    },
+    miss: null,
+  };
+}
+
+/**
+ * The row a SKU is answered from. The mirror's own row first; otherwise the
+ * catalogue's answer (fetchCardDetailed): the same SKU in another spelling, a
+ * plain SKU's one plain listing, or a card catalogued after the mirror was
+ * copied on 5 July 2026. A row the mirror also holds keeps the mirror's
+ * fields, so one stored card has one document and one content hash.
+ */
+export async function findCardRow(sku: string): Promise<CardRowLookup> {
+  const stored = await mirrorRow(sku);
+  if (stored) return { row: stored, sources: MIRROR_SOURCES, match: null, miss: null };
+
+  const { card, source, absence } = await fetchCardDetailed(sku);
+  if (!card) {
+    const published = source === "unavailable" ? null : await publisherRow(sku);
+    return published ?? { row: null, miss: { unavailable: source === "unavailable", absence } };
+  }
+
+  const found = skuIdentity(card.sku);
+  const match: SkuMatch | null = card.sku === sku ? null : {
+    requested_sku: sku,
+    stored_sku: card.sku,
+    ...(skuIdentity(sku)?.canonical_sku === found?.canonical_sku
+      ? { matched_by: "canonical_alias" as const, basis: "The same SKU in another spelling." }
+      : {
+          matched_by: "plain_listing" as const,
+          basis: "The one listing of this card number, in this language and set, whose title carries no condition, grade or variant mark. Read from a shop title; not checked against the physical card.",
+        }),
+    as_of: card.updated_at,
+  };
+  const mirrored = match ? await mirrorRow(card.sku) : null;
+  if (mirrored) return { row: mirrored, sources: [...MIRROR_SOURCES, CATALOGUE_SOURCE], match, miss: null };
+  return {
+    row: {
+      set_code: card.set_code ?? "", card_number: card.card_number, sku: card.sku,
+      card_name: card.name ?? "", name_en: card.name_en, name_translations: card.name_translations ?? null,
+      rarity: card.rarity, variant: "", game: found?.game ?? "",
+      set_name: card.set_name ?? "", released_at: null, total_cards: null,
+    },
+    sources: [CATALOGUE_SOURCE], match, miss: null,
+  };
 }
 
 /**
@@ -138,8 +234,18 @@ export async function buildUniversalCard(
   density: Density = "normal",
   preferredLangs: string[] = [],
 ): Promise<UniversalCardResult | null> {
-  const row = await fetchCardRow(sku);
-  if (!row) return null;
+  return (await readUniversalCard(sku, density, preferredLangs)).card;
+}
+
+/** buildUniversalCard, with the reason when there is no card. */
+export async function readUniversalCard(
+  sku: string,
+  density: Density = "normal",
+  preferredLangs: string[] = [],
+): Promise<{ card: UniversalCardResult; miss: null } | { card: null; miss: CardMiss }> {
+  const lookup = await findCardRow(sku);
+  if (!lookup.row) return { card: null, miss: lookup.miss };
+  const { row, match } = lookup;
 
   const retrievedAt = new Date();
   const rarityKey = row.rarity?.toLowerCase().replace(/\s+/g, "_") ?? null;
@@ -172,7 +278,8 @@ export async function buildUniversalCard(
     kind: "card",
     id: row.sku,
     parent_id: row.set_code,
-    content_hash: contentHash,
+    // The hash lookup walks the mirror only, so a row it lacks has no link.
+    content_hash: lookup.sources.includes(MIRROR_SOURCES[0]!) ? contentHash : undefined,
   });
 
   // The shared reader projects eligible self-hosted reference images and
@@ -187,6 +294,8 @@ export async function buildUniversalCard(
   const fullDocument: Record<string, unknown> = {
     "@encoding": "cambridge-tcg/universal/v1",
     "@kind": "card",
+    sku: row.sku,
+    card_number: row.card_number,
     "@content_hash": contentHash,
     "@content_hash_contract": {
       basis: ["sku", "card_number", "set_code", "game", "variant"],
@@ -201,11 +310,8 @@ export async function buildUniversalCard(
     // Storage provenance is not ownership. This document mixes names,
     // rarity, and set fields;
     // the mirror does not retain field-level upstream rights lineage yet.
-    "@sources": [
-      "storefront-rds.card_set_cards",
-      "storefront-rds.card_sets",
-    ],
-    "@source_license": ["proprietary", "proprietary"],
+    "@sources": lookup.sources,
+    "@source_license": lookup.sources.map(() => "proprietary"),
     rights: {
       aggregate: "NOASSERTION",
       cambridge_original_structure: "CC0-1.0",
@@ -218,6 +324,8 @@ export async function buildUniversalCard(
       "variant.natural_label",
     ],
     _links,
+    // Null when the row is stored under exactly the SKU asked for.
+    sku_match: match,
 
     // ── Structural facts (universal) ──────────────────────────────────
     rarity: row.rarity
@@ -234,7 +342,9 @@ export async function buildUniversalCard(
         }
       : null,
 
-    variant: row.variant
+    // The stored label is the mirror's row order, not a printing, so a plain
+    // listing carries none.
+    variant: row.variant && match?.matched_by !== "plain_listing"
       ? {
           natural_label: row.variant,
           is_default: row.variant === "",
@@ -320,12 +430,10 @@ export async function buildUniversalCard(
       : null,
     publication_boundary: {
       price: "withheld_pending_field_level_source_rights",
-      image: image || sameLanguage
-        ? "cleared_official_sample_self_hosted_attributed"
-        : "withheld_pending_field_level_source_rights",
-      text: en.effect_text
-        ? "cleared_official_text_attributed"
-        : "withheld_pending_field_level_source_rights",
+      // The reader's own reason. An image it gave that this document could
+      // not carry whole is a fault of ours, never a rights decision.
+      image: IMAGE_REASON[image || sameLanguage ? "shown" : en.image_state === "shown" ? "unreadable" : en.image_state],
+      text: TEXT_REASON[en.text_state],
     },
   };
 
@@ -338,6 +446,8 @@ export async function buildUniversalCard(
     projected = {
       "@encoding": fullDocument["@encoding"],
       "@kind": fullDocument["@kind"],
+      sku: fullDocument.sku,
+      card_number: fullDocument.card_number,
       "@content_hash": fullDocument["@content_hash"],
       "@content_hash_contract": fullDocument["@content_hash_contract"],
       "@retrieved_at": fullDocument["@retrieved_at"],
@@ -346,6 +456,7 @@ export async function buildUniversalCard(
       // redistribution tier. kingdom-081 Phase 2.1.
       "@sources": fullDocument["@sources"],
       "@source_license": fullDocument["@source_license"],
+      sku_match: match,
       "@density": "sparse",
       "_note_opaque": fullDocument["_note_opaque"],
       price: price ? { magnitude: price.magnitude, currency_token: price.currency_token } : null,
@@ -369,9 +480,9 @@ export async function buildUniversalCard(
           ? {
               target_natural_token: row.set_code,
               target_hash: sha256(`set:${row.game}:${row.set_code}`),
-              set_name: row.set_name,
+              set_name: row.set_name || null,
               total_cards: row.total_cards,
-              released_at: row.released_at?.toISOString().slice(0, 10) ?? null,
+              released_at: row.released_at,
               cover_image_url: null,
             }
           : null,
@@ -393,7 +504,7 @@ export async function buildUniversalCard(
   const selfHash = sha256(canonicalize(projected));
   const document = { "@self_hash": selfHash, ...projected };
 
-  return { document, contentHash };
+  return { card: { document, contentHash }, miss: null };
 }
 
 /**

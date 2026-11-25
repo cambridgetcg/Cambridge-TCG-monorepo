@@ -25,8 +25,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { buildUniversalCard, type Density } from "@/lib/universal/card";
+import { readUniversalCard, type Density } from "@/lib/universal/card";
 import { parseAcceptLanguage } from "@/lib/cards/name";
+import { cardMissing } from "@/lib/universal/card-missing";
 
 export async function GET(
   req: NextRequest,
@@ -52,20 +53,10 @@ export async function GET(
       ? [langParam.toLowerCase(), ...parseAcceptLanguage(acceptLanguage)]
       : parseAcceptLanguage(acceptLanguage);
 
-    const result = await buildUniversalCard(sku, density, preferredLangs);
-    if (!result) {
-      return NextResponse.json(
-        {
-          error: {
-            code: "card_not_found",
-            message: `No card with sku "${sku}" in the storefront catalog. Sets are imported lazily; if the card exists in wholesale, it may not have been mirrored yet.`,
-          },
-        },
-        { status: 404 },
-      );
-    }
+    const { card, miss } = await readUniversalCard(sku, density, preferredLangs);
+    if (!card) return cardMissing(sku, miss);
 
-    return NextResponse.json(result.document, {
+    return NextResponse.json(card.document, {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "public, max-age=60, s-maxage=60",

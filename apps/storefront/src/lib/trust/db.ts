@@ -4,7 +4,6 @@ import type {
   TradeDispute,
   DisputeMessage,
   DisputeEvidence,
-  EscrowPayment,
   VerificationDocument,
 } from "./types";
 
@@ -52,11 +51,6 @@ export async function submitVerification(userId: string, data: {
 export async function getVerification(userId: string): Promise<UserVerification | null> {
   const result = await query(`SELECT * FROM user_verifications WHERE user_id = $1`, [userId]);
   return result.rows[0] as UserVerification ?? null;
-}
-
-export async function isUserVerified(userId: string): Promise<boolean> {
-  const result = await query(`SELECT is_verified FROM users WHERE id = $1`, [userId]);
-  return result.rows[0]?.is_verified === true;
 }
 
 export async function approveVerification(userId: string, notes?: string): Promise<void> {
@@ -272,16 +266,6 @@ export async function getDispute(
      LEFT JOIN market_orders o ON t.bid_order_id=o.id
      WHERE d.id=$1`,
     [disputeId]
-  );
-  return result.rows[0] as TradeDispute ?? null;
-}
-
-export async function getDisputeByTrade(tradeId: string): Promise<TradeDispute | null> {
-  const result = await query(
-    `SELECT d.*, u.name as raiser_name
-     FROM trade_disputes d JOIN users u ON d.raised_by=u.id
-     WHERE d.trade_id=$1 ORDER BY d.created_at DESC LIMIT 1`,
-    [tradeId]
   );
   return result.rows[0] as TradeDispute ?? null;
 }
@@ -615,36 +599,6 @@ export async function addDisputeEvidence(disputeId: string, userId: string, url:
 // ESCROW PAYMENTS
 // ══════════════════════════════════════════════════════════════
 
-export async function createEscrowPayment(tradeId: string, amount: number, stripeSessionId: string): Promise<EscrowPayment> {
-  const result = await query(
-    `INSERT INTO escrow_payments (trade_id, type, stripe_checkout_session, amount, status)
-     VALUES ($1,'buyer_payment',$2,$3,'pending') RETURNING *`,
-    [tradeId, stripeSessionId, amount.toFixed(2)]
-  );
-  return result.rows[0] as EscrowPayment;
-}
-
-export async function markEscrowPaid(tradeId: string, stripePaymentIntent: string): Promise<void> {
-  await query(
-    `UPDATE escrow_payments SET status='paid', stripe_payment_intent=$2, paid_at=NOW()
-     WHERE trade_id=$1 AND type='buyer_payment'`,
-    [tradeId, stripePaymentIntent]
-  );
-  await query(
-    `UPDATE market_trades SET escrow_status='paid', buyer_paid_at=NOW(), stripe_payment_intent=$2, updated_at=NOW()
-     WHERE id=$1`,
-    [tradeId, stripePaymentIntent]
-  );
-}
-
-export async function recordSellerPayout(tradeId: string, amount: number, reference: string): Promise<void> {
-  await query(
-    `INSERT INTO escrow_payments (trade_id, type, amount, status, payout_amount, payout_reference, payout_at)
-     VALUES ($1,'seller_payout',$2,'completed',$2,$3,NOW())`,
-    [tradeId, amount.toFixed(2), reference]
-  );
-}
-
 export async function recordRefund(tradeId: string, amount: number, reason: string): Promise<void> {
   await query(
     `UPDATE escrow_payments SET refund_amount=$2, refund_reason=$3, refunded_at=NOW(), status='refunded'
@@ -655,12 +609,4 @@ export async function recordRefund(tradeId: string, amount: number, reason: stri
     `UPDATE market_trades SET escrow_status='refunded', updated_at=NOW() WHERE id=$1`,
     [tradeId]
   );
-}
-
-export async function getEscrowPayments(tradeId: string): Promise<EscrowPayment[]> {
-  const result = await query(
-    `SELECT * FROM escrow_payments WHERE trade_id=$1 ORDER BY created_at ASC`,
-    [tradeId]
-  );
-  return result.rows as EscrowPayment[];
 }

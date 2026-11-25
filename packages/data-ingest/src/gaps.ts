@@ -140,14 +140,15 @@ export const GAPS: readonly Gap[] = [
     name: "Cardmarket public Product Catalog and Price Guide files are not wired",
     domain: "data-ingestion",
     citation:
-      "packages/data-ingest/src/cardmarket/index.ts — SourceMeta names access=public-file and read() emits public-file-reader-not-wired without touching OAuth",
+      "apps/storefront/src/lib/datafeed/cardmarket-collector.ts — reads Cardmarket's One Piece files daily while DATA_COLLECT_CARDMARKET is on; /api/v1/sources/cardmarket shows its last run. Other games are not collected",
     primitive:
-      "planned Cardmarket SourceModule with public-file access and an explicit non-running status",
+      "member_price_batches rows written by the daily collector",
     audit: "pnpm audit:tributaries — source registry and last-run state remain inspectable",
-    status: "named",
+    status: "closed",
     strength:
-      "The highest-value EU source now has one lawful, credential-free next action that can be built and measured without reviving the closed OAuth route.",
+      "The highest-value EU source is read from its own published files, without reviving the closed OAuth route.",
     named_at: "2026-07-11",
+    closed_at: "2026-10-30",
   },
 
   {
@@ -415,10 +416,10 @@ export const GAPS: readonly Gap[] = [
 
   {
     id: "artist-credit-not-surfaced",
-    name: "Illustrators are captured in the model but not yet persisted or shown",
+    name: "Pokémon and Scryfall illustrators are captured in the model but not yet persisted or shown",
     domain: "publishing",
     citation:
-      "packages/data-ingest/src/canonical.ts (CanonicalCard.artist added) + packages/data-ingest/src/pokemon-tcg-api/normalize.ts + packages/data-ingest/src/scryfall/normalize.ts (both now populate artist); there is no cards.artist column and no public surface renders it yet",
+      "packages/data-ingest/src/canonical.ts (CanonicalCard.artist added) + packages/data-ingest/src/pokemon-tcg-api/normalize.ts + packages/data-ingest/src/scryfall/normalize.ts (both now populate artist); there is no cards.artist column and no public surface renders these records' artist. /artists shows One Piece credits, which come from the Japanese catalogue",
     primitive:
       "CanonicalCard.artist (+ scryfall extra.illustration_id for same-artwork clustering)",
     audit: "none (future pnpm audit:artist-coverage)",

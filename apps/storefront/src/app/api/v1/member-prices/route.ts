@@ -21,6 +21,7 @@ export async function GET(request: Request): Promise<Response> {
     headers.set("X-RateLimit-Limit", "30");
     headers.set("X-RateLimit-Remaining", String(auth.remaining));
     headers.set("X-RateLimit-Reset-After", String(auth.resetSeconds));
+    if (page.paused) headers.set("Retry-After", "86400");
     const nextParams = new URL(request.url).searchParams;
     if (page.nextCursor) nextParams.set("cursor", page.nextCursor);
     return memberJson(envelope({

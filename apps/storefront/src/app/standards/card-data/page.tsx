@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SKU_IDENTITY_CONTRACT } from "@cambridge-tcg/sku";
 import { CARD_DATA_CONTRACT } from "@/lib/contracts/card-data";
+import { MEDIA_REASON_MEANINGS } from "@/lib/cards/media-reasons";
 import { PageLayout } from "@/lib/ui/PageLayout";
 import { PageHeader } from "@/lib/ui/PageHeader";
 
@@ -27,8 +28,11 @@ export default function CardDataStandard() {
         <p>This is an illustrative Japanese-variant request linked to an English base key. No image row or provider was queried for this example. The resolver validates the complete identifiers and their supported base-key relationship; the <a href="/spec/v1/ImageReference.schema.json">JSON Schema</a> checks structural shape only.</p>
         <p>Eligible English references in market and universal-card responses carry <code>image_url</code>, <code>image_attribution</code> and <code>image_reference</code> together. Universal sparse responses omit all three. A retained catalogue fallback has no English-reference claim; a null reference does not prove that card art does not exist.</p>
         <p>Publication permission is a separate decision. A valid reference, a hosted URL and a copyright caption do not grant reuse rights. This narrow contract does not implement the planned cross-source image record, verified printing crosswalk or rights-evidence model. See the <Link href="/legal/card-images">image policy</Link> and <Link href="/roadmap">integration roadmap</Link>.</p>
+        <h2>Why a picture or text is missing</h2>
+        <p>The universal card&apos;s <code>publication_boundary</code> gives one reason for its image and one for its text. Only one of them is about rights; a failed read is never written as a rights decision.</p>
+        <ul>{Object.entries(MEDIA_REASON_MEANINGS).map(([reason, meaning]) => <li key={reason}><code>{reason}</code>: {meaning}</li>)}</ul>
         <h2>Same-language images</h2>
-        <p>Since 30 October 2026 a Japanese One Piece or Fusion World request can also have an official image in its own language: the Japanese base print, self-hosted with the Japanese copyright line. Its separate <a href="/spec/v1/SameLanguageImageReference.schema.json"><code>SameLanguageImageReference</code> schema</a> keeps both identifiers, with <code>language: &quot;ja&quot;</code> and reason <code>same_language_base_reference</code>. A requested parallel or variant still depicts the base print, so it is a reference too, never a verified printing.</p>
+        <p>These are switched off: <code>image_same_language</code> is null and market responses keep the English reference. The contract stays published for when they are on. A Japanese One Piece or Fusion World request can then also have an official image in its own language: the Japanese base print, self-hosted with the Japanese copyright line. Its separate <a href="/spec/v1/SameLanguageImageReference.schema.json"><code>SameLanguageImageReference</code> schema</a> keeps both identifiers, with <code>language: &quot;ja&quot;</code> and reason <code>same_language_base_reference</code>. A requested parallel or variant still depicts the base print, so it is a reference too, never a verified printing.</p>
         <pre><code>{JSON.stringify(CARD_DATA_CONTRACT.images.same_language_reference.example, null, 2)}</code></pre>
         <p>The universal card carries it as one unit, <code>image_same_language</code> (URL, credit, language and reference), beside the unchanged English fields. Market responses carry <code>image_language</code> and <code>image_same_language_reference</code>; the market catalogue gives the Japanese image only to a request with <code>images=same-language</code>. The existing <code>ImageReference</code> schema stays English-only.</p>
         <details>

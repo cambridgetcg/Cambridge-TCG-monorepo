@@ -593,18 +593,6 @@ export async function isWatching(userId: string, auctionId: string): Promise<boo
   return result.rows.length > 0;
 }
 
-// ── All auctions for admin ──
-
-export async function listAllAuctions(): Promise<AuctionSummary[]> {
-  const result = await query(
-    `SELECT a.id, a.title, a.auction_type, a.status, a.current_price, a.starting_price,
-            a.buy_now_price, a.bid_count, a.starts_at, a.ends_at,
-            (SELECT url FROM auction_images WHERE auction_id = a.id ORDER BY display_order LIMIT 1) as image_url
-     FROM auctions a ORDER BY a.created_at DESC`
-  );
-  return result.rows as AuctionSummary[];
-}
-
 // ── Customer-created auctions ──
 
 export async function createSellerAuction(userId: string, data: {
@@ -803,32 +791,6 @@ export async function getPendingApprovalAuctions(): Promise<AuctionSummary[]> {
 // ── Best Offer accept/reject ──
 // Accepting an offer ends the Buy Now auction at the offer price; the offerer becomes the winner.
 // Rejecting just marks the offer as rejected; auction continues.
-
-export async function getOffer(auctionId: string, bidId: string): Promise<{
-  bid: Bid;
-  auction: Auction;
-} | null> {
-  const result = await query(
-    `SELECT b.*, a.id as a_id, a.seller_user_id, a.status as a_status,
-            a.title as a_title, a.auction_type as a_type, a.allow_best_offer
-       FROM auction_bids b
-       JOIN auctions a ON a.id = b.auction_id
-      WHERE b.id = $1 AND b.auction_id = $2`,
-    [bidId, auctionId]
-  );
-  if (result.rows.length === 0) return null;
-  const row = result.rows[0];
-  return {
-    bid: {
-      id: row.id, auction_id: row.auction_id, user_id: row.user_id, amount: row.amount,
-      is_best_offer: row.is_best_offer, status: row.status, created_at: row.created_at,
-    },
-    // Only the seller-relevant fields are needed by callers
-    auction: { id: row.a_id, status: row.a_status, title: row.a_title,
-               auction_type: row.a_type, allow_best_offer: row.allow_best_offer,
-               seller_user_id: row.seller_user_id } as unknown as Auction,
-  };
-}
 
 export async function acceptOffer(auctionId: string, bidId: string): Promise<{
   ok: boolean;

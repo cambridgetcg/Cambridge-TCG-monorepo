@@ -4,10 +4,13 @@
  * Storefront's bridge to @cambridge-tcg/stock. Handles the dimensional
  * differences between storefront's view of an item (sku string) and the
  * package's view (numeric cardId). Wraps multi-item operations in a single
- * Drizzle transaction so a multi-item cart either fully reserves or fully
- * rolls back.
+ * Drizzle transaction so a cart either fully commits or fully rolls back.
  *
- * See docs/architecture/storefront-checkout-flow.md for the full design.
+ * Nothing reserves stock any more: the last caller, B2B checkout, was closed
+ * in July 2026 and removed on 2026-11-24. What stays lets a late Stripe event
+ * for an earlier session commit or release what that session held.
+ *
+ * See docs/architecture/storefront-checkout-flow.md for the original design.
  */
 
 import { createDb } from "@cambridge-tcg/db";
@@ -102,92 +105,12 @@ export interface CartLine {
   quantity: number;
 }
 
-export interface ReserveResult {
-  ok: true;
-  reserved: { sku: string; cardId: number; quantity: number }[];
-}
-
-export interface ReserveFailure {
-  ok: false;
-  reason: "out_of_stock" | "unknown_sku" | "internal";
-  message: string;
-  /** sku that triggered the failure, if known */
-  sku?: string;
-}
-
 /**
  * Build the canonical holder string for a Stripe checkout session.
  * Prefixed so future sources (P2P market, etc.) don't collide.
  */
 export function holderForStripeSession(sessionId: string): string {
   return `stripe-session:${sessionId}`;
-}
-
-/**
- * Reserve stock for every line in a cart. All-or-nothing — if any line
- * fails, the transaction rolls back and no reservations persist.
- *
- * Idempotent: if called twice with the same `holder`, the second call
- * updates the existing reservations (per the reserver's reserve() semantics).
- */
-export async function reserveCartItems(
-  holder: string,
-  items: CartLine[],
-): Promise<ReserveResult | ReserveFailure> {
-  if (items.length === 0) {
-    return { ok: true, reserved: [] };
-  }
-
-  const { db } = wholesaleDb();
-  const { reserver } = service();
-
-  // sku → cardId lookup (single query)
-  const skus = items.map((i) => i.sku);
-  const cardRows = await db
-    .select({ id: cards.id, sku: cards.sku })
-    .from(cards)
-    .where(inArray(cards.sku, skus));
-  const skuToCardId = new Map(cardRows.map((r) => [r.sku, r.id]));
-
-  for (const item of items) {
-    if (!skuToCardId.has(item.sku)) {
-      return {
-        ok: false,
-        reason: "unknown_sku",
-        sku: item.sku,
-        message: `sku not found in wholesale cards table: ${item.sku}`,
-      };
-    }
-  }
-
-  try {
-    const reserved: ReserveResult["reserved"] = [];
-    await db.transaction(async (tx) => {
-      for (const item of items) {
-        const cardId = skuToCardId.get(item.sku)!;
-        await reserver.reserve(tx, {
-          cardId,
-          quantity: item.quantity,
-          holder,
-        });
-        reserved.push({ sku: item.sku, cardId, quantity: item.quantity });
-      }
-    });
-    return { ok: true, reserved };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.startsWith("Insufficient stock")) {
-      // Reserver's specific failure mode
-      const m = msg.match(/card (\d+)/);
-      const cardId = m ? Number(m[1]) : undefined;
-      const sku =
-        cardId !== undefined
-          ? cardRows.find((r) => r.id === cardId)?.sku
-          : undefined;
-      return { ok: false, reason: "out_of_stock", sku, message: msg };
-    }
-    return { ok: false, reason: "internal", message: msg };
-  }
 }
 
 /**
@@ -262,27 +185,6 @@ export async function releaseHolder(
       }
     });
     return { ok: true, released: rows.length };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { ok: false, message: msg };
-  }
-}
-
-/**
- * Sweep expired reservations. Called from /api/cron/maintenance once per
- * minute. Returns the number of reservations released.
- */
-export async function releaseExpiredReservations(): Promise<{
-  ok: true;
-  released: number;
-} | { ok: false; message: string }> {
-  const { db } = wholesaleDb();
-  const { reserver } = service();
-  try {
-    const released = await db.transaction(async (tx) =>
-      reserver.releaseExpired(tx),
-    );
-    return { ok: true, released };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: false, message: msg };

@@ -74,16 +74,28 @@ Options passed to `createDb()`:
 ```
 packages/db
 ├── src/
-│   ├── index.ts    # createDb factory, DbClient type, re-exports
-│   └── compat.ts   # createCompatDb — pg-compatible query/transaction
+│   ├── index.ts      # createDb factory, DbClient type, re-exports
+│   ├── compat.ts     # createCompatDb — pg-compatible query/transaction
+│   └── timestamp.ts  # dbTimestamp — a driver timestamp as a Date
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
 
-The package exports two entry points:
+The package exports three entry points:
 - `@cambridge-tcg/db` — factory + types (for Drizzle-first code)
 - `@cambridge-tcg/db/compat` — compatibility layer (for raw SQL migration)
+- `@cambridge-tcg/db/timestamp` — `dbTimestamp`, pure, for reading timestamps
+
+## Timestamps
+
+Raw queries return a `timestamptz` as Postgres text (`2026-07-11 09:30:00+00`)
+and a `date` as `2026-07-11`, because `drizzle()` replaces postgres.js's date
+parsers. Only a Drizzle typed select gives a `Date`. Read a timestamp with
+`dbTimestamp(row.created_at)`; `new Date(row.created_at)` also works in Node.
+Do not call Date methods on it, compare it with a `Date` (always false) or test
+it against an ISO 8601 pattern. A test that mocks `query` with node-postgres
+gets Dates and cannot see any of this: use `createCompatDb` instead.
 
 ## Why this exists
 

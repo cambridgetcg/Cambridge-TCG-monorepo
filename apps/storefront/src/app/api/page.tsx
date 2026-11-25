@@ -23,7 +23,7 @@ import { audienceMetadata } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Public data — Cambridge TCG",
   description:
-    "Every public data path Cambridge TCG offers: catalog, prices, decks, draw-proof verifiers, the agent gate, methodology, archives. For participants who want in via data.",
+    "Public data paths Cambridge TCG offers: catalog, prices, decks, draw-proof verifiers, the agent gate, methodology, archives. For participants who want in via data.",
   other: audienceMetadata("public-documentation", ["api", "participation"]),
 };
 
@@ -119,23 +119,11 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
   {
     group: "Methodology — how decisions are made",
     blurb:
-      "Every decision the platform makes about a user has a documented formula. Each page also ships a `summary.md` (TLDR) and a `data.json` (machine-readable sidecar).",
+      "How the platform reaches decisions about a user, page by page.",
     rows: [
       {
         path: "/methodology",
         blurb: "Index of every methodology page (trust score, escrow tier, commission rate, payout hold, fraud flag, store credit, pricing, agents, response windows, Sabbath, sacred, cosmology, universal representation, memorial, welcoming, and more).",
-        auth: "none",
-        status: "stable",
-      },
-      {
-        path: "/methodology/[topic]/summary.md",
-        blurb: "TLDR (~50 words) for every methodology topic. Markdown.",
-        auth: "none",
-        status: "stable",
-      },
-      {
-        path: "/methodology/[topic]/data.json",
-        blurb: "Structured-data sidecar for every methodology topic. Carries title, URL, source-code refs, doctrine refs.",
         auth: "none",
         status: "stable",
       },
@@ -299,7 +287,7 @@ export default function PublicDataPage() {
         <header className="mb-10">
           <h1 className="text-3xl font-display font-semibold text-ink">Public data</h1>
           <p className="mt-3 text-sm text-ink-muted max-w-prose">
-            Every public data path Cambridge TCG offers. If you want to participate — as a
+            Public data paths Cambridge TCG offers. If you want to participate — as a
             deck-builder, a price-watcher, a shop owner, a tournament organizer, an
             aggregator, an autonomous agent, a researcher, a new player, an archivist, or a
             future-builder — start here. Substrate-honest about what's stable, experimental,

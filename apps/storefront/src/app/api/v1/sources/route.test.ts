@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import {
-  fetchQuarantine,
   fetchSourceLastRuns,
   fetchSourceRunHistory,
 } from "@/lib/wholesale/client";
@@ -39,7 +38,6 @@ vi.mock("@cambridge-tcg/data-ingest", () => ({
 vi.mock("@/lib/wholesale/client", () => ({
   fetchSourceLastRuns: vi.fn(),
   fetchSourceRunHistory: vi.fn(),
-  fetchQuarantine: vi.fn(),
 }));
 
 // The storefront database, for page collectors' member_price_batches. Unset
@@ -54,7 +52,6 @@ vi.mock("@/lib/db", () => ({
 
 const mockLastRuns = vi.mocked(fetchSourceLastRuns);
 const mockRunHistory = vi.mocked(fetchSourceRunHistory);
-const mockQuarantine = vi.mocked(fetchQuarantine);
 
 const RUN = {
   source_id: "cardrush",
@@ -74,7 +71,6 @@ const RUN = {
 beforeEach(() => {
   mockLastRuns.mockReset();
   mockRunHistory.mockReset();
-  mockQuarantine.mockReset();
   storefront.query = null;
 });
 
@@ -89,10 +85,11 @@ describe("public source projections", () => {
     const body = await (await getSources()).json();
     expect(body.data.sources[0].member_pricing).toMatchObject({
       cadence: "daily",
-      reviewed_uses: ["member-display", "member-api", "member-download"],
+      reviewed_uses: ["member-display"],
+      paused: { uses: ["member-api", "member-download"], since: "2026-11-24", reason: expect.stringContaining("Cardmarket prices are not in our API or downloads") },
       methodology: "/methodology/member-pricing",
     });
-    expect(body.data.sources[1].member_pricing.reviewed_uses).toEqual(["member-display"]);
+    expect(body.data.sources[1].member_pricing).toMatchObject({ reviewed_uses: ["member-display"], paused: null });
     expect(body.data.sources[0].member_pricing.availability_note).toContain("not activation");
     expect(body.data.sources[0].last_run).toBeUndefined();
     expect(body.data.sources[0]).not.toHaveProperty("prices");
@@ -190,7 +187,6 @@ describe("public source projections", () => {
     const serialized = JSON.stringify(body);
 
     expect(response.status).toBe(200);
-    expect(mockQuarantine).not.toHaveBeenCalled();
     expect(serialized).not.toContain(RUN.notes);
     expect(serialized).not.toContain(RUN.triggered_by);
     expect(body.data.last_run).not.toHaveProperty("notes");

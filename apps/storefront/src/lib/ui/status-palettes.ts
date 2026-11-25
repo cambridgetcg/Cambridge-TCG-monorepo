@@ -90,20 +90,6 @@ export const AuctionApprovalPalette: Record<string, Tone> = {
   changes_requested: "amber",
 };
 
-// ── trade-ins ────────────────────────────────────────────────────────
-export const TradeInStatusPalette: Record<string, Tone> = {
-  draft: "neutral",
-  submitted: "amber",
-  quoted: "blue",
-  received: "blue",
-  grading: "purple",
-  approved: "emerald",
-  paid: "green",
-  rejected: "red",
-  cancelled: "neutral",
-  expired: "neutral",
-};
-
 // ── offers ───────────────────────────────────────────────────────────
 export const OfferStatusPalette: Record<string, Tone> = {
   pending: "amber",
@@ -124,26 +110,6 @@ export const ReturnStatusPalette: Record<string, Tone> = {
   declined:  "neutral",
   cancelled: "neutral",
   expired:   "neutral",
-};
-
-// ── chargebacks (customer view — what the platform tells the user) ──
-export const ChargebackStatusPalette: Record<string, Tone> = {
-  needs_response: "red",
-  under_review: "amber",
-  warning_closed: "amber",
-  warning_needs_response: "amber",
-  won: "emerald",
-  lost: "red",
-  charge_refunded: "neutral",
-  admin_resolved: "neutral",
-};
-
-// ── refunds ──────────────────────────────────────────────────────────
-export const RefundStatusPalette: Record<string, Tone> = {
-  pending: "amber",
-  succeeded: "emerald",
-  failed: "red",
-  cancelled: "neutral",
 };
 
 // ── vacation (seller vacations) ─────────────────────────────────────
@@ -198,23 +164,6 @@ export const VaultStatusPalette: Record<string, Tone> = {
   traded:    "purple",
 };
 
-// ── standing severity (account/standing flags) ──────────────────────
-export const StandingSeverityPalette: Record<string, Tone> = {
-  critical: "red",
-  high: "amber",
-  medium: "sky",
-  low: "neutral",
-};
-
-// ── trust tier (5 tiers from @/lib/escrow/types TRUST_TIERS) ────────
-export const TrustTierPalette: Record<string, Tone> = {
-  Elite: "purple",
-  Veteran: "amber",
-  Trusted: "emerald",
-  Starter: "sky",
-  New: "neutral",
-};
-
 // ── card rarity (catalog/buylist) ───────────────────────────────────
 export const RarityPalette: Record<string, Tone> = {
   C: "neutral",
@@ -238,16 +187,6 @@ export const MysteryBoxRarityPalette: Record<string, Tone> = {
   uncommon:  "blue",
   rare:      "purple",
   legendary: "amber",
-};
-
-// ── trade-in quote (reference-flow status) ──────────────────────────
-export const QuoteStatusPalette: Record<string, Tone> = {
-  pending:   "amber",
-  quoted:    "blue",
-  accepted:  "emerald",
-  declined:  "red",
-  expired:   "neutral",
-  cancelled: "neutral",
 };
 
 // ── collector swaps (swap_proposals.status) ─────────────────────────

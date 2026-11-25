@@ -122,7 +122,8 @@ references only and the collector records no image links.
      attributed member display; input to derived data.
    - <a id="cardmarket"></a>`cardmarket-derivation/2026-10-28.1`: Cardmarket prices as input to
      derived data. The 2026-09-07 grant (`member-prices/2026-09-07.1`, official
-     daily files, member display/API/download) is unchanged.
+     daily files, member display/API/download) is unchanged. *Since 2026-11-24*
+     its API and download uses are paused ([record](2026-11-24-cardmarket-export-pause.md)).
 2. **Raw provider prices are display-only.** CardRush and TCGplayer rows are
    released for `member-display` only: shown on Cambridge pages with their
    source named, never in `/api/v1/member-prices`, never in a download, never
@@ -179,7 +180,9 @@ on the free plan and pricing rising only for the larger corporates).
     on top but never counts toward the two. Its raw trend is free to members
     through the API and downloads, so the mean of Cardmarket and one
     display-only value would give that value back (2 × reference − Cardmarket,
-    up to rounding). A reference is a GBP mean, rounded to three significant
+    up to rounding). *Since 2026-11-24* the API and downloads are paused;
+    Cardmarket still never counts, because its values went out and anyone can
+    download its own daily files. A reference is a GBP mean, rounded to three significant
     figures, and published with a confidence label rather than a numeric
     spread.
   - The honest coverage consequence: at first, reference prices exist only

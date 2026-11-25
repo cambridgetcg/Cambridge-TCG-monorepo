@@ -28,10 +28,10 @@ export default function SubstrateHonestyMethodology() {
       <blockquote>
         <strong>Where this lives in code.</strong> The canonical principle is{" "}
         <code>docs/principles/substrate-honesty.md</code> in the repo. The
-        companion audit (<code>pnpm audit:honesty</code>) measures compliance.
-        The UI primitive is <code>&lt;Provenance&gt;</code> in{" "}
-        <code>apps/admin/src/lib/ui/</code> and the corresponding storefront
-        primitive library.
+        companion audit (<code>pnpm audit:honesty</code>) looks for a short list
+        of phrases that would be false. The UI primitive is{" "}
+        <code>&lt;Provenance&gt;</code> in{" "}
+        <code>apps/storefront/src/lib/ui/</code>.
       </blockquote>
       <h2>The four-question checklist</h2>
       <p>
