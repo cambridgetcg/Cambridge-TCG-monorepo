@@ -9,7 +9,12 @@ import { sendBuyerMatchEmail, sendSellerMatchEmail, sendCancelEmail } from "./em
 import { formatPrice } from "@/lib/format";
 import { notify } from "@/lib/notifications/db";
 import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
-import { owedTradeSql, TRADE_BUYER_NOT_PAID_ERROR, TRADE_NOT_OWED_ERROR } from "@/lib/payouts/owed";
+import {
+  owedTradeSql,
+  TRADE_BUYER_NOT_PAID_ERROR,
+  TRADE_NO_COMPLETION_TIME_ERROR,
+  TRADE_NOT_OWED_ERROR,
+} from "@/lib/payouts/owed";
 
 // Default open-order TTL when the caller doesn't specify expires_at.
 // 30 days mirrors typical online marketplace conventions.
@@ -1304,7 +1309,7 @@ export async function recordTradePayout(data: {
   reference?: string;    // provider txn id, bank ref, etc. Free-form.
 }): Promise<{ ok: true; transferId?: string } | { ok: false; error: string }> {
   const tradeRes = await query(
-    `SELECT t.escrow_status, t.buyer_paid_at, t.seller_paid_at, t.seller_payout, t.seller_id,
+    `SELECT t.escrow_status, t.completed_at, t.buyer_paid_at, t.seller_paid_at, t.seller_payout, t.seller_id,
             ${owedTradeSql("t")} AS owed,
             su.email AS seller_email,
             COALESCE(o.card_name, t.sku) AS card_name
@@ -1325,6 +1330,9 @@ export async function recordTradePayout(data: {
   }
   if (!trade.buyer_paid_at) {
     return { ok: false, error: TRADE_BUYER_NOT_PAID_ERROR };
+  }
+  if (!trade.completed_at) {
+    return { ok: false, error: TRADE_NO_COMPLETION_TIME_ERROR };
   }
   // Anything else the shared rule requires (lib/payouts/owed.ts).
   if (trade.owed !== true) {

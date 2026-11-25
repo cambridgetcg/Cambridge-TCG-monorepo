@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-// What three pages say about a completed trade, by whether the buyer's payment
-// is recorded: the seller's trade page, the admin's market row, and the line on
-// the admin's payouts page for the trades its list leaves out.
+// What three pages say about a sale, by whether the buyer's payment is recorded:
+// the trade page, the admin's market row, and the line on the admin's payouts
+// page for the trades and auctions its list leaves out.
 import { act, type ComponentType } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -116,6 +116,16 @@ describe("the admin's market row", () => {
     await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent?.startsWith("Record Payout"))!.click());
     expect(vi.mocked(fetch).mock.lastCall).toEqual(["/api/market/trades/t1/payout", expect.objectContaining({ method: "POST" })]);
   });
+  it("marks the closed row of a completed trade that no payment is recorded for", async () => {
+    const closed = async (over: Record<string, unknown>) => {
+      serve({ "/api/admin/overview": {}, "/api/market/trades?admin=true": { trades: [trade(over)] } });
+      return (await show(AdminMarketPage)).includes("No payment recorded");
+    };
+    expect(await closed({ buyer_paid_at: null })).toBe(true);
+    expect(await closed({ buyer_paid_at: PAID_AT })).toBe(false);
+    expect(await closed({ buyer_paid_at: null, seller_paid_at: "2026-11-03 00:00:00+00" })).toBe(false);
+    expect(await closed({ buyer_paid_at: null, escrow_status: "awaiting_payment" })).toBe(false);
+  });
   it("shows a payout already recorded, whatever the buyer's payment", async () => {
     for (const buyer_paid_at of [PAID_AT, null]) {
       const seen = await open({ buyer_paid_at, seller_paid_at: "2026-11-03 00:00:00+00", payout_method: "bank_transfer" });
@@ -127,21 +137,38 @@ describe("the admin's market row", () => {
 
 describe("the admin's payouts page", () => {
   const list = (over: Record<string, unknown>) => {
-    serve({ "/api/admin/overview": {}, "/api/admin/payouts/outstanding": { rows: [], totalOwedGbp: 0, overdueCount: 0, ...over } });
+    serve({
+      "/api/admin/overview": {},
+      "/api/admin/payouts/outstanding": { rows: [], totalOwedGbp: 0, overdueCount: 0, completedNotOwedCount: 0, paidAuctionNotOwedCount: 0, ...over },
+    });
     return show(AdminPayoutsPage);
   };
+  const REMEDY = "If the money did arrive, see docs/methodology/payout-holds.md.";
 
   it("counts the completed trades its list leaves out", async () => {
-    expect(await list({ completedNotOwedCount: 1 })).toContain(
-      "1 completed trade is not listed and not owed: no buyer payment (or no completion time) is recorded. Find it in Market under All Tiers, Completed.",
+    const one = await list({ completedNotOwedCount: 1 });
+    expect(one).toContain(
+      `1 completed trade is not listed and not owed: no buyer payment (or no completion time) is recorded. Find it in Market under All Tiers, Completed. ${REMEDY}`,
     );
+    expect(one).not.toContain("marked paid");
     expect(await list({ completedNotOwedCount: 71 })).toContain(
       "71 completed trades are not listed and not owed: no buyer payment (or no completion time) is recorded. Find them in Market under All Tiers, Completed.",
     );
   });
+  it("counts the auctions its list leaves out, in the same line", async () => {
+    const one = await list({ paidAuctionNotOwedCount: 1 });
+    expect(one).toContain(
+      `1 auction marked paid is not listed and not owed: no winner payment (or no payout amount) is recorded. Find it in Auctions. ${REMEDY}`,
+    );
+    expect(one).not.toContain("completed trade");
+    expect(await list({ completedNotOwedCount: 2, paidAuctionNotOwedCount: 3 })).toContain(
+      "Find them in Market under All Tiers, Completed. 3 auctions marked paid are not listed and not owed: no winner payment (or no payout amount) is recorded. Find them in Auctions.",
+    );
+  });
   it("says nothing when there are none", async () => {
-    const seen = await list({ completedNotOwedCount: 0 });
+    const seen = await list({});
     expect(seen).toContain("No outstanding payouts.");
     expect(seen).not.toContain("not owed");
+    expect(seen).not.toContain("payout-holds.md");
   });
 });

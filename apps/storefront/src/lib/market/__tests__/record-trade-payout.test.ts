@@ -15,11 +15,11 @@ vi.mock("../email", () => ({
 vi.mock("@/lib/notifications/db", () => ({ notify: mocks.notify }));
 vi.mock("@/lib/social/db", () => ({ postActivity: vi.fn(), awardAchievement: vi.fn() }));
 
-import { owedTradeSql, TRADE_BUYER_NOT_PAID_ERROR, TRADE_NOT_OWED_ERROR } from "@/lib/payouts/owed";
+import { owedTradeSql, TRADE_BUYER_NOT_PAID_ERROR, TRADE_NO_COMPLETION_TIME_ERROR, TRADE_NOT_OWED_ERROR } from "@/lib/payouts/owed";
 import { recordTradePayout, updateEscrowStatus } from "../db";
 
 const owed = {
-  escrow_status: "completed", buyer_paid_at: "2026-11-01 00:00:00+00", seller_paid_at: null,
+  escrow_status: "completed", completed_at: "2026-11-02 00:00:00+00", buyer_paid_at: "2026-11-01 00:00:00+00", seller_paid_at: null,
   seller_payout: "9.20", seller_id: "s", owed: true, seller_email: "seller@example.test", card_name: "Card",
 };
 let row: Record<string, unknown> = owed;
@@ -49,6 +49,8 @@ describe("recordTradePayout", () => {
       expectNothingMoved();
     });
     it(`refuses by ${method} anything else the shared rule leaves out, and any answer but true`, async () => {
+      row = { ...owed, completed_at: null, owed: false };
+      expect(await recordTradePayout({ tradeId: "t1", method, reference: "R" })).toEqual({ ok: false, error: TRADE_NO_COMPLETION_TIME_ERROR });
       for (const answer of [false, null, undefined, "t", 1]) {
         row = { ...owed, owed: answer };
         expect(await recordTradePayout({ tradeId: "t1", method, reference: "R" }), String(answer)).toEqual({ ok: false, error: TRADE_NOT_OWED_ERROR });
@@ -63,10 +65,12 @@ describe("recordTradePayout", () => {
   it("keeps the earlier, more specific refusals first", async () => {
     row = { ...owed, seller_paid_at: "2026-11-02 00:00:00+00", owed: false };
     expect(await recordTradePayout({ tradeId: "t1", method: "other" })).toEqual({ ok: false, error: "Payout already recorded for this trade." });
-    row = { ...owed, escrow_status: "awaiting_payment", buyer_paid_at: null, owed: false };
+    row = { ...owed, escrow_status: "awaiting_payment", completed_at: null, buyer_paid_at: null, owed: false };
     expect(await recordTradePayout({ tradeId: "t1", method: "other" })).toEqual({
       ok: false, error: "Cannot pay seller until trade is completed (currently awaiting_payment).",
     });
+    row = { ...owed, completed_at: null, buyer_paid_at: null, owed: false };
+    expect(await recordTradePayout({ tradeId: "t1", method: "other" })).toEqual({ ok: false, error: TRADE_BUYER_NOT_PAID_ERROR });
     expectNothingMoved();
   });
   it("pays an owed trade once, under its own idempotency key", async () => {

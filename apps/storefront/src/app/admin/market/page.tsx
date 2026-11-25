@@ -563,6 +563,11 @@ function TradeRow({
                 {tierBadge.label}
               </span>
             )}
+            {trade.escrow_status === "completed" && !trade.buyer_paid_at && !trade.seller_paid_at && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400">
+                No payment recorded
+              </span>
+            )}
           </div>
           <p className="text-sm text-neutral-400 mt-1 truncate">
             <span className="text-neutral-500">Seller:</span> {trade.seller_name || "Unknown"}{" "}

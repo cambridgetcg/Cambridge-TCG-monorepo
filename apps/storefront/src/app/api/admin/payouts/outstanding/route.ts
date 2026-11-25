@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
-import { completedButNotOwedTradeSql, owedAuctionSql, owedTradeSql } from "@/lib/payouts/owed";
+import { completedButNotOwedTradeSql, owedAuctionSql, owedTradeSql, paidButNotOwedAuctionSql } from "@/lib/payouts/owed";
 
 // GET — payouts owed but not yet sent, by the one rule in lib/payouts/owed.ts:
 // the buyer's payment is recorded, the sale reached its end, and the seller
@@ -47,9 +47,14 @@ export async function GET() {
   );
 
   // Completed trades the list leaves out, because no buyer payment (or no
-  // completion time) is recorded. Counted, so the operator still hears of them.
-  const notOwed = await query(
+  // completion time) is recorded, and auctions marked paid that it leaves out,
+  // because no winner payment (or no payout amount) is recorded. Counted, so
+  // the operator still hears of them.
+  const tradesNotOwed = await query(
     `SELECT COUNT(*)::int AS n FROM market_trades t WHERE ${completedButNotOwedTradeSql("t")}`
+  );
+  const auctionsNotOwed = await query(
+    `SELECT COUNT(*)::int AS n FROM auctions a WHERE ${paidButNotOwedAuctionSql("a")}`
   );
 
   const now = Date.now();
@@ -71,6 +76,7 @@ export async function GET() {
     rows,
     totalOwedGbp,
     overdueCount,
-    completedNotOwedCount: notOwed.rows[0].n,
+    completedNotOwedCount: tradesNotOwed.rows[0].n,
+    paidAuctionNotOwedCount: auctionsNotOwed.rows[0].n,
   });
 }

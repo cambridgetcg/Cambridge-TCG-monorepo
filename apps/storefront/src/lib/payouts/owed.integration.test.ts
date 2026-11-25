@@ -171,7 +171,7 @@ describe.skipIf(!target)("what is owed to sellers, on PostgreSQL (explicit loopb
       expect(await read(UNPAID_TRADE)).toEqual({ owed: false, buyer_paid_at: null });
     });
 
-    it("the admin list shows exactly the owed rows, and counts the completed ones it leaves out", async () => {
+    it("the admin list shows exactly the owed rows, and counts the sales it leaves out", async () => {
       const body = await (await outstanding()).json();
       const rows = body.rows as { kind: string; id: string; label: string; dueNow: boolean; seller_email: string }[];
       expect(rows.map((r) => [r.kind, r.id, r.label, r.dueNow, r.seller_email]).sort()).toEqual([
@@ -185,6 +185,7 @@ describe.skipIf(!target)("what is owed to sellers, on PostgreSQL (explicit loopb
       expect(body.totalOwedGbp).toBe(55.75 + 6 + 600);
       expect(body.overdueCount).toBe(4);
       expect(body.completedNotOwedCount).toBe(3); // unpaid stamped, unpaid unstamped, paid unstamped
+      expect(body.paidAuctionNotOwedCount).toBe(3); // unpaid payout, unpaid nopayout, paid nopayout
     });
 
     it("the seller's page shows exactly the owed rows", async () => {
@@ -239,7 +240,7 @@ describe.skipIf(!target)("what is owed to sellers, on PostgreSQL (explicit loopb
         ok: false, error: "Cannot pay seller: no buyer payment is recorded for this trade.",
       });
       expect(await recordTradePayout({ tradeId: await tradeId("completed paid unstamped unsent"), method: "bank_transfer" })).toEqual({
-        ok: false, error: "Cannot pay seller: no payout is owed for this trade.",
+        ok: false, error: "Cannot pay seller: no completion time is recorded for this trade.",
       });
       expect(await recordTradePayout({ tradeId: await tradeId(OWED_TRADE), method: "bank_transfer" })).toMatchObject({ ok: true });
     });

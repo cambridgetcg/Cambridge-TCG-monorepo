@@ -15,7 +15,7 @@ vi.mock("@/lib/trust/state", () => ({ loadUserTrustState: vi.fn(async () => null
 import { GET as outstanding } from "@/app/api/admin/payouts/outstanding/route";
 import { loadTraderDashboard } from "@/lib/market/trader-dashboard";
 import { getPendingPayouts } from "./aggregation";
-import { completedButNotOwedTradeSql, owedAuctionSql, owedTradeSql } from "./owed";
+import { completedButNotOwedTradeSql, owedAuctionSql, owedTradeSql, paidButNotOwedAuctionSql } from "./owed";
 import { runPayoutSweep } from "./sweep";
 
 const flat = (sql: string) => sql.replace(/\s+/g, " ");
@@ -47,13 +47,20 @@ describe("the rule", () => {
     );
     expect(owedAuctionSql()).toBe(owedAuctionSql("a"));
   });
+  it("the operator's auction count is every other auction marked paid, with a seller and not paid out", () => {
+    expect(flat(paidButNotOwedAuctionSql("a"))).toBe(
+      `(a.status = 'paid' AND a.seller_user_id IS NOT NULL AND a.seller_paid_at IS NULL AND NOT ${flat(owedAuctionSql("a"))})`,
+    );
+    expect(paidButNotOwedAuctionSql()).toBe(paidButNotOwedAuctionSql("a"));
+  });
   it("the empty alias names the same columns bare", () => {
     expect(owedTradeSql("")).toBe(owedTradeSql("t").replaceAll("t.", ""));
     expect(completedButNotOwedTradeSql("")).toBe(completedButNotOwedTradeSql("t").replaceAll("t.", ""));
     expect(owedAuctionSql("")).toBe(owedAuctionSql("a").replaceAll("a.", ""));
+    expect(paidButNotOwedAuctionSql("")).toBe(paidButNotOwedAuctionSql("a").replaceAll("a.", ""));
   });
   it("refuses an alias that is not a plain identifier", () => {
-    for (const rule of [owedTradeSql, completedButNotOwedTradeSql, owedAuctionSql]) {
+    for (const rule of [owedTradeSql, completedButNotOwedTradeSql, owedAuctionSql, paidButNotOwedAuctionSql]) {
       for (const bad of ["t;", "t.x", "T", "1t", "t --", " "]) expect(() => rule(bad)).toThrow("invalid SQL alias");
     }
   });
@@ -67,17 +74,20 @@ describe("every reader uses the rule", () => {
     expect(mocks.query.mock.calls[0][1]).toEqual([50]);
     expect(reading("auctions a")[0]).toContain(`WHERE ${flat(owedAuctionSql("a"))} AND a.paid_at + make_interval`);
   });
-  it("the admin outstanding list, and its count of what it leaves out", async () => {
+  it("the admin outstanding list, and its counts of what it leaves out", async () => {
     mocks.query.mockImplementation(async (sql: string) =>
-      sql.includes("COUNT(*)::int AS n") ? { rows: [{ n: 2 }] } : { rows: [] });
+      sql.includes("COUNT(*)::int AS n") ? { rows: [{ n: sql.includes("FROM auctions") ? 3 : 2 }] } : { rows: [] });
     const res = await outstanding();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ rows: [], totalOwedGbp: 0, overdueCount: 0, completedNotOwedCount: 2 });
-    const trades = reading("market_trades t");
-    expect(trades).toHaveLength(2);
+    expect(await res.json()).toEqual({
+      rows: [], totalOwedGbp: 0, overdueCount: 0, completedNotOwedCount: 2, paidAuctionNotOwedCount: 3,
+    });
+    const trades = reading("market_trades t"), auctions = reading("auctions a");
+    expect([trades.length, auctions.length]).toEqual([2, 2]);
     expect(trades[0].endsWith(`WHERE ${flat(owedTradeSql("t"))}`)).toBe(true);
     expect(trades[1].endsWith(`WHERE ${flat(completedButNotOwedTradeSql("t"))}`)).toBe(true);
-    expect(reading("auctions a")[0].endsWith(`WHERE ${flat(owedAuctionSql("a"))}`)).toBe(true);
+    expect(auctions[0].endsWith(`WHERE ${flat(owedAuctionSql("a"))}`)).toBe(true);
+    expect(auctions[1].endsWith(`WHERE ${flat(paidButNotOwedAuctionSql("a"))}`)).toBe(true);
   });
   it("the list answers nobody but an admin", async () => {
     mocks.isAdmin.mockResolvedValue(false);

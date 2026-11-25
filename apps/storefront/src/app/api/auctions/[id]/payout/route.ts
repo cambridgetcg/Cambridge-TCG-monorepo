@@ -6,7 +6,7 @@ const VALID_METHODS = new Set([
   "bank_transfer", "paypal", "crypto", "stripe_connect", "store_credit", "other",
 ]);
 
-// POST — admin records that the auction seller was paid off-platform.
+// POST — admin records a payout to the auction's seller.
 // Mirrors the market trade payout endpoint.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdmin())) {

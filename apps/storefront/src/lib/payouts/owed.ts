@@ -5,19 +5,21 @@
  * The admin's outstanding list, the seller's payouts page, the trader
  * dashboard, the payout sweep, and the last gate before money moves
  * (recordTradePayout, recordAuctionPayout) all use these, so they cannot
- * disagree about a row. What each adds on top (the hold, the seller's Connect
- * account, one seller's rows) stays with it.
+ * disagree about what is owed. What each adds on top (the hold, the seller's
+ * Connect account, one seller's rows, the dashboard's 14 days) stays with it.
  *
  * A buyer's payment is a timestamp on the sale itself. A trade's is
  * market_trades.buyer_paid_at, set by the Stripe settlement
  * (stripe-checkout-attempts.ts) or by an admin's Mark Paid
- * (updateEscrowStatus). An auction's is auctions.paid_at, set by the Stripe
+ * (updateEscrowStatus). markEscrowPaid in lib/trust/db.ts sets it too, but
+ * nothing calls that. An auction's is auctions.paid_at, set by the Stripe
  * webhook. No code clears either one. A status alone is not evidence of
- * payment: an admin can set any status by hand.
+ * payment: an admin can set any status by hand. What to do when money arrived
+ * but the stamp is missing: docs/methodology/payout-holds.md.
  *
  * Each condition is true or false, never NULL (the status columns are NOT
- * NULL, the rest are IS [NOT] NULL tests). Keep it so: the complement below
- * would lose a row whose condition is NULL.
+ * NULL, the rest are IS [NOT] NULL tests). Keep it so: the two complements
+ * below would lose a row whose condition is NULL.
  */
 
 const ALIAS_RE = /^[a-z_][a-z0-9_]*$/;
@@ -61,8 +63,21 @@ export function owedAuctionSql(alias = "a"): string {
         AND ${c("seller_paid_at")} IS NULL)`;
 }
 
+/** Marked paid, with a seller and not paid out, but not owed: the winner's
+ *  payment or the payout amount is missing. Counted for the operator, like the
+ *  trades above. */
+export function paidButNotOwedAuctionSql(alias = "a"): string {
+  const c = (name: string) => column(alias, name);
+  return `(${c("status")} = 'paid'
+        AND ${c("seller_user_id")} IS NOT NULL
+        AND ${c("seller_paid_at")} IS NULL
+        AND NOT ${owedAuctionSql(alias)})`;
+}
+
 export const TRADE_BUYER_NOT_PAID_ERROR =
   "Cannot pay seller: no buyer payment is recorded for this trade.";
+export const TRADE_NO_COMPLETION_TIME_ERROR =
+  "Cannot pay seller: no completion time is recorded for this trade.";
 export const TRADE_NOT_OWED_ERROR =
   "Cannot pay seller: no payout is owed for this trade.";
 export const AUCTION_BUYER_NOT_PAID_ERROR =
