@@ -43,7 +43,8 @@ export default function TraderDashboardMethodology() {
         </li>
         <li>
           <strong>Pending payout.</strong> Sum of <code>seller_payout</code> across{" "}
-          <code>escrow_status = 'completed'</code> rows where{" "}
+          <code>escrow_status = 'completed'</code> rows that the buyer paid for and that
+          have not been paid out (<code>apps/storefront/src/lib/payouts/owed.ts</code>), where{" "}
           <code>completed_at &gt; NOW() - INTERVAL '14 days'</code>. Substrate-honest
           approximation: payout-hold actually depends on your trust tier (
           <Link href="/methodology/payout-hold">/methodology/payout-hold</Link>), and the
@@ -165,6 +166,11 @@ export default function TraderDashboardMethodology() {
       </p>
 
       <h2>Change history</h2>
+      <p>
+        <em>v2 — 2026-11-25. Pending payout counts only trades the buyer paid for and that
+        have not been paid out. Before, it counted every trade completed in the last 14
+        days.</em>
+      </p>
       <p>
         <em>v1 — 2026-05-12. Initial five sections shipped. Pending-payout
         14-day cap noted as approximation; future revision will compute

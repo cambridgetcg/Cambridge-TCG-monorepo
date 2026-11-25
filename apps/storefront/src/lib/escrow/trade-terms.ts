@@ -26,6 +26,9 @@ export interface StoredTradeTerms {
   payout_hold_days?: number | null;
   accepts_returns?: boolean | null;
   return_window_days?: number | null;
+  // Not terms: whether the payout the terms speak of can still come.
+  escrow_status?: string | null;
+  buyer_paid_at?: string | null;
 }
 
 // The one-line badge headline, branched by role. Full-escrow (ships to
@@ -96,8 +99,10 @@ export function buildTradeTermBullets(terms: StoredTradeTerms, role: TradeRole):
     );
   }
 
-  // 4. Payout hold — from the stored snapshot.
-  if (terms.payout_hold_days != null) {
+  // 4. Payout hold — from the stored snapshot. Left out of a completed trade
+  // with no recorded buyer payment: no payout is due (lib/payouts/owed.ts).
+  const noPayout = terms.escrow_status === "completed" && !terms.buyer_paid_at;
+  if (terms.payout_hold_days != null && !noPayout) {
     if (terms.payout_hold_days <= 0) {
       bullets.push(
         role === "seller"

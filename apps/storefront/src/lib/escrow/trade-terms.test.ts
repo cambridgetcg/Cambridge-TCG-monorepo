@@ -59,6 +59,19 @@ describe("buildTradeTermBullets — reads the stored snapshot, not the current t
     const instant = buildTradeTermBullets({ ...walkerTrade, payout_hold_days: 0 }, "seller");
     expect(instant.some((b) => b.includes("released as soon as"))).toBe(true);
   });
+
+  it("says nothing of a payout on a completed trade with no recorded buyer payment", () => {
+    for (const role of ["seller", "buyer"] as const) {
+      for (const payout_hold_days of [5, 0]) {
+        const payout = (over: Partial<StoredTradeTerms>) =>
+          buildTradeTermBullets({ ...walkerTrade, payout_hold_days, ...over }, role).filter((b) => /payout/i.test(b)).length;
+        expect(payout({ escrow_status: "completed", buyer_paid_at: null })).toBe(0);
+        expect(payout({ escrow_status: "completed", buyer_paid_at: "2026-10-02 00:00:00+00" })).toBe(1);
+        // Until then it is one of the trade's terms.
+        expect(payout({ escrow_status: "awaiting_payment", buyer_paid_at: null })).toBe(1);
+      }
+    }
+  });
 });
 
 describe("tierHeadline", () => {

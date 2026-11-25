@@ -6,8 +6,10 @@ const VALID_METHODS = new Set([
   "bank_transfer", "paypal", "crypto", "stripe_connect", "store_credit", "other",
 ]);
 
-// POST — admin records that a payout was sent off-platform.
-// Does not move money; it only stamps seller_paid_at + payout method/reference.
+// POST — admin records a payout to the seller. With stripe_connect this sends
+// the money now; any other method only stamps seller_paid_at + payout
+// method/reference for a payment made elsewhere. Refused unless the payout is
+// owed (lib/payouts/owed.ts).
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -148,9 +148,9 @@ jobs:
       # The data service's suites: member prices, crosswalks, collectors,
       # their leases and host state, listing-image links, market derivation,
       # official images, data-API reads and billing, the monitor's counters,
-      # the traffic pull and the feedback door. Each applies the migrations
-      # it needs (0116-0149) into its own schema, so they share this
-      # database.
+      # the traffic pull and the feedback door; and which sales a seller is
+      # owed for. Each applies the migrations it needs into its own schema,
+      # so they share this database.
       - name: Run PostgreSQL member-price, collector, derivation and data-API suites
         run: >-
           pnpm --filter cambridgetcg-storefront exec vitest run
@@ -175,12 +175,14 @@ jobs:
           src/lib/traffic/pull.integration.test.ts
           src/lib/wholesale/__tests__/listing-printing.integration.test.ts
           src/lib/feedback/door.integration.test.ts
+          src/lib/payouts/owed.integration.test.ts
         env:
           MEMBER_PRICE_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
           DATA_API_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
           MARKET_DERIVATION_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
           OPS_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
           DOORS_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
+          PAYOUTS_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
       - run: pnpm --filter cambridgetcg-storefront build
         env:
           DATABASE_URL: postgres://x:x@localhost:5432/x

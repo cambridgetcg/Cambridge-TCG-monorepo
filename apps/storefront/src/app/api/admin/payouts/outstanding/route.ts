@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
+import { completedButNotOwedTradeSql, owedAuctionSql, owedTradeSql, paidButNotOwedAuctionSql } from "@/lib/payouts/owed";
 
-// GET — payouts owed but not yet sent.
-// Includes sellers who've been paid by buyer and reached the completion state
-// but haven't been paid out to their own account. Each row carries the
-// seller's Connect status so admin can see at a glance whether auto-payout
-// can even run for this row.
+// GET — payouts owed but not yet sent, by the one rule in lib/payouts/owed.ts:
+// the buyer's payment is recorded, the sale reached its end, and the seller
+// has not been paid out. Each row carries the seller's Connect status so admin
+// can see at a glance whether auto-payout can even run for this row.
 export async function GET() {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Trades: completed + unpaid
+  // Trades
   const tradeRows = await query(
     `SELECT 'trade' AS kind, t.id, t.completed_at AS eligible_at,
             t.seller_payout::numeric AS amount,
@@ -26,12 +26,10 @@ export async function GET() {
        FROM market_trades t
        JOIN users su ON su.id = t.seller_id
        LEFT JOIN market_orders o ON o.id = t.bid_order_id
-      WHERE t.escrow_status = 'completed'
-        AND t.seller_paid_at IS NULL
-        AND t.completed_at IS NOT NULL`
+      WHERE ${owedTradeSql("t")}`
   );
 
-  // Auctions: paid + unpaid (consigned only). Uses platform-default 3-day hold
+  // Auctions (with a seller). Uses platform-default 3-day hold
   // to match the cron sweep.
   const auctionRows = await query(
     `SELECT 'auction' AS kind, a.id, a.paid_at AS eligible_at,
@@ -45,10 +43,18 @@ export async function GET() {
             (a.paid_at + make_interval(days => 3)) AS available_at
        FROM auctions a
        JOIN users su ON su.id = a.seller_user_id
-      WHERE a.status = 'paid'
-        AND a.seller_paid_at IS NULL
-        AND a.seller_payout IS NOT NULL
-        AND a.paid_at IS NOT NULL`
+      WHERE ${owedAuctionSql("a")}`
+  );
+
+  // Completed trades the list leaves out, because no buyer payment (or no
+  // completion time) is recorded, and auctions marked paid that it leaves out,
+  // because no winner payment (or no payout amount) is recorded. Counted, so
+  // the operator still hears of them.
+  const tradesNotOwed = await query(
+    `SELECT COUNT(*)::int AS n FROM market_trades t WHERE ${completedButNotOwedTradeSql("t")}`
+  );
+  const auctionsNotOwed = await query(
+    `SELECT COUNT(*)::int AS n FROM auctions a WHERE ${paidButNotOwedAuctionSql("a")}`
   );
 
   const now = Date.now();
@@ -70,5 +76,7 @@ export async function GET() {
     rows,
     totalOwedGbp,
     overdueCount,
+    completedNotOwedCount: tradesNotOwed.rows[0].n,
+    paidAuctionNotOwedCount: auctionsNotOwed.rows[0].n,
   });
 }

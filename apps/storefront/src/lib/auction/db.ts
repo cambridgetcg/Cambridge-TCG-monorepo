@@ -7,6 +7,7 @@ import { formatPrice } from "@/lib/format";
 import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
 import { lockTradeStanding } from "@/lib/trust/standing-lock";
 import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
+import { AUCTION_BUYER_NOT_PAID_ERROR, AUCTION_NOT_OWED_ERROR, owedAuctionSql } from "@/lib/payouts/owed";
 import {
   normalizeAuctionListStatus,
   PUBLIC_AUCTION_SQL_PREDICATE,
@@ -1125,7 +1126,8 @@ async function sweepUnpaidEndedAuctions(): Promise<void> {
 
 // ── Manual payout recording (provider-agnostic) ──
 // Mirrors market.recordTradePayout. Auctions only have payout for seller-
-// listed (consigned) auctions where seller_user_id is set. For
+// listed (consigned) auctions where seller_user_id is set, and only once the
+// winner's payment is recorded (lib/payouts/owed.ts). For
 // method='stripe_connect' the transfer is executed here.
 export async function recordAuctionPayout(data: {
   auctionId: string;
@@ -1133,7 +1135,8 @@ export async function recordAuctionPayout(data: {
   reference?: string;
 }): Promise<{ ok: true; transferId?: string } | { ok: false; error: string }> {
   const r = await query(
-    `SELECT a.status, a.seller_paid_at, a.seller_payout, a.seller_user_id, a.title,
+    `SELECT a.status, a.paid_at, a.seller_paid_at, a.seller_payout, a.seller_user_id, a.title,
+            ${owedAuctionSql("a")} AS owed,
             u.email AS seller_email
        FROM auctions a
        LEFT JOIN users u ON u.id = a.seller_user_id
@@ -1148,8 +1151,15 @@ export async function recordAuctionPayout(data: {
   if (a.status !== "paid") {
     return { ok: false, error: `Cannot pay seller until auction is paid (currently ${a.status}).` };
   }
+  if (!a.paid_at) {
+    return { ok: false, error: AUCTION_BUYER_NOT_PAID_ERROR };
+  }
   if (!a.seller_payout) {
     return { ok: false, error: "No seller_payout calculated yet — run calculate_payout first." };
+  }
+  // Anything else the shared rule requires (lib/payouts/owed.ts).
+  if (a.owed !== true) {
+    return { ok: false, error: AUCTION_NOT_OWED_ERROR };
   }
 
   let transferId: string | undefined;

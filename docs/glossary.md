@@ -78,7 +78,7 @@ The glossary doesn't legislate. It surfaces. *Naming the loaded word is the firs
 
 ### **`payout`**
 
-**Today.** Money the platform owes a seller after a trade or auction completes.
+**Today.** Money the platform owes a seller after a trade or auction completes, once the buyer's payment is recorded.
 
 **Assumes.** Monetary remuneration; banking infrastructure to receive it.
 

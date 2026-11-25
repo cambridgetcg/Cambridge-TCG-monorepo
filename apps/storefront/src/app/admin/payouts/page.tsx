@@ -54,7 +54,13 @@ export default function AdminPayoutsPage() {
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [balance, setBalance] = useState<Balance | null>(null);
-  const [outstanding, setOutstanding] = useState<{ rows: OutstandingRow[]; totalOwedGbp: number; overdueCount: number } | null>(null);
+  const [outstanding, setOutstanding] = useState<{
+    rows: OutstandingRow[];
+    totalOwedGbp: number;
+    overdueCount: number;
+    completedNotOwedCount: number;
+    paidAuctionNotOwedCount: number;
+  } | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState<string | null>(null);
@@ -166,6 +172,27 @@ export default function AdminPayoutsPage() {
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-6 text-sm text-red-300">
             Outstanding payouts ({formatPrice(outstanding.totalOwedGbp)}) exceed available Stripe balance ({formatPrice(gbpAvailable)}).
             Some Connect transfers will fail until the balance is topped up.
+          </div>
+        )}
+
+        {/* Completed trades and paid auctions the list leaves out */}
+        {outstanding && (outstanding.completedNotOwedCount > 0 || outstanding.paidAuctionNotOwedCount > 0) && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-6 text-sm text-amber-300">
+            {outstanding.completedNotOwedCount > 0 && (
+              <>
+                {outstanding.completedNotOwedCount} completed {outstanding.completedNotOwedCount === 1 ? "trade is" : "trades are"} not
+                listed and not owed: no buyer payment (or no completion time) is recorded. Find {outstanding.completedNotOwedCount === 1 ? "it" : "them"} in
+                Market under All Tiers, Completed.{" "}
+              </>
+            )}
+            {outstanding.paidAuctionNotOwedCount > 0 && (
+              <>
+                {outstanding.paidAuctionNotOwedCount} {outstanding.paidAuctionNotOwedCount === 1 ? "auction" : "auctions"} marked
+                paid {outstanding.paidAuctionNotOwedCount === 1 ? "is" : "are"} not listed and not owed: no winner payment (or no payout amount)
+                is recorded. Find {outstanding.paidAuctionNotOwedCount === 1 ? "it" : "them"} in Auctions.{" "}
+              </>
+            )}
+            If the money did arrive, see docs/methodology/payout-holds.md.
           </div>
         )}
 

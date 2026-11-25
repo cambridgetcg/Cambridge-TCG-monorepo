@@ -331,7 +331,76 @@ describe("Stripe market Checkout exact binding", () => {
     expect(dbMocks.txQuery.mock.calls[3][0]).toMatch(/stripe_checkout_attempts[\s\S]*FOR UPDATE/);
     expect(dbMocks.txQuery.mock.calls[4][0]).toMatch(/status = 'settled'/);
     expect(dbMocks.txQuery.mock.calls[5][0]).toMatch(/escrow_status = 'awaiting_shipment'/);
+    // The seller's payout rule reads this stamp (lib/payouts/owed.ts).
+    expect(dbMocks.txQuery.mock.calls[5][0]).toMatch(/buyer_paid_at = NOW\(\)/);
     expect(dbMocks.txQuery.mock.calls[5][0]).toMatch(/WHERE id = \$1 AND escrow_status = 'awaiting_payment'/);
+  });
+
+  it("records the buyer's payment on the trade for a pre-ledger session too", async () => {
+    dbMocks.txQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+      .mockResolvedValueOnce({ rows: [{ trade_id: TRADE_ID }], rowCount: 1 })
+      .mockResolvedValueOnce({
+        rows: [{
+          id: TRADE_ID, buyer_id: BUYER_ID, escrow_status: "awaiting_payment",
+          stripe_session_id: "cs_test_exact", expected_amount_pence: "2460",
+        }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({ rows: [{ rail: STRIPE_CHECKOUT_RAIL }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+      .mockResolvedValueOnce({ rows: [{ id: TRADE_ID, buyer_id: BUYER_ID }], rowCount: 1 });
+
+    const result = await settleStripeMarketCheckout(checkout({
+      metadata: { type: "market_trade_payment", trade_id: TRADE_ID },
+    }), null);
+
+    expect(result).toMatchObject({ ok: true, applied: true });
+    // The seller's payout rule reads this stamp (lib/payouts/owed.ts).
+    expect(dbMocks.txQuery.mock.calls[5][0]).toMatch(/buyer_paid_at = NOW\(\)/);
+    expect(dbMocks.txQuery.mock.calls[5][0]).toMatch(/WHERE id = \$1 AND escrow_status = 'awaiting_payment'\s+AND stripe_session_id = \$2/);
+  });
+
+  // A seller's payout rests on the stamp (lib/payouts/owed.ts), so only the
+  // trade's own paid Checkout may set it. Every later query answers with a
+  // row, so a missing refusal would reach the stamp.
+  it.each<[string, Partial<Stripe.Checkout.Session>, { attempt?: object; trade?: string }]>([
+    ["that is not paid", { payment_status: "unpaid" }, {}],
+    ["with no PaymentIntent", { payment_intent: null }, {}],
+    ["of an attempt that had ended", {}, { attempt: { status: "expired" } }],
+    ["for a trade that no longer awaits payment", {}, { trade: "cancelled" }],
+  ])("stamps no payment for a Checkout %s", async (_name, session, state) => {
+    dbMocks.txQuery
+      .mockResolvedValueOnce({ rows: [{ id: ATTEMPT_ID }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ trade_id: TRADE_ID, trade_escrow_status: state.trade ?? "awaiting_payment" }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ rail: STRIPE_CHECKOUT_RAIL }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ ...attemptRow, status: "checkout_open", ...state.attempt }], rowCount: 1 })
+      .mockResolvedValue({ rows: [{ id: TRADE_ID, buyer_id: BUYER_ID }], rowCount: 1 });
+    expect(await settleStripeMarketCheckout(checkout(session), null)).toMatchObject({ ok: false });
+    expect(dbMocks.txQuery.mock.calls.some(([sql]) => /buyer_paid_at/.test(sql as string))).toBe(false);
+  });
+  it.each<[string, Partial<Stripe.Checkout.Session>]>([
+    ["that is not paid", { payment_status: "unpaid" }],
+    ["of another session", { id: "cs_other" }],
+    ["with a wrong amount", { amount_total: 9999 }],
+  ])("stamps no payment for a pre-ledger Checkout %s", async (_name, session) => {
+    dbMocks.txQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+      .mockResolvedValueOnce({ rows: [{ trade_id: TRADE_ID }], rowCount: 1 })
+      .mockResolvedValueOnce({
+        rows: [{
+          id: TRADE_ID, buyer_id: BUYER_ID, escrow_status: "awaiting_payment",
+          stripe_session_id: "cs_test_exact", expected_amount_pence: "2460",
+        }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({ rows: [{ rail: STRIPE_CHECKOUT_RAIL }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+      .mockResolvedValue({ rows: [{ id: TRADE_ID, buyer_id: BUYER_ID }], rowCount: 1 });
+    expect(await settleStripeMarketCheckout(checkout({
+      metadata: { type: "market_trade_payment", trade_id: TRADE_ID }, ...session,
+    }), null)).toMatchObject({ ok: false });
+    expect(dbMocks.txQuery.mock.calls.some(([sql]) => /buyer_paid_at/.test(sql as string))).toBe(false);
   });
 
   it("holds a wrong paid amount for review without advancing the trade", async () => {
@@ -372,6 +441,8 @@ describe("Stripe market Checkout exact binding", () => {
 
     expect(result).toMatchObject({ ok: true, applied: true });
     expect(dbMocks.txQuery.mock.calls[4][0]).toMatch(/status = 'processing'/);
+    // Not the stamp the seller's payout rule reads (lib/payouts/owed.ts).
+    expect(dbMocks.txQuery.mock.calls.some(([sql]) => /buyer_paid_at/.test(sql as string))).toBe(false);
     expect(dbMocks.txQuery.mock.calls.some(([sql]) =>
       /escrow_status = 'awaiting_shipment'/.test(sql as string),
     )).toBe(false);

@@ -9,6 +9,12 @@ import { sendBuyerMatchEmail, sendSellerMatchEmail, sendCancelEmail } from "./em
 import { formatPrice } from "@/lib/format";
 import { notify } from "@/lib/notifications/db";
 import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
+import {
+  owedTradeSql,
+  TRADE_BUYER_NOT_PAID_ERROR,
+  TRADE_NO_COMPLETION_TIME_ERROR,
+  TRADE_NOT_OWED_ERROR,
+} from "@/lib/payouts/owed";
 
 // Default open-order TTL when the caller doesn't specify expires_at.
 // 30 days mirrors typical online marketplace conventions.
@@ -1134,8 +1140,11 @@ export async function notifyTradeStatusChange(trade: MarketTrade): Promise<void>
         { to: buyer_email, subject: `Trade complete: ${card_name}`,
           heading: "Trade complete", body: `Your trade for <strong>${card_name}</strong> is complete. Thanks for trading on Cambridge TCG.` },
         { to: seller_email, subject: `Trade complete: ${card_name}`,
-          heading: "Trade complete — payout released",
-          body: `Trade for <strong>${card_name}</strong> is complete. Your payout of <strong>£${trade.seller_payout}</strong> will be released after the payout-hold window.` }
+          heading: "Trade complete",
+          // A payout is due only if the buyer's payment is recorded (lib/payouts/owed.ts).
+          body: trade.buyer_paid_at
+            ? `Trade for <strong>${card_name}</strong> is complete. Your payout of <strong>£${trade.seller_payout}</strong> will be released after the payout-hold window.`
+            : `Trade for <strong>${card_name}</strong> is complete. No buyer payment is recorded for it, so no payout is due. If the buyer has paid, contact support.` }
       );
       break;
     case "disputed":
@@ -1188,7 +1197,9 @@ export async function notifyTradeStatusChange(trade: MarketTrade): Promise<void>
     case "completed":
       inApp.push(
         { userId: buyer_id, title: `Trade complete: ${card_name}` },
-        { userId: seller_id, title: `Trade complete: ${card_name} — payout £${trade.seller_payout}` },
+        { userId: seller_id, title: trade.buyer_paid_at
+            ? `Trade complete: ${card_name} — payout £${trade.seller_payout}`
+            : `Trade complete: ${card_name}` },
       );
       break;
     case "disputed":
@@ -1289,15 +1300,17 @@ export async function deleteTradePhoto(photoId: string): Promise<string | null> 
 // dashboard. For method='stripe_connect' we actually call stripe.transfers
 // to send the funds, then stamp the row with the transfer id.
 //
-// Refuses to record a payout twice. Refuses to record before the trade is
-// completed (so admin doesn't accidentally pay before fulfillment).
+// Refuses to record a payout twice, before the trade is completed (so admin
+// doesn't accidentally pay before fulfillment), or when no buyer payment is
+// recorded: the rule the lists and the sweep use (lib/payouts/owed.ts).
 export async function recordTradePayout(data: {
   tradeId: string;
   method: string;        // bank_transfer | paypal | crypto | stripe_connect | store_credit | other
   reference?: string;    // provider txn id, bank ref, etc. Free-form.
 }): Promise<{ ok: true; transferId?: string } | { ok: false; error: string }> {
   const tradeRes = await query(
-    `SELECT t.escrow_status, t.seller_paid_at, t.seller_payout, t.seller_id,
+    `SELECT t.escrow_status, t.completed_at, t.buyer_paid_at, t.seller_paid_at, t.seller_payout, t.seller_id,
+            ${owedTradeSql("t")} AS owed,
             su.email AS seller_email,
             COALESCE(o.card_name, t.sku) AS card_name
        FROM market_trades t
@@ -1314,6 +1327,16 @@ export async function recordTradePayout(data: {
   }
   if (trade.escrow_status !== "completed") {
     return { ok: false, error: `Cannot pay seller until trade is completed (currently ${trade.escrow_status}).` };
+  }
+  if (!trade.buyer_paid_at) {
+    return { ok: false, error: TRADE_BUYER_NOT_PAID_ERROR };
+  }
+  if (!trade.completed_at) {
+    return { ok: false, error: TRADE_NO_COMPLETION_TIME_ERROR };
+  }
+  // Anything else the shared rule requires (lib/payouts/owed.ts).
+  if (trade.owed !== true) {
+    return { ok: false, error: TRADE_NOT_OWED_ERROR };
   }
 
   // For Stripe Connect we make the actual transfer here. If it fails the row

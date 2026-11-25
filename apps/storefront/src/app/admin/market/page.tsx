@@ -564,6 +564,11 @@ function TradeRow({
                 {tierBadge.label}
               </span>
             )}
+            {trade.escrow_status === "completed" && !trade.buyer_paid_at && !trade.seller_paid_at && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400">
+                No payment recorded
+              </span>
+            )}
           </div>
           <p className="text-sm text-neutral-400 mt-1 truncate">
             <span className="text-neutral-500">Seller:</span> {trade.seller_name || "Unknown"}{" "}
@@ -709,7 +714,9 @@ function TradeRow({
               <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Buyer</p>
               <p className="text-sm text-white">{trade.buyer_name || "Unknown"}</p>
               <p className="text-sm text-neutral-400">{trade.buyer_email || "\u2014"}</p>
-              <p className="text-xs text-neutral-500 mt-1">Paid: {formatPrice(parseFloat(trade.price))}</p>
+              <p className="text-xs text-neutral-500 mt-1">
+                {trade.buyer_paid_at ? "Paid" : "No payment recorded"}: {formatPrice(parseFloat(trade.price))}
+              </p>
             </div>
           </div>
 
@@ -866,6 +873,8 @@ function TradeRow({
                     <p className="text-xs text-neutral-400 mt-1 font-mono">{trade.payout_reference}</p>
                   )}
                 </div>
+              ) : !trade.buyer_paid_at ? (
+                <p className="text-sm text-amber-400">No buyer payment is recorded, so no payout is owed.</p>
               ) : (
                 <button
                   onClick={() => onRecordPayout(trade.id)}

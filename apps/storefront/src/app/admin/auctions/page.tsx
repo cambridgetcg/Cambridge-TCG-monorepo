@@ -428,7 +428,7 @@ export default function AdminAuctionsPage() {
                     </button>
                   )}
 
-                  {/* Seller payout — only for consigned auctions that have been paid by buyer */}
+                  {/* Seller payout — only for consigned auctions marked paid */}
                   {a.seller_user_id && a.status === "paid" && (
                     <div className="mt-3 pt-3 border-t border-neutral-800">
                       <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Seller Payout</p>
