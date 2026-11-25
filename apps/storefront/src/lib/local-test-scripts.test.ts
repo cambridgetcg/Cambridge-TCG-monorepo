@@ -17,7 +17,6 @@ import { describe, expect, it } from "vitest";
 const GUARD = "./lib/local-test-database.mjs";
 const SCRIPTS = [
   "test-auction-fulfilment.mts",
-  "test-bounty-expiry-e2e.js",
   "test-bounty-merge.mts",
   "test-customer-tradein-status.mts",
   "test-decks.mts",
@@ -81,16 +80,13 @@ function problems(text: string): string[] {
   };
   statements.forEach(visit);
 
-  // It ends with try { ... } finally { await cleanUp(pool, step); }, or
-  // main().finally(() => cleanUp(pool, step)), with nothing else in the finally.
+  // It ends with try { ... } finally { await cleanUp(pool, step); }, with
+  // nothing else in the finally.
   const last = statements.at(-1);
   let end: ts.Node | undefined;
   if (last && ts.isTryStatement(last)) {
     const [only, ...more] = last.finallyBlock?.statements ?? [];
     if (only && !more.length && ts.isExpressionStatement(only) && ts.isAwaitExpression(only.expression)) end = only.expression.expression;
-  } else if (last && ts.isExpressionStatement(last) && ts.isCallExpression(last.expression)) {
-    const [then] = last.expression.arguments;
-    if (last.expression.expression.getText().endsWith(".finally") && then && ts.isArrowFunction(then)) end = then.body;
   }
   if (!cleansUp(end)) found.add("it does not end with a finally that only calls cleanUp");
   return [...found];
@@ -116,11 +112,9 @@ describe("this check", () => {
     "try { process.exitCode = 1; } finally { await cleanUp(pool, () => cleanup(users)); }",
   ];
   const changed = (line: number, text: string) => good.map((old, index) => (index === line ? text : old)).join("\n");
-  const start = `import { cleanUp, requireLocalTestDatabase } from "${GUARD}";\nconst pool = requireLocalTestDatabase();\n`;
 
   it("accepts the shape the scripts have", () => {
     expect(problems(good.join("\n"))).toEqual([]);
-    expect(problems(`${start}main().finally(() => cleanUp(pool, () => cleanup(users)));`)).toEqual([]);
   });
 
   it.each([
@@ -147,7 +141,7 @@ describe("this check", () => {
     ["cleanUp in a function nobody calls", changed(6, "try { } finally { const later = async () => await cleanUp(pool, step); }")],
     ["a statement beside cleanUp", changed(6, "try { } finally { await cleanUp(pool, step); await more(); }")],
     ["a statement after the finally", `${good.join("\n")}\nawait more();`],
-    ["a then instead of a finally", `${start}main().then(() => cleanUp(pool, step));`],
+    ["a promise's finally", changed(6, "main().finally(() => cleanUp(pool, step));")],
   ])("refuses %s", (_, text) => {
     expect(problems(text)).not.toEqual([]);
   });
