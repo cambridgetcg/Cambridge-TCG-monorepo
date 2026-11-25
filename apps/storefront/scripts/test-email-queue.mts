@@ -2,12 +2,11 @@
 // Exercises: idempotency, drain lifecycle, handler "cancelled" transition,
 // handler "sent" path (with AWS creds missing → failed → dead).
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
+
+const pool = requireLocalTestDatabase();
 const q = await import("../src/lib/email/queue");
 const { scheduleEmail, cancelScheduledEmail, drainEmailQueue } = q;
-
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -15,12 +14,15 @@ function assert(cond: unknown, msg: string): void {
   else { failed++; console.log(`  ✗ ${msg}`); }
 }
 
+const users: string[] = [];
+
 try {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, 'Queue Test') RETURNING id`,
     [`queue-test-${Date.now()}@test.invalid`],
   );
   const userId: string = u.rows[0].id;
+  users.push(userId);
 
   // Seed a vault item in state='reserved' and another in state='sold_back'
   const v1 = await pool.query(
@@ -132,13 +134,12 @@ try {
   // drain2 just to quiet unused-var lint
   void drain2;
 
-  // Cleanup
-  await pool.query(`DELETE FROM email_queue WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM vault_items WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, async () => {
+    await pool.query(`DELETE FROM email_queue WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM vault_items WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
+  });
 }

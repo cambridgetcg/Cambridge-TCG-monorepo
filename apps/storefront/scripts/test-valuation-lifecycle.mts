@@ -2,10 +2,9 @@
 // cascade, aggregation rollups, snapshots, time series, and the
 // certificate export shape.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -18,11 +17,16 @@ const {
   getValuationCertificate, runValuationSnapshotSweep,
 } = await import("../src/lib/portfolio/valuation");
 
+const t = Date.now().toString(36).slice(-5);
+const allUsers: string[] = [];
+const allSkus = [`VAL-${t}-1`, `VAL-${t}-2`, `VAL-${t}-3`, `VAL-${t}-4`];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -90,15 +94,10 @@ async function cleanup(userIds: string[], skus: string[]) {
 }
 
 try {
-  const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
-  const allSkus = [`VAL-${t}-1`, `VAL-${t}-2`, `VAL-${t}-3`, `VAL-${t}-4`];
-
   // ── Suite 1: price cascade — best_ask wins over price_history ──
   console.log("\n— Suite 1: price cascade");
   const u1 = await makeUser(`val-u1-${t}`);
   const seller = await makeUser(`val-seller-${t}`);
-  allUsers.push(u1, seller);
 
   // Card 1: has both an ask AND price_history. best_ask should win.
   await ownCard({ userId: u1, sku: `VAL-${t}-1`, qty: 1, setCode: `SET1-${t}`, rarity: "C" });
@@ -153,7 +152,6 @@ try {
   // ── Suite 3: cost basis + unrealized P&L ──
   console.log("\n— Suite 3: cost basis + unrealized gain");
   const u2 = await makeUser(`val-u2-${t}`);
-  allUsers.push(u2);
 
   // bought 2x VAL-2 at £30 each (total cost £60), now worth £100 (50*2)
   // unrealized gain = 100 - 60 = 40
@@ -266,11 +264,8 @@ try {
   assert(todaysAgain.rows[0].n === todays.rows[0].n,
     "second sweep adds no new rows (idempotent)");
 
-  // ── Cleanup ──
-  await cleanup(allUsers, allSkus);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers, allSkus));
 }

@@ -1,7 +1,12 @@
-// E2E test of the preferences + unsubscribe-token pipeline against the live
-// DB. Does NOT hit SES — purely exercises the DB helpers.
+// E2E test of the preferences + unsubscribe-token pipeline against a local
+// test database. Does NOT hit SES — purely exercises the DB helpers.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
+
+const pool = requireLocalTestDatabase();
+
+process.env.EMAIL_UNSUBSCRIBE_SECRET = "testsecret-for-e2e";
+
 const prefsMod = await import("../src/lib/email/preferences");
 const {
   getPreferences,
@@ -12,14 +17,13 @@ const {
   applyUnsubscribe,
 } = prefsMod;
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
-
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
   if (cond) { passed++; console.log(`  ✓ ${msg}`); }
   else { failed++; console.log(`  ✗ ${msg}`); }
 }
+
+const users: string[] = [];
 
 try {
   const u = await pool.query(
@@ -27,6 +31,7 @@ try {
     [`prefs-test-${Date.now()}@test.invalid`],
   );
   const userId: string = u.rows[0].id;
+  users.push(userId);
 
   // 1) default preferences
   const defaults = await getPreferences(userId);
@@ -64,12 +69,11 @@ try {
   const replay = await applyUnsubscribe({ userId, category: "pull_resolved" });
   assert(!replay.changed, "unsubscribe replay is a no-op");
 
-  // Cleanup
-  await pool.query(`DELETE FROM user_email_preferences WHERE user_id=$1`, [userId]);
-  await pool.query(`DELETE FROM users WHERE id=$1`, [userId]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, async () => {
+    await pool.query(`DELETE FROM user_email_preferences WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
+  });
 }

@@ -12,10 +12,9 @@
 //      captured, cancel_at flag cleared on (re-)activation
 //   6. Schema regression for migration 0059
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -24,6 +23,8 @@ function assert(cond: unknown, msg: string): void {
 }
 
 process.env.EMAIL_UNSUBSCRIBE_SECRET = "testsecret-for-e2e";
+
+const users: string[] = [];
 
 async function makeUser(label: string, opts: {
   active: boolean;
@@ -43,6 +44,7 @@ async function makeUser(label: string, opts: {
       opts.customerId === undefined ? `cus_test_${label}` : opts.customerId,
     ],
   );
+  users.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -143,8 +145,7 @@ try {
   const tier = await pool.query(`SELECT id FROM tiers WHERE name='Platinum' LIMIT 1`);
   const platinumId: string | null = tier.rows[0]?.id ?? null;
   if (!platinumId) {
-    console.error("Platinum tier missing — run seeds first");
-    process.exit(1);
+    throw new Error("Platinum tier missing — run the migrations first");
   }
 
   // ── Suite 1: cancel ──
@@ -302,11 +303,8 @@ try {
   assert(/false/.test(flagDefault.rows[0]?.column_default ?? ""),
     `default is false (got ${flagDefault.rows[0]?.column_default})`);
 
-  // ── Cleanup ──
-  await cleanup([u1, u3, u5]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(users));
 }

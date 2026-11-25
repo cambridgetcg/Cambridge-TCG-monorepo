@@ -11,10 +11,9 @@
 // not run-covered — it requires a Stripe signature and is tested in
 // staging against real sessions.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -29,17 +28,21 @@ const { placeOrder, updateEscrowStatus, cancelOrder, runMarketMaintenance } =
 const { listNotifications, unreadCount } =
   await import("../src/lib/notifications/db");
 
+const allUsers: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
 async function cleanup(userIds: string[]) {
   await pool.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [userIds]);
   await pool.query(`DELETE FROM activity_feed WHERE user_id = ANY($1::uuid[])`, [userIds]);
+  await pool.query(`DELETE FROM fraud_signals WHERE user_id = ANY($1::uuid[])`, [userIds]);
   await pool.query(
     `DELETE FROM market_trades
       WHERE buyer_id = ANY($1::uuid[]) OR seller_id = ANY($1::uuid[])`,
@@ -52,13 +55,11 @@ async function cleanup(userIds: string[]) {
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
 
   // ── Suite 1: match fires both buyer and seller notifications ──
   console.log("\n— Suite 1: matched_buyer + matched_seller on placeOrder");
   const seller = await makeUser(`mkt-s-${t}`);
   const buyer = await makeUser(`mkt-b-${t}`);
-  allUsers.push(seller, buyer);
 
   // Seller posts an ask
   await placeOrder({
@@ -116,7 +117,6 @@ try {
   // ── Suite 2: order expiry fires notification ──
   console.log("\n— Suite 2: order_expired on sweepExpired");
   const maker = await makeUser(`mkt-m-${t}`);
-  allUsers.push(maker);
 
   // Seed an open order whose expires_at is already in the past.
   const pastOrder = await pool.query(
@@ -154,7 +154,6 @@ try {
   console.log("\n— Suite 3: payment_timeout fires to both parties");
   const s3 = await makeUser(`mkt-pt-s-${t}`);
   const b3 = await makeUser(`mkt-pt-b-${t}`);
-  allUsers.push(s3, b3);
 
   // Seed a trade whose payment window has already elapsed.
   const ask = await pool.query(
@@ -205,7 +204,6 @@ try {
   console.log("\n— Suite 4: status transitions via updateEscrowStatus");
   const s4 = await makeUser(`mkt-s4-${t}`);
   const b4 = await makeUser(`mkt-b4-${t}`);
-  allUsers.push(s4, b4);
 
   const ask4 = await pool.query(
     `INSERT INTO market_orders (user_id, sku, side, price, quantity, condition, status)
@@ -265,7 +263,6 @@ try {
   // ── Suite 5: cancelOrder is silent (user is the actor) ──
   console.log("\n— Suite 5: cancelOrder doesn't spam the user");
   const u5 = await makeUser(`mkt-u5-${t}`);
-  allUsers.push(u5);
   const ownOrder = await pool.query(
     `INSERT INTO market_orders (user_id, side, sku, condition, price, quantity, status)
      VALUES ($1, 'bid', $2, 'NM', 1.00, 1, 'open') RETURNING id`,
@@ -277,11 +274,8 @@ try {
   assert(afterCancel === beforeCancel,
     "self-cancel does not fire a notification (user is the actor)");
 
-  // ── Cleanup ──
-  await cleanup(allUsers);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers));
 }

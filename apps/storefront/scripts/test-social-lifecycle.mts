@@ -5,10 +5,9 @@
 // Hits the lib helpers directly; route handlers are thin auth +
 // delegate wrappers (same pattern used across the session).
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -31,11 +30,14 @@ const {
 const { submitReview, getUserReviews } = await import("../src/lib/escrow/trust-engine");
 const { listNotifications, unreadCount } = await import("../src/lib/notifications/db");
 
+const allUsers: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name, is_public) VALUES ($1, $2, true) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -61,12 +63,11 @@ async function makeTrade(buyerId: string, sellerId: string, sku: string): Promis
   return t.rows[0].id;
 }
 
-async function cleanup(userIds: string[], tradeIds: string[]) {
-  if (tradeIds.length > 0) {
-    await pool.query(`DELETE FROM trade_reviews WHERE trade_id = ANY($1::uuid[])`, [tradeIds]);
-    await pool.query(`DELETE FROM market_trades WHERE id = ANY($1::uuid[])`, [tradeIds]);
-  }
+async function cleanup(userIds: string[]) {
   if (userIds.length > 0) {
+    const trades = `SELECT id FROM market_trades WHERE buyer_id = ANY($1::uuid[]) OR seller_id = ANY($1::uuid[])`;
+    await pool.query(`DELETE FROM trade_reviews WHERE trade_id IN (${trades})`, [userIds]);
+    await pool.query(`DELETE FROM market_trades WHERE id IN (${trades})`, [userIds]);
     await pool.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [userIds]);
     await pool.query(`DELETE FROM activity_feed WHERE user_id = ANY($1::uuid[])`, [userIds]);
     await pool.query(`DELETE FROM follows WHERE follower_id = ANY($1::uuid[]) OR following_id = ANY($1::uuid[])`, [userIds]);
@@ -78,8 +79,6 @@ async function cleanup(userIds: string[], tradeIds: string[]) {
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
-  const allTrades: string[] = [];
 
   // ── Suite 1: updateProfile accepts snake_case + camelCase ──
   //
@@ -91,7 +90,6 @@ try {
   // by reading both forms of the payload in the route code.
   console.log("\n— Suite 1: updateProfile (lib level)");
   const u1 = await makeUser(`social-${t}-1`);
-  allUsers.push(u1);
 
   await updateProfile(u1, {
     username: `u${t}_abc`,
@@ -110,7 +108,6 @@ try {
   // ── Suite 2: username uniqueness throws pg 23505 ──
   console.log("\n— Suite 2: duplicate username surfaces as pg code 23505");
   const u2 = await makeUser(`social-${t}-2`);
-  allUsers.push(u2);
 
   let caught: { code?: string } | null = null;
   try {
@@ -129,7 +126,6 @@ try {
   // counters track the real follows-table count across rapid toggles.
   console.log("\n— Suite 3: toggleFollow atomicity + counter sync");
   const u3 = await makeUser(`social-${t}-3`);
-  allUsers.push(u3);
 
   const r1 = await toggleFollow(u1, u3);
   assert(r1 === true, "first call creates follow (returns true)");
@@ -202,7 +198,6 @@ try {
   // u1 already follows u3 from suite 3
   const u4 = await makeUser(`social-${t}-4`);
   const u5 = await makeUser(`social-${t}-5`);
-  allUsers.push(u4, u5);
   await toggleFollow(u4, u3);
   await toggleFollow(u5, u3);
   await toggleFollow(u1, u5);
@@ -224,9 +219,7 @@ try {
   console.log("\n— Suite 6: submitReview fires notify + postActivity");
   const buyer = await makeUser(`rev-b-${t}`);
   const seller = await makeUser(`rev-s-${t}`);
-  allUsers.push(buyer, seller);
   const trade = await makeTrade(buyer, seller, `SOC-${t}`);
-  allTrades.push(trade);
 
   const beforeRev = await unreadCount(seller);
 
@@ -282,11 +275,8 @@ try {
   assert(typeof r.reviewer_name === "string" && r.reviewer_name.length > 0,
     "reviewer_name populated from users JOIN");
 
-  // ── Cleanup ──
-  await cleanup(allUsers, allTrades);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers));
 }

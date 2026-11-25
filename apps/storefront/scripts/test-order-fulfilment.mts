@@ -8,10 +8,9 @@
 // block per fulfil mode. The test reproduces that SQL directly so we
 // don't need to stub next-auth for the admin guard.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -19,11 +18,14 @@ function assert(cond: unknown, msg: string): void {
   else { failed++; console.log(`  ✗ ${msg}`); }
 }
 
+const users: string[] = [];
+
 async function makeUser(email: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, 'Order Test') RETURNING id`,
     [email],
   );
+  users.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -73,10 +75,10 @@ async function seedRedemptionOrder(
   return { orderId, itemIds };
 }
 
-async function cleanup(userId: string) {
-  await pool.query(`DELETE FROM vault_items WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM customer_orders WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+async function cleanup(userIds: string[]) {
+  await pool.query(`DELETE FROM vault_items WHERE user_id = ANY($1::uuid[])`, [userIds]);
+  await pool.query(`DELETE FROM customer_orders WHERE user_id = ANY($1::uuid[])`, [userIds]);
+  await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
 }
 
 try {
@@ -242,11 +244,8 @@ try {
   void items1;
   void items2;
 
-  // ── Cleanup ──
-  await cleanup(userId);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(users));
 }

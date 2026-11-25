@@ -1,10 +1,9 @@
 // E2E for the trade-cancellation handshake. Eight suites against
 // the lib + timeline. Direct-lib pattern matching the prior arcs.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -24,11 +23,14 @@ const { listNotifications } = await import("../src/lib/notifications/db");
 const { getCancelStep, isCancelTerminal, getCancelActor } =
   await import("../src/lib/market/cancel-timeline");
 
+const allUsers: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -79,7 +81,6 @@ async function cleanup(userIds: string[]) {
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
 
   // ── Suite 0: timeline invariants ──
   console.log("\n— Suite 0: cancel-timeline.ts");
@@ -96,7 +97,6 @@ try {
   console.log("\n— Suite 1: requestCancel fires trade_cancel.requested");
   const seller1 = await makeUser(`tc-s1-${t}`);
   const buyer1 = await makeUser(`tc-b1-${t}`);
-  allUsers.push(seller1, buyer1);
   const tr1 = await makeAwaitingPaymentTrade({
     buyerId: buyer1, sellerId: seller1, sku: `TC-${t}`,
   });
@@ -136,7 +136,6 @@ try {
 
   // Stranger
   const stranger = await makeUser(`tc-x-${t}`);
-  allUsers.push(stranger);
   const notMine = await requestCancel({
     tradeId: tr1.tradeId, requesterId: stranger, reason: "wrong_card",
   });
@@ -195,7 +194,6 @@ try {
   // ── Suite 4: declineCancel keeps trade running ──
   console.log("\n— Suite 4: declineCancel");
   const buyer4 = await makeUser(`tc-b4-${t}`);
-  allUsers.push(buyer4);
   const tr4 = await makeAwaitingPaymentTrade({
     buyerId: buyer4, sellerId: seller1, sku: `TC4-${t}`,
   });
@@ -228,7 +226,6 @@ try {
   // ── Suite 5: withdrawCancel ──
   console.log("\n— Suite 5: withdrawCancel");
   const buyer5 = await makeUser(`tc-b5-${t}`);
-  allUsers.push(buyer5);
   const tr5 = await makeAwaitingPaymentTrade({
     buyerId: buyer5, sellerId: seller1, sku: `TC5-${t}`,
   });
@@ -264,7 +261,6 @@ try {
   // ── Suite 6: expireCancelRequests sweep ──
   console.log("\n— Suite 6: expireCancelRequests");
   const buyer6 = await makeUser(`tc-b6-${t}`);
-  allUsers.push(buyer6);
   const tr6 = await makeAwaitingPaymentTrade({
     buyerId: buyer6, sellerId: seller1, sku: `TC6-${t}`,
   });
@@ -304,7 +300,6 @@ try {
   // ── Suite 7: trade in non-cancellable state rejected ──
   console.log("\n— Suite 7: non-cancellable states");
   const buyer7 = await makeUser(`tc-b7-${t}`);
-  allUsers.push(buyer7);
   const tr7 = await makeAwaitingPaymentTrade({
     buyerId: buyer7, sellerId: seller1, sku: `TC7-${t}`,
   });
@@ -333,11 +328,8 @@ try {
   // Seller1 was on the receiving end of multiple cancels
   assert(sellerList.length >= 4, `seller1 sees multiple incoming (got ${sellerList.length})`);
 
-  // Cleanup
-  await cleanup(allUsers);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers));
 }

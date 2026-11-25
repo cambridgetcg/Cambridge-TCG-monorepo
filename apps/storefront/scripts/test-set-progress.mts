@@ -9,10 +9,9 @@
 //   6. Multi-set overview rollup
 //   7. Edge cases: unknown set, empty user
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -25,11 +24,16 @@ const {
   listSetsWithProgress, listAllSets,
 } = await import("../src/lib/portfolio/sets");
 
+const t = Date.now().toString(36).slice(-5);
+const allUsers: string[] = [];
+const allSets: string[] = [`TST-${t}`, `TST2-${t}`, `EMPT-${t}`];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -53,10 +57,6 @@ async function cleanup(userIds: string[], setCodes: string[]) {
 }
 
 try {
-  const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
-  const allSets: string[] = [`TST-${t}`, `TST2-${t}`, `EMPT-${t}`];
-
   // ── Suite 1: importSetMaster ──
   console.log("\n— Suite 1: importSetMaster validation + idempotency");
 
@@ -115,7 +115,6 @@ try {
   console.log("\n— Suite 2: per-set progress math");
 
   const u1 = await makeUser(`set-${t}-1`);
-  allUsers.push(u1);
 
   // No cards owned → 0% completion
   const empty1 = await getSetProgress(u1, `TST-${t}`);
@@ -154,7 +153,6 @@ try {
   console.log("\n— Suite 3: by-rarity breakdown");
 
   const u3 = await makeUser(`set-${t}-3`);
-  allUsers.push(u3);
   await ownCard(u3, `TST-${t}-001`);  // 1 of 2 commons
   await ownCard(u3, `TST-${t}-003`);  // 1 of 1 UC
   // 0 of 2 rares; 0 of 1 SR
@@ -288,11 +286,8 @@ try {
   assert(all.some((s) => s.set_code === `TST-${t}`), "listAllSets returns test sets");
   assert(all.every((s) => s.game === "test"), "listAllSets game filter works");
 
-  // ── Cleanup ──
-  await cleanup(allUsers, allSets);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers, allSets));
 }

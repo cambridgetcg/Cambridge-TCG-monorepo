@@ -4,10 +4,9 @@
 //
 // Direct-lib pattern matching test-market-notifications.mts.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -27,11 +26,14 @@ const { listNotifications } = await import("../src/lib/notifications/db");
 const { getOfferStep, isOfferTerminal, getOfferActor } =
   await import("../src/lib/market/offer-timeline");
 
+const allUsers: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name, trust_score) VALUES ($1, $2, 80) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   // Seed a Veteran-tier trust profile so the canTrade gate doesn't
   // reject offers > £50 (NEW tier ceiling). The trust engine
   // recomputes anyway when a real trade flows through; this lets
@@ -81,7 +83,6 @@ async function cleanup(userIds: string[]) {
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
 
   // ── Suite 0: timeline invariants ──
   console.log("\n— Suite 0: offer-timeline.ts invariants");
@@ -99,7 +100,6 @@ try {
   console.log("\n— Suite 1: makeOffer fires offer.received");
   const seller1 = await makeUser(`off-s1-${t}`);
   const buyer1 = await makeUser(`off-b1-${t}`);
-  allUsers.push(seller1, buyer1);
   const ask1 = await makeAsk({ sellerId: seller1, sku: `OFF-${t}`, price: 20.00 });
 
   const r1 = await makeOffer({
@@ -143,7 +143,6 @@ try {
 
   // Ask with allow_offers=false
   const seller2 = await makeUser(`off-s2-${t}`);
-  allUsers.push(seller2);
   const noOffersAsk = await makeAsk({
     sellerId: seller2, sku: `NOOFF-${t}`, price: 30.00, allowOffers: false,
   });
@@ -156,7 +155,6 @@ try {
   // ── Suite 3: declineOffer ──
   console.log("\n— Suite 3: declineOffer");
   const buyer3 = await makeUser(`off-b3-${t}`);
-  allUsers.push(buyer3);
   const ask3 = await makeAsk({ sellerId: seller1, sku: `OFF3-${t}`, price: 20.00 });
   const o3 = await makeOffer({ buyerId: buyer3, askOrderId: ask3, offerPrice: 15.00 });
   if (!o3.ok) throw new Error(`setup failed: ${o3.reason}`);
@@ -180,7 +178,6 @@ try {
   // ── Suite 4: acceptOffer creates a trade ──
   console.log("\n— Suite 4: acceptOffer creates a market_trade at offer_price");
   const buyer4 = await makeUser(`off-b4-${t}`);
-  allUsers.push(buyer4);
   const ask4 = await makeAsk({ sellerId: seller1, sku: `OFF4-${t}`, price: 50.00, qty: 2 });
 
   const o4 = await makeOffer({ buyerId: buyer4, askOrderId: ask4, offerPrice: 40.00, quantity: 1 });
@@ -212,7 +209,6 @@ try {
   // ── Suite 5: counter → acceptCounter → trade at counter_price ──
   console.log("\n— Suite 5: counter + acceptCounter");
   const buyer5 = await makeUser(`off-b5-${t}`);
-  allUsers.push(buyer5);
   // Prices kept under the £50 NEW-tier trade limit so canTrade gate
   // doesn't block fresh test users. The counter logic is independent
   // of magnitude.
@@ -263,7 +259,6 @@ try {
   // ── Suite 6: withdraw notifies seller ──
   console.log("\n— Suite 6: withdrawOffer");
   const buyer6 = await makeUser(`off-b6-${t}`);
-  allUsers.push(buyer6);
   const ask6 = await makeAsk({ sellerId: seller1, sku: `OFF6-${t}`, price: 25.00 });
   const o6 = await makeOffer({ buyerId: buyer6, askOrderId: ask6, offerPrice: 20.00 });
   if (!o6.ok) throw new Error(`setup failed: ${o6.reason}`);
@@ -286,7 +281,6 @@ try {
   // ── Suite 7: expireOffers sweep ──
   console.log("\n— Suite 7: expireOffers sweep");
   const buyer7 = await makeUser(`off-b7-${t}`);
-  allUsers.push(buyer7);
   const ask7 = await makeAsk({ sellerId: seller1, sku: `OFF7-${t}`, price: 10.00 });
   const o7 = await makeOffer({ buyerId: buyer7, askOrderId: ask7, offerPrice: 8.00 });
   if (!o7.ok) throw new Error(`setup failed: ${o7.reason}`);
@@ -324,11 +318,8 @@ try {
   assert(seller1Active.every((o) => o.status === "pending" || o.status === "countered"),
     "activeOnly filter excludes terminal states");
 
-  // ── Cleanup ──
-  await cleanup(allUsers);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers));
 }

@@ -3,12 +3,10 @@
 // then exercises the shared /lib/payouts/aggregation helpers (which
 // the route handlers also call) and asserts the right buckets.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
+const pool = requireLocalTestDatabase();
 const { getPendingPayouts, getPayoutHistory } = await import("../src/lib/payouts/aggregation");
-
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -16,20 +14,23 @@ function assert(cond: unknown, msg: string): void {
   else { failed++; console.log(`  ✗ ${msg}`); }
 }
 
+const users: string[] = [];
+
 async function makeUser(email: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, 'Payout Test') RETURNING id`,
     [email],
   );
+  users.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
-async function cleanup(userId: string) {
-  await pool.query(`DELETE FROM store_credit_ledger WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM quote_requests WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM tradein_items WHERE submission_id IN (SELECT id FROM tradein_submissions WHERE user_id = $1)`, [userId]);
-  await pool.query(`DELETE FROM tradein_submissions WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+async function cleanup(userIds: string[]) {
+  await pool.query(`DELETE FROM store_credit_ledger WHERE user_id = ANY($1::uuid[])`, [userIds]);
+  await pool.query(`DELETE FROM quote_requests WHERE user_id = ANY($1::uuid[])`, [userIds]);
+  await pool.query(`DELETE FROM tradein_items WHERE submission_id IN (SELECT id FROM tradein_submissions WHERE user_id = ANY($1::uuid[]))`, [userIds]);
+  await pool.query(`DELETE FROM tradein_submissions WHERE user_id = ANY($1::uuid[])`, [userIds]);
+  await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
 }
 
 try {
@@ -169,11 +170,8 @@ try {
   const sortedDesc = paidTimes.every((t, i) => i === 0 || t <= paidTimes[i - 1]);
   assert(sortedDesc, "history rows sorted by paidAt desc");
 
-  // ── Cleanup ──
-  await cleanup(userId);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(users));
 }

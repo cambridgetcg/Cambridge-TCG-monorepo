@@ -2,11 +2,10 @@
 // two matching SKUs in card_price_history, runs the sweep, asserts the
 // right side fires and the right queue row lands.
 
-import pg from "pg";
-const { createAlert, runPriceAlertSweep, deleteAlert } = await import("../src/lib/portfolio/alerts");
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
+const { createAlert, runPriceAlertSweep, deleteAlert } = await import("../src/lib/portfolio/alerts");
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -16,17 +15,20 @@ function assert(cond: unknown, msg: string): void {
 
 process.env.EMAIL_UNSUBSCRIBE_SECRET = "testsecret-for-e2e";
 
+const users: string[] = [];
+const SKU_A = `ALRT-A-${Date.now()}`;
+const SKU_B = `ALRT-B-${Date.now()}`;
+const SKU_NEUTRAL = `ALRT-N-${Date.now()}`;
+
 try {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, 'Alert Test') RETURNING id`,
     [`alert-test-${Date.now()}@test.invalid`],
   );
   const userId: string = u.rows[0].id;
+  users.push(userId);
 
   // Seed history: SKU A at £15 (above £10 threshold), SKU B at £5 (below £10).
-  const SKU_A = `ALRT-A-${Date.now()}`;
-  const SKU_B = `ALRT-B-${Date.now()}`;
-  const SKU_NEUTRAL = `ALRT-N-${Date.now()}`;
   for (const [sku, price] of [[SKU_A, 15], [SKU_B, 5], [SKU_NEUTRAL, 12]] as const) {
     await pool.query(
       `INSERT INTO card_price_history (sku, captured_on, spot_gbp)
@@ -86,15 +88,14 @@ try {
   const phantom = await deleteAlert("00000000-0000-0000-0000-000000000000", userId);
   assert(!phantom, "deleteAlert returns false for missing row");
 
-  // Cleanup
-  await pool.query(`DELETE FROM email_queue WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM portfolio_price_alerts WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM card_price_history WHERE sku = ANY($1::text[])`,
-    [[SKU_A, SKU_B, SKU_NEUTRAL]]);
-  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, async () => {
+    await pool.query(`DELETE FROM email_queue WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM portfolio_price_alerts WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM card_price_history WHERE sku = ANY($1::text[])`,
+      [[SKU_A, SKU_B, SKU_NEUTRAL]]);
+    await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
+  });
 }

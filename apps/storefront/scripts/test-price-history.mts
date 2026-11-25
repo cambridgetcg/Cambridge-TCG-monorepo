@@ -1,11 +1,10 @@
 // E2E for price-history helpers — getPriceChanges + getPriceSeries.
 // Seeds rows directly, does NOT hit the wholesale API.
 
-import pg from "pg";
-const { getPriceChanges, getPriceSeries } = await import("../src/lib/portfolio/price-history");
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
+const { getPriceChanges, getPriceSeries } = await import("../src/lib/portfolio/price-history");
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -68,11 +67,9 @@ try {
   const empty = await getPriceChanges([], 7);
   assert(empty.size === 0, "empty input → empty map");
 
-  // Cleanup
-  await pool.query(`DELETE FROM card_price_history WHERE sku = ANY($1::text[])`, [[SKU_A, SKU_B, SKU_NEW]]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () =>
+    pool.query(`DELETE FROM card_price_history WHERE sku = ANY($1::text[])`, [[SKU_A, SKU_B, SKU_NEW]]));
 }

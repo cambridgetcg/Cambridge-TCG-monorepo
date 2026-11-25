@@ -1,12 +1,11 @@
 // E2E test for runStreakAtRiskSweep().
 // Seeds users with various streak states and asserts who ends up queued.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
+
+const pool = requireLocalTestDatabase();
 const mod = await import("../src/lib/email/streak-sweep");
 const { runStreakAtRiskSweep } = mod;
-
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -14,12 +13,15 @@ function assert(cond: unknown, msg: string): void {
   else { failed++; console.log(`  ✗ ${msg}`); }
 }
 
+const users: string[] = [];
+
 async function seedUser(email: string, lastVisitDaysAgo: number, streak: number): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, 'Streak') RETURNING id`,
     [email],
   );
   const id = u.rows[0].id;
+  users.push(id);
   // Use a SQL expression directly for the date so Postgres computes it —
   // the pg driver won't accept "CURRENT_DATE - 1" as a text parameter.
   const mult = Math.min(1.5, 1.0 + (streak - 1) * 0.02).toFixed(2);
@@ -33,10 +35,10 @@ async function seedUser(email: string, lastVisitDaysAgo: number, streak: number)
 
 try {
   const t = Date.now();
-  const atRisk = await seedUser(`sweep-risk-${t}@test.invalid`, 1, 5);      // yesterday, streak 5 → queue
-  const safe = await seedUser(`sweep-safe-${t}@test.invalid`, 0, 10);       // today → skip
-  const broken = await seedUser(`sweep-broken-${t}@test.invalid`, 3, 2);    // 3d ago → skip
-  const trivial = await seedUser(`sweep-trivial-${t}@test.invalid`, 1, 1);  // streak 1 → skip
+  const atRisk = await seedUser(`sweep-risk-${t}@test.invalid`, 1, 5);  // yesterday, streak 5 → queue
+  await seedUser(`sweep-safe-${t}@test.invalid`, 0, 10);                // today → skip
+  await seedUser(`sweep-broken-${t}@test.invalid`, 3, 2);               // 3d ago → skip
+  await seedUser(`sweep-trivial-${t}@test.invalid`, 1, 1);              // streak 1 → skip
 
   const result = await runStreakAtRiskSweep();
   assert(result.atRiskCount === 1, `atRiskCount = 1 (got ${result.atRiskCount}) — only the risk user qualifies`);
@@ -60,15 +62,12 @@ try {
   );
   assert(rows2.rows[0].n === 1, "queue still has 1 row — idempotent");
 
-  // Cleanup
-  for (const id of [atRisk, safe, broken, trivial]) {
-    await pool.query(`DELETE FROM email_queue WHERE user_id = $1`, [id]);
-    await pool.query(`DELETE FROM user_streaks WHERE user_id = $1`, [id]);
-    await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
-  }
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, async () => {
+    await pool.query(`DELETE FROM email_queue WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM user_streaks WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
+  });
 }

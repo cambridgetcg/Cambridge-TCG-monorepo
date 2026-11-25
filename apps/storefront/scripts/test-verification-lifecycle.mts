@@ -10,10 +10,9 @@
 //   6. Timeline helper — tier-aware step resolution
 //   7. Schema — migration 0060 columns exist
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -40,11 +39,14 @@ const {
   getNextActionForUser,
 } = await import("../src/lib/trust/verification-timeline");
 
+const users: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  users.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -233,11 +235,8 @@ try {
     "editing pending submission does NOT bump counter");
   assert(second?.full_legal_name === "Changed Name", "pending edit persists");
 
-  // ── Cleanup ──
-  await cleanup([u1, u3, u4, stranger, u7]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(users));
 }

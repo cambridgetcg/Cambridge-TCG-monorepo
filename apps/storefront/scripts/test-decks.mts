@@ -1,10 +1,9 @@
 // E2E for server-side deck persistence.
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 import type { DeckCardSnapshot } from "../src/lib/decks/db";
-const db = await import("../src/lib/decks/db");
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
+const db = await import("../src/lib/decks/db");
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -17,12 +16,15 @@ const mkCard = (sku: string, name: string, rarity = "C", price = 1): DeckCardSna
   rarity, image_url: null, spot_price: price, tradein_credit: null,
 });
 
+const users: string[] = [];
+
 try {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, 'Deck Test') RETURNING id`,
     [`deck-test-${Date.now()}@test.invalid`],
   );
   const userId: string = u.rows[0].id;
+  users.push(userId);
 
   // 1) Empty list
   const empty = await db.listUserDecks(userId);
@@ -114,12 +116,11 @@ try {
   const viewed = await db.getUserDeck(userId, d1.id);
   assert(viewed?.view_count === 2, `view count = 2 (got ${viewed?.view_count})`);
 
-  // Cleanup
-  await pool.query(`DELETE FROM user_decks WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, async () => {
+    await pool.query(`DELETE FROM user_decks WHERE user_id = ANY($1::uuid[])`, [users]);
+    await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
+  });
 }

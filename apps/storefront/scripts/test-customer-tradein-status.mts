@@ -10,10 +10,9 @@
 //    future migration adding a status doesn't silently regress the
 //    timeline UI.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -24,18 +23,21 @@ function assert(cond: unknown, msg: string): void {
 const { GET: statusGET } = await import("../src/app/api/tradein/status/route");
 const { TIMELINE_STEPS, getActiveStep } = await import("../src/lib/escrow/timeline");
 
+const users: string[] = [];
+
 async function makeUser(email: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, 'Customer Status Test') RETURNING id`,
     [email],
   );
+  users.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
-async function cleanup(userId: string) {
-  await pool.query(`DELETE FROM tradein_items WHERE submission_id IN (SELECT id FROM tradein_submissions WHERE user_id = $1)`, [userId]);
-  await pool.query(`DELETE FROM tradein_submissions WHERE user_id = $1`, [userId]);
-  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+async function cleanup(userIds: string[]) {
+  await pool.query(`DELETE FROM tradein_items WHERE submission_id IN (SELECT id FROM tradein_submissions WHERE user_id = ANY($1::uuid[]))`, [userIds]);
+  await pool.query(`DELETE FROM tradein_submissions WHERE user_id = ANY($1::uuid[])`, [userIds]);
+  await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
 }
 
 async function fetchStatus(reference: string): Promise<Record<string, unknown>> {
@@ -168,11 +170,8 @@ try {
   assert(getActiveStep("direct", "verified") === 3,
     "direct.verified → step 3 (Dispute Window — post-delivery hold)");
 
-  // ── Cleanup ──
-  await cleanup(userId);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(users));
 }

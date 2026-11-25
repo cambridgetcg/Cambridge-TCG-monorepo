@@ -12,10 +12,9 @@
 // The Stripe webhook + reportSale paths are exercised in production
 // against real signed events; covered here by inspection.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -34,11 +33,15 @@ type CartItem = {
   card_number: string;
 };
 
+const allUsers: string[] = [];
+const allStripeIds: string[] = [];
+
 async function makeUser(label: string, email: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [email, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -48,6 +51,7 @@ async function cleanup(userIds: string[], stripeIds: string[]) {
   }
   if (userIds.length > 0) {
     await pool.query(`DELETE FROM customer_orders WHERE user_id = ANY($1::uuid[])`, [userIds]);
+    await pool.query(`DELETE FROM admin_actions_log WHERE target_user_id = ANY($1::uuid[])`, [userIds]);
     await pool.query(`DELETE FROM trust_profiles WHERE user_id = ANY($1::uuid[])`, [userIds]);
     await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
   }
@@ -65,8 +69,6 @@ const item = (sku: string, price: number, qty: number = 1): CartItem => ({
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
-  const allStripeIds: string[] = [];
 
   // ── Suite 1: cart pure-function math ──
   console.log("\n— Suite 1: cart.ts pure math");
@@ -121,10 +123,11 @@ try {
   // ── Suite 2: checkout validation gates (against live dev server) ──
   console.log("\n— Suite 2: checkout request validation");
 
-  const SERVER = "http://localhost:3100";
+  // The server uses its own database, which the guard does not check.
+  const SERVER = "http://127.0.0.1:3100";
   let serverReachable = false;
   try {
-    const ping = await fetch(`${SERVER}/api/auth/session`).catch(() => null);
+    const ping = await fetch(`${SERVER}/api/auth/session`, { redirect: "error" }).catch(() => null);
     serverReachable = !!ping && ping.ok;
   } catch { /* offline */ }
 
@@ -134,6 +137,7 @@ try {
     async function postCheckout(body: unknown) {
       const res = await fetch(`${SERVER}/api/checkout`, {
         method: "POST",
+        redirect: "error",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
@@ -173,7 +177,6 @@ try {
   // ── Suite 3: customer_orders persistence ──
   console.log("\n— Suite 3: customer_orders persistence");
   const u1 = await makeUser(`shop-${t}`, `shop-${t}@test.invalid`);
-  allUsers.push(u1);
 
   const stripeId = `cs_test_${t}_1`;
   allStripeIds.push(stripeId);
@@ -447,11 +450,8 @@ try {
   assert(clampCredit(50, 50, 1) === 0,
     "credit cannot zero out a 1p subtotal (Stripe rejects)");
 
-  // ── Cleanup ──
-  await cleanup(allUsers, allStripeIds);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers, allStripeIds));
 }

@@ -4,10 +4,9 @@
 // market_trade_cancellations — exercising those primitives in
 // concert verifies the linkage held.
 
-import pg from "pg";
+import { cleanUp, requireLocalTestDatabase } from "./lib/local-test-database.mjs";
 
-const url = process.env.DATABASE_URL!.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const pool = requireLocalTestDatabase();
 
 let passed = 0, failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -24,11 +23,14 @@ const {
 
 const { listNotifications } = await import("../src/lib/notifications/db");
 
+const allUsers: string[] = [];
+
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
     `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`,
     [`${label}@test.invalid`, label],
   );
+  allUsers.push(u.rows[0].id);
   return u.rows[0].id;
 }
 
@@ -74,12 +76,10 @@ async function cleanup(userIds: string[]) {
 
 try {
   const t = Date.now().toString(36).slice(-5);
-  const allUsers: string[] = [];
 
   // ── Suite 1: scheduleVacation validation ──
   console.log("\n— Suite 1: scheduleVacation validation");
   const seller1 = await makeUser(`vac-s1-${t}`);
-  allUsers.push(seller1);
 
   const now = Date.now();
 
@@ -164,7 +164,6 @@ try {
   // ── Suite 4: sweep flips scheduled→active and pauses asks ──
   console.log("\n— Suite 4: sweep starts vacation + pauses asks");
   const seller2 = await makeUser(`vac-s2-${t}`);
-  allUsers.push(seller2);
   const ask1 = await makeAsk({ sellerId: seller2, sku: `VAC-${t}-1` });
   const ask2 = await makeAsk({ sellerId: seller2, sku: `VAC-${t}-2` });
   // also a non-ask order that shouldn't get paused
@@ -226,7 +225,6 @@ try {
   console.log("\n— Suite 5: response-window extensions");
   // Set up a buyer + an in-flight offer + return + cancel against seller2
   const buyer5 = await makeUser(`vac-b5-${t}`);
-  allUsers.push(buyer5);
 
   // Existing offers (created BEFORE vacation went active should be
   // extended; for clean numerics let's create one now and back-date
@@ -249,7 +247,6 @@ try {
   // Verify by running another sweep cycle: schedule + apply for a
   // new seller.
   const seller5 = await makeUser(`vac-s5-${t}`);
-  allUsers.push(seller5);
   const ask5 = await makeAsk({ sellerId: seller5, sku: `VAC-EXT-${t}` });
   const offer5 = await pool.query(
     `INSERT INTO market_offers
@@ -346,11 +343,8 @@ try {
   const noActive = await getActiveVacation(seller5);
   assert(noActive === null, "seller5 has no active after sweep-end");
 
-  // Cleanup
-  await cleanup(allUsers);
-
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  if (failed > 0) process.exitCode = 1;
 } finally {
-  await pool.end();
+  await cleanUp(pool, () => cleanup(allUsers));
 }
