@@ -81,8 +81,9 @@ const walkFindings = (walk: Walk): Finding[] => walk.steps.filter(step => !step.
   .flatMap(step => walkFailures({ ...walk, steps: [step] }).map(id => ({ id: token(id), line: `${step.says} (expected: ${step.asks})` })));
 
 /** One plain operator email over the site's own mail seam (AWS SES), from
- * the sign-in address to the shop's notification address. Never throws; the
- * provider's error text can hold an address, so only a word of it is kept. */
+ * the sign-in address to the shop's notification address. Never throws. The
+ * provider's error text can hold an address, so only a word is kept: one of
+ * ours, or the provider's own name for the error, if that is letters only. */
 async function sendToOperator(mail: Mail): Promise<string | null> {
   const to = process.env.ADMIN_DIGEST_EMAIL?.trim() || process.env.STORE_NOTIFICATION_EMAIL?.trim();
   if (!to) return "no-address";
@@ -92,7 +93,10 @@ async function sendToOperator(mail: Mail): Promise<string | null> {
   const from = `Cambridge TCG <${(process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim()}>`;
   const sent = await sendMail({ from, to, ...mail }, { stream: "noreply" });
   if (sent.ok) return sent.transport === "console" ? "console-only" : null;
-  return /not verified/i.test(sent.error) ? "not-verified" : /not configured/i.test(sent.error) ? "not-configured" : "refused";
+  if (/not verified/i.test(sent.error)) return "not-verified";
+  if (/not configured/i.test(sent.error)) return "not-configured";
+  const name = sent.code && sent.code !== "Error" && /^[A-Za-z]{2,40}$/.test(sent.code) ? sent.code : "Refused";
+  return name.replace(/(?<=[a-z])(?=[A-Z])/g, "-").toLowerCase();
 }
 
 export function composeMail(at: Date, first: boolean, found: readonly Finding[], waiting: Waiting | null): Mail {

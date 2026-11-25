@@ -163,6 +163,11 @@ describe("the daily check", () => {
     expect(await run({ ok: true, messageId: "1", transport: "ses" })).toMatchObject({ ok: true, mailed: true });
     expect(sendMail).toHaveBeenCalledWith({ from: "Cambridge TCG <noreply@example.test>", to: "owner@example.test", subject: expect.any(String), text: expect.any(String) }, { stream: "noreply" });
     expect((await run({ ok: false, error: "Email address is not verified: owner@example.test", transport: "ses" })).outcome).toBe("unavailable:mail-not-verified");
+    // The provider's own name for it tells a dead key from a right that is missing.
+    const named = async (code?: string) => (await run({ ok: false, error: "no, for owner@example.test", code, transport: "ses" })).outcome;
+    expect(await named("AccessDenied")).toBe("unavailable:mail-access-denied");
+    expect(await named("InvalidClientTokenId")).toBe("unavailable:mail-invalid-client-token-id");
+    for (const other of [undefined, "", "Error", "owner@example.test", "Access Denied", "A".repeat(41)]) expect(await named(other)).toBe("unavailable:mail-refused");
     expect((await run({ ok: true, messageId: "1", transport: "console" })).outcome).toBe("unavailable:mail-console-only");
     // In production that transport would print the address, so it is not asked to send.
     vi.stubEnv("NODE_ENV", "production");

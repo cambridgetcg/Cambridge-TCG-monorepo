@@ -36,7 +36,15 @@ export type EmailStream = "auth" | "noreply" | "tradein" | "bounty";
 
 export type MailSendResult =
   | { ok: true; messageId: string; transport: TransportName }
-  | { ok: false; error: string; transport: TransportName | "none" };
+  | {
+      ok: false;
+      error: string;
+      /** The provider's own name for the error, where it has one (AWS:
+       * AccessDenied, MessageRejected). `error` can repeat an address or an
+       * account; this is one word of theirs. */
+      code?: string;
+      transport: TransportName | "none";
+    };
 
 export interface MailTransport {
   readonly name: TransportName;
