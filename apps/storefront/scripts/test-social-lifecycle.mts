@@ -31,7 +31,6 @@ const { submitReview, getUserReviews } = await import("../src/lib/escrow/trust-e
 const { listNotifications, unreadCount } = await import("../src/lib/notifications/db");
 
 const allUsers: string[] = [];
-const allTrades: string[] = [];
 
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
@@ -61,16 +60,14 @@ async function makeTrade(buyerId: string, sellerId: string, sku: string): Promis
      RETURNING id`,
     [buyerId, sellerId, bid.rows[0].id, ask.rows[0].id, sku],
   );
-  allTrades.push(t.rows[0].id);
   return t.rows[0].id;
 }
 
-async function cleanup(userIds: string[], tradeIds: string[]) {
-  if (tradeIds.length > 0) {
-    await pool.query(`DELETE FROM trade_reviews WHERE trade_id = ANY($1::uuid[])`, [tradeIds]);
-    await pool.query(`DELETE FROM market_trades WHERE id = ANY($1::uuid[])`, [tradeIds]);
-  }
+async function cleanup(userIds: string[]) {
   if (userIds.length > 0) {
+    const trades = `SELECT id FROM market_trades WHERE buyer_id = ANY($1::uuid[]) OR seller_id = ANY($1::uuid[])`;
+    await pool.query(`DELETE FROM trade_reviews WHERE trade_id IN (${trades})`, [userIds]);
+    await pool.query(`DELETE FROM market_trades WHERE id IN (${trades})`, [userIds]);
     await pool.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [userIds]);
     await pool.query(`DELETE FROM activity_feed WHERE user_id = ANY($1::uuid[])`, [userIds]);
     await pool.query(`DELETE FROM follows WHERE follower_id = ANY($1::uuid[]) OR following_id = ANY($1::uuid[])`, [userIds]);
@@ -281,5 +278,5 @@ try {
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 } finally {
-  await cleanUp(pool, () => cleanup(allUsers, allTrades));
+  await cleanUp(pool, () => cleanup(allUsers));
 }

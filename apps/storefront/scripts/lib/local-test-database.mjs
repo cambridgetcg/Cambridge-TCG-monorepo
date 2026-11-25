@@ -107,20 +107,25 @@ export function requireLocalTestDatabase() {
 }
 
 /**
- * For `finally`. Runs every step even when one fails, then closes the pool.
- * Never throws, so the error that stopped the test is the one Node reports. A
- * failed step is printed beside it, and fails the run.
+ * For `finally`. Runs every step, and every query of a step, even when one
+ * fails, then closes the pool. Never throws, so the error that stopped the test
+ * is the one Node reports. What failed is printed beside it, and fails the run.
  */
 export async function cleanUp(pool, ...steps) {
   // Some app code writes without being awaited (notifications, the admin log).
-  // Those rows land first, so the steps delete them too.
+  // Those rows have time to land first, so the steps delete them too.
   await new Promise((resolve) => setTimeout(resolve, 250));
+  const failed = (error) => {
+    process.exitCode = 1;
+    console.error(`Cleanup failed, so test rows may remain in the local test database: ${error?.message || error}`);
+  };
+  const query = pool.query.bind(pool);
+  pool.query = (...args) => query(...args).catch(failed);
   for (const step of steps) {
     try {
       await step();
     } catch (error) {
-      process.exitCode = 1;
-      console.error(`Cleanup failed, so test rows may remain in the local test database: ${error?.message || error}`);
+      failed(error);
     }
   }
   await pool.end().catch(() => {});

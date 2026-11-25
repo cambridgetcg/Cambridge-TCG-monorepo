@@ -54,7 +54,8 @@ async function cleanup(userIds: string[]) {
   await pool.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [userIds]);
   await pool.query(
     `DELETE FROM saved_search_matches
-      WHERE search_id IN (SELECT id FROM saved_searches WHERE user_id = ANY($1::uuid[]))`,
+      WHERE search_id IN (SELECT id FROM saved_searches WHERE user_id = ANY($1::uuid[]))
+         OR order_id IN (SELECT id FROM market_orders WHERE user_id = ANY($1::uuid[]))`,
     [userIds],
   );
   await pool.query(`DELETE FROM saved_searches WHERE user_id = ANY($1::uuid[])`, [userIds]);

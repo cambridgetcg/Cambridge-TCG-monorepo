@@ -140,7 +140,10 @@ describe("in a script", { timeout: 30_000 }, () => {
     expect(result).toMatchObject({ status: 0, stderr: "" });
   });
 
-  const POOL = "const pool = { end: async () => console.log('pool closed') };\n";
+  const POOL = `const pool = {
+    async query(sql, ids) { if (sql === "bad") throw new Error("row is referenced"); console.log(this === pool, sql, ids); },
+    end: async () => console.log("pool closed"),
+  };\n`;
 
   it("cleans up after a throw, closes the pool and still reports the throw", () => {
     const result = run(`${POOL}try { throw new Error("the real failure"); } finally { await cleanUp(pool, () => console.log("cleaned")); }`);
@@ -158,11 +161,17 @@ describe("in a script", { timeout: 30_000 }, () => {
     expect(result.stderr).toMatch(/^Cleanup failed, .*: row is referenced\nCleanup failed, .*: odd\n[^]*Error: the real failure/);
   });
 
+  it("reports a failed query, and still runs the ones after it in the same step", () => {
+    const result = run(`${POOL}await cleanUp(pool, async () => { for (const sql of ["first", "bad", "third"]) await pool.query(sql, 7); });`);
+    expect(result).toMatchObject({ status: 1, stdout: "true first 7\ntrue third 7\npool closed\n" });
+    expect(result.stderr).toMatch(/^Cleanup failed, .*: row is referenced\n$/);
+  });
+
   it("fails a passing run whose cleanup failed, and passes one whose pool would not close", () => {
     const failed = run(`${POOL}await cleanUp(pool, async () => { throw new Error("row is referenced"); });`);
     expect(failed).toMatchObject({ status: 1, stdout: "pool closed\n" });
     expect(failed.stderr).toMatch(/^Cleanup failed, .*: row is referenced\n$/);
-    expect(run("await cleanUp({ end: async () => { throw new Error('closed twice'); } });")).toMatchObject({ status: 0, stderr: "" });
+    expect(run(`${POOL}pool.end = async () => { throw new Error("closed twice"); }; await cleanUp(pool);`)).toMatchObject({ status: 0, stderr: "" });
   });
 
   it("lets a write nobody awaited land before it deletes", () => {

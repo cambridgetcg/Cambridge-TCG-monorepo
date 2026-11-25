@@ -42,6 +42,7 @@ async function makeUser(label: string): Promise<string> {
 async function cleanup(userIds: string[]) {
   await pool.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [userIds]);
   await pool.query(`DELETE FROM activity_feed WHERE user_id = ANY($1::uuid[])`, [userIds]);
+  await pool.query(`DELETE FROM fraud_signals WHERE user_id = ANY($1::uuid[])`, [userIds]);
   await pool.query(
     `DELETE FROM market_trades
       WHERE buyer_id = ANY($1::uuid[]) OR seller_id = ANY($1::uuid[])`,

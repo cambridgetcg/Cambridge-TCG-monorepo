@@ -22,7 +22,6 @@ const {
 } = await import("../src/lib/auction/fulfilment-timeline");
 
 const users: string[] = [];
-const auctions: string[] = [];
 
 async function makeUser(label: string): Promise<string> {
   const u = await pool.query(
@@ -53,7 +52,6 @@ async function makeAuction(opts: {
      RETURNING id`,
     [`Test auction ${Date.now()}`, opts.paid ? "paid" : "ended", opts.winnerId, opts.sellerId, opts.consigned],
   );
-  auctions.push(a.rows[0].id);
   return a.rows[0].id;
 }
 
@@ -62,13 +60,12 @@ async function getAuction(id: string) {
   return r.rows[0];
 }
 
-async function cleanup(userIds: string[], auctionIds: string[]) {
-  if (auctionIds.length > 0) {
-    await pool.query(`DELETE FROM auction_images WHERE auction_id = ANY($1::uuid[])`, [auctionIds]);
-    await pool.query(`DELETE FROM auction_bids WHERE auction_id = ANY($1::uuid[])`, [auctionIds]);
-    await pool.query(`DELETE FROM auctions WHERE id = ANY($1::uuid[])`, [auctionIds]);
-  }
+async function cleanup(userIds: string[]) {
   if (userIds.length > 0) {
+    const auctions = `SELECT id FROM auctions WHERE seller_user_id = ANY($1::uuid[])`;
+    await pool.query(`DELETE FROM auction_images WHERE auction_id IN (${auctions})`, [userIds]);
+    await pool.query(`DELETE FROM auction_bids WHERE auction_id IN (${auctions})`, [userIds]);
+    await pool.query(`DELETE FROM auctions WHERE id IN (${auctions})`, [userIds]);
     await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
   }
 }
@@ -237,5 +234,5 @@ try {
   console.log(`\nSummary: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exitCode = 1;
 } finally {
-  await cleanUp(pool, () => cleanup(users, auctions));
+  await cleanUp(pool, () => cleanup(users));
 }
