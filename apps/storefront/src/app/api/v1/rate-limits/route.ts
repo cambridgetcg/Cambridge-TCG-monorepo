@@ -14,7 +14,6 @@
  */
 
 import { jsonResponse } from "@/lib/data-pantry";
-import { FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 
 interface PolicyEntry {
   freshness_key: string;
@@ -184,7 +183,7 @@ export async function GET(): Promise<Response> {
     },
     contact_on_block: "contact@cambridgetcg.com",
     appeal_process:
-      `If you've been firewalled, email contact@cambridgetcg.com with your bot's name + contact email + intended use. ${FEEDBACK_READ_AIM}`,
+      "If you've been firewalled, email contact@cambridgetcg.com with your bot's name + contact email + intended use.",
     feedback_endpoint: "/api/v1/feedback",
   };
 

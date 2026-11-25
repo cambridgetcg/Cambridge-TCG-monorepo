@@ -43,6 +43,7 @@ import {
   storeFeedback,
   validateFeedback,
   type DoorUnavailable,
+  type FeedbackDetailField,
 } from "@/lib/feedback/door";
 import { FEEDBACK_ANSWER_PLACE, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 
@@ -81,7 +82,7 @@ export async function GET(request?: Request): Promise<Response> {
         topic: `optional, one of: ${CONTACT_TOPICS.join(", ")} (the /contact form sends it)`,
         reply_to: "optional email address or https URL. Nothing is sent to it automatically; a person may write to it (reporter_contact is read the same way)",
         reply_name: "optional name, at most 100 characters (name is read the same way)",
-        references: Object.fromEntries(Object.entries(FEEDBACK_DETAIL_FIELDS).map(([field, rule]) => [field, describe(rule)])),
+        references: Object.fromEntries((Object.keys(FEEDBACK_DETAIL_FIELDS) as FeedbackDetailField[]).map((field) => [field, describe(field)])),
         anything_else: "refused with 400, so you know exactly what was kept",
       },
       data_error:
@@ -104,11 +105,18 @@ export async function GET(request?: Request): Promise<Response> {
   });
 }
 
-function describe(rule: (typeof FEEDBACK_DETAIL_FIELDS)[keyof typeof FEEDBACK_DETAIL_FIELDS]): string {
+/** The tokens with a form of their own (door.ts). */
+const TOKEN_WORDS: Partial<Record<FeedbackDetailField, string>> = {
+  as_of: "a date, or a date and time: 2026-11-24 or 2026-11-24T10:00Z",
+  guide_slug: "a guide's slug: lower-case letters, digits and hyphens",
+};
+
+function describe(field: FeedbackDetailField): string {
+  const rule = FEEDBACK_DETAIL_FIELDS[field];
   switch (rule.type) {
     case "text": return `your words, at most ${rule.max} characters${rule.multiline ? "" : ", one line"}`;
     case "path": return "a path starting with /, at most 200 characters";
-    case "token": return "a short token (letters, digits, . _ : / -)";
+    case "token": return TOKEN_WORDS[field] ?? "a short token (letters, digits, . _ : / -)";
     case "url": return "an https URL, at most 300 characters";
     case "step": return "a whole number from 1 to 999";
   }
@@ -236,7 +244,7 @@ export async function DELETE(request?: Request): Promise<Response> {
       "@kind": "feedback-erased",
       feedback_id: erased.erased,
       erased: true,
-      note: "The message, its references, any reply address and our answer are deleted. The key no longer opens anything.",
+      note: "Deleted here: the message, its references, any reply address and any answer. The key no longer opens anything.",
     },
   });
 }

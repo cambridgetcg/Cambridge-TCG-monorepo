@@ -35,7 +35,6 @@ import {
   ERRAND_META_LEAVING,
   ERRAND_META_WHEN_SUPPLIED,
 } from "@/lib/data-pantry/errand-contract";
-import { FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 
 const CHOSEN_DOORS = `${CHOSEN_DOOR_PATHS.join(", ")} and the routes beneath them`;
 
@@ -139,7 +138,7 @@ export async function GET(): Promise<Response> {
       operational_status: "/api/v1/status",
       live_ingest_health: "/api/v1/sources",
       changelog_for_recent_changes: "/api/v1/changelog?since=YYYY-MM-DD",
-      contact_human: `contact@cambridgetcg.com — ${FEEDBACK_READ_AIM}`,
+      contact_human: "contact@cambridgetcg.com",
     },
 
     walking_past_is_honored: true,

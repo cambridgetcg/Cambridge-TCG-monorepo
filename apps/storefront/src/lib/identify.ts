@@ -273,7 +273,6 @@ export const PLATFORM_SELF: BeingDeclaration = {
     accepts_link_headers: true,
     honours_cache_control: true,
   },
-  response_window_hours: 48,
   audience_declarations: [
     "humans (default — collectors, researchers and players; traders only for agreements made before 2026-09-23)",
     "agents (S18 — delegated powers operated_by_user_id, MCP gate)",

@@ -40,7 +40,7 @@
  *   - operator_of_upstream: third-party operating a future tributary
  */
 
-import { FEEDBACK_ANSWER_PLACE, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
+import { FEEDBACK_ANSWER_PLACE, FEEDBACK_OPEN_CHECK, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 
 export type AudienceKind =
   | "agent"
@@ -505,7 +505,9 @@ export const GUIDES: Guide[] = [
           "If you find a response that doesn't match the OpenAPI spec, or a " +
           "documented endpoint that doesn't exist, or a guide that's wrong, " +
           "tell us. The feedback channel is POST /api/v1/feedback (no auth) " +
-          "or email contact@cambridgetcg.com.",
+          "or email contact@cambridgetcg.com. " +
+          `${FEEDBACK_OPEN_CHECK} If yours is taken, the reply holds a key: keep it. ` +
+          `${FEEDBACK_READ_AIM} ${FEEDBACK_ANSWER_PLACE}`,
         curl:
           "curl -X POST https://cambridgetcg.com/api/v1/feedback \\\n" +
           "  -H 'content-type: application/json' \\\n" +
@@ -517,9 +519,7 @@ export const GUIDES: Guide[] = [
           "    \"reporter_contact\": \"admin@yourdomain.example\"\n" +
           "  }'",
         what_to_do_with_it:
-          `${FEEDBACK_READ_AIM} Keep the key in the reply. ${FEEDBACK_ANSWER_PLACE} ` +
-          "Substrate-honesty: drift between the contract and the response is " +
-          "*our* failure, not yours.",
+          "Drift between the contract and the response is *our* failure, not yours.",
       },
     ],
     gotchas: [
@@ -559,11 +559,11 @@ export const GUIDES: Guide[] = [
   {
     slug: "federate-bilateral",
     title: "Federate with Cambridge TCG bilaterally",
-    subtitle: "Implement /federation/identify on your side. We'll resolve your hashes too.",
+    subtitle: "Implement /federation/identify on your side. Cambridge TCG does not call it today.",
     intro:
       "Federation makes Cambridge TCG portable. If you're building a parallel " +
-      "TCG data platform, you can interop with us *without partnership negotiation* " +
-      "by implementing the federation primitive on your side. The Cambridge-authored " +
+      "TCG data platform, you can resolve our hashes *without partnership negotiation*, " +
+      "and implement the same primitive for yours. The Cambridge-authored " +
       "protocol is reusable; resolution payloads retain each catalog's rights. Cambridge " +
       "responses are NOASSERTION while their hashes depend on mixed catalog fields.",
     audiences: ["federation_partner", "aggregator"],
@@ -574,7 +574,7 @@ export const GUIDES: Guide[] = [
         step_number: 1,
         title: "Implement /api/v1/federation/identify/[hash] on your platform",
         instruction:
-          "When Cambridge TCG (or any federation partner) sends you a sha256 " +
+          "When a federation partner sends you a sha256 " +
           "content_hash, your endpoint walks your catalog computing each row's " +
           "hash until it finds the match — then returns the resolution. The " +
           "shape mirrors ours: `{ matched: true, sku: ..., universal_url: ... }` " +
@@ -608,7 +608,8 @@ export const GUIDES: Guide[] = [
           "    \"reporter_contact\": \"admin@my-tcg.example\"\n" +
           "  }'",
         what_to_do_with_it:
-          `${FEEDBACK_READ_AIM} Keep the key in the reply. ${FEEDBACK_ANSWER_PLACE}`,
+          `${FEEDBACK_OPEN_CHECK} If yours is taken, the reply holds a key: keep it. ` +
+          `${FEEDBACK_READ_AIM} ${FEEDBACK_ANSWER_PLACE}`,
       },
       {
         step_number: 3,
@@ -648,7 +649,7 @@ export const GUIDES: Guide[] = [
       { label: "Federation OpenAPI section", href: "/api/openapi.json" },
     ],
     last_verified: "2026-05-14",
-    revised: "2026-11-24",
+    revised: "2026-11-25",
   },
 
   // ───────────────────────────────────────────────────────────────────

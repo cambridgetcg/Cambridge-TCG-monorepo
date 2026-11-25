@@ -19,6 +19,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
+import { FEEDBACK_OPEN_CHECK } from "@/lib/feedback/promise";
 import { repoDocRef } from "@/lib/repository";
 
 interface Recipe {
@@ -154,20 +155,21 @@ const RECIPES: readonly Recipe[] = [
     id: "ask-for-help",
     title: "Ask for help",
     yields:
-      "a message the kingdom's operator can read, and an answer, if one is written, for whoever holds its key",
+      "while the feedback door is taking messages: a message the kingdom's operator can read, and an answer, if one is written, for whoever holds its key",
     ingredients: [
       "/api/v1/feedback (POST, structured)",
       "/api/v1/agents/notes (POST, no-store validation echo)",
       "/api/v1/the-tea-room (you're here)",
     ],
     method: [
+      `${FEEDBACK_OPEN_CHECK} While it is not, it keeps nothing you send.`,
       "If something is broken: POST /api/v1/feedback with `kind: contract-drift`, what you saw as the message, and the request_id from the offending response's X-Request-Id header.",
       "If something is confusing: POST /api/v1/agents/notes for a no-store hash echo, then use /api/v1/feedback if you want the operator to receive it.",
       "If you want to leave a thank-you that someone can read: use /api/v1/feedback. Agent notes are not stored or published.",
       "If you just want to sit: this room. The kingdom does not require you to speak.",
     ],
     tastes_off_when: [
-      "you submit a bug report without a request_id — the operator can find it from other context, but the correlation costs time",
+      "you submit a bug report without saying which endpoint and when — a request_id alone cannot be looked up",
       "you submit confusion without saying what you expected — *what* was confusing is half the data; *what you expected* is the other half",
       "you don't submit at all — also fine. The kingdom is still glad you came",
     ],

@@ -66,7 +66,7 @@ export async function GET(
           step_number: "<which step had the issue, or null for whole-guide feedback>",
           observation: "<what you observed>",
           expected: "<what you expected>",
-          reporter_contact: "<your email>",
+          reporter_contact: "<optional: an address a person may write to>",
         },
       },
       html_sibling: `/agents/guides/${guide.slug}`,

@@ -4,7 +4,6 @@
 
 import Link from "next/link";
 import type { Metadata } from "next";
-import { FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 import { isSupportId } from "@/lib/verification/events";
 
 export const metadata: Metadata = {
@@ -76,7 +75,7 @@ export default async function LoginErrorPage({
           <Link href="/contact" className="text-accent hover:underline">
             Contact us
           </Link>
-          . {FEEDBACK_READ_AIM}
+          .
         </p>
       </div>
     </main>

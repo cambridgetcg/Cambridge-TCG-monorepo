@@ -138,8 +138,8 @@ const nextConfig: NextConfig = {
   // not invoke a function. A GET or HEAD to /api on the production alias
   // is redirected as well, by src/proxy.ts, since a redirect here cannot
   // tell GET from POST, and so is every method to the feedback, hello and
-  // MCP doors. Yu chose this on 2026-11-05, with rate limits at Cloudflare,
-  // so API reads and those doors' writes go through Cloudflare.
+  // MCP doors, so that API reads and those doors' writes pass Cloudflare,
+  // where a rate rule would stand. None is known to be applied (2026-11-24).
   async redirects() {
     return ["www.cambridgetcg.com", "cambridgetcg-storefront.vercel.app"].map((host) => ({
       source: "/:path((?!api(?:/|$)|_next/).*)",

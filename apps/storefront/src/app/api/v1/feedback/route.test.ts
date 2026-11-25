@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { query } from "@/lib/db";
-import { holderKeySha256, newHolderKey } from "@/lib/feedback/door";
+import { holderKeySha256, newHolderKey, validateFeedback } from "@/lib/feedback/door";
+import { GUIDES } from "@/lib/guides";
 import { DELETE, GET, OPTIONS, POST } from "./route";
 
 vi.mock("@/lib/db", () => ({ query: vi.fn() }));
@@ -19,6 +20,10 @@ afterEach(() => {
 });
 
 describe("/api/v1/feedback while the door is closed", () => {
+  beforeEach(() => {
+    vi.stubEnv("PUBLIC_FEEDBACK", "");
+  });
+
   it("describes the door without a database read", async () => {
     const response = await GET();
     const body = await response.json();
@@ -27,6 +32,19 @@ describe("/api/v1/feedback while the door is closed", () => {
     expect(body.data).toMatchObject({ status: "closed", accepting_messages: false, holder_key: { works_while_closed: true }, notice: { url: "/privacy#feedback-door" } });
     expect(body.data.kinds).toEqual(expect.arrayContaining(["question", "data-error", "contract-drift", "federation-adopter"]));
     expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it("describes the references in forms it takes", async () => {
+    const { references } = (await (await GET()).json()).data.fields;
+    const taken = (field: string, value: string) => expect(validateFeedback({ kind: "question", message: "hi", [field]: value }), `${field} ${value}`).toMatchObject({ ok: true });
+    expect(references.as_of).toBe("a date, or a date and time: 2026-11-24 or 2026-11-24T10:00Z");
+    for (const shown of references.as_of.match(/\d{4}-\S+/g)) taken("as_of", shown);
+    expect(references.guide_slug).toBe("a guide's slug: lower-case letters, digits and hyphens");
+    for (const { slug } of GUIDES) taken("guide_slug", slug);
+    for (const field of ["request_id", "subject", "method_version"]) {
+      expect(references[field]).toBe("a short token (letters, digits, . _ : / -)");
+      taken(field, "Az09._:/-");
+    }
   });
 
   it("rejects before inspecting or logging caller content", async () => {
@@ -63,7 +81,10 @@ describe("/api/v1/feedback while the door is closed", () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ feedback_id: "fb_0123456789abcdef01234567" }], rowCount: 1 });
     const erased = await DELETE(withKey("DELETE", key));
     expect(erased.status).toBe(200);
-    expect((await erased.json()).data).toMatchObject({ erased: true, feedback_id: "fb_0123456789abcdef01234567" });
+    expect((await erased.json()).data).toMatchObject({
+      erased: true, feedback_id: "fb_0123456789abcdef01234567",
+      note: "Deleted here: the message, its references, any reply address and any answer. The key no longer opens anything.",
+    });
   });
 });
 
@@ -88,16 +109,16 @@ describe("/api/v1/feedback while the door is open", () => {
     expect(JSON.stringify(params)).not.toContain(body.data.holder_key);
   });
 
-  it("says in the receipt where the answer is shown and that nothing is emailed, with an address or without", async () => {
+  it("says in the receipt where an answer is shown and that none is emailed automatically, with an address or without", async () => {
     mockQuery.mockResolvedValue(stored);
     const receipt = async (over: Record<string, unknown>) => (await (await POST(post({ kind: "question", message: "hi", ...over }))).json()).data;
     expect(await receipt({ reply_to: "ada@example.com" })).toMatchObject({
-      reply: "The answer is shown to whoever holds the message's key. Nothing is emailed automatically. A person may write to the address you gave.",
-      response_aim: "We aim to read every message within 48 hours.",
+      reply: "An answer, if one is written, is shown to whoever holds the message's key. No answer is emailed automatically. A person may write to the address you gave.",
+      response_aim: "We aim to read every message sent to /api/v1/feedback within 48 hours.",
     });
     expect(await receipt({})).toMatchObject({
-      reply: "The answer is shown to whoever holds the message's key. Nothing is emailed automatically. No reply address was given.",
-      response_aim: "We aim to read every message within 48 hours.",
+      reply: "An answer, if one is written, is shown to whoever holds the message's key. No answer is emailed automatically. No reply address was given.",
+      response_aim: "We aim to read every message sent to /api/v1/feedback within 48 hours.",
     });
     expect((await (await GET()).json()).data.fields.reply_to).toBe("optional email address or https URL. Nothing is sent to it automatically; a person may write to it (reporter_contact is read the same way)");
   });

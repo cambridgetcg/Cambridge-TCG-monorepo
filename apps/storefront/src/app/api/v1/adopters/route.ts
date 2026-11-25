@@ -12,7 +12,7 @@
  */
 
 import { jsonResponse } from "@/lib/data-pantry";
-import { FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
+import { FEEDBACK_OPEN_CHECK, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 import { repoDocPath, repoDocRef } from "@/lib/repository";
 
 interface Adopter {
@@ -103,7 +103,7 @@ export async function GET(): Promise<Response> {
     how_to_become_an_adopter: {
       step_1: "Implement one or more CTCG-* standards on your platform.",
       step_2:
-        "POST a public self-declaration to /api/v1/feedback with kind: 'federation-adopter'. The declaration remains yours and is recorded as NOASSERTION; no CC0 dedication is inferred.",
+        `POST a public self-declaration to /api/v1/feedback with kind: 'federation-adopter'. ${FEEDBACK_OPEN_CHECK} A listing shows your platform's name, URL, kind, standards and federation endpoint, the date you declared it and any note; it has no field for your reporter_contact. The declaration remains yours and is recorded as NOASSERTION; no CC0 dedication is inferred.`,
       step_3:
         `A person adds platforms to this list by hand; nothing you send is called or added automatically. ${FEEDBACK_READ_AIM}`,
       step_4:
