@@ -74,8 +74,9 @@ function buildToolCatalogData() {
     "@kind": "tool-catalog",
 
     for:
-      "AI agents wanting every public Cambridge TCG endpoint as a " +
-      "callable LLM function. Most agents speak function-calling, not " +
+      "AI agents wanting the directory's public endpoints as callable " +
+      "LLM functions (path parameters only; /api/openapi.json has the " +
+      "query parameters of the routes it lists). Most agents speak function-calling, not " +
       "HTTP — paste the array for your provider into your LLM call and " +
       "skip writing HTTP code. Substrate-honest: every tool carries its " +
       "freshness, provenance, methodology URL, and since-date alongside " +

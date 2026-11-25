@@ -198,13 +198,13 @@ export const GUIDES: Guide[] = [
         step_number: 3,
         title: "Fetch one card in math-mirror form",
         instruction:
-          "Pick a SKU from the catalog — `op-op01-001-ja` is a stable demo SKU " +
-          "(One Piece OP01-001, Japanese print). Fetch its universal-mirror " +
-          "representation. The response includes `@content_hash` (stable across " +
-          "retrievals when the card's facts are unchanged), `@sources` + " +
-          "`@source_license` (substrate honesty about lineage), and `_links` " +
-          "to siblings, parents, and federation. *Land on any endpoint; reach " +
-          "everywhere else.*",
+          "`op-op01-001-ja` is One Piece OP01-001, ロロノア・ゾロ (Roronoa Zoro), " +
+          "the Japanese base printing. Fetch it. The response includes " +
+          "`@content_hash` (stable across retrievals when the card's facts are " +
+          "unchanged), `@sources` + `@source_license` (where each part is stored), " +
+          "`sku_match` (how the SKU you sent reached the stored row) and `_links` " +
+          "to its set and siblings. A SKU with no card answers 404 with the reason " +
+          "and the listings you can choose from.",
         curl: "curl https://cambridgetcg.com/api/v1/universal/card/op-op01-001-ja",
         expected_response_shape:
           '{ "@encoding": "cambridge-tcg/universal/v1", "@kind": "card", ' +
@@ -300,10 +300,12 @@ export const GUIDES: Guide[] = [
           "Search by a concrete identifier, then request one universal-card " +
           "document. Preserve the response's NOASSERTION and source tiers; do " +
           "not walk keyed endpoints to recreate a bulk dump.",
-        curl: "curl 'https://cambridgetcg.com/api/v1/search/cards?q=OP01-001'",
+        curl: "curl 'https://cambridgetcg.com/api/v1/search/cards?game=op&q=OP01-001'",
         what_to_do_with_it:
-          "Choose a returned SKU and fetch /api/v1/universal/card/[sku] only " +
-          "for the user's requested card.",
+          "`next_step` is the plain printing when one listing is shown to be it, " +
+          "or the only listing found (`plain_listing` on the match says which); " +
+          "when it is null, choose a returned SKU. Fetch " +
+          "/api/v1/universal/card/[sku] only for the user's requested card.",
       },
       {
         step_number: 3,
@@ -456,16 +458,17 @@ export const GUIDES: Guide[] = [
         step_number: 1,
         title: "Identify yourself in User-Agent",
         instruction:
-          "Always send a User-Agent string that names your project and a " +
-          "contact email. The format we recommend: `your-project/1.0 " +
-          "(contact@yourdomain.example)`. We'd rather email you about a bug " +
-          "than firewall an opaque bot.",
+          "Always send a User-Agent string that names your project and " +
+          "version, with a contact if you choose: `your-project/1.0 " +
+          "(contact@yourdomain.example)`. A contact makes it possible to reach " +
+          "you; it does not promise that anyone will.",
         curl:
           "curl -H 'User-Agent: example-bot/1.0 (admin@example.com)' \\\n" +
           "  https://cambridgetcg.com/api/v1/manifest",
         what_to_do_with_it:
           "Default Python requests / Node fetch User-Agents are anonymous. " +
-          "Override them. We log User-Agents per IP. Limits are stated here " +
+          "Override them. Hosting logs can hold a User-Agent; our own counts " +
+          "keep no address and no User-Agent. Limits are stated here " +
           "first; a change can take up to 24 hours to bind.",
       },
       {
@@ -486,11 +489,10 @@ export const GUIDES: Guide[] = [
         step_number: 3,
         title: "Watch the RateLimit response headers",
         instruction:
-          "Every public response carries `RateLimit-Limit`, `RateLimit-Remaining`, " +
-          "and `RateLimit-Reset` headers (IETF draft standard). If you see " +
-          "`RateLimit-Remaining: 0`, pause until `RateLimit-Reset` seconds elapse. " +
-          "If you see HTTP 429, the response body's `error.retry_after` is " +
-          "your wait time.",
+          "Cacheable envelope responses carry `RateLimit-Limit`, `RateLimit-Reset` and " +
+          "`RateLimit-Policy` headers (IETF draft standard). They are advisory: " +
+          "ask again after `RateLimit-Reset` seconds for a fresh answer. " +
+          "If you see HTTP 429, wait for Retry-After.",
         what_to_do_with_it:
           "Implement exponential back-off on 429. Respect Retry-After. " +
           "Your future self will thank you.",
@@ -1321,8 +1323,9 @@ export const GUIDES: Guide[] = [
       {
         title: "Card effects are not interpreted yet",
         description:
-          "Every card's verbatim rules text rides along (with its copyright " +
-          "line — render it wherever you show the text) so you can plan, but " +
+          "A card's verbatim rules text rides along where Cambridge holds it " +
+          "(with its copyright line — render it wherever you show the text) " +
+          "so you can plan, but " +
           "[Trigger]/[On Play]-style effects do not fire. The scope note in " +
           "every response says exactly what is real.",
       },

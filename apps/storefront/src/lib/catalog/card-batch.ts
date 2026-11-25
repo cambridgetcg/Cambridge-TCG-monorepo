@@ -14,7 +14,8 @@
  */
 
 import { query } from "@/lib/db";
-import { GAMES, normalizeAndParse, normalizeSku } from "@cambridge-tcg/sku";
+import { normalizeSku } from "@cambridge-tcg/sku";
+import { skuSpellings } from "./sku-spellings";
 import type { CompatQueryResult } from "@cambridge-tcg/db/compat";
 
 export const CARD_BATCH_MAX_SKUS = 100;
@@ -123,66 +124,13 @@ interface PreparedSku {
   candidates: string[];
 }
 
-const LEGACY_LANGUAGE: Readonly<Record<string, string>> = {
-  ja: "jp",
-  zh: "cn",
-  ko: "kr",
-};
-
 function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
-/**
- * Candidate aliases are lookup tolerance, never new identity claims. They
- * cover the canonical v1 spelling plus the frozen uppercase-era spellings
- * already accepted by `normalizeSku()`.
- */
 function prepareSku(requested: string): PreparedSku {
   const canonical = normalizeSku(requested);
-  if (!canonical) return { requested, canonical: null, candidates: [] };
-
-  const parts = normalizeAndParse(canonical);
-  if (!parts) return { requested, canonical: null, candidates: [] };
-
-  const legacyLanguage = LEGACY_LANGUAGE[parts.lang] ?? parts.lang;
-  const tail = parts.variant ? `-${parts.variant}` : "";
-  const legacyPrefixes = GAMES[parts.game].legacyPrefixes ?? [];
-  const matchingPrefixes = legacyPrefixes
-    .filter((prefix) => parts.set.toUpperCase().startsWith(prefix))
-    .sort((left, right) => right.length - left.length);
-  const longestMatch = matchingPrefixes[0]?.length ?? 0;
-  const relevantLegacyPrefixes = matchingPrefixes.length > 0
-    ? matchingPrefixes.filter((prefix) => prefix.length === longestMatch)
-    : legacyPrefixes.length === 1
-      ? [...legacyPrefixes]
-      : [];
-
-  const aliasBases = unique([
-    requested,
-    canonical,
-    `${parts.game}-${parts.set}-${parts.number}-${legacyLanguage}${tail}`,
-    `${parts.game}-${parts.set}-${legacyLanguage}-${parts.number}${tail}`,
-    ...relevantLegacyPrefixes.flatMap((prefix) => {
-      const lower = prefix.toLowerCase();
-      return [
-        `${lower}-${parts.set}-${parts.number}-${legacyLanguage}${tail}`,
-        `${lower}-${parts.set}-${legacyLanguage}-${parts.number}${tail}`,
-      ];
-    }),
-  ]);
-  // PostgreSQL can use the existing raw-SKU btree for these exact candidates.
-  // Frozen rows are lowercase or uppercase; the caller's exact spelling is
-  // also retained so an already-known mixed-case row remains addressable.
-  const candidates = unique(
-    aliasBases.flatMap((candidate) => [
-      candidate,
-      candidate.toLowerCase(),
-      candidate.toUpperCase(),
-    ]),
-  );
-
-  return { requested, canonical, candidates };
+  return { requested, canonical, candidates: canonical ? skuSpellings(requested) : [] };
 }
 
 function translations(value: unknown): Record<string, string> | null {

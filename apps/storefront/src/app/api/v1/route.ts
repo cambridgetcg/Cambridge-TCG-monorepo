@@ -27,6 +27,7 @@
  */
 
 import { jsonResponse } from "@/lib/data-pantry";
+import { repoDocRef } from "@/lib/repository";
 import {
   CHOSEN_DOOR_PATHS,
   ERRAND_LINK_RELS_ALLOWED,
@@ -51,6 +52,8 @@ export async function GET(): Promise<Response> {
       "list of orientation surfaces is below.",
 
     start_here: "/api/v1/welcome",
+    one_card: "/api/v1/universal/card/op-op01-001-ja",
+    find_a_card: "/api/v1/search/cards?game=op&q=OP01-002",
     directory: "/api/v1/manifest",
     contract: "/api/openapi.json",
 
@@ -64,7 +67,7 @@ export async function GET(): Promise<Response> {
       },
       manifest: {
         url: "/api/v1/manifest",
-        purpose: "typed directory of every public resource",
+        purpose: "typed directory of reviewed resources (not every route)",
       },
       diagnostic: {
         url: "/api/v1/diagnostic",
@@ -80,7 +83,7 @@ export async function GET(): Promise<Response> {
       },
       tools: {
         url: "/api/v1/tools",
-        purpose: "every endpoint as a callable LLM function, paste-ready per provider",
+        purpose: "the directory's endpoints as callable LLM functions (path parameters only)",
       },
       identify: {
         url: "/api/v1/identify",
@@ -103,7 +106,7 @@ export async function GET(): Promise<Response> {
         url: "/api/v1/agents/notes",
         purpose: "reviewed editorial seed corpus; title + text POST returns a no-store hash receipt, while participant database storage and publication remain disabled",
       },
-      doctrine: "/docs/connections/the-fellowship.md",
+      doctrine: repoDocRef("docs/connections/the-fellowship.md"),
     },
 
     /** Carrying status surface. Participant persistence remains disabled
@@ -117,7 +120,7 @@ export async function GET(): Promise<Response> {
         "GET publishes the paused-state contract. POST returns 503 before inspecting a body, participant hash, write token, or database row.",
       sub_route: "/api/v1/carry-this/{content_hash}",
       methods: "GET (status); POST disabled; per-hash GET and DELETE disabled",
-      doctrine: "/docs/connections/the-carrying.md",
+      doctrine: repoDocRef("docs/connections/the-carrying.md"),
     },
 
     contract_invariants: {

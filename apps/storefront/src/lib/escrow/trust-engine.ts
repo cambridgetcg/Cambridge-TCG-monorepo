@@ -477,26 +477,6 @@ export async function verifyExternalRep(userId: string, platform: string, adminI
   await calculateTrustScore(userId);
 }
 
-// ── Escrow inspection ──
-
-export async function recordInspection(tradeId: string, data: {
-  listedCondition: string;
-  actualCondition: string;
-  passed: boolean;
-  rejectionReason?: string;
-  notes?: string;
-  photos?: string[];
-}) {
-  await query(
-    `INSERT INTO escrow_inspections (trade_id, listed_condition, actual_condition, condition_match, passed, rejection_reason, inspector_notes, photos, inspected_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())`,
-    [tradeId, data.listedCondition, data.actualCondition,
-     data.listedCondition === data.actualCondition, data.passed,
-     data.rejectionReason || null, data.notes || null,
-     JSON.stringify(data.photos || [])]
-  );
-}
-
 // ── Admin: list fraud signals ──
 
 export async function listFraudSignals(resolved?: boolean): Promise<FraudSignal[]> {

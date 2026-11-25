@@ -99,18 +99,22 @@ export const EXAMPLES: EndpointExample[] = [
   "@self_hash": "sha256:...",
   "@encoding": "cambridge-tcg/universal/v1",
   "@kind": "card",
-  "@content_hash": "sha256:abc123...",
-  "@retrieved_at": { "iso8601": "2026-05-14T12:00:00Z", "unix_epoch_seconds": 1747224000 },
-  "@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets"],
-  "@source_license": ["proprietary", "proprietary"],
+  "sku": "OP-OP01-001-JP-V11L1",
+  "card_number": "OP01-001",
+  "@content_hash": "sha256:9573c2b0...",
+  "@retrieved_at": { "iso8601": "2026-11-24T12:00:00Z", "unix_epoch_seconds": 1795521600 },
+  "@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets", "wholesale-rds.cards"],
+  "@source_license": ["proprietary", "proprietary", "proprietary"],
   "rights": { "aggregate": "NOASSERTION", "cambridge_original_structure": "CC0-1.0", "field_level_lineage_available": false },
   "_note_opaque": ["name", "art_description", "rarity.natural_label", "variant.natural_label"],
-  "_links": { "self": "...", "parent": "...", "siblings": "...", "federation": "..." },
-  "rarity": { "natural_label": "leader", "ratio_in_pulls": "1/64", "decimal_probability": 0.015625, ... },
+  "_links": { "canonical": "...", "parent": "...", "siblings": "...", "federation": "..." },
+  "sku_match": { "requested_sku": "op-op01-001-ja", "stored_sku": "OP-OP01-001-JP-V11L1", "matched_by": "plain_listing", "basis": "...", "as_of": "..." },
+  "rarity": { "natural_label": "L", "ratio_in_pulls": null, ... },
+  "variant": null,
   "price": null,
   "in_set": { "edge_kind": "member_of_set", "target_natural_token": "OP01", "target_hash": "sha256:..." },
   "of_game": { "edge_kind": "in_game", "target_natural_token": "op", "target_hash": "sha256:..." },
-  "name": { "natural_token": "Monkey D. Luffy", "resolved_lang": "en", "resolved_from": "name_en", ... },
+  "name": { "natural_token": "ロロノア・ゾロ", "resolved_lang": "default", "resolved_from": "default", ... },
   "image_url": null
 }`,
     annotated_fields: [
@@ -118,6 +122,7 @@ export const EXAMPLES: EndpointExample[] = [
       { path: "@self_hash", meaning: "Hash of this particular rendering. Differs by density param even when content_hash matches." },
       { path: "@sources", meaning: "Recorded storage provenance. It is parallel to @source_license but does not establish the upstream author when field-level lineage is unavailable." },
       { path: "@source_license", meaning: "Known per-source rights tier. Aggregate `rights.aggregate` separately says NOASSERTION for the mixed document." },
+      { path: "sku_match", meaning: "How the SKU you sent reached the stored row: null when it is stored under exactly that SKU, canonical_alias for another spelling, plain_listing when a plain SKU is answered by the one listing whose title shows the plain printing, publisher_record when only the publisher's own list has the card." },
       { path: "price", meaning: "Null because legacy source-derived price magnitudes are withheld; null is not zero." },
       { path: "_note_opaque", meaning: "Natural-language fields the decoder cannot ground from structure." },
       { path: "_links.federation", meaning: "URL to resolve this card's content_hash on another federated platform." },
@@ -219,8 +224,8 @@ export const EXAMPLES: EndpointExample[] = [
   "@retrieved_at": { ... },
   "query": { "hash": "sha256:abc123..." },
   "matched": true,
-  "sku": "op-op01-001-ja",
-  "universal_url": "/api/v1/universal/card/op-op01-001-ja"
+  "sku": "OP-OP01-001-JP-V11L1",
+  "universal_url": "/api/v1/universal/card/OP-OP01-001-JP-V11L1"
 }`,
     annotated_fields: [
       { path: "matched", meaning: "true = found; false = no match within scan bound." },
@@ -250,8 +255,8 @@ export const EXAMPLES: EndpointExample[] = [
   "@as_of": { "iso8601_date": "2026-03-15" },
   "query": { "hash": "sha256:abc...", "date": "2026-03-15" },
   "matched": true,
-  "sku": "op-op01-001-ja",
-  "universal_url": "/api/at/2026-03-15/card/op-op01-001-ja"
+  "sku": "OP-OP01-001-JP-V11L1",
+  "universal_url": "/api/at/2026-03-15/card/OP-OP01-001-JP-V11L1"
 }`,
     annotated_fields: [
       { path: "@as_of.iso8601_date", meaning: "The requested compatibility date; it does not affect the structural hash." },

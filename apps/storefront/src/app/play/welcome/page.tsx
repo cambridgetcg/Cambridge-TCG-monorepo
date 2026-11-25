@@ -114,7 +114,7 @@ const ARCHETYPES: Archetype[] = [
         for_whom: "New to OPTCG. Wants to know what to buy, what's in each set, where to start.",
         recommended_steps: [
           { label: "Browse games", href: "/api/v1/universal/games", note: "Every game in the catalog" },
-          { label: "Browse a set", href: "/api/v1/universal/sets/optcg", note: "Sets within the One Piece TCG game" },
+          { label: "Browse a set", href: "/api/v1/universal/sets/op", note: "Sets within the One Piece TCG game" },
           { label: "Open the market", href: "/market", note: "Cards available for acquisition" },
           { label: "Start a portfolio", href: "/account/portfolio", note: "Track what you own; see completion" },
         ],
@@ -124,8 +124,8 @@ const ARCHETYPES: Archetype[] = [
         title: "I want to know each card deeply",
         for_whom: "Established collector. Wants the catalog, the history, the variants, the lore.",
         recommended_steps: [
-          { label: "Fetch a single card (universal)", href: "/api/v1/universal/card/OP01-001", note: "Math-mirror representation" },
-          { label: "Date-shaped compatibility view", href: "/api/at/2026-01-01/card/OP01-001", note: "Current structural fields under a requested date label; not historical reconstruction" },
+          { label: "Fetch a single card (universal)", href: "/api/v1/universal/card/op-op01-001-ja", note: "Math-mirror representation" },
+          { label: "Date-shaped compatibility view", href: "/api/at/2026-01-01/card/op-op01-001-ja", note: "Current structural fields under a requested date label; not historical reconstruction" },
           { label: "Set browse", href: "/api/v1/universal/set/OP01", note: "Cards inline; full completion context" },
           { label: "Portfolio with completion tracking", href: "/account/portfolio", note: "% of each set you own" },
         ],
@@ -137,7 +137,7 @@ const ARCHETYPES: Archetype[] = [
         recommended_steps: [
           { label: "Open your portfolio", href: "/account/portfolio", note: "Set completion % per set" },
           { label: "Find missing cards on the market", href: "/market", note: "Filter to your wishlist" },
-          { label: "Browse the set's catalog", href: "/api/v1/universal/sets/optcg", note: "Every card in the set" },
+          { label: "Browse the set's catalog", href: "/api/v1/universal/sets/op", note: "Every card in the set" },
         ],
       },
       {

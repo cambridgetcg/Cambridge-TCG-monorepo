@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { OPEN_ORDER_PUBLICATION_NOTICE } from "../publication";
@@ -18,7 +18,7 @@ const DERIVED_PUBLIC_SURFACES = [
 ];
 
 describe("public market privacy projections", () => {
-  it("puts the public-without-sign-in warning beside both order controls", () => {
+  it("puts the public-without-sign-in warning beside the one order control left", () => {
     expect(OPEN_ORDER_PUBLICATION_NOTICE).toContain("public without sign-in");
     expect(OPEN_ORDER_PUBLICATION_NOTICE).toContain(
       "stops future Cambridge TCG publication",
@@ -27,24 +27,29 @@ describe("public market privacy projections", () => {
       "cannot recall copies already fetched",
     );
 
-    const controls = [
-      {
-        path: "src/app/market/[sku]/CardMarketClient.tsx",
-        marker: 'type="submit"',
-      },
-      {
-        path: "src/components/market/ListingWizard.tsx",
-        marker: "onClick={submit}",
-      },
-    ];
-    for (const { path, marker } of controls) {
-      const body = source(path);
-      const control = body.lastIndexOf(marker);
-      expect(control, path).toBeGreaterThanOrEqual(0);
-      const nearbyNotice = body.slice(control, control + 2_500);
-      expect(nearbyNotice, path).toContain("OPEN_ORDER_PUBLICATION_NOTICE");
-      expect(nearbyNotice, path).toContain('href="/privacy#market-orders"');
+    const path = "src/app/market/[sku]/CardMarketClient.tsx";
+    const body = source(path);
+    const control = body.lastIndexOf('type="submit"');
+    expect(control, path).toBeGreaterThanOrEqual(0);
+    const nearbyNotice = body.slice(control, control + 2_500);
+    expect(nearbyNotice, path).toContain("OPEN_ORDER_PUBLICATION_NOTICE");
+    expect(nearbyNotice, path).toContain('href="/privacy#market-orders"');
+  });
+
+  it("has no listing form or draft left to publish from", () => {
+    for (const path of [
+      "src/components/market/ListingWizard.tsx",
+      "src/components/market/listing-draft.ts",
+    ]) {
+      expect(existsSync(resolve(process.cwd(), path)), path).toBe(false);
     }
+    for (const path of ["src/app/market/list/page.tsx", "src/app/auctions/sell/page.tsx"]) {
+      const page = source(path);
+      expect(page, path).toContain("<CommercialRetirementNotice />");
+      expect(page, path).not.toMatch(/"use client"|<form|<input|<button|localStorage|fetch\(/);
+    }
+    const rules = source("src/app/account/pricing-rules/page.tsx");
+    expect(rules).not.toMatch(/<form|<input|"resume"|JSON\.stringify/);
   });
 
   it("publishes deliberate open-order intent without completed trades", () => {

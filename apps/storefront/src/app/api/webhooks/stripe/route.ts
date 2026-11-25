@@ -695,8 +695,9 @@ export async function POST(request: Request) {
     }
 
     // B2B branch — wholesale consolidation Phase 2.2c. Detected via
-    // metadata.b2b_channel === 'wholesale' (set by
-    // apps/storefront/src/lib/b2b/checkout.ts). The B2B flow writes to
+    // metadata.b2b_channel === 'wholesale' (set by the B2B checkout, which is
+    // closed and gone; a late event for an earlier session still lands here).
+    // The B2B flow writes to
     // b2b_orders (not customer_orders), skips retail-only side-effects
     // (membership perks, store credit ledger, retail receipt email),
     // commits the stock reservation under the same holder the checkout

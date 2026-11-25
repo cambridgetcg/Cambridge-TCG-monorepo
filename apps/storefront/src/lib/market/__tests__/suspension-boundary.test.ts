@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -50,7 +50,6 @@ describe("suspended market-account boundary", () => {
       ["src/lib/market/digests.ts", 6],
       ["src/lib/market/saved-searches.ts", 3],
       ["src/lib/market/watches.ts", 6],
-      ["src/lib/market/liquidity.ts", 1],
       ["src/lib/messages/db.ts", 1],
       ["src/lib/portfolio/risk.ts", 2],
       ["src/lib/portfolio/targets.ts", 2],
@@ -64,6 +63,13 @@ describe("suspended market-account boundary", () => {
       expect(suspensionFilterCount(source(path)), path).toBeGreaterThanOrEqual(
         minimum,
       );
+    }
+  });
+
+  it("has no liquidity sweep left that could award a suspended seller's asks", () => {
+    expect(existsSync(resolve(process.cwd(), "src/lib/market/liquidity.ts"))).toBe(false);
+    for (const path of ["src/lib/market/db.ts", "src/app/api/cron/maintenance/route.ts"]) {
+      expect(source(path), path).not.toMatch(/runLiquidityMining|INTO liquidity_rewards/);
     }
   });
 

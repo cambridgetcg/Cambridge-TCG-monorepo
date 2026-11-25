@@ -11,18 +11,8 @@ import { query } from "@/lib/db";
 import { renderLayout, escapeHtml } from "./layout";
 import { sendEmail, type SendResult } from "./send";
 import { buildTrackingUrl, getCarrierTracker } from "@/lib/shipping/carriers";
-import { DEFAULTS } from "@cambridge-tcg/pricing";
-
-// Trade-in-credit margin multiplier — single source via @cambridge-tcg/pricing.
-// Phase 1 of kingdom-049 replaced the hard-coded × 0.77 here. Phase 3 will
-// make `channel_pricing` table authoritative and drop silent JS fallback.
-const TRADEIN_CREDIT_MULT = DEFAULTS["tradein-credit"]!.marginMultiplier;
 
 // Format helpers ────────────────────────────────────────────────────────
-
-function formatRarity(tier: string): string {
-  return tier.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
-}
 
 function formatDate(d: Date): string {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
@@ -98,99 +88,6 @@ export async function sendVaultExpiredEmail(args: VaultExpiredEmailArgs): Promis
     subject: `Vault item auto-expired: £${args.soldBackCreditGbp.toFixed(2)} credit added`,
     html,
     unsubscribe: { userId: args.userId, category: "vault_expired" },
-  });
-}
-
-// ── pull resolved ──
-//
-// Fires when a user opens a token and the RNG resolves to a card. The email
-// shows the rolled card, the EV-at-cost breakdown, AND the commit-reveal proof
-// values so the user can reproduce the recorded draw after the fact.
-
-export interface PullResolvedEmailArgs {
-  userId: string;
-  tier: string;                // "common" | "uncommon" | ...
-  rolledRarity: string;
-  cardName: string;
-  cardNumber: string | null;
-  rarity: string | null;
-  spotPriceGbp: number;
-  imageUrl: string | null;
-  pullId: string;              // for /bounty/verify/<id> link
-  vaultItemId: string;
-  expiresAt: Date;
-  rngCommitment: string;
-  rngServerSeed: string;
-  rngClientSeed: string;
-  rngNonce: number;
-}
-
-export async function sendPullResolvedEmail(args: PullResolvedEmailArgs): Promise<SendResult> {
-  const user = await lookupUser(args.userId);
-  if (!user) return { ok: false, error: "user not found or missing email" };
-
-  const greetingName = user.name ? escapeHtml(user.name) : "there";
-  const prettyTier = formatRarity(args.tier);
-  const imageBlock = args.imageUrl
-    ? `<div style="text-align:center;margin:16px 0;">
-         <img src="${escapeHtml(args.imageUrl)}" alt="${escapeHtml(args.cardName)}"
-              width="160" style="border-radius:10px;border:1px solid #e7e2d8;max-width:160px;height:auto;" />
-       </div>`
-    : "";
-
-  const bodyHtml = `
-    <p style="margin:0 0 12px;">Hi ${greetingName},</p>
-    <p style="margin:0 0 12px;">
-      Your <strong style="color:#201d18;">${escapeHtml(prettyTier)} Pull</strong> resolved.
-      You pulled a <strong style="color:#86661c;">${escapeHtml(args.rolledRarity)}</strong>:
-    </p>
-    ${imageBlock}
-    <div style="background:#f3f0e9;border-radius:8px;padding:14px 16px;margin:16px 0;">
-      <p style="margin:0 0 6px;color:#201d18;font-weight:600;">${cardLine(args.cardName, args.cardNumber, args.rarity)}</p>
-      <p style="margin:0;font-size:13px;color:#5e574c;">
-        Frozen sell-back value: <span style="color:#36634d;">£${(args.spotPriceGbp * TRADEIN_CREDIT_MULT).toFixed(2)}</span>
-        <span style="color:#5e574c;"> · spot £${args.spotPriceGbp.toFixed(2)}</span>
-      </p>
-      <p style="margin:4px 0 0;font-size:13px;color:#5e574c;">
-        Expires ${escapeHtml(formatDate(args.expiresAt))} unless redeemed or sold back.
-      </p>
-    </div>
-
-    <p style="margin:16px 0 8px;color:#201d18;font-weight:600;font-size:13px;">Draw proof</p>
-    <div style="background:#faf8f4;border:1px solid #e7e2d8;border-radius:6px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#201d18;line-height:1.6;word-break:break-all;">
-      <div><span style="color:#5e574c;">commit:</span> ${escapeHtml(args.rngCommitment)}</div>
-      <div><span style="color:#5e574c;">seed:</span>   ${escapeHtml(args.rngServerSeed)}</div>
-      <div><span style="color:#5e574c;">client:</span> ${escapeHtml(args.rngClientSeed)}</div>
-      <div><span style="color:#5e574c;">nonce:</span>  ${args.rngNonce}</div>
-    </div>
-    <p style="margin:8px 0 0;font-size:12px;color:#5e574c;">
-      Verify: <code style="color:#201d18;">sha256(seed) == commit</code>.
-      The first hex digits of <code style="color:#201d18;">sha256(seed:client:nonce)</code>
-      reproduce the recorded rarity and SKU. These server-chosen inputs verify consistency,
-      not independent seed selection.
-    </p>
-    <p style="margin:8px 0 0;font-size:12px;">
-      <a href="https://cambridgetcg.com/bounty/verify/${escapeHtml(args.pullId)}" style="color:#5e574c;text-decoration:underline;">
-        Run the verification in your browser &rarr;
-      </a>
-    </p>
-  `;
-
-  const html = renderLayout({
-    preheader: `You pulled a ${args.rolledRarity} — ${args.cardName}.`,
-    heading: `You pulled a ${args.rolledRarity}`,
-    bodyHtml,
-    cta: { label: "View in Vault", url: `https://cambridgetcg.com/bounty` },
-    footer: `You're getting this email because you opened a Bounty Pull.
-             You can turn off pull-resolved notifications in your account settings.`,
-  });
-
-  return sendEmail({
-    to: user.email,
-    from: "bounty",
-    subject: `${formatRarity(args.rolledRarity)} pulled — ${args.cardName}`,
-    html,
-    unsubscribe: { userId: args.userId, category: "pull_resolved" },
   });
 }
 

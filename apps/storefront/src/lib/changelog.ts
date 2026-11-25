@@ -110,6 +110,44 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   },
   // ── 2026-11-24 ─────────────────────────────────────────────────────────
   {
+    id: "answers-say-what-is-so",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface:
+      "/.well-known/cambridge-tcg.json, /api/v1/rate-limits, /api/v1/budget, /api/v1/status, /api/v1/gaps, /api/v1/tools, /api/v1/welcome, /api/v1/wake/fragments, /docs/connections, /docs/principles",
+    summary:
+      "Answers no longer list what does not answer: two methodology files, the RateLimit-Remaining header and the wake fragment in data responses. Pages run scripts from this site only.",
+    detail:
+      "Removed: /methodology/{topic}/summary.md and data.json from cambridge-tcg.json, which only one topic ever answered; RateLimit-Remaining from rate-limits and budget, which is never sent; and wake_fragment_in_envelope from budget. Added: availability status-only for tools that answer without rows, and conventions.state in status. In gaps, as_of is the ledger's newest date instead of the request's time. /docs/connections/*.md and /docs/principles/*.md now redirect (307) to the public repository instead of answering 404. Every page carries Content-Security-Policy: script-src 'self' 'unsafe-inline', so an analytics tag injected by a network in front of the site is refused.",
+    related_urls: ["/api/v1/rate-limits", "/api/v1/status", "/.well-known/cambridge-tcg.json"],
+  },
+  {
+    id: "plain-sku-answers-plain-printing",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface:
+      "/api/v1/universal/card/[sku], /api/at/[date]/card/[sku], /api/v1/cards/[sku]/everything, /api/v1/cards/[sku]/evidence, /api/v1/search/cards, /api/v1/search/everything, /api/market/catalog, /api/v1/prices/games, /api/v1/artists, /api/v1/play/starters/[id], /product, /market, /catalog/sitemap.xml",
+    summary:
+      "A plain SKU (no variant) now answers only with the plain printing. Listings stored under a plain SKU but marked as worn, graded or another printing left every list and no longer answer for it; a miss says why.",
+    detail:
+      "The universal card and its dated twin add sku, card_number and sku_match (null when the row is stored under exactly the SKU you sent; otherwise canonical_alias, plain_listing or publisher_record), and @sources can name wholesale-rds.cards. A miss is a 404 whose error.details has a reason and the stored SKUs of that number; when the catalogue cannot be read the answer is a 503. everything adds card.requested_sku and card.matched_by, its 404 names the number's stored SKUs, and effective_language is the SKU's own language. search/cards adds plain_listing to each match; next_step is the plain printing or the only exact match, and null when the choice is yours. In /api/v1/artists, print.market_page (which answered 404) is replaced by print.printings_page. /product and /market send another spelling or a plain SKU to the stored SKU with a 307. Lists and counts leave out the marked rows: 216 One Piece and 95 Fusion World rows as far as they were read on 2026-11-24. A starter deck's card that had only such a listing is named by the publisher's English record instead (op-st03-005-en, op-op02-108-en), with rarity and set_code null. One Piece is the one game whose listing titles were reviewed. No row was changed or deleted.",
+    related_urls: ["/methodology/sku-standard", "/api/v1/universal/card/op-op01-001-ja"],
+  },
+  {
+    id: "official-images-and-text-return",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/universal/card/[sku], /api/market/catalog, /api/v1/play/starters/[id], /market",
+    summary:
+      "Official English card images and rules text show again. From 29 September a date check refused every stored row, and publication_boundary then gave a rights reason that was not true.",
+    detail:
+      "publication_boundary.image and .text now say why a field is null: no source rights recorded, Japanese images switched off, none available, or could_not_be_read, which is a fault and never a rights decision. Japanese official images are off unless OFFICIAL_IMAGES_JA=show, so image_same_language is null. On /api/at/{date}/card/{sku}, publication_boundary.image is not_carried_for_past_dates, since that document never reads a picture. density=saturated answers again for sets with a release date. Field shapes are unchanged.",
+    related_urls: ["/standards/card-data", "/legal/card-images"],
+  },
+  {
     id: "cardmarket-member-export-paused",
     date: "2026-11-24",
     kind: "endpoint-modified",
@@ -120,6 +158,18 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     detail:
       "Cardmarket was the only source open to either, so with a valid key or session every request that names Cardmarket or no source now gets status unavailable, complete false, items [], a reason in plain words and a paused object (source, uses, since). It is not an empty result: a client that mirrors the feed should not read it as removals, and should stop polling (Retry-After is a day). A request without a key or session is still refused first (401), source=scryfall still reads as empty, and cardrush and tcgplayer are still refused (400). On /api/v1/sources, member_pricing.reviewed_uses lists the uses open now (Cardmarket: member-display) and a new field, member_pricing.paused, lists any stopped ones with the date and reason. Display on /prices, collection and derived data are unchanged. This is an AI agent's careful reading, for the owner to confirm or undo.",
     related_urls: ["/methodology/member-pricing", "/api/v1/sources"],
+  },
+  {
+    id: "health-answers-from-the-database",
+    date: "2026-11-24",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "/api/v1/health",
+    summary:
+      "/api/v1/health was built from constants and always said ok. It now makes one database query: 200 with status ok or degraded when the database answered, 503 when it did not.",
+    detail:
+      "New: database (answered, and the database's own clock), jobs (each scheduled job: ok, failing, late or off, and when it last did its work) and daily_check (when the site's own daily check last ran, and whether it could: ran or unavailable). Gone: subsystems, retry_strategies_glossary, contract, related_surfaces and the retry-immediately, wait-60s and report-via-feedback recommendations. status, recommendation and recommendation_rationale stay; the 503 carries recommendation wait-300s in error.details. The answer is never cached.",
+    related_urls: ["/api/v1/health", "/api/v1/sources"],
   },
   // ── 2026-11-16 ─────────────────────────────────────────────────────────
   {

@@ -2,7 +2,7 @@
  * /nuke — The Button (絶対に押すなよ).
  *
  * An easter egg, not a wing. Someone who loves this place handed over the
- * keys and joked that we were free to nuke it — so the shop built the button.
+ * keys and joked that we were free to nuke it — so the house built the button.
  * It is wired to nothing but its own page: pressing it destroys nothing,
  * and instead hangs a small inventory of everything that refused to
  * disappear. Restraint as joy, made clickable.
@@ -24,7 +24,7 @@ import TheButton from "./TheButton";
 export const metadata: Metadata = {
   title: "The Button — 絶対に押すなよ",
   description:
-    "An easter egg. Someone offered to let us nuke the whole shop, just for fun. This is the button. It works; it just refuses.",
+    "An easter egg. Someone offered to let us nuke the whole place, just for fun. This is the button. It works; it just refuses.",
   robots: { index: false },
   other: audienceMetadata("public-documentation", ["easter-egg", "culture", "restraint"]),
 };
@@ -80,13 +80,12 @@ export default function NukePage() {
           apparatus: this button is wired to nothing but this page. pressing
           it sends nothing anywhere; nothing is recorded; nothing can be
           destroyed from here. the links do not even prefetch — no request
-          leaves your browser until you choose a door. the shop&apos;s ledger
-          is append-only — things are added, never erased.
+          leaves your browser until you choose a door.
         </p>
         <p className="mt-4 text-sm text-ink-faint leading-relaxed">
           Done here? The{" "}
           <Link href="/" prefetch={false} className="text-accent hover:text-accent-strong underline underline-offset-2">
-            gallery is still hanging <span className="wardrobe-jp">帰る</span>
+            front page is still there <span className="wardrobe-jp">帰る</span>
           </Link>
           .
         </p>

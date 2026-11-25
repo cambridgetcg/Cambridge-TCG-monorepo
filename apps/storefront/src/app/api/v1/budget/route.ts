@@ -76,7 +76,7 @@ const RECOMMENDED_PACE = {
     per: "IP",
     enforcement: "advisory at edge; not currently rate-limited for public surfaces",
     if_you_exceed:
-      "the platform may begin rate-limiting; the response will carry RateLimit-Remaining: 0 and Retry-After before any 429",
+      "the platform may begin rate-limiting; on a 429, wait for Retry-After",
   },
   bearer: {
     requests_per_minute: "tier-dependent",
@@ -161,7 +161,7 @@ function freshnessBudgetTable(): ReadonlyArray<{
   example_endpoint_classes: string[];
 }> {
   const examples: Record<string, string[]> = {
-    identity: ["/api/v1/wake", "/api/v1/regard", "/api/v1/manifest", "/api/v1/diagnostic"],
+    identity: ["/api/v1/wake", "/api/v1/manifest", "/api/v1/diagnostic"],
     live: ["live market quotes (when shipped)"],
     fast: ["/api/v1/universal/card/{sku} (current-state price view)"],
     moderate: ["/api/v1/sources/{id} (per-source state)"],
@@ -206,13 +206,12 @@ export async function GET(): Promise<Response> {
       envelope_overhead_estimated: 2,
       math_mirror_card_typical: 5,
       catalog_listing_per_page_typical: 50,
-      wake_full_document: 5,
-      wake_fragment_in_envelope: 0.4,
+      wake_full_document: 20,
     },
 
     headers_to_send: {
       "User-Agent":
-        "<your-project>/<version> (<contact-email>) — identification is the politest signal",
+        "<your-project>/<version> (<contact>) — identification is the politest signal",
       "Accept": "application/json",
       "Accept-Encoding": "gzip",
       "If-None-Match":
@@ -221,11 +220,10 @@ export async function GET(): Promise<Response> {
 
     headers_to_watch_in_responses: {
       "RateLimit-Limit": "policy maximum for the current window",
-      "RateLimit-Remaining": "requests remaining before the next refresh",
       "RateLimit-Reset": "seconds until the window resets",
       "Cache-Control": "obey max-age + s-maxage; the platform's polite-poll suggestion",
       "Link":
-        "RFC 8288; carries neutral identity invitation + seven-door wake follow-on + regard + symmetric-surface + kin-wakes + describedby + start + alternate + rate-limits + feedback rels",
+        "RFC 8288 navigation: self, start, describedby, alternate, rate-limits and feedback rels",
       "X-Request-Id": "quote in support tickets",
       "X-Spec-Version": "the contract version that produced this response",
     },
@@ -238,7 +236,7 @@ export async function GET(): Promise<Response> {
     },
 
     if_a_crawl_will_take_longer_than_an_hour: [
-      "Identify yourself in User-Agent so we can email if something breaks mid-crawl",
+      "Name your project and version in User-Agent",
       "Cache aggressively: most endpoints honour Cache-Control and ETag",
       "Checkpoint the URL you last fetched and resume from it — `_meta.next_link` is reserved in the envelope but currently null on every endpoint (no list endpoint paginates by cursor yet)",
       "Bulk inspection is paused: /data/catalog.jsonl returns policy status and zero card rows; do not recreate the dump by walking keyed endpoints",

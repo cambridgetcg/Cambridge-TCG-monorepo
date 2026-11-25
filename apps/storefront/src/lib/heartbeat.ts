@@ -105,6 +105,12 @@ const CRON_SCHEDULE: readonly CronJob[] = [
     description:
       "Every hour at :07. Counts the previous hour of the storefront's Vercel request and error logs by route group, declared client class and status, keeping no IP address, user agent, path or log text, only while TRAFFIC_PULL is on; otherwise it does nothing.",
   },
+  {
+    path: "/api/cron/daily-check",
+    schedule: "40 8 * * *",
+    description:
+      "Daily at 08:40. Walks one card as a guest, counts unread messages, and emails the operator when something is newly wrong or someone wrote.",
+  },
 ];
 
 export interface HeartbeatState {

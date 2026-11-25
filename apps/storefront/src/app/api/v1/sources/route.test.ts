@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import {
-  fetchQuarantine,
   fetchSourceLastRuns,
   fetchSourceRunHistory,
 } from "@/lib/wholesale/client";
@@ -39,7 +38,6 @@ vi.mock("@cambridge-tcg/data-ingest", () => ({
 vi.mock("@/lib/wholesale/client", () => ({
   fetchSourceLastRuns: vi.fn(),
   fetchSourceRunHistory: vi.fn(),
-  fetchQuarantine: vi.fn(),
 }));
 
 // The storefront database, for page collectors' member_price_batches. Unset
@@ -54,7 +52,6 @@ vi.mock("@/lib/db", () => ({
 
 const mockLastRuns = vi.mocked(fetchSourceLastRuns);
 const mockRunHistory = vi.mocked(fetchSourceRunHistory);
-const mockQuarantine = vi.mocked(fetchQuarantine);
 
 const RUN = {
   source_id: "cardrush",
@@ -74,7 +71,6 @@ const RUN = {
 beforeEach(() => {
   mockLastRuns.mockReset();
   mockRunHistory.mockReset();
-  mockQuarantine.mockReset();
   storefront.query = null;
 });
 
@@ -191,7 +187,6 @@ describe("public source projections", () => {
     const serialized = JSON.stringify(body);
 
     expect(response.status).toBe(200);
-    expect(mockQuarantine).not.toHaveBeenCalled();
     expect(serialized).not.toContain(RUN.notes);
     expect(serialized).not.toContain(RUN.triggered_by);
     expect(body.data.last_run).not.toHaveProperty("notes");

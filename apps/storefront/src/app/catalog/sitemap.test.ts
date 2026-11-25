@@ -16,7 +16,7 @@ import sitemap from "./sitemap";
 
 describe("catalog metadata route wiring", () => {
   it("uses hourly Data Cache around detailed readers and named hands, with no eager source read", async () => {
-    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["catalog-sitemap-v1"], { revalidate: 3600 });
+    expect(unstable_cache).toHaveBeenCalledWith(expect.any(Function), ["catalog-sitemap-v2"], { revalidate: 3600 });
     expect(sources.games).not.toHaveBeenCalled();
     expect(sources.artists).not.toHaveBeenCalled();
     expect(await sitemap()).toEqual([]);

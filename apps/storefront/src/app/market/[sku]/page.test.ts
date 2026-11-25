@@ -23,13 +23,26 @@ const metadataFor = async (identity: CatalogIdentity) => {
 beforeEach(() => { mocks.resolveCardIdentity.mockReset(); });
 
 describe("/market/[sku] share image [C7]", () => {
-  it("never offers a Japanese official image as og:image: the share card instead", async () => {
-    const metadata = await metadataFor({ ...card, image_url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-001-JA.png", image_language: "ja" });
-    expect(metadata.openGraph?.images).toEqual([SHARE_CARD]);
+  // A social platform would show and cache the picture without its credit.
+  it.each([
+    ["an English official image", card.image_url, "en"],
+    ["a Japanese official image", "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-001-JA.png", "ja"],
+    ["a catalogue photo", "https://jp-op-photos.s3.us-east-1.amazonaws.com/hires/OP01/OP-OP01-001-JP-V11L2.jpg", null],
+    ["no image", null, null],
+  ] as const)("never offers %s as og:image: the share card instead", async (_what, image_url, image_language) => {
+    expect((await metadataFor({ ...card, image_url, image_language })).openGraph?.images).toEqual([SHARE_CARD]);
   });
+});
 
-  it("keeps the English image and the catalogue fallback as before (a recorded gap)", async () => {
-    expect((await metadataFor(card)).openGraph?.images).toEqual([{ url: card.image_url }]);
-    expect((await metadataFor({ ...card, image_url: null, image_language: null })).openGraph?.images).toEqual([SHARE_CARD]);
+describe("/market/[sku] addresses", () => {
+  const address = async (resolution: object) => {
+    mocks.resolveCardIdentity.mockResolvedValue(resolution);
+    return generateMetadata({ params: Promise.resolve({ sku: "asked" }) }).then(() => null, (error: { digest?: string }) => error.digest);
+  };
+
+  it("sends another spelling to the card's one address, a choice to the list, and an unknown card to 404", async () => {
+    expect(await address({ kind: "redirect", sku: "OP-OP01-001-JP-V11L1" })).toContain(";/market/OP-OP01-001-JP-V11L1;307;");
+    expect(await address({ kind: "choose", game: "one-piece", number: "OP02-001" })).toContain(";/prices/search?game=one-piece&q=OP02-001;307;");
+    expect(await address({ kind: "notfound" })).toContain("404");
   });
 });

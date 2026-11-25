@@ -114,7 +114,7 @@ export default function PullAndPausePage() {
           <Link href="/duel-of-souls" className="text-accent hover:text-accent-strong underline underline-offset-2">
             the deep culture behind Yu-Gi-Oh! <span className="wardrobe-jp">魂の決闘</span>
           </Link>. The cards you pull here are painted, not photographed — the
-          only pictures we hang for real are in <Link href="/" className="text-accent hover:text-accent-strong underline underline-offset-2">the gallery</Link>.
+          pictures we hang for real are on <Link href="/artists" className="text-accent hover:text-accent-strong underline underline-offset-2">the artists&apos; wall</Link>.
         </p>
       </div>
 

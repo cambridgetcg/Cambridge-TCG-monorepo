@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import Image from "next/image";
+import { ImageCredits } from "@/components/cards/ImageCredits";
 
 // Matches the shape of a CatalogCard in deck-builder/page.tsx. Kept loose so
 // this component doesn't drag the full page type definition over.
@@ -21,6 +22,8 @@ export interface SimDeckEntry {
 interface HandSimulatorProps {
   leader: SimCard | null;
   entries: SimDeckEntry[];
+  /** The credit lines of the official images in the deck. */
+  credits?: readonly (string | null | undefined)[];
   onClose: () => void;
   /** Starting hand size. OPTCG draws 5. */
   handSize?: number;
@@ -45,6 +48,7 @@ function expand(entries: SimDeckEntry[]): SimCard[] {
 export default function HandSimulator({
   leader,
   entries,
+  credits = [],
   onClose,
   handSize = 5,
 }: HandSimulatorProps) {
@@ -219,6 +223,7 @@ export default function HandSimulator({
               <div key={`empty-${i}`} className="aspect-[5/7] rounded-md bg-surface-subtle border border-dashed border-border-subtle" />
             ))}
           </div>
+          <ImageCredits credits={credits} className="mt-2" />
         </div>
 
         {/* Key-card picker */}

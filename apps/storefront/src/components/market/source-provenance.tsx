@@ -2,9 +2,9 @@
  * Server-only provenance nodes for the catalog's three substrates.
  *
  * <Provenance> is an async server component (it reads the lang-mode
- * cookie), so client surfaces can't render it directly. The /market and
- * /market/list server pages call this and hand the pre-rendered nodes to
- * their client components, which pick the right one off the response's
+ * cookie), so client surfaces can't render it directly. The /market server
+ * page calls this and hands the pre-rendered nodes to its client
+ * component, which picks the right one off the response's
  * `source` field — including after client-side refetches, where the
  * source can flip between substrates.
  *

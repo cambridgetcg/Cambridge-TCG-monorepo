@@ -184,7 +184,8 @@ export interface GameEngine<State extends GameStateLike = GameStateLike> {
 //   1. Append to this list.
 //   2. Ship the adapter in the relevant app (e.g.
 //      apps/storefront/src/lib/game/pokemon-engine.ts).
-//   3. Register it in apps/storefront/src/lib/game/registry-bootstrap.ts.
+//   3. Call register() from a module that app's game route imports. No app
+//      does today: the storefront's practice table and rooms call lib/game.
 
 export const KNOWN_GAME_CODES = ["optcg"] as const;
 export type KnownGameCode = (typeof KNOWN_GAME_CODES)[number];

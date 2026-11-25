@@ -4,6 +4,7 @@
 // (the PvE/PvP-ready deck payload).
 
 import { getStarterDeck, type StarterDeck } from "@/lib/play/starter-decks";
+import { statsFor } from "@/lib/play/card-stats";
 import { fetchPrices } from "@/lib/wholesale/client";
 import { query } from "@/lib/db";
 import { SQL_ILLUST_PATTERN } from "@/lib/cards/illust-annotation";
@@ -13,6 +14,15 @@ import {
   catalogImageUrl, DEFAULT_CARD_IMAGE_CDN, officialMediaProvenance,
   projectOfficialCardNumberImage, type OfficialCardNumberImage, type StoredOfficialImage,
 } from "@/lib/cards/image-publication";
+
+/** A fault here leaves the deck whole without its media, so it is logged: a
+ * failed read by error name, and held rows that all failed our own checks by
+ * count. */
+const unavailable = (what: string, error: unknown) =>
+  console.error(`[starters] ${what} unavailable`, error instanceof Error ? error.name : "unknown");
+const logRefused = (what: string, held: number, shown: number) => {
+  if (held && !shown) console.error(`[starters] none of ${held} held ${what} passed the checks`);
+};
 
 /**
  * A practice deck asks for card numbers, not a printing. Keep the selected
@@ -56,8 +66,10 @@ async function cardImageFallbacks(
         });
       if (candidates[0]) out.set(number, candidates[0]);
     }
+    logRefused("images", rows.length, out.size);
     return out;
-  } catch {
+  } catch (error) {
+    unavailable("images", error);
     return new Map();
   }
 }
@@ -173,15 +185,18 @@ async function cardTextFallbacks(
         out.set(e.num, { text: r.effect_text, attribution: provenance.attribution });
       }
     }
+    logRefused("texts", rows.length, out.size);
     return out;
-  } catch {
+  } catch (error) {
+    unavailable("texts", error);
     return new Map();
   }
 }
 
-/** Resolve a starter's full card list against the wholesale catalog.
- *  Returns null when the starter id is unknown. Unresolvable cards come
- *  back with resolved:false rather than being dropped. */
+/** Resolve a starter's full card list against the wholesale catalog, and
+ *  where no listing is a card's plain printing, the publisher's English
+ *  record. Returns null when the starter id is unknown. Unresolvable cards
+ *  come back with resolved:false rather than being dropped. */
 export async function resolveStarter(id: string): Promise<ResolvedStarter | null> {
   const deck = getStarterDeck(id);
   if (!deck) return null;
@@ -292,6 +307,13 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
       c.image_url = image.url;
       c.image_attribution = image.attribution;
       c.image_reference = image.reference;
+    }
+    // The deck asks for a number. Where no listing is its plain printing, the
+    // publisher's base record keeps the card in the deck, under its own SKU.
+    if (!c.resolved && image && skuIdentity(image.reference.depicted_sku)?.variant === null) {
+      c.resolved = true;
+      c.sku = image.reference.depicted_canonical_sku;
+      c.name = statsFor(c.card_number)?.name ?? null;
     }
     const t = texts.get(c.card_number);
     if (t) {

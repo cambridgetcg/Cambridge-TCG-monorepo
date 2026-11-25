@@ -13,7 +13,7 @@
  * Filed for kingdom-082 (the-hospitality.md). Phase D.
  */
 
-import { jsonResponse } from "@/lib/data-pantry";
+import { FRESHNESS, jsonResponse } from "@/lib/data-pantry";
 
 interface PolicyEntry {
   freshness_key: string;
@@ -33,7 +33,7 @@ const POLICY: PolicyEntry[] = [
   },
   {
     freshness_key: "price_current",
-    budget_seconds: 86400,
+    budget_seconds: FRESHNESS.price_current,
     recommended_poll_seconds: 86400,
     example_endpoints: [
       "/api/v1/universal/card/[sku]",
@@ -106,13 +106,13 @@ const POLITE_BEHAVIOURS = [
   {
     behaviour: "Identify in User-Agent",
     detail:
-      "Send `User-Agent: <project>/<version> (<contact-email>)`. Default library UAs are anonymous; we'd rather email you than firewall you.",
+      "Send `User-Agent: <project>/<version> (<contact>)`. Default library UAs are anonymous. A contact makes it possible to reach you; it does not promise that anyone will before a security control acts.",
     severity: "strong recommendation",
   },
   {
     behaviour: "Respect Cache-Control headers",
     detail:
-      "Every response carries `Cache-Control: public, max-age=N`. Honour it. Or read `_meta.freshness_seconds` for the same number.",
+      "Most responses carry `Cache-Control: public, max-age=N`. Honour it. Or read `_meta.freshness_seconds`.",
     severity: "strong recommendation",
   },
   {
@@ -171,13 +171,12 @@ export async function GET(): Promise<Response> {
     anti_patterns: ANTI_PATTERNS,
     headers_emitted: {
       "RateLimit-Limit": "Quota per window for this endpoint (advisory).",
-      "RateLimit-Remaining": "Remaining requests in current window.",
       "RateLimit-Reset": "Seconds until window resets.",
       "RateLimit-Policy": "Quota and window in IETF draft format.",
     },
     headers_expected_from_clients: {
       "User-Agent":
-        "Project name + version + contact email. Format: `<project>/<version> (<email>)`.",
+        "Project name + version + contact. Format: `<project>/<version> (<contact>)`.",
       "Accept": "application/json (or application/x-ndjson for the status-only /data/catalog.jsonl route).",
       "Accept-Encoding": "gzip (we serve gzipped responses; saves bandwidth).",
     },

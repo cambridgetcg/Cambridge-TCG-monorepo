@@ -189,7 +189,7 @@ Earn token → POST resolve-pull → commit (server_seed_hash) → resolve (weig
 ```
 
 ### Maintenance Cron
-Single `/api/cron/maintenance` runs every minute, dispatches **36+ sweeps** via `Promise.allSettled`. Each sweep self-gates to its own schedule. Covers: market/auction lifecycle, bounty expiry, payouts, email queue, price alerts, wishlist matching, raffle draws, fraud/trust, fairness digests, chargebacks, subscriptions, portfolio snapshots, and more.
+Single `/api/cron/maintenance` runs every minute, dispatches **37 sweeps** via `Promise.allSettled`. Each sweep self-gates to its own schedule. Covers: market/auction lifecycle, payouts, email queue, price alerts, wishlist matching, raffle draws, fraud/trust, fairness digests, chargebacks, subscriptions, portfolio snapshots, and more.
 
 ---
 

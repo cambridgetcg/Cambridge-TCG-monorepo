@@ -48,6 +48,7 @@ import { jsonResponse, errorResponse } from "@/lib/data-pantry";
 import { skuIdentity, type SkuIdentity } from "@cambridge-tcg/sku";
 import { positivePrice } from "@cambridge-tcg/pricing";
 import { fetchSearchCandidates, type SearchCandidates } from "@/lib/search/catalog-lookup";
+import { answersFor } from "@/lib/wholesale/listing-printing";
 import {
   classifySibling,
   compareVariantKinds,
@@ -59,7 +60,13 @@ export const runtime = "nodejs";
 // ── Public response shape (typed for partners + the search page) ────
 
 interface EverythingCard {
+  /** The stored key this answer was read under. */
   sku: string;
+  /** The SKU asked for, as it was sent. */
+  requested_sku: string;
+  /** plain_listing: a plain SKU answered by the one listing of its number
+   *  whose title carries no condition, grade or variant mark. */
+  matched_by: "stored_sku" | "canonical_alias" | "plain_listing";
   identity: SkuIdentity;
   game: string | null;
   set_code: string | null;
@@ -138,9 +145,7 @@ interface SiblingRow {
   variant_kind: VariantKind;
   /** Substrate-honest: why this kind was chosen. */
   variant_kind_reason: string;
-  /** Inferred from card-name script (CJK → ja, Latin → en). Distinct
-   *  from the SKU's lang segment because OPTCG ships both JP-text and
-   *  EN-text prints inside the same JP-set, both stored with lang=jp. */
+  /** The SKU's own language, when it is ja or en. */
   effective_language: "ja" | "en" | "unknown";
 }
 
@@ -233,34 +238,18 @@ export async function GET(
     return errorResponse({
       code: "INVALID_SKU",
       message:
-        `'${rawSku}' is not a canonical SKU. Expected '<game>-<set>-<number>-<lang>[-<variant>]' (e.g. 'op-op01-001-ja' or legacy 'OP-OP01-001-JP-V11DZ').`,
+        `'${rawSku}' is not a canonical SKU. Expected '<game>-<set>-<number>-<lang>[-<variant>]' (e.g. 'op-op01-001-ja').`,
       docs: "/methodology/sku-standard",
     });
   }
 
   // Fire every Falcon call in parallel. Each degrades to null on
-  // failure; we surface absence in `composition.falcon_calls`. If the
-  // primary SKU returns 404, retry once with case-swap (covers the
-  // case where the caller normalized to lowercase but data is legacy
-  // uppercase, or vice versa) — substrate-honest tolerance.
+  // failure; we surface absence in `composition.falcon_calls`. fetchCard
+  // reads every stored spelling, and a plain SKU's plain listing.
   let [card, priceSources] = await Promise.all([
     fetchCard(sku),
     fetchPriceSources({ sku }),
   ]);
-
-  if (!card) {
-    // Retry with swapped case. Legacy data is uppercase; canonical is
-    // lowercase. The Falcon's case-sensitive lookup may need either.
-    const altSku = sku === sku.toUpperCase() ? sku.toLowerCase() : sku.toUpperCase();
-    if (altSku !== sku) {
-      const altCard = await fetchCard(altSku);
-      if (altCard) {
-        card = altCard;
-        // Re-fire the dependents with the corrected casing.
-        priceSources = await fetchPriceSources({ sku: altSku });
-      }
-    }
-  }
 
   // One bounded game-scoped lookup serves alias recovery and siblings.
   // Never infer the game from a set code shared by unrelated catalogs.
@@ -287,12 +276,12 @@ export async function GET(
       code: siblingResponse?.source === "unavailable" ? "SOURCE_UNAVAILABLE" : "NOT_FOUND",
       message: siblingResponse?.source === "unavailable"
         ? "The card catalog is unavailable. Try again later."
-        : `Card '${sku}' not found in the wholesale catalog.`,
-      details: { sku },
+        : `No catalogue row is answered for '${sku}'. A plain SKU is answered only by a listing whose title shows the plain printing; the listings of this number are in details.`,
+      details: { sku, listings: (siblingResponse?.items ?? []).map((row) => row.sku) },
     });
   }
   const cardIdentity = skuIdentity(card.sku);
-  if (!cardIdentity || cardIdentity.canonical_sku !== parsed.canonical_sku) {
+  if (!cardIdentity || !answersFor(parsed, card)) {
     return errorResponse({ code: "SOURCE_UNAVAILABLE",
       message: "The catalog returned a different card identifier; composition was stopped.", details: { sku } });
   }
@@ -423,6 +412,8 @@ export async function GET(
   // ── card meta block ───────────────────────────────────────────────
   const cardMeta: EverythingCard = {
     sku: card.sku,
+    requested_sku: rawSku,
+    matched_by: card.sku === sku ? "stored_sku" : cardIdentity.canonical_sku === parsed.canonical_sku ? "canonical_alias" : "plain_listing",
     identity: cardIdentity,
     game: cardIdentity.game,
     set_code: card.set_code,

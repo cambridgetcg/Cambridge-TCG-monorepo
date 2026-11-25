@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+const { heldByCatalogue } = vi.hoisted(() => ({ heldByCatalogue: vi.fn() }));
+vi.mock("@/lib/db", () => ({ query: vi.fn(async () => ({ rows: [] })) })); // an empty mirror
+vi.mock("@/lib/cards/en-card-data", () => ({ getEnCardData: vi.fn(async () => ({ en_image: null, same_language_image: null, effect_text: null, attributes: null })) }));
+vi.mock("@/lib/wholesale/client", () => ({ fetchCardDetailed: heldByCatalogue }));
 import { loadCatalogSitemap, CatalogSitemapUnavailableError, type CatalogSitemapReaders } from "./catalog-sitemap";
+import { resolveCardIdentity } from "./market/catalog-card";
 import type { PriceItem } from "./wholesale/client";
 
 function fixture(): CatalogSitemapReaders {
@@ -64,5 +69,23 @@ describe("catalog sitemap generation", () => {
     vi.mocked(source.artists).mockResolvedValue([{ name: "A", slug: "same", works: [], held: 0 }, { name: "B", slug: "same", works: [], held: 0 }]);
     const deduplicated = await loadCatalogSitemap(source);
     expect(new Set(deduplicated.map((page) => page.url)).size).toBe(deduplicated.length);
+  });
+});
+
+describe("every market address in the sitemap answers", () => {
+  it("resolves each listed SKU from the reader the sitemap used, even with an empty mirror", async () => {
+    const skus = ["OP-OP01-001-JP-V11L1", "op-op01-004-ja", "dmw-bt10-001-ja", "BSR-26RBS01-X07-JP-V7NX", "VNG-DZBT14-007-JP-VM2E", "OP-PROMO-DON-JP-VRCW", "DON-JP-VVJ6", "dbf-e01-09-ja"];
+    heldByCatalogue.mockImplementation(async (sku: string) => ({
+      source: "wholesale-db", absence: null,
+      card: skus.includes(sku) ? { sku, card_number: "1", name: "Example", set_code: "S", set_name: null, rarity: null } : null,
+    }));
+    const source = fixture();
+    vi.mocked(source.prices).mockResolvedValue({ source: "wholesale-db", count: skus.length, total: skus.length, channel: "", items: skus.map((sku) => ({ sku } as PriceItem)) });
+    const market = (await loadCatalogSitemap(source)).map((page) => new URL(page.url).pathname).filter((path) => path.startsWith("/market/"));
+    expect(market).toHaveLength(skus.length);
+    for (const path of market) {
+      const sku = decodeURIComponent(path.slice("/market/".length));
+      expect(await resolveCardIdentity(sku)).toMatchObject({ kind: "ok", card: { sku } });
+    }
   });
 });

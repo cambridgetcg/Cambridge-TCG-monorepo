@@ -34,9 +34,8 @@
  * ── What this does NOT do ──────────────────────────────────────────────
  *
  *   Does not enforce privacy. `users.is_public` gating is the caller's
- *   responsibility — the public `/u/[username]/trust` page should call
- *   `userTrustStateIsPublic(userId)` first; the self-view at
- *   `/account/trust` does not need to gate.
+ *   responsibility. Both callers show a signed-in user their own state and
+ *   need no gate; a public one would have to check `users.is_public` first.
  *
  *   Does not include external_reputation. That has its own surface
  *   (/account/external-rep) and a dedicated rendering. A future revision
@@ -476,9 +475,8 @@ function buildFlags(profile: TrustProfileRow | null): TrustFlags {
  * with zero-defaults when the user exists but has no `trust_profiles` row
  * (a brand-new account before the first recompute).
  *
- * **Does NOT enforce `users.is_public`.** Callers in public contexts must
- * gate via `userTrustStateIsPublic(userId)` before calling this function;
- * self-view callers do not need to gate.
+ * **Does NOT enforce `users.is_public`.** A caller in a public context must
+ * check it before calling this function; self-view callers need not.
  *
  * Five DB section queries run in parallel via `Promise.all`. Each is
  * isolated in `safe()` — one failing degrades that section to empty
@@ -535,42 +533,4 @@ export async function loadUserTrustState(
       ],
     },
   };
-}
-
-/**
- * Check whether a user's trust state should be visible on a public-mirror
- * surface (e.g. `/u/[username]/trust`). Reads `users.is_public`.
- *
- * Returns false when the user does not exist, when `is_public = false`, or
- * when the read fails — public surfaces should fail closed.
- */
-export async function userTrustStateIsPublic(userId: string): Promise<boolean> {
-  return safe(
-    async () => {
-      const r = await query(
-        `SELECT is_public FROM users WHERE id = $1 LIMIT 1`,
-        [userId],
-      );
-      return r.rows[0]?.is_public === true;
-    },
-    false,
-  );
-}
-
-/**
- * Convenience: resolve a username to a user_id. Returns null on miss.
- * Public-mirror surfaces typically take a username from the URL and need
- * this before `loadUserTrustState`.
- */
-export async function resolveUsername(username: string): Promise<string | null> {
-  return safe(
-    async () => {
-      const r = await query(
-        `SELECT id FROM users WHERE username = $1 LIMIT 1`,
-        [username],
-      );
-      return r.rows[0]?.id ?? null;
-    },
-    null,
-  );
 }

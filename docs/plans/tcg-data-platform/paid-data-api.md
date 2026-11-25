@@ -787,7 +787,8 @@ would have written:
 
 The run row shows the hour (`created_at`) and the ceiling
 (`input_batch_ceiling` 4520). Nothing else marks a run as late or manual, and
-nothing alerts when a scheduled run is missed: the monitor shows such a day
+nothing alerted when a scheduled run was missed (since the daily check it is
+mailed the same morning, `docs/operations/monitoring.md`): the monitor shows such a day
 as "unknown", the same as a day whose run is not yet due.
 
 **Limits of the series found on 2026-11-10.** Each one still open needs a
@@ -994,8 +995,8 @@ PRISM is the template. The data-API stack is a separate sibling:
   `DATA_API_PAID_PLANS` record (Yu, 2026-10-28, test-only).
   `lib/release/data-api-admission.test.ts` shows that with it present, and
   every data-API and PRISM switch on, marketplace, lot, auction, membership,
-  retail and PRISM checkout still answer 410 and B2B checkout still stops at
-  `purchases_paused`.
+  retail and PRISM checkout still answer 410, and that B2B has no checkout to
+  reopen.
 - `POST /api/data-api/checkout` requires a session and same-origin. It
   returns 410 while intake is closed, after validating the request and the
   session (reading the session reads its database row) and before any billing

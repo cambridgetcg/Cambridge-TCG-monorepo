@@ -614,7 +614,7 @@ export default function WorkshopPage() {
         <p className="relative mt-6 text-base sm:text-lg text-ink-muted leading-relaxed">
           Every card in this house was drawn by a real hand and printed by a
           real machine. This wing tells both halves: seven plates for the
-          master artists behind the games we carry — their lives, their
+          master artists behind the games we cover — their lives, their
           creeds, their lines — and three for the industrial press that folds
           an approved illustration into a sealed booster. We're a card shop,
           not scholars: the shaky claims are marked as shaky, the quotes were
@@ -688,14 +688,7 @@ export default function WorkshopPage() {
           No licensed artwork is reproduced here — apart from the museum
           plates above (open-access, public domain, each with its wall label
           and canonical record), the only pictures we hang are the
-          cards themselves, in{" "}
-          <Link
-            href="/"
-            className="text-accent hover:text-accent-strong underline underline-offset-2"
-          >
-            the gallery
-          </Link>{" "}
-          and on{" "}
+          cards themselves, on{" "}
           <Link
             href="/artists"
             className="text-accent hover:text-accent-strong underline underline-offset-2"

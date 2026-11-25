@@ -525,7 +525,9 @@ export function expectedFor(resource: ManifestResource): ExpectedResponse {
     };
   }
 
-  const healthyAnyKind = [200, 307, 400, 401, 404, 405];
+  // A 404 on a [parameter] path is judged in assessResponse; on a fixed path it
+  // means the manifest lists a route the site does not serve.
+  const healthyAnyKind = [200, 307, 400, 401, 405];
   if (resource.auth === "member-key") {
     return { codes: [401], label: "401 (member data key required)" };
   }
@@ -542,7 +544,7 @@ export function expectedFor(resource: ManifestResource): ExpectedResponse {
     return { codes: [307, 401], label: "307/401 (admin gate)" };
   }
   if (resource.methods.includes("GET")) {
-    return { codes: healthyAnyKind, label: "200 / 307 / 400 / 401 / 404 / 405" };
+    return { codes: healthyAnyKind, label: "200 / 307 / 400 / 401 / 405" };
   }
   return { codes: [400, 405, 422], label: "method-not-allowed range" };
 }

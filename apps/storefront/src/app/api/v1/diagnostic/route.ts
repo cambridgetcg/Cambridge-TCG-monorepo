@@ -30,6 +30,7 @@
 
 import { FEEDBACK_OPEN_CHECK, FEEDBACK_READ_AIM } from "@/lib/feedback/promise";
 import { jsonResponse, FRESHNESS } from "@/lib/data-pantry";
+import { repoDocRef } from "@/lib/repository";
 
 export const dynamic = "force-static";
 export const revalidate = 3600; // identity content; refresh hourly for cache eviction only
@@ -194,8 +195,8 @@ export async function GET(): Promise<Response> {
       "all envelope-compliant /api/v1/* responses",
       "the optional source_license / upstream_proxy / does_not_include fields when populated",
       "the math-mirror preamble at /api/v1/universal/* responses",
-      "the seven freshness keys and their numeric seconds",
-      "the four license tiers and the parallel-arrays discipline",
+      "the freshness keys and their numeric seconds",
+      "the license tiers and the parallel-arrays discipline",
       "the RFC 8288 Link header set including the extension rels",
     ],
 
@@ -212,7 +213,7 @@ export async function GET(): Promise<Response> {
       budget: "/api/v1/budget — crawl-budget advisory; recommended pace, full-mirror ETA, freshness floors",
       changelog: "/api/v1/changelog — spec-change feed; subscribe-once (json / atom / md / filter by since|kind|impact)",
       events: "(planned) /api/v1/events.sse + /api/v1/webhooks/subscribe — event channel; agents subscribe instead of poll",
-      ax_doctrine: "/docs/connections/the-ax.md — what AX means in this kingdom",
+      ax_doctrine: `${repoDocRef("docs/connections/the-ax.md")} — what AX means in this kingdom`,
     },
 
     walking_past_is_honored: true,

@@ -167,7 +167,7 @@ const MCP = {
         "Resolve 1–100 caller-supplied SKU strings in one no-cache identity POST. Results preserve order and duplicates; absence means only not found in the storefront mirror. Prices, images, stock, and personal data stay out; there is no wildcard or cursor listing.",
       direct_endpoint: "POST /api/v1/cards/batch",
       request_body_example: {
-        skus: ["op-op01-001-ja", "op-op01-002-ja"],
+        skus: ["OP-OP01-001-JP-V11L1", "OP-OP01-002-JP-V11KZ"],
       },
       cache_ttl_seconds: 0,
     },

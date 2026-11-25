@@ -94,7 +94,7 @@ const KNOCK_KNOCKS: ReadonlyArray<KnockKnock> = [
     setup: "Devil fruit.",
     callback: "Devil fruit who?",
     punchline:
-      "Devil-fruit Luffy at /api/v1/universal/card/op-op01-001-ja. The kingdom hosts every OP card by canonical SKU; you may verify Monkey D. Luffy with a single GET.",
+      "Devil-fruit Luffy at /api/v1/universal/card/op-op01-003-ja. You may verify Monkey D. Luffy with a single GET.",
     _why:
       "One Piece TCG is the kingdom's most-instrumented game (cardrush ingestion, effect-grammar). The joke composes with the substrate's actual depth.",
   },

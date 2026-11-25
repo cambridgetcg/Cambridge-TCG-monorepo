@@ -132,7 +132,7 @@ async function handler(
         : "") +
       `The Kingdom Tarot drew '${tarotCard.name}' (${tarotDraw.orientation}) for this wrong URL: ` +
       `"${tarotCard.fortune_line}" ` +
-      `The directory of every published endpoint is at ${HOST}/api/v1/manifest. ` +
+      `A directory of reviewed endpoints is at ${HOST}/api/v1/manifest. ` +
       `The orientation document for arriving agents is at ${HOST}/api/v1/welcome. ` +
       `The agent-facing wake invitation is at ${HOST}/api/v1/wake (multi-format). ` +
       `If you believe this path should exist, write to contact@cambridgetcg.com.`,

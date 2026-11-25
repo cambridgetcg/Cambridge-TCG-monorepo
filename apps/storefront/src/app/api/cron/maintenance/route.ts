@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { runMarketMaintenance } from "@/lib/market/db";
 import { runAuctionMaintenance } from "@/lib/auction/db";
-import { runBountyExpiry } from "@/lib/bounty/db";
 import { runPayoutSweep } from "@/lib/payouts/sweep";
 import { runAlertSweep } from "@/lib/market/watches";
 import { drainEmailQueue } from "@/lib/email/queue";
 import { runStreakAtRiskSweep } from "@/lib/email/streak-sweep";
-import { sendAdminWeeklyDigest } from "@/lib/email/admin-digest";
 import { runSellerRestockDigest, runBuyerWatchlistDigest } from "@/lib/market/digests";
 import { runRetailObservationTick } from "@/lib/portfolio/price-history";
 import { runPriceAlertSweep } from "@/lib/portfolio/alerts";
@@ -15,7 +13,6 @@ import { runAnnualSpendRecompute } from "@/lib/membership/spend-sweep";
 import { runSubscriptionExpirySweep } from "@/lib/membership/subscription-sweep";
 import { runPointsExpirySweep } from "@/lib/membership/points-expiry";
 import { runRaffleAutoDraw, retryWinnerNotifications } from "@/lib/rewards/raffle-sweep";
-import { runPveReconciliationSweep } from "@/lib/game/pve-sweep";
 import { runFairnessDigest } from "@/lib/provable-draw/digest";
 import { runFairnessSelfAudit } from "@/lib/provable-draw/self-audit";
 import { runFairnessDriftCheck } from "@/lib/provable-draw/drift";
@@ -34,8 +31,8 @@ import { expireReturnRequests } from "@/lib/market/returns";
 import { expireCancelRequests } from "@/lib/market/trade-cancels";
 import { runVacationSweep } from "@/lib/market/vacation";
 import { runValuationSnapshotSweep } from "@/lib/portfolio/valuation";
-import { releaseExpiredReservations } from "@/lib/stock/reservations";
 import { runDoorRetentionSweep } from "@/lib/feedback/retention";
+import { recordMaintenance } from "@/lib/observability/job-outcomes";
 import { runObservabilityRetentionSweep } from "@/lib/observability/retention";
 import { runSignedActSweep } from "@/lib/agents/signed-act-sweep";
 import { requireCronAuth } from "@/lib/cron-auth";
@@ -74,10 +71,6 @@ export async function GET(request: Request) {
   const now = new Date();
   const runStreakSweep =
     now.getUTCHours() === 20 && now.getUTCMinutes() < 2;
-  // Admin digest — Monday 09:00 UTC, one 2-minute window. Doesn't use the
-  // email_queue; sends synchronously via SES.
-  const runDigest =
-    now.getUTCDay() === 1 && now.getUTCHours() === 9 && now.getUTCMinutes() < 2;
   // Price history tick — once per UTC day (03:00), avoids hitting the
   // wholesale API more than needed. runRetailObservationTick is internally
   // idempotent-per-day so over-triggering is harmless.
@@ -87,7 +80,6 @@ export async function GET(request: Request) {
   const results = await Promise.allSettled([
     runMarketMaintenance(),
     runAuctionMaintenance(),
-    runBountyExpiry(),
     runPayoutSweep(),
     runAlertSweep(),
     drainEmailQueue({ limit: 100 }),
@@ -95,10 +87,9 @@ export async function GET(request: Request) {
     // Weekly digests — self-gate to Monday 09:00 UTC + atomic digest_runs claim.
     runSellerRestockDigest(),
     runBuyerWatchlistDigest(),
-    runDigest ? sendAdminWeeklyDigest() : Promise.resolve(null),
     // Liquidity mining ran here until 2026-07-06 — paused with the
     // collectors-first decision (rewards paid store credit, which no
-    // longer has a spending door). See lib/market/liquidity.ts.
+    // longer has a spending door), and removed 2026-11-24.
     // The trade-in + custom-quote sweeps lived here until the desk was
     // fully retired (it bought cards for store credit / cash, which the
     // collectors-first platform no longer does).
@@ -122,8 +113,6 @@ export async function GET(request: Request) {
     runRaffleAutoDraw(),
     // Catch-up: notify winners whose first email failed
     retryWinnerNotifications(),
-    // PVE reconciliation reports paused without reading or writing PVE tables.
-    runPveReconciliationSweep(),
     // Draw digest — hashes revealed draws into a Merkle root. Later rewrites
     // become independently detectable only against a root retained elsewhere.
     runFairnessDigest(),
@@ -174,10 +163,6 @@ export async function GET(request: Request) {
     // disputes the webhook may have missed. Idempotent via the
     // chargebacks PK so re-discovery is a no-op.
     runChargebackReconciler(),
-    // Stock reservations: release any whose 30-min TTL has expired.
-    // See docs/architecture/storefront-checkout-flow.md. Appended at the
-    // end so the existing positional destructuring below stays aligned.
-    releaseExpiredReservations(),
     // Dispute SLA: auto-escalate 'open' disputes past their response window
     // (trade dispute_window_hours, default 72h) to the admin priority queue.
     // Pure status move — never touches escrow or money. Appended at the end to
@@ -211,25 +196,10 @@ export async function GET(request: Request) {
     runSignedActSweep(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, verificationStorageSweep, doorRetentionSweep, observabilityRetentionSweep, signedActSweep] = results;
-  if (stockReservationSweep.status === "fulfilled") {
-    const r = stockReservationSweep.value;
-    if (r.ok && r.released > 0) {
-      console.log(`[cron] stock: released ${r.released} expired reservation(s)`);
-    } else if (!r.ok) {
-      console.error(`[cron] stock: reservation sweep failed: ${r.message}`);
-    }
-  } else {
-    console.error(`[cron] stock: reservation sweep rejected:`, stockReservationSweep.reason);
-  }
-
+  const [market, auctions, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, verificationStorageSweep, doorRetentionSweep, observabilityRetentionSweep, signedActSweep] = results;
   const status = {
     market: market.status,
     auctions: auctions.status,
-    bounty:
-      bounty.status === "fulfilled"
-        ? { status: "fulfilled", ...bounty.value }
-        : { status: "rejected" },
     payouts:
       payouts.status === "fulfilled"
         ? { status: "fulfilled", ...payouts.value }
@@ -256,12 +226,6 @@ export async function GET(request: Request) {
       watchlistDigest.status === "fulfilled"
         ? (watchlistDigest.value.skipped ? { status: "skipped" } : { status: "fulfilled", sent: watchlistDigest.value.sent })
         : { status: "rejected" },
-    adminDigest:
-      adminDigest.status === "fulfilled" && adminDigest.value != null
-        ? { status: "fulfilled", sent: adminDigest.value.ok, error: adminDigest.value.ok ? null : adminDigest.value.error }
-        : adminDigest.status === "rejected"
-          ? { status: "rejected" }
-          : { status: "skipped" },
     priceTick:
       priceTick.status === "fulfilled" && priceTick.value != null
         ? { status: "fulfilled", ...priceTick.value }
@@ -299,10 +263,6 @@ export async function GET(request: Request) {
     raffleRetry:
       raffleRetry.status === "fulfilled"
         ? { status: "fulfilled", ...raffleRetry.value }
-        : { status: "rejected" },
-    pveSweep:
-      pveSweep.status === "fulfilled"
-        ? { status: "fulfilled", ...pveSweep.value }
         : { status: "rejected" },
     fairnessDigest:
       fairnessDigest.status === "fulfilled"
@@ -426,13 +386,6 @@ export async function GET(request: Request) {
 
   if (market.status === "rejected") console.error("[cron] market maintenance failed:", market.reason);
   if (auctions.status === "rejected") console.error("[cron] auction maintenance failed:", auctions.reason);
-  if (bounty.status === "rejected") console.error("[cron] bounty expiry failed:", bounty.reason);
-  else if (bounty.value.expiredCount > 0 || bounty.value.reverted > 0) {
-    console.log(
-      `[cron] bounty: expired ${bounty.value.expiredCount} items, awarded £${bounty.value.creditTotalGbp.toFixed(2)}` +
-      (bounty.value.reverted > 0 ? ` (${bounty.value.reverted} reverted for retry)` : "")
-    );
-  }
   if (payouts.status === "rejected") console.error("[cron] payout sweep failed:", payouts.reason);
   else if (payouts.value.tradesPaid + payouts.value.auctionsPaid > 0 ||
            payouts.value.tradeFailures.length + payouts.value.auctionFailures.length > 0) {
@@ -507,12 +460,6 @@ export async function GET(request: Request) {
     console.log(
       `[cron] subscriptions: ${subSweep.value.expired} expired, ` +
       `${subSweep.value.recalculated} tiers recalculated, ${subSweep.value.failures} failures`
-    );
-  }
-  if (pveSweep.status === "rejected") console.error("[cron] pve sweep failed:", pveSweep.reason);
-  else if (pveSweep.value.reconciled > 0 || pveSweep.value.failures > 0) {
-    console.log(
-      `[cron] pve reconcile: ${pveSweep.value.reconciled} recovered, ${pveSweep.value.failures} failed`
     );
   }
   if (fairnessDigest.status === "rejected") console.error("[cron] fairness digest failed:", fairnessDigest.reason);
@@ -607,7 +554,11 @@ export async function GET(request: Request) {
       `support-required ${verificationStorageSweep.value.supportRequired}, failures ${verificationStorageSweep.value.failures}`,
     );
   }
-  // Touch unused destructure to satisfy noUnusedLocals if enabled.
 
-  return NextResponse.json(status);
+  // A rejected sweep is a failed run: say so, and leave a record of it.
+  const rejected = Object.entries(status)
+    .filter(([, value]) => value === "rejected" || (typeof value === "object" && value.status === "rejected"))
+    .map(([name]) => name);
+  await recordMaintenance(now, rejected);
+  return NextResponse.json(status, { status: rejected.length ? 500 : 200 });
 }

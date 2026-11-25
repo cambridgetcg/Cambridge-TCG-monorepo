@@ -222,10 +222,10 @@ const SPEC = {
       get: {
         tags: ["universal"],
         summary: "Math-mirror card representation",
-        description: "Returns a mixed card document with cryptographic hashes, ISO 8601 + Unix epoch time and typed graph edges. Legacy catalog prices and images stay withheld. Normal/saturated density can include eligible self-hosted English reference images with attribution and syntax-only image_reference, a Japanese request's own-language official image in image_same_language, independently attributed effect text and structured details. Sparse omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. See /standards/card-data and /methodology/universal-representation.",
+        description: "Returns a mixed card document with cryptographic hashes, ISO 8601 + Unix epoch time and typed graph edges. Legacy catalog prices and images stay withheld. Normal/saturated density can include eligible self-hosted English reference images with attribution and syntax-only image_reference, a Japanese request's own-language official image in image_same_language (null while Japanese images are switched off), independently attributed effect text and structured details. Sparse omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. See /standards/card-data and /methodology/universal-representation.",
         operationId: "getUniversalCard",
         parameters: [
-          { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU (e.g. OP01-001)." },
+          { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Card SKU (e.g. 'op-op01-001-ja'). A plain SKU names the base printing and is answered by the one listing whose title shows it; sku_match says how." },
           { name: "density", in: "query", required: false, schema: { type: "string", enum: ["sparse", "normal", "saturated"] }, description: "Projection density (sister's Shape-of-the-Room S24)." },
         ],
         responses: {
@@ -233,7 +233,8 @@ const SPEC = {
             description: "Math-mirror document.",
             content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalCard" } } },
           },
-          "404": { description: "SKU not in the storefront catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "No card is answered for this SKU. error.details.reason says why and error.details.listings names the stored SKUs of the same number.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "The card catalogue could not be read; not a missing card." },
         },
       },
     },
@@ -258,7 +259,7 @@ const SPEC = {
         description: "Returns sets for the named game (case-insensitive). Each carries set_code, total_cards, released_at, and edges back to the parent game.",
         operationId: "getUniversalSets",
         parameters: [
-          { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Game's natural token (e.g. 'optcg')." },
+          { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Game's natural token (e.g. 'op')." },
         ],
         responses: {
           "200": {
@@ -545,7 +546,7 @@ const SPEC = {
         description: "JSON sibling of /prices/[game]. Returns curated game and mixed structural set metadata. Legacy source-derived values and movers are withheld. Aggregate rights are NOASSERTION; only the exact Cambridge-authored OpenAPI document and envelope schema declared here are CC0.",
         operationId: "getPriceGuideGame",
         parameters: [
-          { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug (e.g. 'optcg')." },
+          { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug (e.g. 'one-piece')." },
         ],
         responses: {
           "200": { description: "Game price-guide with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
@@ -593,7 +594,7 @@ const SPEC = {
         description: "Resolve within the selected registered game. Query shapes: set+number, number alone, card name or full SKU. Each match preserves stored sku and adds syntax-only normalized identity. lookup.limit/truncated describe bounded candidate retrieval; summary ambiguity concerns distinct set/number groups, not uniqueness of a printing. Unrelated/cross-game rows are excluded; source failure is distinct from an empty result.",
         operationId: "searchCards",
         parameters: [
-          { name: "game", in: "query", required: true, schema: { type: "string" }, description: "Game code or slug (e.g. 'op', 'optcg')." },
+          { name: "game", in: "query", required: true, schema: { type: "string" }, description: "Game code or slug (e.g. 'op', 'one-piece')." },
           { name: "q", in: "query", required: true, schema: { type: "string" }, description: "Card number, set+number, or full canonical SKU." },
           { name: "limit", in: "query", required: false, schema: { type: "integer", default: 20, maximum: 100 }, description: "Maximum matches to return." },
         ],
@@ -654,8 +655,8 @@ const SPEC = {
               schema: { $ref: "#/components/schemas/CardBatchRequest" },
               examples: {
                 deckSlice: {
-                  summary: "Two canonical card SKUs",
-                  value: { skus: ["op-op01-001-ja", "op-op01-002-ja"] },
+                  summary: "Two stored card SKUs",
+                  value: { skus: ["OP-OP01-001-JP-V11L1", "OP-OP01-002-JP-V11KZ"] },
                 },
               },
             },
@@ -682,6 +683,7 @@ const SPEC = {
           "200": { description: "Claim-separated evidence in a pantry envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
           "400": { description: "The path is not a full SKU.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "The card catalogue could not be read; not a missing card." },
         },
       },
     },
@@ -779,11 +781,12 @@ const SPEC = {
     "/api/v1/health": {
       get: {
         tags: ["operations"],
-        summary: "Rolled-up system health for agent retry decisions",
-        description: "One answer per fetch: status (ok | degraded | down) + a recommended retry strategy + best-effort per-subsystem state. Deep per-source live state is at /api/v1/sources.",
+        summary: "Whether the site can do its work now",
+        description: "One database query, never cached: status ok or degraded (a scheduled job is behind) when the database answered, with each scheduled job's state and when the daily check last ran. Each price source's own state is at /api/v1/sources.",
         operationId: "getV1Health",
         responses: {
-          "200": { description: "Health with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "200": { description: "The database answered. Health with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "503": { description: "The database did not answer within five seconds." },
         },
       },
     },
@@ -886,7 +889,7 @@ const SPEC = {
         operationId: "getUniversalCardAtDate",
         parameters: [
           { name: "date", in: "path", required: true, schema: { type: "string", format: "date" }, description: "YYYY-MM-DD." },
-          { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU." },
+          { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Card SKU (e.g. 'op-op01-001-ja')." },
         ],
         responses: {
           "200": {
@@ -894,7 +897,8 @@ const SPEC = {
             content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalCardTemporal" } } },
           },
           "400": { description: "Invalid date.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "No card is answered for this SKU; error.details as on the universal card.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "The card catalogue could not be read; not a missing card." },
         },
       },
     },
@@ -1515,6 +1519,19 @@ const SPEC = {
           {
             type: "object",
             properties: {
+              sku: { type: "string", description: "The SKU this document describes: the stored key, or for publisher_record the plain SKU itself." },
+              card_number: { type: "string" },
+              sku_match: {
+                type: ["object", "null"],
+                description: "How the requested SKU reached the stored row; null when it is stored under exactly that SKU.",
+                properties: {
+                  requested_sku: { type: "string" },
+                  stored_sku: { type: "string" },
+                  matched_by: { enum: ["canonical_alias", "plain_listing", "publisher_record"] },
+                  basis: { type: "string" },
+                  as_of: { type: ["string", "null"], format: "date-time" },
+                },
+              },
               rarity: { type: ["object", "null"] },
               variant: { type: ["object", "null"] },
               "@content_hash_contract": { type: "object" },
@@ -1538,9 +1555,13 @@ const SPEC = {
                   },
                   { type: "null" },
                 ],
-                description: "Additive: a Japanese request's own-language official base image, as one unit, or null; omitted at sparse density. The English image_url, image_attribution and image_reference are unchanged by it.",
+                description: "Additive: a Japanese request's own-language official base image, as one unit, or null (always null while Japanese images are switched off); omitted at sparse density. The English image_url, image_attribution and image_reference are unchanged by it.",
               },
-              publication_boundary: { type: "object" },
+              publication_boundary: {
+                type: "object",
+                description: "Why the price, image and text fields are present or null, one value each. The image and text values and their meanings are in /api/v1/contracts/card-data (images.publication_reasons). could_not_be_read is a fault, never a rights decision.",
+                properties: { price: { type: "string" }, image: { type: "string" }, text: { type: "string" } },
+              },
             },
           },
         ],

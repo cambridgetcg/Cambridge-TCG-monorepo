@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { query } from "@/lib/db";
 import { reconcileStripeOrders } from "@/lib/orders/reconcile";
 import { GET } from "./route";
+
+vi.mock("@/lib/db", () => ({ query: vi.fn() }));
 
 vi.mock("@/lib/cron-auth", () => ({ requireCronAuth: vi.fn() }));
 vi.mock("@/lib/orders/reconcile", () => ({ reconcileStripeOrders: vi.fn() }));
@@ -48,5 +51,18 @@ describe("Stripe reconciliation cron health", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ ok: true, review: 2, errors: 0 });
+  });
+
+  it("records whether it worked, and none of its counts", async () => {
+    const recorded = async () => {
+      vi.mocked(query).mockClear();
+      await GET(new Request("https://example.test/api/cron/reconcile-stripe"));
+      return vi.mocked(query).mock.calls.filter(([sql]) => sql.startsWith("INSERT INTO ops_job_outcomes")).map(([, params]) => [params![0], ...params!.slice(3)]);
+    };
+    expect(await recorded()).toEqual([["reconcile/stripe", 200, "ran", "{}"]]);
+    vi.mocked(reconcileStripeOrders).mockResolvedValueOnce({ ...cleanSummary, paid: 3, errors: 1 });
+    expect(await recorded()).toEqual([["reconcile/stripe", 503, "unavailable:failed", "{}"]]);
+    vi.mocked(reconcileStripeOrders).mockRejectedValueOnce(new Error("no key"));
+    expect(await recorded()).toEqual([["reconcile/stripe", 500, "unavailable:failed", "{}"]]);
   });
 });

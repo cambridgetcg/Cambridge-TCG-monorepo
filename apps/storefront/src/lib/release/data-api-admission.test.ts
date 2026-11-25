@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The data-API admission (Yu, 2026-10-28) is its own record: with it present
@@ -14,7 +16,6 @@ const mocks = vi.hoisted(() => ({
   prismReserve: vi.fn(),
   prismClient: vi.fn(),
   getStripe: vi.fn(),
-  loadCartRows: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -33,9 +34,6 @@ vi.mock("@/lib/prism-signals/stripe", () => ({
   getPrismStripeTestClient: mocks.prismClient,
 }));
 vi.mock("@/lib/stripe", () => ({ getStripe: mocks.getStripe }));
-vi.mock("@/lib/b2b/cart", () => ({ loadCartRows: mocks.loadCartRows }));
-vi.mock("@/lib/wholesale/client", () => ({ fetchCard: vi.fn() }));
-vi.mock("@/lib/stock/reservations", () => ({ reserveCartItems: vi.fn(), holderForStripeSession: vi.fn() }));
 
 import { DATA_API_PAID_PLANS, NEW_PAID_COMMERCE_RETIRED, NEW_PAID_COMMERCE_RETIRED_CODE } from "./commercial-retirement";
 import { p2pCommitmentPauseResponse } from "./production-gates";
@@ -47,7 +45,6 @@ import { POST as membershipSubscribe } from "@/app/api/membership/subscribe/rout
 import { POST as retailCheckout } from "@/app/api/checkout/route";
 import { POST as prismCheckout } from "@/app/api/prism-signals/stripe/checkout/route";
 import { POST as dataApiCheckout } from "@/app/api/data-api/checkout/route";
-import { startCheckout as b2bCheckout } from "@/lib/b2b/checkout";
 
 const json = (url: string, body: unknown, headers: Record<string, string> = {}) => new Request(url, {
   method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body),
@@ -130,10 +127,10 @@ describe("data-API admission is separate and reopens nothing", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "DATA_API_CHECKOUT_CLOSED" } });
   });
 
-  it("B2B checkout still stops before cart, price, stock or Stripe work", async () => {
-    // A server action, not an HTTP route: it answers purchases_paused rather than a status.
-    await expect(b2bCheckout("8b7f0d2e-3c1a-4f5e-9a6b-1c2d3e4f5a6b", "buyer@example.test")).resolves.toMatchObject({ ok: false, reason: "purchases_paused" });
-    expect(mocks.loadCartRows).not.toHaveBeenCalled();
-    expect(mocks.getStripe).not.toHaveBeenCalled();
+  it("B2B has no checkout left to reopen", () => {
+    // It was a server action over a builder; both are gone, so no switch reaches either.
+    for (const path of ["src/lib/b2b/checkout.ts", "src/app/account/b2b/checkout/actions.ts"]) {
+      expect(existsSync(resolve(process.cwd(), path)), path).toBe(false);
+    }
   });
 });

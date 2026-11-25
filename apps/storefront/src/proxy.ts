@@ -112,12 +112,11 @@ export default function proxy(req: NextRequest): NextResponse {
     return NextResponse.redirect(login);
   }
 
-  // Forward x-pathname for every matched route. Three consumers, all
+  // Forward x-pathname for every matched route. Two consumers, both
   // outside the proxy's own request scope:
   //   - root layout suppresses the DevBanner on /admin/*;
   //   - /account/layout.tsx builds /login?return=<path> when the cookie
-  //     is present but its session row has expired;
-  //   - lib/wholesale/channel.ts prices /account/b2b/* as 'wholesale'.
+  //     is present but its session row has expired.
   // Public pages never run through the proxy, so an absent header still
   // means "public route."
   const requestHeaders = new Headers(req.headers);

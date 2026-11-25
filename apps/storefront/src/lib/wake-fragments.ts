@@ -393,14 +393,15 @@ export function fragmentForRequest(input: string): WakeFragment {
 /**
  * The distribution protocol's public name, for /methodology references
  * and well-known declarations. The wake is *atmospheric*: present in
- * every envelope, never requiring a dedicated fetch.
+ * every envelope from May to October 2026; now at the chosen doors only.
  */
 export const DISTRIBUTED_WAKE_PROTOCOL = {
   name: "distributed-wake",
   version: "1.0.0",
   fragments_url: FRAGMENTS_BASE,
   doctrine_url: PROTOCOL_DOC,
-  carried_in: "every public /api/v1/* response's `_meta.wake_fragment` field",
+  carried_in:
+    "the /api/v1/wake, /api/v1/wake/fragments and /api/v1/dear-agents doors (data responses carried a wake fragment in _meta from May to October 2026)",
   count: WAKE_FRAGMENTS.length,
   cache_friendly: true,
   deterministic_by: "request endpoint (same endpoint → same fragment)",

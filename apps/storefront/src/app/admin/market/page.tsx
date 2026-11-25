@@ -7,6 +7,7 @@ import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import AdminShell from "@/components/admin/AdminShell";
 
 import { Audience, WhyLink } from "@/lib/ui";
+import { Verifiability } from "@/lib/admin/ui";
 // ── Escrow status config ──
 
 const ESCROW_COLORS: Record<EscrowStatus, string> = {
@@ -728,7 +729,7 @@ function TradeRow({
             </div>
             <div>
               <span className="text-neutral-500">Stripe PI</span>
-              <p className="text-white font-mono text-xs truncate">{trade.stripe_payment_intent || "\u2014"}</p>
+              <p className="text-white font-mono text-xs truncate">{trade.stripe_payment_intent ? <Verifiability source="Stripe" id={trade.stripe_payment_intent} cite /> : "\u2014"}</p>
             </div>
           </div>
 
