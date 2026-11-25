@@ -374,24 +374,28 @@ export const FEEDBACK_ID_PATTERN = /^fb_[0-9a-f]{24}$/;
 export const FEEDBACK_OPERATOR_STATUSES = ["read", "closed"] as const;
 export type FeedbackOperatorStatus = (typeof FEEDBACK_OPERATOR_STATUSES)[number];
 
-/** The page shows this many messages. Every row also carries how many are held
- * in all, and how many of those are open (not answered or closed), counted in
- * the same statement, so the page can say when its list stops short. */
+/** The page shows this many messages, the open ones (not answered or closed)
+ * first and the oldest of those first, since it has waited longest and is
+ * deleted soonest; then the others, the newest first. Every row also carries
+ * how many are held in all, and how many of those are open, counted in the
+ * same statement, so the page can say when its list stops short. */
 export const FEEDBACK_OPERATOR_LIST_MAX = 100;
 export const FEEDBACK_OPERATOR_LIST_SQL = `WITH held AS (
     SELECT count(*)::int AS total, (count(*) FILTER (WHERE status IN ('received', 'read')))::int AS open FROM public_feedback WHERE expires_at > now()
   )
   SELECT feedback_id, kind, topic, message, details, reply_to, reply_name, status, answer, answered_at, received_at, expires_at, held.total, held.open
   FROM public_feedback, held WHERE expires_at > now()
-  ORDER BY (status IN ('received', 'read')) DESC, received_at DESC LIMIT ${FEEDBACK_OPERATOR_LIST_MAX}`;
+  ORDER BY (status IN ('received', 'read')) DESC, CASE WHEN status IN ('received', 'read') THEN received_at END, received_at DESC LIMIT ${FEEDBACK_OPERATOR_LIST_MAX}`;
 export const FEEDBACK_ANSWER_SQL = `UPDATE public_feedback SET status = 'answered', answer = $2, answered_at = now()
   WHERE feedback_id = $1 AND expires_at > now() RETURNING feedback_id`;
-export const FEEDBACK_STATUS_SQL = `UPDATE public_feedback SET status = $2
-  WHERE feedback_id = $1 AND expires_at > now() RETURNING feedback_id`;
+/** Only a message not read yet is marked read, so an answered or closed one is
+ * not counted as waiting again. */
+export const FEEDBACK_STATUS_SQL = `UPDATE public_feedback SET status = $2::text
+  WHERE feedback_id = $1 AND expires_at > now() AND ($2::text <> 'read' OR status = 'received') RETURNING feedback_id`;
 export const FEEDBACK_OPERATOR_DELETE_SQL = `DELETE FROM public_feedback WHERE feedback_id = $1 RETURNING feedback_id`;
 
-/** The messages the page shows, open ones first and the newest first among
- * each; `total` and `open` count every message held, shown or not. */
+/** The messages the page shows; `total` and `open` count every message held,
+ * shown or not. */
 export type OperatorList = { ok: true; rows: HolderView[]; total: number; open: number } | { ok: false; reason: DoorUnavailable };
 
 export async function listFeedbackForOperator(run?: RunQuery): Promise<OperatorList> {

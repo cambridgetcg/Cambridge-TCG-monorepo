@@ -18,14 +18,15 @@
  * Server-rendered behind the admin gate (the admin layout, and again here
  * before any read). Counts only: no price, source value, key or agent id,
  * user agent, path or sender's message is read. Nothing on the page reports
- * back what an admin looks at. The page brings AdminShell's dark ground,
- * without its wait for a fetch: the admin colours do not follow the appearance
- * themes.
+ * back what an admin looks at. The page brings AdminShell's dark ground and
+ * its bar, without its wait for a fetch: the admin colours do not follow the
+ * appearance themes.
  */
 
 import * as React from "react";
 import { requireAdminPage } from "@/lib/auth/realms";
 import { sfQuery } from "@/lib/admin/db";
+import { AdminTopBar } from "@/components/admin/AdminShell";
 import { fmtDateTime } from "@/lib/format";
 import {
   ActionBanner, DataTable, KpiCard, KpiGrid, PageHeader, Provenance, StatusBadge,
@@ -59,6 +60,7 @@ export default async function Page() {
   const data = await loadMonitor(sfQuery);
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
+      <AdminTopBar sticky={false} />
       <Monitor data={data} />
     </main>
   );
@@ -426,10 +428,11 @@ function Monitor({ data }: { data: MonitorData }) {
               href="/admin/feedback"
             />
             <KpiCard
-              label={`Deleted within ${FEEDBACK_EXPIRING_DAYS} days`}
+              label={`To be deleted within ${FEEDBACK_EXPIRING_DAYS} days`}
               value={n(feedback.waiting.data.expiring)}
               urgency={feedback.waiting.data.expiring ? "warning" : "neutral"}
-              sub="of those not answered or closed"
+              sub="of those neither answered nor closed"
+              href="/admin/feedback"
             />
             <KpiCard label="Held in all" value={n(feedback.waiting.data.held)} sub={`each kept ${FEEDBACK_RETENTION_DAYS} days from arrival`} />
           </KpiGrid>

@@ -99,14 +99,14 @@ describe("monitor readers", () => {
 });
 
 describe("what waits at the feedback door", () => {
-  const row = { held: 9, unread: 3, unanswered: 1, expiring: 2, oldest_unread_hours: 98, oldest_unanswered_hours: null };
+  const row = { held: 9, unread: 3, unanswered: 1, expiring: 2, oldest_unread_hours: 98, oldest_unanswered_hours: 5 };
   it("is read as counts and whole hours, and an answer with no counts in it is unknown, never zero", async () => {
     expect(await readFeedback(database({ "FROM public_feedback": () => [row] }))).toEqual({
-      state: "known", data: { held: 9, unread: 3, unanswered: 1, expiring: 2, oldestUnreadHours: 98, oldestUnansweredHours: null },
+      state: "known", data: { held: 9, unread: 3, unanswered: 1, expiring: 2, oldestUnreadHours: 98, oldestUnansweredHours: 5 },
     });
     const unread = { state: "unknown", reason: "public_feedback could not be read" };
     expect(await readFeedback(database({}))).toEqual(unread);
-    expect(await readFeedback(database({ "FROM public_feedback": () => [{ ...row, unread: null }] }))).toEqual(unread);
+    for (const gone of [{ unread: null }, { oldest_unread_hours: null }]) expect(await readFeedback(database({ "FROM public_feedback": () => [{ ...row, ...gone }] }))).toEqual(unread);
   });
 
   it("comes with whether the door takes messages here", async () => {

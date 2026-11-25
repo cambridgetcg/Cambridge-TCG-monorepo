@@ -61,7 +61,9 @@ export async function markFeedback(input: { id: string; status: FeedbackOperator
     run: async () => {
       const id = feedbackId(input.id);
       if (!(FEEDBACK_OPERATOR_STATUSES as readonly string[]).includes(input.status)) throw new ActionInputError("Status must be read or closed.");
-      if (!(await changeFeedback(FEEDBACK_STATUS_SQL, [id, input.status], run))) throw new ActionInputError("No unexpired message has that id.");
+      if (!(await changeFeedback(FEEDBACK_STATUS_SQL, [id, input.status], run))) {
+        throw new ActionInputError(input.status === "read" ? "No unread message has that id." : "No unexpired message has that id.");
+      }
       return { id, status: input.status };
     },
   });

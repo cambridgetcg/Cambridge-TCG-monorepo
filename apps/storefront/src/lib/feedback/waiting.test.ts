@@ -4,25 +4,30 @@ import { FEEDBACK_EXPIRING_DAYS, FEEDBACK_WAITING_SQL, ageWords, readFeedbackWai
 
 vi.mock("@/lib/db", () => ({ query: vi.fn() }));
 
-const ROW = { held: 9, unread: 3, unanswered: 1, expiring: 2, oldest_unread_hours: 98, oldest_unanswered_hours: null };
+const ROW = { held: 9, unread: 3, unanswered: 1, expiring: 2, oldest_unread_hours: 98, oldest_unanswered_hours: 5 };
 const answering = (...rows: (Record<string, unknown> | undefined)[]) => vi.fn(async () => ({ rows: rows.filter(Boolean) as Record<string, unknown>[] }));
 
 describe("reading what waits at the feedback door", () => {
   it("returns the database's counts and ages, whichever driver gave them, from one statement", async () => {
-    const counted = { held: 9, unread: 3, unanswered: 1, expiring: 2, oldestUnreadHours: 98, oldestUnansweredHours: null };
+    const counted = { held: 9, unread: 3, unanswered: 1, expiring: 2, oldestUnreadHours: 98, oldestUnansweredHours: 5 };
     const run = answering(ROW);
     expect(await readFeedbackWaiting(run)).toEqual(counted);
     expect(run.mock.calls).toEqual([[FEEDBACK_WAITING_SQL]]);
     // A driver that hands integers over as text is read the same.
     expect(await readFeedbackWaiting(answering({ ...ROW, held: "9", oldest_unread_hours: "98" }))).toEqual(counted);
-    expect(await readFeedbackWaiting(answering({ ...ROW, held: 0, unread: 0, unanswered: 0, expiring: 0, oldest_unread_hours: null }))).toEqual({
+    expect(await readFeedbackWaiting(answering({ ...ROW, held: 0, unread: 0, unanswered: 0, expiring: 0, oldest_unread_hours: null, oldest_unanswered_hours: null }))).toEqual({
       held: 0, unread: 0, unanswered: 0, expiring: 0, oldestUnreadHours: null, oldestUnansweredHours: null,
     });
+    // One kind waits and the other does not.
+    expect(await readFeedbackWaiting(answering({ ...ROW, unread: 0, oldest_unread_hours: null }))).toMatchObject({ unread: 0, oldestUnreadHours: null, unanswered: 1, oldestUnansweredHours: 5 });
+    expect(await readFeedbackWaiting(answering({ ...ROW, unanswered: 0, oldest_unanswered_hours: null }))).toMatchObject({ unread: 3, oldestUnreadHours: 98, unanswered: 0, oldestUnansweredHours: null });
   });
 
   it.each([
     undefined, {}, { ...ROW, unread: null }, { ...ROW, held: undefined }, { ...ROW, held: -1 }, { ...ROW, unanswered: 1.5 }, { ...ROW, expiring: "many" },
     { ...ROW, unread: "" }, { ...ROW, unread: " " }, { ...ROW, held: Number.NaN }, { ...ROW, held: true }, { ...ROW, oldest_unread_hours: "soon" }, { ...ROW, oldest_unanswered_hours: -1 },
+    // An age that did not come, for messages that are there or for none, is not taken for "none waiting".
+    { ...ROW, oldest_unread_hours: null }, { ...ROW, oldest_unanswered_hours: undefined }, { ...ROW, unread: 0, oldest_unread_hours: undefined },
   ])("throws rather than count %j as zero", async (row) => {
     await expect(readFeedbackWaiting(answering(row))).rejects.toThrow(TypeError);
   });

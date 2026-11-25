@@ -43,16 +43,18 @@ export function whole(value: unknown): number {
   if (typeof number !== "number" || !Number.isSafeInteger(number) || number < 0) throw new TypeError("not a count");
   return number;
 }
-const hours = (value: unknown) => (value === null || value === undefined ? null : whole(value));
+/** The age of the oldest of some: null when there are none, and only then. */
+const age = (count: number, hours: unknown) => (count === 0 && hours === null ? null : whole(hours));
 
 /** Throws when the database does, or answers with anything but counts: a
  * caller never gets a zero that was not counted. */
 export async function readFeedbackWaiting(run: RunQuery): Promise<FeedbackWaiting> {
   const row = (await run(FEEDBACK_WAITING_SQL)).rows[0];
   if (!row) throw new TypeError("no counts");
+  const unread = whole(row.unread), unanswered = whole(row.unanswered);
   return {
-    held: whole(row.held), unread: whole(row.unread), unanswered: whole(row.unanswered), expiring: whole(row.expiring),
-    oldestUnreadHours: hours(row.oldest_unread_hours), oldestUnansweredHours: hours(row.oldest_unanswered_hours),
+    held: whole(row.held), unread, unanswered, expiring: whole(row.expiring),
+    oldestUnreadHours: age(unread, row.oldest_unread_hours), oldestUnansweredHours: age(unanswered, row.oldest_unanswered_hours),
   };
 }
 
