@@ -167,7 +167,7 @@ export default function TraderDashboardMethodology() {
 
       <h2>Change history</h2>
       <p>
-        <em>v2 — 2026-11-24. Pending payout counts only trades the buyer paid for and that
+        <em>v2 — 2026-11-25. Pending payout counts only trades the buyer paid for and that
         have not been paid out. Before, it counted every trade completed in the last 14
         days.</em>
       </p>

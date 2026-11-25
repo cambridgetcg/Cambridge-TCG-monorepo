@@ -11,8 +11,7 @@
  * A buyer's payment is a timestamp on the sale itself. A trade's is
  * market_trades.buyer_paid_at, set by the Stripe settlement
  * (stripe-checkout-attempts.ts) or by an admin's Mark Paid
- * (updateEscrowStatus). markEscrowPaid in lib/trust/db.ts sets it too, but
- * nothing calls that. An auction's is auctions.paid_at, set by the Stripe
+ * (updateEscrowStatus). An auction's is auctions.paid_at, set by the Stripe
  * webhook. No code clears either one. A status alone is not evidence of
  * payment: an admin can set any status by hand. What to do when money arrived
  * but the stamp is missing: docs/methodology/payout-holds.md.
