@@ -2,10 +2,11 @@
  * Vercel REST API client — minimal wrapper used by the admin /system/deploys
  * page and by `redeployFromMain` server action.
  *
- * Authentication: a Vercel team-scoped token in env var VERCEL_TOKEN.
- * The token must have read access to deployments and write access to
- * trigger new deploys. Generated at vercel.com/account/tokens, scoped to
- * the cambridgetcgs-projects team.
+ * Authentication: a Vercel token in env var VERCEL_TOKEN, limited to the
+ * cambridgetcgs-projects team and set for Production only (this repository
+ * is public, so a preview build must never hold it). It must read
+ * deployments and may trigger new ones. The health workflow's Actions
+ * secret has the same name and holds a different token.
  *
  * No retries, no backoff — the admin page can re-render on demand.
  *
@@ -90,10 +91,10 @@ export class VercelTokenMissingError extends Error {
 export class VercelTokenInvalidError extends Error {
   constructor() {
     super(
-      "VERCEL_TOKEN was rejected by the API (likely rotated). Generate a " +
-      "long-lived token at https://vercel.com/account/tokens and update " +
-      "the value in apps/admin/.env.local AND the cambridgetcg-admin " +
-      "Vercel project env AND the GitHub repo secret.",
+      "VERCEL_TOKEN was rejected by the API (likely rotated or expired). " +
+      "Create a token limited to the cambridgetcgs-projects team at " +
+      "https://vercel.com/account/tokens, set it on the cambridgetcg-storefront " +
+      "project for Production only, and redeploy.",
     );
   }
 }

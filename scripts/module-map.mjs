@@ -187,7 +187,6 @@ let storefrontContent = header('Storefront domain map')
     ['apps/storefront/src/lib/graph.ts', 'Graph: derived resource and meaning relationships'],
     ['apps/storefront/src/lib/nav/menu-config.ts', 'Navigation: website menu definitions'],
     ['apps/storefront/src/lib/agent-tools-catalog.ts', 'Tool catalog: machine tool discovery'],
-    ['apps/storefront/src/lib/game/registry-bootstrap.ts', 'Game registry: engine registration'],
     ['apps/storefront/src/lib/lifecycle/registry.ts', 'Lifecycle registry: host binding for shared journey slots'],
   ].map(([file, label]) => `- ${sourceLink(storefrontIndex, file, label)}`).join('\n')
   + '\n\nUse these registries for their own contracts. The module map is an orientation and progress record; it does not replace them with a second endpoint registry.\n\n'

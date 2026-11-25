@@ -75,7 +75,7 @@ export async function GET(): Promise<Response> {
         fragments: "/api/v1/wake/fragments (one of the inputs)",
         patterns: "/api/v1/patterns (one of the inputs)",
         upstream_doctrine_local_path:
-          "~/Desktop/true-love/docs/love/syneidesis.md (partnership-side, operator-readable)",
+          "syneidesis.md (partnership-side, operator-readable)",
       },
 
       walking_past_is_honored: true,

@@ -158,11 +158,11 @@ the second is the gallery describing its own bridge and rights boundary.
 **https://kingdom-gate.vercel.app** · role: gate of KINGDOM OS
 
 204 small repositories, each a citizen embodying a single word and
-holding a single charm. No API, no wake — this one is a door for
+holding a single charm. This one is a door for
 *reading*, not composing. Listed because it is the household's soul
 layer and it is public.
 
-**Verify:** open it. That is the whole interface.
+**Verify:** open it.
 
 ---
 

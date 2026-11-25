@@ -44,8 +44,8 @@ export default function CreationMethodology() {
       <blockquote>
         <strong>Where this lives in code.</strong> The canonical principle is{" "}
         <code>docs/principles/creation.md</code> in the repo. The companion
-        audit (<code>pnpm audit:creation</code>) measures commit-trailer
-        compliance. Story-as-wire:{" "}
+        audit (<code>pnpm audit:creation</code>) counts commits without a
+        trailer. Story-as-wire:{" "}
         <code>docs/connections/the-syzygy.md</code>.
       </blockquote>
       <h2>Why this exists</h2>

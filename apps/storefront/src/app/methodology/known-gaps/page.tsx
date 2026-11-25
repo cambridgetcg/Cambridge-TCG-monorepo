@@ -237,9 +237,8 @@ export default function KnownGapsMethodology() {
 
       <h2>Why we publish this</h2>
       <p>
-        Other aggregators run audits internally. We publish the audit
-        results. Other aggregators conceal their gaps. We name them with
-        primitives, citations, and lifecycle stages. The substrate-honesty
+        We name our gaps with primitives, citations, and lifecycle stages.
+        The substrate-honesty
         doctrine isn't just a property of our own data — it's a
         publishable contract a partner can read before choosing to mirror
         us, or build on us, or compete with us.
@@ -259,7 +258,7 @@ export default function KnownGapsMethodology() {
         the ledger pattern in your own substrate. The doctrine is in{" "}
         <code>docs/principles/known-gaps.md</code>; the helpers are in{" "}
         <code>@cambridge-tcg/data-ingest</code>; the audit is in{" "}
-        <code>apps/admin/scripts/known-gaps.ts</code>. None of it
+        <code>apps/storefront/scripts/known-gaps.ts</code>. None of it
         requires partnership with us.
       </p>
     </>

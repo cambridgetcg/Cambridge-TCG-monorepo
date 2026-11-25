@@ -34,10 +34,10 @@ const WHOLESALE_KEY = (process.env.WHOLESALE_API_KEY || '').trim();
 import {
   dbFetchAggregatorCoverage,
   dbFetchAggregatorCoverageHistory,
-  dbFetchCard,
   dbFetchGames,
   dbFetchPrices,
   dbFetchSets,
+  dbLookupCard,
 } from './db-source';
 import {
   publicCatalogSort,
@@ -92,8 +92,7 @@ function keyForChannel(channel?: string): string {
 // would hold the request thread indefinitely (Node's fetch has no default
 // timeout). 5s comfortably covers a healthy round trip; anything past
 // that means the upstream is in trouble and we should surface a clean
-// error to the caller (typically the resolver, which then refunds the
-// pull token via the no_stock path).
+// error to the caller.
 const DEFAULT_TIMEOUT_MS = 5_000;
 const SALE_REPORT_TIMEOUT_MS = 10_000; // POST is rarer, allow more headroom
 
@@ -135,6 +134,10 @@ export interface PriceItem {
   art_description?: string | null;
   /** Phase 6 of kingdom-051 — { zh, ko, es, jp_romaji, … } sparse. */
   name_translations?: Record<string, string> | null;
+  /** True when the stored title names the plain printing and nothing else
+   *  (One Piece only; see ./listing-printing). False is not a claim that the
+   *  row is a variant, only that its title does not show it is not. */
+  plain_listing?: boolean;
 }
 
 /**
@@ -267,52 +270,47 @@ export async function fetchPrices(params?: {
   }
 }
 
-export async function fetchCard(sku: string, channel = 'cambridgetcg'): Promise<PriceItem | null> {
-  // HTTP first (unless flipped to direct reads), then the wholesale
-  // Postgres ground route — the same fallback fetchPrices uses. Without
-  // it the retired API's 401/timeout left the card page nameless and
-  // price-less while /market (which reads through the DB) showed both;
-  // now both surfaces resolve from one substrate. A 404 is an honest
-  // "no such card" and short-circuits; other failures fall through.
-  if (!dbDirectOnly()) {
-    try {
-      const res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/prices/' + encodeURIComponent(sku) + '?channel=' + channel, {
-        headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
-        next: { revalidate: 300 },
-      });
-      if (res.status === 404) return null;
-      if (res.ok) {
-        const item = await res.json() as PriceItem;
-        return withholdUnreviewedWholesaleFields(item);
-      }
-      console.error('[wholesale] card error', res.status);
-    } catch (err) {
-      console.error('[wholesale] card fetch error', err);
-    }
-  }
+/** Why a SKU has no card here, when a source did answer. */
+export interface CardAbsence {
+  reason:
+    | 'unknown_sku'          // no row under this SKU in any stored spelling
+    | 'no_listing'           // a plain SKU whose number has no listing in this language
+    | 'none_plain'           // listings exist; none is shown by its title to be the plain printing
+    | 'several_plain'        // more than one is, so none is picked
+    | 'marked_listing'       // its own row is a marked listing, and no other title may be read (not One Piece)
+    | 'titles_not_reviewed'; // a plain SKU of a game whose listing titles were not reviewed
+  /** Stored SKUs of the same number and language a caller may choose from. */
+  listings: string[];
+}
 
+export interface CardLookup {
+  card: PriceItem | null;
+  source: WholesaleSource;
+  absence: CardAbsence | null;
+}
+
+/**
+ * One card by SKU, with provenance (see fetchGamesDetailed). `card.sku` is the
+ * stored key, which differs from the SKU asked for when it was found under
+ * another spelling or is a plain SKU's plain listing. An outage is
+ * source 'unavailable' with no absence: it never reads as a missing card.
+ *
+ * Read from the wholesale Postgres only. The wholesale HTTP route for one card
+ * answers 503 to every caller (apps/wholesale/src/app/api/v1/prices/[sku]),
+ * and only the database read can look for a plain SKU's plain listing.
+ */
+export async function fetchCardDetailed(sku: string): Promise<CardLookup> {
   try {
-    return await dbFetchCard(sku, channel);
+    return { ...(await dbLookupCard(sku)), source: 'wholesale-db' };
   } catch (err) {
     console.error('[wholesale] card db-source error', err);
-    return null;
+    return { card: null, source: 'unavailable', absence: null };
   }
 }
 
-// Uncached variant for revenue-critical checks (price/stock at checkout).
-// Unlike fetchCard it distinguishes "card does not exist" (null) from
-// "wholesale API unavailable" (throws), so callers can fail open on
-// outages instead of treating them as zero stock.
-export async function fetchCardFresh(sku: string, channel = 'cambridgetcg'): Promise<PriceItem | null> {
-  const res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/prices/' + encodeURIComponent(sku) + '?channel=' + channel, {
-    headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
-    cache: 'no-store',
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error('wholesale_unavailable: ' + res.status);
-  const item = await res.json() as PriceItem;
-  return withholdUnreviewedWholesaleFields(item);
-}
+/** The B2B callers also pass a channel. A card read carries no price, so it has no effect. */
+export const fetchCard: (sku: string, channel?: string) => Promise<PriceItem | null> =
+  async (sku) => (await fetchCardDetailed(sku)).card;
 
 export interface GamesResult {
   games: GameItem[];
@@ -724,42 +722,6 @@ export async function fetchAggregatorCoverageHistory(opts?: {
   }
 }
 
-/**
- * CardRush observation row from wholesale `/api/v1/cardrush/history/[sku]`.
- * Kingdom-081 Phase 5.4 extension.
- */
-export interface CardrushObservation {
-  snapshot_date: string;
-  cardrush_jpy: number | null;
-  gbp_jpy_rate: number | null;
-  base_gbp: number | null;
-  price_gbp: number | null;
-  source_url: string | null;
-  ingest_run_id: number | null;
-  error_reason: string | null;
-}
-
-export interface CardrushHistoryResponse {
-  sku: string;
-  cardrush_url: string | null;
-  source: "cardrush";
-  source_license: "internal-only";
-  count: number;
-  observations: CardrushObservation[];
-  retrieved_at: string;
-}
-
-/**
- * Legacy compatibility function. Authentication does not create upstream
- * publication permission, so it returns null without making a request.
- */
-export async function fetchCardrushHistory(_opts: {
-  sku: string;
-  limit?: number;
-}): Promise<CardrushHistoryResponse | null> {
-  return null;
-}
-
 // ── Multi-source latest snapshot (kingdom-081 Phase 5.2) ─────────────
 //
 // One row per source for a card on its latest snapshot date (or a
@@ -858,91 +820,6 @@ export async function fetchPriceSources(opts: {
   }
 }
 
-// ── TCGplayer history (kingdom-080 follow-up) ────────────────────────
-//
-// Retained response types for compatibility. The client and both serving
-// routes are blocked and expose no observations without written approval.
-
-export interface TcgplayerObservation {
-  snapshot_date: string;
-  condition: string;
-  base_gbp: number | null;
-  price_gbp: number | null;
-  fx_rate_to_gbp: number | null;
-  fx_rate_source: string | null;
-  usd_market: string | null;
-  usd_mid: string | null;
-  usd_low: string | null;
-  usd_high: string | null;
-  usd_direct_low: string | null;
-  headline_field: string | null;
-  tcgplayer_sku_id: number | null;
-  source_url: string | null;
-  ingest_run_id: number | null;
-  error_reason: string | null;
-}
-
-export interface TcgplayerHistoryResponse {
-  sku: string;
-  tcgplayer_product_id: number | null;
-  tcgplayer_sub_type: string | null;
-  source: "tcgplayer";
-  source_license: "proprietary";
-  filter_condition: string | null;
-  count: number;
-  conditions_present: string[];
-  observations: TcgplayerObservation[];
-  retrieved_at: string;
-}
-
-/**
- * Dormant TCGplayer observation client. The public storefront route is
- * blocked; do not expose values unless written approval changes SourceMeta.
- */
-export async function fetchTcgplayerHistory(opts: {
-  sku: string;
-  limit?: number;
-  condition?: string;
-}): Promise<TcgplayerHistoryResponse | null> {
-  void opts;
-  return null;
-}
-
-// ── TCGplayer federation resolve (kingdom-080 follow-up) ──────────────
-//
-// Public federation reverse-lookup: a partner with a TCGplayer
-// productId+subType or skuId can resolve to a Cambridge canonical SKU.
-
-export interface TcgplayerResolveResponse {
-  source: "tcgplayer";
-  inputs: {
-    product_id: number | null;
-    sub_type: string | null;
-    sku_id: number | null;
-  };
-  resolved: {
-    canonical_sku: string;
-    card_id: number;
-    tcgplayer_product_id: number;
-    tcgplayer_sub_type: string | null;
-    condition: string | null;
-    language: string | null;
-  } | null;
-  /** Set when 2+ cards match the (product_id) but no sub_type was given. */
-  ambiguous?: boolean;
-  message?: string;
-  retrieved_at: string;
-}
-
-export async function fetchTcgplayerResolve(opts: {
-  product_id?: number;
-  sub_type?: string;
-  sku_id?: number;
-}): Promise<TcgplayerResolveResponse | null> {
-  void opts;
-  return null;
-}
-
 /**
  * Run-history row from wholesale `/api/v1/ingest-runs`. Kingdom-081
  * Phase 4.1 extension — paginated history per source.
@@ -1001,159 +878,6 @@ export async function fetchSourceRunHistory(opts: {
     console.error("[wholesale] ingest-runs history parse error", err);
     return null;
   }
-}
-
-/**
- * Quarantine summary row from wholesale `/api/v1/ingest-quarantine`.
- * Kingdom-081 Phase 4.2 extension. Note `raw_payload` is NOT carried
- * in this shape — fetch the singleton endpoint with the row id to get
- * the full payload.
- */
-export interface QuarantineRow {
-  id: number;
-  ingest_run_id: number;
-  source_id: string;
-  upstream_id: string | null;
-  reason: string;
-  as_of: string;
-  retrieved_at: string;
-  quarantined_at: string;
-  reviewed_at: string | null;
-  reviewed_by: string | null;
-  resolution: string | null;
-  raw_payload_keys: string[] | null;
-  raw_payload_size_bytes: number;
-}
-
-export interface QuarantineResponse {
-  quarantine: QuarantineRow[];
-  counts: {
-    window_total: number;
-    unresolved: number;
-    by_reason: Record<string, number>;
-  };
-  next_cursor: number | null;
-  window: { start: string; end: string; hours: number };
-  filter: {
-    source: string | null;
-    unresolved_only: boolean;
-    reason_contains: string | null;
-  };
-  queried_at: string;
-}
-
-export async function fetchQuarantine(opts: {
-  source?: string;
-  window?: "1h" | "24h" | "7d" | "30d" | "90d";
-  unresolved?: boolean;
-  reason_contains?: string;
-  limit?: number;
-  cursor?: number;
-}): Promise<QuarantineResponse | null> {
-  const u = new URL(WHOLESALE_URL + "/api/v1/ingest-quarantine");
-  if (opts.source) u.searchParams.set("source", opts.source);
-  if (opts.window) u.searchParams.set("window", opts.window);
-  if (opts.unresolved === false) u.searchParams.set("unresolved", "false");
-  if (opts.reason_contains) u.searchParams.set("reason_contains", opts.reason_contains);
-  if (opts.limit) u.searchParams.set("limit", String(opts.limit));
-  if (opts.cursor) u.searchParams.set("cursor", String(opts.cursor));
-  let res: Response;
-  try {
-    res = await wholesaleFetch(
-      u.toString(),
-      {
-        headers: { Authorization: "Bearer " + WHOLESALE_KEY },
-        next: { revalidate: 60 },
-      },
-    );
-  } catch (err) {
-    console.error("[wholesale] quarantine fetch error", err);
-    return null;
-  }
-  if (!res.ok) {
-    console.error("[wholesale] quarantine error", res.status);
-    return null;
-  }
-  try {
-    return (await res.json()) as QuarantineResponse;
-  } catch (err) {
-    console.error("[wholesale] quarantine parse error", err);
-    return null;
-  }
-}
-
-// ── Movers ──────────────────────────────────────────────────────────
-//
-// Companion to /prices/[game]/movers. Calls wholesale's bearer-gated
-// /api/v1/prices/movers endpoint. On any failure (timeout, !ok, parse
-// error) returns an empty MoversResponse so the page degrades visibly
-// to the most-valuable fallback rather than throwing.
-//
-// Spec: docs/superpowers/specs/2026-05-14-movers-feature-design.md
-
-export interface MoverItem {
-  sku: string;
-  card_number: string;
-  name: string | null;
-  name_en: string | null;
-  set_code: string | null;
-  set_name: string | null;
-  rarity: string | null;
-  image_url: string | null;
-  category: string;
-  price_then: number;
-  price_now: number;
-  channel_price: number;
-  pct_change: number;
-  then_date: string;
-  now_date: string;
-}
-
-export interface MoversResponse {
-  window: "7d";
-  window_days: number;
-  window_tolerance_days: number;
-  min_price_floor: number;
-  source: "cardrush";
-  source_license: "internal-only";
-  publication_status: "blocked";
-  policy_url: "https://cardrush.media/data_policy";
-  reason: string;
-  channel: string;
-  game_code: string;
-  computed_at: string | null;
-  count: number;
-  movers: MoverItem[];
-}
-
-function emptyMovers(game: string): MoversResponse {
-  return {
-    window: "7d",
-    window_days: 7,
-    window_tolerance_days: 2,
-    min_price_floor: 10,
-    source: "cardrush",
-    source_license: "internal-only",
-    publication_status: "blocked",
-    policy_url: "https://cardrush.media/data_policy",
-    reason:
-      "CardRush-derived movements from the legacy archive are withheld: its rows were gathered before the written permission recorded 2026-10-28 and are never published or used as inputs.",
-    channel: "cambridgetcg",
-    game_code: game,
-    computed_at: null,
-    count: 0,
-    movers: [],
-  };
-}
-
-export async function fetchMovers(opts: {
-  game: string;
-  window?: "7d";
-  min_price?: number;
-  limit?: number;
-  category?: "singles" | "sealed";
-}): Promise<MoversResponse> {
-  return emptyMovers(opts.game);
 }
 
 export async function reportSale(sale: {

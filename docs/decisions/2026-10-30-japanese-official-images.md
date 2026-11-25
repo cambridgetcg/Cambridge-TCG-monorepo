@@ -128,6 +128,14 @@ next deployment only. It deletes no object (the bucket is public-read),
 purges no cache, cannot reach stored URLs or third-party caches, and does not
 affect the tools.
 
+*Since 2026-11-24* the default is the other way round: the lane is off unless
+`OFFICIAL_IMAGES_JA=show`, and no value that meant anything before turns it
+on. The shared check had refused every official row's date
+since 2026-09-29 ([EN-CARD-DATA](../EN-CARD-DATA.md)), so no Japanese image had
+ever been shown on a page, whatever the runs below record as held. Repairing
+the check would have been their first showing, and that waits for the owner's
+separate word. Recorded by an agent.
+
 **Takedown is per card.** A removal sets every `official_sample` row of the
 card, every language and variant, in one statement keyed on game, set and
 number:
@@ -277,9 +285,9 @@ For the playbook's "where Cambridge falls short", said plainly:
 - **The set is bulk-fetchable.** Object keys are predictable and the bucket is
   public-read, so the self-hosted set can be fetched in bulk, whatever
   "display only" says.
-- **Copies outlive a takedown.** Stored URLs (portfolio rows and the English
-  `og:image`) and third-party caches are not reached by a takedown or the
-  switch; nor are objects already uploaded.
+- **Copies outlive a takedown.** Stored URLs (portfolio rows) and third-party
+  caches are not reached by a takedown or the switch; nor are objects already
+  uploaded. *Since 2026-11-24* no official image is offered as an `og:image`.
 - **The English text ingest is unpinned.** `ingest-bandai-en.mjs` reads live
   Bandai pages with a browser-like User-Agent and no robots.txt read, and no
   audit pins it. An import fence keeps it off the Japanese collection run
@@ -290,7 +298,9 @@ For the playbook's "where Cambridge falls short", said plainly:
   deck builder, the listing wizard, the auction sell picker and the swap
   composer render `/api/market/catalog`'s `image_url` as a bare thumbnail,
   with no credit or label. That predates this work and is unchanged; the
-  Japanese image is kept out of them.
+  Japanese image is kept out of them. *Since 2026-11-24* the deck builder, its
+  hand simulator and `/play/starters` print the credit; the listing wizard and
+  the auction picker are retired pages; the swap composer still prints none.
 - **The playbook entry is not written.** The playbook lives in the
   `transparent-data-playbook` repository; editing it is an outward act left
   to Yu or the lead.

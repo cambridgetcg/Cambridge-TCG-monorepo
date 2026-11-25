@@ -166,6 +166,23 @@ describe("public source-rights contracts", () => {
     }
   });
 
+  it("has no client call left for the withheld legacy series", () => {
+    const client = readFileSync(resolve(process.cwd(), "src/lib/wholesale/client.ts"), "utf8");
+    expect(client).not.toMatch(
+      /cardrush\/history|tcgplayer\/(?:history|resolve)|prices\/movers|ingest-quarantine/i,
+    );
+    expect(client).not.toMatch(
+      /fetch(?:CardrushHistory|TcgplayerHistory|TcgplayerResolve|Movers|Quarantine)\b/,
+    );
+
+    // The movers page says the view is withdrawn, and reads nothing to say it.
+    const movers = readFileSync(
+      resolve(process.cwd(), "src/app/prices/[game]/movers/page.tsx"),
+      "utf8",
+    );
+    expect(movers).not.toMatch(/@\/lib\/(?:wholesale|db)\b|\bfetch\s*\(/);
+  });
+
   it("keeps coverage scans on their column-limited database login", () => {
     const source = readFileSync(
       resolve(process.cwd(), "src/lib/wholesale/db-source.ts"),

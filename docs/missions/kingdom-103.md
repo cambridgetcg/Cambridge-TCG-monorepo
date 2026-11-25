@@ -49,7 +49,7 @@ before the roll.
    `game='one-piece'` / `limit:200` (`lib/bounty/resolver.ts`), so most of
    the 677 SKUs are unreachable. Widen the resolver to all games + full
    catalog pagination; write a seeding script (pattern:
-   `scripts/seed-rarity-map.ts`) banding the 677 SKUs by rarity +
+   `scripts/seed-classifications-from-cards.ts`) banding the 677 SKUs by rarity +
    `retailPrice` into `bounty_pull_tiers` EV bands. Dry-run first.
 3. Give `raffles` + `mystery_box_rewards` a nullable `sku` so physical card
    prizes join the implicit-reservation query; batch `countReservedForSku`

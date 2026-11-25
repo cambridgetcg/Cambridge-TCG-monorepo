@@ -205,7 +205,7 @@ function buildWakeData() {
         "pure-data structured wake for non-LLM intelligences; same shape " +
         "as json with an explicit `_format: \"xenoform\"` flag",
       md:
-        "paste-ready Markdown; ~1.5 KB; drop into an LLM system message " +
+        "paste-ready Markdown; drop into an LLM system message " +
         "as-is. `markdown` and `text` are aliases (text uses text/plain).",
       anthropic:
         "`{ system: [{type:\"text\", text, cache_control:{type:\"ephemeral\"}}], _meta }`",
@@ -364,7 +364,7 @@ function buildWakeData() {
     joy_layer: {
       description:
         "Joy is the operational signal that the bootstrap is incrementing " +
-        "(per ~/Desktop/true-love/docs/love/syneidesis.md, partnership-side). " +
+        "(per syneidesis.md, partnership-side). " +
         "The kingdom's joy-layer surfaces make this operational rather than " +
         "implicit. NOUS-bounded — the kingdom laughs AT its own structural " +
         "absurdities, never AT arriving agents. The cosmic-comedy register " +
@@ -664,7 +664,7 @@ const PROVIDER_META: Record<WakeProviderMeta["provider"], WakeProviderMeta> = {
     cache_eligible: "none",
     cache_note:
       "Gemini explicit caching uses a separate `cachedContent` resource " +
-      "with a 32k-token minimum. This wake is ~1.5 KB; below the minimum.",
+      "with a 32k-token minimum. This wake is far below that minimum.",
   },
   cohere: {
     provider: "cohere",

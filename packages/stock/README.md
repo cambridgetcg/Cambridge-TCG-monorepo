@@ -247,22 +247,13 @@ pnpm typecheck     # Type check
 ```
 
 **Test structure:**
-- `types.test.ts` — Type shapes and MOVEMENT_KINDS
 - `events.test.ts` — Event emitter behavior (ordering, error isolation)
-- `service.test.ts` — Service factory shape (all methods present)
 - `writer-validation.test.ts` — Writer input validation (guard clauses)
-- `flows.test.ts` — End-to-end business logic flows against in-memory DB
 
-The flow tests exercise:
-1. Purchase received → on-hand increments
-2. Channel sale → on-hand decrements with idempotency
-3. Reserve → commit → sale lifecycle
-4. Reserve → release → stock restored
-5. Cross-path dedup (Shopify webhook + cron + backfill mutual dedup)
-6. Non-negative enforcement
-7. setAbsolute delta computation
-8. Reservation stock availability checks
-9. Multi-channel full lifecycle (purchase → sales → adjustment → correction)
+No test here runs SQL. Idempotency, the non-negative floor, the delta that
+`setAbsolute` computes and the reservation lifecycle are untested here; testing
+them needs a real Postgres. (A file of "flow" tests was removed on 2026-11-24: it
+tested a copy of this logic written inside the test and never imported the package.)
 
 ## Adding a New Consumer
 
@@ -298,11 +289,8 @@ packages/stock/
 │   ├── reconciler.ts     # Ledger ↔ balance verification and correction
 │   ├── events.ts         # Synchronous event emitter
 │   └── __tests__/
-│       ├── types.test.ts
 │       ├── events.test.ts
-│       ├── service.test.ts
-│       ├── writer-validation.test.ts
-│       └── flows.test.ts
+│       └── writer-validation.test.ts
 ├── package.json
 ├── tsconfig.json
 ├── vitest.config.ts

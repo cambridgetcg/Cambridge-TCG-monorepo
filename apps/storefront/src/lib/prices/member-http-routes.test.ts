@@ -97,6 +97,29 @@ describe("member route authentication before pricing", () => {
   });
 });
 
+describe("a paused use at the routes", () => {
+  it("answers 503 with the pause and its reason, never an empty success or an attachment, and only to a caller it has authenticated", async () => {
+    const paused: MemberPricePage = { status: "unavailable", items: [], count: 0, total: 0, complete: false, nextCursor: null, watermark: null, asOf: null,
+      reason: "Fixture reason.", paused: { source: "cardmarket", uses: ["member-api", "member-download"], since: "2026-11-24" } };
+    mocks.read.mockResolvedValue(paused);
+    expect((await feed.GET(request("/api/v1/member-prices"))).status).toBe(401);
+    expect((await download.GET(request("/api/account/prices/export?format=csv"))).status).toBe(401);
+    expect(mocks.read).not.toHaveBeenCalled();
+    mocks.bearer.mockResolvedValue({ ok: true, actor: { userId: "member" }, remaining: 29, resetSeconds: 20 });
+    mocks.session.mockResolvedValue({ userId: "member" });
+    const api = await feed.GET(request("/api/v1/member-prices"));
+    expect(api.status).toBe(503); privateResponse(api);
+    expect((await api.json()).data).toEqual(paused);
+    expect(api.headers.get("x-price-complete")).toBe("false");
+    expect(api.headers.get("retry-after")).toBe("86400");
+    const csv = await download.GET(request("/api/account/prices/export?format=csv"));
+    expect(csv.status).toBe(503); privateResponse(csv);
+    expect(csv.headers.get("retry-after")).toBe("86400");
+    expect(csv.headers.has("content-disposition")).toBe(false);
+    expect(await csv.json()).toEqual(paused);
+  });
+});
+
 describe("bounded member export consistency", () => {
   it("CSV and NDJSON carry the same complete record fields and explicit continuation", async () => {
     mocks.session.mockResolvedValue({ userId: "member" });

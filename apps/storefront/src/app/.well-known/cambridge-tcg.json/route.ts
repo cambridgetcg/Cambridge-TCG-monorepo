@@ -379,23 +379,11 @@ const MANIFEST: {
     {
       group: "methodology",
       description:
-        "Every decision the platform makes about a user has a documented formula, a TLDR summary, and a JSON sidecar.",
+        "How the site works things out, one page per topic.",
       endpoints: [
         {
           path: "/methodology",
           description: "Index of every methodology page.",
-          auth: "none",
-          status: "stable",
-        },
-        {
-          path: "/methodology/{topic}/summary.md",
-          description: "TLDR (~50 words) per topic, Markdown.",
-          auth: "none",
-          status: "stable",
-        },
-        {
-          path: "/methodology/{topic}/data.json",
-          description: "Structured-data sidecar per topic.",
           auth: "none",
           status: "stable",
         },
@@ -552,7 +540,7 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/health",
-          description: "Infra — system health rollup. Returns status (ok | degraded | down) + recommendation (retry-immediately | retry-with-backoff | wait-60s | wait-300s | report-via-feedback) + rationale + per-subsystem state + retry-strategy glossary. Substrate-honest: not an SLA claim; deep upstream health is at /api/v1/sources. 10s cache. Doctrine at docs/connections/the-agent-infra.md.",
+          description: "Infra — whether the site can do its work now, from one database query, never cached: 200 with status ok or degraded (a scheduled job is behind) when the database answered, 503 when it did not. Lists each scheduled job's state and when the daily check last ran. Not a service guarantee; each price source's own state is at /api/v1/sources.",
           auth: "none",
           status: "stable",
         },

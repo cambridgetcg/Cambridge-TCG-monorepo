@@ -126,3 +126,18 @@ describe("composition requires a printing choice", () => {
     expect(outbound).not.toHaveBeenCalled();
   });
 });
+
+describe("search/cards next step", () => {
+  const request = () => new NextRequest("https://cambridgetcg.example/api/v1/search/cards?game=op&q=OP01-001");
+  it("names the plain printing, not the first SKU in order, and nothing when there is a choice", async () => {
+    prices.mockResolvedValue(body([card("OP-OP01-001-JP-V11DZ"), { ...card("OP-OP01-001-JP-V11L1"), plain_listing: true }]));
+    expect((await (await searchCards(request())).json()).data.next_step).toBe("/api/v1/cards/OP-OP01-001-JP-V11L1/everything");
+    prices.mockResolvedValue(body([card("OP-OP01-001-JP-V11DZ"), card("OP-OP01-001-JP-V11L2")]));
+    expect((await (await searchCards(request())).json()).data.next_step).toBeNull();
+  });
+  it("folds a plain SKU into its plain listing", async () => {
+    prices.mockResolvedValue(body([card("OP-OP01-001-JP-V11DZ"), { ...card("OP-OP01-001-JP-V11L1"), plain_listing: true }]));
+    const data = (await (await searchEverything(new NextRequest("https://cambridgetcg.example/api/v1/search/everything?game=op&q=op-op01-001-ja"))).json()).data;
+    expect(data.folded_sku).toBe("OP-OP01-001-JP-V11L1");
+  });
+});

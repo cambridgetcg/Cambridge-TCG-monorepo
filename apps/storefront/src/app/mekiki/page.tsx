@@ -4,7 +4,7 @@
  * The guides teach what to look for (/guides/condition — print lines,
  * centering, the honest edge) and the gallery hangs the art worth looking
  * at. This room asks for the older skill under both: recognition. One card
- * a day, drawn from the shop's own shelves, shown too close to name. Guess,
+ * a day, drawn from our own catalogue, shown too close to name. Guess,
  * and every miss steps the view back; the reveal is the full picture.
  *
  * House vows kept: free, no prizes, no account, no streaks, nothing
@@ -39,7 +39,7 @@ import TheEye from "./TheEye";
 export const metadata: Metadata = {
   title: "The Trained Eye — 目利き, a daily looking game",
   description:
-    "One card a day from the shop's own shelves, shown as an extreme close-up. Name it from four choices; every miss steps the view back, and the reveal is the full art. Free, no prizes, nothing recorded — just the eye, learning.",
+    "One card a day from our own catalogue, shown as an extreme close-up. Name it from four choices; every miss steps the view back, and the reveal is the full art. Free, no prizes, nothing recorded — just the eye, learning.",
   other: audienceMetadata("public-documentation", [
     "culture",
     "play",
@@ -238,7 +238,7 @@ export default async function MekikiPage() {
           <span className="wardrobe-jp">目利き</span> is the appraiser&apos;s
           word for it — the eye that knows a sword, a teabowl, a fish at the
           morning market, before the label says so.
-          Every day one card comes off the shop&apos;s own shelves and hangs
+          Every day one card comes out of our own catalogue and hangs
           here, far too close to name. Name it anyway.
         </p>
         <p className="relative mt-4 text-sm text-ink-faint leading-relaxed">

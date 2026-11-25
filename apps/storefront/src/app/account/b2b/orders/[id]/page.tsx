@@ -62,7 +62,9 @@ export default async function B2BOrderDetailPage({ params }: PageProps) {
   // the page stays informative if a card's title was updated.
   const enriched = await Promise.all(
     order.items.map(async (it) => {
-      const card = await fetchCard(it.sku, "wholesale");
+      const found = await fetchCard(it.sku, "wholesale");
+      // A plain SKU may be answered by its plain listing; what was bought is not renamed after it.
+      const card = found?.sku === it.sku ? found : null;
       return {
         ...it,
         displayName: card?.name_en || card?.name || it.sku,

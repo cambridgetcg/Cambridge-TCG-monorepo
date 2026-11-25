@@ -64,8 +64,8 @@ export const DELIVERY_STAGES = [
     gate: "Field-level permission, attribution, native units, freshness and removal behavior pass shared contract fixtures.",
   },
   {
-    id: "integrations", title: "Pilot permitted providers", status: "Planned", dependsOn: ["observations"],
-    outcome: "Expand reviewed Scryfall and Cardmarket paths; assess a multilingual Pokémon catalog and licensed market inputs.",
+    id: "integrations", title: "Pilot permitted providers", status: "In progress", dependsOn: ["observations"],
+    outcome: "Cardmarket, CardRush and TCGplayer have been collected on a schedule, under recorded permission, since 30 October 2026, ahead of the steps above. Next: reviewed Scryfall paths, a multilingual Pokémon catalog and licensed market inputs.",
     gate: "Permission recorded; imports are repeatable and bounded; mapping quality, failures and source coverage are measurable.",
   },
   {
@@ -78,7 +78,7 @@ export const DELIVERY_STAGES = [
 /** Public-safe fields only. No internal notes, credentials or proposed callable URLs. */
 export const INTEGRATION_ROADMAP = {
   schema: "cambridgetcg.integration-roadmap/1",
-  reviewed_at: "2026-09-29",
+  reviewed_at: "2026-11-24",
   scope: "planning_snapshot",
   positioning: PLATFORM.description,
   timing: "Dependency-ordered milestones; no release dates or live-service guarantees.",

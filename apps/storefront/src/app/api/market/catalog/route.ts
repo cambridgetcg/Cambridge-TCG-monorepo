@@ -133,10 +133,10 @@ export async function GET(request: Request) {
   //
   // Yu's option was "with credit": only /market's grid and table, which
   // print the label and the Japanese credit beside the image, ask for the
-  // Japanese lane. Every other caller (the deck builder, the listing,
-  // auction and swap pickers) shows a bare thumbnail with no label or
-  // credit, so for them the lane is off, through the same switch as
-  // OFFICIAL_IMAGES_JA=off, and they keep the English image as before.
+  // Japanese lane. Every other caller (the deck builder, which credits its
+  // English images once for the page, and the swap picker, which prints no
+  // credit) keeps the English image: for it the lane is off, through the
+  // lane's own switch, whatever the environment says.
   const sameLanguageImages = url.searchParams.get("images") === "same-language";
   let officialImages = new Map<string, OfficialImageChoice>();
   if (skus.length > 0) {

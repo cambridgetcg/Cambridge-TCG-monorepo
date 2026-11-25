@@ -44,6 +44,7 @@ import { resolveGameToken } from "@cambridge-tcg/sku";
 import { fetchSearchCandidates } from "@/lib/search/catalog-lookup";
 import { jsonResponse, errorResponse } from "@/lib/data-pantry";
 import {
+  nextMatch,
   scoreMatches,
   summarizeMatches,
   parseSetNumberShape,
@@ -147,6 +148,7 @@ export async function GET(req: NextRequest) {
 
   const matches = scoreMatches({ game: gameCode, q }, wholesaleResp.items);
   const summary = summarizeMatches(matches);
+  const next = nextMatch(matches);
 
   return jsonResponse({
     endpoint: ENDPOINT,
@@ -155,9 +157,8 @@ export async function GET(req: NextRequest) {
       lookup: { limit, truncated: wholesaleResp.truncated },
       matches,
       summary,
-      next_step: matches.length > 0
-        ? `/api/v1/cards/${encodeURIComponent(matches[0]!.sku)}/everything`
-        : null,
+      // The plain printing, or the only exact match; null when it is the caller's choice.
+      next_step: next ? `/api/v1/cards/${encodeURIComponent(next.sku)}/everything` : null,
     },
     sources: ["wholesale-rds.cards"],
     source_license: ["proprietary"],

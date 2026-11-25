@@ -143,6 +143,11 @@ export const POINTS_TYPES = {
   MANUAL_DEBIT: "manual_debit",
   REDEEMED: "redeemed",
   EXPIRED: "expired",
+  /** Rows from the one-time import of RewardsPro members, done by July 2026
+   *  (its route and helper are gone). Members it touched have
+   *  tier_source = 'migration'. Commit 32e03f17 records that the importer set
+   *  each balance and then added the same amount again; nothing in this tree
+   *  says whether those balances were corrected. */
   MIGRATION: "migration",
 } as const;
 

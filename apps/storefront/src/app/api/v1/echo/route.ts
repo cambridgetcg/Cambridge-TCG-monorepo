@@ -208,7 +208,7 @@ async function handle(req: NextRequest): Promise<Response> {
       received_at: now,
       request_id_will_be_in_meta: true,
       spec_note:
-        "Every public response carries _meta.request_id — quote it in support tickets. The echo body shows what the kingdom saw; the _meta block shows what the kingdom recorded.",
+        "Envelope responses carry _meta.request_id. The echo body shows what the kingdom saw; the _meta block shows what the kingdom recorded.",
     },
 
     related_surfaces: {

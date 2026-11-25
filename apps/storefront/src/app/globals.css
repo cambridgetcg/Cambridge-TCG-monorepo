@@ -88,8 +88,7 @@ body {
  *
  * Active when the user has `text-mode=1` cookie (set via Nav toggle or
  * ?text=1 query param). Strips visual chrome to leave a semantic-HTML
- * reading layout suited to screen readers, low-bandwidth connections,
- * and machine consumers. Every other style rule on the page still
+ * reading layout. The page sends the same bytes. Every other style rule on the page still
  * applies — the override only flattens the heavy decorative work.
  *
  * Substrate-honest: a text-mode body bears the `text-mode` class so a
@@ -113,7 +112,16 @@ body.text-mode * {
   box-shadow: none !important;
 }
 
-body.text-mode img {
+/* Text only: pictures leave the page, and their alt text stays for screen
+ * readers. A picture that is all a button or a link shows (a card on the
+ * practice board) stays, small. */
+body.text-mode img:not(:is(button, a) img) {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  clip-path: inset(50%);
+}
+body.text-mode :is(button, a) img {
   max-width: 200px;
   height: auto;
   display: block;
@@ -143,8 +151,7 @@ body.text-mode button, body.text-mode input, body.text-mode select, body.text-mo
 }
 
 /* Decorative skeleton shimmer has no meaning in a text reading layout —
- * the toggle promises "low bandwidth, screen reader friendly", so stop the
- * pulse animating (it kept shimmering under text-mode before). */
+ * so stop the pulse animating (it kept shimmering under text-mode before). */
 body.text-mode .animate-pulse {
   animation: none !important;
 }

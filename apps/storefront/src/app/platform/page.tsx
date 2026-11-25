@@ -130,7 +130,7 @@ export default function PlatformPage() {
               label="Upstream sources"
               value={`${COVERAGE_FACTS.sources.with_observed_rows} archive source`}
               sub={`${COVERAGE_FACTS.sources.registered} adapters registered · ${COVERAGE_FACTS.sources.planned_slots} open slots`}
-              note="Registered modules share the typed SourceModule contract. The one source with archived observations is the legacy CardRush archive; its acquisition is disabled, so it no longer refreshes (latest stored snapshot on /prices/coverage). Cardmarket member prices are a manual import stored separately. Observed rows, publication rights and field-level lineage are separate facts."
+              note="Registered modules share the typed SourceModule contract. The one source with archived observations is the legacy CardRush archive; its acquisition is disabled, so it no longer refreshes (latest stored snapshot on /prices/coverage). Member prices are collected and stored separately; /api/v1/sources says which collectors are scheduled. Observed rows, publication rights and field-level lineage are separate facts."
             />
             <CoverageCard
               label="Math-mirror kinds"
@@ -156,9 +156,6 @@ export default function PlatformPage() {
             source list from the data-ingest registry at build time; the
             archived-source count was last reconciled on{" "}
             <span className="font-mono">{COVERAGE_FACTS.sources.observed_rows_as_of}</span>.
-            Substrate-honest: the audits at{" "}
-            <Link href="/data" className="text-accent hover:underline">/data</Link>{" "}
-            verify rows against the manifest, schema, and registry on every audit run.
           </p>
         </section>
 

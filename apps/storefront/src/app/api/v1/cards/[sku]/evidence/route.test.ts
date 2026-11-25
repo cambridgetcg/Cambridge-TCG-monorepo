@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { fetchCard } from "@/lib/wholesale/client";
+import { fetchCardDetailed } from "@/lib/wholesale/client";
 import { getUnifiedMarketView } from "@/lib/market/unified";
 import { GET } from "./route";
 
-vi.mock("@/lib/wholesale/client", () => ({ fetchCard: vi.fn() }));
+vi.mock("@/lib/wholesale/client", () => ({ fetchCardDetailed: vi.fn() }));
 vi.mock("@/lib/market/unified", () => ({ getUnifiedMarketView: vi.fn() }));
 
-const mockFetchCard = vi.mocked(fetchCard);
+const mockLookup = vi.mocked(fetchCardDetailed);
 const mockMarket = vi.mocked(getUnifiedMarketView);
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mockFetchCard.mockResolvedValue({
+  mockLookup.mockResolvedValue({ source: "wholesale-db", absence: null, card: {
     sku: "op-op01-001-ja",
     card_number: "001",
     price_gbp: null,
@@ -28,7 +28,7 @@ beforeEach(() => {
     rarity: "R",
     category: "singles",
     updated_at: "2026-07-12T00:00:00.000Z",
-  });
+  } });
   mockMarket.mockResolvedValue({
     sku: "op-op01-001-ja",
     card_name: "Card",
@@ -86,7 +86,15 @@ describe("GET /api/v1/cards/[sku]/evidence", () => {
       params: Promise.resolve({ sku: "OP01-001" }),
     });
     expect(response.status).toBe(400);
-    expect(mockFetchCard).not.toHaveBeenCalled();
+    expect(mockLookup).not.toHaveBeenCalled();
+  });
+
+  it("is a 404 for a missing card and a 503 for an outage", async () => {
+    const get = () => GET(new Request("https://example.test"), { params: Promise.resolve({ sku: "op-op01-001-ja" }) });
+    mockLookup.mockResolvedValue({ card: null, source: "wholesale-db", absence: { reason: "none_plain", listings: [] } });
+    expect((await get()).status).toBe(404);
+    mockLookup.mockResolvedValue({ card: null, source: "unavailable", absence: null });
+    expect((await get()).status).toBe(503);
   });
 
   it("has no live person-derived aggregate reader", () => {

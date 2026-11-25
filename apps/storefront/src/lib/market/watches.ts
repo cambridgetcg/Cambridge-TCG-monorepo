@@ -67,14 +67,6 @@ export async function removeWatch(userId: string, sku: string): Promise<void> {
   }
 }
 
-export async function isWatching(userId: string, sku: string): Promise<boolean> {
-  const r = await query(
-    `SELECT 1 FROM market_watches WHERE user_id = $1 AND sku = $2`,
-    [userId, sku]
-  );
-  return r.rows.length > 0;
-}
-
 // Watch list with live market context. One query per user — joins live order
 // aggregates so the user sees current bid/ask alongside each watched card.
 export async function listWatches(userId: string): Promise<WatchEntry[]> {

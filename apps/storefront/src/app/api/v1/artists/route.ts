@@ -17,7 +17,7 @@
  */
 
 import { jsonResponse, errorResponse } from "@/lib/data-pantry";
-import { getNamedHands } from "@/lib/cards/artists";
+import { getNamedHands, printingsHref } from "@/lib/cards/artists";
 
 export async function GET(): Promise<Response> {
   let hands;
@@ -67,7 +67,7 @@ export async function GET(): Promise<Response> {
                 variant: w.print.variant_label,
                 image_url: w.print.image_url,
                 attribution: w.print.attribution,
-                market_page: `/market/${w.print.sku}`,
+                printings_page: printingsHref(w),
               }
             : null,
         })),

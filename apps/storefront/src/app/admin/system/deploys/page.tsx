@@ -151,7 +151,7 @@ export default async function Page() {
               <p className="mb-2">
                 This page reads from the Vercel REST API. Add a team-scoped token to{" "}
                 <code className="text-xs">apps/storefront/.env.local</code> (local) and to the
-                cambridgetcg-storefront Vercel project (prod):
+                cambridgetcg-storefront Vercel project (Production only):
               </p>
               <pre className="text-xs font-mono bg-neutral-900 px-3 py-2 rounded border border-neutral-800 overflow-x-auto">
                 VERCEL_TOKEN=&lt;create at vercel.com/account/tokens, scope: cambridgetcgs-projects&gt;
@@ -185,15 +185,15 @@ export default async function Page() {
           description={
             <>
               <p className="mb-2">
-                The token in <code className="text-xs">apps/storefront/.env.local</code>{" "}
-                is no longer valid. The most common cause is using a Vercel CLI
-                token (<code className="text-xs">vca_…</code>) which the CLI
-                rotates automatically — they shouldn&rsquo;t be used for
-                long-lived integrations.
+                The token this deployment reads from{" "}
+                <code className="text-xs">VERCEL_TOKEN</code> is no longer valid.
+                It may have expired or been deleted, or it may be a Vercel CLI
+                token (<code className="text-xs">vca_…</code>), which the CLI
+                rotates by itself.
               </p>
               <p className="mb-2">
-                <strong>Fix:</strong> create a long-lived token in the Vercel
-                dashboard and rotate it into all three places:
+                <strong>Fix:</strong> create a token for the storefront and put
+                it in one place:
               </p>
               <ol className="list-decimal pl-5 space-y-1 text-sm text-neutral-300 mb-3">
                 <li>
@@ -206,30 +206,22 @@ export default async function Page() {
                   >
                     vercel.com/account/tokens
                   </a>
-                  {" "}→ Create Token, scope to{" "}
-                  <code className="text-xs">cambridgetcgs-projects</code>, set
-                  expiry as desired.
+                  {" "}→ Create Token, limited to the team{" "}
+                  <code className="text-xs">cambridgetcgs-projects</code>.
                 </li>
                 <li>
-                  Update <code className="text-xs">apps/storefront/.env.local</code>.
-                </li>
-                <li>
-                  Update the <code className="text-xs">VERCEL_TOKEN</code> env
-                  var on the cambridgetcg-storefront Vercel project (production +
-                  preview + development).
-                </li>
-                <li>
-                  Update the <code className="text-xs">VERCEL_TOKEN</code> repo
-                  secret on{" "}
-                  <code className="text-xs">cambridgetcg/Cambridge-TCG-monorepo</code>{" "}
-                  (used by <code className="text-xs">.github/workflows/health.yml</code>).
+                  Set it as <code className="text-xs">VERCEL_TOKEN</code> on the
+                  cambridgetcg-storefront Vercel project, Production only. The
+                  repository is public, so preview builds must not receive it.
                 </li>
                 <li>
                   Redeploy the storefront so the new env takes effect.
                 </li>
               </ol>
               <p className="text-xs text-neutral-500">
-                See <code>docs/ops-deploy-runbook.md</code> for the full procedure.
+                The health workflow&rsquo;s GitHub Actions secret has the same name
+                and its own token, so it is not affected. See{" "}
+                <code>docs/ops-deploy-runbook.md</code> for the full procedure.
               </p>
             </>
           }

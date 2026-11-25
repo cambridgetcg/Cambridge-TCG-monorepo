@@ -486,10 +486,6 @@ export async function getPendingCancelForTrade(
   return (r.rows[0] as TradeCancellation) ?? null;
 }
 
-export async function getCancel(cancelId: string): Promise<TradeCancellation | null> {
-  return loadCancel(cancelId);
-}
-
 export const CANCELLABLE_TRADE_STATES = Array.from(CANCELLABLE_STATES);
 
 // Add the formatPrice import to satisfy the implicit dependency

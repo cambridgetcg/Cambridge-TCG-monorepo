@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -17,7 +19,6 @@ vi.mock("@/lib/bounty/earn", () => ({
 }));
 
 import { grantPveRewardsIdempotent } from "./rewards";
-import { runPveReconciliationSweep } from "./pve-sweep";
 
 beforeEach(() => {
   for (const mock of Object.values(mocks)) mock.mockReset();
@@ -47,12 +48,9 @@ describe("PVE reward boundary", () => {
     expect(mocks.calculateBerriesEarn).not.toHaveBeenCalled();
   });
 
-  it("keeps the recovery sweep read-only while rewards are paused", async () => {
-    await expect(runPveReconciliationSweep()).resolves.toEqual({
-      reconciled: 0,
-      failures: 0,
-      paused: true,
-    });
-    expect(mocks.query).not.toHaveBeenCalled();
+  it("leaves old unawarded wins untouched: no sweep exists, and the cron names none", () => {
+    expect(existsSync(resolve(process.cwd(), "src/lib/game/pve-sweep.ts"))).toBe(false);
+    const cron = readFileSync(resolve(process.cwd(), "src/app/api/cron/maintenance/route.ts"), "utf8");
+    expect(cron).not.toMatch(/pve/i);
   });
 });

@@ -12,7 +12,7 @@ Record stock movements, maintain balances and manage time-limited reservations t
 
 ## Progress
 
-Source review recorded **2026-09-28**. Reader, writer, reservation, reconciliation and event modules plus tests are present. The README specifies atomic movement-and-balance writes.
+Source review recorded **2026-09-28**. Reader, writer, reservation, reconciliation and event modules are present. The tests cover the event emitter and the writer's input checks; none runs SQL. The README specifies atomic movement-and-balance writes. No app reserves stock since 2026-11-24; commit and release remain for earlier sessions.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
