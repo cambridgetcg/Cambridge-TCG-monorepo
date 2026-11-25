@@ -123,10 +123,11 @@ try {
   // ── Suite 2: checkout validation gates (against live dev server) ──
   console.log("\n— Suite 2: checkout request validation");
 
-  const SERVER = "http://localhost:3100";
+  // The server uses its own database, which the guard does not check.
+  const SERVER = "http://127.0.0.1:3100";
   let serverReachable = false;
   try {
-    const ping = await fetch(`${SERVER}/api/auth/session`).catch(() => null);
+    const ping = await fetch(`${SERVER}/api/auth/session`, { redirect: "error" }).catch(() => null);
     serverReachable = !!ping && ping.ok;
   } catch { /* offline */ }
 
@@ -136,6 +137,7 @@ try {
     async function postCheckout(body: unknown) {
       const res = await fetch(`${SERVER}/api/checkout`, {
         method: "POST",
+        redirect: "error",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });

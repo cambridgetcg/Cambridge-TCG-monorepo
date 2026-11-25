@@ -31,7 +31,7 @@ async function main() {
   const itemId = v.rows[0].id;
   console.log("seeded vault_item:", itemId);
 
-  const res = await fetch("http://localhost:3000/api/cron/maintenance");
+  const res = await fetch("http://127.0.0.1:3000/api/cron/maintenance", { redirect: "error" });
   const body = await res.json();
   console.log("cron response:", JSON.stringify(body, null, 2));
 
