@@ -80,6 +80,16 @@ function check(row: Record<string, unknown> | undefined): Check | null {
 const walkFindings = (walk: Walk): Finding[] => walk.steps.filter(step => !step.ok)
   .flatMap(step => walkFailures({ ...walk, steps: [step] }).map(id => ({ id: token(id), line: `${step.says} (expected: ${step.asks})` })));
 
+/** Which right is missing when AWS denies a send. Its text names the resource;
+ * this says which kind that is, never the address. */
+function deniedOn(text: string, sender: string, to: string): string {
+  const [, kind, name] = /arn:aws:ses:[\w-]*:\d*:(identity|configuration-set)\/([^\s'"`]+)/i.exec(text) ?? [];
+  if (!kind || !name) return "";
+  const same = (address: string) => name.toLowerCase() === address.toLowerCase();
+  if (kind.toLowerCase() !== "identity") return "-on-configuration-set";
+  return same(sender) ? "-on-sender" : same(to) ? "-on-recipient" : name.includes("@") ? "-on-address" : "-on-domain";
+}
+
 /** One plain operator email over the site's own mail seam (AWS SES), from
  * the sign-in address to the shop's notification address. Never throws. The
  * provider's error text can hold an address, so only a word is kept: one of
@@ -90,13 +100,14 @@ async function sendToOperator(mail: Mail): Promise<string | null> {
   const { resolveTransportName, sendMail } = await import("@cambridge-tcg/email");
   // The console transport prints the address and the message where it runs.
   if (process.env.NODE_ENV === "production" && resolveTransportName("noreply") === "console") return "console-only";
-  const from = `Cambridge TCG <${(process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim()}>`;
-  const sent = await sendMail({ from, to, ...mail }, { stream: "noreply" });
+  const sender = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
+  const sent = await sendMail({ from: `Cambridge TCG <${sender}>`, to, ...mail }, { stream: "noreply" });
   if (sent.ok) return sent.transport === "console" ? "console-only" : null;
   if (/not verified/i.test(sent.error)) return "not-verified";
   if (/not configured/i.test(sent.error)) return "not-configured";
   const name = sent.code && sent.code !== "Error" && /^[A-Za-z]{2,40}$/.test(sent.code) ? sent.code : "Refused";
-  return name.replace(/(?<=[a-z])(?=[A-Z])/g, "-").toLowerCase();
+  const word = name.replace(/(?<=[a-z])(?=[A-Z])/g, "-").toLowerCase();
+  return word === "access-denied" ? word + deniedOn(sent.error, sender, to) : word;
 }
 
 export function composeMail(at: Date, first: boolean, found: readonly Finding[], waiting: Waiting | null): Mail {

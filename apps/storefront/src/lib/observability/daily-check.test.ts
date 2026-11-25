@@ -168,6 +168,15 @@ describe("the daily check", () => {
     expect(await named("AccessDenied")).toBe("unavailable:mail-access-denied");
     expect(await named("InvalidClientTokenId")).toBe("unavailable:mail-invalid-client-token-id");
     for (const other of [undefined, "", "Error", "owner@example.test", "Access Denied", "A".repeat(41)]) expect(await named(other)).toBe("unavailable:mail-refused");
+    // AWS says which resource it denied; which kind that is tells which right to add.
+    const denied = async (resource: string) => (await run({ ok: false, code: "AccessDenied", transport: "ses",
+      error: `User \`arn:aws:iam::123456789012:user/shop' is not authorized to perform \`ses:SendRawEmail' on resource \`arn:aws:ses:us-east-1:123456789012:${resource}'` })).outcome;
+    expect(await denied("identity/noreply@example.test")).toBe("unavailable:mail-access-denied-on-sender");
+    expect(await denied("identity/Owner@example.test")).toBe("unavailable:mail-access-denied-on-recipient");
+    expect(await denied("identity/someone@example.test")).toBe("unavailable:mail-access-denied-on-address");
+    expect(await denied("identity/example.test")).toBe("unavailable:mail-access-denied-on-domain");
+    expect(await denied("configuration-set/main")).toBe("unavailable:mail-access-denied-on-configuration-set");
+    expect(await denied("template/x")).toBe("unavailable:mail-access-denied");
     expect((await run({ ok: true, messageId: "1", transport: "console" })).outcome).toBe("unavailable:mail-console-only");
     // In production that transport would print the address, so it is not asked to send.
     vi.stubEnv("NODE_ENV", "production");
