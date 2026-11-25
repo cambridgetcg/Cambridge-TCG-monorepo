@@ -51,14 +51,10 @@ const SCRIPTS = [
   "test-wishlist-matching.mts",
 ];
 
-/** `await cleanUp(pool, ...)`, or the same as the whole body of an arrow function. */
-function cleansUp(node: ts.Node): boolean {
-  if (
-    ts.isCallExpression(node) && node.expression.getText() === "cleanUp" && node.arguments[0]?.getText() === "pool" &&
-    (ts.isAwaitExpression(node.parent) || ts.isArrowFunction(node.parent))
-  ) return true;
-  return ts.forEachChild(node, cleansUp) ?? false;
-}
+/** `cleanUp(pool, step, ...)` */
+const cleansUp = (node?: ts.Node) =>
+  !!node && ts.isCallExpression(node) && node.expression.getText() === "cleanUp" &&
+  node.arguments[0]?.getText() === "pool" && node.arguments.length > 1;
 
 function problems(text: string): string[] {
   const { statements } = ts.createSourceFile("script.mts", text, ts.ScriptTarget.Latest, true);
@@ -67,7 +63,7 @@ function problems(text: string): string[] {
   // Imported modules run before any statement of the script.
   const imports = statements.filter(ts.isImportDeclaration);
   const from = (statement: ts.ImportDeclaration) => (statement.moduleSpecifier as ts.StringLiteral).text;
-  if (!imports[0] || statements[0] !== imports[0] || from(imports[0]) !== GUARD) found.add("the guard is not its first import");
+  if (!imports[0] || from(imports[0]) !== GUARD) found.add("the guard is not its first import");
   for (const statement of imports) {
     if (statement.importClause?.isTypeOnly || from(statement) === GUARD || from(statement).startsWith("node:")) continue;
     found.add(`it imports ${from(statement)}, which runs before the guard`);
@@ -85,14 +81,18 @@ function problems(text: string): string[] {
   };
   statements.forEach(visit);
 
-  // It ends with try { ... } finally { ... }, or main().finally(...).
+  // It ends with try { ... } finally { await cleanUp(pool, step); }, or
+  // main().finally(() => cleanUp(pool, step)), with nothing else in the finally.
   const last = statements.at(-1);
   let end: ts.Node | undefined;
-  if (last && ts.isTryStatement(last)) end = last.finallyBlock;
-  else if (last && ts.isExpressionStatement(last) && ts.isCallExpression(last.expression)) {
-    if (last.expression.expression.getText().endsWith(".finally")) end = last.expression;
+  if (last && ts.isTryStatement(last)) {
+    const [only, ...more] = last.finallyBlock?.statements ?? [];
+    if (only && !more.length && ts.isExpressionStatement(only) && ts.isAwaitExpression(only.expression)) end = only.expression.expression;
+  } else if (last && ts.isExpressionStatement(last) && ts.isCallExpression(last.expression)) {
+    const [then] = last.expression.arguments;
+    if (last.expression.expression.getText().endsWith(".finally") && then && ts.isArrowFunction(then)) end = then.body;
   }
-  if (!end || !cleansUp(end)) found.add("it does not end with a finally that calls cleanUp");
+  if (!cleansUp(end)) found.add("it does not end with a finally that only calls cleanUp");
   return [...found];
 }
 
@@ -128,21 +128,26 @@ describe("this check", () => {
     ["an import above the guard's", `import "node:fs";\n${good.join("\n")}`],
     ["an app import", changed(1, 'import { query } from "../src/lib/db";')],
     ["an app import of a type and a value", changed(2, 'import { query, type Deck } from "../src/lib/decks/db";')],
-    ["a re-export", changed(1, 'export * from "../src/lib/db";')],
+    ["a re-export", changed(5, 'export * from "../src/lib/db";')],
     ["work before the call", changed(3, "const started = Date.now();")],
     ["no call", changed(4, "const pool = new Pool();")],
     ["a conditional call", changed(4, "const pool = local ? requireLocalTestDatabase() : new Pool();")],
-    ["process.exit", changed(6, "try { process.exit(1); } finally { await cleanUp(pool); }")],
-    ["process['exit']", changed(6, "try { process['exit'](1); } finally { await cleanUp(pool); }")],
+    ["process.exit", changed(6, "try { process.exit(1); } finally { await cleanUp(pool, step); }")],
+    ["process['exit']", changed(6, "try { process['exit'](1); } finally { await cleanUp(pool, step); }")],
     ["exit from node:process", changed(1, 'import { exit } from "node:process";')],
     ["reading DATABASE_URL", changed(5, "const url = process.env.DATABASE_URL;")],
     ["process.env['DATABASE_URL']", changed(5, "const url = process.env['DATABASE_URL'];")],
-    ["no finally", changed(6, "await main(); await cleanUp(pool);")],
+    ["no finally", changed(6, "await main(); await cleanUp(pool, step);")],
     ["a finally without cleanUp", changed(6, "try { } finally { await pool.end(); }")],
-    ["cleanUp that is not awaited", changed(6, "try { } finally { cleanUp(pool); }")],
-    ["cleanUp of another pool", changed(6, "try { } finally { await cleanUp(other); }")],
+    ["another function", changed(6, "try { } finally { await other(pool, step); }")],
+    ["cleanUp without a step", changed(6, "try { } finally { await cleanUp(pool); }")],
+    ["cleanUp that is not awaited", changed(6, "try { } finally { cleanUp(pool, step); }")],
+    ["cleanUp of another pool", changed(6, "try { } finally { await cleanUp(other, step); }")],
+    ["cleanUp only when nothing failed", changed(6, "try { } finally { if (!process.exitCode) await cleanUp(pool, step); }")],
+    ["cleanUp in a function nobody calls", changed(6, "try { } finally { const later = async () => await cleanUp(pool, step); }")],
+    ["a statement beside cleanUp", changed(6, "try { } finally { await cleanUp(pool, step); await more(); }")],
     ["a statement after the finally", `${good.join("\n")}\nawait more();`],
-    ["a then instead of a finally", `${start}main().then(() => cleanUp(pool));`],
+    ["a then instead of a finally", `${start}main().then(() => cleanUp(pool, step));`],
   ])("refuses %s", (_, text) => {
     expect(problems(text)).not.toEqual([]);
   });
