@@ -33,3 +33,14 @@ describe("auction fulfilment portfolio image [C8]", () => {
     expect(mocks.recordAcquisition.mock.calls[0]![0]).toMatchObject({ imageUrl: url });
   });
 });
+
+describe("the winner's confirmation of receipt", () => {
+  it("records no payment, which the seller's payout rests on (lib/payouts/owed.ts)", async () => {
+    mocks.getCardIdentity.mockResolvedValue({ card_name: "Leader", set_code: "OP01", image_url: null, image_language: null });
+    expect(await buyerConfirmReceived("a1", "buyer")).toEqual({ ok: true });
+    await vi.waitFor(() => expect(mocks.recordAcquisition).toHaveBeenCalledOnce());
+    const updates = mocks.query.mock.calls.map(([sql]) => sql as string).filter((sql) => /^\s*UPDATE auctions\b/.test(sql));
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).not.toContain("paid_at");
+  });
+});

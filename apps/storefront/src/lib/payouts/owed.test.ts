@@ -63,6 +63,8 @@ describe("every reader uses the rule", () => {
   it("the sweep", async () => {
     await runPayoutSweep();
     expect(reading("market_trades t")[0]).toContain(`WHERE ${flat(owedTradeSql("t"))} AND t.completed_at + make_interval`);
+    expect(reading("market_trades t")[0]).toMatch(/ LIMIT \$1$/);
+    expect(mocks.query.mock.calls[0][1]).toEqual([50]);
     expect(reading("auctions a")[0]).toContain(`WHERE ${flat(owedAuctionSql("a"))} AND a.paid_at + make_interval`);
   });
   it("the admin outstanding list, and its count of what it leaves out", async () => {
@@ -92,5 +94,25 @@ describe("every reader uses the rule", () => {
     const pending = sqls().filter((sql) => sql.includes("INTERVAL '14 days'"));
     expect(pending).toHaveLength(1);
     expect(pending[0]).toContain(`AND ${flat(owedTradeSql(""))}`);
+  });
+});
+
+describe("the sweep", () => {
+  it("goes on after a payout that fails, reports it, and counts only what was paid", async () => {
+    mocks.query.mockImplementation(async (sql: string) => ({
+      rows: (sql.includes("FROM market_trades") ? ["t1", "t2", "t3"] : ["a1", "a2", "a3"]).map((id) => ({ id })),
+    }));
+    for (const record of [mocks.recordTradePayout, mocks.recordAuctionPayout]) {
+      record
+        .mockRejectedValueOnce(new Error("no answer"))
+        .mockResolvedValueOnce({ ok: false, error: "account closed" })
+        .mockResolvedValueOnce({ ok: true });
+    }
+    expect(await runPayoutSweep()).toMatchObject({
+      tradesPaid: 1,
+      auctionsPaid: 1,
+      tradeFailures: [{ id: "t1", error: "no answer" }, { id: "t2", error: "account closed" }],
+      auctionFailures: [{ id: "a1", error: "no answer" }, { id: "a2", error: "account closed" }],
+    });
   });
 });

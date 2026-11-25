@@ -42,16 +42,16 @@ function expectNothingMoved() {
 }
 
 describe("recordTradePayout", () => {
-  for (const method of ["stripe_connect", "bank_transfer"]) {
+  for (const method of ["bank_transfer", "paypal", "crypto", "stripe_connect", "store_credit", "other"]) {
     it(`refuses an unpaid trade by ${method}, and moves and records nothing`, async () => {
       row = { ...owed, buyer_paid_at: null, owed: false };
-      expect(await recordTradePayout({ tradeId: "t1", method })).toEqual({ ok: false, error: TRADE_BUYER_NOT_PAID_ERROR });
+      expect(await recordTradePayout({ tradeId: "t1", method, reference: "R" })).toEqual({ ok: false, error: TRADE_BUYER_NOT_PAID_ERROR });
       expectNothingMoved();
     });
     it(`refuses by ${method} anything else the shared rule leaves out, and any answer but true`, async () => {
       for (const answer of [false, null, undefined, "t", 1]) {
         row = { ...owed, owed: answer };
-        expect(await recordTradePayout({ tradeId: "t1", method }), String(answer)).toEqual({ ok: false, error: TRADE_NOT_OWED_ERROR });
+        expect(await recordTradePayout({ tradeId: "t1", method, reference: "R" }), String(answer)).toEqual({ ok: false, error: TRADE_NOT_OWED_ERROR });
       }
       expectNothingMoved();
     });
@@ -75,7 +75,21 @@ describe("recordTradePayout", () => {
     expect(mocks.createTransferToSeller.mock.calls[0][0]).toMatchObject({ sellerUserId: "s", amountGbp: 9.2, idempotencyKey: "payout-trade-t1" });
     expect(updates()).toHaveLength(1);
     expect(updates()[0][0]).toContain("seller_paid_at IS NULL");
+    expect(updates()[0][1]).toEqual(["t1", "stripe_connect", "tr_1", "tr_1"]);
     expect(mocks.notify).toHaveBeenCalledTimes(1);
+  });
+  it("records a payout made elsewhere, tells the seller, and makes no transfer", async () => {
+    expect(await recordTradePayout({ tradeId: "t1", method: "bank_transfer", reference: "R" })).toEqual({ ok: true, transferId: undefined });
+    expect(mocks.createTransferToSeller).not.toHaveBeenCalled();
+    expect(updates()[0][1]).toEqual(["t1", "bank_transfer", "R", null]);
+    expect(mocks.sendPayoutEmail.mock.calls.map(([m]) => m.email)).toEqual(["seller@example.test"]);
+  });
+  it("records nothing when the transfer fails", async () => {
+    mocks.createTransferToSeller.mockRejectedValue(new Error("account closed"));
+    expect(await recordTradePayout({ tradeId: "t1", method: "stripe_connect" })).toEqual({ ok: false, error: "account closed" });
+    expect(updates()).toEqual([]);
+    expect(mocks.sendPayoutEmail).not.toHaveBeenCalled();
+    expect(mocks.notify).not.toHaveBeenCalled();
   });
 });
 
@@ -84,12 +98,12 @@ describe("an admin's Mark Paid", () => {
     mocks.query.mockResolvedValue({ rows: [] });
     await updateEscrowStatus("t1", "paid");
     const [sql, params] = mocks.query.mock.calls[0] as [string, unknown[]];
-    expect(sql).toContain("buyer_paid_at = NOW()");
+    expect(sql).toMatch(/SET escrow_status = \$1, .*buyer_paid_at = NOW\(\).* WHERE id = \$2 RETURNING \*$/);
     expect(params).toEqual(["paid", "t1"]);
   });
   it("and no other status does", async () => {
     mocks.query.mockResolvedValue({ rows: [] });
-    for (const status of ["awaiting_shipment", "shipped_to_ctcg", "received_by_ctcg", "verified", "shipped_to_buyer", "completed", "disputed", "refunded", "cancelled"]) {
+    for (const status of ["awaiting_payment", "awaiting_shipment", "shipped_to_ctcg", "received_by_ctcg", "verified", "shipped_to_buyer", "completed", "disputed", "refunded", "cancelled"]) {
       mocks.query.mockClear();
       await updateEscrowStatus("t1", status);
       expect(mocks.query.mock.calls[0][0] as string, status).not.toContain("buyer_paid_at");

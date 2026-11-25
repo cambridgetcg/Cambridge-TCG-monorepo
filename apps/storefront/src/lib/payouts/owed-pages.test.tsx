@@ -55,7 +55,7 @@ const trade = (over: Record<string, unknown> = {}) => ({
   escrow_status: "completed", escrow_tier: "full_escrow", seller_ships_to: "ctcg",
   requires_photos: false, requires_inspection: false, dispute_window_hours: 168, payout_hold_days: 5,
   created_at: "2026-10-01 00:00:00+00", buyer_paid_at: null, completed_at: "2026-11-01 00:00:00+00", seller_paid_at: null,
-  buyer_id: "b", seller_id: "s", ...over,
+  stripe_payment_intent: "pi_1", buyer_id: "b", seller_id: "s", ...over,
 });
 
 describe("the trade page", () => {
@@ -107,6 +107,14 @@ describe("the admin's market row", () => {
     expect(seen).toContain("Paid: £10.00");
     expect(seen).toContain("Record Payout (£9.20)");
     expect(seen).not.toContain("No buyer payment is recorded");
+    expect(await open({ buyer_paid_at: PAID_AT, escrow_status: "shipped_to_buyer" })).not.toContain("Record Payout");
+  });
+  it("records the payout of the trade it is on", async () => {
+    vi.stubGlobal("prompt", () => "bank_transfer");
+    vi.stubGlobal("alert", () => {});
+    await open({ buyer_paid_at: PAID_AT });
+    await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent?.startsWith("Record Payout"))!.click());
+    expect(vi.mocked(fetch).mock.lastCall).toEqual(["/api/market/trades/t1/payout", expect.objectContaining({ method: "POST" })]);
   });
   it("shows a payout already recorded, whatever the buyer's payment", async () => {
     for (const buyer_paid_at of [PAID_AT, null]) {

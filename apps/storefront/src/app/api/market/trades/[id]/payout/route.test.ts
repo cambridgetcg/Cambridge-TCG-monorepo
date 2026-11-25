@@ -24,6 +24,11 @@ describe("POST /api/market/trades/[id]/payout", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: TRADE_BUYER_NOT_PAID_ERROR });
   });
+  it("records only by a known method", async () => {
+    expect((await call({ method: "cash" })).status).toBe(400);
+    expect((await call({})).status).toBe(400);
+    expect(mocks.recordTradePayout).not.toHaveBeenCalled();
+  });
   it("answers nobody but an admin", async () => {
     mocks.isAdmin.mockResolvedValue(false);
     expect((await call({ method: "stripe_connect" })).status).toBe(401);
