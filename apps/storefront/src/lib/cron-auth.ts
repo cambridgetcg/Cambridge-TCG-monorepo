@@ -18,8 +18,10 @@ import { NextResponse } from "next/server";
  *     // … job body …
  *   }
  *
- * The cron-auth audit (`pnpm audit:cron-auth`) fails if any file under
- * apps/*\/src/app/api/cron/**\/route.ts doesn't import this helper.
+ * src/app/api/cron/refusal.test.ts calls every route under api/cron without the
+ * bearer and fails if one answers anything but 401 or does work first. The
+ * cron-auth audit (`pnpm audit:cron-auth`, run by hand) also reads the
+ * wholesale app's routes, for this import and a call.
  */
 export function requireCronAuth(req: Request): NextResponse | null {
   const secret = process.env.CRON_SECRET?.trim();
